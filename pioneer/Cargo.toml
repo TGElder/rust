@@ -1,0 +1,9 @@
+[package]
+name = "pioneer"
+version = "0.1.0"
+authors = ["Thomas Elder <tgelder@gmail.com>"]
+
+[dependencies]
+rand = "0.6"
+isometric = { path = "../isometric" }
+nalgebra = "0.17.2"
