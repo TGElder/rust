@@ -3,8 +3,8 @@ use super::super::vertex_objects::VBO;
 use super::utils::*;
 use super::Drawing;
 use color::Color;
+use commons::v3;
 use coords::WorldCoord;
-use v3;
 
 pub struct SeaDrawing {
     vbo: VBO,

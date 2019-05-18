@@ -1,11 +1,12 @@
 use crate::world::World;
+use commons::scale::Scale;
 use pioneer::erosion::Erosion;
 use pioneer::mesh::Mesh;
 use pioneer::mesh_splitter::MeshSplitter;
 use pioneer::rand::prelude::*;
 use pioneer::river_runner::get_junctions_and_rivers;
-use pioneer::scale::Scale;
 use std::f64::MAX;
+use std::time::Instant;
 
 pub fn generate_world(size: usize, seed: u8) -> World {
     let mut mesh = Mesh::new(1, 0.0);
@@ -22,7 +23,7 @@ pub fn generate_world(size: usize, seed: u8) -> World {
         println!("{}", size - i);
     }
 
-    let max_height = (2.0 as f64).powf(size as f64) / 16.0;
+    let max_height = 50.0;
     let sea_level = 0.5;
     let before_sea_level =
         Scale::new((0.0, max_height), (mesh.get_min_z(), mesh.get_max_z())).scale(sea_level);
@@ -35,5 +36,5 @@ pub fn generate_world(size: usize, seed: u8) -> World {
     ));
     let terrain = mesh.get_z_vector().map(|z| z as f32);
 
-    World::new(terrain, junctions, rivers, sea_level as f32)
+    World::new(terrain, junctions, rivers, sea_level as f32, Instant::now())
 }

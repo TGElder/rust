@@ -1,0 +1,7 @@
+[package]
+name = "network"
+version = "0.1.0"
+authors = ["Thomas Elder <tgelder@gmail.com>"]
+
+[dependencies]
+hamcrest = "*"

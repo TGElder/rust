@@ -5,5 +5,6 @@ authors = ["Thomas Elder <tgelder@gmail.com>"]
 
 [dependencies]
 rand = "0.6"
+commons = { path = "../commons" }
 isometric = { path = "../isometric" }
 nalgebra = "0.17.2"

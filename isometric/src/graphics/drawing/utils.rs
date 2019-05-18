@@ -1,6 +1,6 @@
 use color::Color;
 use std::f32;
-use utils::float_ordering;
+use utils::unsafe_ordering;
 
 pub trait TriangleColoring {
     fn get_colors(&self, points: &[na::Vector3<f32>; 3]) -> [Color; 3];
@@ -16,7 +16,7 @@ pub struct AltitudeSquareColoring {
 
 impl AltitudeSquareColoring {
     pub fn new(heights: &na::DMatrix<f32>) -> AltitudeSquareColoring {
-        let max_height = heights.iter().max_by(float_ordering).unwrap();
+        let max_height = heights.iter().max_by(unsafe_ordering).unwrap();
         AltitudeSquareColoring {
             max_height: *max_height,
         }

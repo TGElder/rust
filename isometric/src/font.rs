@@ -1,7 +1,7 @@
+use commons::{v2, V2};
 use graphics::texture::Texture;
 use std::fs::File;
 use std::io::Read;
-use {v2, V2};
 
 #[derive(Clone, Copy)]
 struct Glyph {

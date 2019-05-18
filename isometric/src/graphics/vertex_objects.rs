@@ -39,7 +39,7 @@ impl VBO {
 
     fn set_vao(&self) {
         self.bind();
-        self.vao.set();
+        self.vao.setup();
         self.unbind();
     }
 
@@ -209,12 +209,67 @@ impl VAO {
         }
     }
 
-    fn set(&self) {
+    fn setup_for_plain_drawing() {
+        unsafe {
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                (6 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                std::ptr::null(),
+            );
+            gl::EnableVertexAttribArray(1);
+            gl::VertexAttribPointer(
+                1,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                (6 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
+            );
+        }
+    }
+
+    fn setup_for_sprite_drawing() {
+        unsafe {
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                (7 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                std::ptr::null(),
+            );
+            gl::EnableVertexAttribArray(1);
+            gl::VertexAttribPointer(
+                1,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                (7 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
+            );
+            gl::EnableVertexAttribArray(2);
+            gl::VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                (7 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                (5 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
+            );
+        }
+    }
+
+    fn setup(&self) {
         self.bind();
         match self.drawing_type {
-            DrawingType::Plain => setup_vao_for_plain_drawing(),
-            DrawingType::Text => setup_vao_for_sprite_drawing(),
-            DrawingType::Billboard => setup_vao_for_sprite_drawing(),
+            DrawingType::Plain => VAO::setup_for_plain_drawing(),
+            DrawingType::Text => VAO::setup_for_sprite_drawing(),
+            DrawingType::Billboard => VAO::setup_for_sprite_drawing(),
         }
         self.unbind();
     }
@@ -250,61 +305,5 @@ impl Drop for VAO {
         unsafe {
             gl::DeleteVertexArrays(1, &mut self.id);
         }
-    }
-}
-
-fn setup_vao_for_plain_drawing() {
-    //TODO why are these not part of VAO?
-    unsafe {
-        gl::EnableVertexAttribArray(0);
-        gl::VertexAttribPointer(
-            0,
-            3,
-            gl::FLOAT,
-            gl::FALSE,
-            (6 * std::mem::size_of::<f32>()) as gl::types::GLint,
-            std::ptr::null(),
-        );
-        gl::EnableVertexAttribArray(1);
-        gl::VertexAttribPointer(
-            1,
-            3,
-            gl::FLOAT,
-            gl::FALSE,
-            (6 * std::mem::size_of::<f32>()) as gl::types::GLint,
-            (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
-        );
-    }
-}
-
-fn setup_vao_for_sprite_drawing() {
-    unsafe {
-        gl::EnableVertexAttribArray(0);
-        gl::VertexAttribPointer(
-            0,
-            3,
-            gl::FLOAT,
-            gl::FALSE,
-            (7 * std::mem::size_of::<f32>()) as gl::types::GLint,
-            std::ptr::null(),
-        );
-        gl::EnableVertexAttribArray(1);
-        gl::VertexAttribPointer(
-            1,
-            2,
-            gl::FLOAT,
-            gl::FALSE,
-            (7 * std::mem::size_of::<f32>()) as gl::types::GLint,
-            (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
-        );
-        gl::EnableVertexAttribArray(2);
-        gl::VertexAttribPointer(
-            2,
-            2,
-            gl::FLOAT,
-            gl::FALSE,
-            (7 * std::mem::size_of::<f32>()) as gl::types::GLint,
-            (5 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
-        );
     }
 }

@@ -1,7 +1,9 @@
 [workspace]
 
 members = [
+    "commons",
     "isometric",
     "pioneer",
-    "frontier"
+    "frontier",
+    "network"
 ]

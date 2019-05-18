@@ -117,6 +117,11 @@ impl IsometricEngine {
             Box::new(Scroller::new()),
             Box::new(ZoomHandler::new()),
             Box::new(KeyRelay::new()),
+            Box::new(MouseRelay::new()),
+            Box::new(RotateHandler::new(
+                glutin::VirtualKeyCode::Q,
+                glutin::VirtualKeyCode::E,
+            )),
         ]
     }
 

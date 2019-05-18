@@ -1,8 +1,9 @@
 use crate::roadset::*;
-use crate::utils::float_ordering;
+use commons::unsafe_ordering;
+use commons::*;
 use isometric::coords::WorldCoord;
 use isometric::terrain::*;
-use isometric::*;
+use std::time::Instant;
 
 pub struct World {
     width: usize,
@@ -12,6 +13,7 @@ pub struct World {
     roads: RoadSet,
     sea_level: f32,
     max_height: f32,
+    time: Instant,
 }
 
 impl World {
@@ -22,6 +24,7 @@ impl World {
         river_nodes: Vec<Node>,
         rivers: Vec<Edge>,
         sea_level: f32,
+        time: Instant,
     ) -> World {
         let (width, height) = elevations.shape();
         let max_height = elevations.max();
@@ -40,6 +43,7 @@ impl World {
             roads: RoadSet::new(width, height, World::ROAD_WIDTH),
             sea_level,
             max_height,
+            time,
         }
     }
 
@@ -71,6 +75,14 @@ impl World {
         self.max_height
     }
 
+    pub fn time(&self) -> &Instant {
+        &self.time
+    }
+
+    pub fn set_time(&mut self, instant: Instant) {
+        self.time = instant
+    }
+
     fn setup_rivers(
         width: usize,
         height: usize,
@@ -95,8 +107,26 @@ impl World {
             .max(self.roads.get_vertical_width(position))
     }
 
-    fn is_river_or_road(&self, edge: &Edge) -> bool {
-        self.rivers.is_road(edge) || self.roads.is_road(edge)
+    pub fn is_river_here(&self, position: &V2<usize>) -> bool {
+        self.rivers.get_horizontal_width(position) > 0.0
+            || self.rivers.get_vertical_width(position) > 0.0
+    }
+
+    pub fn is_river_corner_here(&self, position: &V2<usize>) -> bool {
+        self.rivers.get_horizontal_width(position) > 0.0
+            && self.rivers.get_vertical_width(position) > 0.0
+    }
+
+    pub fn is_river(&self, edge: &Edge) -> bool {
+        self.rivers.is_road(edge)
+    }
+
+    pub fn is_road(&self, edge: &Edge) -> bool {
+        self.roads.is_road(edge)
+    }
+
+    pub fn is_river_or_road(&self, edge: &Edge) -> bool {
+        self.is_road(edge) || self.is_river(edge)
     }
 
     fn get_node(&self, position: &V2<usize>) -> Node {
@@ -141,7 +171,32 @@ impl World {
         WorldCoord::new(x, y, z)
     }
 
-    pub fn snap_middle(&self, world_coord: WorldCoord) -> WorldCoord {
+    pub fn snap_to_edge(&self, WorldCoord { x, y, .. }: WorldCoord) -> WorldCoord {
+        let (a, b, p) = if x.fract() == 0.0 {
+            (
+                v2(x as usize, y.floor() as usize),
+                v2(x as usize, y.ceil() as usize),
+                y.fract(),
+            )
+        } else if y.fract() == 0.0 {
+            (
+                v2(x.floor() as usize, y as usize),
+                v2(x.ceil() as usize, y as usize),
+                x.fract(),
+            )
+        } else {
+            panic!(
+                "Trying to snap x={}, y={} to line. One of x or y must be a whole number.",
+                x, y
+            );
+        };
+        let a = self.get_elevation(&a).unwrap();
+        let b = self.get_elevation(&b).unwrap();
+        let z = (b - a) * p + a;
+        WorldCoord::new(x, y, z)
+    }
+
+    pub fn snap_to_middle(&self, world_coord: WorldCoord) -> WorldCoord {
         let x = world_coord.x.floor();
         let y = world_coord.y.floor();
         let mut z = 0.0 as f32;
@@ -181,11 +236,8 @@ impl World {
         }
     }
 
-    pub fn get_rise(&self, edge: &Edge) -> Option<f32> {
-        match (
-            self.get_elevation(edge.from()),
-            self.get_elevation(edge.to()),
-        ) {
+    pub fn get_rise(&self, from: &V2<usize>, to: &V2<usize>) -> Option<f32> {
+        match (self.get_elevation(from), self.get_elevation(to)) {
             (Some(from), Some(to)) => Some(to - from),
             _ => None,
         }
@@ -195,7 +247,7 @@ impl World {
         self.get_corners(&position)
             .iter()
             .flat_map(|corner| self.get_elevation(corner))
-            .min_by(float_ordering)
+            .min_by(unsafe_ordering)
             .unwrap()
     }
 
@@ -204,16 +256,16 @@ impl World {
         self.get_corners(&position)
             .iter()
             .flat_map(|corner| self.get_elevation(corner))
-            .max_by(float_ordering)
+            .max_by(unsafe_ordering)
             .unwrap()
     }
 
     pub fn get_max_abs_rise(&self, position: &V2<usize>) -> f32 {
         self.get_border(&position)
             .iter()
-            .flat_map(|edge| self.get_rise(edge))
+            .flat_map(|edge| self.get_rise(&edge.from(), &edge.to()))
             .map(|rise| rise.abs())
-            .max_by(float_ordering)
+            .max_by(unsafe_ordering)
             .unwrap()
     }
 
@@ -258,7 +310,8 @@ mod tests {
                 Edge::new(v2(1, 1), v2(1, 2)),
                 Edge::new(v2(1, 2), v2(2, 2)),
             ],
-            0.5
+            0.5,
+            Instant::now(),
         )
     }
 
@@ -365,9 +418,25 @@ mod tests {
     }
 
     #[test]
-    fn test_snap_middle() {
+    fn test_snap_to_edge_x() {
         assert_eq!(
-            world().snap_middle(WorldCoord::new(0.3, 1.7, 1.2)),
+            world().snap_to_edge(WorldCoord::new(0.3, 1.0, 0.0)),
+            WorldCoord::new(0.3, 1.0, 1.3)
+        );
+    }
+
+    #[test]
+    fn test_snap_to_edge_y() {
+        assert_eq!(
+            world().snap_to_edge(WorldCoord::new(1.0, 1.6, 0.0)),
+            WorldCoord::new(1.0, 1.6, 1.4)
+        );
+    }
+
+    #[test]
+    fn test_snap_to_middle() {
+        assert_eq!(
+            world().snap_to_middle(WorldCoord::new(0.3, 1.7, 1.2)),
             WorldCoord::new(0.5, 1.5, 2.0)
         );
     }
@@ -402,24 +471,54 @@ mod tests {
     }
 
     #[test]
+    fn test_is_river_here() {
+        let world = world();
+        assert!(!world.is_river_here(&v2(0, 0)));
+        assert!(world.is_river_here(&v2(1, 0)));
+    }
+
+    #[test]
+    fn test_is_river_corner_here() {
+        let world = world();
+        assert!(!world.is_river_corner_here(&v2(0, 0)));
+        assert!(!world.is_river_corner_here(&v2(1, 0)));
+        assert!(world.is_river_corner_here(&v2(1, 2)));
+    }
+
+    #[test]
+    fn test_is_river() {
+        let world = world();
+        assert!(!world.is_river(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(world.is_river(&Edge::new(v2(1, 0), v2(1, 1))));
+    }
+
+    #[test]
+    fn test_is_road() {
+        let mut world = world();
+        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
+        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
+        assert!(world.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
+    }
+
+    #[test]
+    fn test_is_river_or_road() {
+        let mut world = world();
+        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
+        assert!(world.is_river_or_road(&Edge::new(v2(0, 0), v2(0, 1))));
+        assert!(world.is_river_or_road(&Edge::new(v2(1, 0), v2(1, 1))));
+        assert!(!world.is_river_or_road(&Edge::new(v2(0, 1), v2(0, 2))));
+    }
+
+    #[test]
     fn test_get_elevation() {
         assert_eq!(world().get_elevation(&v2(1, 1)).unwrap(), 2.0);
     }
 
     #[test]
     fn test_get_rise() {
-        assert_eq!(
-            world().get_rise(&Edge::new(v2(1, 0), v2(1, 1))).unwrap(),
-            1.0
-        );
-        assert_eq!(
-            world().get_rise(&Edge::new(v2(1, 1), v2(2, 1))).unwrap(),
-            -1.0
-        );
-        assert_eq!(
-            world().get_rise(&Edge::new(v2(0, 0), v2(1, 0))).unwrap(),
-            0.0
-        );
+        assert_eq!(world().get_rise(&v2(1, 0), &v2(1, 1)).unwrap(), 1.0);
+        assert_eq!(world().get_rise(&v2(1, 1), &v2(2, 1)).unwrap(), -1.0);
+        assert_eq!(world().get_rise(&v2(0, 0), &v2(1, 0)).unwrap(), 0.0);
     }
 
     #[test]

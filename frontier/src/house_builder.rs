@@ -1,8 +1,8 @@
+use commons::{M, V3};
 use isometric::coords::WorldCoord;
 use isometric::drawing::HouseDrawing;
 use isometric::Color;
 use isometric::Command;
-use isometric::{M, V3};
 
 pub struct HouseBuilder {
     houses: M<bool>,

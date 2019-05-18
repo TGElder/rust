@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use std::sync::Arc;
 use {ElementState, VirtualKeyCode};
 
-const DELTA: f32 = PI / 4.0;
+const DELTA: f32 = PI / 16.0;
 
 pub struct RotateHandler {
     cursor_position: Option<GLCoord4D>,

@@ -3,10 +3,10 @@ use super::super::vertex_objects::{MultiVBO, VBO};
 use super::utils::*;
 use super::Drawing;
 use color::Color;
+use commons::index2d::*;
+use commons::{v2, M, V2};
 use coords::WorldCoord;
 use terrain::{Edge, Node, Terrain};
-use utils::Index2D;
-use {v2, M, V2};
 
 pub struct NodeDrawing {
     vbo: VBO,
@@ -116,7 +116,7 @@ impl TerrainIndex {
 
     pub fn get(&self, slab: V2<usize>) -> Result<usize, TerrainIndexOutOfBounds> {
         let position = slab / self.slab_size;
-        match self.index.get(position) {
+        match self.index.get_index(&position) {
             Err(_) => Err(TerrainIndexOutOfBounds { slab, index: *self }),
             Ok(index) => Ok(index),
         }

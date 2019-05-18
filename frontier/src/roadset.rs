@@ -1,5 +1,5 @@
+use commons::*;
 use isometric::terrain::*;
-use isometric::*;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 struct HalfJunction {

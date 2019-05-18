@@ -1,6 +1,6 @@
+use commons::{v2, V2};
 use image::{DynamicImage, GenericImageView};
 use std::ffi::c_void;
-use {v2, V2};
 
 pub struct Texture {
     id: gl::types::GLuint,

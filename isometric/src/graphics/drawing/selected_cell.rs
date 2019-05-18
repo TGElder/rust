@@ -3,9 +3,9 @@ use super::super::vertex_objects::VBO;
 use super::utils::*;
 use super::Drawing;
 use color::Color;
+use commons::v2;
 use coords::*;
 use terrain::Terrain;
-use v2;
 
 pub struct SelectedCellDrawing {
     vbo: VBO,

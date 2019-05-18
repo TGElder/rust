@@ -24,8 +24,8 @@ impl Projection for Isometric {
         let pc = self.pitch.cos();
         let ps = self.pitch.sin();
         na::Matrix4::from_vec(vec![
-            yc, -ys, 0.0, 0.0,
-            -ys * pc, -yc * pc, ps, 0.0,
+            yc, ys, 0.0, 0.0,
+            -ys * pc, yc * pc, ps, 0.0,
             0.0, 0.0, -1.0, 0.0,
             0.0, 0.0, 0.0, 1.0,
         ])
@@ -154,8 +154,8 @@ mod tests {
         let isometric = Isometric::new(PI / 5.0, PI / 3.0);
 
         let expected  = na::Matrix4::new(
-            0.809, -0.588, 0.0, 0.0,
-            -0.294, -0.405, 0.866, 0.0,
+            0.809, 0.588, 0.0, 0.0,
+            -0.294, 0.405, 0.866, 0.0,
             0.0, 0.0, -1.0, 0.0,
             0.0, 0.0, 0.0, 1.0
         );

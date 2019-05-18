@@ -1,4 +1,5 @@
 use crate::world::World;
+use commons::*;
 use isometric::drawing::*;
 use isometric::terrain::*;
 use isometric::*;
@@ -34,8 +35,9 @@ impl WorldArtist {
     pub fn new(
         world: &World,
         slab_size: usize,
-        cliff_gradient: f32,
         beach_level: f32,
+        snow_level: f32,
+        cliff_gradient: f32,
         light_direction: V3<f32>,
     ) -> WorldArtist {
         let (width, height) = world.terrain().elevations().shape();
@@ -43,7 +45,7 @@ impl WorldArtist {
             width,
             height,
             drawing: TerrainDrawing::new(width, height, slab_size),
-            colors: WorldArtist::get_colors(world, cliff_gradient, beach_level),
+            colors: WorldArtist::get_colors(world, beach_level, snow_level, cliff_gradient),
             shading: WorldArtist::get_shading(light_direction),
             slab_size,
         }
@@ -56,22 +58,30 @@ impl WorldArtist {
         ))
     }
 
-    fn get_colors(world: &World, cliff_gradient: f32, beach_level: f32) -> M<Color> {
+    fn get_colors(
+        world: &World,
+        beach_level: f32,
+        snow_level: f32,
+        cliff_gradient: f32,
+    ) -> M<Color> {
         let (width, height) = world.terrain().elevations().shape();
         M::from_fn(width - 1, height - 1, |x, y| {
-            WorldArtist::get_color(world, &v2(x, y), cliff_gradient, beach_level)
+            WorldArtist::get_color(world, &v2(x, y), beach_level, snow_level, cliff_gradient)
         })
     }
 
     fn get_color(
         world: &World,
         position: &V2<usize>,
-        cliff_gradient: f32,
         beach_level: f32,
+        snow_level: f32,
+        cliff_gradient: f32,
     ) -> Color {
         let max_gradient = world.get_max_abs_rise(&position);
         let min_elevation = world.get_lowest_corner(&position);
-        if max_gradient > cliff_gradient {
+        if min_elevation > snow_level {
+            Color::new(1.0, 1.0, 1.0, 1.0)
+        } else if max_gradient > cliff_gradient {
             Color::new(0.5, 0.4, 0.3, 1.0)
         } else if min_elevation < beach_level {
             Color::new(1.0, 1.0, 0.0, 1.0)
@@ -189,7 +199,7 @@ impl WorldArtist {
         out
     }
 
-    fn get_affected_slabs(&self, world: &World, positions: Vec<V2<usize>>) -> HashSet<Slab> {
+    fn get_affected_slabs(&self, world: &World, positions: &Vec<V2<usize>>) -> HashSet<Slab> {
         positions
             .into_iter()
             .flat_map(|position| world.expand_position(&position))
@@ -197,7 +207,7 @@ impl WorldArtist {
             .collect()
     }
 
-    pub fn draw_affected(&mut self, world: &World, positions: Vec<V2<usize>>) -> Vec<Command> {
+    pub fn draw_affected(&mut self, world: &World, positions: &Vec<V2<usize>>) -> Vec<Command> {
         self.draw_slabs(world, self.get_affected_slabs(world, positions))
     }
 

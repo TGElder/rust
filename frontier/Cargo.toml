@@ -5,7 +5,9 @@ authors = ["Thomas Elder <tgelder@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+commons = { path = "../commons" }
 isometric = { path = "../isometric" }
 pioneer = { path = "../pioneer" }
+network = { path = "../network" }
 nalgebra = "0.17.2"
 image = "0.21.0"

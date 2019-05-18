@@ -1,96 +1,137 @@
 use crate::avatar::*;
 use crate::house_builder::*;
 use crate::label_editor::*;
+use crate::pathfinder::*;
+use crate::road_builder::*;
 use crate::world::*;
 use crate::world_artist::*;
 
+use commons::{v2, V3};
 use isometric::coords::*;
-use isometric::terrain::*;
 use isometric::EventHandler;
-use isometric::{v2, V3};
 use isometric::{Command, Event};
-use isometric::{ElementState, VirtualKeyCode};
+use isometric::{ElementState, MouseButton, VirtualKeyCode};
 
-use std::f32::consts::PI;
 use std::sync::Arc;
+use std::time::Instant;
 
 pub struct GameHandler {
     world: World,
     world_artist: WorldArtist,
-    world_coord: Option<WorldCoord>,
+    mouse_coord: Option<WorldCoord>,
     label_editor: LabelEditor,
     house_builder: HouseBuilder,
     avatar: Avatar,
+    avatar_artist: AvatarArtist,
+    avatar_pathfinder: Pathfinder,
+    follow_avatar: bool,
+    road_builder: RoadBuilder,
 }
 
 impl GameHandler {
     pub fn new(world: World) -> GameHandler {
-        let cliff_gradient = 0.53;
         let beach_level = world.sea_level() + 0.05;
+        let snow_level = world.max_height() * 0.8;
+        let cliff_gradient = 0.5;
         let light_direction = V3::new(-1.0, 0.0, 1.0);
-        let world_artist =
-            WorldArtist::new(&world, 64, cliff_gradient, beach_level, light_direction);
+        let world_artist = WorldArtist::new(
+            &world,
+            64,
+            beach_level,
+            snow_level,
+            cliff_gradient,
+            light_direction,
+        );
         GameHandler {
             house_builder: HouseBuilder::new(world.width(), world.height(), light_direction),
+            avatar: Avatar::new(),
+            avatar_pathfinder: Pathfinder::new(&world, Avatar::travel_duration()),
+            road_builder: RoadBuilder::new(&world),
             world,
             world_artist,
-            world_coord: None,
+            mouse_coord: None,
             label_editor: LabelEditor::new(),
-            avatar: Avatar::new(0.00078125, cliff_gradient),
+            avatar_artist: AvatarArtist::new(0.00078125),
+            follow_avatar: false,
         }
     }
 }
 
 impl GameHandler {
-    fn build_road(&mut self) -> Vec<Command> {
-        let from = self.avatar.position();
-        self.avatar.walk(&self.world);
-        let to = self.avatar.position();
-        match (from, to) {
-            (Some(from), Some(to)) if from != to => {
-                let from = v2(from.x as usize, from.y as usize);
-                let to = v2(to.x as usize, to.y as usize);
-
-                let edge = Edge::new(from, to);
-                self.world.toggle_road(&edge);
-                let mut commands = self.world_artist.draw_affected(&self.world, vec![from, to]);
-                commands.append(&mut self.avatar.draw());
-                commands
-            }
-            _ => vec![],
-        }
+    fn handle_road_builder_result(&mut self, result: Option<RoadBuilderResult>) -> Vec<Command> {
+        result
+            .map(|result| {
+                result.update_pathfinder(&self.world, &mut self.avatar_pathfinder);
+                self.world_artist.draw_affected(&self.world, result.path())
+            })
+            .unwrap_or(vec![])
     }
 
-    fn rotate(&self, yaw: f32) -> Vec<Command> {
-        let mut commands = vec![Command::Rotate {
-            center: GLCoord4D::new(0.0, 0.0, 0.0, 1.0),
-            yaw,
-        }];
-        commands.append(&mut self.avatar.draw());
+    fn auto_build_road(&mut self) -> Vec<Command> {
+        if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
+            let to = v2(x.round() as usize, y.round() as usize);
+            let result = self
+                .road_builder
+                .auto_build_road(&mut self.world, &self.avatar, &to);
+            return self.handle_road_builder_result(result);
+        }
+        return vec![];
+    }
+
+    fn build_road(&mut self) -> Vec<Command> {
+        let result = self
+            .road_builder
+            .build_forward(&mut self.world, &self.avatar);
+        result.iter().for_each(|_| {
+            self.avatar
+                .walk_forward(&self.world, &self.avatar_pathfinder)
+        });
+        let mut commands = self.handle_road_builder_result(result);
+        commands.append(&mut self.avatar_artist.draw(&self.avatar, &self.world));
         commands
     }
 
     fn build_house(&mut self) -> Vec<Command> {
-        if let Some(world_coord) = self.world_coord {
-            let world_coord = self.world.snap_middle(world_coord);
-            self.house_builder.build_house(world_coord)
+        if let Some(mouse_coord) = self.mouse_coord {
+            let mouse_coord = self.world.snap_to_middle(mouse_coord);
+            self.house_builder.build_house(mouse_coord)
         } else {
             vec![]
         }
+    }
+
+    fn walk_to(&mut self) {
+        if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
+            let to = v2(x.round() as usize, y.round() as usize);
+            self.avatar
+                .walk_to(&self.world, &to, &self.avatar_pathfinder);
+        }
+    }
+
+    fn center(&self) -> Command {
+        let x = self.world.width() / 2;
+        let y = self.world.width() / 2;
+        let z = self.world.get_elevation(&v2(x, y)).unwrap();
+        Command::LookAt(WorldCoord::new(x as f32, y as f32, z))
     }
 }
 
 impl EventHandler for GameHandler {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
+        self.world.set_time(Instant::now());
+        self.avatar.evolve(&self.world);
         let label_commands = self.label_editor.handle_event(event.clone());
         if !label_commands.is_empty() {
             label_commands
         } else {
+            let mut commands = vec![];
             match *event {
-                Event::Start => self.world_artist.init(&self.world),
-                Event::WorldPositionChanged(world_coord) => {
-                    self.world_coord = Some(world_coord);
-                    vec![]
+                Event::Start => {
+                    commands.append(&mut self.world_artist.init(&self.world));
+                    commands.push(self.center());
+                }
+                Event::WorldPositionChanged(mouse_coord) => {
+                    self.mouse_coord = Some(mouse_coord);
                 }
                 Event::Key {
                     key,
@@ -98,35 +139,47 @@ impl EventHandler for GameHandler {
                     ..
                 } => match key {
                     VirtualKeyCode::H => {
-                        self.avatar.reposition(self.world_coord, &self.world);
-                        self.avatar.draw()
+                        if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
+                            self.avatar
+                                .reposition(v2(x as usize, y as usize), Rotation::Down);
+                        };
                     }
                     VirtualKeyCode::W => {
-                        self.avatar.walk(&self.world);
-                        self.avatar.draw()
+                        self.avatar
+                            .walk_forward(&self.world, &self.avatar_pathfinder);
                     }
                     VirtualKeyCode::A => {
                         self.avatar.rotate_anticlockwise();
-                        self.avatar.draw()
                     }
                     VirtualKeyCode::D => {
                         self.avatar.rotate_clockwise();
-                        self.avatar.draw()
                     }
-                    VirtualKeyCode::Q => self.rotate(PI / 16.0),
-                    VirtualKeyCode::E => self.rotate(-PI / 16.0),
-                    VirtualKeyCode::R => self.build_road(),
+                    VirtualKeyCode::R => commands.append(&mut self.build_road()),
+                    VirtualKeyCode::X => commands.append(&mut self.auto_build_road()),
                     VirtualKeyCode::L => {
-                        if let Some(world_coord) = self.avatar.position() {
-                            self.label_editor.start_edit(world_coord);
+                        if let Some(AvatarState::Stationary { .. }) = self.avatar.state() {
+                            self.label_editor
+                                .start_edit(self.avatar.compute_world_coord(&self.world).unwrap());
                         }
-                        vec![]
                     }
-                    VirtualKeyCode::B => self.build_house(),
-                    _ => vec![],
+                    VirtualKeyCode::B => commands.append(&mut self.build_house()),
+                    VirtualKeyCode::C => self.follow_avatar = !self.follow_avatar,
+                    _ => (),
                 },
-                _ => vec![],
+                Event::Mouse {
+                    state: ElementState::Pressed,
+                    button: MouseButton::Right,
+                } => self.walk_to(),
+                _ => (),
+            };
+            if self.follow_avatar {
+                if let Some(world_coord) = self.avatar.compute_world_coord(&self.world) {
+                    commands.push(Command::LookAt(world_coord));
+                }
             }
+            self.world.set_time(Instant::now());
+            commands.append(&mut self.avatar_artist.draw(&self.avatar, &self.world));
+            commands
         }
     }
 }

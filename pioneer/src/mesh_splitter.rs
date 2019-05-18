@@ -1,5 +1,5 @@
+use commons::unsafe_ordering;
 use mesh::Mesh;
-use utils::float_ordering;
 
 use rand::prelude::*;
 use scale::Scale;
@@ -27,7 +27,7 @@ struct SplitProcess {
 impl SplitRule {
     fn generate_split<R: Rng>(&self, rng: &mut Box<R>, random_range: (f64, f64)) -> Split {
         let r: f64 = rng.gen_range(random_range.0, random_range.1);
-        let scale: Scale = Scale::new((0.0, 1.0), self.range);
+        let scale: Scale<f64> = Scale::new((0.0, 1.0), self.range);
         Split {
             x: self.x,
             y: self.y,
@@ -47,7 +47,7 @@ impl SplitProcess {
                 let dy: i32 = (o.1 as i32 * 2) - 1;
                 let z = mesh.get_z(x, y);
                 let zs = [mesh.get_z(x + dx, y), mesh.get_z(x, y + dy), z];
-                let min_z = zs.iter().min_by(float_ordering).unwrap();
+                let min_z = zs.iter().min_by(unsafe_ordering).unwrap();
 
                 SplitRule {
                     x: x * 2 + o.0,
@@ -229,7 +229,6 @@ mod tests {
 
     #[test]
     fn test_split_process_next() {
-        //TODO random_range has misleading name
         let random_range = (0.0, 1.0);
 
         let process = SplitProcess {
