@@ -58,7 +58,7 @@ impl TriangleColoring for AngleTriangleColoring {
         let v = points[0] - points[2];
         let normal = u.cross(&v);
         let angle: f32 = na::Matrix::angle(&normal, &self.light_direction);
-        let color = angle / f32::consts::PI;
+        let color = angle / (f32::consts::PI / 2.0);
         let color = Color::new(
             self.base_color.r * color,
             self.base_color.g * color,

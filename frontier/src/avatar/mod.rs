@@ -1,10 +1,12 @@
 mod artist;
 mod path;
 mod travel_duration;
+mod travel_mode;
 
 pub use artist::*;
 use path::*;
 use travel_duration::*;
+use travel_mode::*;
 
 use crate::pathfinder::*;
 use crate::travel_duration::*;
@@ -62,18 +64,22 @@ pub enum AvatarState {
 
 pub struct Avatar {
     state: Option<AvatarState>,
+    travel_mode_fn: TravelModeFn,
 }
 
 impl Avatar {
-    pub fn new() -> Avatar {
-        Avatar { state: None }
+    pub fn new(min_navigable_river: f32) -> Avatar {
+        Avatar {
+            state: None,
+            travel_mode_fn: TravelModeFn::new(min_navigable_river),
+        }
     }
 
-    pub fn travel_duration() -> Box<TravelDuration> {
+    pub fn travel_duration(&self) -> Box<TravelDuration> {
         let walk = GradientTravelDuration::boxed(Scale::new((-0.5, 0.5), (500.0, 1000.0)), false);
-        let river = ConstantTravelDuration::boxed(Duration::from_millis(250));
+        let river = GradientTravelDuration::boxed(Scale::new((-0.1, 0.1), (250.0, 250.0)), false);
         let road = ConstantTravelDuration::boxed(Duration::from_millis(100));
-        AvatarTravelDuration::boxed(walk, road, river)
+        AvatarTravelDuration::boxed(self.travel_mode_fn.clone(), walk, road, river)
     }
 
     pub fn rotation(&self, world: &World) -> Option<Rotation> {
@@ -177,6 +183,15 @@ impl Avatar {
             _ => None,
         }
     }
+
+    pub fn compute_world_coord_with_sea(&self, world: &World) -> Option<WorldCoord> {
+        //TODO test
+        if let Some(WorldCoord { x, y, z }) = self.compute_world_coord(world) {
+            Some(WorldCoord::new(x, y, z.max(world.sea_level())))
+        } else {
+            None
+        }
+    }
 }
 
 use std::time::Duration;
@@ -233,7 +248,7 @@ mod tests {
     }
 
     fn avatar() -> Avatar {
-        Avatar::new()
+        Avatar::new(0.0)
     }
 
     #[test]

@@ -132,7 +132,7 @@ mod tests {
         ) -> Option<Duration> {
             match world.get_elevation(to) {
                 Some(elevation) => {
-                    if world.is_road(&Edge::new(*from, *to)) {
+                    if world.roads().along(&Edge::new(*from, *to)) {
                         return Some(Duration::from_millis(1));
                     } else {
                         if elevation != 0.0 {

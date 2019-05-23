@@ -20,11 +20,11 @@ impl TravelDuration for AutoRoadTravelDuration {
         if let (Some(from_z), Some(to_z)) = (world.get_elevation(from), world.get_elevation(to)) {
             if from_z < world.sea_level() || to_z < world.sea_level() {
                 None
-            } else if world.is_river_corner_here(from) || world.is_river_corner_here(to) {
+            } else if world.rivers().corner_here(from) || world.rivers().corner_here(to) {
                 None
-            } else if world.is_river_here(from) && world.is_river_here(to) {
+            } else if world.rivers().here(from) && world.rivers().here(to) {
                 None
-            } else if world.is_road(&Edge::new(*from, *to)) {
+            } else if world.roads().along(&Edge::new(*from, *to)) {
                 self.road.get_duration(world, from, to)
             } else {
                 self.off_road.get_duration(world, from, to)

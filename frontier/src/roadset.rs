@@ -120,7 +120,7 @@ impl RoadSet {
         self.get_junction(position).vertical.width()
     }
 
-    pub fn is_road(&self, edge: &Edge) -> bool {
+    pub fn along(&self, edge: &Edge) -> bool {
         if edge.horizontal() {
             self.get_junction(&edge.from()).horizontal.from
         } else {
@@ -162,6 +162,19 @@ impl RoadSet {
             }
         }
         out
+    }
+
+    pub fn width_here(&self, position: &V2<usize>) -> f32 {
+        self.get_horizontal_width(position)
+            .max(self.get_vertical_width(position))
+    }
+
+    pub fn here(&self, position: &V2<usize>) -> bool {
+        self.width_here(position) > 0.0
+    }
+
+    pub fn corner_here(&self, position: &V2<usize>) -> bool {
+        self.get_horizontal_width(position) > 0.0 && self.get_vertical_width(position) > 0.0
     }
 }
 
@@ -523,12 +536,12 @@ mod tests {
     }
 
     #[test]
-    fn test_is_road_l() {
+    fn test_along_l() {
         let roadset = l();
-        assert!(roadset.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
-        assert!(roadset.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
-        assert!(!roadset.is_road(&Edge::new(v2(0, 1), v2(1, 1))));
-        assert!(!roadset.is_road(&Edge::new(v2(1, 0), v2(1, 1))));
+        assert!(roadset.along(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(roadset.along(&Edge::new(v2(0, 0), v2(0, 1))));
+        assert!(!roadset.along(&Edge::new(v2(0, 1), v2(1, 1))));
+        assert!(!roadset.along(&Edge::new(v2(1, 0), v2(1, 1))));
     }
 
     #[test]
@@ -550,12 +563,12 @@ mod tests {
     }
 
     #[test]
-    fn test_is_road_parallel() {
+    fn test_along_parallel() {
         let roadset = parallel();
-        assert!(roadset.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
-        assert!(roadset.is_road(&Edge::new(v2(0, 1), v2(1, 1))));
-        assert!(!roadset.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
-        assert!(!roadset.is_road(&Edge::new(v2(1, 0), v2(1, 1))));
+        assert!(roadset.along(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(roadset.along(&Edge::new(v2(0, 1), v2(1, 1))));
+        assert!(!roadset.along(&Edge::new(v2(0, 0), v2(0, 1))));
+        assert!(!roadset.along(&Edge::new(v2(1, 0), v2(1, 1))));
     }
 
     #[test]
@@ -603,6 +616,60 @@ mod tests {
         assert_eq!(actual.len(), 2);
         assert!(actual.contains(&Edge::new(v2(0, 0), v2(1, 0))));
         assert!(actual.contains(&Edge::new(v2(0, 1), v2(1, 1))));
+    }
+
+    #[test]
+    fn test_width_here_parallel() {
+        let roadset = parallel();
+        assert_eq!(roadset.width_here(&v2(0, 0)), 9.0);
+        assert_eq!(roadset.width_here(&v2(1, 0)), 9.0);
+        assert_eq!(roadset.width_here(&v2(0, 1)), 9.0);
+        assert_eq!(roadset.width_here(&v2(1, 1)), 9.0);
+    }
+
+    #[test]
+    fn test_width_here_l() {
+        let roadset = l();
+        assert_eq!(roadset.width_here(&v2(0, 0)), 9.0);
+        assert_eq!(roadset.width_here(&v2(1, 0)), 9.0);
+        assert_eq!(roadset.width_here(&v2(0, 1)), 9.0);
+        assert_eq!(roadset.width_here(&v2(1, 1)), 0.0);
+    }
+
+    #[test]
+    fn test_here_parallel() {
+        let roadset = parallel();
+        assert_eq!(roadset.here(&v2(0, 0)), true);
+        assert_eq!(roadset.here(&v2(1, 0)), true);
+        assert_eq!(roadset.here(&v2(0, 1)), true);
+        assert_eq!(roadset.here(&v2(1, 1)), true);
+    }
+
+    #[test]
+    fn test_here_l() {
+        let roadset = l();
+        assert_eq!(roadset.here(&v2(0, 0)), true);
+        assert_eq!(roadset.here(&v2(1, 0)), true);
+        assert_eq!(roadset.here(&v2(0, 1)), true);
+        assert_eq!(roadset.here(&v2(1, 1)), false);
+    }
+
+    #[test]
+    fn test_corner_here_parallel() {
+        let roadset = parallel();
+        assert_eq!(roadset.corner_here(&v2(0, 0)), false);
+        assert_eq!(roadset.corner_here(&v2(1, 0)), false);
+        assert_eq!(roadset.corner_here(&v2(0, 1)), false);
+        assert_eq!(roadset.corner_here(&v2(1, 1)), false);
+    }
+
+    #[test]
+    fn test_corner_here_l() {
+        let roadset = l();
+        assert_eq!(roadset.corner_here(&v2(0, 0)), true);
+        assert_eq!(roadset.corner_here(&v2(1, 0)), false);
+        assert_eq!(roadset.corner_here(&v2(0, 1)), false);
+        assert_eq!(roadset.corner_here(&v2(1, 1)), false);
     }
 
 }

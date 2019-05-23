@@ -2,16 +2,21 @@ use super::*;
 use crate::world::World;
 use commons::{v3, V3};
 use isometric::coords::*;
-use isometric::drawing::draw_billboard;
+use isometric::drawing::{draw_billboard, draw_boat};
+use isometric::Color;
 use isometric::Command;
 
 pub struct AvatarArtist {
     scale: f32,
+    light_direction: V3<f32>,
 }
 
 impl AvatarArtist {
-    pub fn new(scale: f32) -> AvatarArtist {
-        AvatarArtist { scale }
+    pub fn new(scale: f32, light_direction: V3<f32>) -> AvatarArtist {
+        AvatarArtist {
+            scale,
+            light_direction,
+        }
     }
 
     #[rustfmt::skip]
@@ -49,9 +54,8 @@ impl AvatarArtist {
     }
 
     pub fn draw(&self, avatar: &Avatar, world: &World) -> Vec<Command> {
-        if let Some(world_coord) = avatar.compute_world_coord(world) {
-            let mut out = vec![];
-
+        let mut out = self.draw_boat_if_required(avatar, world);
+        if let Some(world_coord) = avatar.compute_world_coord_with_sea(world) {
             out.append(&mut self.draw_billboard_at_offset(
                 avatar,
                 world,
@@ -112,9 +116,41 @@ impl AvatarArtist {
                 32,
                 32,
             ));
-            out
+        }
+        out
+    }
+
+    fn draw_boat_if_required(&self, avatar: &Avatar, world: &World) -> Vec<Command> {
+        if let Some(world_coord) = avatar.compute_world_coord_with_sea(world) {
+            let check_position = v2(
+                world_coord.x.round() as usize,
+                world_coord.y.round() as usize,
+            );
+            match avatar
+                .travel_mode_fn
+                .travel_mode_here(world, &check_position)
+            {
+                Some(TravelMode::Sea) => self.draw_boat(avatar, world, world_coord),
+                Some(TravelMode::River) => self.draw_boat(avatar, world, world_coord),
+                _ => vec![],
+            }
         } else {
             vec![]
         }
+    }
+
+    fn draw_boat(&self, avatar: &Avatar, world: &World, world_coord: WorldCoord) -> Vec<Command> {
+        return draw_boat(
+            "boat",
+            world_coord,
+            0.12,
+            0.04,
+            0.06,
+            0.40,
+            Color::new(0.46875, 0.2578125, 0.0703125, 0.8),
+            Color::new(1.0, 1.0, 1.0, 1.0),
+            self.light_direction,
+            AvatarArtist::get_rotation_matrix(avatar, world),
+        );
     }
 }

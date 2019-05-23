@@ -123,7 +123,7 @@ mod tests {
         ) -> Option<Duration> {
             if to.x > from.x || to.y > from.y {
                 Some(Duration::from_millis(1))
-            } else if world.is_road(&Edge::new(*from, *to)) {
+            } else if world.roads().along(&Edge::new(*from, *to)) {
                 Some(Duration::from_millis(1))
             } else {
                 None
@@ -172,11 +172,11 @@ mod tests {
         let result = RoadBuilderResult {
             path: vec![*edge.from(), *edge.to()],
         };
-        assert!(!world.is_road(&edge));
+        assert!(!world.roads().along(&edge));
         result.toggle_roads(&mut world);
-        assert!(world.is_road(&edge));
+        assert!(world.roads().along(&edge));
         result.toggle_roads(&mut world);
-        assert!(!world.is_road(&edge));
+        assert!(!world.roads().along(&edge));
     }
 
     #[test]
@@ -186,11 +186,11 @@ mod tests {
         let result = RoadBuilderResult {
             path: vec![*edge.from(), *edge.to()],
         };
-        assert!(!world.is_road(&edge));
+        assert!(!world.roads().along(&edge));
         result.set_roads(&mut world);
-        assert!(world.is_road(&edge));
+        assert!(world.roads().along(&edge));
         result.set_roads(&mut world);
-        assert!(world.is_road(&edge));
+        assert!(world.roads().along(&edge));
     }
 
     #[test]
@@ -213,14 +213,14 @@ mod tests {
     fn test_auto_build_road() {
         let mut world = world();
         let pathfinder = pathfinder();
-        let mut avatar = Avatar::new();
+        let mut avatar = Avatar::new(0.0);
         let mut road_builder = RoadBuilder { pathfinder };
         avatar.reposition(v2(0, 0), Rotation::Right);
         assert_eq!(
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             None
         );
-        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(!world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
         assert_eq!(
             road_builder.auto_build_road(&mut world, &avatar, &v2(1, 0)),
             Some(RoadBuilderResult {
@@ -231,14 +231,14 @@ mod tests {
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             Some(vec![v2(1, 0), v2(0, 0)])
         );
-        assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
     }
 
     #[test]
     fn test_auto_build_road_impossible() {
         let mut world = world();
         let pathfinder = pathfinder();
-        let mut avatar = Avatar::new();
+        let mut avatar = Avatar::new(0.0);
         let mut road_builder = RoadBuilder { pathfinder };
         avatar.reposition(v2(1, 0), Rotation::Left);
         assert_eq!(
@@ -251,14 +251,14 @@ mod tests {
     fn test_build_forward() {
         let mut world = world();
         let pathfinder = pathfinder();
-        let mut avatar = Avatar::new();
+        let mut avatar = Avatar::new(0.0);
         let mut road_builder = RoadBuilder { pathfinder };
         avatar.reposition(v2(0, 0), Rotation::Right);
         assert_eq!(
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             None
         );
-        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(!world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
         assert_eq!(
             road_builder.build_forward(&mut world, &avatar),
             Some(RoadBuilderResult {
@@ -269,7 +269,7 @@ mod tests {
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             Some(vec![v2(1, 0), v2(0, 0)])
         );
-        assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
     }
 
     #[test]
@@ -277,14 +277,14 @@ mod tests {
         let mut world = world();
         world.toggle_road(&Edge::new(v2(0, 0), v2(1, 0)));
         let pathfinder = Pathfinder::new(&world, Box::new(TestDuration {}));
-        let mut avatar = Avatar::new();
+        let mut avatar = Avatar::new(0.0);
         let mut road_builder = RoadBuilder { pathfinder };
         avatar.reposition(v2(0, 0), Rotation::Right);
         assert_eq!(
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             Some(vec![v2(1, 0), v2(0, 0)])
         );
-        assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
         assert_eq!(
             road_builder.build_forward(&mut world, &avatar),
             Some(RoadBuilderResult {
@@ -295,14 +295,14 @@ mod tests {
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             None
         );
-        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(!world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
     }
 
     #[test]
     fn test_build_forward_impossible() {
         let mut world = world();
         let pathfinder = pathfinder();
-        let mut avatar = Avatar::new();
+        let mut avatar = Avatar::new(0.0);
         let mut road_builder = RoadBuilder { pathfinder };
         avatar.reposition(v2(1, 0), Rotation::Left);
         assert_eq!(road_builder.build_forward(&mut world, &avatar), None);

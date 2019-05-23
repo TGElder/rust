@@ -44,16 +44,17 @@ impl GameHandler {
             cliff_gradient,
             light_direction,
         );
+        let avatar = Avatar::new(0.1);
         GameHandler {
             house_builder: HouseBuilder::new(world.width(), world.height(), light_direction),
-            avatar: Avatar::new(),
-            avatar_pathfinder: Pathfinder::new(&world, Avatar::travel_duration()),
+            avatar_pathfinder: Pathfinder::new(&world, avatar.travel_duration()),
+            avatar,
             road_builder: RoadBuilder::new(&world),
             world,
             world_artist,
             mouse_coord: None,
             label_editor: LabelEditor::new(),
-            avatar_artist: AvatarArtist::new(0.00078125),
+            avatar_artist: AvatarArtist::new(0.00078125, light_direction),
             follow_avatar: false,
             handlers: vec![
                 Box::new(ZoomHandler::new()),

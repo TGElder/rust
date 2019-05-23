@@ -107,26 +107,14 @@ impl World {
             .max(self.roads.get_vertical_width(position))
     }
 
-    pub fn is_river_here(&self, position: &V2<usize>) -> bool {
-        self.rivers.get_horizontal_width(position) > 0.0
-            || self.rivers.get_vertical_width(position) > 0.0
-    }
-
-    pub fn is_river_corner_here(&self, position: &V2<usize>) -> bool {
-        self.rivers.get_horizontal_width(position) > 0.0
-            && self.rivers.get_vertical_width(position) > 0.0
-    }
-
-    pub fn is_river(&self, edge: &Edge) -> bool {
-        self.rivers.is_road(edge)
-    }
-
-    pub fn is_road(&self, edge: &Edge) -> bool {
-        self.roads.is_road(edge)
+    pub fn is_sea(&self, position: &V2<usize>) -> bool {
+        self.get_elevation(position)
+            .map(|elevation| elevation <= self.sea_level)
+            .unwrap_or(false)
     }
 
     pub fn is_river_or_road(&self, edge: &Edge) -> bool {
-        self.is_road(edge) || self.is_river(edge)
+        self.rivers.along(edge) || self.roads.along(edge)
     }
 
     fn get_node(&self, position: &V2<usize>) -> Node {
@@ -146,7 +134,7 @@ impl World {
     }
 
     pub fn toggle_road(&mut self, edge: &Edge) {
-        if self.roads.is_road(edge) {
+        if self.roads.along(edge) {
             self.clear_road(edge);
         } else {
             self.add_road(edge);
@@ -471,33 +459,16 @@ mod tests {
     }
 
     #[test]
-    fn test_is_river_here() {
-        let world = world();
-        assert!(!world.is_river_here(&v2(0, 0)));
-        assert!(world.is_river_here(&v2(1, 0)));
-    }
-
-    #[test]
-    fn test_is_river_corner_here() {
-        let world = world();
-        assert!(!world.is_river_corner_here(&v2(0, 0)));
-        assert!(!world.is_river_corner_here(&v2(1, 0)));
-        assert!(world.is_river_corner_here(&v2(1, 2)));
-    }
-
-    #[test]
-    fn test_is_river() {
-        let world = world();
-        assert!(!world.is_river(&Edge::new(v2(0, 0), v2(1, 0))));
-        assert!(world.is_river(&Edge::new(v2(1, 0), v2(1, 1))));
-    }
-
-    #[test]
-    fn test_is_road() {
-        let mut world = world();
-        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
-        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
-        assert!(world.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
+    fn test_is_sea() {
+        let world = World::new(
+            M::from_vec(2, 1, vec![1.0, 0.0]),
+            vec![],
+            vec![],
+            0.5,
+            Instant::now(),
+        );
+        assert!(!world.is_sea(&v2(0, 0)));
+        assert!(world.is_sea(&v2(1, 0)));
     }
 
     #[test]
