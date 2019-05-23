@@ -2,11 +2,11 @@ use color::Color;
 use std::f32;
 use utils::unsafe_ordering;
 
-pub trait TriangleColoring {
+pub trait TriangleColoring: Send {
     fn get_colors(&self, points: &[na::Vector3<f32>; 3]) -> [Color; 3];
 }
 
-pub trait SquareColoring {
+pub trait SquareColoring: Send {
     fn get_colors(&self, points: &[na::Vector3<f32>; 4]) -> [Color; 4];
 }
 

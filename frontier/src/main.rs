@@ -14,7 +14,7 @@ mod world_gen;
 
 use crate::game_handler::*;
 use crate::world_gen::*;
-use isometric::IsometricEngine;
+use isometric::{AsyncEventHandler, IsometricEngine};
 use std::env;
 
 fn main() {
@@ -24,7 +24,9 @@ fn main() {
     let world = generate_world(size, seed);
 
     let mut engine = IsometricEngine::new("Frontier", 1024, 1024, world.max_height());
-    engine.add_event_handler(Box::new(GameHandler::new(world)));
+    engine.add_event_handler(Box::new(AsyncEventHandler::new(Box::new(
+        GameHandler::new(world),
+    ))));
 
     engine.run();
 }

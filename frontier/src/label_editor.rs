@@ -1,9 +1,8 @@
 use isometric::coords::WorldCoord;
-use isometric::drawing::Text;
+use isometric::drawing::draw_text;
 use isometric::event_handlers::TextEditor;
 use isometric::EventHandler;
 use isometric::Font;
-use isometric::Texture;
 use isometric::{Command, Event};
 use isometric::{ElementState, VirtualKeyCode};
 
@@ -17,10 +16,7 @@ pub struct LabelEditor {
 impl LabelEditor {
     pub fn new() -> LabelEditor {
         LabelEditor {
-            font: Arc::new(Font::from_csv_and_texture(
-                "serif.csv",
-                Texture::new(image::open("serif.png").unwrap()),
-            )),
+            font: Arc::new(Font::from_csv_and_texture("serif.csv", "serif.png")),
             edit: None,
         }
     }
@@ -70,13 +66,6 @@ impl EventHandler for LabelEdit {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         self.text_editor.handle_event(event.clone());
         let name = format!("{:?}", self.world_coord);
-        vec![Command::Draw {
-            name,
-            drawing: Box::new(Text::new(
-                &self.text_editor.text(),
-                self.world_coord,
-                self.font.clone(),
-            )),
-        }]
+        draw_text(name, &self.text_editor.text(), self.world_coord, &self.font)
     }
 }

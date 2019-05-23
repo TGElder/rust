@@ -1,5 +1,5 @@
-use super::engine::DrawingType;
 use super::shader::Shader;
+use super::DrawingType;
 use std::ffi::CString;
 use utils::create_whitespace_cstring_with_len;
 
@@ -88,7 +88,7 @@ impl Program {
         }
     }
 
-    pub fn load_float(&self, variable: &str, float: f32) {
+    pub fn _load_float(&self, variable: &str, float: f32) {
         unsafe {
             let float_location = gl::GetUniformLocation(
                 self.id(),

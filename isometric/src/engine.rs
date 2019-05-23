@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use coords::*;
 use event_handlers::*;
-use events::{AsyncEventHandler, EventHandler};
-use graphics::drawing::*;
-use graphics::engine::GraphicsEngine;
+use events::EventHandler;
+use graphics::{Drawing, GraphicsEngine};
 
 use glutin::GlContext;
 
@@ -43,9 +42,11 @@ pub enum Command {
     },
     Event(Event),
     ComputeWorldPosition(GLCoord4D),
-    Draw {
+    CreateDrawing(Drawing),
+    UpdateDrawing {
         name: String,
-        drawing: Box<Drawing + Send>,
+        floats: Vec<f32>,
+        index: usize,
     },
     Erase(String),
     LookAt(WorldCoord),
@@ -108,20 +109,15 @@ impl IsometricEngine {
         let logical_window_size = window.window().get_inner_size().unwrap();
 
         vec![
-            Box::new(AsyncEventHandler::new(Box::new(ShutdownHandler::new()))),
+            Box::new(ShutdownHandler::new()),
             Box::new(DPIRelay::new()),
             Box::new(Resizer::new()),
             Box::new(CursorHandler::new(dpi_factor, logical_window_size)),
             Box::new(DragHandler::new()),
             Box::new(ResizeRelay::new(dpi_factor)),
             Box::new(Scroller::new()),
-            Box::new(ZoomHandler::new()),
             Box::new(KeyRelay::new()),
             Box::new(MouseRelay::new()),
-            Box::new(RotateHandler::new(
-                glutin::VirtualKeyCode::Q,
-                glutin::VirtualKeyCode::E,
-            )),
         ]
     }
 
@@ -131,7 +127,6 @@ impl IsometricEngine {
             let mut to_process = vec![];
             to_process.append(&mut self.events);
             self.handle_events(to_process);
-            self.graphics.update_transform_matrix();
             self.graphics.draw_world();
             self.handle_events(vec![Event::WorldDrawn]);
             self.graphics.draw_billboards();
@@ -181,7 +176,12 @@ impl IsometricEngine {
                     gl_coord.to_world_coord(&self.graphics.get_transform()),
                 ))
             }
-            Command::Draw { name, drawing } => self.graphics.add_drawing(name, drawing),
+            Command::CreateDrawing(drawing) => self.graphics.add_drawing(drawing),
+            Command::UpdateDrawing {
+                name,
+                index,
+                floats,
+            } => self.graphics.update_drawing(name, index, floats),
             Command::Erase(name) => self.graphics.remove_drawing(&name),
             Command::LookAt(world_coord) => self.graphics.get_transform().look_at(world_coord),
         }

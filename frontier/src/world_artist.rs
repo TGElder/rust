@@ -44,7 +44,7 @@ impl WorldArtist {
         WorldArtist {
             width,
             height,
-            drawing: TerrainDrawing::new(width, height, slab_size),
+            drawing: TerrainDrawing::new("terrain".to_string(), width, height, slab_size),
             colors: WorldArtist::get_colors(world, beach_level, snow_level, cliff_gradient),
             shading: WorldArtist::get_shading(light_direction),
             slab_size,
@@ -90,34 +90,30 @@ impl WorldArtist {
         }
     }
 
-    pub fn draw_terrain(&self) -> Command {
-        Command::Draw {
-            name: "terrain".to_string(),
-            drawing: Box::new(self.drawing.clone()),
-        }
+    pub fn draw_terrain(&self) -> Vec<Command> {
+        self.drawing.init()
     }
 
-    pub fn draw_sea(&self, world: &World) -> Command {
-        Command::Draw {
-            name: "sea".to_string(),
-            drawing: Box::new(SeaDrawing::new(
-                self.width as f32,
-                self.height as f32,
-                world.sea_level(),
-            )),
-        }
+    pub fn draw_sea(&self, world: &World) -> Vec<Command> {
+        draw_sea(
+            "sea".to_string(),
+            self.width as f32,
+            self.height as f32,
+            world.sea_level(),
+        )
     }
 
     fn draw_slab(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
-        self.draw_slab_tiles(world, slab);
-        self.draw_slab_rivers_roads(world, &slab)
+        let mut out = self.draw_slab_tiles(world, slab);
+        out.append(&mut self.draw_slab_rivers_roads(world, &slab));
+        out
     }
 
-    fn draw_slab_tiles(&mut self, world: &World, slab: &Slab) {
+    fn draw_slab_tiles(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
         let to = slab.to();
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
         self.drawing
-            .update(world.terrain(), &self.colors, &self.shading, slab.from, to);
+            .update(world.terrain(), &self.colors, &self.shading, slab.from, to)
     }
 
     fn get_road_river_nodes(
@@ -150,44 +146,32 @@ impl WorldArtist {
         let river_edges = world.rivers().get_edges(from, to);
         let road_edges = world.roads().get_edges(from, to);
         let (road_nodes, river_nodes) = self.get_road_river_nodes(world, from, to);
-        vec![
-            Command::Draw {
-                name: format!("{:?}-river-edges", slab.from),
-                drawing: Box::new(EdgeDrawing::new(
-                    world.terrain(),
-                    &river_edges,
-                    &river_color,
-                    0.0,
-                )),
-            },
-            Command::Draw {
-                name: format!("{:?}-road-edges", slab.from),
-                drawing: Box::new(EdgeDrawing::new(
-                    world.terrain(),
-                    &road_edges,
-                    &road_color,
-                    0.0,
-                )),
-            },
-            Command::Draw {
-                name: format!("{:?}-river-nodes", slab.from),
-                drawing: Box::new(NodeDrawing::new(
-                    world.terrain(),
-                    &river_nodes,
-                    &river_color,
-                    0.0,
-                )),
-            },
-            Command::Draw {
-                name: format!("{:?}-road-nodes", slab.from),
-                drawing: Box::new(NodeDrawing::new(
-                    world.terrain(),
-                    &road_nodes,
-                    &road_color,
-                    0.0,
-                )),
-            },
-        ]
+        let mut out = vec![];
+        out.append(&mut draw_edges(
+            format!("{:?}-river-edges", slab.from),
+            world.terrain(),
+            &river_edges,
+            &river_color,
+        ));
+        out.append(&mut draw_edges(
+            format!("{:?}-road-edges", slab.from),
+            world.terrain(),
+            &road_edges,
+            &road_color,
+        ));
+        out.append(&mut draw_nodes(
+            format!("{:?}-river-nodes", slab.from),
+            world.terrain(),
+            &river_nodes,
+            &river_color,
+        ));
+        out.append(&mut draw_nodes(
+            format!("{:?}-road-nodes", slab.from),
+            world.terrain(),
+            &road_nodes,
+            &road_color,
+        ));
+        out
     }
 
     fn draw_slabs(&mut self, world: &World, slabs: HashSet<Slab>) -> Vec<Command> {
@@ -195,7 +179,6 @@ impl WorldArtist {
         for slab in slabs {
             out.append(&mut self.draw_slab(world, &slab));
         }
-        out.push(self.draw_terrain());
         out
     }
 
@@ -228,8 +211,8 @@ impl WorldArtist {
 
     pub fn init(&mut self, world: &World) -> Vec<Command> {
         let mut out = vec![];
-        out.push(self.draw_terrain());
-        out.push(self.draw_sea(world));
+        out.append(&mut self.draw_terrain());
+        out.append(&mut self.draw_sea(world));
         out.append(&mut self.draw_all(world));
         out
     }

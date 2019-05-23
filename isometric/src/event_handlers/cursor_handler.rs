@@ -1,7 +1,7 @@
 use coords::PhysicalPositionExt;
 use engine::{Command, Event};
 use events::EventHandler;
-use graphics::engine::GLZFinder;
+use graphics::GLZFinder;
 use std::sync::Arc;
 
 pub struct CursorHandler {

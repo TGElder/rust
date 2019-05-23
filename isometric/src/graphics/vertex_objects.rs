@@ -1,5 +1,4 @@
-use super::engine::DrawingType;
-use std::sync::Arc;
+use super::DrawingType;
 
 fn get_bytes<T>(floats: usize) -> usize {
     floats * std::mem::size_of::<T>()
@@ -43,10 +42,6 @@ impl VBO {
         self.unbind();
     }
 
-    pub fn drawing_type(&self) -> &DrawingType {
-        &self.vao.drawing_type
-    }
-
     fn count_verticies(&self, floats: usize) -> usize {
         floats / self.vao.floats_per_vertex()
     }
@@ -61,7 +56,7 @@ impl VBO {
         }
     }
 
-    pub fn load(&mut self, floats: Vec<f32>) {
+    pub fn _load(&mut self, floats: Vec<f32>) {
         VBO::check_floats_against_max_bytes(floats.len());
         self.floats = floats.len();
         self.bind();
@@ -112,7 +107,7 @@ impl VBO {
         self.unbind();
     }
 
-    pub fn draw(&self) {
+    pub fn _draw(&self) {
         if self.floats > 0 {
             self.vao.bind();
             unsafe {
@@ -156,10 +151,8 @@ impl Drop for VBO {
     }
 }
 
-#[derive(Clone)]
 pub struct MultiVBO {
-    vbo: Arc<VBO>,
-    indices: usize,
+    vbo: VBO,
     max_floats_per_index: usize,
     floats_at_index: Vec<usize>,
 }
@@ -169,8 +162,7 @@ impl MultiVBO {
         let mut vbo = VBO::new(drawing_type);
         vbo.alloc(indices * max_floats_per_index);
         MultiVBO {
-            vbo: Arc::new(vbo),
-            indices,
+            vbo: vbo,
             max_floats_per_index,
             floats_at_index: vec![0; indices],
         }
@@ -185,10 +177,6 @@ impl MultiVBO {
     pub fn draw(&self) {
         self.vbo
             .draw_parts(self.max_floats_per_index, &self.floats_at_index);
-    }
-
-    pub fn drawing_type(&self) -> &DrawingType {
-        &self.vbo.drawing_type()
     }
 }
 

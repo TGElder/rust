@@ -8,6 +8,7 @@ use crate::world_artist::*;
 
 use commons::{v2, V3};
 use isometric::coords::*;
+use isometric::event_handlers::{RotateHandler, ZoomHandler};
 use isometric::EventHandler;
 use isometric::{Command, Event};
 use isometric::{ElementState, MouseButton, VirtualKeyCode};
@@ -26,6 +27,7 @@ pub struct GameHandler {
     avatar_pathfinder: Pathfinder,
     follow_avatar: bool,
     road_builder: RoadBuilder,
+    handlers: Vec<Box<EventHandler>>,
 }
 
 impl GameHandler {
@@ -53,6 +55,10 @@ impl GameHandler {
             label_editor: LabelEditor::new(),
             avatar_artist: AvatarArtist::new(0.00078125),
             follow_avatar: false,
+            handlers: vec![
+                Box::new(ZoomHandler::new()),
+                Box::new(RotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E)),
+            ],
         }
     }
 }
@@ -140,8 +146,10 @@ impl EventHandler for GameHandler {
                 } => match key {
                     VirtualKeyCode::H => {
                         if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
-                            self.avatar
-                                .reposition(v2(x as usize, y as usize), Rotation::Down);
+                            self.avatar.reposition(
+                                v2(x.round() as usize, y.round() as usize),
+                                Rotation::Down,
+                            );
                         };
                     }
                     VirtualKeyCode::W => {
@@ -172,6 +180,9 @@ impl EventHandler for GameHandler {
                 } => self.walk_to(),
                 _ => (),
             };
+            for handler in self.handlers.iter_mut() {
+                commands.append(&mut handler.handle_event(event.clone()));
+            }
             if self.follow_avatar {
                 if let Some(world_coord) = self.avatar.compute_world_coord(&self.world) {
                     commands.push(Command::LookAt(world_coord));

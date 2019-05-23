@@ -1,6 +1,7 @@
-use commons::{v2, V2};
 use image::{DynamicImage, GenericImageView};
+use std::collections::HashMap;
 use std::ffi::c_void;
+use std::sync::Arc;
 
 pub struct Texture {
     id: gl::types::GLuint,
@@ -66,15 +67,6 @@ impl Texture {
             self.unbind();
         }
     }
-
-    pub fn get_texture_coords(&self, pixel_position: V2<i32>) -> V2<f32> {
-        let width = self.width as f32;
-        let height = self.height as f32;
-        v2(
-            pixel_position.x as f32 / width,
-            pixel_position.y as f32 / height,
-        )
-    }
 }
 
 impl Drop for Texture {
@@ -82,5 +74,29 @@ impl Drop for Texture {
         unsafe {
             gl::DeleteTextures(1, &mut self.id);
         }
+    }
+}
+
+pub struct TextureLibrary {
+    textures: HashMap<String, Arc<Texture>>,
+}
+
+impl TextureLibrary {
+    pub fn new() -> TextureLibrary {
+        TextureLibrary {
+            textures: HashMap::new(),
+        }
+    }
+
+    pub fn get_texture(&mut self, file: &String) -> Arc<Texture> {
+        self.textures
+            .entry(file.clone())
+            .or_insert_with(|| Self::load_texture(file))
+            .clone()
+    }
+
+    fn load_texture(file: &String) -> Arc<Texture> {
+        let texture = Texture::new(image::open(file).unwrap());
+        Arc::new(texture)
     }
 }

@@ -1,6 +1,6 @@
 use commons::{M, V3};
 use isometric::coords::WorldCoord;
-use isometric::drawing::HouseDrawing;
+use isometric::drawing::draw_house;
 use isometric::Color;
 use isometric::Command;
 
@@ -24,18 +24,15 @@ impl HouseBuilder {
         self.houses[index] = !self.houses[index];
         let name = format!("house-{:?}", index);
         if self.houses[index] {
-            let drawing = HouseDrawing::new(
+            draw_house(
+                name,
                 world_coord,
                 0.25,
                 0.5,
                 0.5,
                 self.color,
                 self.light_direction,
-            );
-            vec![Command::Draw {
-                name,
-                drawing: Box::new(drawing),
-            }]
+            )
         } else {
             vec![Command::Erase(name)]
         }

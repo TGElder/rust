@@ -1,5 +1,5 @@
 use commons::{v2, V2};
-use graphics::texture::Texture;
+use image::GenericImageView;
 use std::fs::File;
 use std::io::Read;
 
@@ -50,18 +50,24 @@ impl Glyph {
 
 pub struct Font {
     glyphs: [Option<Glyph>; 256],
-    texture: Texture,
+    texture: String,
+    texture_width: f32,
+    texture_height: f32,
 }
 
 impl Font {
-    pub fn from_csv_and_texture(csv_file_name: &str, texture: Texture) -> Font {
+    pub fn from_csv_and_texture(csv_file_name: &str, texture_file_name: &str) -> Font {
+        let image = image::open(texture_file_name).unwrap();
+        let (texture_width, texture_height) = image.dimensions();
         Font {
             glyphs: Glyph::from_csv(csv_file_name),
-            texture,
+            texture: texture_file_name.to_string(),
+            texture_width: texture_width as f32,
+            texture_height: texture_height as f32,
         }
     }
 
-    pub fn texture(&self) -> &Texture {
+    pub fn texture(&self) -> &String {
         &self.texture
     }
 
@@ -86,9 +92,15 @@ impl Font {
     pub fn get_texture_coords(&self, character: char) -> (V2<f32>, V2<f32>) {
         let glyph = self.get_glyph(character);
         (
-            self.texture.get_texture_coords(v2(glyph.x, glyph.y)),
-            self.texture
-                .get_texture_coords(v2(glyph.x + glyph.width, glyph.y + glyph.height)),
+            self.get_texture_coord(v2(glyph.x, glyph.y)),
+            self.get_texture_coord(v2(glyph.x + glyph.width, glyph.y + glyph.height)),
+        )
+    }
+
+    pub fn get_texture_coord(&self, pixel_position: V2<i32>) -> V2<f32> {
+        v2(
+            pixel_position.x as f32 / self.texture_width,
+            pixel_position.y as f32 / self.texture_height,
         )
     }
 

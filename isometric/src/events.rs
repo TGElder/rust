@@ -5,19 +5,21 @@ use std::sync::mpsc::{Receiver, RecvError, Sender, TryRecvError};
 use std::sync::Arc;
 use std::thread;
 
-pub trait EventHandler {
+pub trait EventHandler: Send {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command>;
 }
 
 pub struct AsyncEventHandler {
     event_tx: Sender<Arc<Event>>,
     command_rx: Receiver<Vec<Command>>,
+    shutdown_rx: Receiver<bool>,
 }
 
 impl AsyncEventHandler {
     pub fn new(mut event_handler: Box<EventHandler + Send>) -> AsyncEventHandler {
         let (event_tx, event_rx) = mpsc::channel();
         let (command_tx, command_rx) = mpsc::channel();
+        let (shutdown_tx, shutdown_rx) = mpsc::channel();
 
         thread::spawn(move || {
             let send_commands = |commands: Vec<Command>| match command_tx.send(commands) {
@@ -26,10 +28,7 @@ impl AsyncEventHandler {
             };
 
             let mut handle_event = |event: Arc<Event>| match *event {
-                Event::Shutdown => {
-                    println!("Shutting down AsyncEventHandler");
-                    false
-                }
+                Event::Shutdown => false,
                 _ => send_commands(event_handler.handle_event(event)),
             };
 
@@ -39,10 +38,13 @@ impl AsyncEventHandler {
             };
 
             while handle_message(event_rx.recv()) {}
+
+            shutdown_tx.send(true).unwrap();
         });
         AsyncEventHandler {
             event_tx,
             command_rx,
+            shutdown_rx,
         }
     }
 
@@ -71,6 +73,7 @@ impl EventHandler for AsyncEventHandler {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         if let Event::Shutdown = *event {
             self.send_event(event);
+            self.shutdown_rx.recv().unwrap();
             vec![]
         } else {
             self.send_event(event);

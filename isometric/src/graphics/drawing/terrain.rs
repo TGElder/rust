@@ -1,97 +1,61 @@
-use super::super::engine::DrawingType;
-use super::super::vertex_objects::{MultiVBO, VBO};
 use super::utils::*;
-use super::Drawing;
+use crate::graphics::Drawing;
+use crate::Command;
 use color::Color;
 use commons::index2d::*;
 use commons::{v2, M, V2};
-use coords::WorldCoord;
 use terrain::{Edge, Node, Terrain};
 
-pub struct NodeDrawing {
-    vbo: VBO,
-    z_mod: f32,
-}
+pub fn draw_nodes(
+    name: String,
+    terrain: &Terrain,
+    nodes: &Vec<Node>,
+    color: &Color,
+) -> Vec<Command> {
+    let mut floats = vec![];
 
-impl Drawing for NodeDrawing {
-    fn draw(&self) {
-        self.vbo.draw();
-    }
-
-    fn get_z_mod(&self) -> f32 {
-        self.z_mod
-    }
-
-    fn drawing_type(&self) -> &DrawingType {
-        self.vbo.drawing_type()
-    }
-
-    fn get_visibility_check_coord(&self) -> Option<&WorldCoord> {
-        None
-    }
-}
-
-impl NodeDrawing {
-    pub fn new(terrain: &Terrain, nodes: &Vec<Node>, color: &Color, z_mod: f32) -> NodeDrawing {
-        let mut vbo = VBO::new(DrawingType::Plain);
-
-        let mut vertices = vec![];
-
-        for node in nodes {
-            for triangle in terrain.get_triangles(Terrain::get_index_for_node(&node)) {
-                vertices.append(&mut get_uniform_colored_vertices_from_triangle(
-                    &triangle, color,
-                ));
-            }
+    for node in nodes {
+        for triangle in terrain.get_triangles(Terrain::get_index_for_node(&node)) {
+            floats.append(&mut get_uniform_colored_vertices_from_triangle(
+                &triangle, color,
+            ));
         }
-
-        vbo.load(vertices);
-
-        NodeDrawing { vbo, z_mod }
     }
+
+    vec![
+        Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
+        Command::UpdateDrawing {
+            name,
+            index: 0,
+            floats,
+        },
+    ]
 }
 
-pub struct EdgeDrawing {
-    vbo: VBO,
-    z_mod: f32,
-}
+pub fn draw_edges(
+    name: String,
+    terrain: &Terrain,
+    nodes: &Vec<Edge>,
+    color: &Color,
+) -> Vec<Command> {
+    let mut floats = vec![];
 
-impl Drawing for EdgeDrawing {
-    fn draw(&self) {
-        self.vbo.draw();
-    }
-
-    fn get_z_mod(&self) -> f32 {
-        self.z_mod
-    }
-
-    fn drawing_type(&self) -> &DrawingType {
-        self.vbo.drawing_type()
-    }
-
-    fn get_visibility_check_coord(&self) -> Option<&WorldCoord> {
-        None
-    }
-}
-
-impl EdgeDrawing {
-    pub fn new(terrain: &Terrain, nodes: &Vec<Edge>, color: &Color, z_mod: f32) -> EdgeDrawing {
-        let mut vbo = VBO::new(DrawingType::Plain);
-
-        let mut vertices = vec![];
-
-        for node in nodes {
-            for triangle in terrain.get_triangles(Terrain::get_index_for_edge(&node)) {
-                vertices.append(&mut get_uniform_colored_vertices_from_triangle(
-                    &triangle, color,
-                ));
-            }
+    for node in nodes {
+        for triangle in terrain.get_triangles(Terrain::get_index_for_edge(&node)) {
+            floats.append(&mut get_uniform_colored_vertices_from_triangle(
+                &triangle, color,
+            ));
         }
-
-        vbo.load(vertices);
-
-        EdgeDrawing { vbo, z_mod }
     }
+
+    vec![
+        Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
+        Command::UpdateDrawing {
+            name,
+            index: 0,
+            floats,
+        },
+    ]
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -129,36 +93,30 @@ impl TerrainIndex {
 
 #[derive(Clone)]
 pub struct TerrainDrawing {
-    vbo: MultiVBO,
+    name: String,
     index: TerrainIndex,
-}
-
-impl Drawing for TerrainDrawing {
-    fn draw(&self) {
-        self.vbo.draw();
-    }
-
-    fn get_z_mod(&self) -> f32 {
-        0.0
-    }
-
-    fn drawing_type(&self) -> &DrawingType {
-        self.vbo.drawing_type()
-    }
-
-    fn get_visibility_check_coord(&self) -> Option<&WorldCoord> {
-        None
-    }
+    max_floats_per_index: usize,
 }
 
 impl TerrainDrawing {
-    pub fn new(width: usize, height: usize, slab_size: usize) -> TerrainDrawing {
+    pub fn new(name: String, width: usize, height: usize, slab_size: usize) -> TerrainDrawing {
+        let index = TerrainIndex::new(width, height, slab_size);
         let max_floats_per_index = 9 * // 9 floats per triangle
             2 * // 2 triangles per cell
             slab_size * slab_size * 4; // cells per slab
-        let index = TerrainIndex::new(width, height, slab_size);
-        let vbo = MultiVBO::new(DrawingType::Plain, index.indices(), max_floats_per_index);
-        TerrainDrawing { vbo, index }
+        TerrainDrawing {
+            name,
+            index,
+            max_floats_per_index,
+        }
+    }
+
+    pub fn init(&self) -> Vec<Command> {
+        vec![Command::CreateDrawing(Drawing::multi(
+            self.name.clone(),
+            self.index.indices(),
+            self.max_floats_per_index,
+        ))]
     }
 
     pub fn update(
@@ -168,8 +126,8 @@ impl TerrainDrawing {
         shading: &Box<SquareColoring>,
         from: V2<usize>,
         to: V2<usize>,
-    ) {
-        let mut vertices = vec![];
+    ) -> Vec<Command> {
+        let mut floats = vec![];
 
         for x in from.x..to.x {
             for y in from.y..to.y {
@@ -179,7 +137,7 @@ impl TerrainDrawing {
                 let shade = shading.get_colors(&[border[0], border[1], border[2], border[3]])[0];
                 let color = color_matrix[(x, y)].mul(&shade);
                 for triangle in terrain.get_triangles_for_tile(&tile_index) {
-                    vertices.append(&mut get_uniform_colored_vertices_from_triangle(
+                    floats.append(&mut get_uniform_colored_vertices_from_triangle(
                         &triangle, &color,
                     ));
                 }
@@ -187,7 +145,11 @@ impl TerrainDrawing {
         }
 
         let index = self.index.get(from).unwrap();
-        self.vbo.load(index, vertices);
+        vec![Command::UpdateDrawing {
+            name: self.name.clone(),
+            index,
+            floats,
+        }]
     }
 }
 
