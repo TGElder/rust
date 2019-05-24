@@ -8,7 +8,8 @@ pub struct AvatarTravelDuration {
     travel_mode_fn: TravelModeFn,
     walk: Box<TravelDuration>,
     road: Box<TravelDuration>,
-    water: Box<TravelDuration>,
+    river: Box<TravelDuration>,
+    sea: Box<TravelDuration>,
 }
 
 impl AvatarTravelDuration {
@@ -16,13 +17,15 @@ impl AvatarTravelDuration {
         travel_mode_fn: TravelModeFn,
         walk: Box<TravelDuration>,
         road: Box<TravelDuration>,
-        water: Box<TravelDuration>,
+        river: Box<TravelDuration>,
+        sea: Box<TravelDuration>,
     ) -> AvatarTravelDuration {
         AvatarTravelDuration {
             travel_mode_fn,
             walk,
             road,
-            water,
+            river,
+            sea,
         }
     }
 
@@ -30,9 +33,16 @@ impl AvatarTravelDuration {
         travel_mode_fn: TravelModeFn,
         walk: Box<TravelDuration>,
         road: Box<TravelDuration>,
-        water: Box<TravelDuration>,
+        river: Box<TravelDuration>,
+        sea: Box<TravelDuration>,
     ) -> Box<TravelDuration> {
-        Box::new(AvatarTravelDuration::new(travel_mode_fn, walk, road, water))
+        Box::new(AvatarTravelDuration::new(
+            travel_mode_fn,
+            walk,
+            road,
+            river,
+            sea,
+        ))
     }
 }
 
@@ -46,10 +56,10 @@ impl AvatarTravelDuration {
         self.travel_mode_fn
             .travel_mode_between(world, from, to)
             .map(|travel_mode| match travel_mode {
-                TravelMode::Sea => &self.water,
-                TravelMode::River => &self.water,
                 TravelMode::Walk => &self.walk,
                 TravelMode::Road => &self.road,
+                TravelMode::River => &self.river,
+                TravelMode::Sea => &self.sea,
             })
     }
 }
@@ -64,6 +74,6 @@ impl TravelDuration for AvatarTravelDuration {
         self.walk
             .max_duration()
             .max(self.road.max_duration())
-            .max(self.water.max_duration())
+            .max(self.river.max_duration())
     }
 }

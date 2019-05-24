@@ -271,6 +271,13 @@ impl World {
         }
         out
     }
+
+    pub fn clip_to_in_bounds(&self, position: &V2<i64>) -> V2<usize> {
+        v2(
+            position.x.max(0).min(self.width as i64 - 1) as usize,
+            position.y.max(0).min(self.height as i64 - 1) as usize,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -540,5 +547,19 @@ mod tests {
         assert!(actual.contains(&v2(2, 1)));
         assert!(actual.contains(&v2(1, 2)));
         assert!(actual.contains(&v2(1, 1)));
+    }
+
+    #[test]
+    fn test_clip_to_in_bounds() {
+        let world = world();
+        assert_eq!(world.clip_to_in_bounds(&v2(-3, -3)), v2(0, 0));
+        assert_eq!(world.clip_to_in_bounds(&v2(0, -3)), v2(0, 0));
+        assert_eq!(world.clip_to_in_bounds(&v2(3, -3)), v2(2, 0));
+        assert_eq!(world.clip_to_in_bounds(&v2(-3, 0)), v2(0, 0));
+        assert_eq!(world.clip_to_in_bounds(&v2(0, 0)), v2(0, 0));
+        assert_eq!(world.clip_to_in_bounds(&v2(3, 0)), v2(2, 0));
+        assert_eq!(world.clip_to_in_bounds(&v2(-3, 3)), v2(0, 2));
+        assert_eq!(world.clip_to_in_bounds(&v2(0, 3)), v2(0, 2));
+        assert_eq!(world.clip_to_in_bounds(&v2(3, 3)), v2(2, 2));
     }
 }

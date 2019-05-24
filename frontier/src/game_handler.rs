@@ -3,6 +3,7 @@ use crate::house_builder::*;
 use crate::label_editor::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
+use crate::shore_start::*;
 use crate::world::*;
 use crate::world_artist::*;
 
@@ -13,6 +14,7 @@ use isometric::EventHandler;
 use isometric::{Command, Event};
 use isometric::{ElementState, MouseButton, VirtualKeyCode};
 
+use rand::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -55,7 +57,7 @@ impl GameHandler {
             mouse_coord: None,
             label_editor: LabelEditor::new(),
             avatar_artist: AvatarArtist::new(0.00078125, light_direction),
-            follow_avatar: false,
+            follow_avatar: true,
             handlers: vec![
                 Box::new(ZoomHandler::new()),
                 Box::new(RotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E)),
@@ -121,6 +123,16 @@ impl GameHandler {
         let z = self.world.get_elevation(&v2(x, y)).unwrap();
         Command::LookAt(WorldCoord::new(x as f32, y as f32, z))
     }
+
+    fn shore_start(&mut self) {
+        let shore_start = shore_start(32, &self.world, &mut Box::new(SmallRng::from_entropy()));
+        self.avatar.reposition(shore_start.at(), Rotation::Up);
+        self.avatar.walk_to(
+            &self.world,
+            &shore_start.landfall(),
+            &self.avatar_pathfinder,
+        );
+    }
 }
 
 impl EventHandler for GameHandler {
@@ -134,6 +146,7 @@ impl EventHandler for GameHandler {
             let mut commands = vec![];
             match *event {
                 Event::Start => {
+                    self.shore_start();
                     commands.append(&mut self.world_artist.init(&self.world));
                     commands.push(self.center());
                 }

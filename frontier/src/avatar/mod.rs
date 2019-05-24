@@ -79,7 +79,8 @@ impl Avatar {
         let walk = GradientTravelDuration::boxed(Scale::new((-0.5, 0.5), (500.0, 1000.0)), false);
         let river = GradientTravelDuration::boxed(Scale::new((-0.1, 0.1), (250.0, 250.0)), false);
         let road = ConstantTravelDuration::boxed(Duration::from_millis(100));
-        AvatarTravelDuration::boxed(self.travel_mode_fn.clone(), walk, road, river)
+        let sea = ConstantTravelDuration::boxed(Duration::from_millis(250));
+        AvatarTravelDuration::boxed(self.travel_mode_fn.clone(), walk, road, river, sea)
     }
 
     pub fn rotation(&self, world: &World) -> Option<Rotation> {
@@ -174,7 +175,7 @@ impl Avatar {
         }
     }
 
-    pub fn compute_world_coord(&self, world: &World) -> Option<WorldCoord> {
+    fn compute_world_coord_basic(&self, world: &World) -> Option<WorldCoord> {
         match &self.state {
             Some(AvatarState::Stationary { position, .. }) => {
                 Some(world.snap(WorldCoord::new(position.x as f32, position.y as f32, 0.0)))
@@ -184,9 +185,8 @@ impl Avatar {
         }
     }
 
-    pub fn compute_world_coord_with_sea(&self, world: &World) -> Option<WorldCoord> {
-        //TODO test
-        if let Some(WorldCoord { x, y, z }) = self.compute_world_coord(world) {
+    pub fn compute_world_coord(&self, world: &World) -> Option<WorldCoord> {
+        if let Some(WorldCoord { x, y, z }) = self.compute_world_coord_basic(world) {
             Some(WorldCoord::new(x, y, z.max(world.sea_level())))
         } else {
             None
@@ -360,7 +360,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_world_coord_stationary() {
+    fn test_compute_world_coord_basic_stationary() {
         let mut avatar = avatar();
         avatar.reposition(v2(1, 1), Rotation::Up);
         assert_eq!(
@@ -370,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_world_coord_walking() {
+    fn test_compute_world_coord_basic_walking() {
         let mut avatar = avatar();
         let mut world = world();
         avatar.reposition(v2(1, 1), Rotation::Up);
@@ -384,6 +384,16 @@ mod tests {
         assert_eq!((actual.x * 100.0).round() / 100.0, expected.x);
         assert_eq!((actual.y * 100.0).round() / 100.0, expected.y);
         assert_eq!((actual.z * 100.0).round() / 100.0, expected.z);
+    }
+
+    #[test]
+    fn test_compute_world_coord_under_sea_level() {
+        let mut avatar = avatar();
+        avatar.reposition(v2(2, 1), Rotation::Up);
+        assert_eq!(
+            avatar.compute_world_coord(&world()),
+            Some(WorldCoord::new(1.0, 1.0, 0.5))
+        );
     }
 
 }

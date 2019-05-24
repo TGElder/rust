@@ -55,7 +55,7 @@ impl AvatarArtist {
 
     pub fn draw(&self, avatar: &Avatar, world: &World) -> Vec<Command> {
         let mut out = self.draw_boat_if_required(avatar, world);
-        if let Some(world_coord) = avatar.compute_world_coord_with_sea(world) {
+        if let Some(world_coord) = avatar.compute_world_coord(world) {
             out.append(&mut self.draw_billboard_at_offset(
                 avatar,
                 world,
@@ -121,7 +121,7 @@ impl AvatarArtist {
     }
 
     fn draw_boat_if_required(&self, avatar: &Avatar, world: &World) -> Vec<Command> {
-        if let Some(world_coord) = avatar.compute_world_coord_with_sea(world) {
+        if let Some(world_coord) = avatar.compute_world_coord(world) {
             let check_position = v2(
                 world_coord.x.round() as usize,
                 world_coord.y.round() as usize,
