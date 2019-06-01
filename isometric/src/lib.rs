@@ -17,6 +17,7 @@ pub use graphics::drawing;
 pub use graphics::texture::*;
 
 pub use glutin::ElementState;
+pub use glutin::ModifiersState;
 pub use glutin::MouseButton;
 pub use glutin::VirtualKeyCode;
 

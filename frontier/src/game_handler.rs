@@ -13,7 +13,7 @@ use isometric::coords::*;
 use isometric::event_handlers::{RotateHandler, ZoomHandler};
 use isometric::EventHandler;
 use isometric::{Command, Event};
-use isometric::{ElementState, MouseButton, VirtualKeyCode};
+use isometric::{ElementState, ModifiersState, MouseButton, VirtualKeyCode};
 
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,7 @@ pub struct GameHandler {
     follow_avatar: bool,
     road_builder: RoadBuilder,
     handlers: Vec<Box<EventHandler>>,
+    rotate_handler: RotateHandler,
 }
 
 impl GameHandler {
@@ -81,10 +82,8 @@ impl GameHandler {
             label_editor: LabelEditor::new(load.labels),
             avatar_artist: AvatarArtist::new(0.00078125, light_direction),
             follow_avatar: true,
-            handlers: vec![
-                Box::new(ZoomHandler::new()),
-                Box::new(RotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E)),
-            ],
+            handlers: vec![Box::new(ZoomHandler::new())],
+            rotate_handler: RotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E),
         }
     }
 
@@ -180,6 +179,15 @@ impl GameHandler {
         }
         self.world_artist.draw_affected(&self.world, &seen)
     }
+
+    fn toggle_follow(&mut self) {
+        self.follow_avatar = !self.follow_avatar;
+        if self.follow_avatar {
+            self.rotate_handler.rotate_over_undrawn();
+        } else {
+            self.rotate_handler.no_rotate_over_undrawn();
+        }
+    }
 }
 
 impl EventHandler for GameHandler {
@@ -209,16 +217,9 @@ impl EventHandler for GameHandler {
                 Event::Key {
                     key,
                     state: ElementState::Pressed,
+                    modifiers: ModifiersState { alt: false, .. },
                     ..
                 } => match key {
-                    VirtualKeyCode::H => {
-                        if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
-                            self.avatar.reposition(
-                                v2(x.round() as usize, y.round() as usize),
-                                Rotation::Down,
-                            );
-                        };
-                    }
                     VirtualKeyCode::W => {
                         self.avatar
                             .walk_forward(&self.world, &self.avatar_pathfinder);
@@ -229,19 +230,36 @@ impl EventHandler for GameHandler {
                     VirtualKeyCode::D => {
                         self.avatar.rotate_clockwise();
                     }
+                    VirtualKeyCode::S => self.avatar.stop(&self.world),
                     VirtualKeyCode::R => commands.append(&mut self.build_road()),
                     VirtualKeyCode::X => commands.append(&mut self.auto_build_road()),
                     VirtualKeyCode::L => self.add_label(),
                     VirtualKeyCode::B => commands.append(&mut self.build_house()),
-                    VirtualKeyCode::C => self.follow_avatar = !self.follow_avatar,
+                    VirtualKeyCode::C => self.toggle_follow(),
+                    VirtualKeyCode::P => {
+                        Save::new(&self).map(|save| save.to_file("save"));
+                    }
+                    _ => (),
+                },
+                Event::Key {
+                    key,
+                    state: ElementState::Pressed,
+                    modifiers: ModifiersState { alt: true, .. },
+                    ..
+                } => match key {
+                    VirtualKeyCode::H => {
+                        if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
+                            self.avatar.reposition(
+                                v2(x.round() as usize, y.round() as usize),
+                                Rotation::Down,
+                            );
+                        };
+                    }
                     VirtualKeyCode::V => {
                         self.world.reveal_all();
                         self.avatar_pathfinder.compute_network(&self.world);
                         self.road_builder.pathfinder().compute_network(&self.world);
                         commands.append(&mut self.world_artist.init(&self.world));
-                    }
-                    VirtualKeyCode::P => {
-                        Save::new(&self).map(|save| save.to_file("save"));
                     }
                     _ => (),
                 },
@@ -254,6 +272,7 @@ impl EventHandler for GameHandler {
             for handler in self.handlers.iter_mut() {
                 commands.append(&mut handler.handle_event(event.clone()));
             }
+            commands.append(&mut self.rotate_handler.handle_event(event.clone()));
             if self.follow_avatar {
                 if let Some(world_coord) = self.avatar.compute_world_coord(&self.world) {
                     commands.push(Command::LookAt(world_coord));

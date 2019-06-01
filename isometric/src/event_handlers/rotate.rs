@@ -11,6 +11,7 @@ pub struct RotateHandler {
     cursor_position: Option<GLCoord4D>,
     clockwise_key: VirtualKeyCode,
     anticlockwise_key: VirtualKeyCode,
+    rotate_over_undrawn: bool,
 }
 
 impl RotateHandler {
@@ -19,7 +20,16 @@ impl RotateHandler {
             cursor_position: None,
             clockwise_key,
             anticlockwise_key,
+            rotate_over_undrawn: true,
         }
+    }
+
+    pub fn rotate_over_undrawn(&mut self) {
+        self.rotate_over_undrawn = true;
+    }
+
+    pub fn no_rotate_over_undrawn(&mut self) {
+        self.rotate_over_undrawn = false;
     }
 
     fn handle_key(&self, key: VirtualKeyCode) -> Vec<Command> {
@@ -49,7 +59,11 @@ impl EventHandler for RotateHandler {
                 ..
             } => self.handle_key(key),
             Event::CursorMoved(gl_position) => {
-                self.cursor_position = Some(gl_position);
+                self.cursor_position = if self.rotate_over_undrawn || gl_position.z != 1.0 {
+                    Some(gl_position)
+                } else {
+                    None // Nothing drawn here
+                };
                 vec![]
             }
             _ => vec![],

@@ -160,19 +160,40 @@ impl Avatar {
         }
     }
 
-    fn walk_path(&mut self, world: &World, path: Vec<V2<usize>>, pathfinder: &Pathfinder) {
+    fn walk_path(
+        &mut self,
+        world: &World,
+        positions: Vec<V2<usize>>,
+        travel_duration: &Box<TravelDuration>,
+    ) {
         self.state = Some(AvatarState::Walking(Path::new(
             world,
-            path,
-            pathfinder.travel_duration(),
+            positions,
+            travel_duration,
         )));
     }
 
     pub fn walk_to(&mut self, world: &World, to: &V2<usize>, pathfinder: &Pathfinder) {
-        if let Some(AvatarState::Stationary { position: from, .. }) = self.state() {
-            if let Some(path) = pathfinder.find_path(&from, to) {
-                self.walk_path(&world, path, pathfinder);
+        match self.state() {
+            Some(AvatarState::Stationary { position: from, .. }) => {
+                if let Some(positions) = pathfinder.find_path(&from, to) {
+                    self.walk_path(&world, positions, pathfinder.travel_duration());
+                }
             }
+            Some(AvatarState::Walking(path)) => {
+                let mut path = path.stop(world);
+                if let Some(positions) = pathfinder.find_path(&path.final_position(), to) {
+                    path.extend(world, positions[1..].to_vec(), pathfinder.travel_duration());
+                    self.state = Some(AvatarState::Walking(path));
+                }
+            }
+            None => (),
+        }
+    }
+
+    pub fn stop(&mut self, world: &World) {
+        if let Some(AvatarState::Walking(path)) = self.state() {
+            self.state = Some(AvatarState::Walking(path.stop(world)));
         }
     }
 
@@ -334,12 +355,29 @@ mod tests {
         let mut avatar = avatar();
         let world = world();
         let path = vec![v2(0, 0), v2(1, 0), v2(1, 1)];
-        avatar.walk_path(&world, path.clone(), &pathfinder());
+        avatar.walk_path(&world, path.clone(), &travel_duration());
         assert_eq!(
             avatar.state(),
             &Some(AvatarState::Walking(Path::new(
                 &world,
                 path,
+                &travel_duration()
+            )))
+        )
+    }
+
+    #[test]
+    fn test_walk_to_while_walking() {
+        let mut avatar = avatar();
+        let world = world();
+        let path = vec![v2(0, 0), v2(1, 0), v2(1, 1)];
+        avatar.walk_path(&world, path.clone(), &travel_duration());
+        avatar.walk_to(&world, &v2(0, 0), &pathfinder());
+        assert_eq!(
+            avatar.state(),
+            &Some(AvatarState::Walking(Path::new(
+                &world,
+                vec![v2(0, 0), v2(1, 0), v2(0, 0)],
                 &travel_duration()
             )))
         )
