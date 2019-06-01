@@ -1,6 +1,7 @@
 use commons::{v2, v3, M, V2, V3};
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Node {
     position: V2<usize>,
     width: f32,
@@ -37,7 +38,7 @@ impl Node {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Edge {
     from: V2<usize>,
     to: V2<usize>,
@@ -68,6 +69,7 @@ impl Edge {
     }
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Terrain {
     elevations: M<f32>,
     visibility: M<bool>,
@@ -604,6 +606,14 @@ mod tests {
         assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.0, 1.6, 2.0), v3(1.1, 1.6, 2.0)]));
         assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.5, 1.5, 4.0)]));
         assert_eq!(actual.len(), 3);
+    }
+
+    #[test]
+    fn round_trip() {
+        let original = terrain();
+        let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
+        let reconstructed: Terrain = bincode::deserialize(&encoded[..]).unwrap();
+        assert_eq!(original, reconstructed);
     }
 
 }

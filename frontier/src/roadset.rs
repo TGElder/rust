@@ -1,7 +1,8 @@
 use commons::*;
 use isometric::terrain::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 struct HalfJunction {
     width: f32,
     from: bool,
@@ -30,7 +31,7 @@ impl HalfJunction {
     }
 }
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 struct Junction {
     horizontal: HalfJunction,
     vertical: HalfJunction,
@@ -45,6 +46,7 @@ impl Junction {
     }
 }
 
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct RoadSet {
     junctions: M<Junction>,
 }
@@ -670,6 +672,14 @@ mod tests {
         assert_eq!(roadset.corner_here(&v2(1, 0)), false);
         assert_eq!(roadset.corner_here(&v2(0, 1)), false);
         assert_eq!(roadset.corner_here(&v2(1, 1)), false);
+    }
+
+    #[test]
+    fn round_trip() {
+        let original = l();
+        let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
+        let reconstructed: RoadSet = bincode::deserialize(&encoded[..]).unwrap();
+        assert_eq!(original, reconstructed);
     }
 
 }

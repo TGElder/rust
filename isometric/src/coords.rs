@@ -1,5 +1,6 @@
 extern crate glutin;
 use super::transform::Transform;
+use serde::{Deserialize, Serialize};
 
 pub trait PhysicalPositionExt {
     fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize) -> GLCoord2D;
@@ -135,7 +136,7 @@ impl Into<na::Point4<f32>> for GLCoord4D {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WorldCoord {
     pub x: f32,
     pub y: f32,
@@ -313,5 +314,13 @@ mod tests {
         let point_4 = na::Point4::new(1.0, 2.0, 3.0, 4.0);
         let world_coord: WorldCoord = point_4.into();
         assert_eq!(world_coord, WorldCoord::new(1.0, 2.0, 3.0));
+    }
+
+    #[test]
+    fn world_coord_round_trip() {
+        let original = WorldCoord::new(0.1, 2.0, 30.0);
+        let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
+        let reconstructed: WorldCoord = bincode::deserialize(&encoded[..]).unwrap();
+        assert_eq!(original, reconstructed);
     }
 }

@@ -24,3 +24,4 @@ extern crate commons;
 extern crate glutin;
 pub extern crate image;
 extern crate nalgebra as na;
+extern crate serde;

@@ -21,14 +21,19 @@ use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let size = args[1].parse().unwrap();
-    let seed = args[2].parse().unwrap();
-    let world = generate_world(size, seed);
 
-    let mut engine = IsometricEngine::new("Frontier", 1024, 1024, world.max_height());
-    engine.add_event_handler(Box::new(AsyncEventHandler::new(Box::new(
-        GameHandler::new(world),
-    ))));
+    let game_handler = if args.len() == 2 {
+        GameHandler::load(Load::from_file(&args[1]))
+    } else {
+        let size = args[1].parse().unwrap();
+        let seed = args[2].parse().unwrap();
+        let world = generate_world(size, seed);
+        GameHandler::new(world)
+    };
+
+    let mut engine =
+        IsometricEngine::new("Frontier", 1024, 1024, game_handler.world().max_height());
+    engine.add_event_handler(Box::new(AsyncEventHandler::new(Box::new(game_handler))));
 
     engine.run();
 }

@@ -14,9 +14,10 @@ use crate::world::World;
 use commons::scale::*;
 use commons::{v2, V2};
 use isometric::coords::*;
+use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum Rotation {
     Left,
     Up,

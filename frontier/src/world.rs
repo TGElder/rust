@@ -3,8 +3,10 @@ use commons::unsafe_ordering;
 use commons::*;
 use isometric::coords::WorldCoord;
 use isometric::terrain::*;
+use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct World {
     width: usize,
     height: usize,
@@ -13,7 +15,12 @@ pub struct World {
     roads: RoadSet,
     sea_level: f32,
     max_height: f32,
+    #[serde(skip, default = "default_instant")]
     time: Instant,
+}
+
+fn default_instant() -> Instant {
+    Instant::now()
 }
 
 impl World {
@@ -614,5 +621,14 @@ mod tests {
         assert!(world.is_visible(&v2(0, 2)));
         assert!(world.is_visible(&v2(1, 2)));
         assert!(world.is_visible(&v2(2, 2)));
+    }
+
+    #[test]
+    fn round_trip() {
+        let original = world();
+        let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
+        let mut reconstructed: World = bincode::deserialize(&encoded[..]).unwrap();
+        reconstructed.time = original.time;
+        assert_eq!(original, reconstructed);
     }
 }

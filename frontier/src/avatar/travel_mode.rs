@@ -10,7 +10,7 @@ pub enum TravelMode {
     Sea,
 }
 
-#[derive(Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TravelModeFn {
     min_river_width: f32,
 }

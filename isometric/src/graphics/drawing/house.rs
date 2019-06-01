@@ -10,6 +10,7 @@ pub fn draw_house(
     width: f32,
     height: f32,
     roof_height: f32,
+    basement_z: f32,
     base_color: Color,
     light_direction: na::Vector3<f32>,
 ) -> Vec<Command> {
@@ -22,10 +23,10 @@ pub fn draw_house(
     let y = world_coordinate.y as f32;
     let z = world_coordinate.z as f32;
 
-    let a = na::Vector3::new(x - width, y - width, 0.0);
-    let b = na::Vector3::new(x + width, y - width, 0.0);
-    let c = na::Vector3::new(x + width, y + width, 0.0);
-    let d = na::Vector3::new(x - width, y + width, 0.0);
+    let a = na::Vector3::new(x - width, y - width, basement_z);
+    let b = na::Vector3::new(x + width, y - width, basement_z);
+    let c = na::Vector3::new(x + width, y + width, basement_z);
+    let d = na::Vector3::new(x - width, y + width, basement_z);
     let e = na::Vector3::new(x - width, y - width, z + height);
     let f = na::Vector3::new(x + width, y - width, z + height);
     let g = na::Vector3::new(x + width, y + width, z + height);

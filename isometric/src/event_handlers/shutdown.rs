@@ -17,19 +17,6 @@ impl EventHandler for ShutdownHandler {
                 event: glutin::WindowEvent::CloseRequested,
                 ..
             }) => vec![Command::Shutdown],
-            Event::GlutinEvent(glutin::Event::WindowEvent {
-                event:
-                    glutin::WindowEvent::KeyboardInput {
-                        input:
-                            glutin::KeyboardInput {
-                                virtual_keycode: Some(glutin::VirtualKeyCode::Escape),
-                                state: glutin::ElementState::Pressed,
-                                ..
-                            },
-                        ..
-                    },
-                ..
-            }) => vec![Command::Shutdown],
             _ => vec![],
         }
     }

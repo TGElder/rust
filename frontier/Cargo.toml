@@ -9,7 +9,9 @@ commons = { path = "../commons" }
 isometric = { path = "../isometric" }
 pioneer = { path = "../pioneer" }
 network = { path = "../network" }
-nalgebra = "0.17.2"
+nalgebra = { version = "0.17.2", features = ["serde-serialize"] }
 image = "0.21.0"
 rand = "0.6"
 line_drawing = "0.7.0"
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.1.4"

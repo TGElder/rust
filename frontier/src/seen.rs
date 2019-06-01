@@ -4,9 +4,11 @@ use crate::avatar::*;
 use crate::world::*;
 use commons::{v2, v3, M, V2, V3};
 use isometric::coords::*;
+use serde::{Deserialize, Serialize};
 
 use line_drawing::{BresenhamCircle, Midpoint};
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Seen {
     visited: M<bool>,
     head_height: f32,
@@ -384,6 +386,14 @@ mod tests {
         assert!(out.contains(&v2(3, 4)));
         assert!(out.contains(&v2(4, 4)));
         assert!(out.contains(&v2(2, 5)));
+    }
+
+    #[test]
+    fn round_trip() {
+        let original = Seen::new(&world(), 0.1, Some(100.0));
+        let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
+        let reconstructed: Seen = bincode::deserialize(&encoded[..]).unwrap();
+        assert_eq!(original, reconstructed);
     }
 
 }
