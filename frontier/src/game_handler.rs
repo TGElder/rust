@@ -157,8 +157,8 @@ impl GameHandler {
 
     fn add_label(&mut self) {
         if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
-            let x = x as usize;
-            let y = y as usize;
+            let x = x.round() as usize;
+            let y = y.round() as usize;
             if let Some(z) = self.world.get_elevation(&v2(x, y)) {
                 self.label_editor
                     .start_edit(WorldCoord::new(x as f32, y as f32, z));
