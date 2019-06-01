@@ -16,14 +16,14 @@ pub fn generate_world(size: usize, seed: u8) -> World {
     println!("Generating world...");
     for i in 0..size {
         mesh = MeshSplitter::split(&mesh, &mut rng, (0.0, 0.75));
-        if i < 9 {
+        if i < (size - 1) {
             let threshold = i * 2;
-            mesh = Erosion::erode(mesh, &mut rng, threshold as u32, 16);
+            mesh = Erosion::erode(mesh, &mut rng, threshold as u32, 16, 0.9);
         }
         println!("{}", size - i);
     }
 
-    let max_height = 50.0;
+    let max_height = 32.0;
     let sea_level = 0.5;
     let before_sea_level =
         Scale::new((0.0, max_height), (mesh.get_min_z(), mesh.get_max_z())).scale(sea_level);

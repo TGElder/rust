@@ -1,3 +1,4 @@
+use crate::avatar::Rotation;
 use crate::world::*;
 use commons::{v2, V2};
 use rand::prelude::*;
@@ -37,6 +38,7 @@ fn get_left_candidates(distance: i64, world: &World) -> Vec<ShoreStart> {
         .map(|landfall| ShoreStart {
             landfall,
             at: world.clip_to_in_bounds(&v2(landfall.x as i64 - distance, landfall.y as i64)),
+            rotation: Rotation::Right,
         })
         .collect()
 }
@@ -48,6 +50,7 @@ fn get_right_candidates(distance: i64, world: &World) -> Vec<ShoreStart> {
         .map(|landfall| ShoreStart {
             at: world.clip_to_in_bounds(&v2(landfall.x as i64 + distance, landfall.y as i64)),
             landfall,
+            rotation: Rotation::Left,
         })
         .collect()
 }
@@ -59,6 +62,7 @@ fn get_top_candidates(distance: i64, world: &World) -> Vec<ShoreStart> {
         .map(|landfall| ShoreStart {
             at: world.clip_to_in_bounds(&v2(landfall.x as i64, landfall.y as i64 - distance)),
             landfall,
+            rotation: Rotation::Up,
         })
         .collect()
 }
@@ -70,6 +74,7 @@ fn get_bottom_candidates(distance: i64, world: &World) -> Vec<ShoreStart> {
         .map(|landfall| ShoreStart {
             at: world.clip_to_in_bounds(&v2(landfall.x as i64, landfall.y as i64 + distance)),
             landfall,
+            rotation: Rotation::Down,
         })
         .collect()
 }
@@ -94,6 +99,7 @@ pub fn shore_start<R: Rng>(distance: i64, world: &World, rng: &mut R) -> ShoreSt
 pub struct ShoreStart {
     at: V2<usize>,
     landfall: V2<usize>,
+    rotation: Rotation,
 }
 
 impl ShoreStart {
@@ -101,8 +107,13 @@ impl ShoreStart {
         self.at
     }
 
+    #[allow(dead_code)]
     pub fn landfall(&self) -> V2<usize> {
         self.landfall
+    }
+
+    pub fn rotation(&self) -> Rotation {
+        self.rotation
     }
 }
 
@@ -111,7 +122,6 @@ mod tests {
 
     use super::*;
     use commons::M;
-    use rand::rngs::mock::StepRng;
     use std::time::Instant;
 
     #[rustfmt::skip]
@@ -130,10 +140,6 @@ mod tests {
             0.5,
             Instant::now(),
         )
-    }
-
-    fn get_rng() -> Box<StepRng> {
-        Box::new(StepRng::new(11, 7))
     }
 
     #[test]
@@ -184,19 +190,23 @@ mod tests {
             vec![
                 ShoreStart {
                     at: v2(1, 0),
-                    landfall: v2(2, 0)
+                    landfall: v2(2, 0),
+                    rotation: Rotation::Right,
                 },
                 ShoreStart {
                     at: v2(1, 1),
-                    landfall: v2(2, 1)
+                    landfall: v2(2, 1),
+                    rotation: Rotation::Right,
                 },
                 ShoreStart {
                     at: v2(0, 2),
-                    landfall: v2(1, 2)
+                    landfall: v2(1, 2),
+                    rotation: Rotation::Right,
                 },
                 ShoreStart {
                     at: v2(0, 3),
-                    landfall: v2(1, 3)
+                    landfall: v2(1, 3),
+                    rotation: Rotation::Right,
                 },
             ]
         );
@@ -210,19 +220,23 @@ mod tests {
             vec![
                 ShoreStart {
                     at: v2(3, 0),
-                    landfall: v2(2, 0)
+                    landfall: v2(2, 0),
+                    rotation: Rotation::Left,
                 },
                 ShoreStart {
                     at: v2(4, 1),
-                    landfall: v2(3, 1)
+                    landfall: v2(3, 1),
+                    rotation: Rotation::Left,
                 },
                 ShoreStart {
                     at: v2(4, 2),
-                    landfall: v2(3, 2)
+                    landfall: v2(3, 2),
+                    rotation: Rotation::Left,
                 },
                 ShoreStart {
                     at: v2(2, 3),
-                    landfall: v2(1, 3)
+                    landfall: v2(1, 3),
+                    rotation: Rotation::Left,
                 },
             ]
         );
@@ -236,15 +250,18 @@ mod tests {
             vec![
                 ShoreStart {
                     at: v2(1, 1),
-                    landfall: v2(1, 2)
+                    landfall: v2(1, 2),
+                    rotation: Rotation::Up,
                 },
                 ShoreStart {
                     at: v2(2, 0),
-                    landfall: v2(2, 0)
+                    landfall: v2(2, 0),
+                    rotation: Rotation::Up,
                 },
                 ShoreStart {
                     at: v2(3, 0),
-                    landfall: v2(3, 1)
+                    landfall: v2(3, 1),
+                    rotation: Rotation::Up,
                 },
             ]
         );
@@ -258,15 +275,18 @@ mod tests {
             vec![
                 ShoreStart {
                     at: v2(1, 4),
-                    landfall: v2(1, 3)
+                    landfall: v2(1, 3),
+                    rotation: Rotation::Down,
                 },
                 ShoreStart {
                     at: v2(2, 3),
-                    landfall: v2(2, 2)
+                    landfall: v2(2, 2),
+                    rotation: Rotation::Down,
                 },
                 ShoreStart {
                     at: v2(3, 3),
-                    landfall: v2(3, 2)
+                    landfall: v2(3, 2),
+                    rotation: Rotation::Down,
                 },
             ]
         );

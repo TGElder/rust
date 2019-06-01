@@ -142,6 +142,27 @@ impl World {
         self.update_terrain(edge);
     }
 
+    pub fn is_visible(&self, position: &V2<usize>) -> bool {
+        if !self.in_bounds(position) {
+            false
+        } else {
+            self.terrain
+                .is_visible(Terrain::get_index_for_tile(&position))
+        }
+    }
+
+    pub fn set_visible(&mut self, position: &V2<usize>) {
+        self.terrain.set_visibility(position, true);
+    }
+
+    pub fn reveal_all(&mut self) {
+        for x in 0..self.width {
+            for y in 0..self.height {
+                self.set_visible(&v2(x, y));
+            }
+        }
+    }
+
     fn update_terrain(&mut self, edge: &Edge) {
         if self.is_river_or_road(edge) {
             self.terrain.set_edge(edge);
@@ -561,5 +582,37 @@ mod tests {
         assert_eq!(world.clip_to_in_bounds(&v2(-3, 3)), v2(0, 2));
         assert_eq!(world.clip_to_in_bounds(&v2(0, 3)), v2(0, 2));
         assert_eq!(world.clip_to_in_bounds(&v2(3, 3)), v2(2, 2));
+    }
+
+    #[test]
+    fn test_set_visible() {
+        let mut world = world();
+        assert!(!world.is_visible(&v2(0, 0)));
+        world.set_visible(&v2(0, 0));
+        assert!(world.is_visible(&v2(0, 0)));
+    }
+
+    #[test]
+    fn test_reveal_all() {
+        let mut world = world();
+        assert!(!world.is_visible(&v2(0, 0)));
+        assert!(!world.is_visible(&v2(0, 0)));
+        assert!(!world.is_visible(&v2(0, 0)));
+        assert!(!world.is_visible(&v2(0, 1)));
+        assert!(!world.is_visible(&v2(1, 1)));
+        assert!(!world.is_visible(&v2(2, 1)));
+        assert!(!world.is_visible(&v2(0, 2)));
+        assert!(!world.is_visible(&v2(1, 2)));
+        assert!(!world.is_visible(&v2(2, 2)));
+        world.reveal_all();
+        assert!(world.is_visible(&v2(0, 0)));
+        assert!(world.is_visible(&v2(0, 0)));
+        assert!(world.is_visible(&v2(0, 0)));
+        assert!(world.is_visible(&v2(0, 1)));
+        assert!(world.is_visible(&v2(1, 1)));
+        assert!(world.is_visible(&v2(2, 1)));
+        assert!(world.is_visible(&v2(0, 2)));
+        assert!(world.is_visible(&v2(1, 2)));
+        assert!(world.is_visible(&v2(2, 2)));
     }
 }

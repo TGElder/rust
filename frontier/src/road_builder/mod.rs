@@ -65,6 +65,10 @@ impl RoadBuilder {
         }
     }
 
+    pub fn pathfinder(&mut self) -> &mut Pathfinder {
+        &mut self.pathfinder
+    }
+
     pub fn build_forward(
         &mut self,
         world: &mut World,

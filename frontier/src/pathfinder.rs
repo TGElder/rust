@@ -73,7 +73,8 @@ impl Pathfinder {
         edges
     }
 
-    fn compute_network(&mut self, world: &World) {
+    pub fn compute_network(&mut self, world: &World) {
+        self.network = Network::new(world.width() * world.height(), &vec![]);
         &self
             .compute_network_edges(world)
             .iter()
@@ -106,6 +107,15 @@ impl Pathfinder {
         }
         if let Some(network_edge) = self.get_network_edge(&world, from, to) {
             self.network.add_edge(&network_edge);
+        }
+    }
+
+    pub fn update_node(&mut self, world: &World, position: &V2<usize>) {
+        for other in world.expand_position(position) {
+            if other.x == position.x || other.y == position.y {
+                self.update_edge(world, position, &other);
+                self.update_edge(world, &other, position);
+            }
         }
     }
 }
@@ -317,6 +327,85 @@ mod tests {
         assert_eq!(
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
             Some(NetworkEdge::new(1, 0, 64))
+        );
+    }
+
+    #[test]
+    fn test_update_node() {
+        let mut pathfinder = pathfinder();
+        let mut world = world();
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 0)),
+            Some(NetworkEdge::new(4, 1, 128))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(1, 1)),
+            Some(NetworkEdge::new(1, 4, 191))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(0, 1)),
+            Some(NetworkEdge::new(4, 3, 191))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(0, 1), &v2(1, 1)),
+            Some(NetworkEdge::new(3, 4, 191))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(2, 1)),
+            Some(NetworkEdge::new(4, 5, 128))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(2, 1), &v2(1, 1)),
+            Some(NetworkEdge::new(5, 4, 191))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 2)),
+            Some(NetworkEdge::new(4, 7, 191))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 2), &v2(1, 1)),
+            Some(NetworkEdge::new(7, 4, 191))
+        );
+        world.add_road(&Edge::new(v2(1, 1), v2(1, 0)));
+        world.add_road(&Edge::new(v2(1, 0), v2(1, 1)));
+        world.add_road(&Edge::new(v2(1, 1), v2(0, 1)));
+        world.add_road(&Edge::new(v2(0, 1), v2(1, 1)));
+        world.add_road(&Edge::new(v2(1, 1), v2(2, 1)));
+        world.add_road(&Edge::new(v2(2, 1), v2(1, 1)));
+        world.add_road(&Edge::new(v2(1, 1), v2(1, 2)));
+        world.add_road(&Edge::new(v2(1, 2), v2(1, 1)));
+        pathfinder.update_node(&world, &v2(1, 1));
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 0)),
+            Some(NetworkEdge::new(4, 1, 64))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(1, 1)),
+            Some(NetworkEdge::new(1, 4, 64))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(0, 1)),
+            Some(NetworkEdge::new(4, 3, 64))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(0, 1), &v2(1, 1)),
+            Some(NetworkEdge::new(3, 4, 64))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(2, 1)),
+            Some(NetworkEdge::new(4, 5, 64))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(2, 1), &v2(1, 1)),
+            Some(NetworkEdge::new(5, 4, 64))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 2)),
+            Some(NetworkEdge::new(4, 7, 64))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 2), &v2(1, 1)),
+            Some(NetworkEdge::new(7, 4, 64))
         );
     }
 

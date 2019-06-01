@@ -70,6 +70,7 @@ impl Edge {
 
 pub struct Terrain {
     elevations: M<f32>,
+    visibility: M<bool>,
     nodes: M<Node>,
     edges: M<bool>,
 }
@@ -79,6 +80,7 @@ impl Terrain {
         let (width, height) = elevations.shape();
         let mut out = Terrain {
             elevations,
+            visibility: M::from_element(width, height, false),
             nodes: Terrain::init_node_matrix(width, height),
             edges: Terrain::init_edge_matrix(width, height),
         };
@@ -106,6 +108,14 @@ impl Terrain {
     pub fn is_edge(&self, edge: &Edge) -> bool {
         let index = Terrain::get_index_for_edge(edge);
         self.edges[(index.x, index.y)]
+    }
+
+    pub fn set_visibility(&mut self, position: &V2<usize>, visibility: bool) {
+        self.visibility[(position.x, position.y)] = visibility;
+    }
+
+    pub fn is_visible(&self, grid_index: V2<usize>) -> bool {
+        self.visibility[(grid_index.x / 2, grid_index.y / 2)]
     }
 
     fn get_vertex(&self, position: V2<usize>) -> V3<f32> {
@@ -160,13 +170,18 @@ impl Terrain {
         self.edges[(position.x, position.y)] = false;
     }
 
-    pub fn get_border(&self, grid_index: V2<usize>) -> Vec<V3<f32>> {
+    pub fn get_border(&self, grid_index: V2<usize>, include_invisible: bool) -> Vec<V3<f32>> {
         let offsets: [V2<usize>; 4] = [v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)];
 
         let mut out = vec![];
 
         for o in 0..4 {
             let focus_index = grid_index + offsets[o];
+
+            if !include_invisible && !self.is_visible(focus_index) {
+                continue;
+            }
+
             let next_index = grid_index + offsets[(o + 1) % 4];
 
             let focus_position = self.get_vertex(v2(focus_index.x, focus_index.y));
@@ -181,7 +196,7 @@ impl Terrain {
     }
 
     pub fn get_triangles(&self, grid_index: V2<usize>) -> Vec<[V3<f32>; 3]> {
-        let border = self.get_border(grid_index);
+        let border = self.get_border(grid_index, false);
 
         if border.len() == 4 {
             vec![
@@ -275,7 +290,12 @@ mod tests {
             Edge::new(v2(1, 2), v2(2, 2)),
         ];
 
-        Terrain::new(elevations, &nodes, &edges)
+
+        let mut out = Terrain::new(elevations, &nodes, &edges);
+
+        out.visibility = M::from_element(3, 3, true);
+
+        out
     }
 
     #[test]
@@ -394,7 +414,7 @@ mod tests {
 
     #[test]
     fn test_get_border_square() {
-        let actual = terrain().get_border(v2(2, 2));
+        let actual = terrain().get_border(v2(2, 2), true);
 
         assert_eq!(
             actual,
@@ -409,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_get_border_triangle() {
-        let actual = terrain().get_border(v2(2, 1));
+        let actual = terrain().get_border(v2(2, 1), true);
 
         assert_eq!(
             actual,
@@ -419,16 +439,42 @@ mod tests {
 
     #[test]
     fn test_get_border_line() {
-        let actual = terrain().get_border(v2(1, 0));
+        let actual = terrain().get_border(v2(1, 0), true);
 
         assert_eq!(actual, vec![v3(0.0, 0.0, 0.0), v3(1.0, 0.0, 0.0),]);
     }
 
     #[test]
     fn test_get_border_empty() {
-        let actual = terrain().get_border(v2(0, 0));
+        let actual = terrain().get_border(v2(0, 0), true);
 
         assert_eq!(actual, vec![]);
+    }
+
+    #[test]
+    fn test_get_border_with_invisible_vertices() {
+        let mut terrain = terrain();
+
+        assert_eq!(
+            terrain.get_border(v2(3, 2), false),
+            vec![
+                v3(1.5, 0.5, 4.0),
+                v3(1.6, 0.9, 3.0),
+                v3(1.6, 1.1, 3.0),
+                v3(1.5, 1.5, 4.0),
+            ]
+        );
+
+        terrain.set_visibility(&v2(1, 1), false);
+
+        assert_eq!(
+            terrain.get_border(v2(3, 2), false),
+            vec![v3(1.6, 0.9, 3.0), v3(1.6, 1.1, 3.0),]
+        );
+
+        terrain.set_visibility(&v2(2, 1), false);
+
+        assert_eq!(terrain.get_border(v2(3, 2), false), vec![]);
     }
 
     #[test]
@@ -545,6 +591,19 @@ mod tests {
         assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.0, 1.6, 2.0), v3(1.1, 1.6, 2.0)]));
         assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.5, 1.5, 4.0)]));
         assert_eq!(actual.len(), 4);
+    }
+
+    #[test]
+    fn test_get_triangles_for_tile_with_invisible_vertex() {
+        let mut terrain = terrain();
+        terrain.set_visibility(&v2(2, 2), false);
+
+        let actual = terrain.get_triangles_for_tile(&v2(1, 1));
+
+        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.6, 1.1, 3.0)]));
+        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.0, 1.6, 2.0), v3(1.1, 1.6, 2.0)]));
+        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.5, 1.5, 4.0)]));
+        assert_eq!(actual.len(), 3);
     }
 
 }

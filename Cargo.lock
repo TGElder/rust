@@ -255,6 +255,7 @@ dependencies = [
  "commons 0.1.0",
  "image 0.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "isometric 0.1.0",
+ "line_drawing 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "network 0.1.0",
  "pioneer 0.1.0",

@@ -3,6 +3,7 @@ use crate::house_builder::*;
 use crate::label_editor::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
+use crate::seen::*;
 use crate::shore_start::*;
 use crate::world::*;
 use crate::world_artist::*;
@@ -20,6 +21,7 @@ use std::time::Instant;
 
 pub struct GameHandler {
     world: World,
+    seen: Seen,
     world_artist: WorldArtist,
     mouse_coord: Option<WorldCoord>,
     label_editor: LabelEditor,
@@ -52,6 +54,7 @@ impl GameHandler {
             avatar_pathfinder: Pathfinder::new(&world, avatar.travel_duration()),
             avatar,
             road_builder: RoadBuilder::new(&world),
+            seen: Seen::new(&world, 0.002, Some(6371.0)),
             world,
             world_artist,
             mouse_coord: None,
@@ -126,24 +129,46 @@ impl GameHandler {
 
     fn shore_start(&mut self) {
         let shore_start = shore_start(32, &self.world, &mut Box::new(SmallRng::from_entropy()));
-        self.avatar.reposition(shore_start.at(), Rotation::Up);
-        self.avatar.walk_to(
-            &self.world,
-            &shore_start.landfall(),
-            &self.avatar_pathfinder,
-        );
+        self.avatar
+            .reposition(shore_start.at(), shore_start.rotation());
+    }
+
+    fn add_label(&mut self) {
+        if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
+            let x = x as usize;
+            let y = y as usize;
+            if let Some(z) = self.world.get_elevation(&v2(x, y)) {
+                self.label_editor
+                    .start_edit(WorldCoord::new(x as f32, y as f32, z));
+            }
+        }
+    }
+
+    fn update_visiblity(&mut self) -> Vec<Command> {
+        let seen = self
+            .seen
+            .update_visibility(&mut self.world, &self.avatar, 310);
+        for position in seen.iter() {
+            self.world.set_visible(position);
+            self.avatar_pathfinder.update_node(&self.world, position);
+            self.road_builder
+                .pathfinder()
+                .update_node(&self.world, position);
+        }
+        self.world_artist.draw_affected(&self.world, &seen)
     }
 }
 
 impl EventHandler for GameHandler {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
+        let mut commands = vec![];
         self.world.set_time(Instant::now());
         self.avatar.evolve(&self.world);
-        let label_commands = self.label_editor.handle_event(event.clone());
+
+        let mut label_commands = self.label_editor.handle_event(event.clone());
         if !label_commands.is_empty() {
-            label_commands
+            commands.append(&mut label_commands);
         } else {
-            let mut commands = vec![];
             match *event {
                 Event::Start => {
                     self.shore_start();
@@ -151,7 +176,11 @@ impl EventHandler for GameHandler {
                     commands.push(self.center());
                 }
                 Event::WorldPositionChanged(mouse_coord) => {
-                    self.mouse_coord = Some(mouse_coord);
+                    if mouse_coord.x >= 0.0 && mouse_coord.y >= 0.0 && mouse_coord.z >= 0.0 {
+                        self.mouse_coord = Some(mouse_coord);
+                    } else {
+                        self.mouse_coord = None;
+                    }
                 }
                 Event::Key {
                     key,
@@ -178,14 +207,15 @@ impl EventHandler for GameHandler {
                     }
                     VirtualKeyCode::R => commands.append(&mut self.build_road()),
                     VirtualKeyCode::X => commands.append(&mut self.auto_build_road()),
-                    VirtualKeyCode::L => {
-                        if let Some(AvatarState::Stationary { .. }) = self.avatar.state() {
-                            self.label_editor
-                                .start_edit(self.avatar.compute_world_coord(&self.world).unwrap());
-                        }
-                    }
+                    VirtualKeyCode::L => self.add_label(),
                     VirtualKeyCode::B => commands.append(&mut self.build_house()),
                     VirtualKeyCode::C => self.follow_avatar = !self.follow_avatar,
+                    VirtualKeyCode::V => {
+                        self.world.reveal_all();
+                        self.avatar_pathfinder.compute_network(&self.world);
+                        self.road_builder.pathfinder().compute_network(&self.world);
+                        commands.append(&mut self.world_artist.init(&self.world));
+                    }
                     _ => (),
                 },
                 Event::Mouse {
@@ -202,9 +232,10 @@ impl EventHandler for GameHandler {
                     commands.push(Command::LookAt(world_coord));
                 }
             }
-            self.world.set_time(Instant::now());
-            commands.append(&mut self.avatar_artist.draw(&self.avatar, &self.world));
-            commands
         }
+        self.world.set_time(Instant::now());
+        commands.append(&mut self.update_visiblity());
+        commands.append(&mut self.avatar_artist.draw(&self.avatar, &self.world));
+        commands
     }
 }

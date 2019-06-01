@@ -66,8 +66,12 @@ impl AvatarTravelDuration {
 
 impl TravelDuration for AvatarTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
-        self.get_duration_fn(world, from, to)
-            .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
+        if !world.is_visible(from) {
+            None
+        } else {
+            self.get_duration_fn(world, from, to)
+                .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
+        }
     }
 
     fn max_duration(&self) -> Duration {

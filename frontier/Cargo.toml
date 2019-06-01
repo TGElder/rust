@@ -12,3 +12,4 @@ network = { path = "../network" }
 nalgebra = "0.17.2"
 image = "0.21.0"
 rand = "0.6"
+line_drawing = "0.7.0"

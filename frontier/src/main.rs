@@ -7,6 +7,7 @@ mod label_editor;
 mod pathfinder;
 mod road_builder;
 mod roadset;
+mod seen;
 mod shore_start;
 mod travel_duration;
 mod world;

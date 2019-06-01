@@ -392,7 +392,7 @@ mod tests {
         avatar.reposition(v2(2, 1), Rotation::Up);
         assert_eq!(
             avatar.compute_world_coord(&world()),
-            Some(WorldCoord::new(1.0, 1.0, 0.5))
+            Some(WorldCoord::new(2.0, 1.0, 0.5))
         );
     }
 
