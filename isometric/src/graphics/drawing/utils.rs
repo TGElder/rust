@@ -1,6 +1,6 @@
 use color::Color;
 use std::f32;
-use utils::unsafe_ordering;
+use commons::unsafe_ordering;
 
 pub trait TriangleColoring: Send {
     fn get_colors(&self, points: &[na::Vector3<f32>; 3]) -> [Color; 3];
