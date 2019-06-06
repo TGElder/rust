@@ -26,68 +26,24 @@ pub struct WorldArtist {
     width: usize,
     height: usize,
     drawing: TerrainDrawing,
-    colors: M<Color>,
-    shading: Box<SquareColoring>,
+    coloring: LayerColoring,
     slab_size: usize,
 }
 
 impl WorldArtist {
-    pub fn new(
-        world: &World,
-        slab_size: usize,
-        beach_level: f32,
-        snow_level: f32,
-        cliff_gradient: f32,
-        light_direction: V3<f32>,
-    ) -> WorldArtist {
+    pub fn new(world: &World, coloring: LayerColoring, slab_size: usize) -> WorldArtist {
         let (width, height) = world.terrain().elevations().shape();
         WorldArtist {
             width,
             height,
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, slab_size),
-            colors: WorldArtist::get_colors(world, beach_level, snow_level, cliff_gradient),
-            shading: WorldArtist::get_shading(light_direction),
             slab_size,
+            coloring,
         }
     }
 
-    fn get_shading(light_direction: V3<f32>) -> Box<SquareColoring> {
-        Box::new(AngleSquareColoring::new(
-            Color::new(1.0, 1.0, 1.0, 1.0),
-            light_direction,
-        ))
-    }
-
-    fn get_colors(
-        world: &World,
-        beach_level: f32,
-        snow_level: f32,
-        cliff_gradient: f32,
-    ) -> M<Color> {
-        let (width, height) = world.terrain().elevations().shape();
-        M::from_fn(width - 1, height - 1, |x, y| {
-            WorldArtist::get_color(world, &v2(x, y), beach_level, snow_level, cliff_gradient)
-        })
-    }
-
-    fn get_color(
-        world: &World,
-        position: &V2<usize>,
-        beach_level: f32,
-        snow_level: f32,
-        cliff_gradient: f32,
-    ) -> Color {
-        let max_gradient = world.get_max_abs_rise(&position);
-        let min_elevation = world.get_lowest_corner(&position);
-        if min_elevation > snow_level {
-            Color::new(1.0, 1.0, 1.0, 1.0)
-        } else if max_gradient > cliff_gradient {
-            Color::new(0.5, 0.4, 0.3, 1.0)
-        } else if min_elevation < beach_level {
-            Color::new(1.0, 1.0, 0.0, 1.0)
-        } else {
-            Color::new(0.0, 0.75, 0.0, 1.0)
-        }
+    pub fn coloring(&mut self) -> &mut LayerColoring {
+        &mut self.coloring
     }
 
     pub fn draw_terrain(&self) -> Vec<Command> {
@@ -103,13 +59,10 @@ impl WorldArtist {
     fn draw_slab_tiles(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
         let to = slab.to();
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
-        let sea = Color::new(0.0, 0.0, 1.0, 1.0);
         self.drawing.update(
             world.terrain(),
-            &self.colors,
             world.sea_level(),
-            &sea,
-            &self.shading,
+            &self.coloring,
             slab.from,
             to,
         )
@@ -242,4 +195,90 @@ mod tests {
         assert_eq!(Slab::new(v2(11, 33), 32).to(), v2(32, 64));
     }
 
+}
+
+pub struct DefaultColoring {
+    coloring: ShadedTileTerrainColoring,
+}
+
+impl DefaultColoring {
+    pub fn new(
+        world: &World,
+        beach_level: f32,
+        snow_level: f32,
+        cliff_gradient: f32,
+        light_direction: V3<f32>,
+    ) -> DefaultColoring {
+        DefaultColoring {
+            coloring: ShadedTileTerrainColoring::new(
+                Self::get_colors(world, beach_level, snow_level, cliff_gradient),
+                Self::sea_color(),
+                world.sea_level(),
+                light_direction,
+            ),
+        }
+    }
+
+    fn sea_color() -> Color {
+        Color::new(0.0, 0.0, 1.0, 1.0)
+    }
+
+    fn snow_color() -> Color {
+        Color::new(1.0, 1.0, 1.0, 1.0)
+    }
+
+    fn cliff_color() -> Color {
+        Color::new(0.5, 0.4, 0.3, 1.0)
+    }
+
+    fn beach_color() -> Color {
+        Color::new(1.0, 1.0, 0.0, 1.0)
+    }
+
+    fn grass_color() -> Color {
+        Color::new(0.0, 0.75, 0.0, 1.0)
+    }
+
+    fn get_colors(
+        world: &World,
+        beach_level: f32,
+        snow_level: f32,
+        cliff_gradient: f32,
+    ) -> M<Color> {
+        let (width, height) = world.terrain().elevations().shape();
+        M::from_fn(width - 1, height - 1, |x, y| {
+            Self::get_color(world, &v2(x, y), beach_level, snow_level, cliff_gradient)
+        })
+    }
+
+    fn get_color(
+        world: &World,
+        position: &V2<usize>,
+        beach_level: f32,
+        snow_level: f32,
+        cliff_gradient: f32,
+    ) -> Color {
+        let max_gradient = world.get_max_abs_rise(&position);
+        let min_elevation = world.get_lowest_corner(&position);
+        if min_elevation > snow_level {
+            Self::snow_color()
+        } else if max_gradient > cliff_gradient {
+            Self::cliff_color()
+        } else if min_elevation < beach_level {
+            Self::beach_color()
+        } else {
+            Self::grass_color()
+        }
+    }
+}
+
+impl TerrainColoring for DefaultColoring {
+    fn color(
+        &self,
+        terrain: &Terrain,
+        tile: &V2<usize>,
+        triangle: &[V3<f32>; 3],
+    ) -> [Option<Color>; 3] {
+        self.coloring.color(terrain, tile, triangle)
+    }
 }

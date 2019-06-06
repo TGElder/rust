@@ -1,9 +1,13 @@
+mod coloring;
+
+pub use self::coloring::*;
+
 use super::utils::*;
 use crate::graphics::Drawing;
 use crate::Command;
 use color::Color;
 use commons::index2d::*;
-use commons::{v2, M, V2, V3};
+use commons::{v2, V2, V3};
 use terrain::{Edge, Node, Terrain};
 
 fn clip_to_sea_level(mut vertex: V3<f32>, sea_level: f32) -> V3<f32> {
@@ -17,10 +21,6 @@ fn clip_triangle_to_sea_level(triangle: [V3<f32>; 3], sea_level: f32) -> [V3<f32
         clip_to_sea_level(triangle[1], sea_level),
         clip_to_sea_level(triangle[2], sea_level),
     ]
-}
-
-fn entire_triangle_at_sea_level(triangle: [V3<f32>; 3], sea_level: f32) -> bool {
-    triangle[0].z == sea_level && triangle[1].z == sea_level && triangle[2].z == sea_level
 }
 
 pub fn draw_nodes(
@@ -117,6 +117,7 @@ pub struct TerrainDrawing {
     name: String,
     index: TerrainIndex,
     max_floats_per_index: usize,
+    default_color: Color,
 }
 
 impl TerrainDrawing {
@@ -129,6 +130,7 @@ impl TerrainDrawing {
             name,
             index,
             max_floats_per_index,
+            default_color: Color::new(0.0, 0.0, 0.0, 0.0),
         }
     }
 
@@ -143,10 +145,8 @@ impl TerrainDrawing {
     pub fn update(
         &mut self,
         terrain: &Terrain,
-        color_matrix: &M<Color>,
         sea_level: f32,
-        sea_color: &Color,
-        shading: &Box<SquareColoring>,
+        coloring: &TerrainColoring,
         from: V2<usize>,
         to: V2<usize>,
     ) -> Vec<Command> {
@@ -155,19 +155,16 @@ impl TerrainDrawing {
         for x in from.x..to.x {
             for y in from.y..to.y {
                 let tile = v2(x, y);
-                let grid_index = Terrain::get_index_for_tile(&tile);
-                let border = terrain.get_border(grid_index, true);
-                let shade = shading.get_colors(&[border[0], border[1], border[2], border[3]])[0];
-                let color = &color_matrix[(tile.x, tile.y)].mul(&shade);
                 for triangle in terrain.get_triangles_for_tile(&tile) {
                     let triangle = clip_triangle_to_sea_level(triangle, sea_level);
-                    let color = if entire_triangle_at_sea_level(triangle, sea_level) {
-                        sea_color
-                    } else {
-                        color
-                    };
-                    floats.append(&mut get_uniform_colored_vertices_from_triangle(
-                        &triangle, &color,
+                    let colors = coloring.color(terrain, &tile, &triangle);
+                    let colors = [
+                        colors[0].unwrap_or(self.default_color),
+                        colors[1].unwrap_or(self.default_color),
+                        colors[2].unwrap_or(self.default_color),
+                    ];
+                    floats.append(&mut get_specific_colored_vertices_from_triangle(
+                        &triangle, &colors,
                     ));
                 }
             }

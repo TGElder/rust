@@ -16,13 +16,14 @@ mod world_gen;
 
 use crate::game_handler::*;
 use crate::world_gen::*;
+use isometric::drawing::*;
 use isometric::{AsyncEventHandler, IsometricEngine};
 use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let game_handler = if args.len() == 2 {
+    let mut game_handler = if args.len() == 2 {
         GameHandler::load(Load::from_file(&args[1]))
     } else {
         let size = args[1].parse().unwrap();
@@ -30,6 +31,10 @@ fn main() {
         let world = generate_world(size, seed);
         GameHandler::new(world)
     };
+
+    let overlay =
+        NodeTerrainColoring::from_data(game_handler.world().terrain().elevations().clone());
+    game_handler.set_overlay(overlay);
 
     let mut engine =
         IsometricEngine::new("Frontier", 1024, 1024, game_handler.world().max_height());

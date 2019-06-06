@@ -10,7 +10,9 @@ use crate::world_artist::*;
 
 use commons::{v2, M, V2, V3};
 use isometric::coords::*;
+use isometric::drawing::*;
 use isometric::event_handlers::{RotateHandler, ZoomHandler};
+use isometric::Color;
 use isometric::EventHandler;
 use isometric::{Command, Event};
 use isometric::{ElementState, ModifiersState, MouseButton, VirtualKeyCode};
@@ -56,18 +58,10 @@ impl GameHandler {
 
     pub fn load(load: Load) -> GameHandler {
         let world = load.world;
-        let beach_level = world.sea_level() + 0.05;
-        let snow_level = world.max_height() * 0.8;
-        let cliff_gradient = 0.5;
+
         let light_direction = V3::new(-1.0, 0.0, 1.0);
-        let world_artist = WorldArtist::new(
-            &world,
-            64,
-            beach_level,
-            snow_level,
-            cliff_gradient,
-            light_direction,
-        );
+        let world_artist =
+            WorldArtist::new(&world, Self::create_coloring(&world, light_direction), 64);
         let mut avatar = Avatar::new(0.1);
         avatar.reposition(load.avatar_position, load.avatar_rotation);
         GameHandler {
@@ -90,9 +84,44 @@ impl GameHandler {
     pub fn world(&self) -> &World {
         &self.world
     }
-}
 
-impl GameHandler {
+    pub fn create_coloring(world: &World, light_direction: V3<f32>) -> LayerColoring {
+        let beach_level = world.sea_level() + 0.05;
+        let snow_level = world.max_height() * 0.8;
+        let cliff_gradient = 0.5;
+        let mut out = LayerColoring::new();
+        out.add_layer(
+            "base".to_string(),
+            Box::new(DefaultColoring::new(
+                &world,
+                beach_level,
+                snow_level,
+                cliff_gradient,
+                light_direction,
+            )),
+            0,
+        );
+        out
+    }
+
+    pub fn set_overlay<T>(&mut self, overlay: T)
+    where
+        T: 'static + TerrainColoring + Send,
+    {
+        self.world_artist
+            .coloring()
+            .add_layer("overlay".to_string(), Box::new(overlay), 1);
+    }
+
+    pub fn toggle_overlay(&mut self) -> Vec<Command> {
+        if let Some(priority) = self.world_artist.coloring().get_priority("overlay") {
+            self.world_artist
+                .coloring()
+                .set_priority("overlay", priority * -1);
+        }
+        self.world_artist.init(&self.world)
+    }
+
     fn handle_road_builder_result(&mut self, result: Option<RoadBuilderResult>) -> Vec<Command> {
         result
             .map(|result| {
@@ -177,6 +206,9 @@ impl GameHandler {
                 .pathfinder()
                 .update_node(&self.world, position);
         }
+        if !seen.is_empty() {
+            self.update_visited_layer();
+        }
         self.world_artist.draw_affected(&self.world, &seen)
     }
 
@@ -187,6 +219,39 @@ impl GameHandler {
         } else {
             self.rotate_handler.no_rotate_over_undrawn();
         }
+    }
+
+    fn create_visited_layer(&mut self) {
+        let red = Some(Color::new(1.0, 0.0, 0.0, 1.0));
+        let layer = Box::new(NodeTerrainColoring::new(M::from_fn(
+            self.world.width(),
+            self.world.height(),
+            |x, y| {
+                if self.seen.point_has_been_visited(&v2(x, y)) {
+                    red
+                } else {
+                    None
+                }
+            },
+        )));
+        self.world_artist
+            .coloring()
+            .add_layer("visited".to_string(), layer, -2);
+    }
+
+    fn update_visited_layer(&mut self) {
+        if self.world_artist.coloring().has_layer("visited") {
+            self.create_visited_layer();
+        }
+    }
+
+    fn toggle_visited_layer(&mut self) -> Vec<Command> {
+        if self.world_artist.coloring().has_layer("visited") {
+            self.world_artist.coloring().remove_layer("visited");
+        } else {
+            self.create_visited_layer();
+        }
+        self.world_artist.init(&self.world)
     }
 }
 
@@ -234,11 +299,13 @@ impl EventHandler for GameHandler {
                     VirtualKeyCode::R => commands.append(&mut self.build_road()),
                     VirtualKeyCode::X => commands.append(&mut self.auto_build_road()),
                     VirtualKeyCode::L => self.add_label(),
-                    VirtualKeyCode::B => commands.append(&mut self.build_house()),
+                    VirtualKeyCode::H => commands.append(&mut self.build_house()),
                     VirtualKeyCode::C => self.toggle_follow(),
                     VirtualKeyCode::P => {
                         Save::new(&self).map(|save| save.to_file("save"));
                     }
+                    VirtualKeyCode::O => commands.append(&mut self.toggle_overlay()),
+                    VirtualKeyCode::V => commands.append(&mut self.toggle_visited_layer()),
                     _ => (),
                 },
                 Event::Key {
