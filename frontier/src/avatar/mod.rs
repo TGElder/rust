@@ -16,6 +16,7 @@ use commons::{v2, V2};
 use isometric::coords::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
+use std::time::Instant;
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum Rotation {
@@ -84,10 +85,10 @@ impl Avatar {
         AvatarTravelDuration::boxed(self.travel_mode_fn.clone(), walk, road, river, sea)
     }
 
-    pub fn rotation(&self, world: &World) -> Option<Rotation> {
+    pub fn rotation(&self, instant: &Instant) -> Option<Rotation> {
         match &self.state {
             Some(AvatarState::Stationary { rotation, .. }) => Some(*rotation),
-            Some(AvatarState::Walking(path)) => path.compute_rotation(world),
+            Some(AvatarState::Walking(path)) => path.compute_rotation(instant),
             None => None,
         }
     }
@@ -96,9 +97,9 @@ impl Avatar {
         &self.state
     }
 
-    pub fn evolve(&mut self, world: &World) {
+    pub fn evolve(&mut self, instant: &Instant) {
         match self.state {
-            Some(AvatarState::Walking(ref path)) if path.done(world) => {
+            Some(AvatarState::Walking(ref path)) if path.done(instant) => {
                 self.state = Some(AvatarState::Stationary {
                     position: *path.final_position(),
                     rotation: path.compute_final_rotation(),
@@ -145,7 +146,7 @@ impl Avatar {
         return None;
     }
 
-    pub fn walk_forward(&mut self, world: &World, pathfinder: &Pathfinder) {
+    pub fn walk_forward(&mut self, world: &World, pathfinder: &Pathfinder, start_at: Instant) {
         if let Some(path) = self.forward_path() {
             if let Some(_) = pathfinder
                 .travel_duration()
@@ -155,6 +156,7 @@ impl Avatar {
                     world,
                     path,
                     &pathfinder.travel_duration(),
+                    start_at,
                 )));
             }
         }
@@ -165,23 +167,31 @@ impl Avatar {
         world: &World,
         positions: Vec<V2<usize>>,
         travel_duration: &Box<TravelDuration>,
+        start_at: Instant,
     ) {
         self.state = Some(AvatarState::Walking(Path::new(
             world,
             positions,
             travel_duration,
+            start_at,
         )));
     }
 
-    pub fn walk_to(&mut self, world: &World, to: &V2<usize>, pathfinder: &Pathfinder) {
+    pub fn walk_to(
+        &mut self,
+        world: &World,
+        to: &V2<usize>,
+        pathfinder: &Pathfinder,
+        start_at: Instant,
+    ) {
         match self.state() {
             Some(AvatarState::Stationary { position: from, .. }) => {
                 if let Some(positions) = pathfinder.find_path(&from, to) {
-                    self.walk_path(&world, positions, pathfinder.travel_duration());
+                    self.walk_path(&world, positions, pathfinder.travel_duration(), start_at);
                 }
             }
             Some(AvatarState::Walking(path)) => {
-                let mut path = path.stop(world);
+                let mut path = path.stop(&start_at);
                 if let Some(positions) = pathfinder.find_path(&path.final_position(), to) {
                     path.extend(world, positions[1..].to_vec(), pathfinder.travel_duration());
                     self.state = Some(AvatarState::Walking(path));
@@ -191,24 +201,24 @@ impl Avatar {
         }
     }
 
-    pub fn stop(&mut self, world: &World) {
+    pub fn stop(&mut self, stop_at: &Instant) {
         if let Some(AvatarState::Walking(path)) = self.state() {
-            self.state = Some(AvatarState::Walking(path.stop(world)));
+            self.state = Some(AvatarState::Walking(path.stop(stop_at)));
         }
     }
 
-    fn compute_world_coord_basic(&self, world: &World) -> Option<WorldCoord> {
+    fn compute_world_coord_basic(&self, world: &World, instant: &Instant) -> Option<WorldCoord> {
         match &self.state {
             Some(AvatarState::Stationary { position, .. }) => {
                 Some(world.snap(WorldCoord::new(position.x as f32, position.y as f32, 0.0)))
             }
-            Some(AvatarState::Walking(path)) => path.compute_world_coord(world),
+            Some(AvatarState::Walking(path)) => path.compute_world_coord(world, instant),
             _ => None,
         }
     }
 
-    pub fn compute_world_coord(&self, world: &World) -> Option<WorldCoord> {
-        if let Some(WorldCoord { x, y, z }) = self.compute_world_coord_basic(world) {
+    pub fn compute_world_coord(&self, world: &World, instant: &Instant) -> Option<WorldCoord> {
+        if let Some(WorldCoord { x, y, z }) = self.compute_world_coord_basic(world, instant) {
             Some(WorldCoord::new(x, y, z.max(world.sea_level())))
         } else {
             None
@@ -258,10 +268,7 @@ mod tests {
                 3.0, 1.0, 0.0,
                 3.0, 2.0, 3.0,
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         )
     }
 
@@ -308,18 +315,19 @@ mod tests {
             to: V2<usize>,
             rotation: Rotation,
         ) {
-            avatar.walk_forward(&world, &pathfinder());
+            let start_at = Instant::now();
+            avatar.walk_forward(&world, &pathfinder(), start_at);
             let duration = travel_duration().get_duration(&world, &from, &to).unwrap();
             assert_eq!(
                 avatar.state,
                 Some(AvatarState::Walking(Path::new(
                     &world,
                     vec![from, to],
-                    &travel_duration()
+                    &travel_duration(),
+                    start_at
                 )))
             );
-            world.set_time(*world.time() + duration);
-            avatar.evolve(&world);
+            avatar.evolve(&(start_at + duration));
             assert_eq!(
                 avatar.state,
                 Some(AvatarState::Stationary {
@@ -355,13 +363,15 @@ mod tests {
         let mut avatar = avatar();
         let world = world();
         let path = vec![v2(0, 0), v2(1, 0), v2(1, 1)];
-        avatar.walk_path(&world, path.clone(), &travel_duration());
+        let start_at = Instant::now();
+        avatar.walk_path(&world, path.clone(), &travel_duration(), start_at);
         assert_eq!(
             avatar.state(),
             &Some(AvatarState::Walking(Path::new(
                 &world,
                 path,
-                &travel_duration()
+                &travel_duration(),
+                start_at
             )))
         )
     }
@@ -371,14 +381,16 @@ mod tests {
         let mut avatar = avatar();
         let world = world();
         let path = vec![v2(0, 0), v2(1, 0), v2(1, 1)];
-        avatar.walk_path(&world, path.clone(), &travel_duration());
-        avatar.walk_to(&world, &v2(0, 0), &pathfinder());
+        let start = Instant::now();
+        avatar.walk_path(&world, path.clone(), &travel_duration(), start);
+        avatar.walk_to(&world, &v2(0, 0), &pathfinder(), start);
         assert_eq!(
             avatar.state(),
             &Some(AvatarState::Walking(Path::new(
                 &world,
                 vec![v2(0, 0), v2(1, 0), v2(0, 0)],
-                &travel_duration()
+                &travel_duration(),
+                start
             )))
         )
     }
@@ -388,7 +400,7 @@ mod tests {
         let mut avatar = avatar();
         let world = world();
         avatar.reposition(v2(2, 2), Rotation::Up);
-        avatar.walk_forward(&world, &pathfinder());
+        avatar.walk_forward(&world, &pathfinder(), Instant::now());
         assert_eq!(
             avatar.state,
             Some(AvatarState::Stationary {
@@ -403,7 +415,7 @@ mod tests {
         let mut avatar = avatar();
         avatar.reposition(v2(1, 1), Rotation::Up);
         assert_eq!(
-            avatar.compute_world_coord(&world()),
+            avatar.compute_world_coord(&world(), &Instant::now()),
             Some(WorldCoord::new(1.0, 1.0, 1.0))
         );
     }
@@ -411,14 +423,16 @@ mod tests {
     #[test]
     fn test_compute_world_coord_basic_walking() {
         let mut avatar = avatar();
-        let mut world = world();
+        let world = world();
+        let start = Instant::now();
         avatar.reposition(v2(1, 1), Rotation::Up);
-        avatar.walk_forward(&world, &pathfinder());
+        avatar.walk_forward(&world, &pathfinder(), start);
         let duration = travel_duration()
             .get_duration(&world, &v2(1, 1), &v2(1, 2))
             .unwrap();
-        world.set_time(*world.time() + duration / 4);
-        let actual = avatar.compute_world_coord(&world).unwrap();
+        let actual = avatar
+            .compute_world_coord(&world, &(start + duration / 4))
+            .unwrap();
         let expected = WorldCoord::new(1.0, 1.25, 1.25);
         assert_eq!((actual.x * 100.0).round() / 100.0, expected.x);
         assert_eq!((actual.y * 100.0).round() / 100.0, expected.y);
@@ -430,7 +444,7 @@ mod tests {
         let mut avatar = avatar();
         avatar.reposition(v2(2, 1), Rotation::Up);
         assert_eq!(
-            avatar.compute_world_coord(&world()),
+            avatar.compute_world_coord(&world(), &Instant::now()),
             Some(WorldCoord::new(2.0, 1.0, 0.5))
         );
     }

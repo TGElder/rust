@@ -1,7 +1,7 @@
 use crate::travel_duration::*;
 use crate::world::*;
 use commons::index2d::*;
-use commons::{v2, V2};
+use commons::*;
 use network::Edge as NetworkEdge;
 use network::Network;
 
@@ -123,11 +123,11 @@ impl Pathfinder {
 #[cfg(test)]
 mod tests {
 
-    use isometric::terrain::Edge;
-
     use super::*;
+    use commons::edge::*;
     use commons::M;
-    use std::time::{Duration, Instant};
+    use isometric::cell_traits::*;
+    use std::time::Duration;
 
     struct TestTravelDuration {
         max: Duration,
@@ -140,9 +140,10 @@ mod tests {
             from: &V2<usize>,
             to: &V2<usize>,
         ) -> Option<Duration> {
-            match world.get_elevation(to) {
-                Some(elevation) => {
-                    if world.roads().along(&Edge::new(*from, *to)) {
+            match world.get_cell(to) {
+                Some(cell) => {
+                    let elevation = cell.elevation();
+                    if world.is_road(&Edge::new(*from, *to)) {
                         return Some(Duration::from_millis(1));
                     } else {
                         if elevation != 0.0 {
@@ -175,10 +176,7 @@ mod tests {
                 3.0, 3.0, 2.0,
                 2.0, 3.0, 4.0]
             ),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         )
     }
 
@@ -322,7 +320,7 @@ mod tests {
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
             Some(NetworkEdge::new(1, 0, 255))
         );
-        world.add_road(&Edge::new(v2(1, 0), v2(0, 0)));
+        world.toggle_road(&Edge::new(v2(1, 0), v2(0, 0)));
         pathfinder.update_edge(&world, &v2(1, 0), &v2(0, 0));
         assert_eq!(
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
@@ -366,14 +364,10 @@ mod tests {
             pathfinder.get_network_edge(&world, &v2(1, 2), &v2(1, 1)),
             Some(NetworkEdge::new(7, 4, 191))
         );
-        world.add_road(&Edge::new(v2(1, 1), v2(1, 0)));
-        world.add_road(&Edge::new(v2(1, 0), v2(1, 1)));
-        world.add_road(&Edge::new(v2(1, 1), v2(0, 1)));
-        world.add_road(&Edge::new(v2(0, 1), v2(1, 1)));
-        world.add_road(&Edge::new(v2(1, 1), v2(2, 1)));
-        world.add_road(&Edge::new(v2(2, 1), v2(1, 1)));
-        world.add_road(&Edge::new(v2(1, 1), v2(1, 2)));
-        world.add_road(&Edge::new(v2(1, 2), v2(1, 1)));
+        world.toggle_road(&Edge::new(v2(1, 1), v2(1, 0)));
+        world.toggle_road(&Edge::new(v2(1, 1), v2(0, 1)));
+        world.toggle_road(&Edge::new(v2(1, 1), v2(2, 1)));
+        world.toggle_road(&Edge::new(v2(1, 1), v2(1, 2)));
         pathfinder.update_node(&world, &v2(1, 1));
         assert_eq!(
             pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 0)),
@@ -417,7 +411,7 @@ mod tests {
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(2, 0)),
             None
         );
-        world.add_road(&Edge::new(v2(1, 0), v2(2, 0)));
+        world.toggle_road(&Edge::new(v2(1, 0), v2(2, 0)));
         pathfinder.update_edge(&world, &v2(1, 0), &v2(2, 0));
         assert_eq!(
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(2, 0)),

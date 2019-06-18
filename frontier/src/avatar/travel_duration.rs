@@ -1,7 +1,8 @@
 use super::travel_mode::*;
 use crate::travel_duration::*;
 use crate::world::World;
-use commons::V2;
+use commons::*;
+use isometric::cell_traits::*;
 use std::time::Duration;
 
 pub struct AvatarTravelDuration {
@@ -66,12 +67,14 @@ impl AvatarTravelDuration {
 
 impl TravelDuration for AvatarTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
-        if !world.is_visible(from) {
-            None
-        } else {
-            self.get_duration_fn(world, from, to)
-                .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
+        if let Some(cell) = world.get_cell(from) {
+            if cell.is_visible() {
+                return self
+                    .get_duration_fn(world, from, to)
+                    .and_then(|duration_fn| duration_fn.get_duration(world, from, to));
+            }
         }
+        return None;
     }
 
     fn max_duration(&self) -> Duration {

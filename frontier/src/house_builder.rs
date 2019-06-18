@@ -1,5 +1,5 @@
 use crate::world::*;
-use commons::{v2, M, V2, V3};
+use commons::*;
 use isometric::coords::WorldCoord;
 use isometric::drawing::draw_house;
 use isometric::Color;
@@ -54,7 +54,7 @@ impl HouseBuilder {
         self.house_list()
             .iter()
             .flat_map(|house| {
-                self.houses[(house.x, house.y)] = false;
+                *self.houses.mut_cell_unsafe(house) = false;
                 self.build_house(house, world)
             })
             .collect()

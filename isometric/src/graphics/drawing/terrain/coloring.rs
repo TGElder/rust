@@ -1,19 +1,23 @@
+use super::geometry::*;
 use crate::drawing::utils::*;
+use cell_traits::*;
 use color::Color;
 use commons::scale::*;
 use commons::*;
 use commons::{M, V2, V3};
 use std::collections::HashMap;
-use terrain::Terrain;
 
 fn entire_triangle_at_sea_level(triangle: &[V3<f32>; 3], sea_level: f32) -> bool {
     triangle[0].z == sea_level && triangle[1].z == sea_level && triangle[2].z == sea_level
 }
 
-pub trait TerrainColoring {
+pub trait TerrainColoring<T>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
     fn color(
         &self,
-        terrain: &Terrain,
+        terrain: &Grid<T>,
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3];
@@ -45,22 +49,25 @@ impl ShadedTileTerrainColoring {
     }
 }
 
-impl TerrainColoring for ShadedTileTerrainColoring {
+impl<T> TerrainColoring<T> for ShadedTileTerrainColoring
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
     fn color(
         &self,
-        terrain: &Terrain,
+        terrain: &Grid<T>,
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
         let color = Some(if entire_triangle_at_sea_level(triangle, self.sea_level) {
             self.sea_color
         } else {
-            let grid_index = Terrain::get_index_for_tile(&tile);
-            let border = terrain.get_border(grid_index, true);
+            let geometry = TerrainGeometry::of(terrain);
+            let border = geometry.get_border_for_tile(&tile, true);
             let shade = self
                 .shading
                 .get_colors(&[border[0], border[1], border[2], border[3]])[0];
-            self.colors[(tile.x, tile.y)].mul(&shade)
+            self.colors.get_cell(tile).unwrap().mul(&shade)
         });
         [color, color, color]
     }
@@ -92,8 +99,11 @@ impl NodeTerrainColoring {
     }
 }
 
-impl TerrainColoring for NodeTerrainColoring {
-    fn color(&self, _: &Terrain, _: &V2<usize>, triangle: &[V3<f32>; 3]) -> [Option<Color>; 3] {
+impl<T> TerrainColoring<T> for NodeTerrainColoring
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    fn color(&self, _: &Grid<T>, _: &V2<usize>, triangle: &[V3<f32>; 3]) -> [Option<Color>; 3] {
         [
             self.get_color_for_vertex(triangle[0]),
             self.get_color_for_vertex(triangle[1]),
@@ -102,18 +112,27 @@ impl TerrainColoring for NodeTerrainColoring {
     }
 }
 
-pub struct Layer {
-    coloring: Box<TerrainColoring + Send>,
+pub struct Layer<T>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    coloring: Box<TerrainColoring<T> + Send>,
     priority: i64,
 }
 
-pub struct LayerColoring {
-    layers: HashMap<String, Layer>,
+pub struct LayerColoring<T>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    layers: HashMap<String, Layer<T>>,
     order: Vec<String>,
 }
 
-impl LayerColoring {
-    pub fn new() -> LayerColoring {
+impl<T> LayerColoring<T>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    pub fn new() -> LayerColoring<T> {
         LayerColoring {
             layers: HashMap::new(),
             order: vec![],
@@ -129,7 +148,7 @@ impl LayerColoring {
     pub fn add_layer(
         &mut self,
         name: String,
-        coloring: Box<TerrainColoring + Send>,
+        coloring: Box<TerrainColoring<T> + Send>,
         priority: i64,
     ) {
         self.layers.insert(name, Layer { coloring, priority });
@@ -155,10 +174,13 @@ impl LayerColoring {
     }
 }
 
-impl TerrainColoring for LayerColoring {
+impl<T> TerrainColoring<T> for LayerColoring<T>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
     fn color(
         &self,
-        terrain: &Terrain,
+        terrain: &Grid<T>,
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {

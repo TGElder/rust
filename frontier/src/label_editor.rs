@@ -95,7 +95,7 @@ impl EventHandler for LabelEdit {
     }
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)] // TODO roundtrip
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct Label {
     name: String,
     world_coord: WorldCoord,

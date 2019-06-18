@@ -3,12 +3,13 @@ use crate::house_builder::*;
 use crate::label_editor::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
-use crate::seen::*;
 use crate::shore_start::*;
+use crate::visibility_computer::*;
 use crate::world::*;
 use crate::world_artist::*;
 
-use commons::{v2, M, V2, V3};
+use commons::*;
+use isometric::cell_traits::*;
 use isometric::coords::*;
 use isometric::drawing::*;
 use isometric::event_handlers::{RotateHandler, ZoomHandler};
@@ -27,7 +28,8 @@ use std::time::Instant;
 
 pub struct GameHandler {
     world: World,
-    seen: Seen,
+    clock: Instant,
+    visibility_computer: VisibilityComputer,
     world_artist: WorldArtist,
     mouse_coord: Option<WorldCoord>,
     label_editor: LabelEditor,
@@ -43,12 +45,12 @@ pub struct GameHandler {
 
 impl GameHandler {
     pub fn new(world: World) -> GameHandler {
-        let seen = Seen::new(&world, 0.002, Some(6371.0));
+        let visibility_computer = VisibilityComputer::new(0.002, Some(6371.0));
         let shore_start = shore_start(32, &world, &mut Box::new(SmallRng::from_entropy()));
         let houses = M::from_element(world.width(), world.height(), false);
         GameHandler::load(Load {
             world,
-            seen,
+            visibility_computer,
             avatar_position: shore_start.at(),
             avatar_rotation: shore_start.rotation(),
             labels: HashMap::new(),
@@ -65,11 +67,12 @@ impl GameHandler {
         let mut avatar = Avatar::new(0.1);
         avatar.reposition(load.avatar_position, load.avatar_rotation);
         GameHandler {
+            clock: Instant::now(),
             house_builder: HouseBuilder::new(load.houses, light_direction),
             avatar_pathfinder: Pathfinder::new(&world, avatar.travel_duration()),
             avatar,
             road_builder: RoadBuilder::new(&world),
-            seen: load.seen,
+            visibility_computer: load.visibility_computer,
             world,
             world_artist,
             mouse_coord: None,
@@ -85,9 +88,9 @@ impl GameHandler {
         &self.world
     }
 
-    pub fn create_coloring(world: &World, light_direction: V3<f32>) -> LayerColoring {
+    pub fn create_coloring(world: &World, light_direction: V3<f32>) -> LayerColoring<WorldCell> {
         let beach_level = world.sea_level() + 0.05;
-        let snow_level = world.max_height() * 0.8;
+        let snow_temperature = 0.0;
         let cliff_gradient = 0.5;
         let mut out = LayerColoring::new();
         out.add_layer(
@@ -95,7 +98,7 @@ impl GameHandler {
             Box::new(DefaultColoring::new(
                 &world,
                 beach_level,
-                snow_level,
+                snow_temperature,
                 cliff_gradient,
                 light_direction,
             )),
@@ -106,7 +109,7 @@ impl GameHandler {
 
     pub fn set_overlay<T>(&mut self, overlay: T)
     where
-        T: 'static + TerrainColoring + Send,
+        T: 'static + TerrainColoring<WorldCell> + Send,
     {
         self.world_artist
             .coloring()
@@ -148,10 +151,14 @@ impl GameHandler {
             .build_forward(&mut self.world, &self.avatar);
         result.iter().for_each(|_| {
             self.avatar
-                .walk_forward(&self.world, &self.avatar_pathfinder)
+                .walk_forward(&self.world, &self.avatar_pathfinder, self.clock)
         });
         let mut commands = self.handle_road_builder_result(result);
-        commands.append(&mut self.avatar_artist.draw(&self.avatar, &self.world));
+        commands.append(
+            &mut self
+                .avatar_artist
+                .draw(&self.avatar, &self.world, &self.clock),
+        );
         commands
     }
 
@@ -173,43 +180,50 @@ impl GameHandler {
         if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
             let to = v2(x.round() as usize, y.round() as usize);
             self.avatar
-                .walk_to(&self.world, &to, &self.avatar_pathfinder);
+                .walk_to(&self.world, &to, &self.avatar_pathfinder, self.clock);
         }
     }
 
-    fn center(&self) -> Command {
+    fn center(&self) -> Option<Command> {
         let x = self.world.width() / 2;
         let y = self.world.width() / 2;
-        let z = self.world.get_elevation(&v2(x, y)).unwrap();
-        Command::LookAt(WorldCoord::new(x as f32, y as f32, z))
+        if let Some(cell) = self.world.get_cell(&v2(x, y)) {
+            let z = cell.elevation();
+            Some(Command::LookAt(WorldCoord::new(x as f32, y as f32, z)))
+        } else {
+            None
+        }
     }
 
     fn add_label(&mut self) {
         if let Some(WorldCoord { x, y, .. }) = self.mouse_coord {
             let x = x.round() as usize;
             let y = y.round() as usize;
-            if let Some(z) = self.world.get_elevation(&v2(x, y)) {
+            if let Some(cell) = self.world.get_cell(&v2(x, y)) {
                 self.label_editor
-                    .start_edit(WorldCoord::new(x as f32, y as f32, z));
+                    .start_edit(WorldCoord::new(x as f32, y as f32, cell.elevation()));
             }
         }
     }
 
     fn update_visiblity(&mut self) -> Vec<Command> {
-        let seen = self
-            .seen
-            .update_visibility(&mut self.world, &self.avatar, 310);
-        for position in seen.iter() {
-            self.world.set_visible(position);
+        let visibility_computer = self.visibility_computer.update_visibility(
+            &mut self.world,
+            &self.clock,
+            &self.avatar,
+            310,
+        );
+        for position in visibility_computer.iter() {
             self.avatar_pathfinder.update_node(&self.world, position);
             self.road_builder
                 .pathfinder()
                 .update_node(&self.world, position);
         }
-        if !seen.is_empty() {
+        if !visibility_computer.is_empty() {
             self.update_visited_layer();
         }
-        self.world_artist.draw_affected(&self.world, &seen)
+        self.world_artist
+            .draw_affected(&self.world, &visibility_computer)
     }
 
     fn toggle_follow(&mut self) {
@@ -227,7 +241,7 @@ impl GameHandler {
             self.world.width(),
             self.world.height(),
             |x, y| {
-                if self.seen.point_has_been_visited(&v2(x, y)) {
+                if point_has_been_visited(&self.world, &v2(x, y)) {
                     red
                 } else {
                     None
@@ -258,8 +272,8 @@ impl GameHandler {
 impl EventHandler for GameHandler {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         let mut commands = vec![];
-        self.world.set_time(Instant::now());
-        self.avatar.evolve(&self.world);
+        self.clock = Instant::now();
+        self.avatar.evolve(&self.clock);
 
         let mut label_commands = self.label_editor.handle_event(event.clone());
         if !label_commands.is_empty() {
@@ -270,7 +284,9 @@ impl EventHandler for GameHandler {
                     commands.append(&mut self.label_editor.draw_all());
                     commands.append(&mut self.house_builder.rebuild_houses(&self.world));
                     commands.append(&mut self.world_artist.init(&self.world));
-                    commands.push(self.center());
+                    self.center()
+                        .into_iter()
+                        .for_each(|command| commands.push(command));
                 }
                 Event::WorldPositionChanged(mouse_coord) => {
                     if mouse_coord.x >= 0.0 && mouse_coord.y >= 0.0 && mouse_coord.z >= 0.0 {
@@ -287,7 +303,7 @@ impl EventHandler for GameHandler {
                 } => match key {
                     VirtualKeyCode::W => {
                         self.avatar
-                            .walk_forward(&self.world, &self.avatar_pathfinder);
+                            .walk_forward(&self.world, &self.avatar_pathfinder, self.clock);
                     }
                     VirtualKeyCode::A => {
                         self.avatar.rotate_anticlockwise();
@@ -295,7 +311,7 @@ impl EventHandler for GameHandler {
                     VirtualKeyCode::D => {
                         self.avatar.rotate_clockwise();
                     }
-                    VirtualKeyCode::S => self.avatar.stop(&self.world),
+                    VirtualKeyCode::S => self.avatar.stop(&self.clock),
                     VirtualKeyCode::R => commands.append(&mut self.build_road()),
                     VirtualKeyCode::X => commands.append(&mut self.auto_build_road()),
                     VirtualKeyCode::L => self.add_label(),
@@ -341,14 +357,19 @@ impl EventHandler for GameHandler {
             }
             commands.append(&mut self.rotate_handler.handle_event(event.clone()));
             if self.follow_avatar {
-                if let Some(world_coord) = self.avatar.compute_world_coord(&self.world) {
+                if let Some(world_coord) = self.avatar.compute_world_coord(&self.world, &self.clock)
+                {
                     commands.push(Command::LookAt(world_coord));
                 }
             }
         }
-        self.world.set_time(Instant::now());
+        self.clock = Instant::now();
         commands.append(&mut self.update_visiblity());
-        commands.append(&mut self.avatar_artist.draw(&self.avatar, &self.world));
+        commands.append(
+            &mut self
+                .avatar_artist
+                .draw(&self.avatar, &self.world, &self.clock),
+        );
         commands
     }
 }
@@ -356,7 +377,7 @@ impl EventHandler for GameHandler {
 #[derive(PartialEq, Debug, Serialize)]
 struct Save<'a> {
     world: &'a World,
-    seen: &'a Seen,
+    visibility_computer: &'a VisibilityComputer,
     avatar_position: &'a V2<usize>,
     avatar_rotation: &'a Rotation,
     labels: &'a HashMap<String, Label>,
@@ -368,7 +389,7 @@ impl<'a> Save<'a> {
         if let Some(AvatarState::Stationary { position, rotation }) = game_handler.avatar.state() {
             Some(Save {
                 world: &game_handler.world,
-                seen: &game_handler.seen,
+                visibility_computer: &game_handler.visibility_computer,
                 avatar_position: position,
                 avatar_rotation: rotation,
                 labels: &game_handler.label_editor.labels(),
@@ -387,7 +408,7 @@ impl<'a> Save<'a> {
 #[derive(PartialEq, Debug, Deserialize)]
 pub struct Load {
     world: World,
-    seen: Seen,
+    visibility_computer: VisibilityComputer,
     avatar_position: V2<usize>,
     avatar_rotation: Rotation,
     labels: HashMap<String, Label>,
@@ -411,10 +432,7 @@ mod tests {
     fn save_load_round_trip() {
         let world = World::new(
             M::from_vec(3, 3, vec![1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         );
         let game_handler = GameHandler::new(world);
         let save = Save::new(&game_handler).unwrap();

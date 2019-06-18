@@ -24,12 +24,13 @@ impl Path {
         world: &World,
         points: Vec<V2<usize>>,
         travel_duration: &Box<TravelDuration>,
+        start_at: Instant,
     ) -> Path {
         Path {
             point_arrivals: Path::compute_point_arrival_millis(
                 world,
                 &points,
-                *world.time(),
+                start_at,
                 travel_duration,
             ),
             points,
@@ -69,21 +70,21 @@ impl Path {
         &self.point_arrivals[self.points.len() - 1]
     }
 
-    pub fn done(&self, world: &World) -> bool {
-        world.time() >= self.final_point_arrival()
+    pub fn done(&self, instant: &Instant) -> bool {
+        instant >= self.final_point_arrival()
     }
 
-    fn compute_current_index(&self, world: &World) -> Option<usize> {
+    fn compute_current_index(&self, instant: &Instant) -> Option<usize> {
         for i in 0..self.points.len() {
-            if world.time() < &self.point_arrivals[i] {
+            if instant < &self.point_arrivals[i] {
                 return Some(i);
             }
         }
         None
     }
 
-    pub fn stop(&self, world: &World) -> Path {
-        self.compute_current_index(world)
+    pub fn stop(&self, instant: &Instant) -> Path {
+        self.compute_current_index(instant)
             .map(|i| Path {
                 points: vec![self.points[i - 1], self.points[i]],
                 point_arrivals: vec![self.point_arrivals[i - 1], self.point_arrivals[i]],
@@ -91,13 +92,13 @@ impl Path {
             .unwrap_or(Path::empty())
     }
 
-    pub fn compute_world_coord(&self, world: &World) -> Option<WorldCoord> {
-        self.compute_current_index(world).map(|i| {
+    pub fn compute_world_coord(&self, world: &World, instant: &Instant) -> Option<WorldCoord> {
+        self.compute_current_index(instant).map(|i| {
             let from = self.points[i - 1];
             let to = self.points[i];
             let from_time = self.point_arrivals[i - 1];
             let to_time = self.point_arrivals[i];
-            let p_nanos = world.time().duration_since(from_time).as_nanos();
+            let p_nanos = instant.duration_since(from_time).as_nanos();
             let edge_nanos = to_time.duration_since(from_time).as_nanos();
             let p = ((p_nanos as f64) / (edge_nanos as f64)) as f32;
             let from = v2(from.x as f32, from.y as f32);
@@ -124,8 +125,8 @@ impl Path {
         }
     }
 
-    pub fn compute_rotation(&self, world: &World) -> Option<Rotation> {
-        self.compute_current_index(world)
+    pub fn compute_rotation(&self, instant: &Instant) -> Option<Rotation> {
+        self.compute_current_index(instant)
             .map(|index| self.compute_rotation_at_index(index))
     }
 
@@ -186,10 +187,7 @@ mod tests {
                 0.0, 1.0, 0.0,
                 3.0, 2.0, 3.0,
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         )
     }
 
@@ -197,14 +195,15 @@ mod tests {
     fn test_compute_point_arrival_millis() {
         let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let instant = Instant::now();
         let actual =
-            Path::compute_point_arrival_millis(&world, &points, *world.time(), &travel_duration());
+            Path::compute_point_arrival_millis(&world, &points, instant, &travel_duration());
         let expected = vec![
-            *world.time(),
-            *world.time() + Duration::from_millis(1),
-            *world.time() + Duration::from_millis(3),
-            *world.time() + Duration::from_millis(6),
-            *world.time() + Duration::from_millis(10),
+            instant,
+            instant + Duration::from_millis(1),
+            instant + Duration::from_millis(3),
+            instant + Duration::from_millis(6),
+            instant + Duration::from_millis(10),
         ];
         assert_eq!(actual, expected);
     }
@@ -213,7 +212,7 @@ mod tests {
     fn test_final_position() {
         let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, points, &travel_duration());
+        let path = Path::new(&world, points, &travel_duration(), Instant::now());
         assert_eq!(path.final_position(), &v2(2, 2));
     }
 
@@ -221,44 +220,44 @@ mod tests {
     fn test_final_point_arrival() {
         let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, points, &travel_duration());
-        let expected = *world.time() + Duration::from_millis(10);
+        let instant = Instant::now();
+        let path = Path::new(&world, points, &travel_duration(), instant);
+        let expected = instant + Duration::from_millis(10);
         assert_eq!(path.final_point_arrival(), &expected);
     }
 
     #[test]
     fn test_done() {
-        let mut world = world();
+        let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, points, &travel_duration());
-        let done_at = *world.time() + Duration::from_millis(10);
-        assert!(!path.done(&world));
-        world.set_time(done_at);
-        assert!(path.done(&world));
+        let instant = Instant::now();
+        let path = Path::new(&world, points, &travel_duration(), instant);
+        assert!(!path.done(&instant));
+        let done_at = instant + Duration::from_millis(10);
+        assert!(path.done(&done_at));
     }
 
     #[test]
     fn test_compute_current_index() {
-        let mut world = world();
+        let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, points, &travel_duration());
-        let at = *world.time() + Duration::from_micros(1500);
-        let done_at = *world.time() + Duration::from_millis(10);
-        assert_eq!(path.compute_current_index(&world), Some(1));
-        world.set_time(at);
-        assert_eq!(path.compute_current_index(&world), Some(2));
-        world.set_time(done_at);
-        assert_eq!(path.compute_current_index(&world), None);
+        let start = Instant::now();
+        let path = Path::new(&world, points, &travel_duration(), start);
+        assert_eq!(path.compute_current_index(&start), Some(1));
+        let at = start + Duration::from_micros(1500);
+        assert_eq!(path.compute_current_index(&at), Some(2));
+        let done_at = start + Duration::from_millis(10);
+        assert_eq!(path.compute_current_index(&done_at), None);
     }
 
     #[test]
     fn test_compute_world_coord() {
-        let mut world = world();
+        let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, points, &travel_duration());
-        let at = *world.time() + Duration::from_micros(1500);
-        world.set_time(at);
-        let actual = path.compute_world_coord(&world).unwrap();
+        let start = Instant::now();
+        let path = Path::new(&world, points, &travel_duration(), start);
+        let at = start + Duration::from_micros(1500);
+        let actual = path.compute_world_coord(&world, &at).unwrap();
         let expected = WorldCoord::new(0.25, 1.0, 0.25);
         assert_eq!((actual.x * 100.0).round() / 100.0, expected.x);
         assert_eq!((actual.y * 100.0).round() / 100.0, expected.y);
@@ -269,7 +268,7 @@ mod tests {
     fn test_compute_rotation_at_index() {
         let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(0, 1), v2(0, 0)];
-        let path = Path::new(&world, points, &travel_duration());
+        let path = Path::new(&world, points, &travel_duration(), Instant::now());
         assert_eq!(path.compute_rotation_at_index(1), Rotation::Up);
         assert_eq!(path.compute_rotation_at_index(2), Rotation::Right);
         assert_eq!(path.compute_rotation_at_index(3), Rotation::Left);
@@ -278,12 +277,12 @@ mod tests {
 
     #[test]
     fn test_compute_rotation() {
-        let mut world = world();
+        let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, points, &travel_duration());
-        let at = *world.time() + Duration::from_micros(1500);
-        world.set_time(at);
-        let actual = path.compute_rotation(&world).unwrap();
+        let start = Instant::now();
+        let path = Path::new(&world, points, &travel_duration(), start);
+        let at = start + Duration::from_micros(1500);
+        let actual = path.compute_rotation(&at).unwrap();
         assert_eq!(actual, Rotation::Right);
     }
 
@@ -291,28 +290,28 @@ mod tests {
     fn test_final_rotation() {
         let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, points, &travel_duration());
+        let path = Path::new(&world, points, &travel_duration(), Instant::now());
         assert_eq!(path.compute_final_rotation(), Rotation::Right);
     }
 
     #[test]
     fn test_stop() {
-        let mut world = world();
+        let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, points, &travel_duration());
-        let at = *world.time() + Duration::from_micros(1500);
-        let done_at = *world.time() + Duration::from_millis(10);
-        assert_eq!(path.stop(&world).points, vec![v2(0, 0), v2(0, 1)]);
-        world.set_time(at);
-        assert_eq!(path.stop(&world).points, vec![v2(0, 1), v2(1, 1)]);
-        world.set_time(done_at);
-        assert_eq!(path.stop(&world).points, vec![]);
+        let start = Instant::now();
+        let path = Path::new(&world, points, &travel_duration(), start);
+        assert_eq!(path.stop(&start).points, vec![v2(0, 0), v2(0, 1)]);
+        let at = start + Duration::from_micros(1500);
+        assert_eq!(path.stop(&at).points, vec![v2(0, 1), v2(1, 1)]);
+        let done_at = start + Duration::from_millis(10);
+        assert_eq!(path.stop(&done_at).points, vec![]);
     }
 
     #[test]
     fn test_extend() {
         let world = world();
-        let mut actual = Path::new(&world, vec![v2(0, 0), v2(0, 1)], &travel_duration());
+        let start = Instant::now();
+        let mut actual = Path::new(&world, vec![v2(0, 0), v2(0, 1)], &travel_duration(), start);
         actual.extend(
             &world,
             vec![v2(1, 1), v2(1, 2), v2(2, 2)],
@@ -322,6 +321,7 @@ mod tests {
             &world,
             vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)],
             &travel_duration(),
+            start,
         );
         assert_eq!(actual, expected);
     }

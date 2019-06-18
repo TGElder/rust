@@ -9,7 +9,7 @@ pub struct Erosion {}
 impl Erosion {
     pub fn erode<R: Rng>(
         mut mesh: Mesh,
-        rng: &mut Box<R>,
+        rng: &mut R,
         threshold: u32,
         samples: usize,
         erosion: f64,

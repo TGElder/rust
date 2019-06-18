@@ -27,7 +27,7 @@ pub struct RandomDownhillMap {
 }
 
 impl RandomDownhillMap {
-    pub fn new<R: Rng>(downhill_map: &DownhillMap, rng: &mut Box<R>) -> RandomDownhillMap {
+    pub fn new<R: Rng>(downhill_map: &DownhillMap, rng: &mut R) -> RandomDownhillMap {
         if !downhill_map.all_cells_have_downhill() {
             panic!("Not all cells have downhill");
         }
@@ -66,6 +66,7 @@ mod tests {
     use super::*;
     use mesh::Mesh;
 
+    #[rustfmt::skip]
     #[test]
     fn random_downhill_map_should_contain_downhill_directions() {
         let mut mesh = Mesh::new(4, 0.0);
@@ -73,7 +74,10 @@ mod tests {
             4,
             4,
             &[
-                0.3, 0.8, 0.7, 0.6, 0.4, 0.9, 0.4, 0.5, 0.5, 0.8, 0.3, 0.2, 0.6, 0.7, 0.6, 0.1,
+                0.3, 0.8, 0.7, 0.6,
+                0.4, 0.9, 0.4, 0.5,
+                0.5, 0.8, 0.3, 0.2,
+                0.6, 0.7, 0.6, 0.1,
             ],
         );
         mesh.set_z_vector(z);

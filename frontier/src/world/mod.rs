@@ -1,56 +1,52 @@
-use crate::roadset::*;
+mod world_cell;
+
+pub use world_cell::*;
+
+use commons::edge::*;
+use commons::junction::*;
 use commons::unsafe_ordering;
 use commons::*;
+use isometric::cell_traits::*;
 use isometric::coords::WorldCoord;
-use isometric::terrain::*;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
+
+const ROAD_WIDTH: f32 = 0.05;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct World {
     width: usize,
     height: usize,
-    terrain: Terrain,
-    rivers: RoadSet,
-    roads: RoadSet,
+    cells: M<WorldCell>,
     sea_level: f32,
     max_height: f32,
-    #[serde(skip, default = "default_instant")]
-    time: Instant,
 }
 
-fn default_instant() -> Instant {
-    Instant::now()
+impl Grid<WorldCell> for World {
+    fn in_bounds(&self, position: &V2<usize>) -> bool {
+        position.x < self.width() && position.y < self.height()
+    }
+
+    fn get_cell_unsafe(&self, position: &V2<usize>) -> &WorldCell {
+        self.cells.get_cell_unsafe(position)
+    }
+
+    fn mut_cell_unsafe(&mut self, position: &V2<usize>) -> &mut WorldCell {
+        self.cells.mut_cell_unsafe(position)
+    }
 }
 
 impl World {
-    const ROAD_WIDTH: f32 = 0.05;
-
-    pub fn new(
-        elevations: M<f32>,
-        river_nodes: Vec<Node>,
-        rivers: Vec<Edge>,
-        sea_level: f32,
-        time: Instant,
-    ) -> World {
+    pub fn new(elevations: M<f32>, sea_level: f32) -> World {
         let (width, height) = elevations.shape();
         let max_height = elevations.max();
-        let rivers = World::setup_rivers(width, height, river_nodes, rivers);
-        let from = &v2(0, 0);
-        let to = &v2(width, height);
         World {
             width,
             height,
-            terrain: Terrain::new(
-                elevations,
-                &rivers.get_nodes(from, to),
-                &rivers.get_edges(from, to),
-            ),
-            rivers,
-            roads: RoadSet::new(width, height, World::ROAD_WIDTH),
+            cells: M::from_fn(width, height, |x, y| {
+                WorldCell::new(v2(x, y), elevations[(x, y)])
+            }),
             sea_level,
             max_height,
-            time,
         }
     }
 
@@ -62,18 +58,6 @@ impl World {
         self.height
     }
 
-    pub fn terrain(&self) -> &Terrain {
-        &self.terrain
-    }
-
-    pub fn rivers(&self) -> &RoadSet {
-        &self.rivers
-    }
-
-    pub fn roads(&self) -> &RoadSet {
-        &self.roads
-    }
-
     pub fn sea_level(&self) -> f32 {
         self.sea_level
     }
@@ -82,108 +66,79 @@ impl World {
         self.max_height
     }
 
-    pub fn time(&self) -> &Instant {
-        &self.time
+    pub fn add_river<T>(&mut self, cell: T)
+    where
+        T: WithPosition + WithJunction,
+    {
+        self.mut_cell_unsafe(&cell.position()).river = cell.junction();
     }
 
-    pub fn set_time(&mut self, instant: Instant) {
-        self.time = instant
+    fn set_road(&mut self, road: &Edge, state: bool) {
+        let set_width = |junction_1d: &mut Junction1D| {
+            junction_1d.width = if junction_1d.from || junction_1d.to {
+                ROAD_WIDTH
+            } else {
+                0.0
+            }
+        };
+        let from = self.mut_cell_unsafe(road.from());
+        let from_junction_1d = from.road.junction_1d(road.horizontal());
+        from_junction_1d.from = state;
+        set_width(from_junction_1d);
+        let to = self.mut_cell_unsafe(road.to());
+        let to_junction_1d = to.road.junction_1d(road.horizontal());
+        to_junction_1d.to = state;
+        set_width(to_junction_1d);
     }
 
-    fn setup_rivers(
-        width: usize,
-        height: usize,
-        river_nodes: Vec<Node>,
-        rivers: Vec<Edge>,
-    ) -> RoadSet {
-        let mut out = RoadSet::new(width, height, 0.0);
-        out.set_widths_from_nodes(&river_nodes);
-        out.add_roads(&rivers);
-        out
-    }
-
-    fn get_horizontal_width(&self, position: &V2<usize>) -> f32 {
-        self.rivers
-            .get_horizontal_width(position)
-            .max(self.roads.get_horizontal_width(position))
-    }
-
-    fn get_vertical_width(&self, position: &V2<usize>) -> f32 {
-        self.rivers
-            .get_vertical_width(position)
-            .max(self.roads.get_vertical_width(position))
+    pub fn toggle_road(&mut self, road: &Edge) {
+        self.set_road(road, !self.is_road(road));
     }
 
     pub fn is_sea(&self, position: &V2<usize>) -> bool {
-        self.get_elevation(position)
+        self.get_cell(position)
+            .map(|cell| cell.elevation())
             .map(|elevation| elevation <= self.sea_level)
             .unwrap_or(false)
     }
 
+    fn is(&self, edge: &Edge, junction_fn: &Fn(&WorldCell) -> Junction) -> bool {
+        if let Some(cell) = self.get_cell(&edge.from()) {
+            let junction = junction_fn(cell);
+            if edge.horizontal() {
+                return junction.horizontal.from;
+            } else {
+                return junction.vertical.from;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    pub fn is_road(&self, edge: &Edge) -> bool {
+        self.is(edge, &|cell| cell.road)
+    }
+
     pub fn is_river_or_road(&self, edge: &Edge) -> bool {
-        self.rivers.along(edge) || self.roads.along(edge)
-    }
-
-    fn get_node(&self, position: &V2<usize>) -> Node {
-        let width = self.get_vertical_width(position);
-        let height = self.get_horizontal_width(position);
-        Node::new(*position, width, height)
-    }
-
-    pub fn add_road(&mut self, edge: &Edge) {
-        self.roads.add_road(edge);
-        self.update_terrain(edge);
-    }
-
-    pub fn clear_road(&mut self, edge: &Edge) {
-        self.roads.clear_road(edge);
-        self.update_terrain(edge);
-    }
-
-    pub fn toggle_road(&mut self, edge: &Edge) {
-        if self.roads.along(edge) {
-            self.clear_road(edge);
-        } else {
-            self.add_road(edge);
-        }
-        self.update_terrain(edge);
-    }
-
-    pub fn is_visible(&self, position: &V2<usize>) -> bool {
-        if !self.in_bounds(position) {
-            false
-        } else {
-            self.terrain
-                .is_visible(Terrain::get_index_for_tile(&position))
-        }
-    }
-
-    pub fn set_visible(&mut self, position: &V2<usize>) {
-        self.terrain.set_visibility(position, true);
+        self.is(edge, &|cell| cell.junction())
     }
 
     pub fn reveal_all(&mut self) {
         for x in 0..self.width {
             for y in 0..self.height {
-                self.set_visible(&v2(x, y));
+                self.mut_cell_unsafe(&v2(x, y)).visible = true;
             }
         }
-    }
-
-    fn update_terrain(&mut self, edge: &Edge) {
-        if self.is_river_or_road(edge) {
-            self.terrain.set_edge(edge);
-        } else {
-            self.terrain.clear_edge(edge);
-        }
-        self.terrain.set_node(self.get_node(edge.from()));
-        self.terrain.set_node(self.get_node(edge.to()));
     }
 
     pub fn snap(&self, world_coord: WorldCoord) -> WorldCoord {
         let x = world_coord.x.round();
         let y = world_coord.y.round();
-        let z = self.terrain.elevations()[(x as usize, y as usize)];
+        let z = if let Some(cell) = self.get_cell(&v2(x as usize, y as usize)) {
+            cell.elevation()
+        } else {
+            world_coord.z
+        };
         WorldCoord::new(x, y, z)
     }
 
@@ -206,8 +161,8 @@ impl World {
                 x, y
             );
         };
-        let a = self.get_elevation(&a).unwrap();
-        let b = self.get_elevation(&b).unwrap();
+        let a = self.get_cell(&a).unwrap().elevation();
+        let b = self.get_cell(&b).unwrap().elevation();
         let z = (b - a) * p + a;
         WorldCoord::new(x, y, z)
     }
@@ -215,10 +170,12 @@ impl World {
     pub fn snap_to_middle(&self, world_coord: WorldCoord) -> WorldCoord {
         let x = world_coord.x.floor();
         let y = world_coord.y.floor();
-        let mut z = 0.0 as f32;
+        let mut z = world_coord.z as f32;
         for dx in 0..2 {
             for dy in 0..2 {
-                z = z.max(self.terrain.elevations()[(x as usize + dx, y as usize + dy)])
+                if let Some(cell) = self.get_cell(&v2(x as usize + dx, y as usize + dy)) {
+                    z = z.max(cell.elevation);
+                }
             }
         }
         WorldCoord::new(x + 0.5, y + 0.5, z)
@@ -240,21 +197,9 @@ impl World {
             .collect()
     }
 
-    pub fn in_bounds(&self, position: &V2<usize>) -> bool {
-        position.x < self.width && position.y < self.height
-    }
-
-    pub fn get_elevation(&self, position: &V2<usize>) -> Option<f32> {
-        if self.in_bounds(&position) {
-            Some(self.terrain.elevations()[(position.x, position.y)])
-        } else {
-            None
-        }
-    }
-
     pub fn get_rise(&self, from: &V2<usize>, to: &V2<usize>) -> Option<f32> {
-        match (self.get_elevation(from), self.get_elevation(to)) {
-            (Some(from), Some(to)) => Some(to - from),
+        match (self.get_cell(from), self.get_cell(to)) {
+            (Some(from), Some(to)) => Some(to.elevation() - from.elevation()),
             _ => None,
         }
     }
@@ -262,7 +207,8 @@ impl World {
     pub fn get_lowest_corner(&self, position: &V2<usize>) -> f32 {
         self.get_corners(&position)
             .iter()
-            .flat_map(|corner| self.get_elevation(corner))
+            .flat_map(|corner| self.get_cell(corner))
+            .map(|cell| cell.elevation())
             .min_by(unsafe_ordering)
             .unwrap()
     }
@@ -271,7 +217,8 @@ impl World {
     pub fn get_highest_corner(&self, position: &V2<usize>) -> f32 {
         self.get_corners(&position)
             .iter()
-            .flat_map(|corner| self.get_elevation(corner))
+            .flat_map(|corner| self.get_cell(corner))
+            .map(|cell| cell.elevation())
             .max_by(unsafe_ordering)
             .unwrap()
     }
@@ -315,45 +262,83 @@ mod tests {
 
     #[rustfmt::skip]
     fn world() -> World {
-        World::new(
+        let mut out = World::new(
             M::from_vec(3, 3, vec![
                 1.0, 1.0, 1.0,
                 1.0, 2.0, 1.0,
                 1.0, 1.0, 1.0,
             ]),
-            vec![
-                Node::new(v2(1, 0), 0.1, 0.0),
-                Node::new(v2(1, 1), 0.2, 0.0),
-                Node::new(v2(1, 2), 0.3, 0.0),
-                Node::new(v2(1, 2), 0.0, 0.3),
-                Node::new(v2(2, 2), 0.0, 0.4),
-            ],
-            vec![
-                Edge::new(v2(1, 0), v2(1, 1)),
-                Edge::new(v2(1, 1), v2(1, 2)),
-                Edge::new(v2(1, 2), v2(2, 2)),
-            ],
             0.5,
-            Instant::now(),
-        )
+        );
+        let mut river_1 = PositionJunction::new(v2(1, 0));
+        river_1.junction.vertical.from = true;
+        river_1.junction.vertical.width = 0.1;
+        let mut river_2 = PositionJunction::new(v2(1, 1));
+        river_2.junction.vertical.to = true;
+        river_2.junction.vertical.from = true;
+        river_2.junction.vertical.width = 0.2;
+        let mut river_3 = PositionJunction::new(v2(1, 2));
+        river_3.junction.vertical.to = true;
+        river_3.junction.vertical.width = 0.3;
+        river_3.junction.horizontal.from = true;
+        river_3.junction.horizontal.width = 0.3;
+        let mut river_4 = PositionJunction::new(v2(2, 2));
+        river_4.junction.vertical.to = true;
+        river_4.junction.horizontal.width = 0.4;
+
+        out.add_river(river_1);
+        out.add_river(river_2);
+        out.add_river(river_3);
+        out.add_river(river_4);
+
+        out
     }
 
     #[test]
-    fn test_terrain() {
-        let terrain = world().terrain;
-
-        assert_eq!(terrain.get_node(v2(1, 0)), &Node::new(v2(1, 0), 0.1, 0.0));
-        assert_eq!(terrain.get_node(v2(1, 1)), &Node::new(v2(1, 1), 0.2, 0.0));
-        assert_eq!(terrain.get_node(v2(1, 2)), &Node::new(v2(1, 2), 0.3, 0.3));
-        assert_eq!(terrain.get_node(v2(2, 2)), &Node::new(v2(2, 2), 0.0, 0.4));
-        assert!(terrain.is_edge(&Edge::new(v2(1, 0), v2(1, 1))));
-        assert!(terrain.is_edge(&Edge::new(v2(1, 1), v2(1, 2))));
-        assert!(terrain.is_edge(&Edge::new(v2(1, 2), v2(2, 2))));
+    fn test_world_cell_junction() {
+        let mut world_cell = WorldCell::new(v2(0, 0), 0.0);
+        assert_eq!(world_cell.junction(), Junction::default());
+        world_cell.river.horizontal.from = true;
+        world_cell.river.horizontal.width = 1.0;
+        world_cell.road.vertical.to = true;
+        world_cell.road.vertical.width = 2.0;
+        assert_eq!(
+            world_cell.junction(),
+            Junction {
+                horizontal: Junction1D {
+                    width: 1.0,
+                    from: true,
+                    to: false,
+                },
+                vertical: Junction1D {
+                    width: 2.0,
+                    from: false,
+                    to: true,
+                },
+            }
+        );
+        world_cell.road.horizontal.to = true;
+        world_cell.road.horizontal.width = 2.0;
+        assert_eq!(
+            world_cell.junction(),
+            Junction {
+                horizontal: Junction1D {
+                    width: 2.0,
+                    from: true,
+                    to: true,
+                },
+                vertical: Junction1D {
+                    width: 2.0,
+                    from: false,
+                    to: true,
+                },
+            }
+        );
     }
 
     #[rustfmt::skip]
     #[test]
-    fn test_add_and_clear_road() {
+    fn test_toggle_road() {
         let mut world = world();
 
         let before_widths = M::from_vec(3, 3, vec![
@@ -369,67 +354,45 @@ mod tests {
        
         for x in 0..3 {
             for y in 0..3 {
-                assert_eq!(
-                    world.terrain.get_node(v2(x, y)),
-                    &Node::new(
-                        v2(x, y), 
-                        before_widths[(x, y)], 
-                        before_heights[(x, y)]
-                    ),
-                );
+                let cell = world.get_cell(&v2(x, y)).unwrap();
+                assert_eq!(cell.junction().width(), before_widths[(x, y)]);
+                assert_eq!(cell.junction().height(), before_heights[(x, y)]);
             }
         }
-        assert!(!world.terrain.is_edge(&Edge::new(v2(0, 0), v2(0, 1))));
-        assert!(!world.terrain.is_edge(&Edge::new(v2(0, 1), v2(1, 1))));
 
-        world.add_road(&Edge::new(v2(0, 0), v2(0, 1)));
+        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
         world.toggle_road(&Edge::new(v2(0, 1), v2(1, 1)));
 
         let after_widths = M::from_vec(3, 3, vec![
-            World::ROAD_WIDTH, 0.1, 0.0,
-            World::ROAD_WIDTH, 0.2, 0.0,
+            ROAD_WIDTH, 0.1, 0.0,
+            ROAD_WIDTH, 0.2, 0.0,
             0.0, 0.3, 0.0,
         ]);
         let after_heights = M::from_vec(3, 3, vec![
             0.0, 0.0, 0.0,
-            World::ROAD_WIDTH, World::ROAD_WIDTH, 0.0,
+            ROAD_WIDTH, ROAD_WIDTH, 0.0,
             0.0, 0.3, 0.4,
         ]);
 
         for x in 0..3 {
             for y in 0..3 {
-                assert_eq!(
-                    world.terrain.get_node(v2(x, y)),
-                    &Node::new(
-                        v2(x, y),
-                        after_widths[(x, y)],
-                        after_heights[(x, y)]
-                    ),
-                );
+                let cell = world.get_cell(&v2(x, y)).unwrap();
+                println!("Checking {:?}", cell);
+                assert_eq!(cell.junction().width(), after_widths[(x, y)]);
+                assert_eq!(cell.junction().height(), after_heights[(x, y)]);
             }
         }
 
-        assert!(world.terrain.is_edge(&Edge::new(v2(0, 0), v2(0, 1))));
-        assert!(world.terrain.is_edge(&Edge::new(v2(0, 1), v2(1, 1))));
-
-        world.clear_road(&Edge::new(v2(0, 0), v2(0, 1)));
+        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
         world.toggle_road(&Edge::new(v2(0, 1), v2(1, 1)));
 
         for x in 0..3 {
             for y in 0..3 {
-                assert_eq!(
-                    world.terrain.get_node(v2(x, y)),
-                     &Node::new(
-                        v2(x, y), 
-                        before_widths[(x, y)], 
-                        before_heights[(x, y)]
-                    ),
-                );
+                let cell = world.get_cell(&v2(x, y)).unwrap();
+                assert_eq!(cell.junction().width(), before_widths[(x, y)]);
+                assert_eq!(cell.junction().height(), before_heights[(x, y)]);
             }
         }
-
-        assert!(!world.terrain.is_edge(&Edge::new(v2(0, 0), v2(0, 1))));
-        assert!(!world.terrain.is_edge(&Edge::new(v2(0, 1), v2(1, 1))));
     }
 
     #[test]
@@ -495,15 +458,18 @@ mod tests {
 
     #[test]
     fn test_is_sea() {
-        let world = World::new(
-            M::from_vec(2, 1, vec![1.0, 0.0]),
-            vec![],
-            vec![],
-            0.5,
-            Instant::now(),
-        );
+        let world = World::new(M::from_vec(2, 1, vec![1.0, 0.0]), 0.5);
         assert!(!world.is_sea(&v2(0, 0)));
         assert!(world.is_sea(&v2(1, 0)));
+    }
+
+    #[test]
+    fn test_is_road() {
+        let mut world = world();
+        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
+        assert!(world.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
+        assert!(!world.is_road(&Edge::new(v2(1, 0), v2(1, 1))));
+        assert!(!world.is_road(&Edge::new(v2(0, 1), v2(0, 2))));
     }
 
     #[test]
@@ -513,11 +479,6 @@ mod tests {
         assert!(world.is_river_or_road(&Edge::new(v2(0, 0), v2(0, 1))));
         assert!(world.is_river_or_road(&Edge::new(v2(1, 0), v2(1, 1))));
         assert!(!world.is_river_or_road(&Edge::new(v2(0, 1), v2(0, 2))));
-    }
-
-    #[test]
-    fn test_get_elevation() {
-        assert_eq!(world().get_elevation(&v2(1, 1)).unwrap(), 2.0);
     }
 
     #[test]
@@ -594,41 +555,40 @@ mod tests {
     #[test]
     fn test_set_visible() {
         let mut world = world();
-        assert!(!world.is_visible(&v2(0, 0)));
-        world.set_visible(&v2(0, 0));
-        assert!(world.is_visible(&v2(0, 0)));
+        assert!(!world.get_cell(&v2(0, 0)).unwrap().is_visible());
+        world.mut_cell_unsafe(&v2(0, 0)).visible = true;
+        assert!(world.get_cell(&v2(0, 0)).unwrap().is_visible());
     }
 
     #[test]
     fn test_reveal_all() {
         let mut world = world();
-        assert!(!world.is_visible(&v2(0, 0)));
-        assert!(!world.is_visible(&v2(0, 0)));
-        assert!(!world.is_visible(&v2(0, 0)));
-        assert!(!world.is_visible(&v2(0, 1)));
-        assert!(!world.is_visible(&v2(1, 1)));
-        assert!(!world.is_visible(&v2(2, 1)));
-        assert!(!world.is_visible(&v2(0, 2)));
-        assert!(!world.is_visible(&v2(1, 2)));
-        assert!(!world.is_visible(&v2(2, 2)));
+        assert!(!world.get_cell(&v2(0, 0)).unwrap().is_visible());
+        assert!(!world.get_cell(&v2(0, 0)).unwrap().is_visible());
+        assert!(!world.get_cell(&v2(0, 0)).unwrap().is_visible());
+        assert!(!world.get_cell(&v2(0, 1)).unwrap().is_visible());
+        assert!(!world.get_cell(&v2(1, 1)).unwrap().is_visible());
+        assert!(!world.get_cell(&v2(2, 1)).unwrap().is_visible());
+        assert!(!world.get_cell(&v2(0, 2)).unwrap().is_visible());
+        assert!(!world.get_cell(&v2(1, 2)).unwrap().is_visible());
+        assert!(!world.get_cell(&v2(2, 2)).unwrap().is_visible());
         world.reveal_all();
-        assert!(world.is_visible(&v2(0, 0)));
-        assert!(world.is_visible(&v2(0, 0)));
-        assert!(world.is_visible(&v2(0, 0)));
-        assert!(world.is_visible(&v2(0, 1)));
-        assert!(world.is_visible(&v2(1, 1)));
-        assert!(world.is_visible(&v2(2, 1)));
-        assert!(world.is_visible(&v2(0, 2)));
-        assert!(world.is_visible(&v2(1, 2)));
-        assert!(world.is_visible(&v2(2, 2)));
+        assert!(world.get_cell(&v2(0, 0)).unwrap().is_visible());
+        assert!(world.get_cell(&v2(0, 0)).unwrap().is_visible());
+        assert!(world.get_cell(&v2(0, 0)).unwrap().is_visible());
+        assert!(world.get_cell(&v2(0, 1)).unwrap().is_visible());
+        assert!(world.get_cell(&v2(1, 1)).unwrap().is_visible());
+        assert!(world.get_cell(&v2(2, 1)).unwrap().is_visible());
+        assert!(world.get_cell(&v2(0, 2)).unwrap().is_visible());
+        assert!(world.get_cell(&v2(1, 2)).unwrap().is_visible());
+        assert!(world.get_cell(&v2(2, 2)).unwrap().is_visible());
     }
 
     #[test]
     fn round_trip() {
         let original = world();
         let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
-        let mut reconstructed: World = bincode::deserialize(&encoded[..]).unwrap();
-        reconstructed.time = original.time;
+        let reconstructed: World = bincode::deserialize(&encoded[..]).unwrap();
         assert_eq!(original, reconstructed);
     }
 }

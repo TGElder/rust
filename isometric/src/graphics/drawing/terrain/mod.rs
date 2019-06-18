@@ -1,14 +1,17 @@
 mod coloring;
+mod geometry;
 
 pub use self::coloring::*;
+use self::geometry::*;
 
 use super::utils::*;
 use crate::graphics::Drawing;
 use crate::Command;
+use cell_traits::*;
 use color::Color;
+use commons::edge::*;
 use commons::index2d::*;
-use commons::{v2, V2, V3};
-use terrain::{Edge, Node, Terrain};
+use commons::*;
 
 fn clip_to_sea_level(mut vertex: V3<f32>, sea_level: f32) -> V3<f32> {
     vertex.z = vertex.z.max(sea_level);
@@ -23,17 +26,21 @@ fn clip_triangle_to_sea_level(triangle: [V3<f32>; 3], sea_level: f32) -> [V3<f32
     ]
 }
 
-pub fn draw_nodes(
+pub fn draw_nodes<T>(
     name: String,
-    terrain: &Terrain,
-    nodes: &Vec<Node>,
+    terrain: &Grid<T>,
+    nodes: &Vec<V2<usize>>,
     color: &Color,
     sea_level: f32,
-) -> Vec<Command> {
+) -> Vec<Command>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
     let mut floats = vec![];
+    let geometry = TerrainGeometry::of(terrain);
 
     for node in nodes {
-        for triangle in terrain.get_triangles(Terrain::get_index_for_node(&node)) {
+        for triangle in geometry.get_triangles_for_node(node) {
             floats.append(&mut get_uniform_colored_vertices_from_triangle(
                 &clip_triangle_to_sea_level(triangle, sea_level),
                 color,
@@ -51,17 +58,27 @@ pub fn draw_nodes(
     ]
 }
 
-pub fn draw_edges(
+pub fn draw_edges<T>(
     name: String,
-    terrain: &Terrain,
-    nodes: &Vec<Edge>,
+    terrain: &Grid<T>,
+    edges: &Vec<Edge>,
     color: &Color,
     sea_level: f32,
-) -> Vec<Command> {
+) -> Vec<Command>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
     let mut floats = vec![];
 
-    for node in nodes {
-        for triangle in terrain.get_triangles(Terrain::get_index_for_edge(&node)) {
+    let geometry = TerrainGeometry::of(terrain);
+
+    for edge in edges {
+        let triangles = if edge.horizontal() {
+            geometry.get_triangles_for_horizontal_edge(&edge.from())
+        } else {
+            geometry.get_triangles_for_vertical_edge(&edge.from())
+        };
+        for triangle in triangles {
             floats.append(&mut get_uniform_colored_vertices_from_triangle(
                 &clip_triangle_to_sea_level(triangle, sea_level),
                 color,
@@ -142,20 +159,25 @@ impl TerrainDrawing {
         ))]
     }
 
-    pub fn update(
+    pub fn update<T>(
         &mut self,
-        terrain: &Terrain,
+        terrain: &Grid<T>,
         sea_level: f32,
-        coloring: &TerrainColoring,
+        coloring: &TerrainColoring<T>,
         from: V2<usize>,
         to: V2<usize>,
-    ) -> Vec<Command> {
+    ) -> Vec<Command>
+    where
+        T: WithPosition + WithElevation + WithVisibility + WithJunction,
+    {
         let mut floats = vec![];
+
+        let geometry = TerrainGeometry::of(terrain);
 
         for x in from.x..to.x {
             for y in from.y..to.y {
                 let tile = v2(x, y);
-                for triangle in terrain.get_triangles_for_tile(&tile) {
+                for triangle in geometry.get_triangles_for_tile(&tile) {
                     let triangle = clip_triangle_to_sea_level(triangle, sea_level);
                     let colors = coloring.color(terrain, &tile, &triangle);
                     let colors = [

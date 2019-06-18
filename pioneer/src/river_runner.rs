@@ -1,24 +1,26 @@
+use commons::edge::*;
+use commons::junction::*;
+use commons::*;
 use downhill_map::DownhillMap;
 use downhill_map::DIRECTIONS;
 use flow_map::FlowMap;
-use isometric::terrain::{Edge, Node};
 use mesh::Mesh;
 use rand::prelude::*;
 use scale::Scale;
 use single_downhill_map::{RandomDownhillMap, SingleDownhillMap};
 
-pub fn get_junctions_and_rivers<R: Rng>(
+pub fn get_river_cells<R: Rng>(
     mesh: &Mesh,
     threshold: u32,
     sea_level: f64,
     flow_to_width: (f64, f64),
-    rng: &mut Box<R>,
-) -> (Vec<Node>, Vec<Edge>) {
+    rng: &mut R,
+) -> Vec<PositionJunction> {
     let downhill_map = DownhillMap::new(&mesh);
     let random_downhill_map: Box<SingleDownhillMap> =
         Box::new(RandomDownhillMap::new(&downhill_map, rng));
 
-    get_junctions_and_rivers_from_downhill_map(
+    get_river_cells_from_downhill_map(
         &mesh,
         threshold,
         sea_level,
@@ -27,22 +29,23 @@ pub fn get_junctions_and_rivers<R: Rng>(
     )
 }
 
-fn get_junctions_and_rivers_from_downhill_map(
+fn get_river_cells_from_downhill_map(
     mesh: &Mesh,
     threshold: u32,
     sea_level: f64,
     flow_to_width: (f64, f64),
     downhill_map: &Box<SingleDownhillMap>,
-) -> (Vec<Node>, Vec<Edge>) {
+) -> Vec<PositionJunction> {
     let flow_map = FlowMap::from(&mesh, &downhill_map);
-    get_junctions_and_rivers_from_flow_map(
+    let junctions = get_junction_matrix_from_flow_map(
         &mesh,
         threshold,
         sea_level,
         flow_to_width,
         &downhill_map,
         &flow_map,
-    )
+    );
+    get_river_cells_from_junction_matrix(junctions)
 }
 
 fn get_neighbour(
@@ -54,7 +57,7 @@ fn get_neighbour(
     let nx = (position.x as i32) + direction.0;
     let ny = (position.y as i32) + direction.1;
     if mesh.in_bounds(nx, ny) {
-        Some(na::Vector2::new(nx as usize, ny as usize))
+        Some(v2(nx as usize, ny as usize))
     } else {
         None
     }
@@ -72,16 +75,16 @@ fn get_max_flow_over_sea_level(mesh: &Mesh, sea_level: f64, flow_map: &FlowMap) 
     out
 }
 
-fn get_junctions_and_rivers_from_flow_map(
+fn get_junction_matrix_from_flow_map(
     mesh: &Mesh,
     threshold: u32,
     sea_level: f64,
     flow_to_width: (f64, f64),
     downhill_map: &Box<SingleDownhillMap>,
     flow_map: &FlowMap,
-) -> (Vec<Node>, Vec<Edge>) {
-    let mut junctions = vec![];
-    let mut rivers = vec![];
+) -> M<Junction> {
+    let width = mesh.get_width() as usize;
+    let mut junctions = M::from_element(width, width, Junction::default());
 
     let max_flow_over_sea_level = get_max_flow_over_sea_level(mesh, sea_level, flow_map) as f64;
     let flow_scale = Scale::new((threshold as f64, max_flow_over_sea_level), flow_to_width);
@@ -90,26 +93,52 @@ fn get_junctions_and_rivers_from_flow_map(
         for y in 0..mesh.get_width() {
             let flow = flow_map.get_flow(x, y);
             if flow >= threshold && mesh.get_z(x, y) >= sea_level {
-                let position = na::Vector2::new(x as usize, y as usize);
+                let position = v2(x as usize, y as usize);
                 if let Some(neighbour) = get_neighbour(position, mesh, downhill_map) {
                     let neighbour_flow = flow_map.get_flow(neighbour.x as i32, neighbour.y as i32);
-                    let from_width = flow_scale.scale(flow as f64) as f32;
-                    let to_width = flow_scale.scale(neighbour_flow as f64) as f32;
-                    if position.x == neighbour.x {
-                        junctions.push(Node::new(position, from_width, 0.0));
-                        junctions.push(Node::new(neighbour, to_width, 0.0));
-                    } else {
-                        junctions.push(Node::new(position, 0.0, from_width));
-                        junctions.push(Node::new(neighbour, 0.0, to_width));
-                    }
-
-                    rivers.push(Edge::new(position, neighbour));
+                    let position_width = flow_scale.scale(flow as f64) as f32;
+                    let neighbour_width = flow_scale.scale(neighbour_flow as f64) as f32;
+                    let edge = Edge::new(position, v2(neighbour.x, neighbour.y));
+                    junctions
+                        .mut_cell_unsafe(&position)
+                        .junction_1d(edge.horizontal())
+                        .width = position_width;
+                    junctions
+                        .mut_cell_unsafe(&neighbour)
+                        .junction_1d(edge.horizontal())
+                        .width = neighbour_width;
+                    junctions
+                        .mut_cell_unsafe(edge.from())
+                        .junction_1d(edge.horizontal())
+                        .from = true;
+                    junctions
+                        .mut_cell_unsafe(edge.to())
+                        .junction_1d(edge.horizontal())
+                        .to = true;
                 }
             }
         }
     }
 
-    (junctions, rivers)
+    junctions
+}
+
+fn get_river_cells_from_junction_matrix(junctions: M<Junction>) -> Vec<PositionJunction> {
+    let (width, height) = junctions.shape();
+    let default = Junction::default();
+    let mut out = vec![];
+    for x in 0..width {
+        for y in 0..height {
+            let junction = junctions[(x, y)];
+            if junctions[(x, y)] != default {
+                out.push(PositionJunction {
+                    position: v2(x, y),
+                    junction,
+                });
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -118,19 +147,24 @@ mod tests {
     use super::*;
     use single_downhill_map::MockDownhillMap;
 
+    #[rustfmt::skip]
     fn mesh() -> Mesh {
         let mut mesh = Mesh::new(4, 0.0);
         let z = na::DMatrix::from_row_slice(
             4,
             4,
             &[
-                1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0, 1.0,
+                1.0, 1.0, 0.0, 0.0,
+                1.0, 1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0, 1.0,
             ],
         );
         mesh.set_z_vector(z);
         mesh
     }
 
+    #[rustfmt::skip]
     fn downhill_map() -> Box<SingleDownhillMap> {
         let downhill_map = vec![
             vec![3, 3, 3, 3],
@@ -142,28 +176,34 @@ mod tests {
         Box::new(downhill_map)
     }
 
+    #[rustfmt::skip]
     fn flow_map() -> FlowMap {
         let mut flow_map = FlowMap::new(4);
         flow_map.set_flow(na::DMatrix::from_row_slice(
             4,
             4,
-            &[1, 2, 5, 7, 3, 7, 9, 12, 2, 2, 2, 2, 1, 1, 1, 1],
+            &[
+                1, 2, 5, 7,
+                3, 7, 9, 12,
+                3, 2, 2, 2,
+                1, 1, 1, 1
+            ],
         ));
         flow_map
     }
 
     #[test]
     fn test_get_downhill() {
-        let position = na::Vector2::new(1, 2);
+        let position = v2(1, 2);
         assert_eq!(
             get_neighbour(position, &mesh(), &downhill_map()),
-            Some(na::Vector2::new(1, 3))
+            Some(v2(1, 3))
         );
     }
 
     #[test]
     fn test_get_downhill_out_of_bounds() {
-        let position = na::Vector2::new(1, 3);
+        let position = v2(1, 3);
         assert_eq!(get_neighbour(position, &mesh(), &downhill_map()), None);
     }
 
@@ -174,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_get_junctions_and_rivers_from_flow_map() {
-        let (junctions, rivers) = get_junctions_and_rivers_from_flow_map(
+        let junctions = get_junction_matrix_from_flow_map(
             &mesh(),
             3,
             0.5,
@@ -183,16 +223,81 @@ mod tests {
             &flow_map(),
         );
 
-        assert!(junctions.contains(&Node::new(na::Vector2::new(1, 0), 0.0, 0.0)));
-        assert!(junctions.contains(&Node::new(na::Vector2::new(1, 1), 1.0, 0.0)));
-        assert!(rivers.contains(&Edge::new(na::Vector2::new(1, 0), na::Vector2::new(1, 1))));
-        assert!(junctions.contains(&Node::new(na::Vector2::new(1, 1), 1.0, 0.0)));
-        assert!(junctions.contains(&Node::new(na::Vector2::new(1, 2), 1.5, 0.0)));
-        assert!(rivers.contains(&Edge::new(na::Vector2::new(1, 1), na::Vector2::new(1, 2))));
-        assert!(junctions.contains(&Node::new(na::Vector2::new(0, 2), 0.5, 0.0)));
-        assert!(junctions.contains(&Node::new(na::Vector2::new(0, 3), 1.0, 0.0)));
-        assert!(rivers.contains(&Edge::new(na::Vector2::new(0, 2), na::Vector2::new(0, 3))));
-        assert_eq!(rivers.len(), 3);
-        assert_eq!(junctions.len(), 6);
+        assert_eq!(
+            junctions[(2, 0)],
+            Junction {
+                horizontal: Junction1D {
+                    width: 0.0,
+                    from: false,
+                    to: true
+                },
+                vertical: Junction1D::default(),
+            }
+        );
+        assert_eq!(
+            junctions[(1, 0)],
+            Junction {
+                horizontal: Junction1D {
+                    width: 0.0,
+                    from: true,
+                    to: false
+                },
+                vertical: Junction1D {
+                    width: 0.0,
+                    from: true,
+                    to: false
+                },
+            }
+        );
+        assert_eq!(
+            junctions[(1, 1)],
+            Junction {
+                horizontal: Junction1D::default(),
+                vertical: Junction1D {
+                    width: 1.0,
+                    from: true,
+                    to: true
+                },
+            }
+        );
+
+        assert_eq!(
+            junctions[(1, 2)],
+            Junction {
+                horizontal: Junction1D::default(),
+                vertical: Junction1D {
+                    width: 1.5,
+                    from: false,
+                    to: true
+                },
+            }
+        );
+
+        assert_eq!(
+            junctions[(0, 2)],
+            Junction {
+                horizontal: Junction1D::default(),
+                vertical: Junction1D {
+                    width: 0.5,
+                    from: true,
+                    to: false
+                },
+            }
+        );
+
+        assert_eq!(
+            junctions[(0, 3)],
+            Junction {
+                horizontal: Junction1D::default(),
+                vertical: Junction1D {
+                    width: 1.0,
+                    from: false,
+                    to: true
+                },
+            }
+        );
+
+        assert_eq!(get_river_cells_from_junction_matrix(junctions).len(), 6);
     }
+
 }

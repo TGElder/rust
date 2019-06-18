@@ -160,6 +160,7 @@ version = "0.1.0"
 dependencies = [
  "nalgebra 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.91 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -733,7 +734,6 @@ name = "pioneer"
 version = "0.1.0"
 dependencies = [
  "commons 0.1.0",
- "isometric 0.1.0",
  "nalgebra 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

@@ -1,7 +1,6 @@
-use crate::world::World;
+use crate::world::*;
 use commons::*;
 use isometric::drawing::*;
-use isometric::terrain::*;
 use isometric::*;
 use std::collections::HashSet;
 
@@ -26,13 +25,14 @@ pub struct WorldArtist {
     width: usize,
     height: usize,
     drawing: TerrainDrawing,
-    coloring: LayerColoring,
+    coloring: LayerColoring<WorldCell>,
     slab_size: usize,
 }
 
 impl WorldArtist {
-    pub fn new(world: &World, coloring: LayerColoring, slab_size: usize) -> WorldArtist {
-        let (width, height) = world.terrain().elevations().shape();
+    pub fn new(world: &World, coloring: LayerColoring<WorldCell>, slab_size: usize) -> WorldArtist {
+        let width = world.width();
+        let height = world.height();
         WorldArtist {
             width,
             height,
@@ -42,7 +42,7 @@ impl WorldArtist {
         }
     }
 
-    pub fn coloring(&mut self) -> &mut LayerColoring {
+    pub fn coloring(&mut self) -> &mut LayerColoring<WorldCell> {
         &mut self.coloring
     }
 
@@ -59,36 +59,40 @@ impl WorldArtist {
     fn draw_slab_tiles(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
         let to = slab.to();
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
-        self.drawing.update(
-            world.terrain(),
-            world.sea_level(),
-            &self.coloring,
-            slab.from,
-            to,
-        )
+        self.drawing
+            .update(world, world.sea_level(), &self.coloring, slab.from, to)
     }
 
-    fn get_road_river_nodes(
+    fn get_road_river_positions(
         &self,
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
-    ) -> (Vec<Node>, Vec<Node>) {
-        let mut road_nodes = vec![];
-        let mut river_nodes = vec![];
+    ) -> (Vec<V2<usize>>, Vec<V2<usize>>, Vec<V2<usize>>) {
+        let mut road_positions = vec![];
+        let mut river_positions = vec![];
+        let mut suppressed_river_positions = vec![];
         for x in from.x..to.x {
             for y in from.y..to.y {
                 let position = v2(x, y);
-                let road_node = world.roads().get_node(position);
-                let river_node = world.rivers().get_node(position);
-                if road_node.width() > 0.0 || road_node.height() > 0.0 {
-                    road_nodes.push(road_node);
-                } else if river_node.width() > 0.0 || river_node.height() > 0.0 {
-                    river_nodes.push(river_node)
+                if let Some(cell) = world.get_cell(&position) {
+                    let road = cell.road;
+                    let river = cell.river;
+                    if road.here() {
+                        road_positions.push(position);
+                    }
+                    if river.here() {
+                        if road.here() {
+                            // We need these for drawing edges, but not nodes
+                            suppressed_river_positions.push(position);
+                        } else {
+                            river_positions.push(position);
+                        }
+                    }
                 }
             }
         }
-        (road_nodes, river_nodes)
+        (road_positions, river_positions, suppressed_river_positions)
     }
 
     fn draw_slab_rivers_roads(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
@@ -96,35 +100,55 @@ impl WorldArtist {
         let road_color = &Color::new(0.5, 0.5, 0.5, 1.0);
         let from = &slab.from;
         let to = &slab.to();
-        let river_edges = world.rivers().get_edges(from, to);
-        let road_edges = world.roads().get_edges(from, to);
-        let (road_nodes, river_nodes) = self.get_road_river_nodes(world, from, to);
+        let (road_positions, river_positions, suppressed_river_positions) =
+            self.get_road_river_positions(world, from, to);
+        let river_edges = river_positions
+            .iter()
+            .chain(suppressed_river_positions.iter())
+            .flat_map(|position| {
+                world
+                    .get_cell(position)
+                    .unwrap()
+                    .river
+                    .get_edges_from(position)
+            })
+            .collect();
+        let road_edges = road_positions
+            .iter()
+            .flat_map(|position| {
+                world
+                    .get_cell(position)
+                    .unwrap()
+                    .road
+                    .get_edges_from(position)
+            })
+            .collect();
         let mut out = vec![];
         out.append(&mut draw_edges(
             format!("{:?}-river-edges", slab.from),
-            world.terrain(),
+            world,
             &river_edges,
             &river_color,
             world.sea_level(),
         ));
         out.append(&mut draw_edges(
             format!("{:?}-road-edges", slab.from),
-            world.terrain(),
+            world,
             &road_edges,
             &road_color,
             world.sea_level(),
         ));
         out.append(&mut draw_nodes(
-            format!("{:?}-river-nodes", slab.from),
-            world.terrain(),
-            &river_nodes,
+            format!("{:?}-river-positions", slab.from),
+            world,
+            &river_positions,
             &river_color,
             world.sea_level(),
         ));
         out.append(&mut draw_nodes(
-            format!("{:?}-road-nodes", slab.from),
-            world.terrain(),
-            &road_nodes,
+            format!("{:?}-road-positions", slab.from),
+            world,
+            &road_positions,
             &road_color,
             world.sea_level(),
         ));
@@ -205,13 +229,13 @@ impl DefaultColoring {
     pub fn new(
         world: &World,
         beach_level: f32,
-        snow_level: f32,
+        snow_temperature: f32,
         cliff_gradient: f32,
         light_direction: V3<f32>,
     ) -> DefaultColoring {
         DefaultColoring {
             coloring: ShadedTileTerrainColoring::new(
-                Self::get_colors(world, beach_level, snow_level, cliff_gradient),
+                Self::get_colors(world, beach_level, snow_temperature, cliff_gradient),
                 Self::sea_color(),
                 world.sea_level(),
                 light_direction,
@@ -242,12 +266,19 @@ impl DefaultColoring {
     fn get_colors(
         world: &World,
         beach_level: f32,
-        snow_level: f32,
+        snow_temperature: f32,
         cliff_gradient: f32,
     ) -> M<Color> {
-        let (width, height) = world.terrain().elevations().shape();
+        let width = world.width();
+        let height = world.height();
         M::from_fn(width - 1, height - 1, |x, y| {
-            Self::get_color(world, &v2(x, y), beach_level, snow_level, cliff_gradient)
+            Self::get_color(
+                world,
+                &v2(x, y),
+                beach_level,
+                snow_temperature,
+                cliff_gradient,
+            )
         })
     }
 
@@ -255,12 +286,16 @@ impl DefaultColoring {
         world: &World,
         position: &V2<usize>,
         beach_level: f32,
-        snow_level: f32,
+        snow_temperature: f32,
         cliff_gradient: f32,
     ) -> Color {
         let max_gradient = world.get_max_abs_rise(&position);
         let min_elevation = world.get_lowest_corner(&position);
-        if min_elevation > snow_level {
+        if world
+            .get_cell(position)
+            .map(|cell| cell.climate.temperature <= snow_temperature)
+            .unwrap_or(false)
+        {
             Self::snow_color()
         } else if max_gradient > cliff_gradient {
             Self::cliff_color()
@@ -272,13 +307,13 @@ impl DefaultColoring {
     }
 }
 
-impl TerrainColoring for DefaultColoring {
+impl TerrainColoring<WorldCell> for DefaultColoring {
     fn color(
         &self,
-        terrain: &Terrain,
+        world: &Grid<WorldCell>,
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        self.coloring.color(terrain, tile, triangle)
+        self.coloring.color(world, tile, triangle)
     }
 }

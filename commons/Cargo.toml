@@ -4,5 +4,6 @@ version = "0.1.0"
 authors = ["Thomas Elder <tgelder@gmail.com>"]
 
 [dependencies]
-nalgebra = "0.17.2"
+nalgebra = { version = "0.17.2", features = ["serde-serialize"] }
 num = "0.2"
+serde = { version = "1.0", features = ["derive"] }

@@ -25,7 +25,7 @@ struct SplitProcess {
 }
 
 impl SplitRule {
-    fn generate_split<R: Rng>(&self, rng: &mut Box<R>, random_range: (f64, f64)) -> Split {
+    fn generate_split<R: Rng>(&self, rng: &mut R, random_range: (f64, f64)) -> Split {
         let r: f64 = rng.gen_range(random_range.0, random_range.1);
         let scale: Scale<f64> = Scale::new((0.0, 1.0), self.range);
         Split {
@@ -65,7 +65,7 @@ impl SplitProcess {
         }
     }
 
-    fn next<R: Rng>(mut self, rng: &mut Box<R>, random_range: (f64, f64)) -> SplitProcess {
+    fn next<R: Rng>(mut self, rng: &mut R, random_range: (f64, f64)) -> SplitProcess {
         fn update_rule(rule: SplitRule, split: &Split) -> SplitRule {
             if rule.x == split.x || rule.y == split.y {
                 SplitRule {
@@ -89,7 +89,7 @@ impl SplitProcess {
         self
     }
 
-    fn complete<R: Rng>(mut self, rng: &mut Box<R>, random_range: (f64, f64)) -> Vec<Split> {
+    fn complete<R: Rng>(mut self, rng: &mut R, random_range: (f64, f64)) -> Vec<Split> {
         while !self.split_rules.is_empty() {
             self = self.next(rng, random_range);
         }
@@ -100,11 +100,7 @@ impl SplitProcess {
 pub struct MeshSplitter {}
 
 impl MeshSplitter {
-    fn get_all_splits<R: Rng>(
-        mesh: &Mesh,
-        rng: &mut Box<R>,
-        random_range: (f64, f64),
-    ) -> Vec<Split> {
+    fn get_all_splits<R: Rng>(mesh: &Mesh, rng: &mut R, random_range: (f64, f64)) -> Vec<Split> {
         let mut out = Vec::with_capacity((mesh.get_width() * mesh.get_width() * 4) as usize);
         for x in 0..mesh.get_width() {
             for y in 0..mesh.get_width() {
@@ -114,7 +110,7 @@ impl MeshSplitter {
         out
     }
 
-    pub fn split<R: Rng>(mesh: &Mesh, rng: &mut Box<R>, random_range: (f64, f64)) -> Mesh {
+    pub fn split<R: Rng>(mesh: &Mesh, rng: &mut R, random_range: (f64, f64)) -> Mesh {
         let mut out = Mesh::new(mesh.get_width() * 2, mesh.get_out_of_bounds_z());
         for split in MeshSplitter::get_all_splits(mesh, rng, random_range) {
             out.set_z(split.x, split.y, split.z);
@@ -124,7 +120,7 @@ impl MeshSplitter {
 
     pub fn split_n_times<R: Rng>(
         mesh: &Mesh,
-        rng: &mut Box<R>,
+        rng: &mut R,
         random_range: (f64, f64),
         times: u32,
     ) -> Mesh {
@@ -143,8 +139,8 @@ mod tests {
     use rand::rngs::mock::StepRng;
     use std::u64;
 
-    fn get_rng() -> Box<StepRng> {
-        Box::new(StepRng::new(u64::MAX / 2 + 1, 0))
+    fn get_rng() -> StepRng {
+        StepRng::new(u64::MAX / 2 + 1, 0)
     }
 
     #[test]

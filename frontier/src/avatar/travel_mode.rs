@@ -1,6 +1,6 @@
 use crate::world::World;
-use commons::V2;
-use isometric::terrain::Edge;
+use commons::edge::*;
+use commons::*;
 
 #[derive(Debug, PartialEq)]
 pub enum TravelMode {
@@ -20,18 +20,16 @@ impl TravelModeFn {
         TravelModeFn { min_river_width }
     }
 
-    fn river_is_navigable(&self, world: &World, position: &V2<usize>) -> bool {
-        world.rivers().width_here(position) >= self.min_river_width
-    }
-
     pub fn is_navigable_river_here(&self, world: &World, position: &V2<usize>) -> bool {
-        world.rivers().here(position) && self.river_is_navigable(world, position)
+        if let Some(cell) = world.get_cell(position) {
+            return cell.river.width().max(cell.river.height()) >= self.min_river_width;
+        } else {
+            return false;
+        }
     }
 
     pub fn is_navigable_river(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> bool {
-        world.rivers().along(&Edge::new(*from, *to))
-            && self.river_is_navigable(world, from)
-            && self.river_is_navigable(world, to)
+        self.is_navigable_river_here(world, from) && self.is_navigable_river_here(world, to)
     }
 
     pub fn travel_mode_between(
@@ -43,7 +41,7 @@ impl TravelModeFn {
         if world.in_bounds(from) && world.in_bounds(to) {
             if world.is_sea(from) && world.is_sea(to) {
                 Some(TravelMode::Sea)
-            } else if world.roads().along(&Edge::new(*from, *to)) {
+            } else if world.is_road(&Edge::new(*from, *to)) {
                 Some(TravelMode::Road)
             } else if self.is_navigable_river(world, from, to) {
                 Some(TravelMode::River)
@@ -59,7 +57,11 @@ impl TravelModeFn {
         if world.in_bounds(position) {
             if world.is_sea(position) {
                 Some(TravelMode::Sea)
-            } else if world.roads().here(position) {
+            } else if world
+                .get_cell(position)
+                .map(|cell| cell.road.here())
+                .unwrap_or(false)
+            {
                 Some(TravelMode::Road)
             } else if self.is_navigable_river_here(world, position) {
                 Some(TravelMode::River)
@@ -76,9 +78,8 @@ impl TravelModeFn {
 mod tests {
 
     use super::*;
+    use commons::junction::*;
     use commons::{v2, M};
-    use isometric::terrain::Node;
-    use std::time::Instant;
 
     #[rustfmt::skip]
     fn world() -> World {
@@ -89,33 +90,29 @@ mod tests {
                     1.0, 1.0, 1.0, 0.0,
                     1.0, 1.0, 1.0, 1.0,
                 ]),
-                vec![
-                    Node::new(v2(0, 1), 0.0, 0.1),
-                    Node::new(v2(1, 1), 0.0, 0.2),
-                    Node::new(v2(2, 1), 0.0, 0.3)
-                ],
-                vec![
-                    Edge::new(v2(0, 1), v2(1, 1)),
-                    Edge::new(v2(1, 1), v2(2, 1))
-                ],
                 0.5,
-                Instant::now(),
             );
 
-        world.add_road(&Edge::new(v2(0, 3), v2(1, 3)));
+        let mut river_1 = PositionJunction::new(v2(0, 1));
+        river_1.junction.horizontal.width = 0.1;
+        river_1.junction.horizontal.from = true;
+        let mut river_2 = PositionJunction::new(v2(1, 1));
+        river_2.junction.horizontal.width = 0.2;
+        river_2.junction.horizontal.from = true;
+        river_2.junction.horizontal.to = true;
+        let mut river_3 = PositionJunction::new(v2(2, 1));
+        river_3.junction.horizontal.width = 0.3;
+        river_3.junction.horizontal.to = true;
+        world.add_river(river_1);
+        world.add_river(river_2);
+        world.add_river(river_3);
+        
+        world.toggle_road(&Edge::new(v2(0, 3), v2(1, 3)));
         world
     }
 
     fn travel_mode_fn() -> TravelModeFn {
         TravelModeFn::new(0.15)
-    }
-
-    #[test]
-    fn river_is_navigable() {
-        let world = world();
-        let travel_mode_fn = travel_mode_fn();
-        assert!(!travel_mode_fn.river_is_navigable(&world, &v2(0, 1)));
-        assert!(travel_mode_fn.river_is_navigable(&world, &v2(1, 1)));
     }
 
     #[test]
@@ -259,7 +256,7 @@ mod tests {
     fn travel_mode_bridge() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
-        world.add_road(&Edge::new(v2(1, 0), v2(1, 1)));
+        world.toggle_road(&Edge::new(v2(1, 0), v2(1, 1)));
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(1, 0), &v2(1, 1)),
             Some(TravelMode::Road)
@@ -300,7 +297,7 @@ mod tests {
     fn travel_mode_here_bridge() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
-        world.add_road(&Edge::new(v2(1, 0), v2(1, 1)));
+        world.toggle_road(&Edge::new(v2(1, 0), v2(1, 1)));
         assert_eq!(
             travel_mode_fn.travel_mode_here(&world, &v2(1, 1)),
             Some(TravelMode::Road)

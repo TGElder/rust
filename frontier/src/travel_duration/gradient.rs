@@ -53,15 +53,11 @@ mod tests {
     use super::*;
     use crate::world::World;
     use commons::{v2, M};
-    use std::time::Instant;
 
     fn world() -> World {
         World::new(
             M::from_vec(3, 3, vec![1.0, 1.0, 3.0, 1.0, 1.0, 3.0, 1.0, 1.5, 3.0]),
-            vec![],
-            vec![],
             2.0,
-            Instant::now(),
         )
     }
 

@@ -1,7 +1,8 @@
 use crate::travel_duration::*;
 use crate::world::World;
-use commons::V2;
-use isometric::terrain::Edge;
+use commons::edge::*;
+use commons::*;
+use isometric::cell_traits::*;
 use std::time::Duration;
 
 pub struct AutoRoadTravelDuration {
@@ -17,20 +18,26 @@ impl AutoRoadTravelDuration {
 
 impl TravelDuration for AutoRoadTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
-        if !world.is_visible(from) {
+        if !world
+            .get_cell(from)
+            .map(|cell| cell.is_visible())
+            .unwrap_or(false)
+        {
             return None;
         }
-        if let (Some(from_z), Some(to_z)) = (world.get_elevation(from), world.get_elevation(to)) {
-            if from_z < world.sea_level() || to_z < world.sea_level() {
+        if let (Some(from), Some(to)) = (world.get_cell(from), world.get_cell(to)) {
+            if from.elevation() < world.sea_level() || to.elevation() < world.sea_level() {
                 None
-            } else if world.rivers().corner_here(from) || world.rivers().corner_here(to) {
+            } else if from.river.corner() || to.river.corner() {
                 None
-            } else if world.rivers().here(from) && world.rivers().here(to) {
+            } else if from.river.here() && to.river.here() {
                 None
-            } else if world.roads().along(&Edge::new(*from, *to)) {
-                self.road.get_duration(world, from, to)
+            } else if world.is_road(&Edge::new(from.position(), to.position())) {
+                self.road
+                    .get_duration(world, &from.position(), &to.position())
             } else {
-                self.off_road.get_duration(world, from, to)
+                self.off_road
+                    .get_duration(world, &from.position(), &to.position())
             }
         } else {
             None
@@ -46,9 +53,8 @@ impl TravelDuration for AutoRoadTravelDuration {
 mod tests {
 
     use super::*;
+    use commons::junction::*;
     use commons::{v2, M};
-    use isometric::terrain::Node;
-    use std::time::Instant;
 
     fn road_travel_duration() -> Box<TravelDuration> {
         ConstantTravelDuration::boxed(Duration::from_millis(10))
@@ -71,10 +77,7 @@ mod tests {
                 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0,
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         );
 
         world.reveal_all();
@@ -91,18 +94,23 @@ mod tests {
                 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0,
             ]),
-            vec![
-                Node::new(v2(1, 0), 1.0, 0.0),
-                Node::new(v2(1, 1), 1.0, 1.0),
-                Node::new(v2(2, 1), 0.0, 1.0),
-            ],
-            vec![
-                Edge::new(v2(1, 0), v2(1, 1)),
-                Edge::new(v2(1, 1), v2(2, 1))
-            ],
             0.5,
-            Instant::now(),
         );
+
+        let mut river_1 = PositionJunction::new(v2(1, 0));
+        river_1.junction.vertical.width = 1.0;
+        river_1.junction.vertical.from = true;
+        let mut river_2 = PositionJunction::new(v2(1, 1));
+        river_2.junction.horizontal.width = 1.0;
+        river_2.junction.vertical.width = 1.0;
+        river_2.junction.horizontal.from = true;
+        river_2.junction.vertical.to = true;
+        let mut river_3 = PositionJunction::new(v2(2, 1));
+        river_3.junction.horizontal.width = 1.0;
+        river_3.junction.horizontal.to = true;
+        world.add_river(river_1);
+        world.add_river(river_2);
+        world.add_river(river_3);
 
         world.reveal_all();
 
@@ -118,18 +126,22 @@ mod tests {
                 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0,
             ]),
-            vec![
-                Node::new(v2(1, 0), 1.0, 0.0),
-                Node::new(v2(1, 1), 1.0, 0.0),
-                Node::new(v2(1, 2), 1.0, 0.0),
-            ],
-            vec![
-                Edge::new(v2(1, 0), v2(1, 1)),
-                Edge::new(v2(1, 1), v2(1, 2))
-            ],
             0.5,
-            Instant::now(),
         );
+
+        let mut river_1 = PositionJunction::new(v2(1, 0));
+        river_1.junction.vertical.width = 1.0;
+        river_1.junction.vertical.from = true;
+        let mut river_2 = PositionJunction::new(v2(1, 1));
+        river_2.junction.vertical.width = 1.0;
+        river_2.junction.vertical.from = true;
+        river_2.junction.vertical.to = true;
+        let mut river_3 = PositionJunction::new(v2(1, 2));
+        river_3.junction.vertical.width = 1.0;
+        river_3.junction.vertical.to = true;
+        world.add_river(river_1);
+        world.add_river(river_2);
+        world.add_river(river_3);
 
         world.reveal_all();
 
@@ -145,18 +157,22 @@ mod tests {
                 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0,
             ]),
-            vec![
-                Node::new(v2(1, 0), 1.0, 0.0),
-                Node::new(v2(1, 1), 1.0, 0.0),
-                Node::new(v2(1, 2), 1.0, 0.0),
-            ],
-            vec![
-                Edge::new(v2(1, 0), v2(1, 1)),
-                Edge::new(v2(1, 1), v2(1, 2))
-            ],
             0.5,
-            Instant::now(),
         );
+
+        let mut river_1 = PositionJunction::new(v2(1, 0));
+        river_1.junction.vertical.width = 1.0;
+        river_1.junction.vertical.from = true;
+        let mut river_2 = PositionJunction::new(v2(1, 1));
+        river_2.junction.vertical.width = 1.0;
+        river_2.junction.vertical.from = true;
+        river_2.junction.vertical.to = true;
+        let mut river_3 = PositionJunction::new(v2(1, 2));
+        river_3.junction.vertical.width = 1.0;
+        river_3.junction.vertical.to = true;
+        world.add_river(river_1);
+        world.add_river(river_2);
+        world.add_river(river_3);
 
         world.reveal_all();
 
@@ -173,10 +189,7 @@ mod tests {
                 1.0, 1.0, 0.0,
                 1.0, 1.0, 0.0,
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         );
 
         world.reveal_all();
@@ -193,10 +206,7 @@ mod tests {
                 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0,
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         );
 
         world.reveal_all();
@@ -215,13 +225,10 @@ mod tests {
                 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0,
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         );
 
-        world.set_visible(&v2(0, 0));
+        world.mut_cell_unsafe(&v2(0, 0)).visible = true;
 
         assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), Some(off_road_travel_duration().max_duration()));
     }
@@ -235,17 +242,14 @@ mod tests {
                 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0,
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         );
 
-        world.set_visible(&v2(1, 0));
+        world.mut_cell_unsafe(&v2(1, 0)).visible = true;
 
         assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), None);
 
-        world.set_visible(&v2(0, 0));
+        world.mut_cell_unsafe(&v2(0, 0)).visible = true;
 
         assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), Some(off_road_travel_duration().max_duration()));
     }

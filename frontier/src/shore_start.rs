@@ -122,7 +122,6 @@ mod tests {
 
     use super::*;
     use commons::M;
-    use std::time::Instant;
 
     #[rustfmt::skip]
     fn world() -> World {
@@ -135,10 +134,7 @@ mod tests {
                 0.0, 1.0, 0.0, 0.0, 0.0,
                 0.0, 0.0, 0.0, 0.0, 0.0,
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         )
     }
 

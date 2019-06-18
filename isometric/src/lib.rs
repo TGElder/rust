@@ -1,3 +1,4 @@
+pub mod cell_traits;
 mod color;
 pub mod coords;
 mod engine;
@@ -5,7 +6,6 @@ pub mod event_handlers;
 mod events;
 mod font;
 mod graphics;
-pub mod terrain;
 mod transform;
 mod utils;
 

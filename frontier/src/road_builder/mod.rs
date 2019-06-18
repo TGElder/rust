@@ -4,9 +4,9 @@ use crate::avatar::*;
 use crate::pathfinder::*;
 use crate::travel_duration::*;
 use crate::world::World;
+use commons::edge::*;
 use commons::scale::*;
 use commons::V2;
-use isometric::terrain::*;
 use std::time::Duration;
 use travel_duration::*;
 
@@ -114,7 +114,6 @@ mod tests {
 
     use super::*;
     use commons::{v2, M};
-    use std::time::Instant;
 
     struct TestDuration {}
 
@@ -127,7 +126,7 @@ mod tests {
         ) -> Option<Duration> {
             if to.x > from.x || to.y > from.y {
                 Some(Duration::from_millis(1))
-            } else if world.roads().along(&Edge::new(*from, *to)) {
+            } else if world.is_road(&Edge::new(*from, *to)) {
                 Some(Duration::from_millis(1))
             } else {
                 None
@@ -147,10 +146,7 @@ mod tests {
                 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0,
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         )
     }
 
@@ -176,11 +172,11 @@ mod tests {
         let result = RoadBuilderResult {
             path: vec![*edge.from(), *edge.to()],
         };
-        assert!(!world.roads().along(&edge));
+        assert!(!world.is_road(&edge));
         result.toggle_roads(&mut world);
-        assert!(world.roads().along(&edge));
+        assert!(world.is_road(&edge));
         result.toggle_roads(&mut world);
-        assert!(!world.roads().along(&edge));
+        assert!(!world.is_road(&edge));
     }
 
     #[test]
@@ -190,11 +186,11 @@ mod tests {
         let result = RoadBuilderResult {
             path: vec![*edge.from(), *edge.to()],
         };
-        assert!(!world.roads().along(&edge));
+        assert!(!world.is_road(&edge));
         result.set_roads(&mut world);
-        assert!(world.roads().along(&edge));
+        assert!(world.is_road(&edge));
         result.set_roads(&mut world);
-        assert!(world.roads().along(&edge));
+        assert!(world.is_road(&edge));
     }
 
     #[test]
@@ -224,7 +220,7 @@ mod tests {
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             None
         );
-        assert!(!world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
         assert_eq!(
             road_builder.auto_build_road(&mut world, &avatar, &v2(1, 0)),
             Some(RoadBuilderResult {
@@ -235,7 +231,7 @@ mod tests {
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             Some(vec![v2(1, 0), v2(0, 0)])
         );
-        assert!(world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
     }
 
     #[test]
@@ -262,7 +258,7 @@ mod tests {
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             None
         );
-        assert!(!world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
         assert_eq!(
             road_builder.build_forward(&mut world, &avatar),
             Some(RoadBuilderResult {
@@ -273,7 +269,7 @@ mod tests {
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             Some(vec![v2(1, 0), v2(0, 0)])
         );
-        assert!(world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
     }
 
     #[test]
@@ -288,7 +284,7 @@ mod tests {
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             Some(vec![v2(1, 0), v2(0, 0)])
         );
-        assert!(world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
         assert_eq!(
             road_builder.build_forward(&mut world, &avatar),
             Some(RoadBuilderResult {
@@ -299,7 +295,7 @@ mod tests {
             road_builder.pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
             None
         );
-        assert!(!world.roads().along(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
     }
 
     #[test]

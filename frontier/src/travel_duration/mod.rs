@@ -39,7 +39,6 @@ mod tests {
 
     use super::*;
     use commons::{v2, M};
-    use std::time::Instant;
 
     struct TestDuration {
         millis: u64,
@@ -66,10 +65,7 @@ mod tests {
                 1.0, 1.0, 1.0,
                 1.0, 1.0, 1.0
             ]),
-            vec![],
-            vec![],
             0.5,
-            Instant::now(),
         );
         let travel_duration: Box<TravelDuration> = Box::new(TestDuration {
             millis: 1,
