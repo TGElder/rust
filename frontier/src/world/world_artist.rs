@@ -1,3 +1,4 @@
+use super::vegetation_artist::*;
 use crate::world::*;
 use commons::*;
 use isometric::drawing::*;
@@ -27,6 +28,7 @@ pub struct WorldArtist {
     drawing: TerrainDrawing,
     coloring: LayerColoring<WorldCell>,
     slab_size: usize,
+    vegetation_artist: VegetationArtist,
 }
 
 impl WorldArtist {
@@ -39,6 +41,7 @@ impl WorldArtist {
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, slab_size),
             slab_size,
             coloring,
+            vegetation_artist: VegetationArtist::new(),
         }
     }
 
@@ -52,7 +55,8 @@ impl WorldArtist {
 
     fn draw_slab(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
         let mut out = self.draw_slab_tiles(world, slab);
-        out.append(&mut self.draw_slab_rivers_roads(world, &slab));
+        out.append(&mut self.draw_slab_rivers_roads(world, slab));
+        out.append(&mut self.draw_slab_vegetation(world, slab));
         out
     }
 
@@ -155,6 +159,12 @@ impl WorldArtist {
         out
     }
 
+    fn draw_slab_vegetation(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
+        let to = slab.to();
+        let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
+        self.vegetation_artist.draw(world, &slab.from, &to)
+    }
+
     fn draw_slabs(&mut self, world: &World, slabs: HashSet<Slab>) -> Vec<Command> {
         let mut out = vec![];
         for slab in slabs {
@@ -247,10 +257,6 @@ impl DefaultColoring {
         Color::new(0.0, 0.0, 1.0, 1.0)
     }
 
-    fn snow_color() -> Color {
-        Color::new(1.0, 1.0, 1.0, 1.0)
-    }
-
     fn cliff_color() -> Color {
         Color::new(0.5, 0.4, 0.3, 1.0)
     }
@@ -259,8 +265,16 @@ impl DefaultColoring {
         Color::new(1.0, 1.0, 0.0, 1.0)
     }
 
-    fn grass_color() -> Color {
-        Color::new(0.0, 0.75, 0.0, 1.0)
+    fn desert_color() -> Color {
+        Color::new(1.0, 0.8, 0.6, 1.0)
+    }
+
+    fn vegetation_color() -> Color {
+        Color::new(0.0, 1.0, 0.0, 1.0)
+    }
+
+    fn snow_color() -> Color {
+        Color::new(1.0, 1.0, 1.0, 1.0)
     }
 
     fn get_colors(
@@ -291,18 +305,16 @@ impl DefaultColoring {
     ) -> Color {
         let max_gradient = world.get_max_abs_rise(&position);
         let min_elevation = world.get_lowest_corner(&position);
-        if world
-            .get_cell(position)
-            .map(|cell| cell.climate.temperature <= snow_temperature)
-            .unwrap_or(false)
-        {
-            Self::snow_color()
-        } else if max_gradient > cliff_gradient {
+        let cell = world.get_cell_unsafe(position);
+        if max_gradient > cliff_gradient {
             Self::cliff_color()
-        } else if min_elevation < beach_level {
+        } else if cell.climate.temperature < snow_temperature {
+            Self::snow_color()
+        } else if min_elevation <= beach_level {
             Self::beach_color()
         } else {
-            Self::grass_color()
+            let groundwater = world.tile_average(&position, &|cell| cell.climate.groundwater());
+            Self::vegetation_color().blend(groundwater, &Self::desert_color())
         }
     }
 }

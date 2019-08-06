@@ -1,4 +1,5 @@
 use color::Color;
+use commons::na;
 use commons::unsafe_ordering;
 use std::f32;
 

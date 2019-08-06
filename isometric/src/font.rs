@@ -1,5 +1,6 @@
+use commons::image;
+use commons::image::GenericImageView;
 use commons::{v2, V2};
-use image::GenericImageView;
 use std::fs::File;
 use std::io::Read;
 

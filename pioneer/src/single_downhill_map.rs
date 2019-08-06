@@ -1,3 +1,4 @@
+use commons::*;
 use downhill_map::DownhillMap;
 use rand::prelude::*;
 
@@ -23,7 +24,7 @@ impl SingleDownhillMap for MockDownhillMap {
 
 pub struct RandomDownhillMap {
     width: i32,
-    directions: na::DMatrix<u8>,
+    directions: M<u8>,
 }
 
 impl RandomDownhillMap {
@@ -32,7 +33,7 @@ impl RandomDownhillMap {
             panic!("Not all cells have downhill");
         }
         let width = downhill_map.get_width();
-        let mut directions = na::DMatrix::zeros(width as usize, width as usize);
+        let mut directions = M::zeros(width as usize, width as usize);
         for x in 0..width {
             for y in 0..width {
                 let candidates: Vec<u8> = downhill_map
@@ -70,7 +71,7 @@ mod tests {
     #[test]
     fn random_downhill_map_should_contain_downhill_directions() {
         let mut mesh = Mesh::new(4, 0.0);
-        let z = na::DMatrix::from_row_slice(
+        let z = M::from_row_slice(
             4,
             4,
             &[

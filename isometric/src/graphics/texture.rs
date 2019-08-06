@@ -1,3 +1,4 @@
+use commons::image;
 use image::{DynamicImage, GenericImageView};
 use std::collections::HashMap;
 use std::ffi::c_void;

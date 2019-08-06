@@ -4,6 +4,4 @@ version = "0.1.0"
 authors = ["Thomas Elder <tgelder@gmail.com>"]
 
 [dependencies]
-rand = "0.6"
 commons = { path = "../commons" }
-nalgebra = "0.17.2"

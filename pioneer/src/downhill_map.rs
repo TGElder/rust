@@ -1,3 +1,4 @@
+use commons::*;
 use mesh::Mesh;
 
 pub const DIRECTIONS: [(i32, i32); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
@@ -5,14 +6,14 @@ pub const DIRECTIONS: [(i32, i32); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 #[derive(Debug, PartialEq)]
 pub struct DownhillMap {
     width: i32,
-    directions: na::DMatrix<[bool; 4]>,
+    directions: M<[bool; 4]>,
 }
 
 impl DownhillMap {
     pub fn new(mesh: &Mesh) -> DownhillMap {
         let mut out = DownhillMap {
             width: mesh.get_width(),
-            directions: na::DMatrix::repeat(
+            directions: M::repeat(
                 mesh.get_width() as usize,
                 mesh.get_width() as usize,
                 [false; 4],
@@ -83,7 +84,7 @@ mod tests {
     #[test]
     fn test_compute_directions() {
         let mut mesh = Mesh::new(3, 0.0);
-        mesh.set_z_vector(na::DMatrix::from_row_slice(
+        mesh.set_z_vector(M::from_row_slice(
             3,
             3,
             &[0.1, 0.8, 0.2, 0.3, 0.5, 0.9, 0.6, 0.4, 0.7],
@@ -98,11 +99,11 @@ mod tests {
     #[test]
     fn test_compute_all_directions() {
         let mut mesh = Mesh::new(2, 0.0);
-        mesh.set_z_vector(na::DMatrix::from_row_slice(2, 2, &[0.1, 0.2, 0.3, 0.4]));
+        mesh.set_z_vector(M::from_row_slice(2, 2, &[0.1, 0.2, 0.3, 0.4]));
 
         let expected = DownhillMap {
             width: 2,
-            directions: na::DMatrix::from_row_slice(
+            directions: M::from_row_slice(
                 2,
                 2,
                 &[
@@ -122,7 +123,7 @@ mod tests {
     #[test]
     fn test_all_cells_have_downhill() {
         let mut mesh = Mesh::new(3, 0.0);
-        mesh.set_z_vector(na::DMatrix::from_row_slice(
+        mesh.set_z_vector(M::from_row_slice(
             3,
             3,
             &[0.1, 0.8, 0.2, 0.3, 0.5, 0.9, 0.6, 0.4, 0.7],
@@ -135,7 +136,7 @@ mod tests {
     #[test]
     fn test_not_all_cells_have_downhill() {
         let mut mesh = Mesh::new(3, 0.0);
-        mesh.set_z_vector(na::DMatrix::from_row_slice(
+        mesh.set_z_vector(M::from_row_slice(
             3,
             3,
             &[0.5, 0.8, 0.2, 0.3, 0.1, 0.9, 0.6, 0.4, 0.7],

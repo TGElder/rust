@@ -1,12 +1,8 @@
+use super::climate::*;
 use commons::junction::*;
 use commons::*;
 use isometric::cell_traits::*;
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct Climate {
-    pub temperature: f32,
-}
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct WorldCell {

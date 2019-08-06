@@ -31,22 +31,26 @@ impl HouseBuilder {
             position.y as f32,
             0 as f32,
         ));
-        let basement_z = world.get_lowest_corner(position);
-        self.houses[index] = !self.houses[index];
-        let name = format!("house-{:?}", index);
-        if self.houses[index] {
-            draw_house(
-                name,
-                world_coord,
-                0.25,
-                0.5,
-                0.5,
-                basement_z,
-                self.color,
-                self.light_direction,
-            )
+        if let Some(world_coord) = world_coord {
+            let basement_z = world.get_lowest_corner(position);
+            self.houses[index] = !self.houses[index];
+            let name = format!("house-{:?}", index);
+            if self.houses[index] {
+                draw_house(
+                    name,
+                    world_coord,
+                    0.25,
+                    0.5,
+                    0.5,
+                    basement_z,
+                    self.color,
+                    self.light_direction,
+                )
+            } else {
+                vec![Command::Erase(name)]
+            }
         } else {
-            vec![Command::Erase(name)]
+            return vec![];
         }
     }
 

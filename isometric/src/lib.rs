@@ -21,8 +21,8 @@ pub use glutin::ModifiersState;
 pub use glutin::MouseButton;
 pub use glutin::VirtualKeyCode;
 
+extern crate bincode;
 extern crate commons;
 extern crate glutin;
-pub extern crate image;
-extern crate nalgebra as na;
 extern crate serde;
+use commons::image;

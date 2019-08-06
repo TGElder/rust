@@ -2,6 +2,7 @@ use super::utils::*;
 use crate::graphics::Drawing;
 use crate::Command;
 use color::Color;
+use commons::na;
 use coords::*;
 
 pub fn draw_house(

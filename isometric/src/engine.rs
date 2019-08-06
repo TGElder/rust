@@ -128,8 +128,8 @@ impl IsometricEngine {
             to_process.append(&mut self.events);
             self.handle_events(to_process);
             self.graphics.draw_world();
-            self.handle_events(vec![Event::WorldDrawn]);
             self.graphics.draw_billboards();
+            self.handle_events(vec![Event::WorldDrawn]);
             self.graphics.draw_ui();
             self.window.swap_buffers().unwrap();
         }

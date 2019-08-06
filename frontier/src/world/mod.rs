@@ -1,5 +1,10 @@
+mod climate;
+mod vegetation_artist;
+mod world_artist;
 mod world_cell;
 
+pub use climate::*;
+pub use world_artist::*;
 pub use world_cell::*;
 
 use commons::edge::*;
@@ -22,6 +27,14 @@ pub struct World {
 }
 
 impl Grid<WorldCell> for World {
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    fn height(&self) -> usize {
+        self.height
+    }
+
     fn in_bounds(&self, position: &V2<usize>) -> bool {
         position.x < self.width() && position.y < self.height()
     }
@@ -48,14 +61,6 @@ impl World {
             sea_level,
             max_height,
         }
-    }
-
-    pub fn width(&self) -> usize {
-        self.width
-    }
-
-    pub fn height(&self) -> usize {
-        self.height
     }
 
     pub fn sea_level(&self) -> f32 {
@@ -126,6 +131,7 @@ impl World {
     pub fn reveal_all(&mut self) {
         for x in 0..self.width {
             for y in 0..self.height {
+                self.mut_cell_unsafe(&v2(x, y)).visited = true;
                 self.mut_cell_unsafe(&v2(x, y)).visible = true;
             }
         }
@@ -167,27 +173,18 @@ impl World {
         WorldCoord::new(x, y, z)
     }
 
-    pub fn snap_to_middle(&self, world_coord: WorldCoord) -> WorldCoord {
+    pub fn snap_to_middle(&self, world_coord: WorldCoord) -> Option<WorldCoord> {
         let x = world_coord.x.floor();
         let y = world_coord.y.floor();
-        let mut z = world_coord.z as f32;
-        for dx in 0..2 {
-            for dy in 0..2 {
-                if let Some(cell) = self.get_cell(&v2(x as usize + dx, y as usize + dy)) {
-                    z = z.max(cell.elevation);
-                }
-            }
+        if let (Some(a), Some(b)) = (
+            self.get_cell(&v2(x as usize, y as usize)),
+            self.get_cell(&v2(x as usize + 1, y as usize + 1)),
+        ) {
+            let z = (a.elevation + b.elevation) / 2.0;
+            return Some(WorldCoord::new(x + 0.5, y + 0.5, z));
+        } else {
+            return None;
         }
-        WorldCoord::new(x + 0.5, y + 0.5, z)
-    }
-
-    pub fn get_corners(&self, position: &V2<usize>) -> [V2<usize>; 4] {
-        [
-            *position,
-            v2(position.x + 1, position.y),
-            v2(position.x + 1, position.y + 1),
-            v2(position.x, position.y + 1),
-        ]
     }
 
     pub fn get_border(&self, position: &V2<usize>) -> Vec<Edge> {
@@ -252,6 +249,15 @@ impl World {
             position.x.max(0).min(self.width as i64 - 1) as usize,
             position.y.max(0).min(self.height as i64 - 1) as usize,
         )
+    }
+
+    pub fn tile_average(&self, position: &V2<usize>, function: &Fn(&WorldCell) -> f32) -> f32 {
+        let sum: f32 = self
+            .get_corners(&position)
+            .iter()
+            .map(|p| function(self.get_cell_unsafe(p)))
+            .sum();
+        sum / 4.0
     }
 }
 
@@ -422,17 +428,10 @@ mod tests {
     #[test]
     fn test_snap_to_middle() {
         assert_eq!(
-            world().snap_to_middle(WorldCoord::new(0.3, 1.7, 1.2)),
-            WorldCoord::new(0.5, 1.5, 2.0)
+            world().snap_to_middle(WorldCoord::new(0.3, 0.7, 1.2)),
+            Some(WorldCoord::new(0.5, 0.5, 1.5))
         );
-    }
-
-    #[test]
-    fn test_get_corners() {
-        assert_eq!(
-            world().get_corners(&v2(0, 0)),
-            [v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)]
-        );
+        assert_eq!(world().snap_to_middle(WorldCoord::new(3.3, 1.7, 1.2)), None);
     }
 
     #[test]

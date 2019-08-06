@@ -1,6 +1,6 @@
 use crate::avatar::Rotation;
 use crate::world::*;
-use commons::{v2, V2};
+use commons::*;
 use rand::prelude::*;
 
 fn get_min_terrain_x_for_y(y: usize, world: &World) -> Option<V2<usize>> {

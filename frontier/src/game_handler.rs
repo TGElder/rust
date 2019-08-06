@@ -6,7 +6,7 @@ use crate::road_builder::*;
 use crate::shore_start::*;
 use crate::visibility_computer::*;
 use crate::world::*;
-use crate::world_artist::*;
+use crate::world_gen::*;
 
 use commons::*;
 use isometric::cell_traits::*;
@@ -28,6 +28,7 @@ use std::time::Instant;
 
 pub struct GameHandler {
     world: World,
+    world_gen_params: WorldGenParameters,
     clock: Instant,
     visibility_computer: VisibilityComputer,
     world_artist: WorldArtist,
@@ -44,12 +45,13 @@ pub struct GameHandler {
 }
 
 impl GameHandler {
-    pub fn new(world: World) -> GameHandler {
+    pub fn new(world: World, world_gen_params: WorldGenParameters) -> GameHandler {
         let visibility_computer = VisibilityComputer::new(0.002, Some(6371.0));
         let shore_start = shore_start(32, &world, &mut Box::new(SmallRng::from_entropy()));
         let houses = M::from_element(world.width(), world.height(), false);
         GameHandler::load(Load {
             world,
+            world_gen_params,
             visibility_computer,
             avatar_position: shore_start.at(),
             avatar_rotation: shore_start.rotation(),
@@ -60,13 +62,20 @@ impl GameHandler {
 
     pub fn load(load: Load) -> GameHandler {
         let world = load.world;
-
         let light_direction = V3::new(-1.0, 0.0, 1.0);
-        let world_artist =
-            WorldArtist::new(&world, Self::create_coloring(&world, light_direction), 64);
+        let world_artist = WorldArtist::new(
+            &world,
+            Self::create_coloring(
+                &world,
+                light_direction,
+                load.world_gen_params.cliff_gradient,
+            ),
+            64,
+        );
         let mut avatar = Avatar::new(0.1);
         avatar.reposition(load.avatar_position, load.avatar_rotation);
         GameHandler {
+            world_gen_params: load.world_gen_params,
             clock: Instant::now(),
             house_builder: HouseBuilder::new(load.houses, light_direction),
             avatar_pathfinder: Pathfinder::new(&world, avatar.travel_duration()),
@@ -88,10 +97,13 @@ impl GameHandler {
         &self.world
     }
 
-    pub fn create_coloring(world: &World, light_direction: V3<f32>) -> LayerColoring<WorldCell> {
+    pub fn create_coloring(
+        world: &World,
+        light_direction: V3<f32>,
+        cliff_gradient: f32,
+    ) -> LayerColoring<WorldCell> {
         let beach_level = world.sea_level() + 0.05;
         let snow_temperature = 0.0;
-        let cliff_gradient = 0.5;
         let mut out = LayerColoring::new();
         out.add_layer(
             "base".to_string(),
@@ -377,6 +389,7 @@ impl EventHandler for GameHandler {
 #[derive(PartialEq, Debug, Serialize)]
 struct Save<'a> {
     world: &'a World,
+    world_gen_params: &'a WorldGenParameters,
     visibility_computer: &'a VisibilityComputer,
     avatar_position: &'a V2<usize>,
     avatar_rotation: &'a Rotation,
@@ -389,6 +402,7 @@ impl<'a> Save<'a> {
         if let Some(AvatarState::Stationary { position, rotation }) = game_handler.avatar.state() {
             Some(Save {
                 world: &game_handler.world,
+                world_gen_params: &game_handler.world_gen_params,
                 visibility_computer: &game_handler.visibility_computer,
                 avatar_position: position,
                 avatar_rotation: rotation,
@@ -408,6 +422,7 @@ impl<'a> Save<'a> {
 #[derive(PartialEq, Debug, Deserialize)]
 pub struct Load {
     world: World,
+    world_gen_params: WorldGenParameters,
     visibility_computer: VisibilityComputer,
     avatar_position: V2<usize>,
     avatar_rotation: Rotation,
@@ -434,7 +449,7 @@ mod tests {
             M::from_vec(3, 3, vec![1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0]),
             0.5,
         );
-        let game_handler = GameHandler::new(world);
+        let game_handler = GameHandler::new(world, WorldGenParameters::default());
         let save = Save::new(&game_handler).unwrap();
         let encoded: Vec<u8> = bincode::serialize(&save).unwrap();
         let _: Load = bincode::deserialize(&encoded[..]).unwrap();

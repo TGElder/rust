@@ -11,32 +11,35 @@ use single_downhill_map::{RandomDownhillMap, SingleDownhillMap};
 
 pub fn get_river_cells<R: Rng>(
     mesh: &Mesh,
-    threshold: u32,
+    threshold: f64,
     sea_level: f64,
     flow_to_width: (f64, f64),
+    rainfall: &M<f64>,
     rng: &mut R,
 ) -> Vec<PositionJunction> {
     let downhill_map = DownhillMap::new(&mesh);
     let random_downhill_map: Box<SingleDownhillMap> =
         Box::new(RandomDownhillMap::new(&downhill_map, rng));
 
-    get_river_cells_from_downhill_map(
+    get_river_cells_from_downhill_map_and_rain_map(
         &mesh,
         threshold,
         sea_level,
         flow_to_width,
         &random_downhill_map,
+        &rainfall,
     )
 }
 
-fn get_river_cells_from_downhill_map(
+fn get_river_cells_from_downhill_map_and_rain_map(
     mesh: &Mesh,
-    threshold: u32,
+    threshold: f64,
     sea_level: f64,
     flow_to_width: (f64, f64),
     downhill_map: &Box<SingleDownhillMap>,
+    rainfall: &M<f64>,
 ) -> Vec<PositionJunction> {
-    let flow_map = FlowMap::from(&mesh, &downhill_map);
+    let flow_map = FlowMap::from(&mesh, &downhill_map, &rainfall);
     let junctions = get_junction_matrix_from_flow_map(
         &mesh,
         threshold,
@@ -63,8 +66,8 @@ fn get_neighbour(
     }
 }
 
-fn get_max_flow_over_sea_level(mesh: &Mesh, sea_level: f64, flow_map: &FlowMap) -> u32 {
-    let mut out = 0;
+fn get_max_flow_over_sea_level(mesh: &Mesh, sea_level: f64, flow_map: &FlowMap) -> f64 {
+    let mut out: f64 = 0.0;
     for x in 0..mesh.get_width() {
         for y in 0..mesh.get_width() {
             if mesh.get_z(x, y) >= sea_level {
@@ -77,7 +80,7 @@ fn get_max_flow_over_sea_level(mesh: &Mesh, sea_level: f64, flow_map: &FlowMap) 
 
 fn get_junction_matrix_from_flow_map(
     mesh: &Mesh,
-    threshold: u32,
+    threshold: f64,
     sea_level: f64,
     flow_to_width: (f64, f64),
     downhill_map: &Box<SingleDownhillMap>,
@@ -150,7 +153,7 @@ mod tests {
     #[rustfmt::skip]
     fn mesh() -> Mesh {
         let mut mesh = Mesh::new(4, 0.0);
-        let z = na::DMatrix::from_row_slice(
+        let z = M::from_row_slice(
             4,
             4,
             &[
@@ -179,14 +182,14 @@ mod tests {
     #[rustfmt::skip]
     fn flow_map() -> FlowMap {
         let mut flow_map = FlowMap::new(4);
-        flow_map.set_flow(na::DMatrix::from_row_slice(
+        flow_map.set_flow(M::from_row_slice(
             4,
             4,
             &[
-                1, 2, 5, 7,
-                3, 7, 9, 12,
-                3, 2, 2, 2,
-                1, 1, 1, 1
+                1.0, 2.0, 5.0, 7.0,
+                3.0, 7.0, 9.0, 12.0,
+                3.0, 2.0, 2.0, 2.0,
+                1.0, 1.0, 1.0, 1.0
             ],
         ));
         flow_map
@@ -209,14 +212,14 @@ mod tests {
 
     #[test]
     fn test_get_max_flow_over_sea_level() {
-        assert_eq!(get_max_flow_over_sea_level(&mesh(), 0.5, &flow_map()), 7);
+        assert_eq!(get_max_flow_over_sea_level(&mesh(), 0.5, &flow_map()), 7.0);
     }
 
     #[test]
     fn test_get_junctions_and_rivers_from_flow_map() {
         let junctions = get_junction_matrix_from_flow_map(
             &mesh(),
-            3,
+            3.0,
             0.5,
             (0.0, 1.0),
             &downhill_map(),

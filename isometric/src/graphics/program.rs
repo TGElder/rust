@@ -1,5 +1,6 @@
 use super::shader::Shader;
 use super::DrawingType;
+use commons::na;
 use std::ffi::CString;
 use utils::create_whitespace_cstring_with_len;
 

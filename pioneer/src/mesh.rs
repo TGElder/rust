@@ -1,11 +1,12 @@
 use commons::unsafe_ordering;
+use commons::*;
 use scale::Scale;
 use std::f64;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mesh {
     width: i32,
-    z: na::DMatrix<f64>,
+    z: M<f64>,
     out_of_bounds_z: f64,
 }
 
@@ -13,7 +14,7 @@ impl Mesh {
     pub fn new(width: i32, out_of_bounds_z: f64) -> Mesh {
         Mesh {
             width,
-            z: na::DMatrix::zeros(width as usize, width as usize),
+            z: M::zeros(width as usize, width as usize),
             out_of_bounds_z,
         }
     }
@@ -26,7 +27,7 @@ impl Mesh {
         self.z[(x as usize, y as usize)]
     }
 
-    pub fn get_z_vector(&self) -> &na::DMatrix<f64> {
+    pub fn get_z_vector(&self) -> &M<f64> {
         &self.z
     }
 
@@ -46,7 +47,7 @@ impl Mesh {
         self.z[(x as usize, y as usize)] = z;
     }
 
-    pub fn set_z_vector(&mut self, z: na::DMatrix<f64>) {
+    pub fn set_z_vector(&mut self, z: M<f64>) {
         self.z = z;
     }
 
@@ -82,7 +83,7 @@ mod tests {
     fn test_get_min_z() {
         let mut mesh = Mesh::new(3, 0.0);
 
-        let z = na::DMatrix::from_row_slice(3, 3, &[0.8, 0.1, 0.3, 0.9, 0.7, 0.4, 0.2, 0.5, 0.6]);
+        let z = M::from_row_slice(3, 3, &[0.8, 0.1, 0.3, 0.9, 0.7, 0.4, 0.2, 0.5, 0.6]);
 
         mesh.set_z_vector(z);
 
@@ -93,7 +94,7 @@ mod tests {
     fn test_get_max_z() {
         let mut mesh = Mesh::new(3, 0.0);
 
-        let z = na::DMatrix::from_row_slice(3, 3, &[0.8, 0.1, 0.3, 0.9, 0.7, 0.4, 0.2, 0.5, 0.6]);
+        let z = M::from_row_slice(3, 3, &[0.8, 0.1, 0.3, 0.9, 0.7, 0.4, 0.2, 0.5, 0.6]);
 
         mesh.set_z_vector(z);
 
@@ -103,14 +104,14 @@ mod tests {
     #[test]
     fn test_rescale() {
         let mut mesh = Mesh::new(2, 0.0);
-        let z = na::DMatrix::from_row_slice(2, 2, &[2.0, 4.0, 3.0, 2.0]);
+        let z = M::from_row_slice(2, 2, &[2.0, 4.0, 3.0, 2.0]);
         mesh.set_z_vector(z);
 
         let scale = Scale::new((2.0, 4.0), (0.0, 128.0));
         let actual = mesh.rescale(&scale);
 
         let mut expected = Mesh::new(2, 0.0);
-        let z = na::DMatrix::from_row_slice(2, 2, &[0.0, 128.0, 64.0, 0.0]);
+        let z = M::from_row_slice(2, 2, &[0.0, 128.0, 64.0, 0.0]);
         expected.set_z_vector(z);
 
         assert_eq!(actual, expected);

@@ -2,7 +2,7 @@ use super::utils::*;
 use crate::graphics::Drawing;
 use crate::Command;
 use color::Color;
-use commons::{v3, V3};
+use commons::{na, v3, V3};
 use coords::*;
 
 pub fn draw_boat(

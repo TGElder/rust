@@ -1,4 +1,5 @@
 use super::coords::*;
+use commons::na;
 
 pub trait Projection {
     fn compute_projection_matrix(&self) -> na::Matrix4<f32>;

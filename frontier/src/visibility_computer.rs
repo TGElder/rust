@@ -3,7 +3,6 @@ extern crate line_drawing;
 use crate::avatar::*;
 use crate::world::*;
 use commons::*;
-use isometric::cell_traits::*;
 use isometric::coords::*;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
@@ -41,7 +40,7 @@ fn to_3d(world: &World, position: V2<usize>) -> Option<V3<f32>> {
         return Some(v3(
             position.x as f32,
             position.y as f32,
-            cell.elevation().max(world.sea_level()),
+            (cell.elevation + cell.climate.vegetation_elevation).max(world.sea_level()),
         ));
     }
     return None;
@@ -148,6 +147,7 @@ mod tests {
 
     use super::*;
     use commons::M;
+    use isometric::cell_traits::*;
     use std::time::Instant;
 
     #[test]

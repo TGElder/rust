@@ -1,6 +1,6 @@
 use super::*;
 use crate::world::World;
-use commons::{v3, V3};
+use commons::{na, v3, V3};
 use isometric::coords::*;
 use isometric::drawing::{draw_billboard, draw_boat};
 use isometric::Color;

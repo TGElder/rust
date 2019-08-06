@@ -158,8 +158,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "commons"
 version = "0.1.0"
 dependencies = [
+ "image 0.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.91 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -265,13 +267,10 @@ version = "0.1.0"
 dependencies = [
  "bincode 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "commons 0.1.0",
- "image 0.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "isometric 0.1.0",
  "line_drawing 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "nalgebra 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "network 0.1.0",
  "pioneer 0.1.0",
- "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.91 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -397,8 +396,6 @@ dependencies = [
  "commons 0.1.0",
  "gl 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "image 0.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "nalgebra 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.91 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -734,8 +731,6 @@ name = "pioneer"
 version = "0.1.0"
 dependencies = [
  "commons 0.1.0",
- "nalgebra 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
