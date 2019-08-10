@@ -165,7 +165,7 @@ impl GraphicsEngine {
             transform,
             projection,
             drawings: HashMap::new(),
-            texture_library: TextureLibrary::new(),
+            texture_library: TextureLibrary::default(),
         };
         out.set_viewport_size(viewport_size);
         out.setup_open_gl();
@@ -195,7 +195,7 @@ impl GraphicsEngine {
         self.drawings.get_mut(&name).unwrap().load(index, vertices);
     }
 
-    pub fn remove_drawing(&mut self, name: &String) {
+    pub fn remove_drawing(&mut self, name: &str) {
         self.drawings.remove(name);
     }
 
@@ -226,7 +226,7 @@ impl GraphicsEngine {
 
     pub fn rotate(&mut self, center: GLCoord4D, yaw: f32) {
         self.projection.yaw = (self.projection.yaw + PI * 2.0 + yaw) % (PI * 2.0);
-        let proj = self.projection.clone();
+        let proj = self.projection;
 
         self.transform.transform_maintaining_center(
             center,

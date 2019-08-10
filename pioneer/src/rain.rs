@@ -23,7 +23,7 @@ pub struct Cloud {
 
 impl Cloud {
     fn blow<T>(&mut self, grid: &Grid<T>) -> bool {
-        if let Some(next) = grid.offset(&self.position, &self.direction) {
+        if let Some(next) = grid.offset(&self.position, self.direction) {
             self.position = next;
             return true;
         } else {
@@ -109,8 +109,8 @@ impl RainfallParams {
     }
 
     pub fn set_probabilities(&mut self, probabilities: [f64; 8]) {
-        for i in 0..8 {
-            self.winds[i].probability = probabilities[i]
+        for (i, wind) in self.winds.iter_mut().enumerate() {
+            wind.probability = probabilities[i]
         }
     }
 }
@@ -148,21 +148,20 @@ impl<'a> RainfallComputer<'a> {
         out
     }
 
-    fn valid_cloud(&self, start_at: &V2<usize>, direction: &V2<i32>) -> bool {
+    fn valid_cloud(&self, start_at: &V2<usize>, direction: V2<i32>) -> bool {
         if let Some(next) = self.elevations.offset(start_at, direction) {
             if self.elevations.is_corner_cell(start_at) {
                 return true;
-            } else if !self.elevations.is_edge_cell(start_at)
-                || !self.elevations.is_edge_cell(&next)
-            {
+            }
+            if !self.elevations.is_edge_cell(start_at) || !self.elevations.is_edge_cell(&next) {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     fn compute_cloud(&self, start_at: V2<usize>, direction: V2<i32>) -> Vec<Rain> {
-        if !self.valid_cloud(&start_at, &direction) {
+        if !self.valid_cloud(&start_at, direction) {
             return vec![];
         }
         let capacity = *self.capacities.get_cell_unsafe(&start_at);
@@ -238,7 +237,7 @@ mod tests {
         cloud.volume = 0.5;
         cloud.capacity = 1.0;
         cloud.evaporate(0.1);
-        assert_eq!(cloud.volume, 0.5 + (0.1 * 0.5));
+        assert!(cloud.volume.almost(0.5 + (0.1 * 0.5)));
     }
 
     #[test]
@@ -247,7 +246,7 @@ mod tests {
         cloud.volume = 1.1;
         cloud.capacity = 1.0;
         cloud.evaporate(0.1);
-        assert_eq!(cloud.volume, 1.1);
+        assert!(cloud.volume.almost(1.1));
     }
 
     #[test]
@@ -255,7 +254,7 @@ mod tests {
         let mut cloud = cloud();
         cloud.volume = 0.25;
         cloud.capacity = 1.0;
-        assert_eq!(cloud.under_capacity(), 0.25);
+        assert!(cloud.under_capacity().almost(0.25));
     }
 
     #[test]
@@ -263,7 +262,7 @@ mod tests {
         let mut cloud = cloud();
         cloud.volume = 1.25;
         cloud.capacity = 1.0;
-        assert_eq!(cloud.under_capacity(), 1.0);
+        assert!(cloud.under_capacity().almost(1.0));
     }
 
     #[test]
@@ -271,7 +270,7 @@ mod tests {
         let mut cloud = cloud();
         cloud.volume = 0.25;
         cloud.capacity = 1.0;
-        assert_eq!(cloud.over_capacity(), 0.0);
+        assert!(cloud.over_capacity().almost(0.0));
     }
 
     #[test]
@@ -279,7 +278,7 @@ mod tests {
         let mut cloud = cloud();
         cloud.volume = 1.25;
         cloud.capacity = 1.0;
-        assert_eq!(cloud.over_capacity(), 0.25);
+        assert!(cloud.over_capacity().almost(0.25));
     }
 
     #[test]
@@ -389,7 +388,7 @@ mod tests {
             capacities: M::zeros(3, 3),
             sea_level: 0.5,
         };
-        assert!(computer.valid_cloud(&v2(0, 1), &v2(1, 0)));
+        assert!(computer.valid_cloud(&v2(0, 1), v2(1, 0)));
     }
 
     #[test]
@@ -401,7 +400,7 @@ mod tests {
             capacities: M::zeros(3, 3),
             sea_level: 0.5,
         };
-        assert!(!computer.valid_cloud(&v2(0, 1), &v2(0, 1)));
+        assert!(!computer.valid_cloud(&v2(0, 1), v2(0, 1)));
     }
 
     #[test]
@@ -413,7 +412,7 @@ mod tests {
             capacities: M::zeros(3, 3),
             sea_level: 0.5,
         };
-        assert!(computer.valid_cloud(&v2(0, 0), &v2(0, 1)));
+        assert!(computer.valid_cloud(&v2(0, 0), v2(0, 1)));
     }
 
     #[test]
@@ -425,7 +424,7 @@ mod tests {
             capacities: M::zeros(3, 3),
             sea_level: 0.5,
         };
-        assert!(!computer.valid_cloud(&v2(0, 0), &v2(0, -1)));
+        assert!(!computer.valid_cloud(&v2(0, 0), v2(0, -1)));
     }
 
     #[test]
@@ -450,7 +449,7 @@ mod tests {
         let expected = M::from_vec(
             8,
             1,
-            vec![0.0, 0.6, 0.7, 0.0, 0.0, 0.0947, 0.42615, 0.042615],
+            vec![0.0, 0.6, 0.7, 0.0, 0.0, 0.0947, 0.42615, 0.042_615],
         );
         assert_eq!(actual, expected);
     }

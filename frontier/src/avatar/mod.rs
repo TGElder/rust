@@ -27,7 +27,7 @@ pub enum Rotation {
 }
 
 impl Rotation {
-    fn clockwise(&self) -> Rotation {
+    fn clockwise(self) -> Rotation {
         match self {
             Rotation::Left => Rotation::Up,
             Rotation::Up => Rotation::Right,
@@ -36,7 +36,7 @@ impl Rotation {
         }
     }
 
-    fn anticlockwise(&self) -> Rotation {
+    fn anticlockwise(self) -> Rotation {
         match self {
             Rotation::Left => Rotation::Down,
             Rotation::Up => Rotation::Left,
@@ -45,7 +45,7 @@ impl Rotation {
         }
     }
 
-    fn angle(&self) -> f32 {
+    fn angle(self) -> f32 {
         match self {
             Rotation::Left => 4.0 * (PI / 4.0),
             Rotation::Up => 2.0 * (PI / 4.0),
@@ -143,19 +143,20 @@ impl Avatar {
             );
             return Some(vec![from, to]);
         }
-        return None;
+        None
     }
 
     pub fn walk_forward(&mut self, world: &World, pathfinder: &Pathfinder, start_at: Instant) {
         if let Some(path) = self.forward_path() {
-            if let Some(_) = pathfinder
+            if pathfinder
                 .travel_duration()
                 .get_duration(world, &path[0], &path[1])
+                .is_some()
             {
                 self.state = Some(AvatarState::Walking(Path::new(
                     world,
                     path,
-                    &pathfinder.travel_duration(),
+                    pathfinder.travel_duration(),
                     start_at,
                 )));
             }
@@ -166,7 +167,7 @@ impl Avatar {
         &mut self,
         world: &World,
         positions: Vec<V2<usize>>,
-        travel_duration: &Box<TravelDuration>,
+        travel_duration: &TravelDuration,
         start_at: Instant,
     ) {
         self.state = Some(AvatarState::Walking(Path::new(
@@ -251,13 +252,13 @@ impl TravelDuration for TestTravelDuration {
 mod tests {
 
     use super::*;
-    use commons::M;
+    use commons::*;
     use std::time::Instant;
 
-    fn travel_duration() -> Box<TravelDuration> {
-        Box::new(TestTravelDuration {
+    fn travel_duration() -> TestTravelDuration {
+        TestTravelDuration {
             max: Duration::from_millis(4),
-        })
+        }
     }
 
     #[rustfmt::skip]
@@ -273,7 +274,7 @@ mod tests {
     }
 
     fn pathfinder() -> Pathfinder {
-        Pathfinder::new(&world(), travel_duration())
+        Pathfinder::new(&world(), Box::new(travel_duration()))
     }
 
     fn avatar() -> Avatar {
@@ -434,9 +435,9 @@ mod tests {
             .compute_world_coord(&world, &(start + duration / 4))
             .unwrap();
         let expected = WorldCoord::new(1.0, 1.25, 1.25);
-        assert_eq!((actual.x * 100.0).round() / 100.0, expected.x);
-        assert_eq!((actual.y * 100.0).round() / 100.0, expected.y);
-        assert_eq!((actual.z * 100.0).round() / 100.0, expected.z);
+        assert!(((actual.x * 100.0).round() / 100.0).almost(expected.x));
+        assert!(((actual.y * 100.0).round() / 100.0).almost(expected.y));
+        assert!(((actual.z * 100.0).round() / 100.0).almost(expected.z));
     }
 
     #[test]

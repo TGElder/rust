@@ -15,9 +15,9 @@ impl<T: Float> Scale<T> {
     }
 
     pub fn scale(&self, value: T) -> T {
-        return ((value - self.in_range.0) / (self.in_range.1 - self.in_range.0))
+        ((value - self.in_range.0) / (self.in_range.1 - self.in_range.0))
             * (self.out_range.1 - self.out_range.0)
-            + self.out_range.0;
+            + self.out_range.0
     }
 
     pub fn inside_range(&self, value: T) -> bool {
@@ -37,11 +37,12 @@ impl<T: Float> Scale<T> {
 mod tests {
 
     use super::*;
+    use Almost;
 
     #[test]
     fn test_scale() {
-        let scale = Scale::new((2000.0, 2016.0), (11.0, 55.0));
-        assert_eq!(scale.scale(2003.0), 19.25);
+        let scale = Scale::<f32>::new((2000.0, 2016.0), (11.0, 55.0));
+        assert!(scale.scale(2003.0).almost(19.25));
     }
 
     #[test]
@@ -53,14 +54,12 @@ mod tests {
     #[test]
     fn test_below_range() {
         let scale = Scale::new((2000.0, 2016.0), (11.0, 55.0));
-        assert_eq!(scale.scale(2003.0), 19.25);
         assert!(!scale.inside_range(1999.0));
     }
 
     #[test]
     fn test_above_range() {
         let scale = Scale::new((2000.0, 2016.0), (11.0, 55.0));
-        assert_eq!(scale.scale(2003.0), 19.25);
         assert!(!scale.inside_range(2019.0));
     }
 

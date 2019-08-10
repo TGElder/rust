@@ -361,8 +361,8 @@ mod tests {
         for x in 0..3 {
             for y in 0..3 {
                 let cell = world.get_cell(&v2(x, y)).unwrap();
-                assert_eq!(cell.junction().width(), before_widths[(x, y)]);
-                assert_eq!(cell.junction().height(), before_heights[(x, y)]);
+                assert!(cell.junction().width().almost(before_widths[(x, y)]));
+                assert!(cell.junction().height().almost(before_heights[(x, y)]));
             }
         }
 
@@ -384,8 +384,8 @@ mod tests {
             for y in 0..3 {
                 let cell = world.get_cell(&v2(x, y)).unwrap();
                 println!("Checking {:?}", cell);
-                assert_eq!(cell.junction().width(), after_widths[(x, y)]);
-                assert_eq!(cell.junction().height(), after_heights[(x, y)]);
+                assert!(cell.junction().width().almost(after_widths[(x, y)]));
+                assert!(cell.junction().height().almost(after_heights[(x, y)]));
             }
         }
 
@@ -395,8 +395,8 @@ mod tests {
         for x in 0..3 {
             for y in 0..3 {
                 let cell = world.get_cell(&v2(x, y)).unwrap();
-                assert_eq!(cell.junction().width(), before_widths[(x, y)]);
-                assert_eq!(cell.junction().height(), before_heights[(x, y)]);
+                assert!(cell.junction().width().almost(before_widths[(x, y)]));
+                assert!(cell.junction().height().almost(before_heights[(x, y)]));
             }
         }
     }
@@ -482,24 +482,24 @@ mod tests {
 
     #[test]
     fn test_get_rise() {
-        assert_eq!(world().get_rise(&v2(1, 0), &v2(1, 1)).unwrap(), 1.0);
-        assert_eq!(world().get_rise(&v2(1, 1), &v2(2, 1)).unwrap(), -1.0);
-        assert_eq!(world().get_rise(&v2(0, 0), &v2(1, 0)).unwrap(), 0.0);
+        assert!(world().get_rise(&v2(1, 0), &v2(1, 1)).unwrap().almost(1.0));
+        assert!(world().get_rise(&v2(1, 1), &v2(2, 1)).unwrap().almost(-1.0));
+        assert!(world().get_rise(&v2(0, 0), &v2(1, 0)).unwrap().almost(0.0));
     }
 
     #[test]
     fn test_get_lowest_corner() {
-        assert_eq!(world().get_lowest_corner(&v2(0, 0)), 1.0);
+        assert!(world().get_lowest_corner(&v2(0, 0)).almost(1.0));
     }
 
     #[test]
     fn test_get_highest_corner() {
-        assert_eq!(world().get_highest_corner(&v2(0, 0)), 2.0);
+        assert!(world().get_highest_corner(&v2(0, 0)).almost(2.0));
     }
 
     #[test]
     fn test_get_max_abs_rise() {
-        assert_eq!(world().get_max_abs_rise(&v2(0, 0)), 1.0);
+        assert!(world().get_max_abs_rise(&v2(0, 0)).almost(1.0));
     }
 
     #[test]

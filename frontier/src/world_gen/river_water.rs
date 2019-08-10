@@ -55,7 +55,7 @@ impl<'a> Riverwater<'a> {
         let max = get_max_distance(self.threshold, flow);
         for dx in -max..=max {
             for dy in -max..=max {
-                if let Some(other) = self.world.offset(&cell.position(), &v2(dx, dy)) {
+                if let Some(other) = self.world.offset(&cell.position(), v2(dx, dy)) {
                     let other_cell = self.world.get_cell_unsafe(&other);
                     let dz = other_cell.elevation - cell.elevation;
                     let river_water = river_water(flow, v3(dx as f32, dy as f32, dz));
@@ -109,12 +109,12 @@ mod tests {
 
     #[test]
     fn test_get_river_water_origin() {
-        assert_eq!(river_water(11.0, v3(0.0, 0.0, 0.0)), 11.0);
+        assert!(river_water(11.0, v3(0.0, 0.0, 0.0)).almost(11.0));
     }
 
     #[test]
     fn test_get_river_water_other() {
-        assert_eq!(river_water(11.0, v3(4.0, 0.0, 0.0)), 2.2);
+        assert!(river_water(11.0, v3(4.0, 0.0, 0.0)).almost(2.2));
     }
 
     #[test]

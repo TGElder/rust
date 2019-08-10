@@ -53,14 +53,14 @@ impl AvatarTravelDuration {
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
-    ) -> Option<&Box<TravelDuration>> {
+    ) -> Option<&TravelDuration> {
         self.travel_mode_fn
             .travel_mode_between(world, from, to)
             .map(|travel_mode| match travel_mode {
-                TravelMode::Walk => &self.walk,
-                TravelMode::Road => &self.road,
-                TravelMode::River => &self.river,
-                TravelMode::Sea => &self.sea,
+                TravelMode::Walk => self.walk.as_ref(),
+                TravelMode::Road => self.road.as_ref(),
+                TravelMode::River => self.river.as_ref(),
+                TravelMode::Sea => self.sea.as_ref(),
             })
     }
 }
@@ -74,7 +74,7 @@ impl TravelDuration for AvatarTravelDuration {
                     .and_then(|duration_fn| duration_fn.get_duration(world, from, to));
             }
         }
-        return None;
+        None
     }
 
     fn max_duration(&self) -> Duration {

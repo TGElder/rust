@@ -2,13 +2,8 @@ use engine::{Command, Event};
 use events::EventHandler;
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct ShutdownHandler {}
-
-impl ShutdownHandler {
-    pub fn new() -> ShutdownHandler {
-        ShutdownHandler {}
-    }
-}
 
 impl EventHandler for ShutdownHandler {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {

@@ -2,38 +2,39 @@ use super::utils::*;
 use crate::graphics::Drawing;
 use crate::Command;
 use color::Color;
-use commons::na;
+use commons::*;
 use coords::*;
 
-pub fn draw_house(
-    name: String,
-    world_coordinate: WorldCoord,
-    width: f32,
-    height: f32,
-    roof_height: f32,
-    basement_z: f32,
-    base_color: Color,
-    light_direction: na::Vector3<f32>,
-) -> Vec<Command> {
-    let triangle_coloring: Box<TriangleColoring> =
-        Box::new(AngleTriangleColoring::new(base_color, light_direction));
-    let square_coloring: Box<SquareColoring> =
-        Box::new(AngleSquareColoring::new(base_color, light_direction));
+pub struct DrawHouseParams {
+    pub width: f32,
+    pub height: f32,
+    pub roof_height: f32,
+    pub basement_z: f32,
+    pub base_color: Color,
+    pub light_direction: V3<f32>,
+}
+
+#[allow(clippy::many_single_char_names)]
+pub fn draw_house(name: String, world_coordinate: WorldCoord, p: &DrawHouseParams) -> Vec<Command> {
+    let triangle_coloring = AngleTriangleColoring::new(p.base_color, p.light_direction);
+    let square_coloring = AngleSquareColoring::new(p.base_color, p.light_direction);
 
     let x = world_coordinate.x as f32;
     let y = world_coordinate.y as f32;
     let z = world_coordinate.z as f32;
 
-    let a = na::Vector3::new(x - width, y - width, basement_z);
-    let b = na::Vector3::new(x + width, y - width, basement_z);
-    let c = na::Vector3::new(x + width, y + width, basement_z);
-    let d = na::Vector3::new(x - width, y + width, basement_z);
-    let e = na::Vector3::new(x - width, y - width, z + height);
-    let f = na::Vector3::new(x + width, y - width, z + height);
-    let g = na::Vector3::new(x + width, y + width, z + height);
-    let h = na::Vector3::new(x - width, y + width, z + height);
+    let w = p.width;
 
-    let s = na::Vector3::new(x, y, z + height + roof_height);
+    let a = v3(x - w, y - w, p.basement_z);
+    let b = v3(x + w, y - w, p.basement_z);
+    let c = v3(x + w, y + w, p.basement_z);
+    let d = v3(x - w, y + w, p.basement_z);
+    let e = v3(x - w, y - w, z + p.height);
+    let f = v3(x + w, y - w, z + p.height);
+    let g = v3(x + w, y + w, z + p.height);
+    let h = v3(x - w, y + w, z + p.height);
+
+    let s = v3(x, y, z + p.height + p.roof_height);
 
     let mut floats = vec![];
     floats.append(&mut get_colored_vertices_from_square(

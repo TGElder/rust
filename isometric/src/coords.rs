@@ -73,7 +73,7 @@ impl GLCoord2D {
         GLCoord2D { x, y }
     }
 
-    pub fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize) -> BufferCoordinate {
+    pub fn to_buffer_coord(&self, physical_size: glutin::dpi::PhysicalSize) -> BufferCoordinate {
         BufferCoordinate {
             x: ((((self.x + 1.0) / 2.0) * physical_size.width as f32) - 0.5).floor() as i32,
             y: ((((self.y + 1.0) / 2.0) * physical_size.height as f32) - 0.5).floor() as i32,

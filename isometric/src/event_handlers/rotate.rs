@@ -59,7 +59,7 @@ impl EventHandler for RotateHandler {
                 ..
             } => self.handle_key(key),
             Event::CursorMoved(gl_position) => {
-                self.cursor_position = if self.rotate_over_undrawn || gl_position.z != 1.0 {
+                self.cursor_position = if self.rotate_over_undrawn || gl_position.z <= 1.0 {
                     Some(gl_position)
                 } else {
                     None // Nothing drawn here

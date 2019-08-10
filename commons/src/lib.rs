@@ -1,3 +1,4 @@
+pub extern crate float_cmp;
 pub extern crate image;
 pub extern crate nalgebra as na;
 pub extern crate num;
@@ -15,9 +16,11 @@ pub type V2<T> = na::Vector2<T>;
 pub type V3<T> = na::Vector3<T>;
 
 use crate::scale::*;
+use float_cmp::approx_eq;
 pub use grid::*;
 use num::Float;
 use std::cmp::Ordering;
+use std::default::Default;
 use std::fmt::Debug;
 
 pub fn v2<T: 'static + Copy + PartialEq + Debug>(x: T, y: T) -> na::Vector2<T> {
@@ -42,7 +45,7 @@ where
     matrix.map(|v| scale.scale(v))
 }
 
-pub fn same_elements<T>(a: &Vec<T>, b: &Vec<T>) -> bool
+pub fn same_elements<T>(a: &[T], b: &[T]) -> bool
 where
     T: PartialEq,
 {
@@ -54,7 +57,34 @@ where
             return false;
         }
     }
-    return true;
+    true
+}
+
+pub trait Almost {
+    fn almost(&self, other: Self) -> bool;
+}
+
+impl Almost for f32 {
+    fn almost(&self, other: f32) -> bool {
+        approx_eq!(f32, *self, other, ulps = 5)
+    }
+}
+
+impl Almost for f64 {
+    fn almost(&self, other: f64) -> bool {
+        approx_eq!(f64, *self, other, ulps = 5)
+    }
+}
+
+impl<T> Almost for Vec<T>
+where
+    T: Almost + Copy,
+{
+    fn almost(&self, other: Vec<T>) -> bool {
+        self.iter()
+            .enumerate()
+            .all(|(i, value)| value.almost(other[i]))
+    }
 }
 
 #[cfg(test)]
@@ -83,6 +113,11 @@ mod tests {
         let a = vec![1, 2, 3];
         let b = vec![3, 4, 1];
         assert!(!same_elements(&a, &b));
+    }
+
+    #[test]
+    fn test_almost_vector() {
+        assert!(vec![0.1, 0.2, 0.3].almost(vec![0.1, 0.2, 0.3]));
     }
 
 }

@@ -3,19 +3,13 @@ use engine::{Command, Event};
 use events::EventHandler;
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct DragHandler {
     dragging: bool,
     last_pos: Option<GLCoord4D>,
 }
 
 impl DragHandler {
-    pub fn new() -> DragHandler {
-        DragHandler {
-            dragging: false,
-            last_pos: None,
-        }
-    }
-
     fn handle_mouse_state(&mut self, state: glutin::ElementState) -> Vec<Command> {
         match state {
             glutin::ElementState::Pressed => self.dragging = true,

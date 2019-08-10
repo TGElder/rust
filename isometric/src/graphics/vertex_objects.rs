@@ -11,7 +11,7 @@ pub struct VBO {
 }
 
 impl VBO {
-    const MAX_BYTES: usize = 2147483648;
+    const MAX_BYTES: usize = 2_147_483_648;
 
     pub fn new(drawing_type: DrawingType) -> VBO {
         let mut id: gl::types::GLuint = 0;
@@ -117,7 +117,7 @@ impl VBO {
         }
     }
 
-    fn draw_parts(&self, float_offset_increment: usize, floats_vec: &Vec<usize>) {
+    fn draw_parts(&self, float_offset_increment: usize, floats_vec: &[usize]) {
         self.vao.bind();
         let mut float_offset = 0;
         for floats in floats_vec {
@@ -146,7 +146,7 @@ impl VBO {
 impl Drop for VBO {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteBuffers(1, &mut self.id);
+            gl::DeleteBuffers(1, &self.id);
         }
     }
 }
@@ -162,7 +162,7 @@ impl MultiVBO {
         let mut vbo = VBO::new(drawing_type);
         vbo.alloc(indices * max_floats_per_index);
         MultiVBO {
-            vbo: vbo,
+            vbo,
             max_floats_per_index,
             floats_at_index: vec![0; indices],
         }
@@ -191,10 +191,7 @@ impl VAO {
         unsafe {
             gl::GenVertexArrays(1, &mut id);
         }
-        VAO {
-            id,
-            drawing_type: drawing_type,
-        }
+        VAO { id, drawing_type }
     }
 
     fn setup_for_plain_drawing() {
@@ -291,7 +288,7 @@ impl VAO {
 impl Drop for VAO {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteVertexArrays(1, &mut self.id);
+            gl::DeleteVertexArrays(1, &self.id);
         }
     }
 }

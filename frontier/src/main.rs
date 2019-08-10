@@ -28,7 +28,7 @@ fn main() {
         let mut rng = rng(seed);
         let world_gen_params = WorldGenParameters::default();
         let world = generate_world(size, &mut rng, &world_gen_params);
-        GameHandler::new(world, world_gen_params)
+        GameHandler::new(world, world_gen_params, &mut rng)
     };
 
     let world = game_handler.world();

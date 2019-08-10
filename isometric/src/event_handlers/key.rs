@@ -2,13 +2,8 @@ use engine::{Command, Event};
 use events::EventHandler;
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct KeyRelay {}
-
-impl KeyRelay {
-    pub fn new() -> KeyRelay {
-        KeyRelay {}
-    }
-}
 
 impl EventHandler for KeyRelay {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {

@@ -40,7 +40,7 @@ impl TemperatureMapper {
     }
 
     fn earthlike_elevation_to_temperature() -> Scale<f64> {
-        Scale::new((0.0, 100000.0), (0.0, -600.0))
+        Scale::new((0.0, 100_000.0), (0.0, -600.0))
     }
 
     fn earthlike_latitude_to_temperature() -> Scale<f64> {
@@ -79,10 +79,9 @@ mod tests {
             sea_level: 1.0,
         };
 
-        assert_eq!(
-            mapper.compute_temperature_at(11, 21, 0.0),
-            mapper.compute_temperature_at(11, 21, 1.0)
-        );
+        assert!(mapper
+            .compute_temperature_at(11, 21, 0.0)
+            .almost(mapper.compute_temperature_at(11, 21, 1.0)));
     }
 
 }

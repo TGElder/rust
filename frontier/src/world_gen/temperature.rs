@@ -28,18 +28,18 @@ fn y_to_latitude(world: &World, latitude_range: &(f64, f64)) -> Scale<f64> {
 }
 
 fn z_to_elevation(world: &World) -> Scale<f64> {
-    let sea_level = world.sea_level() as f64;
-    let max_height = world.max_height() as f64;
+    let sea_level = f64::from(world.sea_level());
+    let max_height = f64::from(world.max_height());
     Scale::new((sea_level, max_height), (0.0, MAX_ELEVATION_METRES))
 }
 
 pub fn compute_temperatures(world: &World, params: &WorldGenParameters) -> M<f64> {
-    let elevations = extract_matrix(world, &|cell| cell.elevation as f64);
+    let elevations = extract_matrix(world, &|cell| f64::from(cell.elevation));
     let y_to_latitude = y_to_latitude(world, &params.latitude_range);
     let z_to_elevation = z_to_elevation(world);
     let sunshine_temperatures = compute_sunshine_temperatures(&elevations, &y_to_latitude, params);
     let mapper =
-        TemperatureMapper::earthlike(y_to_latitude, z_to_elevation, world.sea_level() as f64);
+        TemperatureMapper::earthlike(y_to_latitude, z_to_elevation, f64::from(world.sea_level()));
     let base_temperatures = mapper.compute_temperature_map(&elevations);
     base_temperatures + sunshine_temperatures
 }

@@ -120,7 +120,7 @@ pub fn get_specific_colored_vertices_from_triangle(points: &[na::Vector3<f32>; 3
 }
 
 #[rustfmt::skip]
-pub fn get_colored_vertices_from_triangle(points: &[na::Vector3<f32>; 3], coloring: &Box<TriangleColoring>) -> Vec<f32> {
+pub fn get_colored_vertices_from_triangle(points: &[na::Vector3<f32>; 3], coloring: &TriangleColoring) -> Vec<f32> {
     let colors = coloring.get_colors(&points);
 
     vec![
@@ -147,7 +147,7 @@ pub fn get_specific_colored_vertices_from_square(points: &[na::Vector3<f32>; 4],
 }
 
 #[rustfmt::skip]
-pub fn get_colored_vertices_from_square(points: &[na::Vector3<f32>; 4], coloring: &Box<SquareColoring>) -> Vec<f32> {
+pub fn get_colored_vertices_from_square(points: &[na::Vector3<f32>; 4], coloring: &SquareColoring) -> Vec<f32> {
     let colors = coloring.get_colors(&points);
 
     vec![

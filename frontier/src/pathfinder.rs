@@ -16,14 +16,14 @@ impl Pathfinder {
         let mut out = Pathfinder {
             index: Index2D::new(world.width(), world.height()),
             travel_duration,
-            network: Network::new(world.width() * world.height(), &vec![]),
+            network: Network::new(world.width() * world.height(), &[]),
         };
         out.compute_network(world);
         out
     }
 
-    pub fn travel_duration(&self) -> &Box<TravelDuration> {
-        &self.travel_duration
+    pub fn travel_duration(&self) -> &TravelDuration {
+        self.travel_duration.as_ref()
     }
 
     fn get_network_index(&self, position: &V2<usize>) -> Result<usize, PositionOutOfBounds> {
@@ -60,23 +60,23 @@ impl Pathfinder {
         let mut edges = vec![];
         for y in 0..world.height() {
             for x in 0..world.width() {
-                self.get_network_edge(&world, &v2(x, y), &v2(x + 1, y))
-                    .map(|edge| edges.push(edge));
-                self.get_network_edge(&world, &v2(x + 1, y), &v2(x, y))
-                    .map(|edge| edges.push(edge));
-                self.get_network_edge(&world, &v2(x, y), &v2(x, y + 1))
-                    .map(|edge| edges.push(edge));
-                self.get_network_edge(&world, &v2(x, y + 1), &v2(x, y))
-                    .map(|edge| edges.push(edge));
+                [
+                    self.get_network_edge(&world, &v2(x, y), &v2(x + 1, y)),
+                    self.get_network_edge(&world, &v2(x + 1, y), &v2(x, y)),
+                    self.get_network_edge(&world, &v2(x, y), &v2(x, y + 1)),
+                    self.get_network_edge(&world, &v2(x, y + 1), &v2(x, y)),
+                ]
+                .iter()
+                .flatten()
+                .for_each(|edge| edges.push(*edge))
             }
         }
         edges
     }
 
     pub fn compute_network(&mut self, world: &World) {
-        self.network = Network::new(world.width() * world.height(), &vec![]);
-        &self
-            .compute_network_edges(world)
+        self.network = Network::new(world.width() * world.height(), &[]);
+        self.compute_network_edges(world)
             .iter()
             .for_each(|edge| self.network.add_edge(&edge));
     }
@@ -85,7 +85,7 @@ impl Pathfinder {
         if let (Ok(from), Ok(to)) = (self.get_network_index(from), self.get_network_index(to)) {
             let path = self.network.find_path(from, to, None, &(|_| 0));
             match path {
-                Some(ref path) if path.len() == 0 => None,
+                Some(ref path) if path.is_empty() => None,
                 Some(ref path) => {
                     let mut out = vec![];
                     out.push(self.get_position_from_network_index(path[0].from).unwrap());
@@ -145,10 +145,8 @@ mod tests {
                     let elevation = cell.elevation();
                     if world.is_road(&Edge::new(*from, *to)) {
                         return Some(Duration::from_millis(1));
-                    } else {
-                        if elevation != 0.0 {
-                            return Some(Duration::from_millis(elevation as u64));
-                        }
+                    } else if elevation != 0.0 {
+                        return Some(Duration::from_millis(elevation as u64));
                     }
                 }
                 _ => return None,

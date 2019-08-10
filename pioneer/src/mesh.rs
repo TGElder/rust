@@ -87,7 +87,7 @@ mod tests {
 
         mesh.set_z_vector(z);
 
-        assert_eq!(mesh.get_min_z(), 0.1);
+        assert!(mesh.get_min_z().almost(0.1));
     }
 
     #[test]
@@ -98,7 +98,7 @@ mod tests {
 
         mesh.set_z_vector(z);
 
-        assert_eq!(mesh.get_max_z(), 0.9);
+        assert!(mesh.get_max_z().almost(0.9));
     }
 
     #[test]

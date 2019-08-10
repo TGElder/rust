@@ -29,9 +29,10 @@ where
                     (1, 0) => v3(p.x + w, p.y - h, z),
                     (0, 1) => v3(p.x - w, p.y + h, z),
                     (1, 1) => v3(p.x + w, p.y + h, z),
-                    (_, _) => {
-                        panic!("Not expected to happen - {} % 2 or {} % 2 is not in range 0..1")
-                    }
+                    (_, _) => panic!(
+                        "Not expected to happen - {} % 2 or {} % 2 is not in range 0..1",
+                        index.x, index.y
+                    ),
                 }
             })
     }
@@ -136,8 +137,8 @@ where
             let triangles = self.get_triangles(adjacent);
             if triangles.len() == 1 || triangles.len() == 2 {
                 for mut triangle in triangles {
-                    for p in 0..3 {
-                        triangle[p] = clip_to_tile(triangle[p], &position);
+                    for p in triangle.iter_mut() {
+                        *p = clip_to_tile(*p, &position);
                     }
                     out.push(triangle);
                 }

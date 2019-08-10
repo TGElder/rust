@@ -61,7 +61,7 @@ impl DownhillMap {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     pub fn all_cells_have_downhill(&self) -> bool {
@@ -72,7 +72,7 @@ impl DownhillMap {
                 }
             }
         }
-        return true;
+        true
     }
 }
 

@@ -73,30 +73,25 @@ impl Texture {
 impl Drop for Texture {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteTextures(1, &mut self.id);
+            gl::DeleteTextures(1, &self.id);
         }
     }
 }
 
+#[derive(Default)]
 pub struct TextureLibrary {
     textures: HashMap<String, Arc<Texture>>,
 }
 
 impl TextureLibrary {
-    pub fn new() -> TextureLibrary {
-        TextureLibrary {
-            textures: HashMap::new(),
-        }
-    }
-
-    pub fn get_texture(&mut self, file: &String) -> Arc<Texture> {
+    pub fn get_texture(&mut self, file: &str) -> Arc<Texture> {
         self.textures
-            .entry(file.clone())
+            .entry(file.to_string())
             .or_insert_with(|| Self::load_texture(file))
             .clone()
     }
 
-    fn load_texture(file: &String) -> Arc<Texture> {
+    fn load_texture(file: &str) -> Arc<Texture> {
         let texture = Texture::new(image::open(file).unwrap());
         Arc::new(texture)
     }

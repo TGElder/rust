@@ -18,7 +18,7 @@ struct Glyph {
 
 impl Glyph {
     fn from_line(line: &str) -> Glyph {
-        let columns: Vec<&str> = line.split(",").collect();
+        let columns: Vec<&str> = line.split(',').collect();
         let id: usize = columns[0].parse().unwrap();
         Glyph {
             character: id as u8 as char,
@@ -33,14 +33,15 @@ impl Glyph {
     }
 
     pub fn from_csv(file_name: &str) -> [Option<Glyph>; 256] {
-        let mut file = File::open(file_name).expect(&format!("Font file {} not found", file_name));
+        let mut file =
+            File::open(file_name).unwrap_or_else(|_| panic!("Font file {} not found", file_name));
         let mut contents = String::new();
         file.read_to_string(&mut contents)
-            .expect(&format!("Failed to read font file {}", file_name));
+            .unwrap_or_else(|_| panic!("Failed to read font file {}", file_name));
 
         let mut glyphs = [None; 256];
 
-        for line in contents.split("\n") {
+        for line in contents.split('\n') {
             let glyph = Glyph::from_line(line);
             glyphs[glyph.character as usize] = Some(glyph);
         }
@@ -79,10 +80,12 @@ impl Font {
 
         self.glyphs[character as usize]
             .or(self.glyphs['?' as usize])
-            .expect(&format!(
-                "Rendering of character [{}] not supported in this font",
-                character
-            ))
+            .unwrap_or_else(|| {
+                panic!(
+                    "Rendering of character [{}] not supported in this font",
+                    character
+                )
+            })
     }
 
     pub fn get_dimensions(&self, character: char) -> (i32, i32) {

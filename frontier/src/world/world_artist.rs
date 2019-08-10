@@ -31,6 +31,12 @@ pub struct WorldArtist {
     vegetation_artist: VegetationArtist,
 }
 
+struct RoadRiverPositionsResult {
+    road_positions: Vec<V2<usize>>,
+    river_positions: Vec<V2<usize>>,
+    suppressed_river_positions: Vec<V2<usize>>,
+}
+
 impl WorldArtist {
     pub fn new(world: &World, coloring: LayerColoring<WorldCell>, slab_size: usize) -> WorldArtist {
         let width = world.width();
@@ -72,10 +78,12 @@ impl WorldArtist {
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
-    ) -> (Vec<V2<usize>>, Vec<V2<usize>>, Vec<V2<usize>>) {
-        let mut road_positions = vec![];
-        let mut river_positions = vec![];
-        let mut suppressed_river_positions = vec![];
+    ) -> RoadRiverPositionsResult {
+        let mut result = RoadRiverPositionsResult {
+            road_positions: vec![],
+            river_positions: vec![],
+            suppressed_river_positions: vec![],
+        };
         for x in from.x..to.x {
             for y in from.y..to.y {
                 let position = v2(x, y);
@@ -83,20 +91,20 @@ impl WorldArtist {
                     let road = cell.road;
                     let river = cell.river;
                     if road.here() {
-                        road_positions.push(position);
+                        result.road_positions.push(position);
                     }
                     if river.here() {
                         if road.here() {
                             // We need these for drawing edges, but not nodes
-                            suppressed_river_positions.push(position);
+                            result.suppressed_river_positions.push(position);
                         } else {
-                            river_positions.push(position);
+                            result.river_positions.push(position);
                         }
                     }
                 }
             }
         }
-        (road_positions, river_positions, suppressed_river_positions)
+        result
     }
 
     fn draw_slab_rivers_roads(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
@@ -104,11 +112,11 @@ impl WorldArtist {
         let road_color = &Color::new(0.5, 0.5, 0.5, 1.0);
         let from = &slab.from;
         let to = &slab.to();
-        let (road_positions, river_positions, suppressed_river_positions) =
-            self.get_road_river_positions(world, from, to);
-        let river_edges = river_positions
+        let result = self.get_road_river_positions(world, from, to);
+        let river_edges: Vec<Edge> = result
+            .river_positions
             .iter()
-            .chain(suppressed_river_positions.iter())
+            .chain(result.suppressed_river_positions.iter())
             .flat_map(|position| {
                 world
                     .get_cell(position)
@@ -117,7 +125,8 @@ impl WorldArtist {
                     .get_edges_from(position)
             })
             .collect();
-        let road_edges = road_positions
+        let road_edges: Vec<Edge> = result
+            .road_positions
             .iter()
             .flat_map(|position| {
                 world
@@ -145,14 +154,14 @@ impl WorldArtist {
         out.append(&mut draw_nodes(
             format!("{:?}-river-positions", slab.from),
             world,
-            &river_positions,
+            &result.river_positions,
             &river_color,
             world.sea_level(),
         ));
         out.append(&mut draw_nodes(
             format!("{:?}-road-positions", slab.from),
             world,
-            &road_positions,
+            &result.road_positions,
             &road_color,
             world.sea_level(),
         ));
@@ -173,15 +182,15 @@ impl WorldArtist {
         out
     }
 
-    fn get_affected_slabs(&self, world: &World, positions: &Vec<V2<usize>>) -> HashSet<Slab> {
+    fn get_affected_slabs(&self, world: &World, positions: &[V2<usize>]) -> HashSet<Slab> {
         positions
-            .into_iter()
+            .iter()
             .flat_map(|position| world.expand_position(&position))
             .map(|position| Slab::new(position, self.slab_size))
             .collect()
     }
 
-    pub fn draw_affected(&mut self, world: &World, positions: &Vec<V2<usize>>) -> Vec<Command> {
+    pub fn draw_affected(&mut self, world: &World, positions: &[V2<usize>]) -> Vec<Command> {
         self.draw_slabs(world, self.get_affected_slabs(world, positions))
     }
 

@@ -11,7 +11,7 @@ pub enum Vegetation {
 }
 
 impl Vegetation {
-    pub fn height(&self) -> f32 {
+    pub fn height(self) -> f32 {
         match self {
             Vegetation::None => 0.0,
             Vegetation::PalmTree => 1.0,
@@ -21,7 +21,7 @@ impl Vegetation {
         }
     }
 
-    pub fn in_range_temperature(&self, temperature: f32) -> bool {
+    pub fn in_range_temperature(self, temperature: f32) -> bool {
         match self {
             Vegetation::None => false,
             Vegetation::PalmTree => temperature >= 20.0,
@@ -31,7 +31,7 @@ impl Vegetation {
         }
     }
 
-    pub fn in_range_groundwater(&self, groundwater: f32) -> bool {
+    pub fn in_range_groundwater(self, groundwater: f32) -> bool {
         match self {
             Vegetation::None => false,
             Vegetation::PalmTree => groundwater >= 0.1,

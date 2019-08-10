@@ -6,9 +6,12 @@ use commons::scale::*;
 use commons::*;
 use commons::{M, V2, V3};
 use std::collections::HashMap;
+use std::default::Default;
 
 fn entire_triangle_at_sea_level(triangle: &[V3<f32>; 3], sea_level: f32) -> bool {
-    triangle[0].z == sea_level && triangle[1].z == sea_level && triangle[2].z == sea_level
+    triangle[0].z.almost(sea_level)
+        && triangle[1].z.almost(sea_level)
+        && triangle[2].z.almost(sea_level)
 }
 
 pub trait TerrainColoring<T>
@@ -128,17 +131,22 @@ where
     order: Vec<String>,
 }
 
-impl<T> LayerColoring<T>
+impl<T> Default for LayerColoring<T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
 {
-    pub fn new() -> LayerColoring<T> {
+    fn default() -> LayerColoring<T> {
         LayerColoring {
             layers: HashMap::new(),
             order: vec![],
         }
     }
+}
 
+impl<T> LayerColoring<T>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
     fn update_order(&mut self) {
         let mut order: Vec<String> = self.layers.keys().cloned().collect();
         order.sort_unstable_by(|a, b| self.get_priority(a).cmp(&self.get_priority(b)));
@@ -186,18 +194,13 @@ where
     ) -> [Option<Color>; 3] {
         let mut out = [None, None, None];
         for name in self.order.iter() {
-            let coloring = self
-                .layers
-                .get(name)
-                .unwrap()
-                .coloring
-                .color(terrain, tile, triangle);
+            let coloring = self.layers[name].coloring.color(terrain, tile, triangle);
             for i in 0..3 {
                 if out[i] == None {
                     out[i] = coloring[i];
                 }
             }
         }
-        return out;
+        out
     }
 }

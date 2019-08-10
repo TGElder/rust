@@ -77,10 +77,11 @@ impl RoadBuilder {
         if let Some(path) = avatar.forward_path() {
             let from = path[0];
             let to = path[1];
-            if let Some(_) = self
+            if self
                 .pathfinder
                 .travel_duration()
                 .get_duration(&world, &from, &to)
+                .is_some()
             {
                 let result = RoadBuilderResult { path };
                 result.toggle_roads(world);
@@ -88,7 +89,7 @@ impl RoadBuilder {
                 return Some(result);
             }
         }
-        return None;
+        None
     }
 
     pub fn auto_build_road(
@@ -105,7 +106,7 @@ impl RoadBuilder {
                 return Some(result);
             }
         }
-        return None;
+        None
     }
 }
 
@@ -124,9 +125,7 @@ mod tests {
             from: &V2<usize>,
             to: &V2<usize>,
         ) -> Option<Duration> {
-            if to.x > from.x || to.y > from.y {
-                Some(Duration::from_millis(1))
-            } else if world.is_road(&Edge::new(*from, *to)) {
+            if to.x > from.x || to.y > from.y || world.is_road(&Edge::new(*from, *to)) {
                 Some(Duration::from_millis(1))
             } else {
                 None

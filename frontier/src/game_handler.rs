@@ -45,9 +45,13 @@ pub struct GameHandler {
 }
 
 impl GameHandler {
-    pub fn new(world: World, world_gen_params: WorldGenParameters) -> GameHandler {
+    pub fn new<T: Rng>(
+        world: World,
+        world_gen_params: WorldGenParameters,
+        rng: &mut T,
+    ) -> GameHandler {
         let visibility_computer = VisibilityComputer::new(0.002, Some(6371.0));
-        let shore_start = shore_start(32, &world, &mut Box::new(SmallRng::from_entropy()));
+        let shore_start = shore_start(32, &world, rng);
         let houses = M::from_element(world.width(), world.height(), false);
         GameHandler::load(Load {
             world,
@@ -86,9 +90,9 @@ impl GameHandler {
             world_artist,
             mouse_coord: None,
             label_editor: LabelEditor::new(load.labels),
-            avatar_artist: AvatarArtist::new(0.00078125, light_direction),
+            avatar_artist: AvatarArtist::new(0.000_781_25, light_direction),
             follow_avatar: true,
-            handlers: vec![Box::new(ZoomHandler::new())],
+            handlers: vec![Box::new(ZoomHandler::default())],
             rotate_handler: RotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E),
         }
     }
@@ -104,7 +108,7 @@ impl GameHandler {
     ) -> LayerColoring<WorldCell> {
         let beach_level = world.sea_level() + 0.05;
         let snow_temperature = 0.0;
-        let mut out = LayerColoring::new();
+        let mut out = LayerColoring::default();
         out.add_layer(
             "base".to_string(),
             Box::new(DefaultColoring::new(
@@ -132,7 +136,7 @@ impl GameHandler {
         if let Some(priority) = self.world_artist.coloring().get_priority("overlay") {
             self.world_artist
                 .coloring()
-                .set_priority("overlay", priority * -1);
+                .set_priority("overlay", -priority);
         }
         self.world_artist.init(&self.world)
     }
@@ -143,7 +147,7 @@ impl GameHandler {
                 result.update_pathfinder(&self.world, &mut self.avatar_pathfinder);
                 self.world_artist.draw_affected(&self.world, result.path())
             })
-            .unwrap_or(vec![])
+            .unwrap_or_else(|| vec![])
     }
 
     fn auto_build_road(&mut self) -> Vec<Command> {
@@ -330,7 +334,9 @@ impl EventHandler for GameHandler {
                     VirtualKeyCode::H => commands.append(&mut self.build_house()),
                     VirtualKeyCode::C => self.toggle_follow(),
                     VirtualKeyCode::P => {
-                        Save::new(&self).map(|save| save.to_file("save"));
+                        if let Some(save) = Save::new(&self) {
+                            save.to_file("save");
+                        }
                     }
                     VirtualKeyCode::O => commands.append(&mut self.toggle_overlay()),
                     VirtualKeyCode::V => commands.append(&mut self.toggle_visited_layer()),
@@ -449,7 +455,8 @@ mod tests {
             M::from_vec(3, 3, vec![1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0]),
             0.5,
         );
-        let game_handler = GameHandler::new(world, WorldGenParameters::default());
+        let game_handler =
+            GameHandler::new(world, WorldGenParameters::default(), &mut thread_rng());
         let save = Save::new(&game_handler).unwrap();
         let encoded: Vec<u8> = bincode::serialize(&save).unwrap();
         let _: Load = bincode::deserialize(&encoded[..]).unwrap();

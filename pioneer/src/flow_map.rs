@@ -31,7 +31,7 @@ impl FlowMap {
         self.flow = flow;
     }
 
-    pub fn from(mesh: &Mesh, downhill_map: &Box<SingleDownhillMap>, rainfall: &M<f64>) -> FlowMap {
+    pub fn from(mesh: &Mesh, downhill_map: &SingleDownhillMap, rainfall: &M<f64>) -> FlowMap {
         let mut out = FlowMap::new(mesh.get_width() as usize);
         out.rain_on_all(mesh, downhill_map, rainfall);
         out
@@ -40,7 +40,7 @@ impl FlowMap {
     fn rain_on(
         &mut self,
         mesh: &Mesh,
-        downhill_map: &Box<SingleDownhillMap>,
+        downhill_map: &SingleDownhillMap,
         x: i32,
         y: i32,
         volume: f64,
@@ -53,12 +53,7 @@ impl FlowMap {
         }
     }
 
-    fn rain_on_all(
-        &mut self,
-        mesh: &Mesh,
-        downhill_map: &Box<SingleDownhillMap>,
-        rainfall: &M<f64>,
-    ) {
+    fn rain_on_all(&mut self, mesh: &Mesh, downhill_map: &SingleDownhillMap, rainfall: &M<f64>) {
         for x in 0..mesh.get_width() {
             for y in 0..mesh.get_width() {
                 self.rain_on(mesh, downhill_map, x, y, rainfall[(x as usize, y as usize)]);
@@ -71,6 +66,7 @@ impl FlowMap {
 mod tests {
 
     use super::*;
+
     use single_downhill_map::MockDownhillMap;
 
     #[rustfmt::skip]
@@ -85,7 +81,6 @@ mod tests {
             vec![0, 0, 0, 0],
         ];
         let downhill_map = MockDownhillMap::new(directions);
-        let downhill_map: Box<SingleDownhillMap> = Box::new(downhill_map);
 
         let mut flow_map = FlowMap::new(4);
         flow_map.rain_on(&mesh, &downhill_map, 2, 1, 1.0);
@@ -114,7 +109,6 @@ mod tests {
             vec![0, 0, 0, 0],
         ];
         let downhill_map = MockDownhillMap::new(directions);
-        let downhill_map: Box<SingleDownhillMap> = Box::new(downhill_map);
 
         let flow_map = FlowMap::from(&mesh, &downhill_map, &M::from_element(4, 4, 1.0));
 
@@ -144,7 +138,7 @@ mod tests {
             ],
         );
         let flow_map = FlowMap { flow };
-        assert_eq!(flow_map.get_max_flow(), 16.0);
+        assert!(flow_map.get_max_flow().almost(16.0));
     }
 
 }

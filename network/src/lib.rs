@@ -4,7 +4,7 @@ use std::collections::BinaryHeap;
 #[macro_use]
 extern crate hamcrest;
 
-#[derive(Eq, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub struct Edge {
     pub from: usize,
     pub to: usize,
@@ -74,7 +74,7 @@ pub struct Network {
 }
 
 impl Network {
-    pub fn new(nodes: usize, edges: &Vec<Edge>) -> Network {
+    pub fn new(nodes: usize, edges: &[Edge]) -> Network {
         let mut out = Network {
             nodes,
             edges_out: vec![vec![]; nodes],
@@ -158,7 +158,7 @@ impl Network {
                     if !closed[edge.from] {
                         heap.push(Node {
                             index: edge.from,
-                            cost: cost + edge.cost as u32,
+                            cost: cost + u32::from(edge.cost),
                         });
                     }
                 }
@@ -222,7 +222,7 @@ impl Network {
             }
         }
 
-        fn get_path(from: usize, to: usize, edges: &Vec<Option<Edge>>) -> Vec<Edge> {
+        fn get_path(from: usize, to: usize, edges: &[Option<Edge>]) -> Vec<Edge> {
             let mut out = vec![];
             let mut current = to;
             while current != from {
@@ -270,10 +270,10 @@ impl Network {
                 if closed[neighbour] {
                     continue;
                 }
-                let neighbour_distance_from_start = distance_from_start + edge.cost as u32;
+                let neighbour_distance_from_start = distance_from_start + u32::from(edge.cost);
                 heap.push(Node::new(
                     neighbour,
-                    Some(edge.clone()),
+                    Some(*edge),
                     neighbour_distance_from_start,
                     heuristic,
                 ));
@@ -305,13 +305,13 @@ mod tests {
         ]
     }
 
-    fn get_test_network(edges: &Vec<Edge>) -> Network {
+    fn get_test_network(edges: &[Edge]) -> Network {
         Network::new(8, edges)
     }
 
     #[test]
     fn test_add_edges() {
-        let mut network = Network::new(7, &vec![]);
+        let mut network = Network::new(7, &[]);
         network.add_edge(&Edge::new(1, 2, 4));
         network.add_edge(&Edge::new(3, 2, 5));
         assert_eq!(network.get_out(1), &vec![Edge::new(1, 2, 4)]);
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_remove_edges() {
-        let mut network = Network::new(7, &vec![]);
+        let mut network = Network::new(7, &[]);
         network.add_edge(&Edge::new(1, 2, 4));
         network.add_edge(&Edge::new(3, 2, 5));
         network.add_edge(&Edge::new(2, 1, 4));
@@ -451,8 +451,8 @@ mod tests {
             vec![None, None, None, None, None, None, None, Some(0)],
         ];
 
-        for i in 0..8 {
-            assert_that!(&network.dijkstra(vec![i]), is(equal_to(&expected[i])));
+        for (i, expected) in expected.iter().enumerate() {
+            assert_that!(&network.dijkstra(vec![i]), is(equal_to(expected)));
         }
     }
 
@@ -558,7 +558,7 @@ mod tests {
 
     #[test]
     fn test_find_path_isolated_nodes() {
-        let network = Network::new(4, &vec![]);
+        let network = Network::new(4, &[]);
         let actual = network.find_path(0, 3, Some(2), &|_| 0);
         let expected = None;
         assert_eq!(actual, expected);

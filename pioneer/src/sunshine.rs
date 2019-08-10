@@ -2,10 +2,10 @@ use commons::scale::*;
 use commons::*;
 
 fn get_normal(elevations: &M<f64>, position: &V2<usize>) -> V3<f64> {
-    let x1 = elevations.offset(position, &v2(-1, 0)).unwrap_or(*position);
-    let x2 = elevations.offset(position, &v2(1, 0)).unwrap_or(*position);
-    let y1 = elevations.offset(position, &v2(0, -1)).unwrap_or(*position);
-    let y2 = elevations.offset(position, &v2(0, 1)).unwrap_or(*position);
+    let x1 = elevations.offset(position, v2(-1, 0)).unwrap_or(*position);
+    let x2 = elevations.offset(position, v2(1, 0)).unwrap_or(*position);
+    let y1 = elevations.offset(position, v2(0, -1)).unwrap_or(*position);
+    let y2 = elevations.offset(position, v2(0, 1)).unwrap_or(*position);
 
     let to_vector_3d = |position: &V2<usize>| {
         v3(
@@ -138,7 +138,7 @@ mod tests {
     }
 
     fn almost_equal(a: f64, b: f64) {
-        let epsilon = 0.000001;
+        let epsilon = 0.000_001;
         assert!((a - b).abs() < epsilon)
     }
 

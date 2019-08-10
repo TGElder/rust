@@ -1,6 +1,7 @@
 use coords::{GLCoord2D, GLCoord4D};
 use engine::{Command, Event};
 use events::EventHandler;
+use std::default::Default;
 use std::sync::Arc;
 use {ElementState, VirtualKeyCode};
 
@@ -9,12 +10,6 @@ pub struct ZoomHandler {
 }
 
 impl ZoomHandler {
-    pub fn new() -> ZoomHandler {
-        ZoomHandler {
-            cursor_position: None,
-        }
-    }
-
     fn zoom(&self, delta: f32) -> Vec<Command> {
         if let Some(center) = self.cursor_position {
             vec![Command::Scale {
@@ -31,6 +26,14 @@ impl ZoomHandler {
             glutin::MouseScrollDelta::LineDelta(_, d) if d > 0.0 => self.zoom(2.0),
             glutin::MouseScrollDelta::LineDelta(_, d) if d < 0.0 => self.zoom(0.5),
             _ => vec![],
+        }
+    }
+}
+
+impl Default for ZoomHandler {
+    fn default() -> ZoomHandler {
+        ZoomHandler {
+            cursor_position: None,
         }
     }
 }

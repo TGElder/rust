@@ -43,7 +43,7 @@ fn to_3d(world: &World, position: V2<usize>) -> Option<V3<f32>> {
             (cell.elevation + cell.climate.vegetation_elevation).max(world.sea_level()),
         ));
     }
-    return None;
+    None
 }
 
 fn to_position_and_3d(world: &World, position: &(i64, i64)) -> Option<(V2<usize>, V3<f32>)> {
@@ -52,7 +52,7 @@ fn to_position_and_3d(world: &World, position: &(i64, i64)) -> Option<(V2<usize>
             return Some((position, position_3d));
         }
     }
-    return None;
+    None
 }
 
 pub fn point_has_been_visited(world: &World, position: &V2<usize>) -> bool {
@@ -93,7 +93,7 @@ impl VisibilityComputer {
                     None => return out,
                     Some((to, mut to_3d)) => {
                         let run = run(&from_3d, &to_3d);
-                        to_3d.z = to_3d.z - self.planet_curve_adjustment(run);
+                        to_3d.z -= self.planet_curve_adjustment(run);
                         let slope = (to_3d.z - from_3d.z) / run;
                         if slope > max_slope {
                             max_slope = slope;
@@ -103,7 +103,7 @@ impl VisibilityComputer {
                 }
             }
         }
-        return out;
+        out
     }
 
     pub fn update_visibility(
@@ -146,7 +146,6 @@ impl VisibilityComputer {
 mod tests {
 
     use super::*;
-    use commons::M;
     use isometric::cell_traits::*;
     use std::time::Instant;
 
@@ -194,34 +193,26 @@ mod tests {
 
     #[test]
     fn test_run() {
-        assert_eq!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 0.0, 1.0)), 3.0);
-        assert_eq!(
-            run(&v3(0.0, 0.0, 0.0), &v3(3.0, 1.0, 1.0)),
-            (10.0 as f32).sqrt()
-        );
-        assert_eq!(
-            run(&v3(0.0, 0.0, 0.0), &v3(2.0, 2.0, 1.0)),
-            (8.0 as f32).sqrt()
-        );
-        assert_eq!(
-            run(&v3(0.0, 0.0, 0.0), &v3(1.0, 3.0, 1.0)),
-            (10.0 as f32).sqrt()
-        );
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 0.0, 1.0)).almost(3.0));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 1.0, 1.0)).almost((10.0 as f32).sqrt()));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(2.0, 2.0, 1.0)).almost((8.0 as f32).sqrt()));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(1.0, 3.0, 1.0)).almost((10.0 as f32).sqrt()));
     }
 
     #[test]
     fn test_no_planet_curve_adjustment() {
         let visibility_computer = VisibilityComputer::new(0.0, None);
-        assert_eq!(visibility_computer.planet_curve_adjustment(100.0), 0.0);
+        assert!(visibility_computer
+            .planet_curve_adjustment(100.0)
+            .almost(0.0));
     }
 
     #[test]
     fn test_planet_curve_adjustment() {
         let visibility_computer = VisibilityComputer::new(0.0, Some(1000.0));
-        assert_eq!(
-            visibility_computer.planet_curve_adjustment(100.0),
-            1000.0 - (990000.0 as f32).sqrt()
-        );
+        assert!(visibility_computer
+            .planet_curve_adjustment(100.0)
+            .almost(1000.0 - (990_000.0 as f32).sqrt()));
     }
 
     fn test_check_visibility_along_line(
@@ -239,17 +230,17 @@ mod tests {
         let actual_out =
             visibility_computer.update_visibility(&mut world, &Instant::now(), &avatar, 7);
         let mut expected_out = vec![];
-        for x in 0..expected.len() {
+        for (i, expected) in expected.iter().enumerate() {
             assert_eq!(
                 format!(
                     "{},0 = {}",
-                    x,
-                    world.get_cell(&v2(x, 0)).unwrap().is_visible()
+                    i,
+                    world.get_cell(&v2(i, 0)).unwrap().is_visible()
                 ),
-                format!("{},0 = {}", x, expected[x]),
+                format!("{},0 = {}", i, expected),
             );
-            if expected[x] {
-                expected_out.push(v2(x, 0));
+            if *expected {
+                expected_out.push(v2(i, 0));
             }
         }
 

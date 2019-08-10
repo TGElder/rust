@@ -92,24 +92,12 @@ mod tests {
     pub fn test_vegetation_at() {
         let mut world = World::new(M::zeros(3, 3), 0.5);
         world.mut_cell_unsafe(&v2(0, 0)).climate.vegetation = Vegetation::PalmTree;
-        assert_eq!(
-            vegetation_height_at_point(&world, &v2(0, 0)),
-            Vegetation::PalmTree.height()
-        );
-        assert_eq!(
-            vegetation_height_at_point(&world, &v2(1, 0)),
-            Vegetation::PalmTree.height()
-        );
-        assert_eq!(vegetation_height_at_point(&world, &v2(2, 0)), 0.0);
-        assert_eq!(
-            vegetation_height_at_point(&world, &v2(0, 1)),
-            Vegetation::PalmTree.height()
-        );
-        assert_eq!(vegetation_height_at_point(&world, &v2(0, 2)), 0.0);
-        assert_eq!(
-            vegetation_height_at_point(&world, &v2(1, 1)),
-            Vegetation::PalmTree.height()
-        );
+        assert!(vegetation_height_at_point(&world, &v2(0, 0)).almost(Vegetation::PalmTree.height()));
+        assert!(vegetation_height_at_point(&world, &v2(1, 0)).almost(Vegetation::PalmTree.height()));
+        assert!(vegetation_height_at_point(&world, &v2(2, 0)).almost(0.0));
+        assert!(vegetation_height_at_point(&world, &v2(0, 1)).almost(Vegetation::PalmTree.height()));
+        assert!(vegetation_height_at_point(&world, &v2(0, 2)).almost(0.0));
+        assert!(vegetation_height_at_point(&world, &v2(1, 1)).almost(Vegetation::PalmTree.height()));
     }
 
 }

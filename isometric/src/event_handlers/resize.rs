@@ -2,13 +2,8 @@ use engine::{Command, Event};
 use events::EventHandler;
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct DPIRelay {}
-
-impl DPIRelay {
-    pub fn new() -> DPIRelay {
-        DPIRelay {}
-    }
-}
 
 impl EventHandler for DPIRelay {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
@@ -57,13 +52,8 @@ impl EventHandler for ResizeRelay {
     }
 }
 
+#[derive(Default)]
 pub struct Resizer {}
-
-impl Resizer {
-    pub fn new() -> Resizer {
-        Resizer {}
-    }
-}
 
 impl EventHandler for Resizer {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {

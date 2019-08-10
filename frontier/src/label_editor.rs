@@ -75,7 +75,7 @@ impl LabelEdit {
         LabelEdit {
             world_coord,
             font,
-            text_editor: TextEditor::new(),
+            text_editor: TextEditor::default(),
         }
     }
 

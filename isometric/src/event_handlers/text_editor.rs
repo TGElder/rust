@@ -1,5 +1,6 @@
 use engine::{Command, Event};
 use events::EventHandler;
+use std::default::Default;
 use std::sync::Arc;
 
 pub struct TextEditor {
@@ -8,13 +9,6 @@ pub struct TextEditor {
 }
 
 impl TextEditor {
-    pub fn new() -> TextEditor {
-        TextEditor {
-            caret_position: 0,
-            text: String::new(),
-        }
-    }
-
     pub fn text(&self) -> &str {
         &self.text
     }
@@ -93,6 +87,15 @@ impl TextEditor {
     }
 }
 
+impl Default for TextEditor {
+    fn default() -> TextEditor {
+        TextEditor {
+            caret_position: 0,
+            text: String::new(),
+        }
+    }
+}
+
 impl EventHandler for TextEditor {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
@@ -128,7 +131,7 @@ mod test {
 
     #[test]
     fn test_lowercase_character() {
-        let mut text_editor = TextEditor::new();
+        let mut text_editor = TextEditor::default();
 
         text_editor.handle_key(glutin::VirtualKeyCode::A, false);
 
@@ -137,7 +140,7 @@ mod test {
 
     #[test]
     fn test_uppercase_character() {
-        let mut text_editor = TextEditor::new();
+        let mut text_editor = TextEditor::default();
 
         text_editor.handle_key(glutin::VirtualKeyCode::A, true);
 
@@ -146,7 +149,7 @@ mod test {
 
     #[test]
     fn test_word() {
-        let mut text_editor = TextEditor::new();
+        let mut text_editor = TextEditor::default();
 
         text_editor.handle_key(glutin::VirtualKeyCode::H, true);
         text_editor.handle_key(glutin::VirtualKeyCode::E, false);
@@ -159,7 +162,7 @@ mod test {
 
     #[test]
     fn test_backspace_2_chars() {
-        let mut text_editor = TextEditor::new();
+        let mut text_editor = TextEditor::default();
 
         text_editor.handle_key(glutin::VirtualKeyCode::H, true);
         text_editor.handle_key(glutin::VirtualKeyCode::E, false);
@@ -170,7 +173,7 @@ mod test {
 
     #[test]
     fn test_backspace_1_char() {
-        let mut text_editor = TextEditor::new();
+        let mut text_editor = TextEditor::default();
 
         text_editor.handle_key(glutin::VirtualKeyCode::H, true);
         text_editor.handle_key(glutin::VirtualKeyCode::Back, false);
@@ -180,7 +183,7 @@ mod test {
 
     #[test]
     fn test_backspace_0_chars() {
-        let mut text_editor = TextEditor::new();
+        let mut text_editor = TextEditor::default();
 
         text_editor.handle_key(glutin::VirtualKeyCode::Back, false);
 

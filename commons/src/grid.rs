@@ -50,7 +50,7 @@ pub trait Grid<T> {
         out
     }
 
-    fn offset(&self, position: &V2<usize>, offset: &V2<i32>) -> Option<V2<usize>> {
+    fn offset(&self, position: &V2<usize>, offset: V2<i32>) -> Option<V2<usize>> {
         let position_i32 = v2(position.x as i32, position.y as i32);
         let offset_i32 = position_i32 + offset;
         if offset_i32.x < 0 || offset_i32.y < 0 {
@@ -58,9 +58,9 @@ pub trait Grid<T> {
         }
         let offset = v2(offset_i32.x as usize, offset_i32.y as usize);
         if self.in_bounds(&offset) {
-            return Some(offset);
+            Some(offset)
         } else {
-            return None;
+            None
         }
     }
 
@@ -74,9 +74,9 @@ pub trait Grid<T> {
     }
 
     fn get_corners_behind(&self, position: &V2<usize>) -> Vec<V2<usize>> {
-        [&v2(0, 0), &v2(-1, 0), &v2(-1, -1), &v2(0, -1)]
+        [v2(0, 0), v2(-1, 0), v2(-1, -1), v2(0, -1)]
             .iter()
-            .flat_map(|delta| self.offset(position, delta))
+            .flat_map(|delta| self.offset(position, *delta))
             .collect()
     }
 }
@@ -202,14 +202,14 @@ mod tests {
     #[test]
     fn offset_in_bounds() {
         let matrix = M::from_element(3, 3, 1.0);
-        assert_eq!(matrix.offset(&v2(1, 1), &v2(-1, -1)), Some(v2(0, 0)));
-        assert_eq!(matrix.offset(&v2(1, 1), &v2(0, -1)), Some(v2(1, 0)));
-        assert_eq!(matrix.offset(&v2(1, 1), &v2(1, -1)), Some(v2(2, 0)));
-        assert_eq!(matrix.offset(&v2(1, 1), &v2(1, 0)), Some(v2(2, 1)));
-        assert_eq!(matrix.offset(&v2(1, 1), &v2(1, 1)), Some(v2(2, 2)));
-        assert_eq!(matrix.offset(&v2(1, 1), &v2(0, 1)), Some(v2(1, 2)));
-        assert_eq!(matrix.offset(&v2(1, 1), &v2(-1, 1)), Some(v2(0, 2)));
-        assert_eq!(matrix.offset(&v2(1, 1), &v2(-1, 0)), Some(v2(0, 1)));
+        assert_eq!(matrix.offset(&v2(1, 1), v2(-1, -1)), Some(v2(0, 0)));
+        assert_eq!(matrix.offset(&v2(1, 1), v2(0, -1)), Some(v2(1, 0)));
+        assert_eq!(matrix.offset(&v2(1, 1), v2(1, -1)), Some(v2(2, 0)));
+        assert_eq!(matrix.offset(&v2(1, 1), v2(1, 0)), Some(v2(2, 1)));
+        assert_eq!(matrix.offset(&v2(1, 1), v2(1, 1)), Some(v2(2, 2)));
+        assert_eq!(matrix.offset(&v2(1, 1), v2(0, 1)), Some(v2(1, 2)));
+        assert_eq!(matrix.offset(&v2(1, 1), v2(-1, 1)), Some(v2(0, 2)));
+        assert_eq!(matrix.offset(&v2(1, 1), v2(-1, 0)), Some(v2(0, 1)));
     }
 
     #[test]
@@ -227,7 +227,7 @@ mod tests {
         ]
         .iter()
         {
-            assert_eq!(matrix.offset(&v2(0, 0), &delta), None);
+            assert_eq!(matrix.offset(&v2(0, 0), *delta), None);
         }
     }
 
@@ -245,7 +245,7 @@ mod tests {
         let matrix: M<usize> = M::zeros(3, 3);
         assert!(same_elements(
             &matrix.get_corners_behind(&v2(1, 1)),
-            &vec![v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)]
+            &[v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)]
         ));
     }
 

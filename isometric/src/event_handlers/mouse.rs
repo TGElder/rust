@@ -2,13 +2,8 @@ use engine::{Command, Event};
 use events::EventHandler;
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct MouseRelay {}
-
-impl MouseRelay {
-    pub fn new() -> MouseRelay {
-        MouseRelay {}
-    }
-}
 
 impl EventHandler for MouseRelay {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {

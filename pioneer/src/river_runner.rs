@@ -18,8 +18,7 @@ pub fn get_river_cells<R: Rng>(
     rng: &mut R,
 ) -> Vec<PositionJunction> {
     let downhill_map = DownhillMap::new(&mesh);
-    let random_downhill_map: Box<SingleDownhillMap> =
-        Box::new(RandomDownhillMap::new(&downhill_map, rng));
+    let random_downhill_map = RandomDownhillMap::new(&downhill_map, rng);
 
     get_river_cells_from_downhill_map_and_rain_map(
         &mesh,
@@ -36,16 +35,16 @@ fn get_river_cells_from_downhill_map_and_rain_map(
     threshold: f64,
     sea_level: f64,
     flow_to_width: (f64, f64),
-    downhill_map: &Box<SingleDownhillMap>,
+    downhill_map: &SingleDownhillMap,
     rainfall: &M<f64>,
 ) -> Vec<PositionJunction> {
-    let flow_map = FlowMap::from(&mesh, &downhill_map, &rainfall);
+    let flow_map = FlowMap::from(&mesh, downhill_map, &rainfall);
     let junctions = get_junction_matrix_from_flow_map(
         &mesh,
         threshold,
         sea_level,
         flow_to_width,
-        &downhill_map,
+        downhill_map,
         &flow_map,
     );
     get_river_cells_from_junction_matrix(junctions)
@@ -54,7 +53,7 @@ fn get_river_cells_from_downhill_map_and_rain_map(
 fn get_neighbour(
     position: na::Vector2<usize>,
     mesh: &Mesh,
-    downhill_map: &Box<SingleDownhillMap>,
+    downhill_map: &SingleDownhillMap,
 ) -> Option<na::Vector2<usize>> {
     let direction = DIRECTIONS[downhill_map.get_direction(position.x as i32, position.y as i32)];
     let nx = (position.x as i32) + direction.0;
@@ -83,7 +82,7 @@ fn get_junction_matrix_from_flow_map(
     threshold: f64,
     sea_level: f64,
     flow_to_width: (f64, f64),
-    downhill_map: &Box<SingleDownhillMap>,
+    downhill_map: &SingleDownhillMap,
     flow_map: &FlowMap,
 ) -> M<Junction> {
     let width = mesh.get_width() as usize;
@@ -168,15 +167,14 @@ mod tests {
     }
 
     #[rustfmt::skip]
-    fn downhill_map() -> Box<SingleDownhillMap> {
+    fn downhill_map() -> MockDownhillMap {
         let downhill_map = vec![
             vec![3, 3, 3, 3],
             vec![3, 3, 3, 3],
             vec![0, 0, 0, 0],
             vec![0, 0, 0, 0],
         ];
-        let downhill_map = MockDownhillMap::new(downhill_map);
-        Box::new(downhill_map)
+        MockDownhillMap::new(downhill_map)
     }
 
     #[rustfmt::skip]
@@ -212,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_get_max_flow_over_sea_level() {
-        assert_eq!(get_max_flow_over_sea_level(&mesh(), 0.5, &flow_map()), 7.0);
+        assert!(get_max_flow_over_sea_level(&mesh(), 0.5, &flow_map()).almost(7.0));
     }
 
     #[test]

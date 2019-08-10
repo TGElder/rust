@@ -29,7 +29,7 @@ fn clip_triangle_to_sea_level(triangle: [V3<f32>; 3], sea_level: f32) -> [V3<f32
 pub fn draw_nodes<T>(
     name: String,
     terrain: &Grid<T>,
-    nodes: &Vec<V2<usize>>,
+    nodes: &[V2<usize>],
     color: &Color,
     sea_level: f32,
 ) -> Vec<Command>
@@ -61,7 +61,7 @@ where
 pub fn draw_edges<T>(
     name: String,
     terrain: &Grid<T>,
-    edges: &Vec<Edge>,
+    edges: &[Edge],
     color: &Color,
     sea_level: f32,
 ) -> Vec<Command>

@@ -3,13 +3,8 @@ use engine::{Command, Event};
 use events::EventHandler;
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct Scroller {}
-
-impl Scroller {
-    pub fn new() -> Scroller {
-        Scroller {}
-    }
-}
 
 impl EventHandler for Scroller {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {

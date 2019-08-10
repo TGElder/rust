@@ -30,7 +30,7 @@ impl Default for RainfallGenParams {
 }
 
 pub fn gen_rainfall(world: &World, params: &WorldGenParameters) -> M<f64> {
-    let elevations = extract_matrix(world, &|cell| cell.elevation as f64);
+    let elevations = extract_matrix(world, &|cell| f64::from(cell.elevation));
     let capacities = rescale(elevations.clone(), params.rainfall.air_capacity_range);
     let mut computer = RainfallComputer {
         params: RainfallParams {
@@ -53,7 +53,7 @@ pub fn gen_rainfall(world: &World, params: &WorldGenParameters) -> M<f64> {
         },
         elevations: &elevations,
         capacities,
-        sea_level: world.sea_level() as f64,
+        sea_level: f64::from(world.sea_level()),
     };
     computer
         .params

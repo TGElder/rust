@@ -23,7 +23,7 @@ impl Path {
     pub fn new(
         world: &World,
         points: Vec<V2<usize>>,
-        travel_duration: &Box<TravelDuration>,
+        travel_duration: &TravelDuration,
         start_at: Instant,
     ) -> Path {
         Path {
@@ -39,9 +39,9 @@ impl Path {
 
     fn compute_point_arrival_millis(
         world: &World,
-        points: &Vec<V2<usize>>,
+        points: &[V2<usize>],
         start_at: Instant,
-        travel_duration: &Box<TravelDuration>,
+        travel_duration: &TravelDuration,
     ) -> Vec<Instant> {
         let mut next_arrival_time = start_at;
         let mut out = Vec::with_capacity(points.len());
@@ -76,7 +76,7 @@ impl Path {
 
     fn compute_current_index(&self, instant: &Instant) -> Option<usize> {
         for i in 0..self.points.len() {
-            if instant < &self.point_arrivals[i] {
+            if *instant < self.point_arrivals[i] {
                 return Some(i);
             }
         }
@@ -89,7 +89,7 @@ impl Path {
                 points: vec![self.points[i - 1], self.points[i]],
                 point_arrivals: vec![self.point_arrivals[i - 1], self.point_arrivals[i]],
             })
-            .unwrap_or(Path::empty())
+            .unwrap_or_else(Path::empty)
     }
 
     pub fn compute_world_coord(&self, world: &World, instant: &Instant) -> Option<WorldCoord> {
@@ -138,7 +138,7 @@ impl Path {
         &mut self,
         world: &World,
         mut extension: Vec<V2<usize>>,
-        travel_duration: &Box<TravelDuration>,
+        travel_duration: &TravelDuration,
     ) {
         self.points.append(&mut extension);
         self.point_arrivals = Path::compute_point_arrival_millis(
@@ -171,12 +171,12 @@ impl Add for Path {
 mod tests {
 
     use super::*;
-    use commons::M;
+    use commons::*;
 
-    fn travel_duration() -> Box<TravelDuration> {
-        Box::new(TestTravelDuration {
+    fn travel_duration() -> TestTravelDuration {
+        TestTravelDuration {
             max: Duration::from_millis(4),
-        })
+        }
     }
 
     #[rustfmt::skip]
@@ -259,9 +259,9 @@ mod tests {
         let at = start + Duration::from_micros(1500);
         let actual = path.compute_world_coord(&world, &at).unwrap();
         let expected = WorldCoord::new(0.25, 1.0, 0.25);
-        assert_eq!((actual.x * 100.0).round() / 100.0, expected.x);
-        assert_eq!((actual.y * 100.0).round() / 100.0, expected.y);
-        assert_eq!((actual.z * 100.0).round() / 100.0, expected.z);
+        assert!(((actual.x * 100.0).round() / 100.0).almost(expected.x));
+        assert!(((actual.y * 100.0).round() / 100.0).almost(expected.y));
+        assert!(((actual.z * 100.0).round() / 100.0).almost(expected.z));
     }
 
     #[test]

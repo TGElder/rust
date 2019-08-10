@@ -32,7 +32,7 @@ impl Shader {
         unsafe {
             gl::GetShaderiv(self.id, gl::COMPILE_STATUS, &mut success);
         };
-        return success != 0;
+        success != 0
     }
 
     fn get_log_length(&self) -> i32 {
@@ -40,7 +40,7 @@ impl Shader {
         unsafe {
             gl::GetShaderiv(self.id, gl::INFO_LOG_LENGTH, &mut len);
         }
-        return len;
+        len
     }
 
     fn get_message(&self) -> String {

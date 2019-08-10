@@ -8,7 +8,6 @@ use self::river_water::*;
 use self::temperature::*;
 use self::vegetation_gen::*;
 use crate::world::World;
-use commons::rand::prelude::*;
 use commons::scale::Scale;
 use commons::*;
 use num::Float;
@@ -16,6 +15,8 @@ use pioneer::erosion::Erosion;
 use pioneer::mesh::Mesh;
 use pioneer::mesh_splitter::MeshSplitter;
 use pioneer::river_runner::*;
+use rand::prelude::*;
+use rand::rngs::SmallRng;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::f64::MAX;
@@ -58,8 +59,8 @@ impl Default for WorldGenParameters {
     }
 }
 
-pub fn rng(seed: u8) -> SmallRng {
-    SmallRng::from_seed([seed; 16])
+pub fn rng(seed: u64) -> SmallRng {
+    SeedableRng::seed_from_u64(seed)
 }
 
 pub fn generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParameters) -> World {
@@ -146,7 +147,7 @@ where
             }
         }
     }
-    (min.unwrap_or(T::zero()), max.unwrap_or(T::one()))
+    (min.unwrap_or_else(T::zero), max.unwrap_or_else(T::one))
 }
 
 #[cfg(test)]

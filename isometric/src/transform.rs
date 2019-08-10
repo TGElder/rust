@@ -1,5 +1,5 @@
 use super::coords::*;
-use commons::na;
+use commons::*;
 
 pub trait Projection {
     fn compute_projection_matrix(&self) -> na::Matrix4<f32>;
@@ -95,8 +95,8 @@ impl Transform {
     }
 
     pub fn translate(&mut self, delta: GLCoord2D) {
-        self.translation.x = self.translation.x + delta.x;
-        self.translation.y = self.translation.y + delta.y;
+        self.translation.x += delta.x;
+        self.translation.y += delta.y;
     }
 
     pub fn transform_maintaining_center(
@@ -117,8 +117,8 @@ impl Transform {
         self.transform_maintaining_center(
             center,
             Box::new(move |transform| {
-                transform.scale.x = transform.scale.x * delta.x;
-                transform.scale.y = transform.scale.y * delta.y;
+                transform.scale.x *= delta.x;
+                transform.scale.y *= delta.y;
             }),
         );
     }
@@ -292,8 +292,8 @@ mod tests {
         let actual = transform.project(WorldCoord::new(11.0, -17.0, 7.0));
         // Because World Coord would have mapped to same GLCoord in identity projection
 
-        assert_eq!(actual.x, 11.0);
-        assert_eq!(actual.y, -17.0);
+        assert!(actual.x.almost(11.0));
+        assert!(actual.y.almost(-17.0));
         // z is not maintained
     }
 

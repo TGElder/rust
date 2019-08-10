@@ -18,7 +18,7 @@ impl Program {
         let vertex_shader = Shader::from_source(vertex_shader, gl::VERTEX_SHADER).unwrap();
         let fragment_shader = Shader::from_source(fragment_shader, gl::FRAGMENT_SHADER).unwrap();
 
-        return Program::from_shader_list(drawing_type, &[vertex_shader, fragment_shader]).unwrap();
+        Program::from_shader_list(drawing_type, &[vertex_shader, fragment_shader]).unwrap()
     }
 
     fn from_shader_list(drawing_type: DrawingType, shaders: &[Shader]) -> Result<Program, String> {
@@ -54,7 +54,7 @@ impl Program {
         unsafe {
             gl::GetProgramiv(self.id, gl::LINK_STATUS, &mut success);
         };
-        return success != 0;
+        success != 0
     }
 
     fn get_log_length(&self) -> i32 {
@@ -62,7 +62,7 @@ impl Program {
         unsafe {
             gl::GetProgramiv(self.id, gl::INFO_LOG_LENGTH, &mut len);
         }
-        return len;
+        len
     }
 
     fn get_message(&self) -> String {
@@ -91,20 +91,18 @@ impl Program {
 
     pub fn _load_float(&self, variable: &str, float: f32) {
         unsafe {
-            let float_location = gl::GetUniformLocation(
-                self.id(),
-                CString::new(variable).unwrap().as_ptr() as *const gl::types::GLchar,
-            );
+            let c_string = CString::new(variable).unwrap();
+            let float_location =
+                gl::GetUniformLocation(self.id(), c_string.as_ptr() as *const gl::types::GLchar);
             gl::Uniform1f(float_location, float);
         }
     }
 
     pub fn load_matrix2(&self, variable: &str, matrix: na::Matrix2<f32>) {
         unsafe {
-            let matrix_location = gl::GetUniformLocation(
-                self.id(),
-                CString::new(variable).unwrap().as_ptr() as *const gl::types::GLchar,
-            );
+            let c_string = CString::new(variable).unwrap();
+            let matrix_location =
+                gl::GetUniformLocation(self.id(), c_string.as_ptr() as *const gl::types::GLchar);
             let proj_ptr = matrix.as_slice().as_ptr();
             gl::UniformMatrix2fv(matrix_location, 1, gl::FALSE, proj_ptr);
         }
@@ -112,10 +110,9 @@ impl Program {
 
     pub fn load_matrix3(&self, variable: &str, matrix: na::Matrix3<f32>) {
         unsafe {
-            let matrix_location = gl::GetUniformLocation(
-                self.id(),
-                CString::new(variable).unwrap().as_ptr() as *const gl::types::GLchar,
-            );
+            let c_string = CString::new(variable).unwrap();
+            let matrix_location =
+                gl::GetUniformLocation(self.id(), c_string.as_ptr() as *const gl::types::GLchar);
             let proj_ptr = matrix.as_slice().as_ptr();
             gl::UniformMatrix3fv(matrix_location, 1, gl::FALSE, proj_ptr);
         }
@@ -123,10 +120,9 @@ impl Program {
 
     pub fn load_matrix4(&self, variable: &str, matrix: na::Matrix4<f32>) {
         unsafe {
-            let matrix_location = gl::GetUniformLocation(
-                self.id(),
-                CString::new(variable).unwrap().as_ptr() as *const gl::types::GLchar,
-            );
+            let c_string = CString::new(variable).unwrap();
+            let matrix_location =
+                gl::GetUniformLocation(self.id(), c_string.as_ptr() as *const gl::types::GLchar);
             let proj_ptr = matrix.as_slice().as_ptr();
             gl::UniformMatrix4fv(matrix_location, 1, gl::FALSE, proj_ptr);
         }

@@ -1,22 +1,27 @@
 use crate::world::*;
 use commons::*;
 use isometric::coords::WorldCoord;
-use isometric::drawing::draw_house;
+use isometric::drawing::{draw_house, DrawHouseParams};
 use isometric::Color;
 use isometric::Command;
 
 pub struct HouseBuilder {
     houses: M<bool>,
-    light_direction: V3<f32>,
-    color: Color,
+    params: DrawHouseParams,
 }
 
 impl HouseBuilder {
     pub fn new(houses: M<bool>, light_direction: V3<f32>) -> HouseBuilder {
         HouseBuilder {
             houses,
-            light_direction,
-            color: Color::new(1.0, 0.0, 0.0, 1.0),
+            params: DrawHouseParams {
+                width: 0.25,
+                height: 0.5,
+                roof_height: 0.5,
+                basement_z: 0.0,
+                base_color: Color::new(1.0, 0.0, 0.0, 1.0),
+                light_direction,
+            },
         }
     }
 
@@ -39,12 +44,10 @@ impl HouseBuilder {
                 draw_house(
                     name,
                     world_coord,
-                    0.25,
-                    0.5,
-                    0.5,
-                    basement_z,
-                    self.color,
-                    self.light_direction,
+                    &DrawHouseParams {
+                        basement_z,
+                        ..self.params
+                    },
                 )
             } else {
                 vec![Command::Erase(name)]

@@ -3,7 +3,7 @@ use downhill_map::DownhillMap;
 use flow_map::FlowMap;
 use mesh::Mesh;
 use rand::prelude::*;
-use single_downhill_map::{RandomDownhillMap, SingleDownhillMap};
+use single_downhill_map::RandomDownhillMap;
 
 pub struct Erosion {}
 
@@ -21,7 +21,6 @@ impl Erosion {
         let rainfall = M::from_element(width, width, 1.0);
         for _ in 0..samples {
             let random_downhill_map = RandomDownhillMap::new(&downhill_map, rng);
-            let random_downhill_map: Box<SingleDownhillMap> = Box::new(random_downhill_map);
             let flow_map = FlowMap::from(&mesh, &random_downhill_map, &rainfall);
             for x in 0..mesh.get_width() {
                 for y in 0..mesh.get_width() {

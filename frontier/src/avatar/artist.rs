@@ -2,20 +2,81 @@ use super::*;
 use crate::world::World;
 use commons::{na, v3, V3};
 use isometric::coords::*;
-use isometric::drawing::{draw_billboard, draw_boat};
+use isometric::drawing::{draw_billboard, draw_boat, DrawBoatParams};
 use isometric::Color;
 use isometric::Command;
 
 pub struct AvatarArtist {
     scale: f32,
-    light_direction: V3<f32>,
+    boat_params: DrawBoatParams,
+    body_parts: Vec<BodyPart>,
+}
+
+struct BodyPart {
+    offset: V3<f32>,
+    handle: String,
+    texture: String,
+    texture_width: usize,
+    texture_height: usize,
 }
 
 impl AvatarArtist {
     pub fn new(scale: f32, light_direction: V3<f32>) -> AvatarArtist {
         AvatarArtist {
             scale,
-            light_direction,
+            boat_params: DrawBoatParams {
+                width: 0.12,
+                side_height: 0.04,
+                bow_length: 0.06,
+                mast_height: 0.4,
+                base_color: Color::new(0.46875, 0.257_812_5, 0.070_312_5, 0.8),
+                sail_color: Color::new(1.0, 1.0, 1.0, 1.0),
+                light_direction,
+            },
+            body_parts: vec![
+                BodyPart {
+                    offset: v3(0.0, 0.0, 96.0),
+                    handle: "body".to_string(),
+                    texture: "body.png".to_string(),
+                    texture_width: 128,
+                    texture_height: 198,
+                },
+                BodyPart {
+                    offset: v3(12.0, 0.0, 192.0),
+                    handle: "head".to_string(),
+                    texture: "head.png".to_string(),
+                    texture_width: 96,
+                    texture_height: 96,
+                },
+                BodyPart {
+                    offset: v3(48.0, 24.0, 192.0),
+                    handle: "left_eye".to_string(),
+                    texture: "eye.png".to_string(),
+                    texture_width: 16,
+                    texture_height: 16,
+                },
+                BodyPart {
+                    offset: v3(48.0, -24.0, 192.0),
+                    handle: "right_eye".to_string(),
+                    texture: "eye.png".to_string(),
+                    texture_width: 16,
+                    texture_height: 16,
+                },
+                BodyPart {
+                    offset: v3(48.0, 50.0, 96.0),
+                    handle: "left_hand".to_string(),
+                    texture: "hand.png".to_string(),
+                    texture_width: 32,
+                    texture_height: 32,
+                },
+                BodyPart {
+                    offset: v3(48.0, -50.0, 96.0),
+                    handle: "right_hand".to_string(),
+                    texture: "hand.png".to_string(),
+                    texture_width: 32,
+                    texture_height: 32,
+                },
+            ],
         }
     }
 
@@ -31,91 +92,36 @@ impl AvatarArtist {
         ])
     }
 
-    pub fn draw_billboard_at_offset(
+    fn draw_billboard_at_offset(
         &self,
         avatar: &Avatar,
         instant: &Instant,
         world_coord: WorldCoord,
-        offset: V3<f32>,
-        handle: &str,
-        texture: &str,
-        texture_width: usize,
-        texture_height: usize,
+        part: &BodyPart,
     ) -> Vec<Command> {
-        let offset = AvatarArtist::get_rotation_matrix(avatar, instant) * offset * self.scale;
+        let offset = AvatarArtist::get_rotation_matrix(avatar, instant) * part.offset * self.scale;
         let world_coord = WorldCoord::new(
             world_coord.x + offset.x,
             world_coord.y + offset.y,
             world_coord.z + offset.z,
         );
-        let width = (texture_width as f32) * self.scale;
-        let height = (texture_height as f32) * self.scale;
-        draw_billboard(handle.to_string(), world_coord, width, height, texture)
+        let width = (part.texture_width as f32) * self.scale;
+        let height = (part.texture_height as f32) * self.scale;
+        draw_billboard(
+            part.handle.clone(),
+            world_coord,
+            width,
+            height,
+            &part.texture,
+        )
     }
 
     pub fn draw(&self, avatar: &Avatar, world: &World, instant: &Instant) -> Vec<Command> {
         let mut out = self.draw_boat_if_required(avatar, world, instant);
         if let Some(world_coord) = avatar.compute_world_coord(world, instant) {
-            out.append(&mut self.draw_billboard_at_offset(
-                avatar,
-                instant,
-                world_coord,
-                v3(0.0, 0.0, 96.0),
-                "body",
-                "body.png",
-                128,
-                198,
-            ));
-            out.append(&mut self.draw_billboard_at_offset(
-                avatar,
-                instant,
-                world_coord,
-                v3(12.0, 0.0, 192.0),
-                "head",
-                "head.png",
-                96,
-                96,
-            ));
-            out.append(&mut self.draw_billboard_at_offset(
-                avatar,
-                instant,
-                world_coord,
-                v3(48.0, 24.0, 192.0),
-                "left_eye",
-                "eye.png",
-                16,
-                16,
-            ));
-            out.append(&mut self.draw_billboard_at_offset(
-                avatar,
-                instant,
-                world_coord,
-                v3(48.0, -24.0, 192.0),
-                "right_eye",
-                "eye.png",
-                16,
-                16,
-            ));
-            out.append(&mut self.draw_billboard_at_offset(
-                avatar,
-                instant,
-                world_coord,
-                v3(48.0, 50.0, 96.0),
-                "left_hand",
-                "hand.png",
-                32,
-                32,
-            ));
-            out.append(&mut self.draw_billboard_at_offset(
-                avatar,
-                instant,
-                world_coord,
-                v3(48.0, -50.0, 96.0),
-                "right_hand",
-                "hand.png",
-                32,
-                32,
-            ));
+            for part in self.body_parts.iter() {
+                out.append(&mut self.draw_billboard_at_offset(avatar, instant, world_coord, part));
+            }
         }
         out
     }
@@ -150,17 +156,11 @@ impl AvatarArtist {
         world_coord: WorldCoord,
         instant: &Instant,
     ) -> Vec<Command> {
-        return draw_boat(
+        draw_boat(
             "boat",
             world_coord,
-            0.12,
-            0.04,
-            0.06,
-            0.40,
-            Color::new(0.46875, 0.2578125, 0.0703125, 0.8),
-            Color::new(1.0, 1.0, 1.0, 1.0),
-            self.light_direction,
             AvatarArtist::get_rotation_matrix(avatar, instant),
-        );
+            &self.boat_params,
+        )
     }
 }

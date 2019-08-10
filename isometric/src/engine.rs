@@ -68,7 +68,10 @@ impl IsometricEngine {
         let events_loop = glutin::EventsLoop::new();
         let window = glutin::WindowBuilder::new()
             .with_title(title)
-            .with_dimensions(glutin::dpi::LogicalSize::new(width as f64, height as f64));
+            .with_dimensions(glutin::dpi::LogicalSize::new(
+                f64::from(width),
+                f64::from(height),
+            ));
         let context = glutin::ContextBuilder::new()
             .with_gl(IsometricEngine::GL_VERSION)
             .with_vsync(true)
@@ -109,15 +112,15 @@ impl IsometricEngine {
         let logical_window_size = window.window().get_inner_size().unwrap();
 
         vec![
-            Box::new(ShutdownHandler::new()),
-            Box::new(DPIRelay::new()),
-            Box::new(Resizer::new()),
+            Box::new(ShutdownHandler::default()),
+            Box::new(DPIRelay::default()),
+            Box::new(Resizer::default()),
             Box::new(CursorHandler::new(dpi_factor, logical_window_size)),
-            Box::new(DragHandler::new()),
+            Box::new(DragHandler::default()),
             Box::new(ResizeRelay::new(dpi_factor)),
-            Box::new(Scroller::new()),
-            Box::new(KeyRelay::new()),
-            Box::new(MouseRelay::new()),
+            Box::new(Scroller::default()),
+            Box::new(KeyRelay::default()),
+            Box::new(MouseRelay::default()),
         ]
     }
 

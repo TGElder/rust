@@ -5,46 +5,48 @@ use color::Color;
 use commons::{na, v3, V3};
 use coords::*;
 
+pub struct DrawBoatParams {
+    pub width: f32,
+    pub side_height: f32,
+    pub bow_length: f32,
+    pub mast_height: f32,
+    pub base_color: Color,
+    pub sail_color: Color,
+    pub light_direction: V3<f32>,
+}
+
 pub fn draw_boat(
     name: &str,
     world_coordinate: WorldCoord,
-    width: f32,
-    side_height: f32,
-    bow_length: f32,
-    mast_height: f32,
-    base_color: Color,
-    sail_color: Color,
-    light_direction: V3<f32>,
     rotation: na::Matrix3<f32>,
+    p: &DrawBoatParams,
 ) -> Vec<Command> {
-    let triangle_coloring: Box<TriangleColoring> =
-        Box::new(AngleTriangleColoring::new(base_color, light_direction));
-    let square_coloring: Box<SquareColoring> =
-        Box::new(AngleSquareColoring::new(base_color, light_direction));
+    let triangle_coloring = AngleTriangleColoring::new(p.base_color, p.light_direction);
+    let square_coloring = AngleSquareColoring::new(p.base_color, p.light_direction);
 
     let WorldCoord { x, y, z } = world_coordinate;
 
     let world_coordinate = v3(x, y, z + 0.01);
 
-    let width_2 = width / 2.0;
+    let width_2 = p.width / 2.0;
 
     let al = (rotation * v3(-width_2, -width_2, 0.0)) + world_coordinate;
     let bl = (rotation * v3(2.0 * width_2, -width_2, 0.0)) + world_coordinate;
     let cl = (rotation * v3(2.0 * width_2, width_2, 0.0)) + world_coordinate;
     let dl = (rotation * v3(-width_2, width_2, 0.0)) + world_coordinate;
-    let ah = (rotation * v3(-width_2, -width_2, side_height)) + world_coordinate;
-    let bh = (rotation * v3(2.0 * width_2, -width_2, side_height)) + world_coordinate;
-    let ch = (rotation * v3(2.0 * width_2, width_2, side_height)) + world_coordinate;
-    let dh = (rotation * v3(-width_2, width_2, side_height)) + world_coordinate;
+    let ah = (rotation * v3(-width_2, -width_2, p.side_height)) + world_coordinate;
+    let bh = (rotation * v3(2.0 * width_2, -width_2, p.side_height)) + world_coordinate;
+    let ch = (rotation * v3(2.0 * width_2, width_2, p.side_height)) + world_coordinate;
+    let dh = (rotation * v3(-width_2, width_2, p.side_height)) + world_coordinate;
 
-    let el = (rotation * v3((2.0 * width_2) + bow_length, 0.0, 0.0)) + world_coordinate;
-    let eh = (rotation * v3((2.0 * width_2) + bow_length, 0.0, side_height)) + world_coordinate;
+    let el = (rotation * v3((2.0 * width_2) + p.bow_length, 0.0, 0.0)) + world_coordinate;
+    let eh = (rotation * v3((2.0 * width_2) + p.bow_length, 0.0, p.side_height)) + world_coordinate;
 
-    let sa =
-        (rotation * v3(2.0 * width_2 + (bow_length / 2.0), 0.0, side_height)) + world_coordinate;
-    let sb =
-        (rotation * v3(2.0 * width_2 + (bow_length / 2.0), 0.0, mast_height)) + world_coordinate;
-    let sc = (rotation * v3(-0.3 * width_2, 1.5 * width_2, side_height)) + world_coordinate;
+    let sa = (rotation * v3(2.0 * width_2 + (p.bow_length / 2.0), 0.0, p.side_height))
+        + world_coordinate;
+    let sb = (rotation * v3(2.0 * width_2 + (p.bow_length / 2.0), 0.0, p.mast_height))
+        + world_coordinate;
+    let sc = (rotation * v3(-0.3 * width_2, 1.5 * width_2, p.side_height)) + world_coordinate;
 
     let mut floats = vec![];
     floats.append(&mut get_colored_vertices_from_square(
@@ -80,8 +82,7 @@ pub fn draw_boat(
         &triangle_coloring,
     ));
 
-    let sail_coloring: Box<TriangleColoring> =
-        Box::new(AngleTriangleColoring::new(sail_color, light_direction));
+    let sail_coloring = AngleTriangleColoring::new(p.sail_color, p.light_direction);
 
     floats.append(&mut get_colored_vertices_from_triangle(
         &[sa, sb, sc],
