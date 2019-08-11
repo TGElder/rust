@@ -29,7 +29,7 @@ impl VegetationArtist {
                         continue;
                     }
 
-                    world_coord.z += cell.climate.vegetation.height();
+                    world_coord.z += cell.climate.vegetation.height() / 2.0;
 
                     match cell.climate.vegetation {
                         Vegetation::PalmTree => palms.push(world_coord),

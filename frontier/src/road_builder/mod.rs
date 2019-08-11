@@ -58,7 +58,7 @@ impl RoadBuilder {
             pathfinder: Pathfinder::new(
                 &world,
                 Box::new(AutoRoadTravelDuration::new(
-                    GradientTravelDuration::boxed(Scale::new((-0.3, 0.3), (575.0, 925.0)), true),
+                    GradientTravelDuration::boxed(Scale::new((-0.5, 0.5), (575.0, 925.0)), true),
                     ConstantTravelDuration::boxed(Duration::from_millis(100)),
                 )),
             ),

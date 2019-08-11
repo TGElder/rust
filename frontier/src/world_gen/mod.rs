@@ -46,7 +46,7 @@ impl Default for WorldGenParameters {
             latitude_range: (0.0, 50.0),
             cliff_gradient: 0.5,
             split_range: (0.0, 0.75),
-            max_height: 32.0,
+            max_height: 16.0,
             sea_level: 1.0,
             erosion_iterations: 16,
             erosion_amount: 0.9,
