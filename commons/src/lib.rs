@@ -7,6 +7,7 @@ extern crate serde;
 
 pub mod edge;
 pub mod grid;
+pub mod hub;
 pub mod index2d;
 pub mod junction;
 pub mod scale;

@@ -1,4 +1,5 @@
 use super::climate::*;
+use super::world_object::*;
 use commons::junction::*;
 use commons::*;
 use isometric::cell_traits::*;
@@ -13,6 +14,7 @@ pub struct WorldCell {
     pub river: Junction,
     pub road: Junction,
     pub climate: Climate,
+    pub object: WorldObject,
 }
 
 impl WorldCell {
@@ -25,6 +27,7 @@ impl WorldCell {
             river: Junction::default(),
             road: Junction::default(),
             climate: Climate::default(),
+            object: WorldObject::None,
         }
     }
 }

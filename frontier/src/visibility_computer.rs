@@ -1,11 +1,9 @@
 extern crate line_drawing;
 
-use crate::avatar::*;
 use crate::world::*;
 use commons::*;
-use isometric::coords::*;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
+use std::collections::HashSet;
 
 use line_drawing::{BresenhamCircle, Midpoint};
 
@@ -13,6 +11,17 @@ use line_drawing::{BresenhamCircle, Midpoint};
 pub struct VisibilityComputer {
     head_height: f32,
     planet_radius: Option<f32>,
+    max_distance: i64,
+}
+
+impl Default for VisibilityComputer {
+    fn default() -> VisibilityComputer {
+        VisibilityComputer {
+            head_height: 0.002,
+            planet_radius: Some(6371.0),
+            max_distance: 310,
+        }
+    }
 }
 
 fn bresenham_cicle(position: &V2<usize>, radius: i64) -> Vec<(i64, i64)> {
@@ -55,25 +64,7 @@ fn to_position_and_3d(world: &World, position: &(i64, i64)) -> Option<(V2<usize>
     None
 }
 
-pub fn point_has_been_visited(world: &World, position: &V2<usize>) -> bool {
-    world
-        .get_cell(position)
-        .map(|cell| cell.visited)
-        .unwrap_or(false)
-}
-
-pub fn set_visited(world: &mut World, position: &V2<usize>) {
-    world.mut_cell_unsafe(position).visited = true;
-}
-
 impl VisibilityComputer {
-    pub fn new(head_height: f32, planet_radius: Option<f32>) -> VisibilityComputer {
-        VisibilityComputer {
-            head_height,
-            planet_radius,
-        }
-    }
-
     fn planet_curve_adjustment(&self, distance: f32) -> f32 {
         self.planet_radius
             .map(|planet_radius| {
@@ -106,39 +97,21 @@ impl VisibilityComputer {
         out
     }
 
-    pub fn update_visibility(
-        &mut self,
-        world: &mut World,
-        instant: &Instant,
-        avatar: &Avatar,
-        max_distance: i64,
-    ) -> Vec<V2<usize>> {
-        let mut out = vec![];
-        if let Some(WorldCoord { x, y, .. }) = avatar.compute_world_coord(world, instant) {
-            let origin = v2(x.round() as usize, y.round() as usize);
-            if point_has_been_visited(&world, &origin) {
-                return vec![];
-            } else {
-                set_visited(world, &origin);
-            }
-            world.mut_cell_unsafe(&origin).visible = true;
-            out.push(origin);
-            for position in bresenham_cicle(&origin, max_distance) {
-                let line = bresenham_line(&origin, position);
-                let mut visible = self.check_visibility_along_line(world, line);
-                visible.retain(|position| {
-                    !world
-                        .get_cell(&position)
-                        .map(|cell| cell.visible)
-                        .unwrap_or(true)
-                });
-                visible
-                    .iter()
-                    .for_each(|position| world.mut_cell_unsafe(&position).visible = true);
-                out.append(&mut visible);
-            }
+    pub fn get_newly_visible_from(&mut self, world: &World, origin: V2<usize>) -> Vec<V2<usize>> {
+        let mut out = HashSet::new();
+        out.insert(origin);
+        for position in bresenham_cicle(&origin, self.max_distance) {
+            let line = bresenham_line(&origin, position);
+            let mut visible = self.check_visibility_along_line(world, line);
+            visible.retain(|position| {
+                !world
+                    .get_cell(&position)
+                    .map(|cell| cell.visible)
+                    .unwrap_or(true)
+            });
+            out.extend(&visible);
         }
-        out
+        out.into_iter().collect()
     }
 }
 
@@ -146,8 +119,6 @@ impl VisibilityComputer {
 mod tests {
 
     use super::*;
-    use isometric::cell_traits::*;
-    use std::time::Instant;
 
     #[test]
     fn test_bresenham_circle() {
@@ -201,7 +172,11 @@ mod tests {
 
     #[test]
     fn test_no_planet_curve_adjustment() {
-        let visibility_computer = VisibilityComputer::new(0.0, None);
+        let visibility_computer = VisibilityComputer {
+            head_height: 0.0,
+            planet_radius: None,
+            max_distance: 0,
+        };
         assert!(visibility_computer
             .planet_curve_adjustment(100.0)
             .almost(0.0));
@@ -209,7 +184,11 @@ mod tests {
 
     #[test]
     fn test_planet_curve_adjustment() {
-        let visibility_computer = VisibilityComputer::new(0.0, Some(1000.0));
+        let visibility_computer = VisibilityComputer {
+            head_height: 0.0,
+            planet_radius: Some(1000.0),
+            max_distance: 0,
+        };
         assert!(visibility_computer
             .planet_curve_adjustment(100.0)
             .almost(1000.0 - (990_000.0 as f32).sqrt()));
@@ -219,32 +198,25 @@ mod tests {
         heights: Vec<f32>,
         expected: Vec<bool>,
         head_height: f32,
-        planet_curve: Option<f32>,
+        planet_radius: Option<f32>,
     ) {
-        let mut world = World::new(M::from_vec(7, 1, heights), 0.0);
+        let world = World::new(M::from_vec(7, 1, heights), 0.0);
 
-        let mut visibility_computer = VisibilityComputer::new(head_height, planet_curve);
-        let mut avatar = Avatar::new(0.0);
-        avatar.reposition(v2(0, 0), Rotation::Up);
+        let mut visibility_computer = VisibilityComputer {
+            head_height,
+            planet_radius,
+            max_distance: 7,
+        };
 
-        let actual_out =
-            visibility_computer.update_visibility(&mut world, &Instant::now(), &avatar, 7);
-        let mut expected_out = vec![];
+        let actual_out = visibility_computer.get_newly_visible_from(&world, v2(0, 0));
         for (i, expected) in expected.iter().enumerate() {
-            assert_eq!(
-                format!(
-                    "{},0 = {}",
-                    i,
-                    world.get_cell(&v2(i, 0)).unwrap().is_visible()
-                ),
-                format!("{},0 = {}", i, expected),
-            );
             if *expected {
-                expected_out.push(v2(i, 0));
+                assert!(actual_out.contains(&v2(i, 0)));
             }
         }
+        let expected_len = expected.into_iter().filter(|t| *t).count();
 
-        assert_eq!(actual_out, expected_out);
+        assert_eq!(actual_out.len(), expected_len);
     }
 
     #[test]
@@ -310,7 +282,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn update_visibility() {
-        let mut world = World::new(
+        let world = World::new(
             M::from_vec(
                 7,
                 7,
@@ -327,32 +299,9 @@ mod tests {
             0.5,
         );
 
-        let mut avatar = Avatar::new(0.0);
-        avatar.reposition(v2(3, 3), Rotation::Up);
+        let mut visibility_computer = VisibilityComputer{head_height: 0.0, planet_radius: None, max_distance: 3};
 
-        let mut visibility_computer = VisibilityComputer::new(0.0, None);
-
-        let out = visibility_computer.update_visibility(&mut world, &Instant::now(), &avatar, 3);
-
-        let expected = M::from_vec(
-            7,
-            7,
-            vec![
-                false, false, false, false, false, false, false, 
-                false, false, true , true , true , true , false, 
-                true , false, true , true , true , false, false, 
-                true , false, true , true , true , false, false, 
-                true , false, true , true , true , false, false, 
-                false, false, true , false, false, false, false, 
-                false, false, false, false, false, false, false,
-            ],
-        );
-
-        for x in 0..7 {
-            for y in 0..7 {
-                assert_eq!(world.get_cell(&v2(x, y)).unwrap().is_visible(), expected[(x, y)]);
-            }
-        }
+        let out = visibility_computer.get_newly_visible_from(&world, v2(3, 3));
 
         assert_eq!(out.len(), 17);
 
@@ -377,7 +326,11 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let original = VisibilityComputer::new(0.1, Some(100.0));
+        let original = VisibilityComputer {
+            head_height: 0.1,
+            planet_radius: Some(100.0),
+            max_distance: 0,
+        };
         let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
         let reconstructed: VisibilityComputer = bincode::deserialize(&encoded[..]).unwrap();
         assert_eq!(original, reconstructed);

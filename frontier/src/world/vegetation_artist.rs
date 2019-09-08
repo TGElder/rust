@@ -25,19 +25,20 @@ impl VegetationArtist {
                 {
                     let cell = world.get_cell_unsafe(&position);
 
-                    if !cell.is_visible() || cell.climate.vegetation == Vegetation::None {
+                    if !cell.is_visible() {
                         continue;
                     }
 
-                    world_coord.z += cell.climate.vegetation.height() / 2.0;
+                    if let WorldObject::Vegetation(vegetation) = cell.object {
+                        world_coord.z += vegetation.height() / 2.0;
 
-                    match cell.climate.vegetation {
-                        Vegetation::PalmTree => palms.push(world_coord),
-                        Vegetation::DeciduousTree => trees.push(world_coord),
-                        Vegetation::EvergreenTree => pines.push(world_coord),
-                        Vegetation::Cactus => cacti.push(world_coord),
-                        Vegetation::None => (),
-                    };
+                        match vegetation {
+                            VegetationType::PalmTree => palms.push(world_coord),
+                            VegetationType::DeciduousTree => trees.push(world_coord),
+                            VegetationType::EvergreenTree => pines.push(world_coord),
+                            VegetationType::Cactus => cacti.push(world_coord),
+                        };
+                    }
                 }
             }
         }
@@ -46,29 +47,29 @@ impl VegetationArtist {
         out.append(&mut draw_billboards(
             format!("{:?}-trees", from).to_string(),
             trees,
-            Vegetation::DeciduousTree.height(),
-            Vegetation::DeciduousTree.height(),
+            VegetationType::DeciduousTree.height(),
+            VegetationType::DeciduousTree.height(),
             "tree.png",
         ));
         out.append(&mut draw_billboards(
             format!("{:?}-palms", from).to_string(),
             palms,
-            Vegetation::PalmTree.height(),
-            Vegetation::PalmTree.height(),
+            VegetationType::PalmTree.height(),
+            VegetationType::PalmTree.height(),
             "palm.png",
         ));
         out.append(&mut draw_billboards(
             format!("{:?}-pines", from).to_string(),
             pines,
-            Vegetation::EvergreenTree.height(),
-            Vegetation::EvergreenTree.height(),
+            VegetationType::EvergreenTree.height(),
+            VegetationType::EvergreenTree.height(),
             "pine.png",
         ));
         out.append(&mut draw_billboards(
             format!("{:?}-cacti", from).to_string(),
             cacti,
-            Vegetation::Cactus.height(),
-            Vegetation::Cactus.height(),
+            VegetationType::Cactus.height(),
+            VegetationType::Cactus.height(),
             "cactus.png",
         ));
         out

@@ -1,7 +1,7 @@
 use engine::{Command, Event};
 
 use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, RecvError, Sender, TryRecvError};
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 
@@ -9,43 +9,46 @@ pub trait EventHandler: Send {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command>;
 }
 
-pub struct AsyncEventHandler {
-    event_tx: Sender<Arc<Event>>,
-    command_rx: Receiver<Vec<Command>>,
-    shutdown_rx: Receiver<bool>,
+pub trait EventConsumer: Send {
+    fn consume_event(&mut self, event: Arc<Event>);
 }
 
-impl AsyncEventHandler {
-    pub fn new(mut event_handler: Box<EventHandler + Send>) -> AsyncEventHandler {
-        let (event_tx, event_rx) = mpsc::channel();
-        let (command_tx, command_rx) = mpsc::channel();
-        let (shutdown_tx, shutdown_rx) = mpsc::channel();
+pub struct EventHandlerAdapter {
+    pub event_handler: Box<EventHandler>,
+    pub command_tx: Sender<Vec<Command>>,
+}
 
-        thread::spawn(move || {
-            let send_commands = |commands: Vec<Command>| match command_tx.send(commands) {
-                Ok(_) => true,
-                _ => panic!("Command receiver in AsyncEventHandler hung up!"),
-            };
+impl EventConsumer for EventHandlerAdapter {
+    fn consume_event(&mut self, event: Arc<Event>) {
+        self.command_tx
+            .send(self.event_handler.handle_event(event))
+            .expect("EventHandlerEventConsumer lost connection to command sender.");
+    }
+}
 
-            let mut handle_event = |event: Arc<Event>| match *event {
-                Event::Shutdown => false,
-                _ => send_commands(event_handler.handle_event(event)),
-            };
+pub struct AsyncEventConsumer {
+    event_tx: Sender<Arc<Event>>,
+}
 
-            let mut handle_message = |event: Result<Arc<Event>, RecvError>| match event {
-                Ok(event) => handle_event(event),
-                _ => panic!("Event sender in AsyncEventHandler hung up!"),
-            };
+impl AsyncEventConsumer {
+    pub fn new<T>(mut event_consumer: T) -> AsyncEventConsumer
+    where
+        T: EventConsumer + Send + 'static,
+    {
+        let (event_tx, event_rx): (Sender<Arc<Event>>, Receiver<Arc<Event>>) = mpsc::channel();
 
-            while handle_message(event_rx.recv()) {}
-
-            shutdown_tx.send(true).unwrap();
+        thread::spawn(move || loop {
+            match event_rx.recv() {
+                Ok(event) => {
+                    event_consumer.consume_event(event.clone());
+                    if let Event::Shutdown = *event {
+                        return;
+                    }
+                }
+                Err(err) => panic!("Actor could not receive message: {:?}", err),
+            }
         });
-        AsyncEventHandler {
-            event_tx,
-            command_rx,
-            shutdown_rx,
-        }
+        AsyncEventConsumer { event_tx }
     }
 
     fn send_event(&mut self, event: Arc<Event>) {
@@ -54,30 +57,10 @@ impl AsyncEventHandler {
             _ => panic!("Event receiver in AsyncEventHandler hung up!"),
         }
     }
-
-    fn get_commands(&mut self) -> Vec<Command> {
-        let mut out = vec![];
-        loop {
-            match &mut self.command_rx.try_recv() {
-                Ok(commands) => out.append(commands),
-                Err(TryRecvError::Empty) => return out,
-                Err(TryRecvError::Disconnected) => {
-                    panic!("Command sender in AsyncEventHandler hung up!")
-                }
-            };
-        }
-    }
 }
 
-impl EventHandler for AsyncEventHandler {
-    fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
-        if let Event::Shutdown = *event {
-            self.send_event(event);
-            self.shutdown_rx.recv().unwrap();
-            vec![]
-        } else {
-            self.send_event(event);
-            self.get_commands()
-        }
+impl EventConsumer for AsyncEventConsumer {
+    fn consume_event(&mut self, event: Arc<Event>) {
+        self.send_event(event);
     }
 }

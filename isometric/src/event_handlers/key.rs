@@ -1,4 +1,4 @@
-use engine::{Command, Event};
+use engine::{Button, Command, Event};
 use events::EventHandler;
 use std::sync::Arc;
 
@@ -23,8 +23,8 @@ impl EventHandler for KeyRelay {
                 ..
             }) => {
                 if let Some(key) = virtual_keycode {
-                    vec![Command::Event(Event::Key {
-                        key,
+                    vec![Command::Event(Event::Button {
+                        button: Button::Key(key),
                         state,
                         modifiers,
                     })]

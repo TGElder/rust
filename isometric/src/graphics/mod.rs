@@ -303,7 +303,7 @@ impl GraphicsEngine {
         let z_finder = GLZFinder {};
         let actual_z = z_finder.get_z_at(buffer_coord);
 
-        gl_coord_4.z - actual_z <= 0.01
+        gl_coord_4.z - actual_z < 0.01
     }
 }
 

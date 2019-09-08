@@ -5,14 +5,20 @@ use commons::*;
 use network::Edge as NetworkEdge;
 use network::Network;
 
-pub struct Pathfinder {
+pub struct Pathfinder<T>
+where
+    T: TravelDuration,
+{
     index: Index2D,
-    travel_duration: Box<TravelDuration>,
+    travel_duration: T,
     network: Network,
 }
 
-impl Pathfinder {
-    pub fn new(world: &World, travel_duration: Box<TravelDuration>) -> Pathfinder {
+impl<T> Pathfinder<T>
+where
+    T: TravelDuration,
+{
+    pub fn new(world: &World, travel_duration: T) -> Pathfinder<T> {
         let mut out = Pathfinder {
             index: Index2D::new(world.width(), world.height()),
             travel_duration,
@@ -22,8 +28,8 @@ impl Pathfinder {
         out
     }
 
-    pub fn travel_duration(&self) -> &TravelDuration {
-        self.travel_duration.as_ref()
+    pub fn travel_duration(&self) -> &T {
+        &self.travel_duration
     }
 
     fn get_network_index(&self, position: &V2<usize>) -> Result<usize, PositionOutOfBounds> {
@@ -159,10 +165,10 @@ mod tests {
         }
     }
 
-    fn travel_duration() -> Box<TravelDuration> {
-        Box::new(TestTravelDuration {
+    fn travel_duration() -> TestTravelDuration {
+        TestTravelDuration {
             max: Duration::from_millis(4),
-        })
+        }
     }
 
     #[rustfmt::skip]
@@ -178,7 +184,7 @@ mod tests {
         )
     }
 
-    fn pathfinder() -> Pathfinder {
+    fn pathfinder() -> Pathfinder<TestTravelDuration> {
         Pathfinder::new(&world(), travel_duration())
     }
 
@@ -253,9 +259,9 @@ mod tests {
     #[should_panic]
     fn test_get_cost_duration_exceeds_max_duration() {
         let world = world();
-        let travel_duration: Box<TravelDuration> = Box::new(TestTravelDuration {
+        let travel_duration = TestTravelDuration {
             max: Duration::from_millis(1),
-        });
+        };
         travel_duration.get_cost(&world, &v2(1, 0), &v2(0, 0));
     }
 

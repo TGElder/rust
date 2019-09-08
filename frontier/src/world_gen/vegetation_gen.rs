@@ -17,16 +17,16 @@ pub fn compute_vegetation<R: Rng>(
     world: &mut World,
     params: &WorldGenParameters,
     rng: &mut R,
-) -> M<Vegetation> {
+) -> M<WorldObject> {
     let width = world.width() - 1;
     let height = world.height() - 1;
-    let mut out = M::from_element(width, height, Vegetation::None);
+    let mut out = M::from_element(width, height, WorldObject::None);
 
     let candidates = [
-        Vegetation::PalmTree,
-        Vegetation::DeciduousTree,
-        Vegetation::EvergreenTree,
-        Vegetation::Cactus,
+        VegetationType::PalmTree,
+        VegetationType::DeciduousTree,
+        VegetationType::EvergreenTree,
+        VegetationType::Cactus,
     ];
     for x in 0..width {
         for y in 0..height {
@@ -44,7 +44,7 @@ pub fn compute_vegetation<R: Rng>(
                     if candidate.in_range_temperature(temperature)
                         && candidate.in_range_groundwater(groundwater)
                     {
-                        out[(x, y)] = *candidate;
+                        out[(x, y)] = WorldObject::Vegetation(*candidate);
                         break;
                     }
                 }
@@ -54,10 +54,10 @@ pub fn compute_vegetation<R: Rng>(
     out
 }
 
-pub fn load_vegetation(world: &mut World, vegetation: &M<Vegetation>) {
+pub fn load_vegetation(world: &mut World, vegetation: &M<WorldObject>) {
     for x in 0..vegetation.width() {
         for y in 0..vegetation.height() {
-            world.mut_cell_unsafe(&v2(x, y)).climate.vegetation = vegetation[(x, y)];
+            world.mut_cell_unsafe(&v2(x, y)).object = vegetation[(x, y)];
         }
     }
 }
@@ -66,9 +66,17 @@ fn vegetation_height_at_point(world: &World, position: &V2<usize>) -> f32 {
     world
         .get_corners_behind(position)
         .iter()
-        .map(|corner| world.get_cell_unsafe(corner).climate.vegetation.height())
+        .map(|corner| vegetation_height_in_cell(world, corner))
         .max_by(unsafe_ordering)
         .unwrap_or(0.0)
+}
+
+fn vegetation_height_in_cell(world: &World, position: &V2<usize>) -> f32 {
+    if let WorldObject::Vegetation(vegetation) = world.get_cell_unsafe(position).object {
+        vegetation.height()
+    } else {
+        0.0
+    }
 }
 
 pub fn set_vegetation_height(world: &mut World) {
@@ -91,13 +99,21 @@ mod tests {
     #[test]
     pub fn test_vegetation_at() {
         let mut world = World::new(M::zeros(3, 3), 0.5);
-        world.mut_cell_unsafe(&v2(0, 0)).climate.vegetation = Vegetation::PalmTree;
-        assert!(vegetation_height_at_point(&world, &v2(0, 0)).almost(Vegetation::PalmTree.height()));
-        assert!(vegetation_height_at_point(&world, &v2(1, 0)).almost(Vegetation::PalmTree.height()));
+        world.mut_cell_unsafe(&v2(0, 0)).object = WorldObject::Vegetation(VegetationType::PalmTree);
+        assert!(
+            vegetation_height_at_point(&world, &v2(0, 0)).almost(VegetationType::PalmTree.height())
+        );
+        assert!(
+            vegetation_height_at_point(&world, &v2(1, 0)).almost(VegetationType::PalmTree.height())
+        );
         assert!(vegetation_height_at_point(&world, &v2(2, 0)).almost(0.0));
-        assert!(vegetation_height_at_point(&world, &v2(0, 1)).almost(Vegetation::PalmTree.height()));
+        assert!(
+            vegetation_height_at_point(&world, &v2(0, 1)).almost(VegetationType::PalmTree.height())
+        );
         assert!(vegetation_height_at_point(&world, &v2(0, 2)).almost(0.0));
-        assert!(vegetation_height_at_point(&world, &v2(1, 1)).almost(Vegetation::PalmTree.height()));
+        assert!(
+            vegetation_height_at_point(&world, &v2(1, 1)).almost(VegetationType::PalmTree.height())
+        );
     }
 
 }

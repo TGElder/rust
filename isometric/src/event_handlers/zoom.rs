@@ -1,5 +1,5 @@
 use coords::{GLCoord2D, GLCoord4D};
-use engine::{Command, Event};
+use engine::{Button, Command, Event};
 use events::EventHandler;
 use std::default::Default;
 use std::sync::Arc;
@@ -46,13 +46,13 @@ impl EventHandler for ZoomHandler {
                 ..
             }) => self.handle_mouse_scroll_delta(delta),
 
-            Event::Key {
-                key: VirtualKeyCode::Add,
+            Event::Button {
+                button: Button::Key(VirtualKeyCode::Add),
                 state: ElementState::Pressed,
                 ..
             } => self.zoom(2.0),
-            Event::Key {
-                key: VirtualKeyCode::Subtract,
+            Event::Button {
+                button: Button::Key(VirtualKeyCode::Subtract),
                 state: ElementState::Pressed,
                 ..
             } => self.zoom(0.5),

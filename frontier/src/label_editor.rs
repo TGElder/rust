@@ -3,7 +3,7 @@ use isometric::drawing::draw_text;
 use isometric::event_handlers::TextEditor;
 use isometric::EventHandler;
 use isometric::Font;
-use isometric::{Command, Event};
+use isometric::{Button, Command, Event};
 use isometric::{ElementState, VirtualKeyCode};
 
 use serde::{Deserialize, Serialize};
@@ -46,8 +46,8 @@ impl EventHandler for LabelEditor {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         if let Some(edit) = &mut self.edit {
             match *event {
-                Event::Key {
-                    key: VirtualKeyCode::Return,
+                Event::Button {
+                    button: Button::Key(VirtualKeyCode::Return),
                     state: ElementState::Pressed,
                     ..
                 } => {

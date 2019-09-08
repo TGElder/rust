@@ -14,8 +14,15 @@ pub trait TravelDuration: Send {
     fn max_duration(&self) -> Duration;
 }
 
-impl TravelDuration {
-    pub fn get_cost(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<u8> {
+pub trait TravelCost {
+    fn get_cost(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<u8>;
+}
+
+impl<T> TravelCost for T
+where
+    T: TravelDuration,
+{
+    fn get_cost(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<u8> {
         self.get_duration(world, from, to).map(|duration| {
             let scale = Scale::<f32>::new(
                 (0 as f32, self.max_duration().as_millis() as f32),
@@ -67,10 +74,10 @@ mod tests {
             ]),
             0.5,
         );
-        let travel_duration: Box<TravelDuration> = Box::new(TestDuration {
+        let travel_duration = TestDuration {
             millis: 1,
             max_millis: 4,
-        });
+        };
         assert_eq!(
             travel_duration
                 .get_cost(&world, &v2(0, 0), &v2(1, 0))

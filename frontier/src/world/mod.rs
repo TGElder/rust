@@ -2,10 +2,12 @@ mod climate;
 mod vegetation_artist;
 mod world_artist;
 mod world_cell;
+mod world_object;
 
 pub use climate::*;
 pub use world_artist::*;
 pub use world_cell::*;
+pub use world_object::*;
 
 use commons::edge::*;
 use commons::junction::*;
@@ -131,8 +133,15 @@ impl World {
     pub fn reveal_all(&mut self) {
         for x in 0..self.width {
             for y in 0..self.height {
-                self.mut_cell_unsafe(&v2(x, y)).visited = true;
                 self.mut_cell_unsafe(&v2(x, y)).visible = true;
+            }
+        }
+    }
+
+    pub fn visit_all(&mut self) {
+        for x in 0..self.width {
+            for y in 0..self.height {
+                self.mut_cell_unsafe(&v2(x, y)).visited = true;
             }
         }
     }

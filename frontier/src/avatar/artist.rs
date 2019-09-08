@@ -7,9 +7,30 @@ use isometric::Color;
 use isometric::Command;
 
 pub struct AvatarArtist {
-    scale: f32,
-    boat_params: DrawBoatParams,
+    params: AvatarArtistParams,
     body_parts: Vec<BodyPart>,
+}
+
+pub struct AvatarArtistParams {
+    pixels_per_cell: f32,
+    boat_params: DrawBoatParams,
+}
+
+impl AvatarArtistParams {
+    fn new(light_direction: &V3<f32>) -> AvatarArtistParams {
+        AvatarArtistParams {
+            pixels_per_cell: 1280.0,
+            boat_params: DrawBoatParams {
+                width: 0.12,
+                side_height: 0.04,
+                bow_length: 0.06,
+                mast_height: 0.4,
+                base_color: Color::new(0.46875, 0.257_812_5, 0.070_312_5, 0.8),
+                sail_color: Color::new(1.0, 1.0, 1.0, 1.0),
+                light_direction: *light_direction,
+            },
+        }
+    }
 }
 
 struct BodyPart {
@@ -21,18 +42,9 @@ struct BodyPart {
 }
 
 impl AvatarArtist {
-    pub fn new(scale: f32, light_direction: V3<f32>) -> AvatarArtist {
+    pub fn new(light_direction: &V3<f32>) -> AvatarArtist {
         AvatarArtist {
-            scale,
-            boat_params: DrawBoatParams {
-                width: 0.12,
-                side_height: 0.04,
-                bow_length: 0.06,
-                mast_height: 0.4,
-                base_color: Color::new(0.46875, 0.257_812_5, 0.070_312_5, 0.8),
-                sail_color: Color::new(1.0, 1.0, 1.0, 1.0),
-                light_direction,
-            },
+            params: AvatarArtistParams::new(light_direction),
             body_parts: vec![
                 BodyPart {
                     offset: v3(0.0, 0.0, 96.0),
@@ -81,7 +93,7 @@ impl AvatarArtist {
     }
 
     #[rustfmt::skip]
-    fn get_rotation_matrix(avatar: &Avatar, instant: &Instant) -> na::Matrix3<f32> {
+    fn get_rotation_matrix(avatar: &AvatarState, instant: &u128) -> na::Matrix3<f32> {
         let rotation = avatar.rotation(instant).unwrap_or(Rotation::Up);
         let cos = rotation.angle().cos();
         let sin = rotation.angle().sin();
@@ -94,19 +106,20 @@ impl AvatarArtist {
 
     fn draw_billboard_at_offset(
         &self,
-        avatar: &Avatar,
-        instant: &Instant,
+        avatar: &AvatarState,
+        instant: &u128,
         world_coord: WorldCoord,
         part: &BodyPart,
     ) -> Vec<Command> {
-        let offset = AvatarArtist::get_rotation_matrix(avatar, instant) * part.offset * self.scale;
+        let offset = AvatarArtist::get_rotation_matrix(avatar, instant) * part.offset
+            / self.params.pixels_per_cell;
         let world_coord = WorldCoord::new(
             world_coord.x + offset.x,
             world_coord.y + offset.y,
             world_coord.z + offset.z,
         );
-        let width = (part.texture_width as f32) * self.scale;
-        let height = (part.texture_height as f32) * self.scale;
+        let width = (part.texture_width as f32) / self.params.pixels_per_cell;
+        let height = (part.texture_height as f32) / self.params.pixels_per_cell;
         draw_billboard(
             part.handle.clone(),
             world_coord,
@@ -116,8 +129,14 @@ impl AvatarArtist {
         )
     }
 
-    pub fn draw(&self, avatar: &Avatar, world: &World, instant: &Instant) -> Vec<Command> {
-        let mut out = self.draw_boat_if_required(avatar, world, instant);
+    pub fn draw(
+        &self,
+        avatar: &AvatarState,
+        world: &World,
+        instant: &u128,
+        travel_mode_fn: &TravelModeFn,
+    ) -> Vec<Command> {
+        let mut out = self.draw_boat_if_required(avatar, world, instant, travel_mode_fn);
         if let Some(world_coord) = avatar.compute_world_coord(world, instant) {
             for part in self.body_parts.iter() {
                 out.append(&mut self.draw_billboard_at_offset(avatar, instant, world_coord, part));
@@ -128,19 +147,17 @@ impl AvatarArtist {
 
     fn draw_boat_if_required(
         &self,
-        avatar: &Avatar,
+        avatar: &AvatarState,
         world: &World,
-        instant: &Instant,
+        instant: &u128,
+        travel_mode_fn: &TravelModeFn,
     ) -> Vec<Command> {
         if let Some(world_coord) = avatar.compute_world_coord(world, instant) {
             let check_position = v2(
                 world_coord.x.round() as usize,
                 world_coord.y.round() as usize,
             );
-            match avatar
-                .travel_mode_fn
-                .travel_mode_here(world, &check_position)
-            {
+            match travel_mode_fn.travel_mode_here(world, &check_position) {
                 Some(TravelMode::Sea) => self.draw_boat(avatar, world_coord, instant),
                 Some(TravelMode::River) => self.draw_boat(avatar, world_coord, instant),
                 _ => vec![],
@@ -152,15 +169,15 @@ impl AvatarArtist {
 
     fn draw_boat(
         &self,
-        avatar: &Avatar,
+        avatar: &AvatarState,
         world_coord: WorldCoord,
-        instant: &Instant,
+        instant: &u128,
     ) -> Vec<Command> {
         draw_boat(
             "boat",
             world_coord,
             AvatarArtist::get_rotation_matrix(avatar, instant),
-            &self.boat_params,
+            &self.params.boat_params,
         )
     }
 }

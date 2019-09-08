@@ -51,10 +51,6 @@ impl WorldArtist {
         }
     }
 
-    pub fn coloring(&mut self) -> &mut LayerColoring<WorldCell> {
-        &mut self.coloring
-    }
-
     pub fn draw_terrain(&self) -> Vec<Command> {
         self.drawing.init()
     }

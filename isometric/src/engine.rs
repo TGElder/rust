@@ -2,13 +2,22 @@ use std::sync::Arc;
 
 use coords::*;
 use event_handlers::*;
-use events::EventHandler;
+use events::{EventConsumer, EventHandler, EventHandlerAdapter};
 use graphics::{Drawing, GraphicsEngine};
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
 use glutin::GlContext;
 
+#[derive(PartialEq)]
+pub enum Button {
+    Key(glutin::VirtualKeyCode),
+    Mouse(glutin::MouseButton),
+}
+
 pub enum Event {
     Start,
+    Tick,
     Shutdown,
     Resize(glutin::dpi::PhysicalSize),
     DPIChanged(f64),
@@ -16,15 +25,12 @@ pub enum Event {
     WorldPositionChanged(WorldCoord),
     GlutinEvent(glutin::Event),
     Drag(GLCoord4D),
+    DrawingWorld,
     WorldDrawn,
-    Key {
-        key: glutin::VirtualKeyCode,
+    Button {
+        button: Button,
         state: glutin::ElementState,
         modifiers: glutin::ModifiersState,
-    },
-    Mouse {
-        button: glutin::MouseButton,
-        state: glutin::ElementState,
     },
 }
 
@@ -57,8 +63,9 @@ pub struct IsometricEngine {
     window: glutin::GlWindow,
     graphics: GraphicsEngine,
     running: bool,
-    events: Vec<Event>,
-    event_handlers: Vec<Box<EventHandler>>,
+    event_consumers: Vec<Box<EventConsumer>>,
+    command_tx: Sender<Vec<Command>>,
+    command_rx: Receiver<Vec<Command>>,
 }
 
 impl IsometricEngine {
@@ -93,73 +100,111 @@ impl IsometricEngine {
                 .to_physical(dpi_factor),
         );
 
-        IsometricEngine {
+        let (command_tx, command_rx) = mpsc::channel();
+
+        let mut out = IsometricEngine {
             events_loop,
-            event_handlers: IsometricEngine::init_event_handlers(&gl_window),
+            event_consumers: vec![],
             window: gl_window,
             graphics,
             running: true,
-            events: vec![Event::Start],
-        }
+            command_rx,
+            command_tx,
+        };
+
+        out.init_event_handlers();
+
+        out
     }
 
-    pub fn add_event_handler(&mut self, event_handler: Box<EventHandler>) {
-        self.event_handlers.push(event_handler);
+    pub fn command_tx(&self) -> Sender<Vec<Command>> {
+        self.command_tx.clone()
     }
 
-    fn init_event_handlers(window: &glutin::GlWindow) -> Vec<Box<EventHandler>> {
-        let dpi_factor = window.get_hidpi_factor();
-        let logical_window_size = window.window().get_inner_size().unwrap();
+    pub fn add_event_consumer<T>(&mut self, event_consumer: T)
+    where
+        T: EventConsumer + 'static,
+    {
+        self.event_consumers.push(Box::new(event_consumer));
+    }
 
-        vec![
-            Box::new(ShutdownHandler::default()),
-            Box::new(DPIRelay::default()),
-            Box::new(Resizer::default()),
-            Box::new(CursorHandler::new(dpi_factor, logical_window_size)),
-            Box::new(DragHandler::default()),
-            Box::new(ResizeRelay::new(dpi_factor)),
-            Box::new(Scroller::default()),
-            Box::new(KeyRelay::default()),
-            Box::new(MouseRelay::default()),
-        ]
+    pub fn add_event_handler<T>(&mut self, event_handler: T)
+    where
+        T: EventHandler + 'static,
+    {
+        let event_consumer = EventHandlerAdapter {
+            event_handler: Box::new(event_handler),
+            command_tx: self.command_tx.clone(),
+        };
+        self.add_event_consumer(event_consumer);
+    }
+
+    fn init_event_handlers(&mut self) {
+        let dpi_factor = self.window.get_hidpi_factor();
+        let logical_window_size = self.window.window().get_inner_size().unwrap();
+
+        self.add_event_handler(ShutdownHandler::default());
+        self.add_event_handler(DPIRelay::default());
+        self.add_event_handler(Resizer::default());
+        self.add_event_handler(CursorHandler::new(dpi_factor, logical_window_size));
+        self.add_event_handler(DragHandler::default());
+        self.add_event_handler(ResizeRelay::new(dpi_factor));
+        self.add_event_handler(Scroller::default());
+        self.add_event_handler(KeyRelay::default());
+        self.add_event_handler(MouseRelay::default());
     }
 
     pub fn run(&mut self) {
         while self.running {
-            self.add_glutin_events();
-            let mut to_process = vec![];
-            to_process.append(&mut self.events);
-            self.handle_events(to_process);
+            self.consume_glutin_events();
+            self.consume_event(Event::Tick);
+            self.handle_commands();
+            self.consume_event(Event::DrawingWorld);
+            self.handle_commands();
             self.graphics.draw_world();
-            self.graphics.draw_billboards();
-            self.handle_events(vec![Event::WorldDrawn]);
+            self.consume_event(Event::WorldDrawn);
+            self.handle_commands();
             self.graphics.draw_ui();
+            self.graphics.draw_billboards();
             self.window.swap_buffers().unwrap();
         }
 
         self.shutdown();
     }
 
-    fn add_glutin_events(&mut self) {
+    fn consume_glutin_events(&mut self) {
         let mut glutin_events = vec![];
         self.events_loop.poll_events(|event| {
-            glutin_events.push(Event::GlutinEvent(event));
+            glutin_events.push(event);
         });
-        self.events.append(&mut glutin_events);
+        for event in glutin_events {
+            self.consume_event(Event::GlutinEvent(event));
+        }
     }
 
-    fn handle_events(&mut self, events: Vec<Event>) {
-        let mut commands = vec![];
+    fn consume_event(&mut self, event: Event) {
+        let event_arc = Arc::new(event);
+        for handler in self.event_consumers.iter_mut() {
+            handler.consume_event(event_arc.clone());
+        }
+    }
 
-        events.into_iter().for_each(|event| {
-            let event_arc = Arc::new(event);
-            for handler in self.event_handlers.iter_mut() {
-                commands.append(&mut handler.handle_event(event_arc.clone()));
-            }
-        });
+    fn get_commands(&mut self) -> Vec<Command> {
+        let mut out = vec![];
+        loop {
+            match &mut self.command_rx.try_recv() {
+                Ok(commands) => out.append(commands),
+                Err(TryRecvError::Empty) => return out,
+                Err(TryRecvError::Disconnected) => {
+                    panic!("Isometric engine command receiver lost connection!");
+                }
+            };
+        }
+    }
 
-        for command in commands {
-            self.handle_command(command);
+    fn handle_commands(&mut self) {
+        for command in self.get_commands() {
+            self.handle_command(command)
         }
     }
 
@@ -173,11 +218,10 @@ impl IsometricEngine {
             Command::Translate(translation) => self.graphics.get_transform().translate(translation),
             Command::Scale { center, scale } => self.graphics.get_transform().scale(center, scale),
             Command::Rotate { center, yaw } => self.graphics.rotate(center, yaw),
-            Command::Event(event) => self.events.push(event),
+            Command::Event(event) => self.consume_event(event),
             Command::ComputeWorldPosition(gl_coord) => {
-                self.events.push(Event::WorldPositionChanged(
-                    gl_coord.to_world_coord(&self.graphics.get_transform()),
-                ))
+                let mut world_coord = gl_coord.to_world_coord(&self.graphics.get_transform());
+                self.consume_event(Event::WorldPositionChanged(world_coord));
             }
             Command::CreateDrawing(drawing) => self.graphics.add_drawing(drawing),
             Command::UpdateDrawing {
@@ -191,8 +235,8 @@ impl IsometricEngine {
     }
 
     fn shutdown(&mut self) {
-        for handler in &mut self.event_handlers {
-            handler.handle_event(Arc::new(Event::Shutdown));
+        for handler in &mut self.event_consumers {
+            handler.consume_event(Arc::new(Event::Shutdown));
         }
     }
 }

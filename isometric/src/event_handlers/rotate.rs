@@ -1,5 +1,5 @@
 use coords::GLCoord4D;
-use engine::{Command, Event};
+use engine::{Button, Command, Event};
 use events::EventHandler;
 use std::f32::consts::PI;
 use std::sync::Arc;
@@ -53,13 +53,13 @@ impl RotateHandler {
 impl EventHandler for RotateHandler {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
-            Event::Key {
-                key,
+            Event::Button {
+                button: Button::Key(key),
                 state: ElementState::Pressed,
                 ..
             } => self.handle_key(key),
             Event::CursorMoved(gl_position) => {
-                self.cursor_position = if self.rotate_over_undrawn || gl_position.z <= 1.0 {
+                self.cursor_position = if self.rotate_over_undrawn || gl_position.z < 1.0 {
                     Some(gl_position)
                 } else {
                     None // Nothing drawn here
