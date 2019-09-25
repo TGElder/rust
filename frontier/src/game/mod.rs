@@ -15,11 +15,13 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::time::Instant;
 
+#[derive(Debug)]
 pub enum CellSelection {
     All,
     Some(Vec<V2<usize>>),
 }
 
+#[derive(Debug)]
 pub enum GameEvent {
     Init,
     Save(String),
@@ -31,6 +33,7 @@ pub enum GameEvent {
     HouseUpdated { position: V2<usize>, built: bool },
 }
 
+#[derive(Debug)]
 pub enum GameCommand {
     Event(GameEvent),
     EngineCommands(Vec<Command>),
@@ -114,7 +117,8 @@ impl Game {
 
     fn update_game_micros(&mut self) {
         let current_time = Instant::now();
-        self.game_state.game_micros += current_time.duration_since(self.real_time).as_micros();
+        let interval = current_time.duration_since(self.real_time).as_micros();
+        self.game_state.game_micros += interval;
         self.real_time = current_time;
     }
 
@@ -223,9 +227,10 @@ impl Game {
 
     pub fn run(&mut self) {
         loop {
-            self.update_game_micros();
+            self.update_game_micros(); //TODO do on Tick
             self.update_avatar();
-            match self.command_rx.recv().unwrap() {
+            let command = self.command_rx.recv().unwrap();
+            match command {
                 GameCommand::Event(event) => self.consume_event(event),
                 GameCommand::EngineCommands(commands) => self.engine_tx.send(commands).unwrap(),
                 GameCommand::UpdateAvatar(avatar_state) => {

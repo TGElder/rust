@@ -16,6 +16,7 @@ use std::ffi::c_void;
 use std::sync::Arc;
 use transform::{Isometric, Transform};
 
+#[derive(Debug)]
 pub struct Drawing {
     name: String,
     drawing_type: DrawingType,
@@ -111,7 +112,7 @@ impl GLDrawing {
     }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum DrawingType {
     Plain,
     Text,
@@ -180,7 +181,7 @@ impl GraphicsEngine {
         }
     }
 
-    pub fn get_transform(&mut self) -> &mut Transform {
+    pub fn transform(&mut self) -> &mut Transform {
         &mut self.transform
     }
 
@@ -313,6 +314,7 @@ impl ZFinder for GLZFinder {
     fn get_z_at(&self, buffer_coordinate: BufferCoordinate) -> f32 {
         let mut buffer: Vec<f32> = vec![0.0];
         unsafe {
+            gl::ReadBuffer(gl::BACK);
             gl::ReadPixels(
                 buffer_coordinate.x,
                 buffer_coordinate.y,

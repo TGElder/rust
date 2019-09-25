@@ -21,11 +21,15 @@ impl FollowAvatar {
                 .compute_world_coord(&game_state.world, &game_state.game_micros)
             {
                 self.command_tx
-                    .send(GameCommand::EngineCommands(vec![Command::LookAt(
+                    .send(GameCommand::EngineCommands(vec![Command::LookAt(Some(
                         world_coord,
-                    )]))
+                    ))]))
                     .unwrap();
             }
+        } else {
+            self.command_tx
+                .send(GameCommand::EngineCommands(vec![Command::LookAt(None)]))
+                .unwrap();
         }
     }
 }
@@ -49,7 +53,7 @@ impl GameEventConsumer for FollowAvatar {
                     .unwrap();
             }
         }
-        if let Event::DrawingWorld = *event {
+        if let Event::Tick = *event {
             self.follow(&game_state);
         }
 

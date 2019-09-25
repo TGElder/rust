@@ -1,4 +1,3 @@
-pub mod cursor_handler;
 pub mod drag;
 pub mod key;
 pub mod mouse;
@@ -9,7 +8,6 @@ pub mod shutdown;
 pub mod text_editor;
 pub mod zoom;
 
-pub use self::cursor_handler::*;
 pub use self::drag::*;
 pub use self::key::*;
 pub use self::mouse::*;

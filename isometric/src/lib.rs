@@ -1,6 +1,7 @@
 pub mod cell_traits;
 mod color;
 pub mod coords;
+mod cursor_handler;
 mod engine;
 pub mod event_handlers;
 mod events;

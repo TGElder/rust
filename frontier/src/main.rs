@@ -78,7 +78,6 @@ fn main() {
     game.add_consumer(RotateHandler::new(game.command_tx()));
     game.add_consumer(BasicAvatarControls::new(game.command_tx()));
     game.add_consumer(PathfindingAvatarControls::new(game.command_tx()));
-    game.add_consumer(FollowAvatar::new(game.command_tx()));
     game.add_consumer(WorldArtistHandler::new(game.command_tx()));
     game.add_consumer(AvatarArtistHandler::new(game.command_tx()));
     game.add_consumer(VisibilityHandler::new(game.command_tx()));
@@ -88,6 +87,7 @@ fn main() {
     game.add_consumer(HouseArtistHandler::new(game.command_tx()));
     game.add_consumer(Cheats::new(game.command_tx()));
     game.add_consumer(Save::new(game.command_tx()));
+    game.add_consumer(FollowAvatar::new(game.command_tx()));
 
     let game_handle = thread::spawn(move || game.run());
     engine.run();

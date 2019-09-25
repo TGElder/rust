@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use coords::*;
+use cursor_handler::*;
 use event_handlers::*;
 use events::{EventConsumer, EventHandler, EventHandlerAdapter};
 use graphics::{Drawing, GraphicsEngine};
@@ -9,12 +10,13 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
 use glutin::GlContext;
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Button {
     Key(glutin::VirtualKeyCode),
     Mouse(glutin::MouseButton),
 }
 
+#[derive(Debug)]
 pub enum Event {
     Start,
     Tick,
@@ -25,8 +27,6 @@ pub enum Event {
     WorldPositionChanged(WorldCoord),
     GlutinEvent(glutin::Event),
     Drag(GLCoord4D),
-    DrawingWorld,
-    WorldDrawn,
     Button {
         button: Button,
         state: glutin::ElementState,
@@ -34,6 +34,7 @@ pub enum Event {
     },
 }
 
+#[derive(Debug)]
 pub enum Command {
     Shutdown,
     Resize(glutin::dpi::PhysicalSize),
@@ -47,7 +48,6 @@ pub enum Command {
         yaw: f32,
     },
     Event(Event),
-    ComputeWorldPosition(GLCoord4D),
     CreateDrawing(Drawing),
     UpdateDrawing {
         name: String,
@@ -55,7 +55,7 @@ pub enum Command {
         index: usize,
     },
     Erase(String),
-    LookAt(WorldCoord),
+    LookAt(Option<WorldCoord>),
 }
 
 pub struct IsometricEngine {
@@ -63,9 +63,11 @@ pub struct IsometricEngine {
     window: glutin::GlWindow,
     graphics: GraphicsEngine,
     running: bool,
+    cursor_handler: CursorHandler,
     event_consumers: Vec<Box<EventConsumer>>,
     command_tx: Sender<Vec<Command>>,
     command_rx: Receiver<Vec<Command>>,
+    look_at: Option<WorldCoord>,
 }
 
 impl IsometricEngine {
@@ -91,25 +93,22 @@ impl IsometricEngine {
         }
 
         let dpi_factor = gl_window.get_hidpi_factor();
-        let graphics = GraphicsEngine::new(
-            1.0 / max_z,
-            gl_window
-                .window()
-                .get_inner_size()
-                .unwrap()
-                .to_physical(dpi_factor),
-        );
+        let logical_window_size = gl_window.window().get_inner_size().unwrap();
+        let graphics =
+            GraphicsEngine::new(1.0 / max_z, logical_window_size.to_physical(dpi_factor));
 
         let (command_tx, command_rx) = mpsc::channel();
 
         let mut out = IsometricEngine {
             events_loop,
+            cursor_handler: CursorHandler::new(dpi_factor, logical_window_size),
             event_consumers: vec![],
             window: gl_window,
             graphics,
             running: true,
             command_rx,
             command_tx,
+            look_at: None,
         };
 
         out.init_event_handlers();
@@ -141,12 +140,10 @@ impl IsometricEngine {
 
     fn init_event_handlers(&mut self) {
         let dpi_factor = self.window.get_hidpi_factor();
-        let logical_window_size = self.window.window().get_inner_size().unwrap();
 
         self.add_event_handler(ShutdownHandler::default());
         self.add_event_handler(DPIRelay::default());
         self.add_event_handler(Resizer::default());
-        self.add_event_handler(CursorHandler::new(dpi_factor, logical_window_size));
         self.add_event_handler(DragHandler::default());
         self.add_event_handler(ResizeRelay::new(dpi_factor));
         self.add_event_handler(Scroller::default());
@@ -156,14 +153,13 @@ impl IsometricEngine {
 
     pub fn run(&mut self) {
         while self.running {
+            self.handle_commands();
+            self.consume_cursors();
             self.consume_glutin_events();
             self.consume_event(Event::Tick);
-            self.handle_commands();
-            self.consume_event(Event::DrawingWorld);
-            self.handle_commands();
+            self.look_at();
             self.graphics.draw_world();
-            self.consume_event(Event::WorldDrawn);
-            self.handle_commands();
+            self.update_cursors();
             self.graphics.draw_ui();
             self.graphics.draw_billboards();
             self.window.swap_buffers().unwrap();
@@ -184,6 +180,7 @@ impl IsometricEngine {
 
     fn consume_event(&mut self, event: Event) {
         let event_arc = Arc::new(event);
+        self.cursor_handler.consume_event(event_arc.clone());
         for handler in self.event_consumers.iter_mut() {
             handler.consume_event(event_arc.clone());
         }
@@ -215,14 +212,10 @@ impl IsometricEngine {
                 self.window.resize(physical_size);
                 self.graphics.set_viewport_size(physical_size);
             }
-            Command::Translate(translation) => self.graphics.get_transform().translate(translation),
-            Command::Scale { center, scale } => self.graphics.get_transform().scale(center, scale),
+            Command::Translate(translation) => self.graphics.transform().translate(translation),
+            Command::Scale { center, scale } => self.graphics.transform().scale(center, scale),
             Command::Rotate { center, yaw } => self.graphics.rotate(center, yaw),
             Command::Event(event) => self.consume_event(event),
-            Command::ComputeWorldPosition(gl_coord) => {
-                let mut world_coord = gl_coord.to_world_coord(&self.graphics.get_transform());
-                self.consume_event(Event::WorldPositionChanged(world_coord));
-            }
             Command::CreateDrawing(drawing) => self.graphics.add_drawing(drawing),
             Command::UpdateDrawing {
                 name,
@@ -230,8 +223,32 @@ impl IsometricEngine {
                 floats,
             } => self.graphics.update_drawing(name, index, floats),
             Command::Erase(name) => self.graphics.remove_drawing(&name),
-            Command::LookAt(world_coord) => self.graphics.get_transform().look_at(world_coord),
+            Command::LookAt(look_at) => self.look_at = look_at,
         }
+    }
+
+    fn look_at(&mut self) {
+        if let Some(look_at) = self.look_at {
+            self.graphics.transform().look_at(look_at);
+        }
+    }
+
+    fn update_cursors(&mut self) {
+        self.cursor_handler
+            .update_gl_and_world_cursor(&mut self.graphics.transform());
+    }
+
+    fn consume_cursors(&mut self) {
+        self.cursor_handler
+            .gl_cursor()
+            .iter()
+            .for_each(|gl_cursor| self.consume_event(Event::CursorMoved(*gl_cursor)));
+        self.cursor_handler
+            .world_cursor()
+            .iter()
+            .for_each(|world_cursor| {
+                self.consume_event(Event::WorldPositionChanged(*world_cursor))
+            });
     }
 
     fn shutdown(&mut self) {
