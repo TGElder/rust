@@ -301,6 +301,18 @@ impl DefaultColoring {
         })
     }
 
+    fn get_groundwater(world: &World, position: &V2<usize>) -> f32 {
+        world
+            .tile_average(&position, &|cell| {
+                if !world.is_sea(&cell.position) {
+                    Some(cell.climate.groundwater())
+                } else {
+                    None
+                }
+            })
+            .unwrap()
+    }
+
     fn get_color(
         world: &World,
         position: &V2<usize>,
@@ -318,7 +330,7 @@ impl DefaultColoring {
         } else if min_elevation <= beach_level {
             Self::beach_color()
         } else {
-            let groundwater = world.tile_average(&position, &|cell| cell.climate.groundwater());
+            let groundwater = Self::get_groundwater(&world, &position);
             Self::vegetation_color().blend(groundwater, &Self::desert_color())
         }
     }

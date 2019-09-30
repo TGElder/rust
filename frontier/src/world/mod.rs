@@ -260,13 +260,22 @@ impl World {
         )
     }
 
-    pub fn tile_average(&self, position: &V2<usize>, function: &Fn(&WorldCell) -> f32) -> f32 {
-        let sum: f32 = self
+    pub fn tile_average(
+        &self,
+        position: &V2<usize>,
+        function: &Fn(&WorldCell) -> Option<f32>,
+    ) -> Option<f32> {
+        let values: Vec<f32> = self
             .get_corners(&position)
             .iter()
             .map(|p| function(self.get_cell_unsafe(p)))
-            .sum();
-        sum / 4.0
+            .flatten()
+            .collect();
+        if values.is_empty() {
+            None
+        } else {
+            Some(values.iter().sum::<f32>() / (values.iter().count() as f32))
+        }
     }
 }
 
@@ -593,10 +602,38 @@ mod tests {
     }
 
     #[test]
+    fn test_simple_tile_average() {
+        let world = world();
+        let actual = world.tile_average(&v2(0, 0), &|_| Some(1.0));
+        assert_eq!(actual, Some(1.0));
+    }
+
+    #[test]
+    fn test_filtered_tile_average() {
+        let world = world();
+        let actual = world.tile_average(&v2(0, 0), &|cell| {
+            if cell.elevation <= 1.0 {
+                Some(cell.elevation)
+            } else {
+                None
+            }
+        });
+        assert_eq!(actual, Some(1.0));
+    }
+
+    #[test]
+    fn test_all_none_tile_average() {
+        let world = world();
+        let actual = world.tile_average(&v2(0, 0), &|_| None);
+        assert_eq!(actual, None);
+    }
+
+    #[test]
     fn round_trip() {
         let original = world();
         let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
         let reconstructed: World = bincode::deserialize(&encoded[..]).unwrap();
         assert_eq!(original, reconstructed);
     }
+
 }

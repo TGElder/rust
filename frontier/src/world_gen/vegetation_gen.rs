@@ -13,6 +13,30 @@ impl Default for VegetationParams {
     }
 }
 
+fn get_groundwater(world: &World, position: &V2<usize>) -> f32 {
+    world
+        .tile_average(&position, &|cell| {
+            if !world.is_sea(&cell.position) {
+                Some(cell.climate.groundwater())
+            } else {
+                None
+            }
+        })
+        .unwrap()
+}
+
+fn get_temperature(world: &World, position: &V2<usize>) -> f32 {
+    world
+        .tile_average(&position, &|cell| {
+            if !world.is_sea(&cell.position) {
+                Some(cell.climate.temperature)
+            } else {
+                None
+            }
+        })
+        .unwrap()
+}
+
 pub fn compute_vegetation<R: Rng>(
     world: &mut World,
     params: &WorldGenParameters,
@@ -36,8 +60,8 @@ pub fn compute_vegetation<R: Rng>(
                 continue;
             }
 
-            let temperature = world.tile_average(&position, &|cell| cell.climate.temperature);
-            let groundwater = world.tile_average(&position, &|cell| cell.climate.groundwater());
+            let temperature = get_temperature(&world, &position);
+            let groundwater = get_groundwater(&world, &position);
             let r: f32 = rng.gen_range(0.0, 1.0);
             if r <= groundwater {
                 for candidate in candidates.iter() {
