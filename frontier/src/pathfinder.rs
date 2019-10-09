@@ -28,10 +28,6 @@ where
         out
     }
 
-    pub fn travel_duration(&self) -> &T {
-        &self.travel_duration
-    }
-
     fn get_network_index(&self, position: &V2<usize>) -> Result<usize, PositionOutOfBounds> {
         self.index.get_index(position)
     }

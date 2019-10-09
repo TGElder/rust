@@ -1,9 +1,29 @@
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::*;
+use commons::scale::*;
 use commons::*;
 use isometric::cell_traits::*;
+use std::default::Default;
 use std::time::Duration;
+
+pub struct AutoRoadTravelDurationParams {
+    max_gradient: f32,
+    cost_at_level: f32,
+    cost_at_max_gradient: f32,
+    cost_on_existing_road: u64,
+}
+
+impl Default for AutoRoadTravelDurationParams {
+    fn default() -> AutoRoadTravelDurationParams {
+        AutoRoadTravelDurationParams {
+            max_gradient: 0.5,
+            cost_at_level: 575.0,
+            cost_at_max_gradient: 925.0,
+            cost_on_existing_road: 100,
+        }
+    }
+}
 
 pub struct AutoRoadTravelDuration {
     off_road: Box<TravelDuration>,
@@ -13,6 +33,19 @@ pub struct AutoRoadTravelDuration {
 impl AutoRoadTravelDuration {
     pub fn new(off_road: Box<TravelDuration>, road: Box<TravelDuration>) -> AutoRoadTravelDuration {
         AutoRoadTravelDuration { off_road, road }
+    }
+
+    pub fn from_params(params: AutoRoadTravelDurationParams) -> AutoRoadTravelDuration {
+        AutoRoadTravelDuration::new(
+            GradientTravelDuration::boxed(
+                Scale::new(
+                    (-params.max_gradient, params.max_gradient),
+                    (params.cost_at_level, params.cost_at_max_gradient),
+                ),
+                true,
+            ),
+            ConstantTravelDuration::boxed(Duration::from_millis(params.cost_on_existing_road)),
+        )
     }
 }
 

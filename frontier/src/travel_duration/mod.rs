@@ -9,7 +9,7 @@ use commons::scale::*;
 use commons::V2;
 use std::time::Duration;
 
-pub trait TravelDuration: Send {
+pub trait TravelDuration: Send + Sync {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration>;
     fn max_duration(&self) -> Duration;
 }

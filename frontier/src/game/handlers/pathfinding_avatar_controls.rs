@@ -6,14 +6,14 @@ use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, MouseButton, VirtualKeyCode};
 use std::default::Default;
 
-pub struct PathfinderAvatarControls {
+pub struct PathfinderAvatarBindings {
     walk_to: Button,
     stop: Button,
 }
 
-impl Default for PathfinderAvatarControls {
-    fn default() -> PathfinderAvatarControls {
-        PathfinderAvatarControls {
+impl Default for PathfinderAvatarBindings {
+    fn default() -> PathfinderAvatarBindings {
+        PathfinderAvatarBindings {
             walk_to: Button::Mouse(MouseButton::Right),
             stop: Button::Key(VirtualKeyCode::S),
         }
@@ -22,48 +22,55 @@ impl Default for PathfinderAvatarControls {
 
 pub struct PathfindingAvatarControls {
     command_tx: Sender<GameCommand>,
-    pathfinder: Option<Pathfinder<AvatarTravelDuration>>,
+    pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
+    bindings: PathfinderAvatarBindings,
     world_coord: Option<WorldCoord>,
-    bindings: PathfinderAvatarControls,
 }
 
 impl PathfindingAvatarControls {
-    pub fn new(command_tx: Sender<GameCommand>) -> PathfindingAvatarControls {
+    pub fn new(
+        command_tx: Sender<GameCommand>,
+        pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
+    ) -> PathfindingAvatarControls {
         PathfindingAvatarControls {
             command_tx,
-            pathfinder: None,
+            pathfinder_tx: pathfinder_tx,
+            bindings: PathfinderAvatarBindings::default(),
             world_coord: None,
-            bindings: PathfinderAvatarControls::default(),
         }
     }
 
-    fn init(&mut self, game_state: &GameState) {
-        self.pathfinder = Some(Pathfinder::new(
-            &game_state.world,
-            AvatarTravelDuration::from_params(&game_state.params.avatar_travel),
-        ));
-    }
-
-    fn reset_pathfinder(&mut self, game_state: &GameState) {
-        if let Some(pathfinder) = &mut self.pathfinder {
-            pathfinder.compute_network(&game_state.world);
+    fn compute_from_and_start_at(game_state: &GameState) -> Option<(V2<usize>, u128)> {
+        match &game_state.avatar_state {
+            AvatarState::Stationary { position: from, .. } => Some((*from, game_state.game_micros)),
+            AvatarState::Walking(path) => {
+                let path = path.stop(&game_state.game_micros);
+                Some((*path.final_position(), *path.final_point_arrival()))
+            }
+            AvatarState::Absent => None,
         }
     }
 
     fn walk_to(&mut self, game_state: &GameState) {
-        if let Some(ref pathfinder) = self.pathfinder {
-            if let Some(WorldCoord { x, y, .. }) = self.world_coord {
-                let to = v2(x.round() as usize, y.round() as usize);
-                if let Some(new_state) = game_state.avatar_state.walk_to(
-                    &game_state.world,
-                    &to,
-                    pathfinder,
-                    game_state.game_micros,
-                ) {
-                    self.command_tx
-                        .send(GameCommand::UpdateAvatar(new_state))
-                        .unwrap();
-                }
+        if let Some(WorldCoord { x, y, .. }) = self.world_coord {
+            let to = v2(x.round() as usize, y.round() as usize);
+            let from_and_start_at = Self::compute_from_and_start_at(game_state);
+            if let Some((from, start_at)) = from_and_start_at {
+                self.stop(&game_state);
+                let function: Box<
+                    Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send,
+                > = Box::new(move |pathfinder| {
+                    if let Some(positions) = pathfinder.find_path(&from, &to) {
+                        return vec![GameCommand::WalkPositions {
+                            positions,
+                            start_at,
+                        }];
+                    }
+                    vec![]
+                });
+                self.pathfinder_tx
+                    .send(PathfinderCommand::Use(function))
+                    .unwrap();
             }
         }
     }
@@ -79,39 +86,10 @@ impl PathfindingAvatarControls {
     fn update_world_coord(&mut self, world_coord: WorldCoord) {
         self.world_coord = Some(world_coord);
     }
-
-    fn update_pathfinder_with_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
-        if let Some(pathfinder) = &mut self.pathfinder {
-            for cell in cells {
-                pathfinder.update_node(&game_state.world, cell);
-            }
-        }
-    }
-
-    fn update_pathfinder_with_roads(&mut self, game_state: &GameState, result: &RoadBuilderResult) {
-        if let Some(pathfinder) = &mut self.pathfinder {
-            result.update_pathfinder(&game_state.world, pathfinder);
-        }
-    }
 }
 
 impl GameEventConsumer for PathfindingAvatarControls {
-    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        match event {
-            GameEvent::Init => self.init(game_state),
-            GameEvent::CellsRevealed(selection) => {
-                match selection {
-                    CellSelection::All => self.reset_pathfinder(game_state),
-                    CellSelection::Some(cells) => {
-                        self.update_pathfinder_with_cells(game_state, &cells)
-                    }
-                };
-            }
-            GameEvent::RoadsUpdated(result) => {
-                self.update_pathfinder_with_roads(game_state, result)
-            }
-            _ => (),
-        }
+    fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
         CaptureEvent::No
     }
 
@@ -119,7 +97,6 @@ impl GameEventConsumer for PathfindingAvatarControls {
         if let Event::WorldPositionChanged(world_coord) = *event {
             self.update_world_coord(world_coord);
         }
-
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
@@ -128,10 +105,10 @@ impl GameEventConsumer for PathfindingAvatarControls {
         } = *event
         {
             if button == &self.bindings.walk_to {
-                self.walk_to(&game_state);
+                self.walk_to(&game_state)
             } else if button == &self.bindings.stop {
-                self.stop(&game_state);
-            }
+                self.stop(&game_state)
+            };
         }
         CaptureEvent::No
     }

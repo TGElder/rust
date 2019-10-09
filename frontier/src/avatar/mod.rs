@@ -8,7 +8,6 @@ use path::*;
 pub use travel_duration::*;
 pub use travel_mode::*;
 
-use crate::pathfinder::*;
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::{v2, V2};
@@ -119,47 +118,11 @@ impl AvatarState {
         None
     }
 
-    pub fn walk_forward<T>(
-        &self,
-        world: &World,
-        pathfinder: &Pathfinder<T>,
-        start_at: u128,
-    ) -> Option<AvatarState>
-    where
-        T: TravelDuration,
-    {
-        if let Some(path) = self.forward_path() {
-            if pathfinder
-                .travel_duration()
-                .get_duration(world, &path[0], &path[1])
-                .is_some()
-            {
-                return Some(AvatarState::Walking(Path::new(
-                    world,
-                    path,
-                    pathfinder.travel_duration(),
-                    start_at,
-                )));
-            }
-        }
-        None
-    }
-
-    fn walk_path(
+    pub fn walk_positions<T>(
         &self,
         world: &World,
         positions: Vec<V2<usize>>,
-        travel_duration: &TravelDuration,
-        start_at: u128,
-    ) -> AvatarState {
-        AvatarState::Walking(Path::new(world, positions, travel_duration, start_at))
-    }
-
-    pub fn walk_to<T>(
-        &self,
-        world: &World,
-        to: &V2<usize>,
-        pathfinder: &Pathfinder<T>,
+        travel_duration: &T,
         start_at: u128,
     ) -> Option<AvatarState>
     where
@@ -167,19 +130,20 @@ impl AvatarState {
     {
         match self {
             AvatarState::Stationary { position: from, .. } => {
-                if let Some(positions) = pathfinder.find_path(&from, to) {
-                    return Some(self.walk_path(
-                        &world,
+                if *from == positions[0] {
+                    return Some(AvatarState::Walking(Path::new(
+                        world,
                         positions,
-                        pathfinder.travel_duration(),
+                        travel_duration,
                         start_at,
-                    ));
+                    )));
                 }
             }
             AvatarState::Walking(path) => {
-                let mut path = path.stop(&start_at);
-                if let Some(positions) = pathfinder.find_path(&path.final_position(), to) {
-                    path.extend(world, positions[1..].to_vec(), pathfinder.travel_duration());
+                if *path.final_point_arrival() != start_at {
+                    return None;
+                }
+                if let Some(path) = path.extend(world, positions, travel_duration) {
                     return Some(AvatarState::Walking(path));
                 }
             }
@@ -259,12 +223,8 @@ mod tests {
         )
     }
 
-    fn pathfinder() -> Pathfinder<TestTravelDuration> {
-        Pathfinder::new(&world(), travel_duration())
-    }
-
     #[test]
-    fn test_forward() {
+    fn test_forward_path() {
         let avatar = AvatarState::Stationary {
             position: v2(1, 1),
             rotation: Rotation::Up,
@@ -279,104 +239,93 @@ mod tests {
     }
 
     #[test]
-    fn test_walk_forward() {
-        fn test_walk(
-            avatar: &AvatarState,
-            world: &mut World,
-            from: V2<usize>,
-            to: V2<usize>,
-            rotation: Rotation,
-        ) -> AvatarState {
-            let start_at = 0;
-            let avatar = avatar
-                .walk_forward(&world, &pathfinder(), start_at)
-                .unwrap();
-            let duration = travel_duration().get_duration(&world, &from, &to).unwrap();
-            assert_eq!(
-                &avatar,
-                &AvatarState::Walking(Path::new(
-                    &world,
-                    vec![from, to],
-                    &travel_duration(),
-                    start_at
-                ))
-            );
-            let avatar = avatar.evolve(&(start_at + duration.as_micros())).unwrap();
-            assert_eq!(
-                &avatar,
-                &AvatarState::Stationary {
-                    position: to,
-                    rotation
-                }
-            );
-            avatar
-        }
-
-        let mut world = world();
-        let avatar = AvatarState::Stationary {
-            position: v2(1, 1),
+    fn test_walk_positions_stationary_compatible() {
+        let world = world();
+        let state = AvatarState::Stationary {
+            position: v2(0, 0),
             rotation: Rotation::Up,
         };
-
-        let avatar = test_walk(&avatar, &mut world, v2(1, 1), v2(1, 2), Rotation::Up);
-
-        let avatar = avatar.rotate_clockwise().unwrap();
-        let avatar = avatar.rotate_clockwise().unwrap();
-
-        let avatar = test_walk(&avatar, &mut world, v2(1, 2), v2(1, 1), Rotation::Down);
-
-        let avatar = avatar.rotate_clockwise().unwrap();
-
-        let avatar = test_walk(&avatar, &mut world, v2(1, 1), v2(0, 1), Rotation::Left);
-
-        let avatar = avatar.rotate_anticlockwise().unwrap();
-        let avatar = avatar.rotate_anticlockwise().unwrap();
-
-        test_walk(&avatar, &mut world, v2(0, 1), v2(1, 1), Rotation::Right);
-    }
-
-    #[test]
-    fn test_walk_path() {
-        let avatar = AvatarState::Absent;
-        let world = world();
-        let path = vec![v2(0, 0), v2(1, 0), v2(1, 1)];
-        let start_at = 0;
-        let avatar = avatar.walk_path(&world, path.clone(), &travel_duration(), start_at);
+        let new_state = state.walk_positions(
+            &world,
+            vec![v2(0, 0), v2(1, 0), v2(2, 0)],
+            &travel_duration(),
+            0,
+        );
         assert_eq!(
-            avatar,
-            AvatarState::Walking(Path::new(&world, path, &travel_duration(), start_at))
-        )
-    }
-
-    #[test]
-    fn test_walk_to_while_walking() {
-        let avatar = AvatarState::Absent;
-        let world = world();
-        let path = vec![v2(0, 0), v2(1, 0), v2(1, 1)];
-        let start = 0;
-        let avatar = avatar.walk_path(&world, path.clone(), &travel_duration(), start);
-        let avatar = avatar
-            .walk_to(&world, &v2(0, 0), &pathfinder(), start)
-            .unwrap();
-        assert_eq!(
-            avatar,
-            AvatarState::Walking(Path::new(
+            new_state,
+            Some(AvatarState::Walking(Path::new(
                 &world,
-                vec![v2(0, 0), v2(1, 0), v2(0, 0)],
+                vec![v2(0, 0), v2(1, 0), v2(2, 0)],
                 &travel_duration(),
-                start
-            ))
+                0
+            )))
         )
     }
 
     #[test]
-    fn test_cannot_walk_on_no_cost_edge() {
+    fn test_walk_positions_stationary_position_incompatible() {
         let world = world();
-        let avatar = AvatarState::Stationary {
-            position: v2(2, 2),
+        let state = AvatarState::Stationary {
+            position: v2(0, 0),
             rotation: Rotation::Up,
         };
-        assert_eq!(avatar.walk_forward(&world, &pathfinder(), 0), None);
+        let new_state = state.walk_positions(
+            &world,
+            vec![v2(0, 1), v2(1, 1), v2(2, 1)],
+            &travel_duration(),
+            1000,
+        );
+        assert_eq!(new_state, None,)
+    }
+
+    #[test]
+    fn test_walk_positions_walking_compatible() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(1, 0)];
+        let state = AvatarState::Walking(Path::new(&world, positions, &travel_duration(), 0));
+        let new_state = state.walk_positions(
+            &world,
+            vec![v2(1, 0), v2(2, 0), v2(2, 1)],
+            &travel_duration(),
+            1000,
+        );
+        assert_eq!(
+            new_state,
+            Some(AvatarState::Walking(Path::new(
+                &world,
+                vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
+                &travel_duration(),
+                0
+            )))
+        )
+    }
+
+    #[test]
+    fn test_walk_positions_walking_position_incompatible() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(1, 0)];
+        let state = AvatarState::Walking(Path::new(&world, positions, &travel_duration(), 0));
+        let new_state = state.walk_positions(
+            &world,
+            vec![v2(1, 1), v2(2, 1), v2(2, 2)],
+            &travel_duration(),
+            1000,
+        );
+        assert_eq!(new_state, None,)
+    }
+
+    #[test]
+    fn test_walk_positions_walking_time_incompatible() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(1, 0)];
+        let state = AvatarState::Walking(Path::new(&world, positions, &travel_duration(), 0));
+        let new_state = state.walk_positions(
+            &world,
+            vec![v2(1, 0), v2(2, 0), v2(2, 1)],
+            &travel_duration(),
+            2000,
+        );
+        assert_eq!(new_state, None,)
     }
 
     #[test]
@@ -393,13 +342,11 @@ mod tests {
 
     #[test]
     fn test_compute_world_coord_basic_walking() {
-        let avatar = AvatarState::Stationary {
-            position: v2(1, 1),
-            rotation: Rotation::Up,
-        };
         let world = world();
         let start = 0;
-        let avatar = avatar.walk_forward(&world, &pathfinder(), start).unwrap();
+        let avatar = AvatarState::Walking(
+            Path::new(&world, vec![v2(1, 1), v2(1, 2)], &travel_duration(), start)
+        );
         let duration = travel_duration()
             .get_duration(&world, &v2(1, 1), &v2(1, 2))
             .unwrap();

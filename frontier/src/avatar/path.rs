@@ -134,18 +134,27 @@ impl Path {
     }
 
     pub fn extend(
-        &mut self,
+        &self,
         world: &World,
         mut extension: Vec<V2<usize>>,
         travel_duration: &TravelDuration,
-    ) {
-        self.points.append(&mut extension);
-        self.point_arrivals = Path::compute_point_arrival_millis(
-            world,
-            &self.points,
-            self.point_arrivals[0],
-            travel_duration,
-        );
+    ) -> Option<Path> {
+        if *self.final_position() == extension[0] {
+            let mut points: Vec<V2<usize>> = self.points.to_vec();
+            points.append(&mut extension[1..].to_vec());
+            let point_arrivals = Path::compute_point_arrival_millis(
+                world,
+                &points,
+                self.point_arrivals[0],
+                travel_duration,
+            );
+            Some(Path {
+                points,
+                point_arrivals,
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -307,13 +316,13 @@ mod tests {
     }
 
     #[test]
-    fn test_extend() {
+    fn test_extend_compatible() {
         let world = world();
         let start = 0;
-        let mut actual = Path::new(&world, vec![v2(0, 0), v2(0, 1)], &travel_duration(), start);
-        actual.extend(
+        let actual = Path::new(&world, vec![v2(0, 0), v2(0, 1)], &travel_duration(), start);
+        let actual = actual.extend(
             &world,
-            vec![v2(1, 1), v2(1, 2), v2(2, 2)],
+            vec![v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)],
             &travel_duration(),
         );
         let expected = Path::new(
@@ -322,7 +331,20 @@ mod tests {
             &travel_duration(),
             start,
         );
-        assert_eq!(actual, expected);
+        assert_eq!(actual, Some(expected));
+    }
+
+    #[test]
+    fn test_extend_incompatible() {
+        let world = world();
+        let start = 0;
+        let actual = Path::new(&world, vec![v2(0, 0), v2(0, 1)], &travel_duration(), start);
+        let actual = actual.extend(
+            &world,
+            vec![v2(1, 1), v2(1, 2), v2(2, 2)],
+            &travel_duration(),
+        );
+        assert_eq!(actual, None);
     }
 
 }

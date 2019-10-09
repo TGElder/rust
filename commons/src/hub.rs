@@ -145,7 +145,6 @@ mod tests {
     impl Action<TestEvent> for AtoB {
         fn act(&mut self, event: &TestEvent) -> Vec<TestEvent> {
             if let TestEvent::A = event {
-                println!("B");
                 return vec![TestEvent::B];
             }
             vec![]

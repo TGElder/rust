@@ -1,8 +1,10 @@
 mod game_state;
 mod handlers;
+mod pathfinder_service;
 
 pub use game_state::*;
 pub use handlers::*;
+pub use pathfinder_service::*;
 
 use crate::avatar::*;
 use crate::road_builder::*;
@@ -38,10 +40,17 @@ pub enum GameCommand {
     Event(GameEvent),
     EngineCommands(Vec<Command>),
     UpdateAvatar(AvatarState),
+    WalkPositions {
+        positions: Vec<V2<usize>>,
+        start_at: u128,
+    },
     VisitCells(CellSelection),
     RevealCells(CellSelection),
     UpdateRoads(RoadBuilderResult),
-    UpdateHouse { position: V2<usize>, build: bool },
+    UpdateHouse {
+        position: V2<usize>,
+        build: bool,
+    },
     FollowAvatar(bool),
     Shutdown,
 }
@@ -63,6 +72,7 @@ pub struct Game {
     engine_tx: Sender<Vec<Command>>,
     command_tx: Sender<GameCommand>,
     command_rx: Receiver<GameCommand>,
+    avatar_travel_duration: AvatarTravelDuration,
 }
 
 impl Game {
@@ -74,6 +84,9 @@ impl Game {
 
         let mut out = Game {
             real_time: Instant::now(),
+            avatar_travel_duration: AvatarTravelDuration::from_params(
+                &game_state.params.avatar_travel,
+            ),
             game_state,
             consumers: vec![],
             engine_tx: engine.command_tx(),
@@ -97,8 +110,16 @@ impl Game {
         self.consumers.push(Box::new(consumer));
     }
 
+    fn on_tick(&mut self) {
+        self.update_game_micros();
+        self.update_avatar();
+    }
+
     fn consume_event(&mut self, event: GameEvent) {
         if let GameEvent::EngineEvent(event) = event {
+            if let Event::Tick = *event {
+                self.on_tick();
+            }
             for consumer in self.consumers.iter_mut() {
                 match consumer.consume_engine_event(&self.game_state, event.clone()) {
                     CaptureEvent::Yes => return,
@@ -225,10 +246,19 @@ impl Game {
         self.game_state.follow_avatar = follow_avatar;
     }
 
+    fn walk_positions(&mut self, positions: Vec<V2<usize>>, start_at: u128) {
+        if let Some(new_state) = self.game_state.avatar_state.walk_positions(
+            &self.game_state.world,
+            positions,
+            &self.avatar_travel_duration,
+            start_at,
+        ) {
+            self.game_state.avatar_state = new_state;
+        }
+    }
+
     pub fn run(&mut self) {
         loop {
-            self.update_game_micros(); //TODO do on Tick
-            self.update_avatar();
             let command = self.command_rx.recv().unwrap();
             match command {
                 GameCommand::Event(event) => self.consume_event(event),
@@ -236,6 +266,10 @@ impl Game {
                 GameCommand::UpdateAvatar(avatar_state) => {
                     self.game_state.avatar_state = avatar_state
                 }
+                GameCommand::WalkPositions {
+                    positions,
+                    start_at,
+                } => self.walk_positions(positions, start_at),
                 GameCommand::VisitCells(selection) => {
                     match selection {
                         CellSelection::All => self.visit_all_cells(),

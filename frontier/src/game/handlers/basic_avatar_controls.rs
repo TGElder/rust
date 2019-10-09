@@ -22,44 +22,39 @@ impl Default for BasicAvatarBindings {
 
 pub struct BasicAvatarControls {
     command_tx: Sender<GameCommand>,
-    pathfinder: Option<Pathfinder<AvatarTravelDuration>>,
+    pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
     bindings: BasicAvatarBindings,
 }
 
 impl BasicAvatarControls {
-    pub fn new(command_tx: Sender<GameCommand>) -> BasicAvatarControls {
+    pub fn new(
+        command_tx: Sender<GameCommand>,
+        pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
+    ) -> BasicAvatarControls {
         BasicAvatarControls {
             command_tx,
-            pathfinder: None,
+            pathfinder_tx: pathfinder_tx,
             bindings: BasicAvatarBindings::default(),
         }
     }
 
-    fn init(&mut self, game_state: &GameState) {
-        self.pathfinder = Some(Pathfinder::new(
-            &game_state.world,
-            AvatarTravelDuration::from_params(&game_state.params.avatar_travel),
-        ));
-    }
-
-    fn reset_pathfinder(&mut self, game_state: &GameState) {
-        if let Some(pathfinder) = &mut self.pathfinder {
-            pathfinder.compute_network(&game_state.world);
-        }
-    }
-
     fn walk_forward(&mut self, game_state: &GameState) {
-        if let Some(ref pathfinder) = self.pathfinder {
-            if let Some(new_state) = game_state.avatar_state.walk_forward(
-                &game_state.world,
-                pathfinder,
-                game_state.game_micros,
-            ) {
-                self.command_tx
-                    .send(GameCommand::UpdateAvatar(new_state))
-                    .unwrap();
-            }
-        }
+        if let Some(path) = game_state.avatar_state.forward_path() {
+            let start_at = game_state.game_micros;
+            let function: Box<Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send> =
+                Box::new(move |pathfinder| {
+                    if let Some(positions) = pathfinder.find_path(&path[0], &path[1]) {
+                        return vec![GameCommand::WalkPositions {
+                            positions,
+                            start_at,
+                        }];
+                    }
+                    vec![]
+                });
+            self.pathfinder_tx
+                .send(PathfinderCommand::Use(function))
+                .unwrap();
+        };
     }
 
     fn rotate_clockwise(&mut self, game_state: &GameState) {
@@ -77,39 +72,10 @@ impl BasicAvatarControls {
                 .unwrap();
         }
     }
-
-    fn update_pathfinder_with_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
-        if let Some(pathfinder) = &mut self.pathfinder {
-            for cell in cells {
-                pathfinder.update_node(&game_state.world, cell);
-            }
-        }
-    }
-
-    fn update_pathfinder_with_roads(&mut self, game_state: &GameState, result: &RoadBuilderResult) {
-        if let Some(pathfinder) = &mut self.pathfinder {
-            result.update_pathfinder(&game_state.world, pathfinder);
-        }
-    }
 }
 
 impl GameEventConsumer for BasicAvatarControls {
-    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        match event {
-            GameEvent::Init => self.init(game_state),
-            GameEvent::CellsRevealed(selection) => {
-                match selection {
-                    CellSelection::All => self.reset_pathfinder(game_state),
-                    CellSelection::Some(cells) => {
-                        self.update_pathfinder_with_cells(game_state, &cells)
-                    }
-                };
-            }
-            GameEvent::RoadsUpdated(result) => {
-                self.update_pathfinder_with_roads(game_state, result)
-            }
-            _ => (),
-        }
+    fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
         CaptureEvent::No
     }
 
