@@ -44,10 +44,12 @@ impl BasicAvatarControls {
             let function: Box<Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send> =
                 Box::new(move |pathfinder| {
                     if let Some(positions) = pathfinder.find_path(&path[0], &path[1]) {
-                        return vec![GameCommand::WalkPositions {
-                            positions,
-                            start_at,
-                        }];
+                        if positions.len() == 2 {
+                            return vec![GameCommand::WalkPositions {
+                                positions,
+                                start_at,
+                            }];
+                        }
                     }
                     vec![]
                 });

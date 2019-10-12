@@ -105,9 +105,7 @@ fn main() {
     game.add_consumer(WorldArtistHandler::new(game.command_tx()));
     game.add_consumer(AvatarArtistHandler::new(game.command_tx()));
     game.add_consumer(VisibilityHandler::new(game.command_tx()));
-    game.add_consumer(BasicRoadBuilder::new(
-        road_pathfinder_service.command_tx(),
-    ));
+    game.add_consumer(BasicRoadBuilder::new(road_pathfinder_service.command_tx()));
     game.add_consumer(PathfindingRoadBuilder::new(
         road_pathfinder_service.command_tx(),
     ));

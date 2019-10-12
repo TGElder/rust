@@ -344,9 +344,12 @@ mod tests {
     fn test_compute_world_coord_basic_walking() {
         let world = world();
         let start = 0;
-        let avatar = AvatarState::Walking(
-            Path::new(&world, vec![v2(1, 1), v2(1, 2)], &travel_duration(), start)
-        );
+        let avatar = AvatarState::Walking(Path::new(
+            &world,
+            vec![v2(1, 1), v2(1, 2)],
+            &travel_duration(),
+            start,
+        ));
         let duration = travel_duration()
             .get_duration(&world, &v2(1, 1), &v2(1, 2))
             .unwrap();
