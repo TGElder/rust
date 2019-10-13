@@ -1,6 +1,6 @@
 use super::*;
 use crate::avatar::*;
-use crate::pathfinder::*;
+use crate::travel_duration::TravelDuration;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;
 
@@ -22,42 +22,46 @@ impl Default for BasicAvatarBindings {
 
 pub struct BasicAvatarControls {
     command_tx: Sender<GameCommand>,
-    pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
+    travel_duration: Option<AvatarTravelDuration>,
     bindings: BasicAvatarBindings,
 }
 
 impl BasicAvatarControls {
-    pub fn new(
-        command_tx: Sender<GameCommand>,
-        pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
-    ) -> BasicAvatarControls {
+    pub fn new(command_tx: Sender<GameCommand>) -> BasicAvatarControls {
         BasicAvatarControls {
             command_tx,
-            pathfinder_tx,
+            travel_duration: None,
             bindings: BasicAvatarBindings::default(),
         }
     }
 
+    fn init(&mut self, game_state: &GameState) {
+        self.travel_duration = Some(AvatarTravelDuration::from_params(
+            &game_state.params.avatar_travel,
+        ));
+    }
+
     fn walk_forward(&mut self, game_state: &GameState) {
-        if let Some(path) = game_state.avatar_state.forward_path() {
-            let start_at = game_state.game_micros;
-            let function: Box<
-                dyn Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send,
-            > = Box::new(move |pathfinder| {
-                if let Some(positions) = pathfinder.find_path(&path[0], &path[1]) {
-                    if positions.len() == 2 {
-                        return vec![GameCommand::WalkPositions {
-                            positions,
-                            start_at,
-                        }];
+        if let Some(travel_duration) = &self.travel_duration {
+            if let Some(path) = game_state.avatar_state.forward_path() {
+                let start_at = game_state.game_micros;
+                if travel_duration
+                    .get_duration(&game_state.world, &path[0], &path[1])
+                    .is_some()
+                {
+                    if let Some(new_state) = game_state.avatar_state.walk_positions(
+                        &game_state.world,
+                        path,
+                        travel_duration,
+                        start_at,
+                    ) {
+                        self.command_tx
+                            .send(GameCommand::UpdateAvatar(new_state))
+                            .unwrap();
                     }
                 }
-                vec![]
-            });
-            self.pathfinder_tx
-                .send(PathfinderCommand::Use(function))
-                .unwrap();
-        };
+            }
+        }
     }
 
     fn rotate_clockwise(&mut self, game_state: &GameState) {
@@ -78,7 +82,10 @@ impl BasicAvatarControls {
 }
 
 impl GameEventConsumer for BasicAvatarControls {
-    fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
+    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
+        if let GameEvent::Init = event {
+            self.init(game_state);
+        }
         CaptureEvent::No
     }
 

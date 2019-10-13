@@ -94,10 +94,7 @@ fn main() {
         game.command_tx(),
     ));
     game.add_consumer(RotateHandler::new(game.command_tx()));
-    game.add_consumer(BasicAvatarControls::new(
-        game.command_tx(),
-        avatar_pathfinder_service.command_tx(),
-    ));
+    game.add_consumer(BasicAvatarControls::new(game.command_tx()));
     game.add_consumer(PathfindingAvatarControls::new(
         game.command_tx(),
         avatar_pathfinder_service.command_tx(),
