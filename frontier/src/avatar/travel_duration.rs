@@ -17,6 +17,7 @@ pub struct AvatarTravelParams {
     pub river_1_cell_duration_millis: f32,
     pub road_1_cell_duration_millis: u64,
     pub sea_1_cell_duration_millis: u64,
+    pub travel_mode_change_penalty_millis: u64,
 }
 
 impl Default for AvatarTravelParams {
@@ -29,6 +30,7 @@ impl Default for AvatarTravelParams {
             river_1_cell_duration_millis: 250.0,
             road_1_cell_duration_millis: 100,
             sea_1_cell_duration_millis: 250,
+            travel_mode_change_penalty_millis: 1000,
         }
     }
 }
@@ -39,6 +41,7 @@ pub struct AvatarTravelDuration {
     road: Box<dyn TravelDuration>,
     river: Box<dyn TravelDuration>,
     sea: Box<dyn TravelDuration>,
+    travel_mode_change_penalty_millis: u64,
 }
 
 impl AvatarTravelDuration {
@@ -48,6 +51,7 @@ impl AvatarTravelDuration {
         road: Box<dyn TravelDuration>,
         river: Box<dyn TravelDuration>,
         sea: Box<dyn TravelDuration>,
+        travel_mode_change_penalty_millis: u64,
     ) -> AvatarTravelDuration {
         AvatarTravelDuration {
             travel_mode_fn,
@@ -55,6 +59,7 @@ impl AvatarTravelDuration {
             road,
             river,
             sea,
+            travel_mode_change_penalty_millis,
         }
     }
 
@@ -89,6 +94,7 @@ impl AvatarTravelDuration {
             road,
             river,
             sea,
+            p.travel_mode_change_penalty_millis,
         )
     }
 }
@@ -109,6 +115,22 @@ impl AvatarTravelDuration {
                 TravelMode::Sea => self.sea.as_ref(),
             })
     }
+
+    fn travel_mode_change_penalty(
+        &self,
+        world: &World,
+        from: &V2<usize>,
+        to: &V2<usize>,
+    ) -> Duration {
+        let from_mode = self.travel_mode_fn.travel_mode_here(world, &from);
+        let to_mode = self.travel_mode_fn.travel_mode_here(world, &to);
+        let between_mode = self.travel_mode_fn.travel_mode_between(world, from, to);
+        if from_mode != to_mode || from_mode != between_mode {
+            Duration::from_millis(self.travel_mode_change_penalty_millis)
+        } else {
+            Duration::from_millis(0)
+        }
+    }
 }
 
 impl TravelDuration for AvatarTravelDuration {
@@ -117,7 +139,8 @@ impl TravelDuration for AvatarTravelDuration {
             if cell.is_visible() {
                 return self
                     .get_duration_fn(world, from, to)
-                    .and_then(|duration_fn| duration_fn.get_duration(world, from, to));
+                    .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
+                    .map(|duration| duration + self.travel_mode_change_penalty(world, from, to));
             }
         }
         None
@@ -128,5 +151,6 @@ impl TravelDuration for AvatarTravelDuration {
             .max_duration()
             .max(self.road.max_duration())
             .max(self.river.max_duration())
+            + Duration::from_millis(self.travel_mode_change_penalty_millis)
     }
 }
