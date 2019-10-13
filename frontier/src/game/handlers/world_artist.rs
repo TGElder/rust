@@ -23,6 +23,7 @@ impl WorldArtistHandler {
                 &game_state.world,
                 game_state.params.light_direction,
                 game_state.params.world_gen.cliff_gradient,
+                game_state.params.world_gen.beach_level,
             ),
             64,
         );
@@ -41,8 +42,8 @@ impl WorldArtistHandler {
         world: &World,
         light_direction: V3<f32>,
         cliff_gradient: f32,
+        beach_level: f32,
     ) -> LayerColoring<WorldCell> {
-        let beach_level = world.sea_level() + 0.05;
         let snow_temperature = 0.0;
         let mut out = LayerColoring::default();
         out.add_layer(

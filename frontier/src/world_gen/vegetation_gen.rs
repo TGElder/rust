@@ -56,7 +56,11 @@ pub fn compute_vegetation<R: Rng>(
         for y in 0..height {
             let position = v2(x, y);
             let max_gradient = world.get_max_abs_rise(&position);
-            if world.is_sea(&position) || max_gradient > params.cliff_gradient {
+            let min_elevation = world.get_lowest_corner(&position);
+            if world.is_sea(&position)
+                || max_gradient > params.cliff_gradient
+                || min_elevation <= params.beach_level
+            {
                 continue;
             }
 
