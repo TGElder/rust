@@ -373,5 +373,4 @@ mod tests {
             Some(WorldCoord::new(2.0, 1.0, 0.5))
         );
     }
-
 }

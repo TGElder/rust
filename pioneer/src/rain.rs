@@ -22,12 +22,12 @@ pub struct Cloud {
 }
 
 impl Cloud {
-    fn blow<T>(&mut self, grid: &Grid<T>) -> bool {
+    fn blow<T>(&mut self, grid: &dyn Grid<T>) -> bool {
         if let Some(next) = grid.offset(&self.position, self.direction) {
             self.position = next;
-            return true;
+            true
         } else {
-            return false;
+            false
         }
     }
 
@@ -453,5 +453,4 @@ mod tests {
         );
         assert_eq!(actual, expected);
     }
-
 }

@@ -14,6 +14,7 @@ pub struct DrawHouseParams {
     pub light_direction: V3<f32>,
 }
 
+#[allow(clippy::many_single_char_names)]
 pub fn draw_house(name: String, world_coordinate: WorldCoord, p: &DrawHouseParams) -> Vec<Command> {
     let triangle_coloring = AngleTriangleColoring::new(p.base_color, p.light_direction);
     let square_coloring = AngleSquareColoring::new(p.base_color, p.light_direction);

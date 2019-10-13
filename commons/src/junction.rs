@@ -124,7 +124,6 @@ mod tests {
             vec![Edge::new(v2(1, 1), v2(2, 1)), Edge::new(v2(1, 1), v2(1, 2))]
         );
     }
-
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

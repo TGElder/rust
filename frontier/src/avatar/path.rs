@@ -22,7 +22,7 @@ impl Path {
     pub fn new(
         world: &World,
         points: Vec<V2<usize>>,
-        travel_duration: &TravelDuration,
+        travel_duration: &dyn TravelDuration,
         start_at: u128,
     ) -> Path {
         Path {
@@ -40,7 +40,7 @@ impl Path {
         world: &World,
         points: &[V2<usize>],
         start_at: u128,
-        travel_duration: &TravelDuration,
+        travel_duration: &dyn TravelDuration,
     ) -> Vec<u128> {
         let mut next_arrival_time = start_at;
         let mut out = Vec::with_capacity(points.len());
@@ -137,7 +137,7 @@ impl Path {
         &self,
         world: &World,
         mut extension: Vec<V2<usize>>,
-        travel_duration: &TravelDuration,
+        travel_duration: &dyn TravelDuration,
     ) -> Option<Path> {
         if *self.final_position() == extension[0] {
             let mut points: Vec<V2<usize>> = self.points.to_vec();
@@ -346,5 +346,4 @@ mod tests {
         );
         assert_eq!(actual, None);
     }
-
 }

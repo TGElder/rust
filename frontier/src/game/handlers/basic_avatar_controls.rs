@@ -33,7 +33,7 @@ impl BasicAvatarControls {
     ) -> BasicAvatarControls {
         BasicAvatarControls {
             command_tx,
-            pathfinder_tx: pathfinder_tx,
+            pathfinder_tx,
             bindings: BasicAvatarBindings::default(),
         }
     }
@@ -41,18 +41,19 @@ impl BasicAvatarControls {
     fn walk_forward(&mut self, game_state: &GameState) {
         if let Some(path) = game_state.avatar_state.forward_path() {
             let start_at = game_state.game_micros;
-            let function: Box<Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send> =
-                Box::new(move |pathfinder| {
-                    if let Some(positions) = pathfinder.find_path(&path[0], &path[1]) {
-                        if positions.len() == 2 {
-                            return vec![GameCommand::WalkPositions {
-                                positions,
-                                start_at,
-                            }];
-                        }
+            let function: Box<
+                dyn Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send,
+            > = Box::new(move |pathfinder| {
+                if let Some(positions) = pathfinder.find_path(&path[0], &path[1]) {
+                    if positions.len() == 2 {
+                        return vec![GameCommand::WalkPositions {
+                            positions,
+                            start_at,
+                        }];
                     }
-                    vec![]
-                });
+                }
+                vec![]
+            });
             self.pathfinder_tx
                 .send(PathfinderCommand::Use(function))
                 .unwrap();

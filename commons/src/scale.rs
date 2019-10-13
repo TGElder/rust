@@ -62,5 +62,4 @@ mod tests {
         let scale = Scale::new((2000.0, 2016.0), (11.0, 55.0));
         assert!(!scale.inside_range(2019.0));
     }
-
 }

@@ -5,14 +5,14 @@ pub struct TerrainGeometry<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
 {
-    terrain: &'a Grid<T>,
+    terrain: &'a dyn Grid<T>,
 }
 
 impl<'a, T> TerrainGeometry<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
 {
-    pub fn of(terrain: &'a Grid<T>) -> TerrainGeometry<'a, T> {
+    pub fn of(terrain: &'a dyn Grid<T>) -> TerrainGeometry<'a, T> {
         TerrainGeometry { terrain }
     }
 
@@ -482,5 +482,4 @@ mod tests {
         assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.5, 1.5, 4.0)]));
         assert_eq!(actual.len(), 3);
     }
-
 }

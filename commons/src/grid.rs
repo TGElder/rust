@@ -81,7 +81,7 @@ pub trait Grid<T> {
     }
 }
 
-pub fn extract_matrix<T, O>(grid: &Grid<T>, function: &Fn(&T) -> O) -> M<O>
+pub fn extract_matrix<T, O>(grid: &dyn Grid<T>, function: &dyn Fn(&T) -> O) -> M<O>
 where
     O: 'static + Copy + Debug + Default + PartialEq,
 {
@@ -248,5 +248,4 @@ mod tests {
             &[v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)]
         ));
     }
-
 }

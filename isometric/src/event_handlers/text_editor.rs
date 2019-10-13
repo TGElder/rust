@@ -189,5 +189,4 @@ mod test {
 
         assert_eq!(text_editor.text(), "");
     }
-
 }

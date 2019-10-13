@@ -57,11 +57,15 @@ impl Projection for Identity {
 pub struct Transform {
     scale: GLCoord3D,
     translation: GLCoord2D,
-    projection: Box<Projection>,
+    projection: Box<dyn Projection>,
 }
 
 impl Transform {
-    pub fn new(scale: GLCoord3D, translation: GLCoord2D, projection: Box<Projection>) -> Transform {
+    pub fn new(
+        scale: GLCoord3D,
+        translation: GLCoord2D,
+        projection: Box<dyn Projection>,
+    ) -> Transform {
         Transform {
             scale,
             translation,
@@ -102,7 +106,7 @@ impl Transform {
     pub fn transform_maintaining_center(
         &mut self,
         center: GLCoord4D,
-        mut transformation: Box<FnMut(&mut Self) -> ()>,
+        mut transformation: Box<dyn FnMut(&mut Self) -> ()>,
     ) {
         let old_x = center.x;
         let old_y = center.y;
@@ -123,7 +127,7 @@ impl Transform {
         );
     }
 
-    pub fn set_projection(&mut self, projection: Box<Projection>) {
+    pub fn set_projection(&mut self, projection: Box<dyn Projection>) {
         self.projection = projection
     }
 
@@ -313,5 +317,4 @@ mod tests {
         assert!(gl_coord_4.x == 0.0);
         assert!(gl_coord_4.y == 0.0);
     }
-
 }

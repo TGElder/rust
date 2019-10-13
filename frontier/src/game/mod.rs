@@ -68,7 +68,7 @@ pub trait GameEventConsumer: Send {
 pub struct Game {
     game_state: GameState,
     real_time: Instant,
-    consumers: Vec<Box<GameEventConsumer>>,
+    consumers: Vec<Box<dyn GameEventConsumer>>,
     engine_tx: Sender<Vec<Command>>,
     command_tx: Sender<GameCommand>,
     command_rx: Receiver<GameCommand>,

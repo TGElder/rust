@@ -109,16 +109,16 @@ impl World {
             .unwrap_or(false)
     }
 
-    fn is(&self, edge: &Edge, junction_fn: &Fn(&WorldCell) -> Junction) -> bool {
+    fn is(&self, edge: &Edge, junction_fn: &dyn Fn(&WorldCell) -> Junction) -> bool {
         if let Some(cell) = self.get_cell(&edge.from()) {
             let junction = junction_fn(cell);
             if edge.horizontal() {
-                return junction.horizontal.from;
+                junction.horizontal.from
             } else {
-                return junction.vertical.from;
+                junction.vertical.from
             }
         } else {
-            return false;
+            false
         }
     }
 
@@ -190,9 +190,9 @@ impl World {
             self.get_cell(&v2(x as usize + 1, y as usize + 1)),
         ) {
             let z = (a.elevation + b.elevation) / 2.0;
-            return Some(WorldCoord::new(x + 0.5, y + 0.5, z));
+            Some(WorldCoord::new(x + 0.5, y + 0.5, z))
         } else {
-            return None;
+            None
         }
     }
 
@@ -263,7 +263,7 @@ impl World {
     pub fn tile_average(
         &self,
         position: &V2<usize>,
-        function: &Fn(&WorldCell) -> Option<f32>,
+        function: &dyn Fn(&WorldCell) -> Option<f32>,
     ) -> Option<f32> {
         let values: Vec<f32> = self
             .get_corners(&position)
@@ -635,5 +635,4 @@ mod tests {
         let reconstructed: World = bincode::deserialize(&encoded[..]).unwrap();
         assert_eq!(original, reconstructed);
     }
-
 }

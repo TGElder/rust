@@ -35,7 +35,7 @@ fn get_river_cells_from_downhill_map_and_rain_map(
     threshold: f64,
     sea_level: f64,
     flow_to_width: (f64, f64),
-    downhill_map: &SingleDownhillMap,
+    downhill_map: &dyn SingleDownhillMap,
     rainfall: &M<f64>,
 ) -> Vec<PositionJunction> {
     let flow_map = FlowMap::from(&mesh, downhill_map, &rainfall);
@@ -53,7 +53,7 @@ fn get_river_cells_from_downhill_map_and_rain_map(
 fn get_neighbour(
     position: na::Vector2<usize>,
     mesh: &Mesh,
-    downhill_map: &SingleDownhillMap,
+    downhill_map: &dyn SingleDownhillMap,
 ) -> Option<na::Vector2<usize>> {
     let direction = DIRECTIONS[downhill_map.get_direction(position.x as i32, position.y as i32)];
     let nx = (position.x as i32) + direction.0;
@@ -82,7 +82,7 @@ fn get_junction_matrix_from_flow_map(
     threshold: f64,
     sea_level: f64,
     flow_to_width: (f64, f64),
-    downhill_map: &SingleDownhillMap,
+    downhill_map: &dyn SingleDownhillMap,
     flow_map: &FlowMap,
 ) -> M<Junction> {
     let width = mesh.get_width() as usize;
@@ -300,5 +300,4 @@ mod tests {
 
         assert_eq!(get_river_cells_from_junction_matrix(junctions).len(), 6);
     }
-
 }

@@ -85,5 +85,4 @@ mod tests {
         let edge = Edge::new(v2(10, 1), v2(10, 10));
         assert!(!edge.horizontal());
     }
-
 }

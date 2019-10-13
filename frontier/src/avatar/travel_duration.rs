@@ -35,19 +35,19 @@ impl Default for AvatarTravelParams {
 
 pub struct AvatarTravelDuration {
     travel_mode_fn: TravelModeFn,
-    walk: Box<TravelDuration>,
-    road: Box<TravelDuration>,
-    river: Box<TravelDuration>,
-    sea: Box<TravelDuration>,
+    walk: Box<dyn TravelDuration>,
+    road: Box<dyn TravelDuration>,
+    river: Box<dyn TravelDuration>,
+    sea: Box<dyn TravelDuration>,
 }
 
 impl AvatarTravelDuration {
     fn new(
         travel_mode_fn: TravelModeFn,
-        walk: Box<TravelDuration>,
-        road: Box<TravelDuration>,
-        river: Box<TravelDuration>,
-        sea: Box<TravelDuration>,
+        walk: Box<dyn TravelDuration>,
+        road: Box<dyn TravelDuration>,
+        river: Box<dyn TravelDuration>,
+        sea: Box<dyn TravelDuration>,
     ) -> AvatarTravelDuration {
         AvatarTravelDuration {
             travel_mode_fn,
@@ -99,7 +99,7 @@ impl AvatarTravelDuration {
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
-    ) -> Option<&TravelDuration> {
+    ) -> Option<&dyn TravelDuration> {
         self.travel_mode_fn
             .travel_mode_between(world, from, to)
             .map(|travel_mode| match travel_mode {

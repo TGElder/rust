@@ -87,5 +87,4 @@ mod tests {
     fn test_calculate_probability() {
         assert!(calculate_probability(0.01, 1.0 / 16.0, 1024) - 0.0694 <= 0.0001)
     }
-
 }

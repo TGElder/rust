@@ -335,5 +335,4 @@ mod tests {
         let reconstructed: VisibilityComputer = bincode::deserialize(&encoded[..]).unwrap();
         assert_eq!(original, reconstructed);
     }
-
 }

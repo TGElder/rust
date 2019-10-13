@@ -120,5 +120,4 @@ mod tests {
     fn test_almost_vector() {
         assert!(vec![0.1, 0.2, 0.3].almost(vec![0.1, 0.2, 0.3]));
     }
-
 }

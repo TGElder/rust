@@ -173,7 +173,7 @@ impl Network {
         from: usize,
         to: usize,
         max_cost: Option<u32>,
-        heuristic: &Fn(usize) -> u32,
+        heuristic: &dyn Fn(usize) -> u32,
     ) -> Option<Vec<Edge>> {
         #[derive(Eq)]
         struct Node {
@@ -188,7 +188,7 @@ impl Network {
                 index: usize,
                 entry: Option<Edge>,
                 distance_from_start: u32,
-                heuristic: &Fn(usize) -> u32,
+                heuristic: &dyn Fn(usize) -> u32,
             ) -> Node {
                 let estimated_distance_to_goal = heuristic(index);
                 Node {
@@ -624,5 +624,4 @@ mod tests {
         ]);
         assert_eq!(actual, expected);
     }
-
 }

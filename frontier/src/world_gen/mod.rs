@@ -172,5 +172,4 @@ mod tests {
         );
         assert_eq!(min_max_ignoring_sea(&output, &world), (3.0, 8.0));
     }
-
 }

@@ -34,7 +34,7 @@ impl PathfindingAvatarControls {
     ) -> PathfindingAvatarControls {
         PathfindingAvatarControls {
             command_tx,
-            pathfinder_tx: pathfinder_tx,
+            pathfinder_tx,
             bindings: PathfinderAvatarBindings::default(),
             world_coord: None,
         }
@@ -58,7 +58,7 @@ impl PathfindingAvatarControls {
             if let Some((from, start_at)) = from_and_start_at {
                 self.stop(&game_state);
                 let function: Box<
-                    Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send,
+                    dyn Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send,
                 > = Box::new(move |pathfinder| {
                     if let Some(positions) = pathfinder.find_path(&from, &to) {
                         return vec![GameCommand::WalkPositions {

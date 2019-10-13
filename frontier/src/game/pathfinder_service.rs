@@ -9,7 +9,7 @@ pub enum PathfinderCommand<T>
 where
     T: TravelDuration,
 {
-    Use(Box<Fn(&Pathfinder<T>) -> Vec<GameCommand> + Send>),
+    Use(Box<dyn Fn(&Pathfinder<T>) -> Vec<GameCommand> + Send>),
     Shutdown,
 }
 
@@ -26,7 +26,7 @@ impl<T> Service<T>
 where
     T: TravelDuration,
 {
-    fn execute(&self, function: Box<Fn(&Pathfinder<T>) -> Vec<GameCommand>>) {
+    fn execute(&self, function: Box<dyn Fn(&Pathfinder<T>) -> Vec<GameCommand>>) {
         let commands = function(&self.pathfinder.read().unwrap());
         for command in commands {
             self.game_command_tx.send(command).unwrap();

@@ -14,7 +14,7 @@ pub trait EventConsumer: Send {
 }
 
 pub struct EventHandlerAdapter {
-    pub event_handler: Box<EventHandler>,
+    pub event_handler: Box<dyn EventHandler>,
     pub command_tx: Sender<Vec<Command>>,
 }
 

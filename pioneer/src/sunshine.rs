@@ -147,5 +147,4 @@ mod tests {
         almost_equal(a.y, b.y);
         almost_equal(a.z, b.z);
     }
-
 }

@@ -20,7 +20,7 @@ where
 {
     fn color(
         &self,
-        terrain: &Grid<T>,
+        terrain: &dyn Grid<T>,
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3];
@@ -30,7 +30,7 @@ pub struct ShadedTileTerrainColoring {
     colors: M<Color>,
     sea_color: Color,
     sea_level: f32,
-    shading: Box<SquareColoring>,
+    shading: Box<dyn SquareColoring>,
 }
 
 impl ShadedTileTerrainColoring {
@@ -58,7 +58,7 @@ where
 {
     fn color(
         &self,
-        terrain: &Grid<T>,
+        terrain: &dyn Grid<T>,
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
@@ -106,7 +106,7 @@ impl<T> TerrainColoring<T> for NodeTerrainColoring
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
 {
-    fn color(&self, _: &Grid<T>, _: &V2<usize>, triangle: &[V3<f32>; 3]) -> [Option<Color>; 3] {
+    fn color(&self, _: &dyn Grid<T>, _: &V2<usize>, triangle: &[V3<f32>; 3]) -> [Option<Color>; 3] {
         [
             self.get_color_for_vertex(triangle[0]),
             self.get_color_for_vertex(triangle[1]),
@@ -119,7 +119,7 @@ pub struct Layer<T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
 {
-    coloring: Box<TerrainColoring<T> + Send>,
+    coloring: Box<dyn TerrainColoring<T> + Send>,
     priority: i64,
 }
 
@@ -156,7 +156,7 @@ where
     pub fn add_layer(
         &mut self,
         name: String,
-        coloring: Box<TerrainColoring<T> + Send>,
+        coloring: Box<dyn TerrainColoring<T> + Send>,
         priority: i64,
     ) {
         self.layers.insert(name, Layer { coloring, priority });
@@ -188,7 +188,7 @@ where
 {
     fn color(
         &self,
-        terrain: &Grid<T>,
+        terrain: &dyn Grid<T>,
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {

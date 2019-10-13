@@ -26,12 +26,15 @@ impl Default for AutoRoadTravelDurationParams {
 }
 
 pub struct AutoRoadTravelDuration {
-    off_road: Box<TravelDuration>,
-    road: Box<TravelDuration>,
+    off_road: Box<dyn TravelDuration>,
+    road: Box<dyn TravelDuration>,
 }
 
 impl AutoRoadTravelDuration {
-    pub fn new(off_road: Box<TravelDuration>, road: Box<TravelDuration>) -> AutoRoadTravelDuration {
+    pub fn new(
+        off_road: Box<dyn TravelDuration>,
+        road: Box<dyn TravelDuration>,
+    ) -> AutoRoadTravelDuration {
         AutoRoadTravelDuration { off_road, road }
     }
 
@@ -90,11 +93,11 @@ mod tests {
     use commons::junction::*;
     use commons::{v2, M};
 
-    fn road_travel_duration() -> Box<TravelDuration> {
+    fn road_travel_duration() -> Box<dyn TravelDuration> {
         ConstantTravelDuration::boxed(Duration::from_millis(10))
     }
 
-    fn off_road_travel_duration() -> Box<TravelDuration> {
+    fn off_road_travel_duration() -> Box<dyn TravelDuration> {
         ConstantTravelDuration::boxed(Duration::from_millis(1000))
     }
 

@@ -139,5 +139,4 @@ mod tests {
             vegetation_height_at_point(&world, &v2(1, 1)).almost(VegetationType::PalmTree.height())
         );
     }
-
 }

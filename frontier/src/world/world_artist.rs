@@ -233,7 +233,6 @@ mod tests {
     fn slab_to() {
         assert_eq!(Slab::new(v2(11, 33), 32).to(), v2(32, 64));
     }
-
 }
 
 pub struct DefaultColoring {
@@ -339,7 +338,7 @@ impl DefaultColoring {
 impl TerrainColoring<WorldCell> for DefaultColoring {
     fn color(
         &self,
-        world: &Grid<WorldCell>,
+        world: &dyn Grid<WorldCell>,
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {

@@ -16,7 +16,7 @@ impl PathfindingRoadBuilder {
         pathfinder_tx: Sender<PathfinderCommand<AutoRoadTravelDuration>>,
     ) -> PathfindingRoadBuilder {
         PathfindingRoadBuilder {
-            pathfinder_tx: pathfinder_tx,
+            pathfinder_tx,
             binding: Button::Key(VirtualKeyCode::X),
             world_coord: None,
         }
@@ -27,7 +27,7 @@ impl PathfindingRoadBuilder {
             if let Some(WorldCoord { x, y, .. }) = self.world_coord {
                 let to = v2(x.round() as usize, y.round() as usize);
                 let function: Box<
-                    Fn(&Pathfinder<AutoRoadTravelDuration>) -> Vec<GameCommand> + Send,
+                    dyn Fn(&Pathfinder<AutoRoadTravelDuration>) -> Vec<GameCommand> + Send,
                 > = Box::new(move |pathfinder| {
                     if let Some(result) = auto_build_road(from, to, &pathfinder) {
                         return vec![GameCommand::UpdateRoads(result)];

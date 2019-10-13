@@ -277,5 +277,4 @@ mod tests {
         let pathfinder = pathfinder();
         assert_eq!(build_road(v2(1, 0), v2(3, 0), &pathfinder), None);
     }
-
 }

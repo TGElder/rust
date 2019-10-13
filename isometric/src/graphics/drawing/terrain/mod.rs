@@ -28,7 +28,7 @@ fn clip_triangle_to_sea_level(triangle: [V3<f32>; 3], sea_level: f32) -> [V3<f32
 
 pub fn draw_nodes<T>(
     name: String,
-    terrain: &Grid<T>,
+    terrain: &dyn Grid<T>,
     nodes: &[V2<usize>],
     color: &Color,
     sea_level: f32,
@@ -60,7 +60,7 @@ where
 
 pub fn draw_edges<T>(
     name: String,
-    terrain: &Grid<T>,
+    terrain: &dyn Grid<T>,
     edges: &[Edge],
     color: &Color,
     sea_level: f32,
@@ -161,9 +161,9 @@ impl TerrainDrawing {
 
     pub fn update<T>(
         &mut self,
-        terrain: &Grid<T>,
+        terrain: &dyn Grid<T>,
         sea_level: f32,
-        coloring: &TerrainColoring<T>,
+        coloring: &dyn TerrainColoring<T>,
         from: V2<usize>,
         to: V2<usize>,
     ) -> Vec<Command>
@@ -248,5 +248,4 @@ mod tests {
             })
         );
     }
-
 }

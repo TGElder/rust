@@ -189,5 +189,4 @@ mod tests {
 
         handle.join().expect("Could not wait for hub to shutdown");
     }
-
 }

@@ -64,7 +64,7 @@ pub struct IsometricEngine {
     graphics: GraphicsEngine,
     running: bool,
     cursor_handler: CursorHandler,
-    event_consumers: Vec<Box<EventConsumer>>,
+    event_consumers: Vec<Box<dyn EventConsumer>>,
     command_tx: Sender<Vec<Command>>,
     command_rx: Receiver<Vec<Command>>,
     look_at: Option<WorldCoord>,
