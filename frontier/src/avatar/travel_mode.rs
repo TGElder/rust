@@ -29,7 +29,9 @@ impl TravelModeFn {
     }
 
     pub fn is_navigable_river(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> bool {
-        self.is_navigable_river_here(world, from) && self.is_navigable_river_here(world, to)
+        world.is_river(&Edge::new(*from, *to))
+            && self.is_navigable_river_here(world, from)
+            && self.is_navigable_river_here(world, to)
     }
 
     pub fn travel_mode_between(
@@ -301,6 +303,67 @@ mod tests {
         assert_eq!(
             travel_mode_fn.travel_mode_here(&world, &v2(1, 1)),
             Some(TravelMode::Road)
+        );
+    }
+
+    #[test]
+    fn inside_of_river_u_bend_should_not_cound_as_river() {
+        let mut world = World::new(
+            M::from_vec(
+                4,
+                4,
+                vec![
+                    1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0,
+                ],
+            ),
+            0.5,
+        );
+
+        let mut river_1 = PositionJunction::new(v2(0, 0));
+        river_1.junction.horizontal.width = 0.2;
+        river_1.junction.horizontal.from = true;
+        let mut river_2 = PositionJunction::new(v2(1, 0));
+        river_2.junction.horizontal.width = 0.2;
+        river_2.junction.horizontal.to = true;
+        river_2.junction.vertical.from = true;
+        let mut river_3 = PositionJunction::new(v2(1, 1));
+        river_3.junction.horizontal.width = 0.2;
+        river_2.junction.horizontal.to = true;
+        river_2.junction.vertical.to = true;
+        let mut river_4 = PositionJunction::new(v2(0, 1));
+        river_4.junction.horizontal.width = 0.2;
+        river_2.junction.horizontal.from = true;
+        world.add_river(river_1);
+        world.add_river(river_2);
+        world.add_river(river_3);
+        world.add_river(river_4);
+
+        assert_eq!(
+            travel_mode_fn().travel_mode_between(&world, &v2(0, 0), &v2(0, 1)),
+            Some(TravelMode::Walk)
+        );
+    }
+
+    #[test]
+    fn inside_of_road_u_bend_should_not_cound_as_river() {
+        let mut world = World::new(
+            M::from_vec(
+                4,
+                4,
+                vec![
+                    1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0,
+                ],
+            ),
+            0.5,
+        );
+
+        world.toggle_road(&Edge::new(v2(0, 0), v2(1, 0)));
+        world.toggle_road(&Edge::new(v2(1, 0), v2(1, 1)));
+        world.toggle_road(&Edge::new(v2(1, 1), v2(0, 1)));
+
+        assert_eq!(
+            travel_mode_fn().travel_mode_between(&world, &v2(0, 0), &v2(0, 1)),
+            Some(TravelMode::Walk)
         );
     }
 }

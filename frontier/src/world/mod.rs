@@ -126,6 +126,10 @@ impl World {
         self.is(edge, &|cell| cell.road)
     }
 
+    pub fn is_river(&self, edge: &Edge) -> bool {
+        self.is(edge, &|cell| cell.river)
+    }
+
     pub fn is_river_or_road(&self, edge: &Edge) -> bool {
         self.is(edge, &|cell| cell.junction())
     }
@@ -487,6 +491,14 @@ mod tests {
         assert!(world.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
         assert!(!world.is_road(&Edge::new(v2(1, 0), v2(1, 1))));
         assert!(!world.is_road(&Edge::new(v2(0, 1), v2(0, 2))));
+    }
+
+    #[test]
+    fn test_is_river() {
+        let mut world = world();
+        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
+        assert!(world.is_river(&Edge::new(v2(1, 0), v2(1, 1))));
+        assert!(!world.is_river(&Edge::new(v2(0, 1), v2(0, 2))));
     }
 
     #[test]
