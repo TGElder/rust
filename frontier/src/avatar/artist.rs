@@ -153,11 +153,12 @@ impl AvatarArtist {
         travel_mode_fn: &TravelModeFn,
     ) -> Vec<Command> {
         if let Some(world_coord) = avatar.compute_world_coord(world, instant) {
-            let check_position = v2(
-                world_coord.x.round() as usize,
-                world_coord.y.round() as usize,
+            let from = v2(
+                world_coord.x.floor() as usize,
+                world_coord.y.floor() as usize,
             );
-            match travel_mode_fn.travel_mode_here(world, &check_position) {
+            let to = v2(world_coord.x.ceil() as usize, world_coord.y.ceil() as usize);
+            match travel_mode_fn.travel_mode_between(world, &from, &to) {
                 Some(TravelMode::Sea) => self.draw_boat(avatar, world_coord, instant),
                 Some(TravelMode::River) => self.draw_boat(avatar, world_coord, instant),
                 _ => vec![],

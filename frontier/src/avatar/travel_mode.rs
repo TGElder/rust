@@ -10,6 +10,23 @@ pub enum TravelMode {
     Sea,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum TravelModeClass {
+    Slow,
+    Fast,
+}
+
+impl TravelMode {
+    pub fn class(&self) -> TravelModeClass {
+        match self {
+            TravelMode::Walk => TravelModeClass::Slow,
+            TravelMode::Road => TravelModeClass::Fast,
+            TravelMode::River => TravelModeClass::Fast,
+            TravelMode::Sea => TravelModeClass::Fast,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct TravelModeFn {
     min_river_width: f32,
