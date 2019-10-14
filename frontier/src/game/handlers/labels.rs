@@ -34,8 +34,9 @@ impl LabelEditorHandler {
             let x = x.round() as usize;
             let y = y.round() as usize;
             if let Some(cell) = game_state.world.get_cell(&v2(x, y)) {
+                let z = game_state.world.sea_level().max(cell.elevation);
                 self.label_editor
-                    .start_edit(WorldCoord::new(x as f32, y as f32, cell.elevation));
+                    .start_edit(WorldCoord::new(x as f32, y as f32, z));
             }
         }
     }
