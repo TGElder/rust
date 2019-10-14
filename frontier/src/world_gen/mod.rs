@@ -97,15 +97,15 @@ pub fn generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParamet
     let rainfall = gen_rainfall(&out, &params);
     load_rainfall(&mut out, &rainfall);
 
-    let before_sea_level = Scale::new(
+    let river_end_level = Scale::new(
         (0.0, params.max_height),
         (mesh.get_min_z(), mesh.get_max_z()),
     )
-    .scale(params.sea_level);
+    .scale(params.sea_level - 0.01);
     let river_cells = get_river_cells(
         &mesh,
         params.river_threshold,
-        before_sea_level,
+        river_end_level,
         params.river_width_range,
         &rainfall,
         rng,
