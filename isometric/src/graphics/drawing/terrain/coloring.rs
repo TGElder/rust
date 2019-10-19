@@ -66,7 +66,7 @@ where
             self.sea_color
         } else {
             let geometry = TerrainGeometry::of(terrain);
-            let border = geometry.get_border_for_tile(&tile, true);
+            let border = geometry.get_original_border_for_tile(&tile);
             let shade = self
                 .shading
                 .get_colors(&[border[0], border[1], border[2], border[3]])[0];

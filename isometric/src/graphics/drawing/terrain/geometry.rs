@@ -70,12 +70,20 @@ where
         out
     }
 
-    pub fn get_border_for_tile(
-        &self,
-        position: &V2<usize>,
-        include_invisible: bool,
-    ) -> Vec<V3<f32>> {
-        self.get_border(get_index_for_tile(position), include_invisible)
+    pub fn get_original_border_for_tile(&self, position: &V2<usize>) -> Vec<V3<f32>> {
+        let offsets: [V2<usize>; 4] = [v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)];
+        offsets
+            .iter()
+            .map(|o| {
+                v3(
+                    (position.x + o.x) as f32,
+                    (position.y + o.y) as f32,
+                    self.terrain
+                        .get_cell_unsafe(&v2(position.x + o.x, position.y + o.y))
+                        .elevation(),
+                )
+            })
+            .collect()
     }
 
     fn get_triangles(&self, index: V2<usize>) -> Vec<[V3<f32>; 3]> {
@@ -355,6 +363,21 @@ mod tests {
         assert_eq!(
             TerrainGeometry::of(&terrain).get_border(v2(3, 2), false),
             vec![]
+        );
+    }
+
+    #[test]
+    fn test_get_original_border_for_tile() {
+        let terrain = terrain();
+
+        assert_eq!(
+            TerrainGeometry::of(&terrain).get_original_border_for_tile(&v2(1, 1)),
+            vec![
+                v3(1.0, 1.0, 4.0),
+                v3(2.0, 1.0, 3.0),
+                v3(2.0, 2.0, 1.0),
+                v3(1.0, 2.0, 2.0),
+            ]
         );
     }
 
