@@ -13,6 +13,7 @@ pub struct GameParams {
     pub avatar_travel: AvatarTravelParams,
     pub starting_distance_from_shore: usize,
     pub light_direction: V3<f32>,
+    pub vegetation_exageration: f32,
 }
 
 impl Default for GameParams {
@@ -22,6 +23,7 @@ impl Default for GameParams {
             avatar_travel: AvatarTravelParams::default(),
             starting_distance_from_shore: 32,
             light_direction: v3(-1.0, 0.0, 1.0),
+            vegetation_exageration: 100.0,
         }
     }
 }

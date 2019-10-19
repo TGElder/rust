@@ -26,6 +26,7 @@ impl WorldArtistHandler {
                 game_state.params.world_gen.beach_level,
             ),
             64,
+            game_state.params.vegetation_exageration,
         );
         self.world_artist = Some(world_artist);
         self.draw_all(game_state);

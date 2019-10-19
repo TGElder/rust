@@ -44,20 +44,29 @@ fn to_position(position: &(i64, i64)) -> Option<V2<usize>> {
     }
 }
 
-fn to_3d(world: &World, position: V2<usize>) -> Option<V3<f32>> {
+fn to_3d(world: &World, position: V2<usize>, consider_vegetation: bool) -> Option<V3<f32>> {
     if let Some(cell) = world.get_cell(&position) {
+        let veg_height = if consider_vegetation {
+            cell.climate.vegetation_elevation
+        } else {
+            0.0
+        };
         return Some(v3(
             position.x as f32,
             position.y as f32,
-            (cell.elevation + cell.climate.vegetation_elevation).max(world.sea_level()),
+            (cell.elevation + veg_height).max(world.sea_level()),
         ));
     }
     None
 }
 
-fn to_position_and_3d(world: &World, position: &(i64, i64)) -> Option<(V2<usize>, V3<f32>)> {
+fn to_position_and_3d(
+    world: &World,
+    position: &(i64, i64),
+    consider_vegetation: bool,
+) -> Option<(V2<usize>, V3<f32>)> {
     if let Some(position) = to_position(position) {
-        if let Some(position_3d) = to_3d(world, position) {
+        if let Some(position_3d) = to_3d(world, position, consider_vegetation) {
             return Some((position, position_3d));
         }
     }
@@ -76,11 +85,11 @@ impl VisibilityComputer {
     fn check_visibility_along_line(&self, world: &World, line: Vec<(i64, i64)>) -> Vec<V2<usize>> {
         let mut max_slope = -std::f32::INFINITY;
         let mut out = vec![];
-        if let Some((from, mut from_3d)) = to_position_and_3d(world, &line[0]) {
+        if let Some((from, mut from_3d)) = to_position_and_3d(world, &line[0], false) {
             from_3d.z += self.head_height;
             out.push(from);
             for position in line.iter().skip(1) {
-                match to_position_and_3d(world, position) {
+                match to_position_and_3d(world, position, true) {
                     None => return out,
                     Some((to, mut to_3d)) => {
                         let run = run(&from_3d, &to_3d);

@@ -38,7 +38,12 @@ struct RoadRiverPositionsResult {
 }
 
 impl WorldArtist {
-    pub fn new(world: &World, coloring: LayerColoring<WorldCell>, slab_size: usize) -> WorldArtist {
+    pub fn new(
+        world: &World,
+        coloring: LayerColoring<WorldCell>,
+        slab_size: usize,
+        vegetation_exageration: f32,
+    ) -> WorldArtist {
         let width = world.width();
         let height = world.height();
         WorldArtist {
@@ -47,7 +52,7 @@ impl WorldArtist {
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, slab_size),
             slab_size,
             coloring,
-            vegetation_artist: VegetationArtist::new(),
+            vegetation_artist: VegetationArtist::new(vegetation_exageration),
         }
     }
 

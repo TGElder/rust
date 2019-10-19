@@ -5,11 +5,13 @@ use isometric::coords::*;
 use isometric::drawing::*;
 use isometric::Command;
 
-pub struct VegetationArtist {}
+pub struct VegetationArtist {
+    exaggeration: f32,
+}
 
 impl VegetationArtist {
-    pub fn new() -> VegetationArtist {
-        VegetationArtist {}
+    pub fn new(exaggeration: f32) -> VegetationArtist {
+        VegetationArtist { exaggeration }
     }
 
     pub fn draw(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Vec<Command> {
@@ -30,7 +32,7 @@ impl VegetationArtist {
                     }
 
                     if let WorldObject::Vegetation(vegetation) = cell.object {
-                        world_coord.z += vegetation.height() / 2.0;
+                        world_coord.z += (vegetation.height() * self.exaggeration) / 2.0;
 
                         match vegetation {
                             VegetationType::PalmTree => palms.push(world_coord),
@@ -44,32 +46,39 @@ impl VegetationArtist {
         }
         let mut out = vec![];
 
+        let size = VegetationType::DeciduousTree.height() * self.exaggeration;
         out.append(&mut draw_billboards(
             format!("{:?}-trees", from).to_string(),
             trees,
-            VegetationType::DeciduousTree.height(),
-            VegetationType::DeciduousTree.height(),
+            size,
+            size,
             "tree.png",
         ));
+
+        let size = VegetationType::PalmTree.height() * self.exaggeration;
         out.append(&mut draw_billboards(
             format!("{:?}-palms", from).to_string(),
             palms,
-            VegetationType::PalmTree.height(),
-            VegetationType::PalmTree.height(),
+            size,
+            size,
             "palm.png",
         ));
+
+        let size = VegetationType::EvergreenTree.height() * self.exaggeration;
         out.append(&mut draw_billboards(
             format!("{:?}-pines", from).to_string(),
             pines,
-            VegetationType::EvergreenTree.height(),
-            VegetationType::EvergreenTree.height(),
+            size,
+            size,
             "pine.png",
         ));
+
+        let size = VegetationType::Cactus.height() * self.exaggeration;
         out.append(&mut draw_billboards(
             format!("{:?}-cacti", from).to_string(),
             cacti,
-            VegetationType::Cactus.height(),
-            VegetationType::Cactus.height(),
+            size,
+            size,
             "cactus.png",
         ));
         out

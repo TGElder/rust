@@ -17,7 +17,7 @@ pub struct AutoRoadTravelDurationParams {
 impl Default for AutoRoadTravelDurationParams {
     fn default() -> AutoRoadTravelDurationParams {
         AutoRoadTravelDurationParams {
-            max_gradient: 0.5,
+            max_gradient: 0.3,
             cost_at_level: 575.0,
             cost_at_max_gradient: 925.0,
             cost_on_existing_road: 100,

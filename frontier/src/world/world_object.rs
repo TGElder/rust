@@ -11,10 +11,10 @@ pub enum VegetationType {
 impl VegetationType {
     pub fn height(self) -> f32 {
         match self {
-            VegetationType::PalmTree => 1.0,
-            VegetationType::DeciduousTree => 1.0,
-            VegetationType::EvergreenTree => 1.0,
-            VegetationType::Cactus => 0.5,
+            VegetationType::PalmTree => 0.01,
+            VegetationType::DeciduousTree => 0.01,
+            VegetationType::EvergreenTree => 0.01,
+            VegetationType::Cactus => 0.004,
         }
     }
 
