@@ -88,28 +88,31 @@ fn main() {
     let road_pathfinder_service =
         PathfinderServiceEventConsumer::new(game.command_tx(), road_pathfinder);
 
-    game.add_consumer(LabelEditorHandler::new(game.command_tx()));
     game.add_consumer(EventHandlerAdapter::new(
         ZoomHandler::default(),
         game.command_tx(),
     ));
+    game.add_consumer(WorldArtistHandler::new(game.command_tx()));
+    game.add_consumer(AvatarArtistHandler::new(game.command_tx()));
+    game.add_consumer(HouseArtistHandler::new(game.command_tx()));
+    game.add_consumer(VisibilityHandler::new(game.command_tx()));
+
+    // Controls
+    game.add_consumer(LabelEditorHandler::new(game.command_tx()));
     game.add_consumer(RotateHandler::new(game.command_tx()));
     game.add_consumer(BasicAvatarControls::new(game.command_tx()));
     game.add_consumer(PathfindingAvatarControls::new(
         game.command_tx(),
         avatar_pathfinder_service.command_tx(),
     ));
-    game.add_consumer(WorldArtistHandler::new(game.command_tx()));
-    game.add_consumer(AvatarArtistHandler::new(game.command_tx()));
-    game.add_consumer(VisibilityHandler::new(game.command_tx()));
     game.add_consumer(BasicRoadBuilder::new(road_pathfinder_service.command_tx()));
     game.add_consumer(PathfindingRoadBuilder::new(
         road_pathfinder_service.command_tx(),
     ));
     game.add_consumer(HouseBuilderHandler::new(game.command_tx()));
-    game.add_consumer(HouseArtistHandler::new(game.command_tx()));
     game.add_consumer(Cheats::new(game.command_tx()));
     game.add_consumer(Save::new(game.command_tx()));
+
     game.add_consumer(FollowAvatar::new(game.command_tx()));
     game.add_consumer(avatar_pathfinder_service);
     game.add_consumer(road_pathfinder_service);
