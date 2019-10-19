@@ -2,6 +2,7 @@ use super::*;
 use crate::world::*;
 use commons::*;
 use isometric::drawing::*;
+use isometric::Color;
 
 pub struct WorldArtistHandler {
     command_tx: Sender<GameCommand>,
@@ -25,8 +26,14 @@ impl WorldArtistHandler {
                 game_state.params.world_gen.cliff_gradient,
                 game_state.params.world_gen.beach_level,
             ),
-            64,
-            game_state.params.vegetation_exageration,
+            WorldArtistParameters {
+                road_color: Color::new(0.5, 0.5, 0.5, 1.0),
+                river_color: Color::new(0.0, 0.0, 1.0, 1.0),
+                waterfall_color: Color::new(0.0, 0.75, 1.0, 1.0),
+                slab_size: 64,
+                vegetation_exageration: 100.0,
+                waterfall_gradient: game_state.params.avatar_travel.max_navigable_river_gradient,
+            },
         );
         self.world_artist = Some(world_artist);
         self.draw_all(game_state);

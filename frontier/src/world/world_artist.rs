@@ -22,13 +22,22 @@ impl Slab {
     }
 }
 
+pub struct WorldArtistParameters {
+    pub road_color: Color,
+    pub river_color: Color,
+    pub waterfall_color: Color,
+    pub slab_size: usize,
+    pub vegetation_exageration: f32,
+    pub waterfall_gradient: f32,
+}
+
 pub struct WorldArtist {
     width: usize,
     height: usize,
     drawing: TerrainDrawing,
     coloring: LayerColoring<WorldCell>,
-    slab_size: usize,
     vegetation_artist: VegetationArtist,
+    params: WorldArtistParameters,
 }
 
 struct RoadRiverPositionsResult {
@@ -41,18 +50,17 @@ impl WorldArtist {
     pub fn new(
         world: &World,
         coloring: LayerColoring<WorldCell>,
-        slab_size: usize,
-        vegetation_exageration: f32,
+        params: WorldArtistParameters,
     ) -> WorldArtist {
         let width = world.width();
         let height = world.height();
         WorldArtist {
             width,
             height,
-            drawing: TerrainDrawing::new("terrain".to_string(), width, height, slab_size),
-            slab_size,
+            drawing: TerrainDrawing::new("terrain".to_string(), width, height, params.slab_size),
             coloring,
-            vegetation_artist: VegetationArtist::new(vegetation_exageration),
+            vegetation_artist: VegetationArtist::new(params.vegetation_exageration),
+            params,
         }
     }
 
@@ -109,12 +117,10 @@ impl WorldArtist {
     }
 
     fn draw_slab_rivers_roads(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
-        let river_color = &Color::new(0.0, 0.0, 1.0, 1.0);
-        let road_color = &Color::new(0.5, 0.5, 0.5, 1.0);
         let from = &slab.from;
         let to = &slab.to();
         let result = self.get_road_river_positions(world, from, to);
-        let river_edges: Vec<Edge> = result
+        let (river_edges, waterfall_edges): (Vec<Edge>, Vec<Edge>) = result
             .river_positions
             .iter()
             .chain(result.suppressed_river_positions.iter())
@@ -125,7 +131,12 @@ impl WorldArtist {
                     .river
                     .get_edges_from(position)
             })
-            .collect();
+            .partition(|edge| {
+                world
+                    .get_rise(&edge.from(), &edge.to())
+                    .map(|rise| rise.abs() <= self.params.waterfall_gradient)
+                    .unwrap_or(true)
+            });
         let road_edges: Vec<Edge> = result
             .road_positions
             .iter()
@@ -142,28 +153,35 @@ impl WorldArtist {
             format!("{:?}-river-edges", slab.from),
             world,
             &river_edges,
-            &river_color,
+            &self.params.river_color,
+            world.sea_level(),
+        ));
+        out.append(&mut draw_edges(
+            format!("{:?}-waterfall-edges", slab.from),
+            world,
+            &waterfall_edges,
+            &self.params.waterfall_color,
             world.sea_level(),
         ));
         out.append(&mut draw_edges(
             format!("{:?}-road-edges", slab.from),
             world,
             &road_edges,
-            &road_color,
+            &self.params.road_color,
             world.sea_level(),
         ));
         out.append(&mut draw_nodes(
             format!("{:?}-river-positions", slab.from),
             world,
             &result.river_positions,
-            &river_color,
+            &self.params.river_color,
             world.sea_level(),
         ));
         out.append(&mut draw_nodes(
             format!("{:?}-road-positions", slab.from),
             world,
             &result.road_positions,
-            &road_color,
+            &self.params.road_color,
             world.sea_level(),
         ));
         out
@@ -187,7 +205,7 @@ impl WorldArtist {
         positions
             .iter()
             .flat_map(|position| world.expand_position(&position))
-            .map(|position| Slab::new(position, self.slab_size))
+            .map(|position| Slab::new(position, self.params.slab_size))
             .collect()
     }
 
@@ -197,10 +215,11 @@ impl WorldArtist {
 
     fn get_all_slabs(&self) -> HashSet<Slab> {
         let mut out = HashSet::new();
-        for x in 0..self.width / self.slab_size {
-            for y in 0..self.height / self.slab_size {
-                let from = v2(x * self.slab_size, y * self.slab_size);
-                out.insert(Slab::new(from, self.slab_size));
+        let slab_size = self.params.slab_size;
+        for x in 0..self.width / slab_size {
+            for y in 0..self.height / slab_size {
+                let from = v2(x * slab_size, y * slab_size);
+                out.insert(Slab::new(from, slab_size));
             }
         }
         out
