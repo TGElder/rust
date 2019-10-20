@@ -43,7 +43,7 @@ pub struct WorldGenParameters {
 impl Default for WorldGenParameters {
     fn default() -> WorldGenParameters {
         WorldGenParameters {
-            river_width_range: (0.01, 0.49),
+            river_width_range: (0.01, 0.5),
             latitude_range: (0.0, 50.0),
             cliff_gradient: 0.5,
             split_range: (0.0, 0.75),
