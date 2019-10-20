@@ -64,7 +64,7 @@ fn main() {
         "Frontier",
         1024,
         1024,
-        game_state.params.world_gen.max_height as f32,
+        game_state.params.world_gen.max_height as f32 + 1.0, // +1 for trees at top
     );
 
     let avatar_pathfinder = Pathfinder::new(
