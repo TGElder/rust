@@ -1,4 +1,5 @@
 use crate::avatar::*;
+use crate::road_builder::*;
 use crate::territory::*;
 use crate::world::*;
 use crate::world_gen::*;
@@ -13,6 +14,7 @@ use std::time::Duration;
 pub struct GameParams {
     pub world_gen: WorldGenParameters,
     pub avatar_travel: AvatarTravelParams,
+    pub auto_road_travel: AutoRoadTravelParams,
     pub starting_distance_from_shore: usize,
     pub light_direction: V3<f32>,
     pub vegetation_exageration: f32,
@@ -25,6 +27,7 @@ impl Default for GameParams {
         GameParams {
             world_gen: WorldGenParameters::default(),
             avatar_travel: AvatarTravelParams::default(),
+            auto_road_travel: AutoRoadTravelParams::default(),
             starting_distance_from_shore: 32,
             light_direction: v3(-1.0, 0.0, 1.0),
             vegetation_exageration: 100.0,

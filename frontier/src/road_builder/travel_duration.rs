@@ -4,19 +4,21 @@ use commons::edge::*;
 use commons::scale::*;
 use commons::*;
 use isometric::cell_traits::*;
+use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::time::Duration;
 
-pub struct AutoRoadTravelDurationParams {
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct AutoRoadTravelParams {
     max_gradient: f32,
     cost_at_level: f32,
     cost_at_max_gradient: f32,
     cost_on_existing_road: u64,
 }
 
-impl Default for AutoRoadTravelDurationParams {
-    fn default() -> AutoRoadTravelDurationParams {
-        AutoRoadTravelDurationParams {
+impl Default for AutoRoadTravelParams {
+    fn default() -> AutoRoadTravelParams {
+        AutoRoadTravelParams {
             max_gradient: 0.3,
             cost_at_level: 575.0,
             cost_at_max_gradient: 925.0,
@@ -38,7 +40,7 @@ impl AutoRoadTravelDuration {
         AutoRoadTravelDuration { off_road, road }
     }
 
-    pub fn from_params(params: AutoRoadTravelDurationParams) -> AutoRoadTravelDuration {
+    pub fn from_params(params: &AutoRoadTravelParams) -> AutoRoadTravelDuration {
         AutoRoadTravelDuration::new(
             GradientTravelDuration::boxed(
                 Scale::new(

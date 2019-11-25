@@ -77,7 +77,7 @@ fn main() {
 
     let road_pathfinder = Pathfinder::new(
         &game_state.world,
-        AutoRoadTravelDuration::from_params(AutoRoadTravelDurationParams::default()),
+        AutoRoadTravelDuration::from_params(&game_state.params.auto_road_travel),
     );
 
     let mut game = Game::new(game_state, &mut engine);
@@ -113,7 +113,7 @@ fn main() {
         game.command_tx(),
         avatar_pathfinder_service.command_tx(),
     ));
-    game.add_consumer(BasicRoadBuilder::new(road_pathfinder_service.command_tx()));
+    game.add_consumer(BasicRoadBuilder::new(game.command_tx()));
     game.add_consumer(PathfindingRoadBuilder::new(
         road_pathfinder_service.command_tx(),
     ));

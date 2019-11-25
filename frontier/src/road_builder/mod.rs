@@ -14,6 +14,10 @@ pub struct RoadBuilderResult {
 }
 
 impl RoadBuilderResult {
+    pub fn new(path: Vec<V2<usize>>, toggle: bool) -> RoadBuilderResult {
+        RoadBuilderResult { path, toggle }
+    }
+
     pub fn path(&self) -> &Vec<V2<usize>> {
         &self.path
     }
@@ -55,25 +59,6 @@ impl RoadBuilderResult {
             pathfinder.update_edge(world, &edge.to(), &edge.from());
         });
     }
-}
-
-pub fn build_road<T>(
-    from: V2<usize>,
-    to: V2<usize>,
-    pathfinder: &Pathfinder<T>,
-) -> Option<RoadBuilderResult>
-where
-    T: TravelDuration,
-{
-    if let Some(path) = pathfinder.find_path(&from, &to) {
-        if path.len() == 2 {
-            return Some(RoadBuilderResult {
-                path: vec![from, to],
-                toggle: true,
-            });
-        }
-    }
-    None
 }
 
 pub fn auto_build_road<T>(
@@ -223,58 +208,5 @@ mod tests {
     fn test_auto_build_road_impossible() {
         let pathfinder = pathfinder();
         assert_eq!(auto_build_road(v2(1, 0), v2(1, 0), &pathfinder), None);
-    }
-
-    #[test]
-    fn test_build_forward() {
-        let mut world = world();
-        let mut pathfinder = pathfinder();
-        assert_eq!(pathfinder.find_path(&v2(1, 0), &v2(0, 0)), None);
-        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
-        let result = build_road(v2(0, 0), v2(1, 0), &pathfinder).unwrap();
-        assert_eq!(
-            result,
-            RoadBuilderResult {
-                toggle: true,
-                path: vec![v2(0, 0), v2(1, 0)]
-            }
-        );
-        result.update_roads(&mut world);
-        result.update_pathfinder(&world, &mut pathfinder);
-        assert_eq!(
-            pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
-            Some(vec![v2(1, 0), v2(0, 0)])
-        );
-        assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
-    }
-
-    #[test]
-    fn test_build_forward_delete_road() {
-        let mut world = world();
-        world.toggle_road(&Edge::new(v2(0, 0), v2(1, 0)));
-        let mut pathfinder = Pathfinder::new(&world, TestDuration {});
-        assert_eq!(
-            pathfinder.find_path(&v2(1, 0), &v2(0, 0)),
-            Some(vec![v2(1, 0), v2(0, 0)])
-        );
-        assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
-        let result = build_road(v2(0, 0), v2(1, 0), &pathfinder).unwrap();
-        assert_eq!(
-            result,
-            RoadBuilderResult {
-                toggle: true,
-                path: vec![v2(0, 0), v2(1, 0)]
-            }
-        );
-        result.update_roads(&mut world);
-        result.update_pathfinder(&world, &mut pathfinder);
-        assert_eq!(pathfinder.find_path(&v2(1, 0), &v2(0, 0)), None);
-        assert!(!world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
-    }
-
-    #[test]
-    fn test_build_forward_impossible() {
-        let pathfinder = pathfinder();
-        assert_eq!(build_road(v2(1, 0), v2(3, 0), &pathfinder), None);
     }
 }
