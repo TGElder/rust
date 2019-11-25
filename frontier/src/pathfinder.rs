@@ -4,6 +4,7 @@ use commons::index2d::*;
 use commons::*;
 use network::Edge as NetworkEdge;
 use network::Network;
+use std::time::Duration;
 
 pub struct Pathfinder<T>
 where
@@ -119,6 +120,22 @@ where
                 self.update_edge(world, &other, position);
             }
         }
+    }
+
+    pub fn positions_within(&self, positions: &[V2<usize>], duration: Duration) -> Vec<V2<usize>> {
+        let indices: Vec<usize> = positions
+            .iter()
+            .flat_map(|position| self.get_network_index(position))
+            .collect();
+        let max_cost = self.travel_duration.get_cost_from_duration(duration);
+        self.network
+            .nodes_within(&indices, max_cost)
+            .iter()
+            .flat_map(|index| match self.get_position_from_network_index(*index) {
+                Ok(position) => Some(position),
+                _ => None,
+            })
+            .collect()
     }
 }
 
@@ -417,5 +434,13 @@ mod tests {
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(2, 0)),
             Some(NetworkEdge::new(1, 2, 64))
         );
+    }
+
+    #[test]
+    fn test_positions_within() {
+        let pathfinder = pathfinder();
+        let actual = pathfinder.positions_within(&[v2(0, 0)], Duration::from_millis(5));
+        let expected = vec![v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1), v2(0, 2)];
+        assert!(same_elements(&actual, &expected));
     }
 }

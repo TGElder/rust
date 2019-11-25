@@ -7,6 +7,7 @@ use isometric::coords::*;
 pub struct VisibilityHandler {
     command_tx: Sender<GameCommand>,
     visibility_computer: VisibilityComputer,
+    visited_matrix: Option<M<bool>>,
 }
 
 impl VisibilityHandler {
@@ -14,7 +15,15 @@ impl VisibilityHandler {
         VisibilityHandler {
             command_tx,
             visibility_computer: VisibilityComputer::default(),
+            visited_matrix: None,
         }
+    }
+
+    fn init(&mut self, game_state: &GameState) {
+        let world = &game_state.world;
+        let width = world.width();
+        let height = world.height();
+        self.visited_matrix = Some(M::from_element(width, height, false));
     }
 
     fn check_visibility(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
@@ -37,6 +46,13 @@ impl VisibilityHandler {
             .compute_world_coord(&game_state.world, &game_state.game_micros)
         {
             let position = v2(x.round() as usize, y.round() as usize);
+            if let Some(visited_matrix) = &mut self.visited_matrix {
+                if visited_matrix[(position.x, position.y)] {
+                    return;
+                } else {
+                    visited_matrix[(position.x, position.y)] = true;
+                }
+            }
             if let Some(cell) = game_state.world.get_cell(&position) {
                 if !cell.visited {
                     self.command_tx
@@ -50,8 +66,12 @@ impl VisibilityHandler {
 
 impl GameEventConsumer for VisibilityHandler {
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        if let GameEvent::CellsVisited(CellSelection::Some(cells)) = event {
-            self.check_visibility(game_state, cells);
+        match event {
+            GameEvent::Init => self.init(game_state),
+            GameEvent::CellsVisited(CellSelection::Some(cells)) => {
+                self.check_visibility(game_state, cells)
+            }
+            _ => (),
         }
         CaptureEvent::No
     }

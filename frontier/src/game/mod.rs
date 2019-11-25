@@ -8,22 +8,27 @@ pub use pathfinder_service::*;
 
 use crate::avatar::*;
 use crate::road_builder::*;
+use crate::territory::*;
 use crate::world::*;
 use commons::grid::Grid;
-use commons::V2;
+use commons::{M, V2};
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
+use std::collections::HashSet;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::time::Instant;
 
-#[derive(Debug)]
 pub enum CellSelection {
     All,
     Some(Vec<V2<usize>>),
 }
 
-#[derive(Debug)]
+pub struct TerritoryState {
+    controller: V2<usize>,
+    territory: HashSet<V2<usize>>,
+}
+
 pub enum GameEvent {
     Init,
     Save(String),
@@ -33,9 +38,9 @@ pub enum GameEvent {
     CellsRevealed(CellSelection),
     RoadsUpdated(RoadBuilderResult),
     HouseUpdated { position: V2<usize>, built: bool },
+    TerritoryChanged(Vec<TerritoryChange>),
 }
 
-#[derive(Debug)]
 pub enum GameCommand {
     Event(GameEvent),
     EngineCommands(Vec<Command>),
@@ -51,6 +56,7 @@ pub enum GameCommand {
         position: V2<usize>,
         build: bool,
     },
+    SetTerritory(Vec<TerritoryState>),
     FollowAvatar(bool),
     Shutdown,
 }
@@ -97,6 +103,10 @@ impl Game {
         out.add_consumer(ShutdownHandler::new(out.command_tx()));
 
         out
+    }
+
+    pub fn game_state(&self) -> &GameState {
+        &self.game_state
     }
 
     pub fn command_tx(&self) -> Sender<GameCommand> {
@@ -257,6 +267,20 @@ impl Game {
         }
     }
 
+    fn set_territory(&mut self, states: Vec<TerritoryState>) {
+        let mut changes = vec![];
+        for TerritoryState {
+            controller,
+            territory,
+        } in states
+        {
+            changes.append(&mut self.game_state.territory.control(controller, territory));
+        }
+        self.command_tx
+            .send(GameCommand::Event(GameEvent::TerritoryChanged(changes)))
+            .unwrap();
+    }
+
     pub fn run(&mut self) {
         loop {
             let command = self.command_rx.recv().unwrap();
@@ -290,6 +314,7 @@ impl Game {
                 }
                 GameCommand::UpdateHouse { position, build } => self.update_house(position, build),
                 GameCommand::FollowAvatar(follow_avatar) => self.set_follow_avatar(follow_avatar),
+                GameCommand::SetTerritory(states) => self.set_territory(states),
                 GameCommand::Shutdown => return,
             }
         }

@@ -5,6 +5,7 @@ mod label_editor;
 mod pathfinder;
 mod road_builder;
 mod shore_start;
+mod territory;
 mod travel_duration;
 mod visibility_computer;
 mod world;
@@ -15,6 +16,7 @@ use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::shore_start::*;
+use crate::territory::*;
 use crate::world_gen::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
@@ -31,6 +33,7 @@ fn new(size: usize, seed: u64) -> (GameState, Vec<GameEvent>) {
         rotation: shore_start.rotation(),
     };
     let game_state = GameState {
+        territory: Territory::new(&world),
         world,
         params,
         game_micros: 0,
@@ -74,7 +77,7 @@ fn main() {
 
     let road_pathfinder = Pathfinder::new(
         &game_state.world,
-        AutoRoadTravelDuration::from_params(AutoRoadTravelDurationParams::default()), //TODO should also be from params?
+        AutoRoadTravelDuration::from_params(AutoRoadTravelDurationParams::default()),
     );
 
     let mut game = Game::new(game_state, &mut engine);
@@ -96,6 +99,11 @@ fn main() {
     game.add_consumer(AvatarArtistHandler::new(game.command_tx()));
     game.add_consumer(HouseArtistHandler::new(game.command_tx()));
     game.add_consumer(VisibilityHandler::new(game.command_tx()));
+    game.add_consumer(TerritoryHandler::new(
+        game.command_tx(),
+        avatar_pathfinder_service.command_tx(),
+        game.game_state().params.territory_duration,
+    ));
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.command_tx()));

@@ -1,7 +1,10 @@
+mod coloring;
+
+use coloring::*;
+
 use super::*;
 use crate::world::*;
 use commons::*;
-use isometric::drawing::*;
 use isometric::Color;
 
 pub struct WorldArtistHandler {
@@ -20,12 +23,6 @@ impl WorldArtistHandler {
     fn init(&mut self, game_state: &GameState) {
         let world_artist = WorldArtist::new(
             &game_state.world,
-            Self::create_coloring(
-                &game_state.world,
-                game_state.params.light_direction,
-                game_state.params.world_gen.cliff_gradient,
-                game_state.params.world_gen.beach_level,
-            ),
             WorldArtistParameters {
                 road_color: Color::new(0.5, 0.5, 0.5, 1.0),
                 river_color: Color::new(0.0, 0.0, 1.0, 1.0),
@@ -41,40 +38,26 @@ impl WorldArtistHandler {
 
     fn draw_all(&mut self, game_state: &GameState) {
         if let Some(world_artist) = &mut self.world_artist {
-            let command = GameCommand::EngineCommands(world_artist.init(&game_state.world));
+            let command = GameCommand::EngineCommands(
+                world_artist.init(&game_state.world, &create_coloring(game_state)),
+            );
             self.command_tx.send(command).unwrap();
         }
     }
 
-    fn create_coloring(
-        world: &World,
-        light_direction: V3<f32>,
-        cliff_gradient: f32,
-        beach_level: f32,
-    ) -> LayerColoring<WorldCell> {
-        let snow_temperature = 0.0;
-        let mut out = LayerColoring::default();
-        out.add_layer(
-            "base".to_string(),
-            Box::new(DefaultColoring::new(
-                &world,
-                beach_level,
-                snow_temperature,
-                cliff_gradient,
-                light_direction,
-            )),
-            0,
-        );
-        out
-    }
-
     fn update_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
         if let Some(ref mut world_artist) = self.world_artist {
-            let commands = world_artist.draw_affected(&game_state.world, &cells);
+            let commands =
+                world_artist.draw_affected(&game_state.world, &create_coloring(game_state), &cells);
             self.command_tx
                 .send(GameCommand::EngineCommands(commands))
                 .unwrap();
         }
+    }
+
+    fn draw_territory(&mut self, game_state: &GameState, changes: &[TerritoryChange]) {
+        let affected: Vec<V2<usize>> = changes.iter().map(|change| change.position).collect();
+        self.update_cells(game_state, &affected);
     }
 }
 
@@ -89,6 +72,7 @@ impl GameEventConsumer for WorldArtistHandler {
                 };
             }
             GameEvent::RoadsUpdated(result) => self.update_cells(game_state, result.path()),
+            GameEvent::TerritoryChanged(changes) => self.draw_territory(game_state, changes),
             _ => (),
         }
         CaptureEvent::No

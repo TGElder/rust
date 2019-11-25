@@ -1,6 +1,7 @@
 use crate::{v2, V2};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Deserialize, Serialize)]
 pub struct Index2D {
     columns: usize,
     rows: usize,

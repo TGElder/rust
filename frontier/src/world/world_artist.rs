@@ -35,7 +35,6 @@ pub struct WorldArtist {
     width: usize,
     height: usize,
     drawing: TerrainDrawing,
-    coloring: LayerColoring<WorldCell>,
     vegetation_artist: VegetationArtist,
     params: WorldArtistParameters,
 }
@@ -47,18 +46,13 @@ struct RoadRiverPositionsResult {
 }
 
 impl WorldArtist {
-    pub fn new(
-        world: &World,
-        coloring: LayerColoring<WorldCell>,
-        params: WorldArtistParameters,
-    ) -> WorldArtist {
+    pub fn new(world: &World, params: WorldArtistParameters) -> WorldArtist {
         let width = world.width();
         let height = world.height();
         WorldArtist {
             width,
             height,
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, params.slab_size),
-            coloring,
             vegetation_artist: VegetationArtist::new(params.vegetation_exageration),
             params,
         }
@@ -68,18 +62,28 @@ impl WorldArtist {
         self.drawing.init()
     }
 
-    fn draw_slab(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
-        let mut out = self.draw_slab_tiles(world, slab);
+    fn draw_slab(
+        &mut self,
+        world: &World,
+        coloring: &dyn TerrainColoring<WorldCell>,
+        slab: &Slab,
+    ) -> Vec<Command> {
+        let mut out = self.draw_slab_tiles(world, coloring, slab);
         out.append(&mut self.draw_slab_rivers_roads(world, slab));
         out.append(&mut self.draw_slab_vegetation(world, slab));
         out
     }
 
-    fn draw_slab_tiles(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
+    fn draw_slab_tiles(
+        &mut self,
+        world: &World,
+        coloring: &dyn TerrainColoring<WorldCell>,
+        slab: &Slab,
+    ) -> Vec<Command> {
         let to = slab.to();
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
         self.drawing
-            .update(world, world.sea_level(), &self.coloring, slab.from, to)
+            .update(world, world.sea_level(), coloring, slab.from, to)
     }
 
     fn get_road_river_positions(
@@ -193,10 +197,15 @@ impl WorldArtist {
         self.vegetation_artist.draw(world, &slab.from, &to)
     }
 
-    fn draw_slabs(&mut self, world: &World, slabs: HashSet<Slab>) -> Vec<Command> {
+    fn draw_slabs(
+        &mut self,
+        world: &World,
+        coloring: &dyn TerrainColoring<WorldCell>,
+        slabs: HashSet<Slab>,
+    ) -> Vec<Command> {
         let mut out = vec![];
         for slab in slabs {
-            out.append(&mut self.draw_slab(world, &slab));
+            out.append(&mut self.draw_slab(world, coloring, &slab));
         }
         out
     }
@@ -209,8 +218,13 @@ impl WorldArtist {
             .collect()
     }
 
-    pub fn draw_affected(&mut self, world: &World, positions: &[V2<usize>]) -> Vec<Command> {
-        self.draw_slabs(world, self.get_affected_slabs(world, positions))
+    pub fn draw_affected(
+        &mut self,
+        world: &World,
+        coloring: &dyn TerrainColoring<WorldCell>,
+        positions: &[V2<usize>],
+    ) -> Vec<Command> {
+        self.draw_slabs(world, coloring, self.get_affected_slabs(&world, positions))
     }
 
     fn get_all_slabs(&self) -> HashSet<Slab> {
@@ -225,14 +239,22 @@ impl WorldArtist {
         out
     }
 
-    fn draw_all(&mut self, world: &World) -> Vec<Command> {
-        self.draw_slabs(world, self.get_all_slabs())
+    pub fn draw_all(
+        &mut self,
+        world: &World,
+        coloring: &dyn TerrainColoring<WorldCell>,
+    ) -> Vec<Command> {
+        self.draw_slabs(world, coloring, self.get_all_slabs())
     }
 
-    pub fn init(&mut self, world: &World) -> Vec<Command> {
+    pub fn init(
+        &mut self,
+        world: &World,
+        coloring: &dyn TerrainColoring<WorldCell>,
+    ) -> Vec<Command> {
         let mut out = vec![];
         out.append(&mut self.draw_terrain());
-        out.append(&mut self.draw_all(world));
+        out.append(&mut self.draw_all(world, coloring));
         out
     }
 }
@@ -256,116 +278,5 @@ mod tests {
     #[test]
     fn slab_to() {
         assert_eq!(Slab::new(v2(11, 33), 32).to(), v2(32, 64));
-    }
-}
-
-pub struct DefaultColoring {
-    coloring: ShadedTileTerrainColoring,
-}
-
-impl DefaultColoring {
-    pub fn new(
-        world: &World,
-        beach_level: f32,
-        snow_temperature: f32,
-        cliff_gradient: f32,
-        light_direction: V3<f32>,
-    ) -> DefaultColoring {
-        DefaultColoring {
-            coloring: ShadedTileTerrainColoring::new(
-                Self::get_colors(world, beach_level, snow_temperature, cliff_gradient),
-                Self::sea_color(),
-                world.sea_level(),
-                light_direction,
-            ),
-        }
-    }
-
-    fn sea_color() -> Color {
-        Color::new(0.0, 0.0, 1.0, 1.0)
-    }
-
-    fn cliff_color() -> Color {
-        Color::new(0.5, 0.4, 0.3, 1.0)
-    }
-
-    fn beach_color() -> Color {
-        Color::new(1.0, 1.0, 0.0, 1.0)
-    }
-
-    fn desert_color() -> Color {
-        Color::new(1.0, 0.8, 0.6, 1.0)
-    }
-
-    fn vegetation_color() -> Color {
-        Color::new(0.0, 1.0, 0.0, 1.0)
-    }
-
-    fn snow_color() -> Color {
-        Color::new(1.0, 1.0, 1.0, 1.0)
-    }
-
-    fn get_colors(
-        world: &World,
-        beach_level: f32,
-        snow_temperature: f32,
-        cliff_gradient: f32,
-    ) -> M<Color> {
-        let width = world.width();
-        let height = world.height();
-        M::from_fn(width - 1, height - 1, |x, y| {
-            Self::get_color(
-                world,
-                &v2(x, y),
-                beach_level,
-                snow_temperature,
-                cliff_gradient,
-            )
-        })
-    }
-
-    fn get_groundwater(world: &World, position: &V2<usize>) -> f32 {
-        world
-            .tile_average(&position, &|cell| {
-                if !world.is_sea(&cell.position) {
-                    Some(cell.climate.groundwater())
-                } else {
-                    None
-                }
-            })
-            .unwrap()
-    }
-
-    fn get_color(
-        world: &World,
-        position: &V2<usize>,
-        beach_level: f32,
-        snow_temperature: f32,
-        cliff_gradient: f32,
-    ) -> Color {
-        let max_gradient = world.get_max_abs_rise(&position);
-        let min_elevation = world.get_lowest_corner(&position);
-        let cell = world.get_cell_unsafe(position);
-        if max_gradient > cliff_gradient {
-            Self::cliff_color()
-        } else if cell.climate.temperature < snow_temperature {
-            Self::snow_color()
-        } else if min_elevation <= beach_level {
-            Self::beach_color()
-        } else {
-            let groundwater = Self::get_groundwater(&world, &position);
-            Self::vegetation_color().blend(groundwater, &Self::desert_color())
-        }
-    }
-}
-
-impl TerrainColoring<WorldCell> for DefaultColoring {
-    fn color(
-        &self,
-        world: &dyn Grid<WorldCell>,
-        tile: &V2<usize>,
-        triangle: &[V3<f32>; 3],
-    ) -> [Option<Color>; 3] {
-        self.coloring.color(world, tile, triangle)
     }
 }

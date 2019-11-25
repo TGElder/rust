@@ -237,7 +237,6 @@ impl Network {
             out
         }
 
-        let mut open = vec![false; self.nodes];
         let mut closed = vec![false; self.nodes];
         let mut edges = vec![None; self.nodes];
         let mut heap = BinaryHeap::new();
@@ -263,7 +262,6 @@ impl Network {
             if index == to {
                 return Some(get_path(from, to, &edges));
             }
-            open[index] = false;
             closed[index] = true;
             for edge in self.get_out(index) {
                 let neighbour = edge.to;
@@ -281,6 +279,59 @@ impl Network {
         }
 
         None
+    }
+
+    pub fn nodes_within(&self, start_nodes: &[usize], max_cost: u128) -> Vec<usize> {
+        #[derive(Eq, PartialEq)]
+        struct Node {
+            index: usize,
+            cost: u128,
+        }
+
+        impl Ord for Node {
+            fn cmp(&self, other: &Node) -> Ordering {
+                self.cost.cmp(&other.cost).reverse()
+            }
+        }
+
+        impl PartialOrd for Node {
+            fn partial_cmp(&self, other: &Node) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        let mut closed = vec![false; self.nodes];
+        let mut heap = BinaryHeap::new();
+        let mut out = vec![];
+        for node in start_nodes {
+            heap.push(Node {
+                index: *node,
+                cost: 0,
+            });
+        }
+
+        while let Some(Node { index, cost, .. }) = heap.pop() {
+            if cost > max_cost {
+                break;
+            }
+            if closed[index] {
+                continue;
+            }
+            closed[index] = true;
+            out.push(index);
+            for edge in self.get_out(index) {
+                let neighbour = edge.to;
+                if closed[neighbour] {
+                    continue;
+                }
+                heap.push(Node {
+                    index: neighbour,
+                    cost: cost + u128::from(edge.cost),
+                });
+            }
+        }
+
+        out
     }
 }
 
@@ -623,5 +674,33 @@ mod tests {
             Edge::new(9, 13, 1),
         ]);
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_nodes_within() {
+        let edges = vec![
+            Edge::new(0, 1, 1),
+            Edge::new(1, 2, 2),
+            Edge::new(0, 3, 10),
+            Edge::new(3, 4, 1),
+            Edge::new(0, 5, 1),
+            Edge::new(5, 6, 10),
+            Edge::new(0, 7, 1),
+            Edge::new(7, 8, 10),
+            Edge::new(0, 8, 2),
+        ];
+        let network = Network::new(9, &edges);
+        let actual = network.nodes_within(&[0], 10);
+        let expected = vec![0, 1, 2, 3, 5, 7, 8];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    fn test_nodes_within_multiple_start_nodes() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(2, 3, 1)];
+        let network = Network::new(4, &edges);
+        let actual = network.nodes_within(&[0, 2], 1);
+        let expected = vec![0, 1, 2, 3];
+        assert_that!(&actual, contains(expected).exactly());
     }
 }

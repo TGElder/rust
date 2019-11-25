@@ -11,6 +11,7 @@ mod pathfinding_avatar_controls;
 mod pathfinding_road_builder;
 mod rotation;
 mod save;
+mod territory;
 mod visibility_handler;
 mod world_artist;
 
@@ -28,5 +29,6 @@ pub use pathfinding_avatar_controls::*;
 pub use pathfinding_road_builder::*;
 pub use rotation::*;
 pub use save::*;
+pub use territory::*;
 pub use visibility_handler::*;
 pub use world_artist::*;

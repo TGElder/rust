@@ -1,4 +1,5 @@
 use crate::avatar::*;
+use crate::territory::*;
 use crate::world::*;
 use crate::world_gen::*;
 use commons::*;
@@ -6,6 +7,7 @@ use commons::*;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use std::time::Duration;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct GameParams {
@@ -14,6 +16,8 @@ pub struct GameParams {
     pub starting_distance_from_shore: usize,
     pub light_direction: V3<f32>,
     pub vegetation_exageration: f32,
+    pub snow_temperature: f32,
+    pub territory_duration: Duration,
 }
 
 impl Default for GameParams {
@@ -24,6 +28,8 @@ impl Default for GameParams {
             starting_distance_from_shore: 32,
             light_direction: v3(-1.0, 0.0, 1.0),
             vegetation_exageration: 100.0,
+            snow_temperature: 0.0,
+            territory_duration: Duration::from_secs(10),
         }
     }
 }
@@ -35,6 +41,7 @@ pub struct GameState {
     pub params: GameParams,
     pub avatar_state: AvatarState,
     pub follow_avatar: bool,
+    pub territory: Territory,
 }
 
 impl GameState {
@@ -61,6 +68,7 @@ mod tests {
             0.5,
         );
         let game_state = GameState {
+            territory: Territory::new(&world),
             world,
             game_micros: 123,
             params: GameParams::default(),
