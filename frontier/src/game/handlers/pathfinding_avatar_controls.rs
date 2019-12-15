@@ -40,11 +40,14 @@ impl PathfindingAvatarControls {
         }
     }
 
-    fn compute_from_and_start_at(game_state: &GameState) -> Option<(V2<usize>, u128)> {
-        match &game_state.avatar_state {
-            AvatarState::Stationary { position: from, .. } => Some((*from, game_state.game_micros)),
+    fn compute_from_and_start_at(
+        game_micros: &u128,
+        avatar_state: &AvatarState,
+    ) -> Option<(V2<usize>, u128)> {
+        match avatar_state {
+            AvatarState::Stationary { position: from, .. } => Some((*from, *game_micros)),
             AvatarState::Walking(path) => {
-                let path = path.stop(&game_state.game_micros);
+                let path = path.stop(&game_micros);
                 Some((*path.final_position(), *path.final_point_arrival()))
             }
             AvatarState::Absent => None,
@@ -53,33 +56,43 @@ impl PathfindingAvatarControls {
 
     fn walk_to(&mut self, game_state: &GameState) {
         if let Some(WorldCoord { x, y, .. }) = self.world_coord {
-            let to = v2(x.round() as usize, y.round() as usize);
-            let from_and_start_at = Self::compute_from_and_start_at(game_state);
-            if let Some((from, start_at)) = from_and_start_at {
-                self.stop(&game_state);
-                let function: Box<
-                    dyn Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send,
-                > = Box::new(move |pathfinder| {
-                    if let Some(positions) = pathfinder.find_path(&from, &to) {
-                        return vec![GameCommand::WalkPositions {
-                            positions,
-                            start_at,
-                        }];
-                    }
-                    vec![]
-                });
-                self.pathfinder_tx
-                    .send(PathfinderCommand::Use(function))
-                    .unwrap();
+            if let Some((name, avatar_state)) = game_state.selected_avatar_name_and_state() {
+                let name = name.to_string();
+                let to = v2(x.round() as usize, y.round() as usize);
+                if let Some((from, start_at)) =
+                    Self::compute_from_and_start_at(&game_state.game_micros, &avatar_state)
+                {
+                    self.stop(&game_state);
+                    let function: Box<
+                        dyn Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send,
+                    > = Box::new(move |pathfinder| {
+                        if let Some(positions) = pathfinder.find_path(&from, &to) {
+                            return vec![GameCommand::WalkPositions {
+                                name: name.clone(),
+                                positions,
+                                start_at,
+                            }];
+                        }
+                        vec![]
+                    });
+                    self.pathfinder_tx
+                        .send(PathfinderCommand::Use(function))
+                        .unwrap();
+                }
             }
         }
     }
 
     fn stop(&mut self, game_state: &GameState) {
-        if let Some(new_state) = game_state.avatar_state.stop(&game_state.game_micros) {
-            self.command_tx
-                .send(GameCommand::UpdateAvatar(new_state))
-                .unwrap();
+        if let Some((name, avatar_state)) = game_state.selected_avatar_name_and_state() {
+            if let Some(new_state) = avatar_state.stop(&game_state.game_micros) {
+                self.command_tx
+                    .send(GameCommand::UpdateAvatar {
+                        name: name.to_string(),
+                        new_state,
+                    })
+                    .unwrap();
+            }
         }
     }
 

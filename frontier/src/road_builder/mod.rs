@@ -101,6 +101,10 @@ mod tests {
             }
         }
 
+        fn min_duration(&self) -> Duration {
+            Duration::from_millis(1)
+        }
+
         fn max_duration(&self) -> Duration {
             Duration::from_millis(1)
         }

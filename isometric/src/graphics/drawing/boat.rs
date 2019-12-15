@@ -5,6 +5,8 @@ use color::Color;
 use commons::{na, v3, V3};
 use coords::*;
 
+const BOAT_FLOATS: usize = 270;
+
 pub struct DrawBoatParams {
     pub width: f32,
     pub side_height: f32,
@@ -13,6 +15,10 @@ pub struct DrawBoatParams {
     pub base_color: Color,
     pub sail_color: Color,
     pub light_direction: V3<f32>,
+}
+
+pub fn create_boat(name: String) -> Command {
+    Command::CreateDrawing(Drawing::plain(name, BOAT_FLOATS))
 }
 
 pub fn draw_boat(
@@ -89,12 +95,9 @@ pub fn draw_boat(
         &sail_coloring,
     ));
 
-    vec![
-        Command::CreateDrawing(Drawing::plain(name.to_string(), floats.len())),
-        Command::UpdateDrawing {
-            name: name.to_string(),
-            index: 0,
-            floats,
-        },
-    ]
+    vec![Command::UpdateDrawing {
+        name: name.to_string(),
+        index: 0,
+        floats,
+    }]
 }

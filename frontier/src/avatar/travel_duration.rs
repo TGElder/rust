@@ -155,6 +155,13 @@ impl TravelDuration for AvatarTravelDuration {
         None
     }
 
+    fn min_duration(&self) -> Duration {
+        self.walk
+            .min_duration()
+            .min(self.road.min_duration())
+            .min(self.river.min_duration())
+    }
+
     fn max_duration(&self) -> Duration {
         self.walk
             .max_duration()

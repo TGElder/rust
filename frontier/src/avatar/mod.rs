@@ -15,7 +15,7 @@ use isometric::coords::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Rotation {
     Left,
     Up,
@@ -57,6 +57,7 @@ pub enum AvatarState {
     Stationary {
         position: V2<usize>,
         rotation: Rotation,
+        thinking: bool,
     },
     Walking(Path),
     Absent,
@@ -76,16 +77,23 @@ impl AvatarState {
             AvatarState::Walking(ref path) if path.done(instant) => Some(AvatarState::Stationary {
                 position: *path.final_position(),
                 rotation: path.compute_final_rotation(),
+                thinking: false,
             }),
             _ => None,
         }
     }
 
     pub fn rotate_clockwise(&self) -> Option<AvatarState> {
-        if let AvatarState::Stationary { rotation, position } = self {
+        if let AvatarState::Stationary {
+            rotation,
+            position,
+            thinking,
+        } = self
+        {
             Some(AvatarState::Stationary {
                 rotation: rotation.clockwise(),
                 position: *position,
+                thinking: *thinking,
             })
         } else {
             None
@@ -93,10 +101,16 @@ impl AvatarState {
     }
 
     pub fn rotate_anticlockwise(&self) -> Option<AvatarState> {
-        if let AvatarState::Stationary { rotation, position } = self {
+        if let AvatarState::Stationary {
+            rotation,
+            position,
+            thinking,
+        } = self
+        {
             Some(AvatarState::Stationary {
                 rotation: rotation.anticlockwise(),
                 position: *position,
+                thinking: *thinking,
             })
         } else {
             None
@@ -107,6 +121,7 @@ impl AvatarState {
         if let AvatarState::Stationary {
             position: from,
             rotation,
+            ..
         } = self
         {
             let to = v2(
@@ -194,6 +209,10 @@ impl TravelDuration for TestTravelDuration {
         }
     }
 
+    fn min_duration(&self) -> Duration {
+        Duration::from_millis(0)
+    }
+
     fn max_duration(&self) -> Duration {
         self.max
     }
@@ -228,6 +247,7 @@ mod tests {
         let avatar = AvatarState::Stationary {
             position: v2(1, 1),
             rotation: Rotation::Up,
+            thinking: false,
         };
         assert_eq!(avatar.forward_path(), Some(vec![v2(1, 1), v2(1, 2)]));
         let avatar = avatar.rotate_clockwise().unwrap();
@@ -244,6 +264,7 @@ mod tests {
         let state = AvatarState::Stationary {
             position: v2(0, 0),
             rotation: Rotation::Up,
+            thinking: false,
         };
         let new_state = state.walk_positions(
             &world,
@@ -268,6 +289,7 @@ mod tests {
         let state = AvatarState::Stationary {
             position: v2(0, 0),
             rotation: Rotation::Up,
+            thinking: false,
         };
         let new_state = state.walk_positions(
             &world,
@@ -333,6 +355,7 @@ mod tests {
         let avatar = AvatarState::Stationary {
             position: v2(1, 1),
             rotation: Rotation::Up,
+            thinking: false,
         };
         assert_eq!(
             avatar.compute_world_coord(&world(), &0),
@@ -367,6 +390,7 @@ mod tests {
         let avatar = AvatarState::Stationary {
             position: v2(2, 1),
             rotation: Rotation::Up,
+            thinking: false,
         };
         assert_eq!(
             avatar.compute_world_coord(&world(), &0),

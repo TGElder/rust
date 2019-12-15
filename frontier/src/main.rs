@@ -23,21 +23,26 @@ use isometric::IsometricEngine;
 use std::env;
 use std::thread;
 
-fn new(size: usize, seed: u64) -> (GameState, Vec<GameEvent>) {
+fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) {
     let mut rng = rng(seed);
     let params = GameParams::default();
-    let world = generate_world(size, &mut rng, &params.world_gen);
-    let shore_start = shore_start(32, &world, &mut rng);
-    let avatar_state = AvatarState::Stationary {
-        position: shore_start.at(),
-        rotation: shore_start.rotation(),
-    };
+    let mut world = generate_world(size, &mut rng, &params.world_gen);
+    if reveal_all {
+        world.reveal_all();
+        world.visit_all();
+    }
+    let avatar_state = random_avatar_states(&world, &mut rng, 1)
+        .into_iter()
+        .enumerate()
+        .map(|(i, state)| (i.to_string(), state))
+        .collect();
     let game_state = GameState {
         territory: Territory::new(&world),
         world,
         params,
         game_micros: 0,
         avatar_state,
+        selected_avatar: Some("0".to_string()),
         follow_avatar: true,
     };
     let init_events = vec![GameEvent::Init];
@@ -53,10 +58,11 @@ fn load(path: &str) -> (GameState, Vec<GameEvent>) {
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let (game_state, init_events) = if args.len() == 3 {
+    let (game_state, init_events) = if args.len() > 2 {
         let size = args[1].parse().unwrap();
         let seed = args[2].parse().unwrap();
-        new(size, seed)
+        let reveal_all = args.contains(&"-r".to_string());
+        new(size, seed, reveal_all)
     } else if args.len() == 2 {
         load(&args[1])
     } else {
@@ -119,11 +125,16 @@ fn main() {
     ));
     game.add_consumer(HouseBuilderHandler::new(game.command_tx()));
     game.add_consumer(Cheats::new(game.command_tx()));
+    game.add_consumer(PrimeMover::new(
+        game.command_tx(),
+        avatar_pathfinder_service.command_tx(),
+    ));
     game.add_consumer(Save::new(game.command_tx()));
 
     game.add_consumer(FollowAvatar::new(game.command_tx()));
     game.add_consumer(avatar_pathfinder_service);
     game.add_consumer(road_pathfinder_service);
+    game.add_consumer(SelectAvatar::new(game.command_tx()));
 
     let game_handle = thread::spawn(move || game.run());
     engine.run();

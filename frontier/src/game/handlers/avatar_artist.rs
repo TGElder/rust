@@ -17,17 +17,22 @@ impl AvatarArtistHandler {
     }
 
     fn init(&mut self, game_state: &GameState) {
-        self.avatar_artist = Some(AvatarArtist::new(&game_state.params.light_direction));
+        self.init_avatar_artist(game_state);
         self.travel_mode_fn = Some(TravelModeFn::new(
             game_state.params.avatar_travel.min_navigable_river_width,
         ));
     }
 
-    fn draw_avatar(&mut self, game_state: &GameState) {
+    fn init_avatar_artist(&mut self, game_state: &GameState) {
+        let avatar_artist = AvatarArtist::new(&game_state.params.light_direction);
+        self.avatar_artist = Some(avatar_artist);
+    }
+
+    fn draw_avatars(&mut self, game_state: &GameState) {
         if let (Some(avatar_artist), Some(travel_mode_fn)) =
-            (&self.avatar_artist, &self.travel_mode_fn)
+            (&mut self.avatar_artist, &self.travel_mode_fn)
         {
-            let draw = avatar_artist.draw(
+            let draw = avatar_artist.draw_avatars(
                 &game_state.avatar_state,
                 &game_state.world,
                 &game_state.game_micros,
@@ -50,7 +55,7 @@ impl GameEventConsumer for AvatarArtistHandler {
 
     fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent {
         if let Event::Tick = *event {
-            self.draw_avatar(game_state);
+            self.draw_avatars(game_state);
         }
         CaptureEvent::No
     }

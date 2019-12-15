@@ -20,6 +20,10 @@ impl TravelDuration for ConstantTravelDuration {
         Some(self.duration)
     }
 
+    fn min_duration(&self) -> Duration {
+        self.duration
+    }
+
     fn max_duration(&self) -> Duration {
         self.duration
     }

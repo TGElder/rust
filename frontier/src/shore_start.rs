@@ -1,4 +1,4 @@
-use crate::avatar::Rotation;
+use crate::avatar::*;
 use crate::world::*;
 use commons::*;
 use rand::prelude::*;
@@ -88,14 +88,34 @@ fn get_candidates(distance: i64, world: &World) -> Vec<ShoreStart> {
     out
 }
 
-pub fn shore_start<R: Rng>(distance: i64, world: &World, rng: &mut R) -> ShoreStart {
-    get_candidates(distance, world)
-        .choose(rng)
-        .expect("No suitable starting position!")
-        .clone()
+fn shore_starts<R: Rng>(
+    distance: i64,
+    world: &World,
+    rng: &mut R,
+    amount: usize,
+) -> Vec<ShoreStart> {
+    let candidates = get_candidates(distance, world);
+    (0..amount)
+        .map(|_| {
+            *candidates
+                .choose(rng)
+                .expect("No suitable starting position!")
+        })
+        .collect()
 }
 
-#[derive(Debug, PartialEq, Clone)]
+pub fn random_avatar_states<R: Rng>(world: &World, rng: &mut R, amount: usize) -> Vec<AvatarState> {
+    shore_starts(32, &world, rng, amount)
+        .iter()
+        .map(|shore_start| AvatarState::Stationary {
+            position: shore_start.at(),
+            rotation: shore_start.rotation(),
+            thinking: false,
+        })
+        .collect()
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ShoreStart {
     at: V2<usize>,
     landfall: V2<usize>,

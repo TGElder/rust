@@ -83,8 +83,12 @@ impl TravelDuration for AutoRoadTravelDuration {
         }
     }
 
+    fn min_duration(&self) -> Duration {
+        self.off_road.min_duration().min(self.road.min_duration())
+    }
+
     fn max_duration(&self) -> Duration {
-        Duration::from_millis(1000)
+        self.off_road.max_duration().max(self.road.max_duration())
     }
 }
 
@@ -291,5 +295,21 @@ mod tests {
         world.mut_cell_unsafe(&v2(0, 0)).visible = true;
 
         assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), Some(off_road_travel_duration().max_duration()));
+    }
+
+    #[test]
+    fn min_duration() {
+        assert_eq!(
+            auto_road_travel_duration().min_duration(),
+            Duration::from_millis(10)
+        );
+    }
+
+    #[test]
+    fn max_duration() {
+        assert_eq!(
+            auto_road_travel_duration().max_duration(),
+            Duration::from_millis(1000)
+        );
     }
 }

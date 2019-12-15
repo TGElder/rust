@@ -41,9 +41,14 @@ impl VisibilityHandler {
     }
 
     fn check_visited(&mut self, game_state: &GameState) {
-        if let Some(WorldCoord { x, y, .. }) = game_state
-            .avatar_state
-            .compute_world_coord(&game_state.world, &game_state.game_micros)
+        for (_, avatar_state) in game_state.avatar_state.iter() {
+            self.check_visited_for_avatar(avatar_state, game_state);
+        }
+    }
+
+    fn check_visited_for_avatar(&mut self, avatar_state: &AvatarState, game_state: &GameState) {
+        if let Some(WorldCoord { x, y, .. }) =
+            avatar_state.compute_world_coord(&game_state.world, &game_state.game_micros)
         {
             let position = v2(x.round() as usize, y.round() as usize);
             if let Some(visited_matrix) = &mut self.visited_matrix {

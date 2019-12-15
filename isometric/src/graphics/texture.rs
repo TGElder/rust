@@ -25,6 +25,10 @@ impl Texture {
         }
     }
 
+    pub fn id(&self) -> &gl::types::GLuint {
+        &self.id
+    }
+
     pub fn width(&self) -> u32 {
         self.width
     }

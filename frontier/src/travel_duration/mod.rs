@@ -11,6 +11,7 @@ use std::time::Duration;
 
 pub trait TravelDuration: Send + Sync {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration>;
+    fn min_duration(&self) -> Duration;
     fn max_duration(&self) -> Duration;
     fn get_cost_from_duration(&self, duration: Duration) -> u128 {
         let scale = Scale::<f32>::new(
@@ -63,6 +64,10 @@ mod tests {
     impl TravelDuration for TestDuration {
         fn get_duration(&self, _: &World, _: &V2<usize>, _: &V2<usize>) -> Option<Duration> {
             Some(Duration::from_millis(self.millis))
+        }
+
+        fn min_duration(&self) -> Duration {
+            Duration::from_millis(0)
         }
 
         fn max_duration(&self) -> Duration {

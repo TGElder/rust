@@ -13,6 +13,7 @@ use coords::*;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ffi::c_void;
+use std::iter::FromIterator;
 use std::sync::Arc;
 use transform::{Isometric, Transform};
 
@@ -24,6 +25,7 @@ pub struct Drawing {
     max_floats_per_index: usize,
     texture: Option<String>,
     visibility_check_coord: Option<WorldCoord>,
+    visible: bool,
 }
 
 impl Drawing {
@@ -35,6 +37,7 @@ impl Drawing {
             max_floats_per_index: floats,
             texture: None,
             visibility_check_coord: None,
+            visible: true,
         }
     }
 
@@ -46,6 +49,7 @@ impl Drawing {
             max_floats_per_index: floats,
             texture: Some(texture),
             visibility_check_coord: None,
+            visible: true,
         }
     }
 
@@ -62,6 +66,7 @@ impl Drawing {
             max_floats_per_index: floats,
             texture: Some(font.texture().clone()),
             visibility_check_coord: Some(visibility_check_coord),
+            visible: true,
         }
     }
 
@@ -73,6 +78,7 @@ impl Drawing {
             max_floats_per_index,
             texture: None,
             visibility_check_coord: None,
+            visible: true,
         }
     }
 }
@@ -104,15 +110,11 @@ impl GLDrawing {
     }
 
     pub fn draw(&self) {
-        unsafe {
-            self.texture.iter().for_each(|texture| texture.bind());
-            self.buffer.draw();
-            self.texture.iter().for_each(|texture| texture.unbind());
-        }
+        self.buffer.draw();
     }
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum DrawingType {
     Plain,
     Text,
@@ -185,6 +187,15 @@ impl GraphicsEngine {
         &mut self.transform
     }
 
+    fn compute_draw_order(&self, drawing_type: DrawingType) -> Vec<&GLDrawing> {
+        let mut out =
+            Vec::from_iter(self.drawings.values().filter(|d| {
+                d.drawing.drawing_type == drawing_type && self.should_draw(&d.drawing)
+            }));
+        out.sort_by_key(|gl_drawing| gl_drawing.texture.as_ref().map(|texture| texture.id()));
+        out
+    }
+
     pub fn add_drawing(&mut self, drawing: Drawing) {
         self.drawings.insert(
             drawing.name.clone(),
@@ -193,11 +204,17 @@ impl GraphicsEngine {
     }
 
     pub fn update_drawing(&mut self, name: String, index: usize, vertices: Vec<f32>) {
-        self.drawings.get_mut(&name).unwrap().load(index, vertices);
+        let mut gl_drawing = self.drawings.get_mut(&name).unwrap();
+        gl_drawing.load(index, vertices);
+        gl_drawing.drawing.visible = true;
     }
 
     pub fn remove_drawing(&mut self, name: &str) {
         self.drawings.remove(name);
+    }
+
+    pub fn set_drawing_visibility(&mut self, name: String, visible: bool) {
+        self.drawings.get_mut(&name).unwrap().drawing.visible = visible;
     }
 
     fn get_pixel_to_screen(&self) -> na::Matrix2<f32> {
@@ -252,19 +269,35 @@ impl GraphicsEngine {
         self.draw(2);
     }
 
+    fn textures_are_different(a: &Option<Arc<Texture>>, b: &Option<Arc<Texture>>) -> bool {
+        let a_id = a.as_ref().map(|texture| texture.id());
+        let b_id = b.as_ref().map(|texture| texture.id());
+        a_id != b_id
+    }
+
+    fn change_bound_texture(old: &Option<Arc<Texture>>, new: &Option<Arc<Texture>>) {
+        unsafe {
+            old.iter().for_each(|texture| texture.unbind());
+            new.iter().for_each(|texture| texture.bind());
+        }
+    }
+
     fn draw(&mut self, program: usize) {
         let program = &self.programs[program];
         self.transform.compute_transformation_matrix();
         program.set_used();
         self.prepare_program(program);
-        for gl_drawing in self
-            .drawings
-            .values()
-            .filter(|d| self.should_draw(&d.drawing))
-        {
-            if gl_drawing.drawing.drawing_type == program.drawing_type {
-                gl_drawing.draw();
+        let mut current_texture: &Option<Arc<Texture>> = &None;
+        for gl_drawing in self.compute_draw_order(program.drawing_type) {
+            let new_texture = &gl_drawing.texture;
+            if Self::textures_are_different(current_texture, new_texture) {
+                Self::change_bound_texture(current_texture, new_texture);
+                current_texture = new_texture;
             }
+            gl_drawing.draw();
+        }
+        unsafe {
+            current_texture.iter().for_each(|texture| texture.unbind());
         }
     }
 
@@ -289,6 +322,9 @@ impl GraphicsEngine {
     }
 
     fn should_draw(&self, drawing: &Drawing) -> bool {
+        if !drawing.visible {
+            return false;
+        }
         if let Some(visibility_check_coord) = drawing.visibility_check_coord {
             self.is_visible(&visibility_check_coord)
         } else {

@@ -42,6 +42,10 @@ impl TravelDuration for GradientTravelDuration {
         })
     }
 
+    fn min_duration(&self) -> Duration {
+        Duration::from_millis(self.rise_to_millis.out_range().0 as u64)
+    }
+
     fn max_duration(&self) -> Duration {
         Duration::from_millis(self.rise_to_millis.out_range().1 as u64)
     }
@@ -90,6 +94,14 @@ mod tests {
         assert_eq!(
             gradient_travel_duration(true).get_duration(&world(), &v2(1, 2), &v2(1, 1)),
             Some(Duration::from_millis(85))
+        );
+    }
+
+    #[test]
+    fn min_duration() {
+        assert_eq!(
+            gradient_travel_duration(true).min_duration(),
+            Duration::from_millis(10)
         );
     }
 

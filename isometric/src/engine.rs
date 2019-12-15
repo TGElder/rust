@@ -54,6 +54,10 @@ pub enum Command {
         floats: Vec<f32>,
         index: usize,
     },
+    SetDrawingVisibility {
+        name: String,
+        visible: bool,
+    },
     Erase(String),
     LookAt(Option<WorldCoord>),
 }
@@ -222,6 +226,9 @@ impl IsometricEngine {
                 index,
                 floats,
             } => self.graphics.update_drawing(name, index, floats),
+            Command::SetDrawingVisibility { name, visible } => {
+                self.graphics.set_drawing_visibility(name, visible)
+            }
             Command::Erase(name) => self.graphics.remove_drawing(&name),
             Command::LookAt(look_at) => self.look_at = look_at,
         }

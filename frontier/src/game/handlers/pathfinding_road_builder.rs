@@ -23,8 +23,11 @@ impl PathfindingRoadBuilder {
     }
 
     fn walk_forward(&mut self, game_state: &GameState) {
-        if let AvatarState::Stationary { position: from, .. } = game_state.avatar_state {
+        if let Some((_, AvatarState::Stationary { position: from, .. })) =
+            game_state.selected_avatar_name_and_state()
+        {
             if let Some(WorldCoord { x, y, .. }) = self.world_coord {
+                let from = *from;
                 let to = v2(x.round() as usize, y.round() as usize);
                 let function: Box<
                     dyn Fn(&Pathfinder<AutoRoadTravelDuration>) -> Vec<GameCommand> + Send,

@@ -43,21 +43,26 @@ impl BasicAvatarControls {
 
     fn walk_forward(&mut self, game_state: &GameState) {
         if let Some(travel_duration) = &self.travel_duration {
-            if let Some(path) = game_state.avatar_state.forward_path() {
-                let start_at = game_state.game_micros;
-                if travel_duration
-                    .get_duration(&game_state.world, &path[0], &path[1])
-                    .is_some()
-                {
-                    if let Some(new_state) = game_state.avatar_state.walk_positions(
-                        &game_state.world,
-                        path,
-                        travel_duration,
-                        start_at,
-                    ) {
-                        self.command_tx
-                            .send(GameCommand::UpdateAvatar(new_state))
-                            .unwrap();
+            if let Some((name, avatar_state)) = &game_state.selected_avatar_name_and_state() {
+                if let Some(path) = avatar_state.forward_path() {
+                    let start_at = game_state.game_micros;
+                    if travel_duration
+                        .get_duration(&game_state.world, &path[0], &path[1])
+                        .is_some()
+                    {
+                        if let Some(new_state) = avatar_state.walk_positions(
+                            &game_state.world,
+                            path,
+                            travel_duration,
+                            start_at,
+                        ) {
+                            self.command_tx
+                                .send(GameCommand::UpdateAvatar {
+                                    name: name.to_string(),
+                                    new_state,
+                                })
+                                .unwrap();
+                        }
                     }
                 }
             }
@@ -65,18 +70,28 @@ impl BasicAvatarControls {
     }
 
     fn rotate_clockwise(&mut self, game_state: &GameState) {
-        if let Some(new_state) = game_state.avatar_state.rotate_clockwise() {
-            self.command_tx
-                .send(GameCommand::UpdateAvatar(new_state))
-                .unwrap();
+        if let Some((name, avatar_state)) = &game_state.selected_avatar_name_and_state() {
+            if let Some(new_state) = avatar_state.rotate_clockwise() {
+                self.command_tx
+                    .send(GameCommand::UpdateAvatar {
+                        name: name.to_string(),
+                        new_state,
+                    })
+                    .unwrap();
+            }
         }
     }
 
     fn rotate_anticlockwise(&mut self, game_state: &GameState) {
-        if let Some(new_state) = game_state.avatar_state.rotate_anticlockwise() {
-            self.command_tx
-                .send(GameCommand::UpdateAvatar(new_state))
-                .unwrap();
+        if let Some((name, avatar_state)) = &game_state.selected_avatar_name_and_state() {
+            if let Some(new_state) = avatar_state.rotate_anticlockwise() {
+                self.command_tx
+                    .send(GameCommand::UpdateAvatar {
+                        name: name.to_string(),
+                        new_state,
+                    })
+                    .unwrap();
+            }
         }
     }
 }

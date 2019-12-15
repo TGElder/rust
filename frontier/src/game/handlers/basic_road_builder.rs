@@ -27,24 +27,27 @@ impl BasicRoadBuilder {
 
     fn build_road(&mut self, game_state: &GameState) {
         if let Some(travel_duration) = &self.travel_duration {
-            if let Some(path) = game_state.avatar_state.forward_path() {
-                if travel_duration
-                    .get_duration(&game_state.world, &path[0], &path[1])
-                    .is_some()
-                {
-                    let edge = Edge::new(path[0], path[1]);
-                    let toggle = game_state.world.is_road(&edge);
-                    let result = RoadBuilderResult::new(vec![path[0], path[1]], toggle);
-                    self.command_tx
-                        .send(GameCommand::UpdateRoads(result))
-                        .unwrap();
-                    let start_at = game_state.game_micros;
-                    self.command_tx
-                        .send(GameCommand::WalkPositions {
-                            positions: path,
-                            start_at,
-                        })
-                        .unwrap();
+            if let Some((name, avatar_state)) = &game_state.selected_avatar_name_and_state() {
+                if let Some(path) = avatar_state.forward_path() {
+                    if travel_duration
+                        .get_duration(&game_state.world, &path[0], &path[1])
+                        .is_some()
+                    {
+                        let edge = Edge::new(path[0], path[1]);
+                        let toggle = game_state.world.is_road(&edge);
+                        let result = RoadBuilderResult::new(vec![path[0], path[1]], toggle);
+                        self.command_tx
+                            .send(GameCommand::UpdateRoads(result))
+                            .unwrap();
+                        let start_at = game_state.game_micros;
+                        self.command_tx
+                            .send(GameCommand::WalkPositions {
+                                name: name.to_string(),
+                                positions: path,
+                                start_at,
+                            })
+                            .unwrap();
+                    }
                 }
             }
         }

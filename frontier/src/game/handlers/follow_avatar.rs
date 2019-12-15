@@ -16,15 +16,16 @@ impl FollowAvatar {
 
     fn follow(&mut self, game_state: &GameState) {
         if game_state.follow_avatar {
-            if let Some(world_coord) = game_state
-                .avatar_state
-                .compute_world_coord(&game_state.world, &game_state.game_micros)
-            {
-                self.command_tx
-                    .send(GameCommand::EngineCommands(vec![Command::LookAt(Some(
-                        world_coord,
-                    ))]))
-                    .unwrap();
+            if let Some((_, avatar_state)) = game_state.selected_avatar_name_and_state() {
+                if let Some(world_coord) =
+                    avatar_state.compute_world_coord(&game_state.world, &game_state.game_micros)
+                {
+                    self.command_tx
+                        .send(GameCommand::EngineCommands(vec![Command::LookAt(Some(
+                            world_coord,
+                        ))]))
+                        .unwrap();
+                }
             }
         } else {
             self.command_tx

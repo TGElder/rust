@@ -2,13 +2,41 @@ use super::*;
 use crate::world::World;
 use commons::{na, v3, V3};
 use isometric::coords::*;
-use isometric::drawing::{draw_billboard, draw_boat, DrawBoatParams};
+use isometric::drawing::{
+    create_billboard, create_boat, draw_boat, update_billboard, DrawBoatParams,
+};
 use isometric::Color;
 use isometric::Command;
+use std::collections::HashMap;
+use std::iter::once;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AvatarDrawState {
+    Stationary {
+        position: V2<usize>,
+        rotation: Rotation,
+    },
+    Moving,
+    Absent,
+}
+
+fn avatar_draw_state(state: &AvatarState) -> AvatarDrawState {
+    match state {
+        AvatarState::Stationary {
+            position, rotation, ..
+        } => AvatarDrawState::Stationary {
+            position: *position,
+            rotation: *rotation,
+        },
+        AvatarState::Absent => AvatarDrawState::Absent,
+        AvatarState::Walking(..) => AvatarDrawState::Moving,
+    }
+}
 
 pub struct AvatarArtist {
     params: AvatarArtistParams,
     body_parts: Vec<BodyPart>,
+    last_draw_state: HashMap<String, AvatarDrawState>,
 }
 
 pub struct AvatarArtistParams {
@@ -39,6 +67,18 @@ struct BodyPart {
     texture: String,
     texture_width: usize,
     texture_height: usize,
+}
+
+fn drawing_name(name: &str, part: &str) -> String {
+    format!("avatar-{}-{}", name.to_string(), part)
+}
+
+fn part_drawing_name(name: &str, part: &BodyPart) -> String {
+    drawing_name(name, &part.handle)
+}
+
+fn boat_drawing_name(name: &str) -> String {
+    drawing_name(name, "boat")
 }
 
 impl AvatarArtist {
@@ -89,12 +129,75 @@ impl AvatarArtist {
                     texture_height: 32,
                 },
             ],
+            last_draw_state: HashMap::new(),
         }
     }
 
+    pub fn init(&self, name: &str) -> Vec<Command> {
+        self.body_parts
+            .iter()
+            .map(move |part| create_billboard(part_drawing_name(&name, &part), &part.texture))
+            .chain(once(create_boat(boat_drawing_name(&name))))
+            .collect()
+    }
+
+    pub fn draw_avatars(
+        &mut self,
+        avatars: &HashMap<String, AvatarState>,
+        world: &World,
+        instant: &u128,
+        travel_mode_fn: &TravelModeFn,
+    ) -> Vec<Command> {
+        avatars
+            .iter()
+            .flat_map(|(name, state)| {
+                self.draw_avatar(&name, state, world, instant, travel_mode_fn)
+            })
+            .collect()
+    }
+
+    fn draw_avatar(
+        &mut self,
+        name: &str,
+        state: &AvatarState,
+        world: &World,
+        instant: &u128,
+        travel_mode_fn: &TravelModeFn,
+    ) -> Vec<Command> {
+        let mut out = vec![];
+
+        let new_draw_state = avatar_draw_state(&state);
+        let last_draw_state = self.last_draw_state.get(name);
+        if let Some(last_draw_state) = last_draw_state {
+            if !Self::should_redraw_avatar(&last_draw_state, &new_draw_state) {
+                return vec![];
+            }
+        } else {
+            out.append(&mut self.init(name));
+        }
+        self.last_draw_state
+            .insert(name.to_string(), new_draw_state);
+
+        if let Some(world_coord) = state.compute_world_coord(world, instant) {
+            out.append(&mut self.draw_body(&name, state, instant, world_coord));
+            out.append(&mut self.draw_boat_if_required(
+                &name,
+                state,
+                world,
+                world_coord,
+                instant,
+                travel_mode_fn,
+            ));
+        } else {
+            out.append(&mut self.hide_body(name));
+            out.append(&mut self.hide_boat(name));
+        }
+        out
+    }
+
     #[rustfmt::skip]
-    fn get_rotation_matrix(avatar: &AvatarState, instant: &u128) -> na::Matrix3<f32> {
-        let rotation = avatar.rotation(instant).unwrap_or(Rotation::Up);
+    fn get_rotation_matrix(state: &AvatarState, instant: &u128) -> na::Matrix3<f32> {
+        let rotation = state.rotation(instant).unwrap_or(Rotation::Up);
         let cos = rotation.angle().cos();
         let sin = rotation.angle().sin();
         na::Matrix3::from_vec(vec![
@@ -104,14 +207,42 @@ impl AvatarArtist {
         ])
     }
 
-    fn draw_billboard_at_offset(
+    fn should_redraw_avatar(
+        last_draw_state: &AvatarDrawState,
+        new_draw_state: &AvatarDrawState,
+    ) -> bool {
+        if let AvatarDrawState::Moving = new_draw_state {
+            true
+        } else {
+            last_draw_state != new_draw_state
+        }
+    }
+
+    fn draw_body(
         &self,
-        avatar: &AvatarState,
+        name: &str,
+        state: &AvatarState,
+        instant: &u128,
+        world_coord: WorldCoord,
+    ) -> Vec<Command> {
+        self.body_parts
+            .iter()
+            .flat_map(|part| {
+                self.draw_part_at_offset(&name, state, instant, world_coord, part)
+                    .into_iter()
+            })
+            .collect()
+    }
+
+    fn draw_part_at_offset(
+        &self,
+        name: &str,
+        state: &AvatarState,
         instant: &u128,
         world_coord: WorldCoord,
         part: &BodyPart,
     ) -> Vec<Command> {
-        let offset = AvatarArtist::get_rotation_matrix(avatar, instant) * part.offset
+        let offset = AvatarArtist::get_rotation_matrix(state, instant) * part.offset
             / self.params.pixels_per_cell;
         let world_coord = WorldCoord::new(
             world_coord.x + offset.x,
@@ -120,74 +251,86 @@ impl AvatarArtist {
         );
         let width = (part.texture_width as f32) / self.params.pixels_per_cell;
         let height = (part.texture_height as f32) / self.params.pixels_per_cell;
-        draw_billboard(
-            part.handle.clone(),
-            world_coord,
-            width,
-            height,
-            &part.texture,
-        )
+        update_billboard(part_drawing_name(&name, &part), world_coord, width, height)
     }
 
-    pub fn draw(
-        &self,
-        avatar: &AvatarState,
-        world: &World,
-        instant: &u128,
-        travel_mode_fn: &TravelModeFn,
-    ) -> Vec<Command> {
-        let mut out = self.draw_boat_if_required(avatar, world, instant, travel_mode_fn);
-        if let Some(world_coord) = avatar.compute_world_coord(world, instant) {
-            for part in self.body_parts.iter() {
-                out.append(&mut self.draw_billboard_at_offset(avatar, instant, world_coord, part));
-            }
+    fn hide_part(&self, name: &str, part: &BodyPart) -> Command {
+        Command::SetDrawingVisibility {
+            name: part_drawing_name(name, part),
+            visible: false,
         }
-        out
+    }
+
+    fn hide_body(&self, name: &str) -> Vec<Command> {
+        self.body_parts
+            .iter()
+            .map(|part| self.hide_part(name, part))
+            .collect()
     }
 
     fn draw_boat_if_required(
         &self,
-        avatar: &AvatarState,
+        name: &str,
+        state: &AvatarState,
         world: &World,
+        world_coord: WorldCoord,
         instant: &u128,
         travel_mode_fn: &TravelModeFn,
     ) -> Vec<Command> {
-        if let Some(world_coord) = avatar.compute_world_coord(world, instant) {
-            let travel_mode = match avatar {
-                AvatarState::Walking { .. } => {
-                    let from = v2(
-                        world_coord.x.floor() as usize,
-                        world_coord.y.floor() as usize,
-                    );
-                    let to = v2(world_coord.x.ceil() as usize, world_coord.y.ceil() as usize);
-                    travel_mode_fn.travel_mode_between(world, &from, &to)
-                }
-                AvatarState::Stationary { position, .. } => {
-                    travel_mode_fn.travel_mode_here(world, &position)
-                }
-                _ => None,
-            };
-            match travel_mode {
-                Some(TravelMode::Sea) => self.draw_boat(avatar, world_coord, instant),
-                Some(TravelMode::River) => self.draw_boat(avatar, world_coord, instant),
-                _ => vec![],
-            }
+        if self.should_draw_boat(state, world, world_coord, travel_mode_fn) {
+            self.draw_boat(name, state, world_coord, instant)
         } else {
-            vec![]
+            self.hide_boat(name)
+        }
+    }
+
+    fn should_draw_boat(
+        &self,
+        state: &AvatarState,
+        world: &World,
+        world_coord: WorldCoord,
+        travel_mode_fn: &TravelModeFn,
+    ) -> bool {
+        let travel_mode = match state {
+            AvatarState::Walking { .. } => {
+                let from = v2(
+                    world_coord.x.floor() as usize,
+                    world_coord.y.floor() as usize,
+                );
+                let to = v2(world_coord.x.ceil() as usize, world_coord.y.ceil() as usize);
+                travel_mode_fn.travel_mode_between(world, &from, &to)
+            }
+            AvatarState::Stationary { position, .. } => {
+                travel_mode_fn.travel_mode_here(world, &position)
+            }
+            _ => None,
+        };
+        match travel_mode {
+            Some(TravelMode::Sea) => true,
+            Some(TravelMode::River) => true,
+            _ => false,
         }
     }
 
     fn draw_boat(
         &self,
-        avatar: &AvatarState,
+        name: &str,
+        state: &AvatarState,
         world_coord: WorldCoord,
         instant: &u128,
     ) -> Vec<Command> {
         draw_boat(
-            "boat",
+            &boat_drawing_name(name),
             world_coord,
-            AvatarArtist::get_rotation_matrix(avatar, instant),
+            AvatarArtist::get_rotation_matrix(state, instant),
             &self.params.boat_params,
         )
+    }
+
+    fn hide_boat(&self, name: &str) -> Vec<Command> {
+        vec![Command::SetDrawingVisibility {
+            name: boat_drawing_name(name),
+            visible: false,
+        }]
     }
 }

@@ -84,9 +84,26 @@ where
             .for_each(|edge| self.network.add_edge(&edge));
     }
 
+    pub fn manhattan_distance(&self, to: usize) -> impl Fn(usize) -> u32 {
+        let to = self.get_position_from_network_index(to).unwrap();
+        let to_x = to.x as i32;
+        let to_y = to.y as i32;
+        let index = self.index;
+        let minimum_duration = self.travel_duration.min_duration();
+        let minimum_cost = self
+            .travel_duration
+            .get_cost_from_duration_u8(minimum_duration) as u32;
+        move |from| {
+            let from = index.get_position(from).unwrap();
+            ((from.x as i32 - to_x).abs() + (from.y as i32 - to_y).abs()) as u32 * minimum_cost
+        }
+    }
+
     pub fn find_path(&self, from: &V2<usize>, to: &V2<usize>) -> Option<Vec<V2<usize>>> {
         if let (Ok(from), Ok(to)) = (self.get_network_index(from), self.get_network_index(to)) {
-            let path = self.network.find_path(from, to, None, &(|_| 0));
+            let path = self
+                .network
+                .find_path(from, to, None, &self.manhattan_distance(to));
             match path {
                 Some(ref path) if path.is_empty() => None,
                 Some(ref path) => {
@@ -171,6 +188,10 @@ mod tests {
                 _ => return None,
             }
             None
+        }
+
+        fn min_duration(&self) -> Duration {
+            Duration::from_millis(1)
         }
 
         fn max_duration(&self) -> Duration {
