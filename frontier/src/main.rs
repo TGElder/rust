@@ -106,7 +106,6 @@ fn main() {
     game.add_consumer(HouseArtistHandler::new(game.command_tx()));
     game.add_consumer(VisibilityHandler::new(game.command_tx()));
     game.add_consumer(TerritoryHandler::new(
-        game.command_tx(),
         avatar_pathfinder_service.command_tx(),
         game.game_state().params.territory_duration,
     ));

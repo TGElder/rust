@@ -5,30 +5,31 @@ use crate::territory::*;
 use std::time::Duration;
 
 pub struct TerritoryHandler {
-    command_tx: Sender<GameCommand>,
     pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
     duration: Duration,
 }
 
 impl TerritoryHandler {
     pub fn new(
-        command_tx: Sender<GameCommand>,
         pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
         duration: Duration,
     ) -> TerritoryHandler {
         TerritoryHandler {
-            command_tx,
             pathfinder_tx,
             duration,
         }
     }
 
     fn remove_controller(&self, controller: V2<usize>) {
-        self.command_tx
-            .send(GameCommand::SetTerritory(vec![TerritoryState {
-                controller,
-                territory: HashSet::new(),
-            }]))
+        let function: Box<dyn Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send> =
+            Box::new(move |_| {
+                return vec![GameCommand::SetTerritory(vec![TerritoryState {
+                    controller,
+                    territory: HashSet::new(),
+                }])];
+            });
+        self.pathfinder_tx
+            .send(PathfinderCommand::Use(function))
             .unwrap();
     }
 
