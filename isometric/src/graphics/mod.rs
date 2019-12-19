@@ -41,6 +41,18 @@ impl Drawing {
         }
     }
 
+    pub fn textured(name: String, floats: usize, texture: String) -> Drawing {
+        Drawing {
+            name,
+            drawing_type: DrawingType::Textured,
+            indices: 1,
+            max_floats_per_index: floats,
+            texture: Some(texture),
+            visibility_check_coord: None,
+            visible: true,
+        }
+    }
+
     pub fn billboard(name: String, floats: usize, texture: String) -> Drawing {
         Drawing {
             name,
@@ -119,10 +131,11 @@ pub enum DrawingType {
     Plain,
     Text,
     Billboard,
+    Textured,
 }
 
 pub struct GraphicsEngine {
-    programs: [Program; 3],
+    programs: [Program; 4],
     viewport_size: glutin::dpi::PhysicalSize,
     transform: Transform,
     projection: Isometric,
@@ -147,6 +160,11 @@ impl GraphicsEngine {
                 DrawingType::Billboard,
                 include_str!("shaders/billboard.vert"),
                 include_str!("shaders/billboard.frag"),
+            ),
+            Program::from_shaders(
+                DrawingType::Textured,
+                include_str!("shaders/textured.vert"),
+                include_str!("shaders/textured.frag"),
             ),
         ];
 
@@ -239,6 +257,9 @@ impl GraphicsEngine {
                 program.load_matrix4("projection", self.transform.compute_transformation_matrix());
                 program.load_matrix3("world_to_screen", self.transform.get_scale_as_matrix());
             }
+            DrawingType::Textured => {
+                program.load_matrix4("projection", self.transform.compute_transformation_matrix())
+            }
         }
     }
 
@@ -267,6 +288,10 @@ impl GraphicsEngine {
 
     pub fn draw_billboards(&mut self) {
         self.draw(2);
+    }
+
+    pub fn draw_textured(&mut self) {
+        self.draw(3);
     }
 
     fn textures_are_different(a: &Option<Arc<Texture>>, b: &Option<Arc<Texture>>) -> bool {

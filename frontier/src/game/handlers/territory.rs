@@ -83,7 +83,11 @@ impl TerritoryHandler {
 impl GameEventConsumer for TerritoryHandler {
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
-            GameEvent::HouseUpdated { position, built } => match built {
+            GameEvent::ObjectUpdated {
+                object: WorldObject::House,
+                position,
+                built,
+            } => match built {
                 true => self.update_controllers(&game_state.world, vec![*position]),
                 false => self.remove_controller(*position),
             },

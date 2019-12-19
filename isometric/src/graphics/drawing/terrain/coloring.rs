@@ -64,9 +64,9 @@ where
             .get_colors(&[border[0], border[1], border[2], border[3]])[0];
         let base = self.coloring.color(terrain, tile, triangle);
         [
-            Some(base[0].unwrap() * shade),
-            Some(base[1].unwrap() * shade),
-            Some(base[2].unwrap() * shade),
+            base[0].map(|color| color * shade),
+            base[1].map(|color| color * shade),
+            base[2].map(|color| color * shade),
         ]
     }
 }
@@ -243,7 +243,7 @@ where
                 if let Some(bottom) = bottom[i] {
                     Some(top.layer_over(&bottom))
                 } else {
-                    Some(top)
+                    None
                 }
             } else {
                 bottom[i]

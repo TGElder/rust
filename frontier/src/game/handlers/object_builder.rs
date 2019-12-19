@@ -3,18 +3,26 @@ use commons::*;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
-pub struct HouseBuilderHandler {
+pub struct ObjectBuilder {
     command_tx: Sender<GameCommand>,
     world_coord: Option<WorldCoord>,
-    binding: Button,
+    bindings: ObjectBuilderBindings,
 }
 
-impl HouseBuilderHandler {
-    pub fn new(command_tx: Sender<GameCommand>) -> HouseBuilderHandler {
-        HouseBuilderHandler {
+struct ObjectBuilderBindings {
+    build_house: Button,
+    build_farm: Button,
+}
+
+impl ObjectBuilder {
+    pub fn new(command_tx: Sender<GameCommand>) -> ObjectBuilder {
+        ObjectBuilder {
             command_tx,
             world_coord: None,
-            binding: Button::Key(VirtualKeyCode::H),
+            bindings: ObjectBuilderBindings {
+                build_house: Button::Key(VirtualKeyCode::H),
+                build_farm: Button::Key(VirtualKeyCode::F),
+            },
         }
     }
 
@@ -22,17 +30,19 @@ impl HouseBuilderHandler {
         self.world_coord = Some(world_coord);
     }
 
-    fn build_house(&mut self, game_state: &GameState) {
+    fn build_object(&mut self, object: WorldObject, game_state: &GameState) {
         if let Some(WorldCoord { x, y, .. }) = self.world_coord {
             let position = v2(x.floor() as usize, y.floor() as usize);
             if let Some(cell) = game_state.world.get_cell(&position) {
                 let command = if cell.object == WorldObject::None {
-                    Some(GameCommand::UpdateHouse {
+                    Some(GameCommand::UpdateObject {
+                        object,
                         position,
                         build: true,
                     })
-                } else if cell.object == WorldObject::House {
-                    Some(GameCommand::UpdateHouse {
+                } else if cell.object == object {
+                    Some(GameCommand::UpdateObject {
+                        object,
                         position,
                         build: false,
                     })
@@ -47,7 +57,7 @@ impl HouseBuilderHandler {
     }
 }
 
-impl GameEventConsumer for HouseBuilderHandler {
+impl GameEventConsumer for ObjectBuilder {
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
         CaptureEvent::No
     }
@@ -63,8 +73,11 @@ impl GameEventConsumer for HouseBuilderHandler {
             ..
         } = *event
         {
-            if button == &self.binding {
-                self.build_house(&game_state);
+            if button == &self.bindings.build_house {
+                self.build_object(WorldObject::House, &game_state);
+            }
+            if button == &self.bindings.build_farm {
+                self.build_object(WorldObject::Farm, &game_state);
             }
         }
         CaptureEvent::No

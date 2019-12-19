@@ -42,4 +42,5 @@ pub enum WorldObject {
     None,
     Vegetation(VegetationType),
     House,
+    Farm,
 }

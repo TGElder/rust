@@ -99,6 +99,13 @@ impl Territory {
     pub fn controllers(&self) -> Iter<V2<usize>, HashSet<V2<usize>>> {
         self.territory.iter()
     }
+
+    pub fn all_corners_controlled<T>(&self, grid: &dyn Grid<T>, position: &V2<usize>) -> bool {
+        grid.get_corners(position)
+            .iter()
+            .filter(|corner| grid.in_bounds(corner))
+            .all(|corner| !self.who_controls(corner).is_empty())
+    }
 }
 
 #[cfg(test)]
@@ -198,5 +205,21 @@ mod tests {
             territory.territory[&v2(1, 1)],
             [v2(1, 0)].iter().cloned().collect()
         );
+    }
+
+    #[test]
+    fn all_corners_controlled() {
+        let mut territory = Territory::new::<u8>(&M::zeros(3, 3));
+        territory.control(
+            v2(0, 0),
+            [v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)]
+                .iter()
+                .cloned()
+                .collect(),
+        );
+        assert!(territory.all_corners_controlled::<u8>(&M::zeros(3, 3), &v2(0, 0)));
+        assert!(!territory.all_corners_controlled::<u8>(&M::zeros(3, 3), &v2(1, 0)));
+        assert!(!territory.all_corners_controlled::<u8>(&M::zeros(3, 3), &v2(1, 1)));
+        assert!(!territory.all_corners_controlled::<u8>(&M::zeros(3, 3), &v2(0, 1)));
     }
 }

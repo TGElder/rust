@@ -1,4 +1,5 @@
 mod avatar;
+mod farms;
 mod game;
 mod houses;
 mod label_editor;
@@ -103,7 +104,7 @@ fn main() {
     ));
     game.add_consumer(WorldArtistHandler::new(game.command_tx()));
     game.add_consumer(AvatarArtistHandler::new(game.command_tx()));
-    game.add_consumer(HouseArtistHandler::new(game.command_tx()));
+    game.add_consumer(ObjectArtistHandler::new(game.command_tx()));
     game.add_consumer(VisibilityHandler::new(game.command_tx()));
     game.add_consumer(TerritoryHandler::new(
         avatar_pathfinder_service.command_tx(),
@@ -122,7 +123,7 @@ fn main() {
     game.add_consumer(PathfindingRoadBuilder::new(
         road_pathfinder_service.command_tx(),
     ));
-    game.add_consumer(HouseBuilderHandler::new(game.command_tx()));
+    game.add_consumer(ObjectBuilder::new(game.command_tx()));
     game.add_consumer(Cheats::new(game.command_tx()));
     game.add_consumer(PrimeMover::new(
         game.command_tx(),

@@ -96,6 +96,40 @@ where
     ]
 }
 
+pub fn textured_tile<T>(
+    name: String,
+    terrain: &dyn Grid<T>,
+    sea_level: f32,
+    tile: &V2<usize>,
+    color: &Color,
+    texture: String,
+) -> Vec<Command>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    let mut floats = vec![];
+    let geometry = TerrainGeometry::of(terrain);
+
+    for triangle in geometry.get_triangles_for_tile(&tile) {
+        let triangle = clip_triangle_to_sea_level(triangle, sea_level);
+        floats.append(&mut get_textured_vertices_from_triangle(
+            &triangle,
+            &color,
+            &v2(tile.x as f32, tile.y as f32),
+            &v2(tile.x as f32 + 1.0, tile.y as f32 + 1.0),
+        ));
+    }
+
+    vec![
+        Command::CreateDrawing(Drawing::textured(name.clone(), floats.len(), texture)),
+        Command::UpdateDrawing {
+            name,
+            index: 0,
+            floats,
+        },
+    ]
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 struct TerrainIndex {
     slab_size: usize,
@@ -179,15 +213,12 @@ impl TerrainDrawing {
                 let tile = v2(x, y);
                 for triangle in geometry.get_triangles_for_tile(&tile) {
                     let triangle = clip_triangle_to_sea_level(triangle, sea_level);
-                    let colors = coloring.color(terrain, &tile, &triangle);
-                    let colors = [
-                        colors[0].unwrap_or(self.default_color),
-                        colors[1].unwrap_or(self.default_color),
-                        colors[2].unwrap_or(self.default_color),
-                    ];
-                    floats.append(&mut get_specific_colored_vertices_from_triangle(
-                        &triangle, &colors,
-                    ));
+                    if let [Some(a), Some(b), Some(c)] = coloring.color(terrain, &tile, &triangle) {
+                        let colors = [a, b, c];
+                        floats.append(&mut get_specific_colored_vertices_from_triangle(
+                            &triangle, &colors,
+                        ));
+                    }
                 }
             }
         }

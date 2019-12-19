@@ -1,44 +1,13 @@
+use super::*;
+
 use crate::avatar::*;
-use crate::road_builder::*;
 use crate::territory::*;
 use crate::world::*;
-use crate::world_gen::*;
-use commons::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use std::time::Duration;
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct GameParams {
-    pub world_gen: WorldGenParameters,
-    pub avatar_travel: AvatarTravelParams,
-    pub auto_road_travel: AutoRoadTravelParams,
-    pub starting_distance_from_shore: usize,
-    pub light_direction: V3<f32>,
-    pub vegetation_exageration: f32,
-    pub snow_temperature: f32,
-    pub territory_duration: Duration,
-    pub avatars: usize,
-}
-
-impl Default for GameParams {
-    fn default() -> GameParams {
-        GameParams {
-            world_gen: WorldGenParameters::default(),
-            avatar_travel: AvatarTravelParams::default(),
-            auto_road_travel: AutoRoadTravelParams::default(),
-            starting_distance_from_shore: 32,
-            light_direction: v3(-1.0, 0.0, 1.0),
-            vegetation_exageration: 100.0,
-            snow_temperature: 0.0,
-            territory_duration: Duration::from_secs(10),
-            avatars: 4096,
-        }
-    }
-}
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct GameState {
@@ -77,6 +46,7 @@ impl GameState {
 mod tests {
 
     use super::*;
+    use commons::*;
 
     #[test]
     fn save_load_round_trip() {

@@ -163,6 +163,7 @@ impl IsometricEngine {
             self.consume_event(Event::Tick);
             self.look_at();
             self.graphics.draw_world();
+            self.graphics.draw_textured();
             self.update_cursors();
             self.graphics.draw_ui();
             self.graphics.draw_billboards();

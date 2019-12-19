@@ -95,22 +95,22 @@ impl<'a> TerrainColoring<WorldCell> for BaseColoring<'a> {
         tile: &V2<usize>,
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        let color = Some(self.get_color(&self.game_state.world, tile));
-        [color, color, color]
+        if let WorldObject::Farm = self.game_state.world.get_cell_unsafe(tile).object {
+            [None, None, None]
+        } else {
+            let color = Some(self.get_color(&self.game_state.world, tile));
+            [color, color, color]
+        }
     }
 }
 
 pub struct TerritoryColoring<'a> {
     game_state: &'a GameState,
-    color: Color,
 }
 
 impl<'a> TerritoryColoring<'a> {
     fn new(game_state: &'a GameState) -> TerritoryColoring {
-        TerritoryColoring {
-            game_state,
-            color: Color::new(1.0, 0.0, 0.0, 0.25),
-        }
+        TerritoryColoring { game_state }
     }
 }
 
@@ -121,13 +121,16 @@ impl<'a> TerrainColoring<WorldCell> for TerritoryColoring<'a> {
         tile: &V2<usize>,
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        let world = &self.game_state.world;
-        let controlled = world
-            .get_corners(tile)
-            .iter()
-            .filter(|corner| world.in_bounds(corner))
-            .all(|corner| !self.game_state.territory.who_controls(corner).is_empty());
-        let color = if controlled { Some(self.color) } else { None };
+        let controlled = self
+            .game_state
+            .territory
+            .all_corners_controlled(&self.game_state.world, tile);
+        let territory_highlight = self.game_state.params.artist.territory_highlight;
+        let color = if controlled {
+            Some(territory_highlight)
+        } else {
+            None
+        };
         [color, color, color]
     }
 }

@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::ops::Mul;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
@@ -54,6 +55,10 @@ impl Color {
             self.b * a + other.b * ac,
             1.0,
         )
+    }
+
+    pub fn transparent() -> Color {
+        Color::new(0.0, 0.0, 0.0, 0.0)
     }
 }
 

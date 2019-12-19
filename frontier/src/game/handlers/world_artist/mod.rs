@@ -73,6 +73,11 @@ impl GameEventConsumer for WorldArtistHandler {
             }
             GameEvent::RoadsUpdated(result) => self.update_cells(game_state, result.path()),
             GameEvent::TerritoryChanged(changes) => self.draw_territory(game_state, changes),
+            GameEvent::ObjectUpdated {
+                object: WorldObject::Farm,
+                position,
+                ..
+            } => self.update_cells(game_state, &[*position]),
             _ => (),
         }
         CaptureEvent::No

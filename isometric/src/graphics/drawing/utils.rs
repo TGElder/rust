@@ -1,14 +1,15 @@
 use color::Color;
-use commons::na;
+use commons::scale::*;
 use commons::unsafe_ordering;
+use commons::*;
 use std::f32;
 
 pub trait TriangleColoring: Send {
-    fn get_colors(&self, points: &[na::Vector3<f32>; 3]) -> [Color; 3];
+    fn get_colors(&self, points: &[V3<f32>; 3]) -> [Color; 3];
 }
 
 pub trait SquareColoring: Send {
-    fn get_colors(&self, points: &[na::Vector3<f32>; 4]) -> [Color; 4];
+    fn get_colors(&self, points: &[V3<f32>; 4]) -> [Color; 4];
 }
 
 pub struct AltitudeSquareColoring {
@@ -25,8 +26,8 @@ impl AltitudeSquareColoring {
 }
 
 impl SquareColoring for AltitudeSquareColoring {
-    fn get_colors(&self, points: &[na::Vector3<f32>; 4]) -> [Color; 4] {
-        let get_color = |point: na::Vector3<f32>| {
+    fn get_colors(&self, points: &[V3<f32>; 4]) -> [Color; 4] {
+        let get_color = |point: V3<f32>| {
             let color = (point.z / (self.max_height * 2.0)) + 0.5;
             Color::new(color, color, color, 1.0)
         };
@@ -41,11 +42,11 @@ impl SquareColoring for AltitudeSquareColoring {
 
 pub struct AngleTriangleColoring {
     base_color: Color,
-    light_direction: na::Vector3<f32>,
+    light_direction: V3<f32>,
 }
 
 impl AngleTriangleColoring {
-    pub fn new(base_color: Color, light_direction: na::Vector3<f32>) -> AngleTriangleColoring {
+    pub fn new(base_color: Color, light_direction: V3<f32>) -> AngleTriangleColoring {
         AngleTriangleColoring {
             base_color,
             light_direction,
@@ -54,7 +55,7 @@ impl AngleTriangleColoring {
 }
 
 impl TriangleColoring for AngleTriangleColoring {
-    fn get_colors(&self, points: &[na::Vector3<f32>; 3]) -> [Color; 3] {
+    fn get_colors(&self, points: &[V3<f32>; 3]) -> [Color; 3] {
         let u = points[0] - points[1];
         let v = points[0] - points[2];
         let normal = u.cross(&v);
@@ -72,11 +73,11 @@ impl TriangleColoring for AngleTriangleColoring {
 
 pub struct AngleSquareColoring {
     base_color: Color,
-    light_direction: na::Vector3<f32>,
+    light_direction: V3<f32>,
 }
 
 impl AngleSquareColoring {
-    pub fn new(base_color: Color, light_direction: na::Vector3<f32>) -> AngleSquareColoring {
+    pub fn new(base_color: Color, light_direction: V3<f32>) -> AngleSquareColoring {
         AngleSquareColoring {
             base_color,
             light_direction,
@@ -85,7 +86,7 @@ impl AngleSquareColoring {
 }
 
 impl SquareColoring for AngleSquareColoring {
-    fn get_colors(&self, points: &[na::Vector3<f32>; 4]) -> [Color; 4] {
+    fn get_colors(&self, points: &[V3<f32>; 4]) -> [Color; 4] {
         let u = points[0] - points[2];
         let v = points[1] - points[3];
         let normal = u.cross(&v);
@@ -102,7 +103,7 @@ impl SquareColoring for AngleSquareColoring {
 }
 
 #[rustfmt::skip]
-pub fn get_uniform_colored_vertices_from_triangle(points: &[na::Vector3<f32>; 3], color: &Color) -> Vec<f32> {
+pub fn get_uniform_colored_vertices_from_triangle(points: &[V3<f32>; 3], color: &Color) -> Vec<f32> {
     vec![
         points[0].x, points[0].y, points[0].z, color.r, color.g, color.b,
         points[1].x, points[1].y, points[1].z, color.r, color.g, color.b,
@@ -111,7 +112,7 @@ pub fn get_uniform_colored_vertices_from_triangle(points: &[na::Vector3<f32>; 3]
 }
 
 #[rustfmt::skip]
-pub fn get_specific_colored_vertices_from_triangle(points: &[na::Vector3<f32>; 3], colors: &[Color; 3]) -> Vec<f32> {
+pub fn get_specific_colored_vertices_from_triangle(points: &[V3<f32>; 3], colors: &[Color; 3]) -> Vec<f32> {
     vec![
         points[0].x, points[0].y, points[0].z, colors[0].r, colors[0].g, colors[0].b,
         points[1].x, points[1].y, points[1].z, colors[1].r, colors[1].g, colors[1].b,
@@ -120,7 +121,18 @@ pub fn get_specific_colored_vertices_from_triangle(points: &[na::Vector3<f32>; 3
 }
 
 #[rustfmt::skip]
-pub fn get_colored_vertices_from_triangle(points: &[na::Vector3<f32>; 3], coloring: &dyn TriangleColoring) -> Vec<f32> {
+pub fn get_textured_vertices_from_triangle(points: &[V3<f32>; 3], color: &Color, from: &V2<f32>, to: &V2<f32>) -> Vec<f32> {
+    let x_scale = Scale::new((from.x, to.x), (0.0, 1.0));
+    let y_scale = Scale::new((from.y, to.y), (0.0, 1.0));
+    vec![
+        points[0].x, points[0].y, points[0].z, color.r, color.g, color.b, color.a, x_scale.scale(points[0].x as f32), y_scale.scale(points[0].y as f32),
+        points[1].x, points[1].y, points[1].z, color.r, color.g, color.b, color.a, x_scale.scale(points[1].x as f32), y_scale.scale(points[1].y as f32),
+        points[2].x, points[2].y, points[2].z, color.r, color.g, color.b, color.a, x_scale.scale(points[2].x as f32), y_scale.scale(points[2].y as f32),
+    ]
+}
+
+#[rustfmt::skip]
+pub fn get_colored_vertices_from_triangle(points: &[V3<f32>; 3], coloring: &dyn TriangleColoring) -> Vec<f32> {
     let colors = coloring.get_colors(&points);
 
     vec![
@@ -131,7 +143,7 @@ pub fn get_colored_vertices_from_triangle(points: &[na::Vector3<f32>; 3], colori
 }
 
 #[rustfmt::skip]
-pub fn get_uniform_colored_vertices_from_square(points: &[na::Vector3<f32>; 4], color: &Color) -> Vec<f32> {
+pub fn get_uniform_colored_vertices_from_square(points: &[V3<f32>; 4], color: &Color) -> Vec<f32> {
     [
         [points[0], points[3], points[2]],
         [points[0], points[2], points[1]]
@@ -139,7 +151,7 @@ pub fn get_uniform_colored_vertices_from_square(points: &[na::Vector3<f32>; 4], 
 }
 
 #[rustfmt::skip]
-pub fn get_specific_colored_vertices_from_square(points: &[na::Vector3<f32>; 4], colors: &[Color; 4]) -> Vec<f32> {
+pub fn get_specific_colored_vertices_from_square(points: &[V3<f32>; 4], colors: &[Color; 4]) -> Vec<f32> {
     [
         ([points[0], points[3], points[2]], [colors[0], colors[3], colors[2]]),
         ([points[0], points[2], points[1]], [colors[0], colors[2], colors[1]])
@@ -147,7 +159,7 @@ pub fn get_specific_colored_vertices_from_square(points: &[na::Vector3<f32>; 4],
 }
 
 #[rustfmt::skip]
-pub fn get_colored_vertices_from_square(points: &[na::Vector3<f32>; 4], coloring: &dyn SquareColoring) -> Vec<f32> {
+pub fn get_colored_vertices_from_square(points: &[V3<f32>; 4], coloring: &dyn SquareColoring) -> Vec<f32> {
     let colors = coloring.get_colors(&points);
 
     vec![

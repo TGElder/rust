@@ -1,7 +1,9 @@
+mod game_params;
 mod game_state;
 mod handlers;
 mod pathfinder_service;
 
+pub use game_params::*;
 pub use game_state::*;
 pub use handlers::*;
 pub use pathfinder_service::*;
@@ -38,7 +40,11 @@ pub enum GameEvent {
     CellsVisited(CellSelection),
     CellsRevealed(CellSelection),
     RoadsUpdated(RoadBuilderResult),
-    HouseUpdated { position: V2<usize>, built: bool },
+    ObjectUpdated {
+        object: WorldObject,
+        position: V2<usize>,
+        built: bool,
+    },
     TerritoryChanged(Vec<TerritoryChange>),
 }
 
@@ -48,7 +54,8 @@ pub enum GameCommand {
     VisitCells(CellSelection),
     RevealCells(CellSelection),
     UpdateRoads(RoadBuilderResult),
-    UpdateHouse {
+    UpdateObject {
+        object: WorldObject,
         position: V2<usize>,
         build: bool,
     },
@@ -235,11 +242,12 @@ impl Game {
             .unwrap();
     }
 
-    fn build_house(&mut self, position: V2<usize>) -> Option<GameEvent> {
+    fn build_object(&mut self, object: WorldObject, position: V2<usize>) -> Option<GameEvent> {
         if let Some(cell) = self.game_state.world.mut_cell(&position) {
             if let WorldObject::None = cell.object {
-                cell.object = WorldObject::House;
-                return Some(GameEvent::HouseUpdated {
+                cell.object = object;
+                return Some(GameEvent::ObjectUpdated {
+                    object,
                     position,
                     built: true,
                 });
@@ -248,11 +256,12 @@ impl Game {
         None
     }
 
-    fn destroy_house(&mut self, position: V2<usize>) -> Option<GameEvent> {
+    fn destroy_object(&mut self, object: WorldObject, position: V2<usize>) -> Option<GameEvent> {
         if let Some(cell) = self.game_state.world.mut_cell(&position) {
-            if let WorldObject::House = cell.object {
+            if object == cell.object {
                 cell.object = WorldObject::None;
-                return Some(GameEvent::HouseUpdated {
+                return Some(GameEvent::ObjectUpdated {
+                    object,
                     position,
                     built: false,
                 });
@@ -261,11 +270,11 @@ impl Game {
         None
     }
 
-    fn update_house(&mut self, position: V2<usize>, build: bool) {
+    fn update_object(&mut self, object: WorldObject, position: V2<usize>, build: bool) {
         let event = if build {
-            self.build_house(position)
+            self.build_object(object, position)
         } else {
-            self.destroy_house(position)
+            self.destroy_object(object, position)
         };
         event
             .into_iter()
@@ -340,7 +349,11 @@ impl Game {
                         .send(GameCommand::Event(GameEvent::RoadsUpdated(result)))
                         .unwrap();
                 }
-                GameCommand::UpdateHouse { position, build } => self.update_house(position, build),
+                GameCommand::UpdateObject {
+                    object,
+                    position,
+                    build,
+                } => self.update_object(object, position, build),
                 GameCommand::SetTerritory(states) => self.set_territory(states),
                 GameCommand::AddAvatar { name, state } => self.add_avatar(name, state),
                 GameCommand::UpdateAvatar { name, new_state } => {
