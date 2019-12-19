@@ -1,8 +1,32 @@
 use std::cmp::Ordering;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 #[cfg(test)]
 #[macro_use]
 extern crate hamcrest;
+
+#[derive(Eq)]
+struct Node {
+    index: usize,
+    cost: u128,
+}
+
+impl Ord for Node {
+    fn cmp(&self, other: &Node) -> Ordering {
+        self.cost.cmp(&other.cost).reverse()
+    }
+}
+
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Node) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Node) -> bool {
+        self.cost == other.cost
+    }
+}
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub struct Edge {
@@ -71,6 +95,7 @@ pub struct Network {
     pub nodes: usize,
     edges_out: Vec<Vec<Edge>>,
     edges_in: Vec<Vec<Edge>>,
+    targets: HashMap<String, Vec<bool>>,
 }
 
 impl Network {
@@ -79,6 +104,7 @@ impl Network {
             nodes,
             edges_out: vec![vec![]; nodes],
             edges_in: vec![vec![]; nodes],
+            targets: HashMap::default(),
         };
 
         edges.iter().for_each(|edge| out.add_edge(edge));
@@ -113,33 +139,17 @@ impl Network {
         &self.edges_out[node]
     }
 
-    pub fn dijkstra(&self, nodes: Vec<usize>) -> Vec<Option<u32>> {
-        #[derive(Eq)]
-        struct Node {
-            index: usize,
-            cost: u32,
-        }
+    pub fn load_target(&mut self, name: &str, index: usize, target: bool) {
+        self.targets.get_mut(name).unwrap()[index] = target
+    }
 
-        impl Ord for Node {
-            fn cmp(&self, other: &Node) -> Ordering {
-                self.cost.cmp(&other.cost).reverse()
-            }
-        }
+    pub fn load_targets(&mut self, name: String, targets: Vec<bool>) {
+        self.targets.insert(name, targets);
+    }
 
-        impl PartialOrd for Node {
-            fn partial_cmp(&self, other: &Node) -> Option<Ordering> {
-                Some(self.cmp(other))
-            }
-        }
-
-        impl PartialEq for Node {
-            fn eq(&self, other: &Node) -> bool {
-                self.cost == other.cost
-            }
-        }
-
+    pub fn dijkstra(&self, nodes: Vec<usize>) -> Vec<Option<u128>> {
         let mut closed: Vec<bool> = vec![false; self.nodes];
-        let mut out: Vec<Option<u32>> = vec![None; self.nodes];
+        let mut out: Vec<Option<u128>> = vec![None; self.nodes];
         let mut heap = BinaryHeap::new();
 
         for node in nodes {
@@ -158,7 +168,7 @@ impl Network {
                     if !closed[edge.from] {
                         heap.push(Node {
                             index: edge.from,
-                            cost: cost + u32::from(edge.cost),
+                            cost: cost + u128::from(edge.cost),
                         });
                     }
                 }
@@ -176,22 +186,22 @@ impl Network {
         heuristic: &dyn Fn(usize) -> u32,
     ) -> Option<Vec<Edge>> {
         #[derive(Eq)]
-        struct Node {
+        struct AStarNode {
             index: usize,
             entry: Option<Edge>,
             distance_from_start: u32,
             estimated_path_distance_via_this_node: u32,
         }
 
-        impl Node {
+        impl AStarNode {
             fn new(
                 index: usize,
                 entry: Option<Edge>,
                 distance_from_start: u32,
                 heuristic: &dyn Fn(usize) -> u32,
-            ) -> Node {
+            ) -> AStarNode {
                 let estimated_distance_to_goal = heuristic(index);
-                Node {
+                AStarNode {
                     index,
                     entry,
                     distance_from_start,
@@ -201,22 +211,22 @@ impl Network {
             }
         }
 
-        impl Ord for Node {
-            fn cmp(&self, other: &Node) -> Ordering {
+        impl Ord for AStarNode {
+            fn cmp(&self, other: &AStarNode) -> Ordering {
                 self.estimated_path_distance_via_this_node
                     .cmp(&other.estimated_path_distance_via_this_node)
                     .reverse()
             }
         }
 
-        impl PartialOrd for Node {
-            fn partial_cmp(&self, other: &Node) -> Option<Ordering> {
+        impl PartialOrd for AStarNode {
+            fn partial_cmp(&self, other: &AStarNode) -> Option<Ordering> {
                 Some(self.cmp(other))
             }
         }
 
-        impl PartialEq for Node {
-            fn eq(&self, other: &Node) -> bool {
+        impl PartialEq for AStarNode {
+            fn eq(&self, other: &AStarNode) -> bool {
                 self.estimated_path_distance_via_this_node
                     == other.estimated_path_distance_via_this_node
             }
@@ -241,9 +251,9 @@ impl Network {
         let mut edges = vec![None; self.nodes];
         let mut heap = BinaryHeap::new();
 
-        heap.push(Node::new(from, None, 0, heuristic));
+        heap.push(AStarNode::new(from, None, 0, heuristic));
 
-        while let Some(Node {
+        while let Some(AStarNode {
             index,
             entry,
             distance_from_start,
@@ -269,7 +279,7 @@ impl Network {
                     continue;
                 }
                 let neighbour_distance_from_start = distance_from_start + u32::from(edge.cost);
-                heap.push(Node::new(
+                heap.push(AStarNode::new(
                     neighbour,
                     Some(*edge),
                     neighbour_distance_from_start,
@@ -282,24 +292,6 @@ impl Network {
     }
 
     pub fn nodes_within(&self, start_nodes: &[usize], max_cost: u128) -> Vec<usize> {
-        #[derive(Eq, PartialEq)]
-        struct Node {
-            index: usize,
-            cost: u128,
-        }
-
-        impl Ord for Node {
-            fn cmp(&self, other: &Node) -> Ordering {
-                self.cost.cmp(&other.cost).reverse()
-            }
-        }
-
-        impl PartialOrd for Node {
-            fn partial_cmp(&self, other: &Node) -> Option<Ordering> {
-                Some(self.cmp(other))
-            }
-        }
-
         let mut closed = vec![false; self.nodes];
         let mut heap = BinaryHeap::new();
         let mut out = vec![];
@@ -332,6 +324,56 @@ impl Network {
         }
 
         out
+    }
+
+    pub fn closest_targets(&self, start_nodes: &[usize], targets: &[bool]) -> Vec<usize> {
+        if targets.len() != self.nodes {
+            panic!("Length of target slice must equal size of network");
+        }
+
+        let mut closed = vec![false; self.nodes];
+        let mut heap = BinaryHeap::new();
+        let mut out = vec![];
+        let mut closest_cost = None;
+        for node in start_nodes {
+            heap.push(Node {
+                index: *node,
+                cost: 0,
+            });
+        }
+
+        while let Some(Node { index, cost }) = heap.pop() {
+            if closed[index] {
+                continue;
+            }
+            if targets[index] {
+                if let Some(closest_cost) = closest_cost {
+                    if closest_cost < cost {
+                        return out;
+                    }
+                } else {
+                    closest_cost = Some(cost);
+                }
+                out.push(index);
+            }
+            closed[index] = true;
+            for edge in self.get_out(index) {
+                let neighbour = edge.to;
+                if closed[neighbour] {
+                    continue;
+                }
+                heap.push(Node {
+                    index: neighbour,
+                    cost: cost + u128::from(edge.cost),
+                });
+            }
+        }
+
+        out
+    }
+
+    pub fn closest_loaded_targets(&self, start_nodes: &[usize], targets: &str) -> Vec<usize> {
+        self.closest_targets(start_nodes, &self.targets[targets])
     }
 }
 
@@ -702,5 +744,98 @@ mod tests {
         let actual = network.nodes_within(&[0, 2], 1);
         let expected = vec![0, 1, 2, 3];
         assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    fn test_closest_targets_no_closest_targets() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 1)];
+        let network = Network::new(4, &edges);
+        let actual = network.closest_targets(&[0], &[false, false, false, true]);
+        assert!(actual.is_empty());
+    }
+
+    #[test]
+    fn test_closest_targets_single_closest_target() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
+        let network = Network::new(3, &edges);
+        let actual = network.closest_targets(&[0], &[false, true, true]);
+        let expected = vec![1];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    fn test_closest_targets_multiple_closest_targets() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 1)];
+        let network = Network::new(3, &edges);
+        let actual = network.closest_targets(&[0], &[false, true, true]);
+        let expected = vec![1, 2];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    fn test_closest_targets_closest_target_more_edges() {
+        let edges = vec![Edge::new(0, 1, 3), Edge::new(0, 2, 1), Edge::new(2, 3, 1)];
+        let network = Network::new(4, &edges);
+        let actual = network.closest_targets(&[0], &[false, true, false, true]);
+        let expected = vec![3];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    fn test_closest_targets_start_node_is_target() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
+        let network = Network::new(3, &edges);
+        let actual = network.closest_targets(&[0], &[true, true, true]);
+        let expected = vec![0];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    fn test_closest_targets_multiple_start_nodes() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(2, 3, 1)];
+        let network = Network::new(4, &edges);
+        let actual = network.closest_targets(&[0, 2], &[false, true, false, true]);
+        let expected = vec![1, 3];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_closest_targets_wrong_number_of_targets() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 1)];
+        let network = Network::new(3, &edges);
+        network.closest_targets(&[0, 2], &[false, true, false, true]);
+    }
+
+    #[test]
+    fn test_closest_loaded_targets_via_load_targets() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
+        let mut network = Network::new(3, &edges);
+        let targets = vec![false, true, true];
+        network.load_targets(String::from("targets"), targets);
+        let actual = network.closest_loaded_targets(&[0], "targets");
+        let expected = vec![1];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    fn test_closest_loaded_targets_via_load_target() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
+        let mut network = Network::new(3, &edges);
+        let targets = vec![false, false, false];
+        network.load_targets(String::from("targets"), targets);
+        network.load_target("targets", 1, true);
+        network.load_target("targets", 2, true);
+        let actual = network.closest_loaded_targets(&[0], "targets");
+        let expected = vec![1];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_closest_loaded_targets_unknown_name() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
+        let network = Network::new(3, &edges);
+        network.closest_loaded_targets(&[0], "targets");
     }
 }
