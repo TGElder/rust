@@ -54,6 +54,7 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
         avatars,
         selected_avatar: Some("0".to_string()),
         follow_avatar: true,
+        speed: 1.0,
     };
     let init_events = vec![GameEvent::Init];
     (game_state, init_events)
@@ -149,6 +150,7 @@ fn main() {
     game.add_consumer(avatar_pathfinder_service);
     game.add_consumer(road_pathfinder_service);
     game.add_consumer(SelectAvatar::new(game.command_tx()));
+    game.add_consumer(SpeedControl::new(game.command_tx()));
 
     let game_handle = thread::spawn(move || game.run());
     engine.run();

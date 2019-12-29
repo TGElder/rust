@@ -20,6 +20,7 @@ pub struct GameState {
     pub selected_avatar: Option<String>,
     pub follow_avatar: bool,
     pub territory: Territory,
+    pub speed: f32,
 }
 
 impl GameState {
@@ -101,6 +102,7 @@ mod tests {
             avatars,
             selected_avatar: Some(name.to_string()),
             follow_avatar: false,
+            speed: 1.0,
         };
         game_state.to_file("test_save");
         let loaded = GameState::from_file("test_save");

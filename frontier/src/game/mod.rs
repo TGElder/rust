@@ -83,6 +83,7 @@ pub enum GameCommand {
     },
     SelectAvatar(String),
     FollowAvatar(bool),
+    Update(Box<dyn FnOnce(&mut GameState) -> Vec<GameCommand> + Send>),
     Shutdown,
 }
 
@@ -174,7 +175,8 @@ impl Game {
     fn update_game_micros(&mut self) {
         let current_time = Instant::now();
         let interval = current_time.duration_since(self.real_time).as_micros();
-        self.game_state.game_micros += interval;
+        let interval = (interval as f32 * self.game_state.speed).round();
+        self.game_state.game_micros += interval as u128;
         self.real_time = current_time;
     }
 
@@ -361,6 +363,13 @@ impl Game {
         self.game_state.follow_avatar = follow_avatar;
     }
 
+    fn update(&mut self, function: Box<dyn FnOnce(&mut GameState) -> Vec<GameCommand> + Send>) {
+        let commands = function(&mut self.game_state);
+        for command in commands {
+            self.command_tx.send(command).unwrap();
+        }
+    }
+
     pub fn run(&mut self) {
         loop {
             let command = self.command_rx.recv().unwrap();
@@ -403,6 +412,7 @@ impl Game {
                 } => self.walk_positions(name, positions, start_at),
                 GameCommand::SelectAvatar(name) => self.select_avatar(name),
                 GameCommand::FollowAvatar(follow_avatar) => self.set_follow_avatar(follow_avatar),
+                GameCommand::Update(function) => self.update(function),
                 GameCommand::Shutdown => return,
             }
         }
