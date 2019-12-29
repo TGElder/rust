@@ -77,11 +77,14 @@ impl PrimeMover {
     }
 
     fn move_avatars(&mut self, game_state: &GameState) {
+        let selected = game_state.selected_avatar().map(|avatar| &avatar.name);
         for Avatar {
             name, state, farm, ..
         } in game_state.avatars.values()
         {
-            self.move_avatar(game_state, name, state, farm);
+            if Some(name) != selected {
+                self.move_avatar(game_state, name, state, farm);
+            }
         }
     }
 
