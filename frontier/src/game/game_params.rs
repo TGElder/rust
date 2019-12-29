@@ -32,7 +32,7 @@ impl Default for GameParams {
             light_direction: v3(-1.0, 0.0, 1.0),
             farm_constraints: FarmConstraints::default(),
             snow_temperature: 0.0,
-            territory_duration: Duration::from_secs(10),
+            territory_duration: Duration::from_secs(4),
             avatars: 4096,
         }
     }

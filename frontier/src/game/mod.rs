@@ -12,6 +12,7 @@ use crate::avatar::*;
 use crate::road_builder::*;
 use crate::territory::*;
 use crate::world::*;
+use commons::edge::*;
 use commons::grid::Grid;
 use commons::{M, V2};
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
@@ -48,7 +49,7 @@ pub enum GameEvent {
     TerritoryChanged(Vec<TerritoryChange>),
     Traffic {
         name: String,
-        positions: Vec<V2<usize>>,
+        edges: Vec<Edge>,
     },
 }
 
@@ -147,7 +148,10 @@ impl Game {
     }
 
     fn on_tick(&mut self) {
+        let from = self.game_state.game_micros;
         self.update_game_micros();
+        let to = self.game_state.game_micros;
+        self.process_visited_cells(&from, &to);
         self.evolve_avatars();
     }
 
@@ -178,6 +182,29 @@ impl Game {
         let interval = (interval as f32 * self.game_state.speed).round();
         self.game_state.game_micros += interval as u128;
         self.real_time = current_time;
+    }
+
+    fn process_visited_cells(&mut self, from: &u128, to: &u128) {
+        let mut visited_cells = vec![];
+        for avatar in self.game_state.avatars.values() {
+            match &avatar.state {
+                AvatarState::Walking(path) => {
+                    let edges = path.edges_between_times(from, to);
+                    if !edges.is_empty() {
+                        edges.iter().for_each(|edge| visited_cells.push(*edge.to()));
+                        self.command_tx
+                            .send(GameCommand::Event(GameEvent::Traffic {
+                                name: avatar.name.clone(),
+                                edges,
+                            }))
+                            .unwrap();
+                    }
+                }
+                AvatarState::Stationary { position, .. } => visited_cells.push(*position),
+                _ => (),
+            }
+        }
+        self.visit_cells(visited_cells);
     }
 
     fn evolve_avatars(&mut self) {
@@ -348,9 +375,6 @@ impl Game {
                 start_at,
             ) {
                 avatar.get_mut().state = new_state;
-                self.command_tx
-                    .send(GameCommand::Event(GameEvent::Traffic { name, positions }))
-                    .unwrap();
             }
         }
     }

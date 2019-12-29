@@ -13,7 +13,7 @@ pub struct NaturalRoadBuilderParams {
 impl Default for NaturalRoadBuilderParams {
     fn default() -> NaturalRoadBuilderParams {
         NaturalRoadBuilderParams {
-            visitor_count_threshold: 3,
+            visitor_count_threshold: 8,
         }
     }
 }
@@ -26,7 +26,6 @@ pub struct NaturalRoadBuilder {
 }
 
 struct NaturalRoadBuilderState {
-    travel_mode_fn: TravelModeFn,
     travel_duration: AutoRoadTravelDuration,
 }
 
@@ -42,23 +41,19 @@ impl NaturalRoadBuilder {
 
     fn init(&mut self, game_state: &GameState) {
         self.state = Some(NaturalRoadBuilderState {
-            travel_mode_fn: TravelModeFn::new(
-                game_state.params.avatar_travel.min_navigable_river_width,
-            ),
             travel_duration: AutoRoadTravelDuration::from_params(
                 &game_state.params.auto_road_travel,
             ),
         });
     }
 
-    fn handle_traffic(&mut self, game_state: &GameState, avatar: String, positions: &[V2<usize>]) {
-        for i in 0..positions.len() - 1 {
-            let edge = Edge::new(positions[i], positions[i + 1]);
+    fn handle_traffic(&mut self, game_state: &GameState, avatar: String, edges: &[Edge]) {
+        for edge in edges {
             if self.should_record_traffic(game_state, &edge) {
-                let visitors = self.visitors.entry(edge).or_insert_with(HashSet::new);
+                let visitors = self.visitors.entry(*edge).or_insert_with(HashSet::new);
                 visitors.insert(avatar.clone());
                 let visitor_count = visitors.len();
-                if self.should_build_road(game_state, &edge, visitor_count) {
+                if visitor_count >= self.params.visitor_count_threshold {
                     self.build_road(&edge);
                     self.visitors.remove(&edge);
                 }
@@ -90,46 +85,6 @@ impl NaturalRoadBuilder {
         false
     }
 
-    fn should_build_road(&self, game_state: &GameState, edge: &Edge, visitor_count: usize) -> bool {
-        if visitor_count < self.params.visitor_count_threshold {
-            return false;
-        }
-        self.is_anchor_point(game_state, edge.from()) || self.is_anchor_point(game_state, edge.to())
-    }
-
-    fn is_anchor_point(&self, game_state: &GameState, position: &V2<usize>) -> bool {
-        fn is_house_on_cell(cell: &WorldCell) -> bool {
-            if let WorldObject::House(..) = cell.object {
-                true
-            } else {
-                false
-            }
-        }
-
-        fn is_house_adjacent_to_position(world: &World, position: &V2<usize>) -> bool {
-            world
-                .get_corners_behind(position)
-                .iter()
-                .flat_map(|corner| world.get_cell(corner))
-                .any(|cell| is_house_on_cell(cell))
-        }
-
-        let world = &game_state.world;
-        let cell = world.get_cell_unsafe(position);
-        if cell.road.here() {
-            return true;
-        }
-        if is_house_adjacent_to_position(&game_state.world, position) {
-            return true;
-        }
-        if let Some(NaturalRoadBuilderState { travel_mode_fn, .. }) = &self.state {
-            if travel_mode_fn.is_navigable_river_here(&game_state.world, position) {
-                return true;
-            }
-        }
-        false
-    }
-
     fn get_path(path: &str) -> String {
         format!("{}.visitors", path)
     }
@@ -151,8 +106,8 @@ impl GameEventConsumer for NaturalRoadBuilder {
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
             GameEvent::Init => self.init(game_state),
-            GameEvent::Traffic { name, positions } => {
-                self.handle_traffic(&game_state, name.clone(), positions)
+            GameEvent::Traffic { name, edges } => {
+                self.handle_traffic(&game_state, name.clone(), edges)
             }
             GameEvent::Save(path) => self.save(&path),
             GameEvent::Load(path) => self.load(&path),

@@ -1,8 +1,6 @@
 use super::*;
 use crate::visibility_computer::*;
 use commons::grid::*;
-use commons::v2;
-use isometric::coords::*;
 
 pub struct VisibilityHandler {
     command_tx: Sender<GameCommand>,
@@ -39,34 +37,6 @@ impl VisibilityHandler {
             .send(GameCommand::RevealCells(CellSelection::Some(newly_visible)))
             .unwrap();
     }
-
-    fn check_visited(&mut self, game_state: &GameState) {
-        for Avatar { state, .. } in game_state.avatars.values() {
-            self.check_visited_for_avatar(state, game_state);
-        }
-    }
-
-    fn check_visited_for_avatar(&mut self, avatar_state: &AvatarState, game_state: &GameState) {
-        if let Some(WorldCoord { x, y, .. }) =
-            avatar_state.compute_world_coord(&game_state.world, &game_state.game_micros)
-        {
-            let position = v2(x.round() as usize, y.round() as usize);
-            if let Some(visited_matrix) = &mut self.visited_matrix {
-                if visited_matrix[(position.x, position.y)] {
-                    return;
-                } else {
-                    visited_matrix[(position.x, position.y)] = true;
-                }
-            }
-            if let Some(cell) = game_state.world.get_cell(&position) {
-                if !cell.visited {
-                    self.command_tx
-                        .send(GameCommand::VisitCells(CellSelection::Some(vec![position])))
-                        .unwrap();
-                }
-            }
-        }
-    }
 }
 
 impl GameEventConsumer for VisibilityHandler {
@@ -81,10 +51,7 @@ impl GameEventConsumer for VisibilityHandler {
         CaptureEvent::No
     }
 
-    fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent {
-        if let Event::Tick = *event {
-            self.check_visited(game_state);
-        }
+    fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
         CaptureEvent::No
     }
 }

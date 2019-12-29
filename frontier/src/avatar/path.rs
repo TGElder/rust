@@ -1,6 +1,7 @@
 use super::*;
 use crate::travel_duration::*;
 use crate::world::World;
+use commons::edge::*;
 use commons::{v2, V2};
 use isometric::coords::*;
 use std::ops::Add;
@@ -155,6 +156,27 @@ impl Path {
         } else {
             None
         }
+    }
+
+    fn compute_between_times<T>(
+        &self,
+        from_exclusive: &u128,
+        to_inclusive: &u128,
+        function: &dyn Fn(&Self, usize) -> T,
+    ) -> Vec<T> {
+        (0..self.points.len())
+            .filter(|i| {
+                let arrival = self.point_arrivals[*i];
+                arrival > *from_exclusive && arrival <= *to_inclusive
+            })
+            .map(|i| function(self, i))
+            .collect()
+    }
+
+    pub fn edges_between_times(&self, from_exclusive: &u128, to_inclusive: &u128) -> Vec<Edge> {
+        self.compute_between_times(from_exclusive, to_inclusive, &|s, i| {
+            Edge::new(s.points[i - 1], s.points[i])
+        })
     }
 }
 
@@ -345,5 +367,55 @@ mod tests {
             &travel_duration(),
         );
         assert_eq!(actual, None);
+    }
+
+    #[test]
+    fn test_edges_between_times() {
+        let world = world();
+        let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let path = Path::new(&world, points, &travel_duration(), 0);
+        let actual = path.edges_between_times(&1_500, &6_500);
+        let expected = vec![Edge::new(v2(0, 1), v2(1, 1)), Edge::new(v2(1, 1), v2(1, 2))];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_edges_between_times_start_not_included() {
+        let world = world();
+        let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let path = Path::new(&world, points, &travel_duration(), 0);
+        let actual = path.edges_between_times(&0, &1_500);
+        let expected = vec![Edge::new(v2(0, 0), v2(0, 1))];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_edges_between_times_end_is_included() {
+        let world = world();
+        let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let path = Path::new(&world, points, &travel_duration(), 0);
+        let actual = path.edges_between_times(&6_500, &10_000);
+        let expected = vec![Edge::new(v2(1, 2), v2(2, 2))];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_edges_between_times_before() {
+        let world = world();
+        let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let path = Path::new(&world, points, &travel_duration(), 1_000);
+        let actual = path.edges_between_times(&0, &500);
+        let expected = vec![];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_edges_between_times_after() {
+        let world = world();
+        let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let path = Path::new(&world, points, &travel_duration(), 0);
+        let actual = path.edges_between_times(&10_000, &10_500);
+        let expected = vec![];
+        assert_eq!(actual, expected);
     }
 }
