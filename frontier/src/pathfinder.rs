@@ -4,6 +4,7 @@ use commons::index2d::*;
 use commons::*;
 use network::Edge as NetworkEdge;
 use network::Network;
+use std::collections::HashMap;
 use std::time::Duration;
 
 pub struct Pathfinder<T>
@@ -25,7 +26,7 @@ where
             travel_duration,
             network: Network::new(world.width() * world.height(), &[]),
         };
-        out.compute_network(world);
+        out.reset_edges(world);
         out
     }
 
@@ -33,11 +34,25 @@ where
         self.index.get_index(position)
     }
 
+    fn get_network_indices(&self, positions: &[V2<usize>]) -> Vec<usize> {
+        positions
+            .iter()
+            .flat_map(|position| self.get_network_index(position))
+            .collect()
+    }
+
     fn get_position_from_network_index(
         &self,
         network_index: usize,
     ) -> Result<V2<usize>, IndexOutOfBounds> {
         self.index.get_position(network_index)
+    }
+
+    fn get_positions_from_network_indices(&self, network_indices: &[usize]) -> Vec<V2<usize>> {
+        network_indices
+            .iter()
+            .flat_map(|index| self.get_position_from_network_index(*index))
+            .collect()
     }
 
     fn get_network_edge(
@@ -77,17 +92,15 @@ where
         edges
     }
 
-    pub fn compute_network(&mut self, world: &World) {
-        self.network = Network::new(world.width() * world.height(), &[]);
+    pub fn reset_edges(&mut self, world: &World) {
+        self.network.reset_edges();
         self.compute_network_edges(world)
             .iter()
             .for_each(|edge| self.network.add_edge(&edge));
     }
 
-    pub fn manhattan_distance(&self, to: usize) -> impl Fn(usize) -> u32 {
-        let to = self.get_position_from_network_index(to).unwrap();
-        let to_x = to.x as i32;
-        let to_y = to.y as i32;
+    pub fn manhattan_distance(&self, to: &[V2<usize>]) -> impl Fn(usize) -> u32 {
+        let to: Vec<V2<i32>> = to.iter().map(|to| v2(to.x as i32, to.y as i32)).collect();
         let index = self.index;
         let minimum_duration = self.travel_duration.min_duration();
         let minimum_cost = self
@@ -95,15 +108,23 @@ where
             .get_cost_from_duration_u8(minimum_duration) as u32;
         move |from| {
             let from = index.get_position(from).unwrap();
-            ((from.x as i32 - to_x).abs() + (from.y as i32 - to_y).abs()) as u32 * minimum_cost
+            let from = v2(from.x as i32, from.y as i32);
+            to.iter()
+                .map(|to| ((from.x - to.x).abs() + (from.y - to.y).abs()) as u32 * minimum_cost)
+                .min()
+                .unwrap()
         }
     }
 
-    pub fn find_path(&self, from: &V2<usize>, to: &V2<usize>) -> Option<Vec<V2<usize>>> {
-        if let (Ok(from), Ok(to)) = (self.get_network_index(from), self.get_network_index(to)) {
-            let path = self
-                .network
-                .find_path(from, to, None, &self.manhattan_distance(to));
+    pub fn find_path(&self, from: &V2<usize>, to: &[V2<usize>]) -> Option<Vec<V2<usize>>> {
+        if let Ok(from) = self.get_network_index(from) {
+            let to_indices = &self.get_network_indices(to);
+            if to_indices.is_empty() {
+                return None;
+            }
+            let path =
+                self.network
+                    .find_path(from, &to_indices, None, &self.manhattan_distance(to));
             match path {
                 Some(ref path) if path.is_empty() => None,
                 Some(ref path) => {
@@ -139,20 +160,44 @@ where
         }
     }
 
-    pub fn positions_within(&self, positions: &[V2<usize>], duration: Duration) -> Vec<V2<usize>> {
-        let indices: Vec<usize> = positions
-            .iter()
-            .flat_map(|position| self.get_network_index(position))
-            .collect();
+    pub fn positions_within(
+        &self,
+        positions: &[V2<usize>],
+        duration: Duration,
+    ) -> HashMap<V2<usize>, Duration> {
+        let indices = self.get_network_indices(positions);
         let max_cost = self.travel_duration.get_cost_from_duration(duration);
         self.network
             .nodes_within(&indices, max_cost)
-            .iter()
-            .flat_map(|index| match self.get_position_from_network_index(*index) {
-                Ok(position) => Some(position),
-                _ => None,
+            .into_iter()
+            .flat_map(|result| {
+                let position = self.get_position_from_network_index(result.index);
+                match position {
+                    Ok(position) => Some((
+                        position,
+                        self.travel_duration.get_duration_from_cost(result.cost),
+                    )),
+                    _ => None,
+                }
             })
             .collect()
+    }
+
+    pub fn init_targets(&mut self, name: String) {
+        self.network.init_targets(name);
+    }
+
+    pub fn load_target(&mut self, name: &str, position: &V2<usize>, target: bool) {
+        self.get_network_index(position)
+            .iter()
+            .for_each(|index| self.network.load_target(name, *index, target));
+    }
+
+    pub fn closest_targets(&self, positions: &[V2<usize>], targets: &str) -> Vec<V2<usize>> {
+        let indices = self.get_network_indices(positions);
+        self.get_positions_from_network_indices(
+            &self.network.closest_loaded_targets(&indices, targets),
+        )
     }
 }
 
@@ -237,6 +282,32 @@ mod tests {
     }
 
     #[test]
+    fn test_get_network_indices() {
+        let pathfinder = pathfinder();
+        let positions = [
+            v2(0, 0),
+            v2(1, 0),
+            v2(2, 0),
+            v2(0, 1),
+            v2(1, 1),
+            v2(2, 1),
+            v2(0, 2),
+            v2(1, 2),
+            v2(2, 2),
+        ];
+        let actual = pathfinder.get_network_indices(&positions);
+        assert_eq!(actual, vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    }
+
+    #[test]
+    fn test_get_network_indices_out_of_bounds() {
+        let pathfinder = pathfinder();
+        let positions = [v2(3, 0)];
+        let actual = pathfinder.get_network_indices(&positions);
+        assert_eq!(actual, vec![]);
+    }
+
+    #[test]
     fn test_get_network_position() {
         let pathfinder = pathfinder();
         assert_eq!(pathfinder.get_position_from_network_index(0), Ok(v2(0, 0)));
@@ -248,6 +319,35 @@ mod tests {
         assert_eq!(pathfinder.get_position_from_network_index(6), Ok(v2(0, 2)));
         assert_eq!(pathfinder.get_position_from_network_index(7), Ok(v2(1, 2)));
         assert_eq!(pathfinder.get_position_from_network_index(8), Ok(v2(2, 2)));
+    }
+
+    #[test]
+    fn test_get_positions_from_network_indices() {
+        let pathfinder = pathfinder();
+        let indices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+        let actual = pathfinder.get_positions_from_network_indices(&indices);
+        assert_eq!(
+            actual,
+            vec![
+                v2(0, 0),
+                v2(1, 0),
+                v2(2, 0),
+                v2(0, 1),
+                v2(1, 1),
+                v2(2, 1),
+                v2(0, 2),
+                v2(1, 2),
+                v2(2, 2)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_get_positions_from_network_indices_out_of_bounds() {
+        let pathfinder = pathfinder();
+        let indices = [9];
+        let actual = pathfinder.get_positions_from_network_indices(&indices);
+        assert_eq!(actual, vec![]);
     }
 
     #[test]
@@ -333,7 +433,7 @@ mod tests {
     fn test_find_path() {
         let pathfinder = pathfinder();
         assert_eq!(
-            pathfinder.find_path(&v2(2, 2), &v2(1, 0)),
+            pathfinder.find_path(&v2(2, 2), &[v2(1, 0)]),
             Some(vec![v2(2, 2), v2(2, 1), v2(1, 1), v2(1, 0),])
         );
     }
@@ -341,13 +441,22 @@ mod tests {
     #[test]
     fn test_find_path_impossible() {
         let pathfinder = pathfinder();
-        assert_eq!(pathfinder.find_path(&v2(2, 2), &v2(2, 0)), None);
+        assert_eq!(pathfinder.find_path(&v2(2, 2), &[v2(2, 0)]), None);
     }
 
     #[test]
     fn test_find_path_length_0() {
         let pathfinder = pathfinder();
-        assert_eq!(pathfinder.find_path(&v2(2, 2), &v2(2, 2)), None);
+        assert_eq!(pathfinder.find_path(&v2(2, 2), &[v2(2, 2)]), None);
+    }
+
+    #[test]
+    fn test_find_path_multiple_targets() {
+        let pathfinder = pathfinder();
+        assert_eq!(
+            pathfinder.find_path(&v2(0, 0), &[v2(2, 1), v2(0, 2)]),
+            Some(vec![v2(0, 0), v2(0, 1), v2(0, 2)])
+        );
     }
 
     #[test]
@@ -461,7 +570,56 @@ mod tests {
     fn test_positions_within() {
         let pathfinder = pathfinder();
         let actual = pathfinder.positions_within(&[v2(0, 0)], Duration::from_millis(5));
-        let expected = vec![v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1), v2(0, 2)];
+        let expected = [
+            (v2(0, 0), Duration::from_millis(0)),
+            (v2(1, 0), Duration::from_millis(2)),
+            (v2(1, 1), Duration::from_millis(5)),
+            (v2(0, 1), Duration::from_millis(2)),
+            (v2(0, 2), Duration::from_millis(5)),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        assert_eq!(&actual, &expected);
+    }
+
+    #[test]
+    fn test_closest_loaded_targets() {
+        let mut pathfinder = pathfinder();
+        pathfinder.init_targets("targets".to_string());
+        pathfinder.load_target("targets", &v2(0, 2), true);
+        pathfinder.load_target("targets", &v2(1, 2), true);
+        pathfinder.load_target("targets", &v2(2, 2), true);
+        let actual = pathfinder.closest_targets(&[v2(1, 1)], "targets");
+        let expected = vec![v2(1, 2)];
         assert!(same_elements(&actual, &expected));
+    }
+
+    #[test]
+    fn test_manhattan_distance_single_target() {
+        let pathfinder = pathfinder();
+        let manhattan_distance = pathfinder.manhattan_distance(&[v2(1, 2)]);
+        assert_eq!(
+            manhattan_distance(pathfinder.get_network_index(&v2(0, 0)).unwrap()),
+            64 * 3
+        );
+        assert_eq!(
+            manhattan_distance(pathfinder.get_network_index(&v2(1, 2)).unwrap()),
+            0
+        );
+    }
+
+    #[test]
+    fn test_manhattan_distance_multiple_targets() {
+        let pathfinder = pathfinder();
+        let manhattan_distance = pathfinder.manhattan_distance(&[v2(0, 2), v2(1, 2)]);
+        assert_eq!(
+            manhattan_distance(pathfinder.get_network_index(&v2(0, 0)).unwrap()),
+            64 * 2
+        );
+        assert_eq!(
+            manhattan_distance(pathfinder.get_network_index(&v2(1, 2)).unwrap()),
+            0
+        );
     }
 }

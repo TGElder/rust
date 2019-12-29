@@ -56,7 +56,6 @@ impl Cheats {
                 let new_state = AvatarState::Stationary {
                     position: v2(x.round() as usize, y.round() as usize),
                     rotation: Rotation::Down,
-                    thinking: false,
                 };
                 self.command_tx
                     .send(GameCommand::UpdateAvatar {
@@ -81,17 +80,22 @@ impl Cheats {
 
     fn add_avatars(&mut self, game_state: &GameState) {
         const AVATARS: usize = 100;
-        let base_index = game_state.avatar_state.len();
+        let base_index = game_state.avatars.len();
         println!("Adding {} avatars to existing {}", AVATARS, base_index);
         let mut rng = rand::thread_rng();
         random_avatar_states(&game_state.world, &mut rng, AVATARS)
             .into_iter()
             .enumerate()
             .for_each(|(i, state)| {
+                let name = (base_index + i).to_string();
                 self.command_tx
                     .send(GameCommand::AddAvatar {
-                        name: (base_index + i).to_string(),
-                        state,
+                        name: name.clone(),
+                        avatar: Avatar {
+                            name,
+                            state,
+                            farm: None,
+                        },
                     })
                     .unwrap()
             });

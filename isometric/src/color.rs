@@ -1,3 +1,4 @@
+use commons::rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::ops::Mul;
 
@@ -25,6 +26,15 @@ impl Mul for Color {
 impl Color {
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
+    }
+
+    pub fn random<T: Rng>(rng: &mut T, a: f32) -> Color {
+        Color::new(
+            rng.gen_range(0.0, 1.0),
+            rng.gen_range(0.0, 1.0),
+            rng.gen_range(0.0, 1.0),
+            a,
+        )
     }
 
     pub fn mul(&self, other: &Color) -> Color {

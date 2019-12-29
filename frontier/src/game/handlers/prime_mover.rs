@@ -1,94 +1,93 @@
 use super::*;
 use crate::avatar::*;
 use crate::pathfinder::*;
-use commons::v2;
 use commons::*;
 use isometric::{Button, ElementState, VirtualKeyCode};
-use rand::prelude::*;
+use std::collections::HashSet;
 
 pub struct PrimeMover {
-    command_tx: Sender<GameCommand>,
     pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
+    pathfinding_done_tx: Sender<String>,
+    pathfinding_done_rx: Receiver<String>,
+    pathfinding: HashSet<String>,
     binding: Button,
     active: bool,
 }
 
 impl PrimeMover {
-    pub fn new(
-        command_tx: Sender<GameCommand>,
-        pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>,
-    ) -> PrimeMover {
+    pub fn new(pathfinder_tx: Sender<PathfinderCommand<AvatarTravelDuration>>) -> PrimeMover {
+        let (pathfinding_done_tx, pathfinding_done_rx) = mpsc::channel();
         PrimeMover {
-            command_tx,
             pathfinder_tx,
+            pathfinding_done_tx,
+            pathfinding_done_rx,
+            pathfinding: HashSet::new(),
             binding: Button::Key(VirtualKeyCode::K),
             active: false,
         }
     }
 
-    fn random_location(&self, world: &World) -> V2<usize> {
-        loop {
-            let mut rng = rand::thread_rng();
-            let x = rng.gen_range(0, world.width());
-            let y = rng.gen_range(0, world.height());
-            let position = v2(x, y);
-            if !world.is_sea(&position) {
-                return position;
+    fn move_avatar(
+        &mut self,
+        game_state: &GameState,
+        name: &str,
+        avatar_state: &AvatarState,
+        farm: &Option<V2<usize>>,
+    ) {
+        if self.pathfinding.contains(name) {
+            return;
+        }
+        if let (Some(farm), AvatarState::Stationary { position: from, .. }) = (farm, avatar_state) {
+            let from = *from;
+            let world = &game_state.world;
+            let to = if world.get_corners_in_bounds(farm).contains(&from) {
+                game_state
+                    .territory
+                    .who_controls_tile(&game_state.world, &farm)
+            } else {
+                Some(*farm)
+            };
+
+            if let Some(to) = to {
+                self.pathfinding.insert(name.to_string());
+                let name_string = name.to_string();
+                let to = world.get_corners_in_bounds(&to);
+                let start_at = game_state.game_micros;
+                let pathfinding_done_tx = self.pathfinding_done_tx.clone();
+                let function: Box<
+                    dyn FnOnce(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send,
+                > = Box::new(move |pathfinder| {
+                    let result = pathfinder.find_path(&from, &to);
+                    pathfinding_done_tx.send(name_string.clone()).unwrap();
+                    if let Some(positions) = result {
+                        return vec![GameCommand::WalkPositions {
+                            name: name_string,
+                            positions,
+                            start_at,
+                        }];
+                    } else {
+                        return vec![];
+                    }
+                });
+                self.pathfinder_tx
+                    .send(PathfinderCommand::Use(function))
+                    .unwrap();
             }
         }
     }
 
-    fn move_avatar(&mut self, game_state: &GameState, name: &str, avatar_state: &AvatarState) {
-        if let AvatarState::Stationary {
-            position: from,
-            rotation,
-            thinking: false,
-        } = avatar_state
+    fn move_avatars(&mut self, game_state: &GameState) {
+        for Avatar {
+            name, state, farm, ..
+        } in game_state.avatars.values()
         {
-            let name_string = name.to_string();
-            let from = *from;
-            let to = self.random_location(&game_state.world);
-            let rotation = *rotation;
-            let start_at = game_state.game_micros;
-            let function: Box<
-                dyn Fn(&Pathfinder<AvatarTravelDuration>) -> Vec<GameCommand> + Send,
-            > = Box::new(move |pathfinder| {
-                if let Some(positions) = pathfinder.find_path(&from, &to) {
-                    return vec![GameCommand::WalkPositions {
-                        name: name_string.clone(),
-                        positions,
-                        start_at,
-                    }];
-                } else {
-                    return vec![GameCommand::UpdateAvatar {
-                        name: name_string.clone(),
-                        new_state: AvatarState::Stationary {
-                            position: from,
-                            rotation,
-                            thinking: false,
-                        },
-                    }];
-                }
-            });
-            self.command_tx
-                .send(GameCommand::UpdateAvatar {
-                    name: name.to_string(),
-                    new_state: AvatarState::Stationary {
-                        position: from,
-                        rotation,
-                        thinking: true,
-                    },
-                })
-                .unwrap();
-            self.pathfinder_tx
-                .send(PathfinderCommand::Use(function))
-                .unwrap();
+            self.move_avatar(game_state, name, state, farm);
         }
     }
 
-    fn move_avatars(&mut self, game_state: &GameState) {
-        for (name, avatar_state) in game_state.avatar_state.iter() {
-            self.move_avatar(game_state, name, avatar_state);
+    fn update_pathfinding_set(&mut self) {
+        while let Ok(name) = self.pathfinding_done_rx.try_recv() {
+            self.pathfinding.remove(&name);
         }
     }
 }
@@ -101,6 +100,7 @@ impl GameEventConsumer for PrimeMover {
     fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent {
         if let Event::Tick = *event {
             if self.active {
+                self.update_pathfinding_set();
                 self.move_avatars(game_state);
             }
         } else if let Event::Button {

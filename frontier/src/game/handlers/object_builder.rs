@@ -1,17 +1,22 @@
 use super::*;
 use commons::*;
 use isometric::coords::*;
+use isometric::Color;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
+use rand::prelude::*;
+use rand::rngs::StdRng;
 
 pub struct ObjectBuilder {
     command_tx: Sender<GameCommand>,
     world_coord: Option<WorldCoord>,
     bindings: ObjectBuilderBindings,
+    rng: StdRng,
 }
 
 struct ObjectBuilderBindings {
     build_house: Button,
     build_farm: Button,
+    demolish: Button,
 }
 
 impl ObjectBuilder {
@@ -22,7 +27,9 @@ impl ObjectBuilder {
             bindings: ObjectBuilderBindings {
                 build_house: Button::Key(VirtualKeyCode::H),
                 build_farm: Button::Key(VirtualKeyCode::F),
+                demolish: Button::Key(VirtualKeyCode::U),
             },
+            rng: StdRng::from_rng(rand::thread_rng()).unwrap(),
         }
     }
 
@@ -30,9 +37,13 @@ impl ObjectBuilder {
         self.world_coord = Some(world_coord);
     }
 
+    fn get_position(&self) -> Option<V2<usize>> {
+        self.world_coord
+            .map(|WorldCoord { x, y, .. }| v2(x.floor() as usize, y.floor() as usize))
+    }
+
     fn build_object(&mut self, object: WorldObject, game_state: &GameState) {
-        if let Some(WorldCoord { x, y, .. }) = self.world_coord {
-            let position = v2(x.floor() as usize, y.floor() as usize);
+        if let Some(position) = self.get_position() {
             if let Some(cell) = game_state.world.get_cell(&position) {
                 let command = if cell.object == WorldObject::None {
                     Some(GameCommand::UpdateObject {
@@ -55,6 +66,21 @@ impl ObjectBuilder {
             }
         }
     }
+
+    fn demolish(&mut self, game_state: &GameState) {
+        if let Some(position) = self.get_position() {
+            if let Some(cell) = game_state.world.get_cell(&position) {
+                if cell.object != WorldObject::None {
+                    let command = GameCommand::UpdateObject {
+                        object: cell.object,
+                        position,
+                        build: false,
+                    };
+                    self.command_tx.send(command).unwrap()
+                }
+            }
+        }
+    }
 }
 
 impl GameEventConsumer for ObjectBuilder {
@@ -74,10 +100,12 @@ impl GameEventConsumer for ObjectBuilder {
         } = *event
         {
             if button == &self.bindings.build_house {
-                self.build_object(WorldObject::House, &game_state);
-            }
-            if button == &self.bindings.build_farm {
+                let color = Color::random(&mut self.rng, 1.0);
+                self.build_object(WorldObject::House(color), &game_state);
+            } else if button == &self.bindings.build_farm {
                 self.build_object(WorldObject::Farm, &game_state);
+            } else if button == &self.bindings.demolish {
+                self.demolish(&game_state);
             }
         }
         CaptureEvent::No

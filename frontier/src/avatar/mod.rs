@@ -57,7 +57,6 @@ pub enum AvatarState {
     Stationary {
         position: V2<usize>,
         rotation: Rotation,
-        thinking: bool,
     },
     Walking(Path),
     Absent,
@@ -77,23 +76,16 @@ impl AvatarState {
             AvatarState::Walking(ref path) if path.done(instant) => Some(AvatarState::Stationary {
                 position: *path.final_position(),
                 rotation: path.compute_final_rotation(),
-                thinking: false,
             }),
             _ => None,
         }
     }
 
     pub fn rotate_clockwise(&self) -> Option<AvatarState> {
-        if let AvatarState::Stationary {
-            rotation,
-            position,
-            thinking,
-        } = self
-        {
+        if let AvatarState::Stationary { rotation, position } = self {
             Some(AvatarState::Stationary {
                 rotation: rotation.clockwise(),
                 position: *position,
-                thinking: *thinking,
             })
         } else {
             None
@@ -101,16 +93,10 @@ impl AvatarState {
     }
 
     pub fn rotate_anticlockwise(&self) -> Option<AvatarState> {
-        if let AvatarState::Stationary {
-            rotation,
-            position,
-            thinking,
-        } = self
-        {
+        if let AvatarState::Stationary { rotation, position } = self {
             Some(AvatarState::Stationary {
                 rotation: rotation.anticlockwise(),
                 position: *position,
-                thinking: *thinking,
             })
         } else {
             None
@@ -193,6 +179,13 @@ impl AvatarState {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct Avatar {
+    pub name: String,
+    pub state: AvatarState,
+    pub farm: Option<V2<usize>>,
+}
+
 use std::time::Duration;
 
 #[allow(dead_code)]
@@ -247,7 +240,6 @@ mod tests {
         let avatar = AvatarState::Stationary {
             position: v2(1, 1),
             rotation: Rotation::Up,
-            thinking: false,
         };
         assert_eq!(avatar.forward_path(), Some(vec![v2(1, 1), v2(1, 2)]));
         let avatar = avatar.rotate_clockwise().unwrap();
@@ -264,7 +256,6 @@ mod tests {
         let state = AvatarState::Stationary {
             position: v2(0, 0),
             rotation: Rotation::Up,
-            thinking: false,
         };
         let new_state = state.walk_positions(
             &world,
@@ -289,7 +280,6 @@ mod tests {
         let state = AvatarState::Stationary {
             position: v2(0, 0),
             rotation: Rotation::Up,
-            thinking: false,
         };
         let new_state = state.walk_positions(
             &world,
@@ -355,7 +345,6 @@ mod tests {
         let avatar = AvatarState::Stationary {
             position: v2(1, 1),
             rotation: Rotation::Up,
-            thinking: false,
         };
         assert_eq!(
             avatar.compute_world_coord(&world(), &0),
@@ -390,7 +379,6 @@ mod tests {
         let avatar = AvatarState::Stationary {
             position: v2(2, 1),
             rotation: Rotation::Up,
-            thinking: false,
         };
         assert_eq!(
             avatar.compute_world_coord(&world(), &0),

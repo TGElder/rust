@@ -32,17 +32,26 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
         world.reveal_all();
         world.visit_all();
     }
-    let avatar_state = random_avatar_states(&world, &mut rng, 1)
+    let avatars = random_avatar_states(&world, &mut rng, 1)
         .into_iter()
         .enumerate()
-        .map(|(i, state)| (i.to_string(), state))
+        .map(|(i, state)| {
+            (
+                i.to_string(),
+                Avatar {
+                    name: i.to_string(),
+                    state,
+                    farm: None,
+                },
+            )
+        })
         .collect();
     let game_state = GameState {
         territory: Territory::new(&world),
         world,
         params,
         game_micros: 0,
-        avatar_state,
+        avatars,
         selected_avatar: Some("0".to_string()),
         follow_avatar: true,
     };
@@ -110,6 +119,14 @@ fn main() {
         avatar_pathfinder_service.command_tx(),
         game.game_state().params.territory_duration,
     ));
+    game.add_consumer(FarmCandidateHandler::new(
+        avatar_pathfinder_service.command_tx(),
+    ));
+    game.add_consumer(TownCandidateHandler::new(
+        avatar_pathfinder_service.command_tx(),
+    ));
+    game.add_consumer(FarmAssigner::new(avatar_pathfinder_service.command_tx()));
+    game.add_consumer(NaturalRoadBuilder::new(game.command_tx()));
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.command_tx()));
@@ -125,10 +142,7 @@ fn main() {
     ));
     game.add_consumer(ObjectBuilder::new(game.command_tx()));
     game.add_consumer(Cheats::new(game.command_tx()));
-    game.add_consumer(PrimeMover::new(
-        game.command_tx(),
-        avatar_pathfinder_service.command_tx(),
-    ));
+    game.add_consumer(PrimeMover::new(avatar_pathfinder_service.command_tx()));
     game.add_consumer(Save::new(game.command_tx()));
 
     game.add_consumer(FollowAvatar::new(game.command_tx()));

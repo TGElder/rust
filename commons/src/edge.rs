@@ -1,7 +1,7 @@
 use crate::V2;
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Edge {
     from: V2<usize>,
     to: V2<usize>,

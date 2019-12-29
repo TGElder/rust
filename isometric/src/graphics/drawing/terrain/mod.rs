@@ -115,8 +115,8 @@ where
         floats.append(&mut get_textured_vertices_from_triangle(
             &triangle,
             &color,
-            &v2(tile.x as f32, tile.y as f32),
-            &v2(tile.x as f32 + 1.0, tile.y as f32 + 1.0),
+            v2(tile.x as f32, tile.y as f32),
+            v2(tile.x as f32 + 1.0, tile.y as f32 + 1.0),
         ));
     }
 

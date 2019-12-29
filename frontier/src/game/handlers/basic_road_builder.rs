@@ -27,8 +27,8 @@ impl BasicRoadBuilder {
 
     fn build_road(&mut self, game_state: &GameState) {
         if let Some(travel_duration) = &self.travel_duration {
-            if let Some((name, avatar_state)) = &game_state.selected_avatar_name_and_state() {
-                if let Some(path) = avatar_state.forward_path() {
+            if let Some(Avatar { name, state, .. }) = &game_state.selected_avatar() {
+                if let Some(path) = state.forward_path() {
                     if travel_duration
                         .get_duration(&game_state.world, &path[0], &path[1])
                         .is_some()

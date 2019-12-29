@@ -41,8 +41,8 @@ impl VisibilityHandler {
     }
 
     fn check_visited(&mut self, game_state: &GameState) {
-        for (_, avatar_state) in game_state.avatar_state.iter() {
-            self.check_visited_for_avatar(avatar_state, game_state);
+        for Avatar { state, .. } in game_state.avatars.values() {
+            self.check_visited_for_avatar(state, game_state);
         }
     }
 

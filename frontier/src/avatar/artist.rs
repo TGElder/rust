@@ -143,14 +143,14 @@ impl AvatarArtist {
 
     pub fn draw_avatars(
         &mut self,
-        avatars: &HashMap<String, AvatarState>,
+        avatars: &HashMap<String, Avatar>,
         world: &World,
         instant: &u128,
         travel_mode_fn: &TravelModeFn,
     ) -> Vec<Command> {
         avatars
-            .iter()
-            .flat_map(|(name, state)| {
+            .values()
+            .flat_map(|Avatar { name, state, .. }| {
                 self.draw_avatar(&name, state, world, instant, travel_mode_fn)
             })
             .collect()
@@ -291,25 +291,27 @@ impl AvatarArtist {
         world_coord: WorldCoord,
         travel_mode_fn: &TravelModeFn,
     ) -> bool {
-        let travel_mode = match state {
+        let travel_modes = match state {
             AvatarState::Walking { .. } => {
                 let from = v2(
                     world_coord.x.floor() as usize,
                     world_coord.y.floor() as usize,
                 );
                 let to = v2(world_coord.x.ceil() as usize, world_coord.y.ceil() as usize);
-                travel_mode_fn.travel_mode_between(world, &from, &to)
+                travel_mode_fn
+                    .travel_mode_between(world, &from, &to)
+                    .map(|mode| vec![mode])
+                    .unwrap_or_default()
             }
             AvatarState::Stationary { position, .. } => {
-                travel_mode_fn.travel_mode_here(world, &position)
+                travel_mode_fn.travel_modes_here(world, &position)
             }
-            _ => None,
+            _ => vec![],
         };
-        match travel_mode {
-            Some(TravelMode::Sea) => true,
-            Some(TravelMode::River) => true,
-            _ => false,
-        }
+        !travel_modes
+            .iter()
+            .map(|mode| mode.class())
+            .any(|class| class == TravelModeClass::Land)
     }
 
     fn draw_boat(

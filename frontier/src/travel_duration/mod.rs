@@ -34,6 +34,14 @@ pub trait TravelDuration: Send + Sync {
             cost as u8
         }
     }
+
+    fn get_duration_from_cost(&self, cost: u128) -> Duration {
+        let scale = Scale::<f32>::new(
+            (0.0, 255.0),
+            (0 as f32, self.max_duration().as_millis() as f32),
+        );
+        Duration::from_millis(scale.scale(cost as f32) as u64)
+    }
 }
 
 pub trait TravelCost {
@@ -107,6 +115,18 @@ mod tests {
             max_millis: 4,
         };
         test_duration.get_cost_from_duration_u8(Duration::from_millis(5));
+    }
+
+    #[test]
+    fn test_get_duration_from_cost() {
+        let test_duration = TestDuration {
+            millis: 1,
+            max_millis: 4,
+        };
+        assert_eq!(
+            test_duration.get_duration_from_cost(255 * 3),
+            Duration::from_millis(12)
+        );
     }
 
     #[test]

@@ -121,7 +121,7 @@ pub fn get_specific_colored_vertices_from_triangle(points: &[V3<f32>; 3], colors
 }
 
 #[rustfmt::skip]
-pub fn get_textured_vertices_from_triangle(points: &[V3<f32>; 3], color: &Color, from: &V2<f32>, to: &V2<f32>) -> Vec<f32> {
+pub fn get_textured_vertices_from_triangle(points: &[V3<f32>; 3], color: &Color, from: V2<f32>, to: V2<f32>) -> Vec<f32> {
     let x_scale = Scale::new((from.x, to.x), (0.0, 1.0));
     let y_scale = Scale::new((from.y, to.y), (0.0, 1.0));
     vec![

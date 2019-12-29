@@ -110,7 +110,6 @@ pub fn random_avatar_states<R: Rng>(world: &World, rng: &mut R, amount: usize) -
         .map(|shore_start| AvatarState::Stationary {
             position: shore_start.at(),
             rotation: shore_start.rotation(),
-            thinking: false,
         })
         .collect()
 }

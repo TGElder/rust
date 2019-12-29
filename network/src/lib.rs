@@ -90,6 +90,12 @@ impl Edge {
     }
 }
 
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+pub struct NodeWithinResult {
+    pub index: usize,
+    pub cost: u128,
+}
+
 #[derive(Eq, PartialEq, Debug)]
 pub struct Network {
     pub nodes: usize,
@@ -131,6 +137,11 @@ impl Network {
             .map(|i| self.edges_in[to].remove(i));
     }
 
+    pub fn reset_edges(&mut self) {
+        self.edges_out = vec![vec![]; self.nodes];
+        self.edges_in = vec![vec![]; self.nodes];
+    }
+
     pub fn get_in(&self, node: usize) -> &Vec<Edge> {
         &self.edges_in[node]
     }
@@ -139,12 +150,12 @@ impl Network {
         &self.edges_out[node]
     }
 
-    pub fn load_target(&mut self, name: &str, index: usize, target: bool) {
-        self.targets.get_mut(name).unwrap()[index] = target
+    pub fn init_targets(&mut self, name: String) {
+        self.targets.insert(name, vec![false; self.nodes]);
     }
 
-    pub fn load_targets(&mut self, name: String, targets: Vec<bool>) {
-        self.targets.insert(name, targets);
+    pub fn load_target(&mut self, name: &str, index: usize, target: bool) {
+        self.targets.get_mut(name).unwrap()[index] = target
     }
 
     pub fn dijkstra(&self, nodes: Vec<usize>) -> Vec<Option<u128>> {
@@ -181,7 +192,7 @@ impl Network {
     pub fn find_path(
         &self,
         from: usize,
-        to: usize,
+        to: &[usize],
         max_cost: Option<u32>,
         heuristic: &dyn Fn(usize) -> u32,
     ) -> Option<Vec<Edge>> {
@@ -247,6 +258,8 @@ impl Network {
             out
         }
 
+        let mut to_vector = vec![false; self.nodes];
+        to.iter().for_each(|to| to_vector[*to] = true);
         let mut closed = vec![false; self.nodes];
         let mut edges = vec![None; self.nodes];
         let mut heap = BinaryHeap::new();
@@ -269,8 +282,8 @@ impl Network {
                 continue;
             }
             edges[index] = entry;
-            if index == to {
-                return Some(get_path(from, to, &edges));
+            if to_vector[index] {
+                return Some(get_path(from, index, &edges));
             }
             closed[index] = true;
             for edge in self.get_out(index) {
@@ -291,7 +304,7 @@ impl Network {
         None
     }
 
-    pub fn nodes_within(&self, start_nodes: &[usize], max_cost: u128) -> Vec<usize> {
+    pub fn nodes_within(&self, start_nodes: &[usize], max_cost: u128) -> Vec<NodeWithinResult> {
         let mut closed = vec![false; self.nodes];
         let mut heap = BinaryHeap::new();
         let mut out = vec![];
@@ -310,7 +323,7 @@ impl Network {
                 continue;
             }
             closed[index] = true;
-            out.push(index);
+            out.push(NodeWithinResult { index, cost });
             for edge in self.get_out(index) {
                 let neighbour = edge.to;
                 if closed[neighbour] {
@@ -380,8 +393,8 @@ impl Network {
 #[cfg(test)]
 mod tests {
 
+    use super::*;
     use hamcrest::prelude::*;
-    use {Edge, Network};
 
     fn get_test_edges() -> Vec<Edge> {
         vec![
@@ -606,7 +619,7 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(1, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, 3, None, &|_| 0);
+        let actual = network.find_path(0, &[3], None, &|_| 0);
         let expected = Some(vec![
             Edge::new(0, 1, 1),
             Edge::new(1, 2, 1),
@@ -620,7 +633,7 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(1, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(3, 0, None, &|_| 0);
+        let actual = network.find_path(3, &[0], None, &|_| 0);
         let expected = None;
         assert_eq!(actual, expected);
     }
@@ -630,7 +643,7 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(1, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, 3, Some(2), &|_| 0);
+        let actual = network.find_path(0, &[3], Some(2), &|_| 0);
         let expected = None;
         assert_eq!(actual, expected);
     }
@@ -640,7 +653,7 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(1, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, 3, Some(3), &|_| 0);
+        let actual = network.find_path(0, &[3], Some(3), &|_| 0);
         let expected = Some(vec![
             Edge::new(0, 1, 1),
             Edge::new(1, 2, 1),
@@ -652,7 +665,7 @@ mod tests {
     #[test]
     fn test_find_path_isolated_nodes() {
         let network = Network::new(4, &[]);
-        let actual = network.find_path(0, 3, Some(2), &|_| 0);
+        let actual = network.find_path(0, &[3], Some(2), &|_| 0);
         let expected = None;
         assert_eq!(actual, expected);
     }
@@ -667,7 +680,7 @@ mod tests {
         ];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, 3, None, &|_| 0);
+        let actual = network.find_path(0, &[3], None, &|_| 0);
         let via_1 = Some(vec![Edge::new(0, 1, 1), Edge::new(1, 3, 1)]);
         let via_2 = Some(vec![Edge::new(0, 2, 1), Edge::new(2, 3, 1)]);
         assert!(actual == via_1 || actual == via_2);
@@ -683,7 +696,7 @@ mod tests {
         ];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, 3, Some(3), &|_| 0);
+        let actual = network.find_path(0, &[3], Some(3), &|_| 0);
         let expected = Some(vec![
             Edge::new(0, 1, 1),
             Edge::new(1, 2, 1),
@@ -706,7 +719,7 @@ mod tests {
             .collect();
 
         let network = Network::new(16, &edges);
-        let actual = network.find_path(10, 13, None, &|_| 0);
+        let actual = network.find_path(10, &[13], None, &|_| 0);
         let expected = Some(vec![
             Edge::new(10, 11, 1),
             Edge::new(11, 7, 1),
@@ -714,6 +727,27 @@ mod tests {
             Edge::new(6, 5, 1),
             Edge::new(5, 9, 1),
             Edge::new(9, 13, 1),
+        ]);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_find_path_multiple_targets() {
+        let edges = vec![
+            Edge::new(0, 1, 1),
+            Edge::new(1, 2, 1),
+            Edge::new(2, 3, 2),
+            Edge::new(0, 4, 1),
+            Edge::new(4, 5, 1),
+            Edge::new(5, 6, 1),
+        ];
+        let network = Network::new(7, &edges);
+
+        let actual = network.find_path(0, &[3, 6], None, &|_| 0);
+        let expected = Some(vec![
+            Edge::new(0, 4, 1),
+            Edge::new(4, 5, 1),
+            Edge::new(5, 6, 1),
         ]);
         assert_eq!(actual, expected);
     }
@@ -733,7 +767,15 @@ mod tests {
         ];
         let network = Network::new(9, &edges);
         let actual = network.nodes_within(&[0], 10);
-        let expected = vec![0, 1, 2, 3, 5, 7, 8];
+        let expected = vec![
+            NodeWithinResult { index: 0, cost: 0 },
+            NodeWithinResult { index: 1, cost: 1 },
+            NodeWithinResult { index: 2, cost: 3 },
+            NodeWithinResult { index: 3, cost: 10 },
+            NodeWithinResult { index: 5, cost: 1 },
+            NodeWithinResult { index: 7, cost: 1 },
+            NodeWithinResult { index: 8, cost: 2 },
+        ];
         assert_that!(&actual, contains(expected).exactly());
     }
 
@@ -742,7 +784,12 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
         let actual = network.nodes_within(&[0, 2], 1);
-        let expected = vec![0, 1, 2, 3];
+        let expected = vec![
+            NodeWithinResult { index: 0, cost: 0 },
+            NodeWithinResult { index: 1, cost: 1 },
+            NodeWithinResult { index: 2, cost: 0 },
+            NodeWithinResult { index: 3, cost: 1 },
+        ];
         assert_that!(&actual, contains(expected).exactly());
     }
 
@@ -808,22 +855,10 @@ mod tests {
     }
 
     #[test]
-    fn test_closest_loaded_targets_via_load_targets() {
-        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
-        let mut network = Network::new(3, &edges);
-        let targets = vec![false, true, true];
-        network.load_targets(String::from("targets"), targets);
-        let actual = network.closest_loaded_targets(&[0], "targets");
-        let expected = vec![1];
-        assert_that!(&actual, contains(expected).exactly());
-    }
-
-    #[test]
     fn test_closest_loaded_targets_via_load_target() {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
         let mut network = Network::new(3, &edges);
-        let targets = vec![false, false, false];
-        network.load_targets(String::from("targets"), targets);
+        network.init_targets(String::from("targets"));
         network.load_target("targets", 1, true);
         network.load_target("targets", 2, true);
         let actual = network.closest_loaded_targets(&[0], "targets");

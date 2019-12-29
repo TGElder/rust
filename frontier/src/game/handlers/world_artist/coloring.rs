@@ -8,18 +8,28 @@ fn sea_color() -> Color {
     Color::new(0.0, 0.0, 1.0, 1.0)
 }
 
+#[allow(clippy::type_complexity)]
 pub fn create_coloring(
     game_state: &GameState,
 ) -> SeaLevelColoring<
     WorldCell,
-    LayerColoring<WorldCell, ShadedTileTerrainColoring<WorldCell, BaseColoring>, TerritoryColoring>,
+    LayerColoring<
+        WorldCell,
+        LayerColoring<
+            WorldCell,
+            ShadedTileTerrainColoring<WorldCell, BaseColoring>,
+            TerritoryColoring,
+        >,
+        FarmCandidateColoring,
+    >,
 > {
     let base = ShadedTileTerrainColoring::new(
         BaseColoring::new(game_state),
         game_state.params.light_direction,
     );
     let territory = TerritoryColoring::new(game_state);
-    let layers = LayerColoring::new(base, territory);
+    let farm_candidates = FarmCandidateColoring::new(game_state);
+    let layers = LayerColoring::new(LayerColoring::new(base, territory), farm_candidates);
     SeaLevelColoring::new(
         layers,
         Some(sea_color()),
@@ -121,13 +131,34 @@ impl<'a> TerrainColoring<WorldCell> for TerritoryColoring<'a> {
         tile: &V2<usize>,
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        let controlled = self
-            .game_state
-            .territory
-            .all_corners_controlled(&self.game_state.world, tile);
-        let territory_highlight = self.game_state.params.artist.territory_highlight;
-        let color = if controlled {
-            Some(territory_highlight)
+        let mut color = self.game_state.tile_color(tile);
+        if let Some(color) = &mut color {
+            color.a = self.game_state.params.artist.territory_alpha;
+        }
+        [color, color, color]
+    }
+}
+
+pub struct FarmCandidateColoring<'a> {
+    game_state: &'a GameState,
+}
+
+impl<'a> FarmCandidateColoring<'a> {
+    fn new(game_state: &'a GameState) -> FarmCandidateColoring {
+        FarmCandidateColoring { game_state }
+    }
+}
+
+impl<'a> TerrainColoring<WorldCell> for FarmCandidateColoring<'a> {
+    fn color(
+        &self,
+        _: &dyn Grid<WorldCell>,
+        tile: &V2<usize>,
+        _: &[V3<f32>; 3],
+    ) -> [Option<Color>; 3] {
+        let highlight = self.game_state.params.artist.farm_candidate_highlight;
+        let color = if self.game_state.is_farm_candidate(&tile) {
+            Some(highlight)
         } else {
             None
         };

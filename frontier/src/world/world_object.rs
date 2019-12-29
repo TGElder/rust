@@ -1,3 +1,4 @@
+use isometric::Color;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
@@ -41,6 +42,6 @@ impl VegetationType {
 pub enum WorldObject {
     None,
     Vegetation(VegetationType),
-    House,
+    House(Color),
     Farm,
 }

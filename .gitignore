@@ -1,5 +1,5 @@
 /target
 **/*.rs.bk
 frontier/save
-frontier/save.labels
+frontier/save.*
 frontier/test_save

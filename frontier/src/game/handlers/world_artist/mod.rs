@@ -24,7 +24,7 @@ impl WorldArtistHandler {
         let world_artist = WorldArtist::new(
             &game_state.world,
             WorldArtistParameters {
-                road_color: Color::new(0.5, 0.5, 0.5, 1.0),
+                road_color: Color::new(0.6, 0.4, 0.0, 1.0),
                 river_color: Color::new(0.0, 0.0, 1.0, 1.0),
                 waterfall_color: Color::new(0.0, 0.75, 1.0, 1.0),
                 slab_size: 64,
@@ -56,7 +56,10 @@ impl WorldArtistHandler {
     }
 
     fn draw_territory(&mut self, game_state: &GameState, changes: &[TerritoryChange]) {
-        let affected: Vec<V2<usize>> = changes.iter().map(|change| change.position).collect();
+        let affected: Vec<V2<usize>> = changes
+            .iter()
+            .flat_map(|change| game_state.world.expand_position(&change.position))
+            .collect();
         self.update_cells(game_state, &affected);
     }
 }

@@ -28,17 +28,17 @@ impl ObjectArtistHandler {
         }
         if let Some(state) = &self.state {
             let commands = match object {
-                WorldObject::House => state
-                    .house_artist
-                    .draw_house_at(&game_state.world, position),
+                WorldObject::House(color) => {
+                    state
+                        .house_artist
+                        .draw_house_at(&game_state.world, position, *color)
+                }
                 WorldObject::Farm => Self::draw_farm(state, game_state, position),
-                _ => panic!("Cannot draw object type {:?}", object),
+                _ => return,
             };
             self.command_tx
                 .send(GameCommand::EngineCommands(commands))
                 .unwrap();
-        } else {
-            return;
         }
     }
 
@@ -47,14 +47,13 @@ impl ObjectArtistHandler {
         game_state: &GameState,
         position: &V2<usize>,
     ) -> Vec<Command> {
-        let controlled = game_state
-            .territory
-            .all_corners_controlled(&game_state.world, position);
-        let color = if controlled {
-            game_state.params.artist.territory_highlight
-        } else {
-            Color::transparent()
-        };
+        let color = game_state
+            .tile_color(position)
+            .map(|mut color| {
+                color.a = game_state.params.artist.territory_alpha;
+                color
+            })
+            .unwrap_or_else(Color::transparent);
         state.farm_artist.draw_farm_at(
             &game_state.world,
             game_state.params.world_gen.sea_level as f32,
@@ -69,7 +68,7 @@ impl ObjectArtistHandler {
         }
         if let Some(state) = &self.state {
             let commands = match object {
-                WorldObject::House => state
+                WorldObject::House(..) => state
                     .house_artist
                     .erase_house_at(&game_state.world, position),
                 WorldObject::Farm => state.farm_artist.erase_farm_at(&game_state.world, position),
@@ -78,19 +77,15 @@ impl ObjectArtistHandler {
             self.command_tx
                 .send(GameCommand::EngineCommands(commands))
                 .unwrap();
-        } else {
-            return;
         }
     }
 
-    fn draw_all(&mut self, object: &WorldObject, game_state: &GameState) {
+    fn draw_all(&mut self, game_state: &GameState) {
         for x in 0..game_state.world.width() {
             for y in 0..game_state.world.height() {
                 let position = v2(x, y);
-                if let Some(cell) = game_state.world.get_cell(&position) {
-                    if cell.object == WorldObject::House {
-                        self.draw_object(object, &game_state, &v2(x, y));
-                    }
+                if let Some(WorldCell { object, .. }) = game_state.world.get_cell(&position) {
+                    self.draw_object(object, &game_state, &v2(x, y));
                 }
             }
         }
@@ -113,12 +108,11 @@ impl ObjectArtistHandler {
             house_artist: HouseArtist::new(game_state.params.light_direction),
             farm_artist: FarmArtist::new(),
         });
-        self.draw_all(&WorldObject::House, game_state);
-        self.draw_all(&WorldObject::Farm, game_state);
+        self.draw_all(game_state);
     }
 
     fn territory_change(&mut self, game_state: &GameState, changes: &[TerritoryChange]) {
-        let changes: Vec<V2<usize>> = changes.into_iter().map(|change| change.position).collect();
+        let changes: Vec<V2<usize>> = changes.iter().map(|change| change.position).collect();
         self.draw_affected(&WorldObject::Farm, game_state, &changes);
     }
 }

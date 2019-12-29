@@ -33,7 +33,7 @@ impl AvatarArtistHandler {
             (&mut self.avatar_artist, &self.travel_mode_fn)
         {
             let draw = avatar_artist.draw_avatars(
-                &game_state.avatar_state,
+                &game_state.avatars,
                 &game_state.world,
                 &game_state.game_micros,
                 &travel_mode_fn,

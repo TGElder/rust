@@ -122,19 +122,7 @@ impl AvatarTravelDuration {
         from: &V2<usize>,
         to: &V2<usize>,
     ) -> Duration {
-        let from_class = self
-            .travel_mode_fn
-            .travel_mode_here(world, &from)
-            .map(|mode| mode.class());
-        let to_class = self
-            .travel_mode_fn
-            .travel_mode_here(world, &to)
-            .map(|mode| mode.class());
-        let between_class = self
-            .travel_mode_fn
-            .travel_mode_between(world, from, to)
-            .map(|mode| mode.class());
-        if from_class != to_class || from_class != between_class {
+        if self.travel_mode_fn.travel_mode_change(world, from, to) {
             Duration::from_millis(self.travel_mode_change_penalty_millis)
         } else {
             Duration::from_millis(0)

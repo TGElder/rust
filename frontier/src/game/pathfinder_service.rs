@@ -9,7 +9,8 @@ pub enum PathfinderCommand<T>
 where
     T: TravelDuration,
 {
-    Use(Box<dyn Fn(&Pathfinder<T>) -> Vec<GameCommand> + Send>),
+    Use(Box<dyn FnOnce(&Pathfinder<T>) -> Vec<GameCommand> + Send>),
+    Update(Box<dyn FnOnce(&mut Pathfinder<T>) + Send>),
     Shutdown,
 }
 
@@ -26,17 +27,22 @@ impl<T> Service<T>
 where
     T: TravelDuration,
 {
-    fn execute(&self, function: Box<dyn Fn(&Pathfinder<T>) -> Vec<GameCommand>>) {
+    fn execute(&self, function: Box<dyn FnOnce(&Pathfinder<T>) -> Vec<GameCommand>>) {
         let commands = function(&self.pathfinder.read().unwrap());
         for command in commands {
             self.game_command_tx.send(command).unwrap();
         }
     }
 
+    fn update(&mut self, function: Box<dyn FnOnce(&mut Pathfinder<T>)>) {
+        function(&mut self.pathfinder.write().unwrap());
+    }
+
     fn run(&mut self) {
         loop {
             match self.command_rx.recv().unwrap() {
                 PathfinderCommand::Use(function) => self.execute(function),
+                PathfinderCommand::Update(function) => self.update(function),
                 PathfinderCommand::Shutdown => return,
             }
         }
@@ -90,7 +96,7 @@ where
         self.pathfinder
             .write()
             .unwrap()
-            .compute_network(&game_state.world);
+            .reset_edges(&game_state.world);
     }
 
     fn update_pathfinder_with_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {

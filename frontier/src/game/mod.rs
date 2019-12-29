@@ -16,11 +16,11 @@ use commons::grid::Grid;
 use commons::{M, V2};
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
 use std::collections::hash_map::Entry;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub enum CellSelection {
     All,
@@ -29,7 +29,7 @@ pub enum CellSelection {
 
 pub struct TerritoryState {
     controller: V2<usize>,
-    territory: HashSet<V2<usize>>,
+    durations: HashMap<V2<usize>, Duration>,
 }
 
 pub enum GameEvent {
@@ -46,6 +46,10 @@ pub enum GameEvent {
         built: bool,
     },
     TerritoryChanged(Vec<TerritoryChange>),
+    Traffic {
+        name: String,
+        positions: Vec<V2<usize>>,
+    },
 }
 
 pub enum GameCommand {
@@ -62,11 +66,15 @@ pub enum GameCommand {
     SetTerritory(Vec<TerritoryState>),
     AddAvatar {
         name: String,
-        state: AvatarState,
+        avatar: Avatar,
     },
     UpdateAvatar {
         name: String,
         new_state: AvatarState,
+    },
+    SetAvatarFarm {
+        name: String,
+        farm: Option<V2<usize>>,
     },
     WalkPositions {
         name: String,
@@ -173,9 +181,9 @@ impl Game {
     fn evolve_avatars(&mut self) {
         let game_micros = &self.game_state.game_micros;
         self.game_state
-            .avatar_state
-            .iter_mut()
-            .for_each(|(_, state)| {
+            .avatars
+            .values_mut()
+            .for_each(|Avatar { state, .. }| {
                 if let Some(new_state) = Self::evolve_avatar(game_micros, state) {
                     *state = new_state
                 }
@@ -285,34 +293,62 @@ impl Game {
         let mut changes = vec![];
         for TerritoryState {
             controller,
-            territory,
+            durations,
         } in states
         {
-            changes.append(&mut self.game_state.territory.control(controller, territory));
+            changes.append(&mut self.game_state.territory.set_durations(
+                controller,
+                &durations,
+                &self.game_state.game_micros,
+            ));
         }
         self.command_tx
             .send(GameCommand::Event(GameEvent::TerritoryChanged(changes)))
             .unwrap();
     }
 
-    fn add_avatar(&mut self, name: String, state: AvatarState) {
-        self.game_state.avatar_state.insert(name, state);
+    fn add_avatar(&mut self, name: String, avatar: Avatar) {
+        self.game_state.avatars.insert(name, avatar);
     }
 
-    fn update_avatar(&mut self, name: String, state: AvatarState) {
-        self.game_state.avatar_state.insert(name, state);
+    fn update_avatar(&mut self, name: String, new_state: AvatarState) {
+        if let Some(avatar) = self.game_state.avatars.get_mut(&name) {
+            avatar.state = new_state
+        }
+    }
+
+    fn set_avatar_farm(&mut self, name: String, farm: Option<V2<usize>>) {
+        if let Some(farm) = farm {
+            if let Some(cell) = self.game_state.world.mut_cell(&farm) {
+                if let (Some(avatar), WorldObject::None) =
+                    (self.game_state.avatars.get_mut(&name), WorldObject::None)
+                {
+                    cell.object = WorldObject::Farm;
+                    avatar.farm = Some(farm);
+                    let event = GameEvent::ObjectUpdated {
+                        object: WorldObject::Farm,
+                        position: farm,
+                        built: true,
+                    };
+                    self.command_tx.send(GameCommand::Event(event)).unwrap()
+                }
+            }
+        }
     }
 
     fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
         let start_at = start_at.max(self.game_state.game_micros);
-        if let Entry::Occupied(mut avatar_state) = self.game_state.avatar_state.entry(name) {
-            if let Some(new_state) = avatar_state.get().walk_positions(
+        if let Entry::Occupied(mut avatar) = self.game_state.avatars.entry(name.clone()) {
+            if let Some(new_state) = avatar.get().state.walk_positions(
                 &self.game_state.world,
-                positions,
+                positions.clone(),
                 &self.avatar_travel_duration,
                 start_at,
             ) {
-                avatar_state.insert(new_state);
+                avatar.get_mut().state = new_state;
+                self.command_tx
+                    .send(GameCommand::Event(GameEvent::Traffic { name, positions }))
+                    .unwrap();
             }
         }
     }
@@ -355,10 +391,11 @@ impl Game {
                     build,
                 } => self.update_object(object, position, build),
                 GameCommand::SetTerritory(states) => self.set_territory(states),
-                GameCommand::AddAvatar { name, state } => self.add_avatar(name, state),
+                GameCommand::AddAvatar { name, avatar } => self.add_avatar(name, avatar),
                 GameCommand::UpdateAvatar { name, new_state } => {
                     self.update_avatar(name, new_state)
                 }
+                GameCommand::SetAvatarFarm { name, farm } => self.set_avatar_farm(name, farm),
                 GameCommand::WalkPositions {
                     name,
                     positions,
