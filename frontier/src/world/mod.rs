@@ -201,7 +201,7 @@ impl World {
     }
 
     pub fn get_border(&self, position: &V2<usize>) -> Vec<Edge> {
-        let corners = self.get_corners(position);
+        let corners = get_corners(position);
         (0..4)
             .map(|i| Edge::new(corners[i], corners[(i + 1) % 4]))
             .collect()
@@ -215,7 +215,7 @@ impl World {
     }
 
     pub fn get_lowest_corner(&self, position: &V2<usize>) -> f32 {
-        self.get_corners(&position)
+        get_corners(&position)
             .iter()
             .flat_map(|corner| self.get_cell(corner))
             .map(|cell| cell.elevation())
@@ -225,7 +225,7 @@ impl World {
 
     #[allow(dead_code)]
     pub fn get_highest_corner(&self, position: &V2<usize>) -> f32 {
-        self.get_corners(&position)
+        get_corners(&position)
             .iter()
             .flat_map(|corner| self.get_cell(corner))
             .map(|cell| cell.elevation())
@@ -269,8 +269,7 @@ impl World {
         position: &V2<usize>,
         function: &dyn Fn(&WorldCell) -> Option<f32>,
     ) -> Option<f32> {
-        let values: Vec<f32> = self
-            .get_corners(&position)
+        let values: Vec<f32> = get_corners(&position)
             .iter()
             .map(|p| function(self.get_cell_unsafe(p)))
             .flatten()

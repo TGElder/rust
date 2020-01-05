@@ -41,9 +41,7 @@ impl PrimeMover {
             let from = *from;
             let world = &game_state.world;
             let to = if world.get_corners_in_bounds(farm).contains(&from) {
-                game_state
-                    .territory
-                    .who_controls_tile(&game_state.world, &farm)
+                game_state.territory.who_controls_tile(&farm)
             } else {
                 Some(*farm)
             };

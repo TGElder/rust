@@ -2,6 +2,7 @@ use super::*;
 use crate::avatar::*;
 use crate::pathfinder::*;
 use crate::territory::*;
+use commons::grid::get_corners;
 use std::time::Duration;
 
 pub struct TerritoryHandler {
@@ -34,10 +35,10 @@ impl TerritoryHandler {
             .unwrap();
     }
 
-    fn update_controllers(&self, world: &World, controllers: Vec<V2<usize>>) {
+    fn update_controllers(&self, controllers: Vec<V2<usize>>) {
         let controllers: Vec<(V2<usize>, Vec<V2<usize>>)> = controllers
             .iter()
-            .map(|controller| (*controller, world.get_corners(&controller)))
+            .map(|controller| (*controller, get_corners(&controller)))
             .collect();
         let duration = self.duration;
         let function: Box<
@@ -58,18 +59,18 @@ impl TerritoryHandler {
             .unwrap();
     }
 
-    fn update_positions(&self, world: &World, territory: &Territory, positions: &[V2<usize>]) {
+    fn update_positions(&self, territory: &Territory, positions: &[V2<usize>]) {
         let controllers: HashSet<V2<usize>> = positions
             .iter()
             .flat_map(|position| territory.who_claims(position))
             .collect();
 
-        self.update_controllers(world, controllers.into_iter().collect())
+        self.update_controllers(controllers.into_iter().collect())
     }
 
-    fn update_all(&self, world: &World, territory: &Territory) {
+    fn update_all(&self, territory: &Territory) {
         let controllers = territory.controllers().into_iter().collect();
-        self.update_controllers(world, controllers);
+        self.update_controllers(controllers);
     }
 }
 
@@ -81,18 +82,16 @@ impl GameEventConsumer for TerritoryHandler {
                 position,
                 built,
             } => match built {
-                true => self.update_controllers(&game_state.world, vec![*position]),
+                true => self.update_controllers(vec![*position]),
                 false => self.remove_controller(*position),
             },
             GameEvent::RoadsUpdated(result) => {
-                self.update_positions(&game_state.world, &game_state.territory, result.path())
+                self.update_positions(&game_state.territory, result.path())
             }
             GameEvent::CellsRevealed(CellSelection::Some(positions)) => {
-                self.update_positions(&game_state.world, &game_state.territory, positions)
+                self.update_positions(&game_state.territory, positions)
             }
-            GameEvent::CellsRevealed(CellSelection::All) => {
-                self.update_all(&game_state.world, &game_state.territory)
-            }
+            GameEvent::CellsRevealed(CellSelection::All) => self.update_all(&game_state.territory),
             _ => (),
         }
         CaptureEvent::No

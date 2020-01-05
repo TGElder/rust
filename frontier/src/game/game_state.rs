@@ -59,7 +59,7 @@ impl GameState {
     }
 
     pub fn tile_color(&self, tile: &V2<usize>) -> Option<Color> {
-        let controlled_by = self.territory.who_controls_tile(&self.world, tile);
+        let controlled_by = self.territory.who_controls_tile(tile);
         if let Some(controller) = controlled_by {
             if let WorldObject::House(color) = self.world.get_cell_unsafe(&controller).object {
                 return Some(color);

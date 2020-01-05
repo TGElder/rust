@@ -8,10 +8,10 @@ use std::time::Duration;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Claim {
-    controller: V2<usize>,
-    position: V2<usize>,
-    duration: Duration,
-    since_micros: u128,
+    pub controller: V2<usize>,
+    pub position: V2<usize>,
+    pub duration: Duration,
+    pub since_micros: u128,
 }
 
 impl Ord for Claim {
@@ -84,11 +84,47 @@ impl Territory {
         changes
     }
 
+    pub fn get_claim(&self, position: &V2<usize>, controller: &V2<usize>) -> Option<&Claim> {
+        self.claims.get(position).unwrap().get(controller)
+    }
+
     pub fn who_claims(&self, position: &V2<usize>) -> HashSet<V2<usize>> {
         self.claims
             .get(position)
             .map(|map| map.values().map(|claim| claim.controller).collect())
             .unwrap_or_default()
+    }
+
+    fn claims(&self, position: &V2<usize>, controller: &V2<usize>) -> bool {
+        if let Ok(set) = self.claims.get(position) {
+            return set.contains_key(controller);
+        }
+        false
+    }
+
+    fn claims_tile(&self, position: &V2<usize>, controller: &V2<usize>) -> bool {
+        self.claims
+            .get_corners_in_bounds(position)
+            .iter()
+            .all(|corner| self.claims(corner, controller))
+    }
+
+    fn who_claims_tile(&self, position: &V2<usize>) -> HashSet<V2<usize>> {
+        self.who_claims(position)
+            .into_iter()
+            .filter(|controller| self.claims_tile(position, controller))
+            .collect()
+    }
+
+    pub fn who_controls_tile(&self, position: &V2<usize>) -> Option<V2<usize>> {
+        let candidates = self.who_claims_tile(position);
+        self.claims
+            .get_corners_in_bounds(position)
+            .iter()
+            .flat_map(|corner| self.claims.get(corner).unwrap().values())
+            .filter(|claim| candidates.contains(&claim.controller))
+            .min_by(|a, b| a.cmp(&b))
+            .map(|claim| claim.controller)
     }
 
     pub fn who_controls(&self, position: &V2<usize>) -> Option<V2<usize>> {
@@ -97,18 +133,6 @@ impl Territory {
                 .min_by(|a, b| a.cmp(&b))
                 .map(|claim| claim.controller)
         })
-    }
-
-    pub fn who_controls_tile<T>(
-        &self,
-        grid: &dyn Grid<T>,
-        position: &V2<usize>,
-    ) -> Option<V2<usize>> {
-        grid.get_corners_in_bounds(position)
-            .iter()
-            .flat_map(|corner| self.claims.get(corner).unwrap().values())
-            .min_by(|a, b| a.cmp(&b))
-            .map(|claim| claim.controller)
     }
 
     pub fn controllers(&self) -> HashSet<V2<usize>> {
@@ -120,13 +144,13 @@ impl Territory {
         self.territory.get(controller)
     }
 
-    pub fn controlled_territory(&self, controller: &V2<usize>) -> HashSet<V2<usize>> {
+    pub fn controlled_tiles(&self, controller: &V2<usize>) -> HashSet<V2<usize>> {
         self.territory
             .get(controller)
             .map(|territory| {
                 territory
                     .iter()
-                    .filter(|position| self.who_controls(position) == Some(*controller))
+                    .filter(|position| self.who_controls_tile(position) == Some(*controller))
                     .cloned()
                     .collect()
             })
@@ -537,27 +561,44 @@ mod tests {
 
     #[test]
     fn who_controls_tile_no_claims() {
-        assert_eq!(territory().who_controls_tile(&grid(), &v2(0, 0)), None);
+        assert_eq!(territory().who_controls_tile(&v2(0, 0)), None);
     }
 
     #[test]
-    fn who_controls_tile_single_claim() {
+    fn who_controls_tile_not_all_corners_claimed() {
         let mut territory = territory();
         territory.set_durations(
             v2(1, 1),
             &[
                 (v2(0, 0), Duration::from_millis(2)),
                 (v2(1, 0), Duration::from_millis(2)),
+                (v2(1, 1), Duration::from_millis(2)),
             ]
             .iter()
             .cloned()
             .collect(),
             &0,
         );
-        assert_eq!(
-            territory.who_controls_tile(&grid(), &v2(0, 0)),
-            Some(v2(1, 1))
+        assert_eq!(territory.who_controls_tile(&v2(0, 0)), None);
+    }
+
+    #[test]
+    fn who_controls_tile_all_corners_claimed() {
+        let mut territory = territory();
+        territory.set_durations(
+            v2(1, 1),
+            &[
+                (v2(0, 0), Duration::from_millis(2)),
+                (v2(1, 0), Duration::from_millis(2)),
+                (v2(1, 1), Duration::from_millis(2)),
+                (v2(0, 1), Duration::from_millis(2)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+            &0,
         );
+        assert_eq!(territory.who_controls_tile(&v2(0, 0)), Some(v2(1, 1)),);
     }
 
     #[test]
@@ -565,24 +606,31 @@ mod tests {
         let mut territory = territory();
         territory.set_durations(
             v2(1, 1),
-            &[(v2(0, 0), Duration::from_millis(2))]
-                .iter()
-                .cloned()
-                .collect(),
+            &[
+                (v2(0, 0), Duration::from_millis(2)),
+                (v2(1, 0), Duration::from_millis(2)),
+                (v2(1, 1), Duration::from_millis(2)),
+                (v2(0, 1), Duration::from_millis(2)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
             &0,
         );
         territory.set_durations(
             v2(2, 2),
-            &[(v2(1, 0), Duration::from_millis(1))]
-                .iter()
-                .cloned()
-                .collect(),
+            &[
+                (v2(0, 0), Duration::from_millis(1)),
+                (v2(1, 0), Duration::from_millis(1)),
+                (v2(1, 1), Duration::from_millis(1)),
+                (v2(0, 1), Duration::from_millis(1)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
             &1,
         );
-        assert_eq!(
-            territory.who_controls_tile(&grid(), &v2(0, 0)),
-            Some(v2(2, 2))
-        );
+        assert_eq!(territory.who_controls_tile(&v2(0, 0)), Some(v2(2, 2)));
     }
 
     #[test]
@@ -590,24 +638,31 @@ mod tests {
         let mut territory = territory();
         territory.set_durations(
             v2(1, 1),
-            &[(v2(0, 0), Duration::from_millis(2))]
-                .iter()
-                .cloned()
-                .collect(),
+            &[
+                (v2(0, 0), Duration::from_millis(2)),
+                (v2(1, 0), Duration::from_millis(2)),
+                (v2(1, 1), Duration::from_millis(2)),
+                (v2(0, 1), Duration::from_millis(2)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
             &0,
         );
         territory.set_durations(
             v2(2, 2),
-            &[(v2(1, 0), Duration::from_millis(2))]
-                .iter()
-                .cloned()
-                .collect(),
+            &[
+                (v2(0, 0), Duration::from_millis(2)),
+                (v2(1, 0), Duration::from_millis(2)),
+                (v2(1, 1), Duration::from_millis(2)),
+                (v2(0, 1), Duration::from_millis(2)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
             &1,
         );
-        assert_eq!(
-            territory.who_controls_tile(&grid(), &v2(0, 0)),
-            Some(v2(1, 1))
-        );
+        assert_eq!(territory.who_controls_tile(&v2(0, 0)), Some(v2(1, 1)));
     }
 
     #[test]
@@ -671,18 +726,20 @@ mod tests {
     }
 
     #[test]
-    fn controlled_territory_no_claims() {
-        assert_eq!(territory().controlled_territory(&v2(1, 1)), HashSet::new());
+    fn controlled_tiles_no_claims() {
+        assert_eq!(territory().controlled_tiles(&v2(1, 1)), HashSet::new());
     }
 
     #[test]
-    fn controlled_territory_shows_controlled() {
+    fn controlled_tiles_shows_controlled() {
         let mut territory = territory();
         territory.set_durations(
             v2(1, 1),
             &[
                 (v2(0, 0), Duration::from_millis(2)),
                 (v2(1, 0), Duration::from_millis(2)),
+                (v2(1, 1), Duration::from_millis(2)),
+                (v2(0, 1), Duration::from_millis(2)),
             ]
             .iter()
             .cloned()
@@ -690,8 +747,8 @@ mod tests {
             &0,
         );
         assert_eq!(
-            territory.controlled_territory(&v2(1, 1)),
-            [v2(0, 0), v2(1, 0)].iter().cloned().collect()
+            territory.controlled_tiles(&v2(1, 1)),
+            [v2(0, 0)].iter().cloned().collect()
         );
     }
 
@@ -700,20 +757,30 @@ mod tests {
         let mut territory = territory();
         territory.set_durations(
             v2(1, 1),
-            &[(v2(0, 0), Duration::from_millis(2))]
-                .iter()
-                .cloned()
-                .collect(),
+            &[
+                (v2(0, 0), Duration::from_millis(2)),
+                (v2(1, 0), Duration::from_millis(2)),
+                (v2(1, 1), Duration::from_millis(2)),
+                (v2(0, 1), Duration::from_millis(2)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
             &0,
         );
         territory.set_durations(
             v2(2, 2),
-            &[(v2(0, 0), Duration::from_millis(1))]
-                .iter()
-                .cloned()
-                .collect(),
+            &[
+                (v2(0, 0), Duration::from_millis(1)),
+                (v2(1, 0), Duration::from_millis(1)),
+                (v2(1, 1), Duration::from_millis(1)),
+                (v2(0, 1), Duration::from_millis(1)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
             &1,
         );
-        assert_eq!(territory.controlled_territory(&v2(1, 1)), HashSet::new());
+        assert_eq!(territory.controlled_tiles(&v2(1, 1)), HashSet::new());
     }
 }

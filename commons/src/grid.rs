@@ -1,5 +1,14 @@
 use super::*;
 
+pub fn get_corners(position: &V2<usize>) -> Vec<V2<usize>> {
+    vec![
+        *position,
+        v2(position.x + 1, position.y),
+        v2(position.x + 1, position.y + 1),
+        v2(position.x, position.y + 1),
+    ]
+}
+
 pub trait Grid<T> {
     fn width(&self) -> usize;
     fn height(&self) -> usize;
@@ -64,33 +73,17 @@ pub trait Grid<T> {
         }
     }
 
-    fn get_corners(&self, position: &V2<usize>) -> Vec<V2<usize>> {
-        vec![
-            *position,
-            v2(position.x + 1, position.y),
-            v2(position.x + 1, position.y + 1),
-            v2(position.x, position.y + 1),
-        ]
-    }
-
     fn get_corners_in_bounds(&self, position: &V2<usize>) -> Vec<V2<usize>> {
-        self.get_corners(position)
+        get_corners(position)
             .into_iter()
             .filter(|position| self.in_bounds(position))
-            .collect()
-    }
-
-    fn get_corners_behind(&self, position: &V2<usize>) -> Vec<V2<usize>> {
-        [v2(0, 0), v2(-1, 0), v2(-1, -1), v2(0, -1)]
-            .iter()
-            .flat_map(|delta| self.offset(position, *delta))
             .collect()
     }
 
     fn get_corners_behind_in_bounds(&self, position: &V2<usize>) -> Vec<V2<usize>> {
-        self.get_corners_behind(position)
-            .into_iter()
-            .filter(|position| self.in_bounds(position))
+        [v2(0, 0), v2(-1, 0), v2(-1, -1), v2(0, -1)]
+            .iter()
+            .flat_map(|delta| self.offset(position, *delta))
             .collect()
     }
 }
@@ -247,9 +240,8 @@ mod tests {
 
     #[test]
     fn test_get_corners() {
-        let matrix: M<usize> = M::zeros(3, 3);
         assert_eq!(
-            matrix.get_corners(&v2(0, 0)),
+            get_corners(&v2(0, 0)),
             [v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)]
         );
     }
@@ -264,13 +256,13 @@ mod tests {
     fn test_get_corners_behind() {
         let matrix: M<usize> = M::zeros(3, 3);
         assert!(same_elements(
-            &matrix.get_corners_behind(&v2(1, 1)),
+            &matrix.get_corners_behind_in_bounds(&v2(1, 1)),
             &[v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)]
         ));
     }
 
     #[test]
-    fn test_get_corners_behind_in_bounds() {
+    fn test_get_corners_behind_some_corners_out_of_bounds() {
         let matrix: M<usize> = M::zeros(3, 3);
         assert!(same_elements(
             &matrix.get_corners_behind_in_bounds(&v2(0, 0)),

@@ -92,7 +92,7 @@ pub fn load_vegetation(world: &mut World, vegetation: &M<WorldObject>) {
 
 fn vegetation_height_at_point(world: &World, position: &V2<usize>) -> f32 {
     world
-        .get_corners_behind(position)
+        .get_corners_behind_in_bounds(position)
         .iter()
         .map(|corner| vegetation_height_in_cell(world, corner))
         .max_by(unsafe_ordering)

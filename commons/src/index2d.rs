@@ -92,6 +92,31 @@ where
     }
 }
 
+impl<T> Grid<T> for Vec2D<T>
+where
+    T: Clone,
+{
+    fn width(&self) -> usize {
+        self.index.columns
+    }
+
+    fn height(&self) -> usize {
+        self.index.rows
+    }
+
+    fn in_bounds(&self, position: &V2<usize>) -> bool {
+        position.x < self.width() && position.y < self.height()
+    }
+
+    fn get_cell_unsafe(&self, position: &V2<usize>) -> &T {
+        self.get(position).unwrap()
+    }
+
+    fn mut_cell_unsafe(&mut self, position: &V2<usize>) -> &mut T {
+        self.get_mut(position).unwrap()
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

@@ -47,7 +47,7 @@ impl TownCandidateHandler {
     fn town_has_plots(&self, game_state: &GameState, town: &V2<usize>) -> bool {
         game_state
             .territory
-            .controlled_territory(town)
+            .controlled_tiles(town)
             .iter()
             .any(|position| game_state.is_farm_candidate(position))
     }
@@ -60,10 +60,7 @@ impl TownCandidateHandler {
     }
 
     fn farm_built_or_destroyed(&mut self, game_state: &GameState, farm: &V2<usize>) {
-        if let Some(town) = game_state
-            .territory
-            .who_controls_tile(&game_state.world, farm)
-        {
+        if let Some(town) = game_state.territory.who_controls_tile(farm) {
             self.update_town(game_state, &town)
         }
     }

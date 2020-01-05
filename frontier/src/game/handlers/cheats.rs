@@ -81,7 +81,7 @@ impl Cheats {
     fn add_avatars(&mut self, game_state: &GameState) {
         const AVATARS: usize = 100;
         let base_index = game_state.avatars.len();
-        println!("Adding {} avatars to existing {}", AVATARS, base_index);
+        println!("{} avatars", AVATARS + base_index);
         let mut rng = rand::thread_rng();
         random_avatar_states(&game_state.world, &mut rng, AVATARS)
             .into_iter()
