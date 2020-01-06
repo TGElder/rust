@@ -151,6 +151,7 @@ fn main() {
     game.add_consumer(road_pathfinder_service);
     game.add_consumer(SelectAvatar::new(game.command_tx()));
     game.add_consumer(SpeedControl::new(game.command_tx()));
+    game.add_consumer(TimeLogger::new());
 
     let game_handle = thread::spawn(move || game.run());
     engine.run();

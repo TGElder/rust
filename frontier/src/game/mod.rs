@@ -18,6 +18,7 @@ use commons::{M, V2};
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
+use std::convert::TryInto;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;

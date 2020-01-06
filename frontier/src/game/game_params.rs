@@ -4,6 +4,7 @@ use crate::world_gen::*;
 use commons::*;
 use isometric::Color;
 
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -19,6 +20,7 @@ pub struct GameParams {
     pub snow_temperature: f32,
     pub territory_duration: Duration,
     pub avatars: usize,
+    pub start_date: NaiveDateTime,
 }
 
 impl Default for GameParams {
@@ -32,8 +34,9 @@ impl Default for GameParams {
             light_direction: v3(-1.0, 0.0, 1.0),
             farm_constraints: FarmConstraints::default(),
             snow_temperature: 0.0,
-            territory_duration: Duration::from_secs(4),
+            territory_duration: Duration::from_secs(60 * 60 * 3),
             avatars: 4096,
+            start_date: NaiveDate::from_ymd(1500, 1, 1).and_hms(0, 0, 0),
         }
     }
 }
