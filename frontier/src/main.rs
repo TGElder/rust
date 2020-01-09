@@ -27,6 +27,7 @@ use std::thread;
 fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) {
     let mut rng = rng(seed);
     let params = GameParams::default();
+    let start_micros = params.start_micros();
     let mut world = generate_world(size, &mut rng, &params.world_gen);
     if reveal_all {
         world.reveal_all();
@@ -40,8 +41,10 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
                 i.to_string(),
                 Avatar {
                     name: i.to_string(),
+                    birthday: start_micros,
                     state,
                     farm: None,
+                    children: vec![],
                 },
             )
         })
@@ -49,8 +52,8 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
     let game_state = GameState {
         territory: Territory::new(&world),
         world,
+        game_micros: start_micros,
         params,
-        game_micros: 0,
         avatars,
         selected_avatar: Some("0".to_string()),
         follow_avatar: true,
@@ -128,6 +131,7 @@ fn main() {
     ));
     game.add_consumer(FarmAssigner::new(avatar_pathfinder_service.command_tx()));
     game.add_consumer(NaturalRoadBuilder::new(game.command_tx()));
+    game.add_consumer(Children::new(game.command_tx()));
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.command_tx()));

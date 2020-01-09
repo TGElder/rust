@@ -93,8 +93,10 @@ impl Cheats {
                         name: name.clone(),
                         avatar: Avatar {
                             name,
+                            birthday: game_state.game_micros,
                             state,
                             farm: None,
+                            children: vec![],
                         },
                     })
                     .unwrap()

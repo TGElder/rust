@@ -20,7 +20,23 @@ pub struct GameParams {
     pub snow_temperature: f32,
     pub territory_duration: Duration,
     pub avatars: usize,
-    pub start_date: NaiveDateTime,
+    pub history_start_date: NaiveDateTime,
+    pub play_start_date: NaiveDateTime,
+}
+
+impl GameParams {
+    pub fn start_micros(&self) -> u128 {
+        if self.history_start_date > self.play_start_date {
+            panic!(
+                "History start date {:?} must be before play start date {:?}",
+                self.history_start_date, self.play_start_date
+            );
+        }
+        self.play_start_date
+            .signed_duration_since(self.history_start_date)
+            .num_microseconds()
+            .unwrap() as u128
+    }
 }
 
 impl Default for GameParams {
@@ -34,9 +50,10 @@ impl Default for GameParams {
             light_direction: v3(-1.0, 0.0, 1.0),
             farm_constraints: FarmConstraints::default(),
             snow_temperature: 0.0,
-            territory_duration: Duration::from_secs(60 * 60 * 3),
+            territory_duration: Duration::from_secs(60 * 60 * 4),
             avatars: 4096,
-            start_date: NaiveDate::from_ymd(1500, 1, 1).and_hms(0, 0, 0),
+            history_start_date: NaiveDate::from_ymd(1400, 1, 1).and_hms(0, 0, 0),
+            play_start_date: NaiveDate::from_ymd(1500, 1, 1).and_hms(0, 0, 0),
         }
     }
 }

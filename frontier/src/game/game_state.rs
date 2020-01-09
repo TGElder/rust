@@ -87,11 +87,13 @@ mod tests {
             name.to_string(),
             Avatar {
                 name: name.to_string(),
+                birthday: 1234,
                 state: AvatarState::Stationary {
                     position: v2(1, 1),
                     rotation: Rotation::Down,
                 },
                 farm: Some(v2(9, 9)),
+                children: vec!["Franklin".to_string()],
             },
         );
         let game_state = GameState {

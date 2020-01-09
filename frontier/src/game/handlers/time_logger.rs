@@ -19,7 +19,7 @@ impl TimeLogger {
     }
 
     fn date_time_string(game_state: &GameState) -> String {
-        (game_state.params.start_date
+        (game_state.params.history_start_date
             + ChronoDuration::microseconds(game_state.game_micros.try_into().unwrap()))
         .format("%Y-%m-%d %H:%M:%S")
         .to_string()

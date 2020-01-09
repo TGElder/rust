@@ -13,7 +13,7 @@ pub struct NaturalRoadBuilderParams {
 impl Default for NaturalRoadBuilderParams {
     fn default() -> NaturalRoadBuilderParams {
         NaturalRoadBuilderParams {
-            visitor_count_threshold: 8,
+            visitor_count_threshold: 4,
         }
     }
 }

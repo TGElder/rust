@@ -36,6 +36,10 @@ pub struct TerritoryState {
 
 pub enum GameEvent {
     Init,
+    Tick {
+        start_millis_exclusive: u128,
+        end_millis_inclusive: u128,
+    },
     Save(String),
     Load(String),
     EngineEvent(Arc<Event>),
@@ -152,6 +156,12 @@ impl Game {
         let from = self.game_state.game_micros;
         self.update_game_micros();
         let to = self.game_state.game_micros;
+        self.command_tx
+            .send(GameCommand::Event(GameEvent::Tick {
+                start_millis_exclusive: from,
+                end_millis_inclusive: to,
+            }))
+            .unwrap();
         self.process_visited_cells(&from, &to);
         self.evolve_avatars();
     }
