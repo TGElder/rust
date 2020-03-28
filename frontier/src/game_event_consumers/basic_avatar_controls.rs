@@ -1,8 +1,9 @@
 use super::*;
-use crate::avatar::*;
 use crate::travel_duration::TravelDuration;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;
+
+const HANDLE: &str = "basic_avatar_controls";
 
 pub struct BasicAvatarBindings {
     forward: Button,
@@ -21,15 +22,15 @@ impl Default for BasicAvatarBindings {
 }
 
 pub struct BasicAvatarControls {
-    command_tx: Sender<GameCommand>,
+    game_tx: UpdateSender<Game>,
     travel_duration: Option<AvatarTravelDuration>,
     bindings: BasicAvatarBindings,
 }
 
 impl BasicAvatarControls {
-    pub fn new(command_tx: Sender<GameCommand>) -> BasicAvatarControls {
+    pub fn new(game_tx: &UpdateSender<Game>) -> BasicAvatarControls {
         BasicAvatarControls {
-            command_tx,
+            game_tx: game_tx.clone_with_handle(HANDLE),
             travel_duration: None,
             bindings: BasicAvatarBindings::default(),
         }
@@ -53,12 +54,7 @@ impl BasicAvatarControls {
                         if let Some(new_state) =
                             state.walk_positions(&game_state.world, path, travel_duration, start_at)
                         {
-                            self.command_tx
-                                .send(GameCommand::UpdateAvatar {
-                                    name: name.to_string(),
-                                    new_state,
-                                })
-                                .unwrap();
+                            self.send_update_avatar_state_command(name, new_state);
                         }
                     }
                 }
@@ -69,12 +65,7 @@ impl BasicAvatarControls {
     fn rotate_clockwise(&mut self, game_state: &GameState) {
         if let Some(Avatar { name, state, .. }) = &game_state.selected_avatar() {
             if let Some(new_state) = state.rotate_clockwise() {
-                self.command_tx
-                    .send(GameCommand::UpdateAvatar {
-                        name: name.to_string(),
-                        new_state,
-                    })
-                    .unwrap();
+                self.send_update_avatar_state_command(name, new_state);
             }
         }
     }
@@ -82,18 +73,24 @@ impl BasicAvatarControls {
     fn rotate_anticlockwise(&mut self, game_state: &GameState) {
         if let Some(Avatar { name, state, .. }) = &game_state.selected_avatar() {
             if let Some(new_state) = state.rotate_anticlockwise() {
-                self.command_tx
-                    .send(GameCommand::UpdateAvatar {
-                        name: name.to_string(),
-                        new_state,
-                    })
-                    .unwrap();
+                self.send_update_avatar_state_command(name, new_state);
             }
         }
+    }
+
+    fn send_update_avatar_state_command(&mut self, name: &str, avatar_state: AvatarState) {
+        let name = name.to_string();
+        self.game_tx.update(move |game| {
+            game.update_avatar_state(name.to_string(), avatar_state);
+        });
     }
 }
 
 impl GameEventConsumer for BasicAvatarControls {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         if let GameEvent::Init = event {
             self.init(game_state);
@@ -118,5 +115,11 @@ impl GameEventConsumer for BasicAvatarControls {
             };
         }
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

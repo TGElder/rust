@@ -1,35 +1,39 @@
 use super::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
+const HANDLE: &str = "save";
+
 pub struct Save {
-    command_tx: Sender<GameCommand>,
+    game_tx: UpdateSender<Game>,
     binding: Button,
     path: String,
 }
 
 impl Save {
-    pub fn new(command_tx: Sender<GameCommand>) -> Save {
+    pub fn new(game_tx: &UpdateSender<Game>) -> Save {
         Save {
-            command_tx,
+            game_tx: game_tx.clone_with_handle(HANDLE),
             binding: Button::Key(VirtualKeyCode::P),
             path: "save".to_string(),
         }
     }
 
-    fn save(&self, game_state: &GameState) {
-        game_state.to_file(&self.path);
-        self.command_tx
-            .send(GameCommand::Event(GameEvent::Save(self.path.clone())))
-            .unwrap();
+    fn save(&mut self) {
+        let path = self.path.clone();
+        self.game_tx.update(|game| game.save(path));
     }
 }
 
 impl GameEventConsumer for Save {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
         CaptureEvent::No
     }
 
-    fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent {
+    fn consume_engine_event(&mut self, _: &GameState, event: Arc<Event>) -> CaptureEvent {
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
@@ -38,9 +42,15 @@ impl GameEventConsumer for Save {
         } = *event
         {
             if button == &self.binding {
-                self.save(game_state);
+                self.save();
             }
         }
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

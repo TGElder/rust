@@ -186,6 +186,7 @@ pub struct Avatar {
     pub state: AvatarState,
     pub farm: Option<V2<usize>>,
     pub children: Vec<String>,
+    pub commute: Option<Vec<V2<usize>>>,
 }
 
 use std::time::Duration;

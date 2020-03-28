@@ -4,8 +4,6 @@ use crate::avatar::*;
 use crate::territory::*;
 use crate::world::*;
 
-use isometric::cell_traits::WithVisibility;
-use isometric::Color;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -40,33 +38,6 @@ impl GameState {
             None => None,
         }
     }
-
-    pub fn is_farm_candidate(&self, position: &V2<usize>) -> bool {
-        let constraints = &self.params.farm_constraints;
-        let beach_level = self.params.world_gen.beach_level;
-        let world = &self.world;
-        world
-            .get_cell(position)
-            .map(|cell| {
-                cell.is_visible()
-                    && cell.object == WorldObject::None
-                    && cell.climate.groundwater() >= constraints.min_groundwater
-                    && cell.climate.temperature >= constraints.min_temperature
-                    && world.get_max_abs_rise(position) <= constraints.max_slope
-                    && world.get_lowest_corner(position) > beach_level
-            })
-            .unwrap_or(false)
-    }
-
-    pub fn tile_color(&self, tile: &V2<usize>) -> Option<Color> {
-        let controlled_by = self.territory.who_controls_tile(tile);
-        if let Some(controller) = controlled_by {
-            if let WorldObject::House(color) = self.world.get_cell_unsafe(&controller).object {
-                return Some(color);
-            }
-        }
-        None
-    }
 }
 
 #[cfg(test)]
@@ -94,13 +65,14 @@ mod tests {
                 },
                 farm: Some(v2(9, 9)),
                 children: vec!["Franklin".to_string()],
+                commute: Some(vec![v2(1, 0), v2(2, 0)]),
             },
         );
         let game_state = GameState {
             territory: Territory::new(&world),
             world,
             game_micros: 123,
-            params: GameParams::default(),
+            params: GameParams::new(1986),
             avatars,
             selected_avatar: Some(name.to_string()),
             follow_avatar: false,

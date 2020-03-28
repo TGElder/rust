@@ -1,11 +1,14 @@
 use super::*;
 use crate::farms::FarmArtist;
+use crate::game_event_consumers::world_artist::tile_color;
 use crate::houses::HouseArtist;
 use commons::*;
 use isometric::Color;
 
+const HANDLE: &str = "object_artist_handler";
+
 pub struct ObjectArtistHandler {
-    command_tx: Sender<GameCommand>,
+    command_tx: Sender<Vec<Command>>,
     state: Option<ObjectArtistState>,
 }
 
@@ -15,7 +18,7 @@ struct ObjectArtistState {
 }
 
 impl ObjectArtistHandler {
-    pub fn new(command_tx: Sender<GameCommand>) -> ObjectArtistHandler {
+    pub fn new(command_tx: Sender<Vec<Command>>) -> ObjectArtistHandler {
         ObjectArtistHandler {
             command_tx,
             state: None,
@@ -36,9 +39,7 @@ impl ObjectArtistHandler {
                 WorldObject::Farm => Self::draw_farm(state, game_state, position),
                 _ => return,
             };
-            self.command_tx
-                .send(GameCommand::EngineCommands(commands))
-                .unwrap();
+            self.command_tx.send(commands).unwrap();
         }
     }
 
@@ -47,13 +48,7 @@ impl ObjectArtistHandler {
         game_state: &GameState,
         position: &V2<usize>,
     ) -> Vec<Command> {
-        let color = game_state
-            .tile_color(position)
-            .map(|mut color| {
-                color.a = game_state.params.artist.territory_alpha;
-                color
-            })
-            .unwrap_or_else(Color::transparent);
+        let color = tile_color(game_state, position).unwrap_or_else(Color::transparent);
         state.farm_artist.draw_farm_at(
             &game_state.world,
             game_state.params.world_gen.sea_level as f32,
@@ -74,9 +69,7 @@ impl ObjectArtistHandler {
                 WorldObject::Farm => state.farm_artist.erase_farm_at(&game_state.world, position),
                 _ => return,
             };
-            self.command_tx
-                .send(GameCommand::EngineCommands(commands))
-                .unwrap();
+            self.command_tx.send(commands).unwrap();
         }
     }
 
@@ -118,6 +111,10 @@ impl ObjectArtistHandler {
 }
 
 impl GameEventConsumer for ObjectArtistHandler {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
             GameEvent::Init => self.init(&game_state),
@@ -143,5 +140,11 @@ impl GameEventConsumer for ObjectArtistHandler {
 
     fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

@@ -64,6 +64,7 @@ mod tests {
     use super::*;
     use commons::{v2, M};
 
+    #[derive(Clone)]
     struct TestDuration {
         millis: u64,
         max_millis: u64,

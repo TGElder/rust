@@ -1,6 +1,5 @@
 use super::*;
 use crate::label_editor::*;
-use commons::*;
 use isometric::coords::*;
 use isometric::EventHandler;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
@@ -8,17 +7,19 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
+const HANDLE: &str = "label_editor_handler";
+
 pub struct LabelEditorHandler {
-    command_tx: Sender<GameCommand>,
+    game_tx: UpdateSender<Game>,
     label_editor: LabelEditor,
     world_coord: Option<WorldCoord>,
     binding: Button,
 }
 
 impl LabelEditorHandler {
-    pub fn new(command_tx: Sender<GameCommand>) -> LabelEditorHandler {
+    pub fn new(game_tx: &UpdateSender<Game>) -> LabelEditorHandler {
         LabelEditorHandler {
-            command_tx,
+            game_tx: game_tx.clone_with_handle(HANDLE),
             label_editor: LabelEditor::new(HashMap::new()),
             world_coord: None,
             binding: Button::Key(VirtualKeyCode::L),
@@ -30,13 +31,11 @@ impl LabelEditorHandler {
     }
 
     fn start_edit(&mut self, game_state: &GameState) {
-        if let Some(WorldCoord { x, y, .. }) = self.world_coord {
-            let x = x.round() as usize;
-            let y = y.round() as usize;
-            if let Some(cell) = game_state.world.get_cell(&v2(x, y)) {
+        if let Some(world_coord) = self.world_coord {
+            if let Some(cell) = game_state.world.get_cell(&world_coord.to_v2_round()) {
                 let z = game_state.world.sea_level().max(cell.elevation);
                 self.label_editor
-                    .start_edit(WorldCoord::new(x as f32, y as f32, z));
+                    .start_edit(WorldCoord { z, ..world_coord });
             }
         }
     }
@@ -57,13 +56,16 @@ impl LabelEditorHandler {
         let labels = bincode::deserialize_from(file).unwrap();
         self.label_editor = LabelEditor::new(labels);
         let commands = self.label_editor.draw_all();
-        self.command_tx
-            .send(GameCommand::EngineCommands(commands))
-            .unwrap();
+        self.game_tx
+            .update(move |game| game.send_engine_commands(commands));
     }
 }
 
 impl GameEventConsumer for LabelEditorHandler {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, _: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
             GameEvent::Save(path) => self.save(&path),
@@ -79,9 +81,8 @@ impl GameEventConsumer for LabelEditorHandler {
         }
         let editor_commands = self.label_editor.handle_event(event.clone());
         if !editor_commands.is_empty() {
-            self.command_tx
-                .send(GameCommand::EngineCommands(editor_commands))
-                .unwrap();
+            self.game_tx
+                .update(move |game| game.send_engine_commands(editor_commands));
             return CaptureEvent::Yes;
         }
         if let Event::Button {
@@ -96,5 +97,11 @@ impl GameEventConsumer for LabelEditorHandler {
             }
         }
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

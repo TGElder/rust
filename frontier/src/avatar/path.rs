@@ -183,16 +183,12 @@ impl Path {
 impl Add for Path {
     type Output = Self;
 
-    fn add(self, other: Self) -> Self {
-        let mut points = vec![];
-        let mut point_arrivals = vec![];
-        points.append(&mut self.points.clone());
-        points.append(&mut other.points.clone());
-        point_arrivals.append(&mut self.point_arrivals.clone());
-        point_arrivals.append(&mut other.point_arrivals.clone());
+    fn add(mut self, mut other: Self) -> Self {
+        self.points.append(&mut other.points);
+        self.point_arrivals.append(&mut other.point_arrivals);
         Self {
-            points,
-            point_arrivals,
+            points: self.points,
+            point_arrivals: self.point_arrivals,
         }
     }
 }
@@ -417,5 +413,49 @@ mod tests {
         let actual = path.edges_between_times(&10_000, &10_500);
         let expected = vec![];
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_add() {
+        let a = Path {
+            points: vec![v2(0, 0), v2(1, 1)],
+            point_arrivals: vec![0, 1],
+        };
+        let b = Path {
+            points: vec![v2(2, 2), v2(3, 3)],
+            point_arrivals: vec![2, 3],
+        };
+        let expected = Path {
+            points: vec![v2(0, 0), v2(1, 1), v2(2, 2), v2(3, 3)],
+            point_arrivals: vec![0, 1, 2, 3],
+        };
+        assert_eq!(a + b, expected);
+    }
+
+    #[test]
+    fn test_add_empty_lhs() {
+        let a = Path::empty();
+        let b = Path {
+            points: vec![v2(2, 2), v2(3, 3)],
+            point_arrivals: vec![2, 3],
+        };
+        assert_eq!(a + b.clone(), b);
+    }
+
+    #[test]
+    fn test_add_empty_rhs() {
+        let a = Path {
+            points: vec![v2(0, 0), v2(1, 1)],
+            point_arrivals: vec![0, 1],
+        };
+        let b = Path::empty();
+        assert_eq!(a.clone() + b, a);
+    }
+
+    #[test]
+    fn test_add_both_empty() {
+        let a = Path::empty();
+        let b = Path::empty();
+        assert_eq!(a + b, Path::empty());
     }
 }

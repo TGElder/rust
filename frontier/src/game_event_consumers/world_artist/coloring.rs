@@ -1,4 +1,6 @@
 use crate::game::*;
+use crate::game_event_consumers::farm_candidate_handler::is_farm_candidate;
+use crate::territory::*;
 use crate::world::*;
 use commons::*;
 use isometric::drawing::*;
@@ -131,10 +133,7 @@ impl<'a> TerrainColoring<WorldCell> for TerritoryColoring<'a> {
         tile: &V2<usize>,
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        let mut color = self.game_state.tile_color(tile);
-        if let Some(color) = &mut color {
-            color.a = self.game_state.params.artist.territory_alpha;
-        }
+        let color = tile_color(self.game_state, tile);
         [color, color, color]
     }
 }
@@ -157,11 +156,30 @@ impl<'a> TerrainColoring<WorldCell> for FarmCandidateColoring<'a> {
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
         let highlight = self.game_state.params.artist.farm_candidate_highlight;
-        let color = if self.game_state.is_farm_candidate(&tile) {
+        let color = if is_farm_candidate(self.game_state, &tile) {
             Some(highlight)
         } else {
             None
         };
         [color, color, color]
     }
+}
+
+pub fn tile_color(game_state: &GameState, tile: &V2<usize>) -> Option<Color> {
+    if let Some(Claim {
+        controller,
+        duration,
+        ..
+    }) = game_state.territory.who_controls_tile(tile)
+    {
+        if let WorldObject::House(color) = game_state.world.get_cell_unsafe(&controller).object {
+            let mut color = color;
+            color.a = game_state.params.artist.territory_alpha;
+            if *duration > game_state.params.town_exclusive_duration {
+                color.a *= 0.5
+            }
+            return Some(color);
+        }
+    }
+    None
 }

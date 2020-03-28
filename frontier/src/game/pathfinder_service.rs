@@ -1,51 +1,35 @@
 use super::*;
 use crate::pathfinder::*;
 use crate::travel_duration::*;
-use std::sync::{Arc, RwLock};
+use commons::Arm;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::thread;
-use std::thread::JoinHandle;
 
-pub enum PathfinderCommand<T>
-where
-    T: TravelDuration,
-{
-    Use(Box<dyn FnOnce(&Pathfinder<T>) -> Vec<GameCommand> + Send>),
-    Update(Box<dyn FnOnce(&mut Pathfinder<T>) + Send>),
-    Shutdown,
-}
+const UPDATE_CHANNEL_BOUND: usize = 10_000;
+const LOAD_ORDERING: Ordering = Ordering::Relaxed;
+const STORE_ORDERING: Ordering = Ordering::Relaxed;
 
 struct Service<T>
 where
     T: TravelDuration,
 {
-    game_command_tx: Sender<GameCommand>,
-    command_rx: Receiver<PathfinderCommand<T>>,
-    pathfinder: Arc<RwLock<Pathfinder<T>>>,
+    update_rx: UpdateReceiver<Pathfinder<T>>,
+    pathfinder: Arm<Pathfinder<T>>,
+    run: Arc<AtomicBool>,
+    done: Arc<AtomicBool>,
 }
 
 impl<T> Service<T>
 where
     T: TravelDuration,
 {
-    fn execute(&self, function: Box<dyn FnOnce(&Pathfinder<T>) -> Vec<GameCommand>>) {
-        let commands = function(&self.pathfinder.read().unwrap());
-        for command in commands {
-            self.game_command_tx.send(command).unwrap();
-        }
-    }
-
-    fn update(&mut self, function: Box<dyn FnOnce(&mut Pathfinder<T>)>) {
-        function(&mut self.pathfinder.write().unwrap());
-    }
-
     fn run(&mut self) {
-        loop {
-            match self.command_rx.recv().unwrap() {
-                PathfinderCommand::Use(function) => self.execute(function),
-                PathfinderCommand::Update(function) => self.update(function),
-                PathfinderCommand::Shutdown => return,
-            }
+        while self.run.load(LOAD_ORDERING) {
+            let updates = self.update_rx.get_updates();
+            process_updates(updates, &mut self.pathfinder.lock().unwrap());
         }
+        self.done.store(true, STORE_ORDERING);
     }
 }
 
@@ -53,48 +37,50 @@ pub struct PathfinderServiceEventConsumer<T>
 where
     T: TravelDuration,
 {
-    command_tx: Sender<PathfinderCommand<T>>,
-    pathfinder: Arc<RwLock<Pathfinder<T>>>,
-    join_handle: Option<JoinHandle<()>>,
+    update_tx: UpdateSender<Pathfinder<T>>,
+    pathfinder: Arm<Pathfinder<T>>,
+    run: Arc<AtomicBool>,
+    done: Arc<AtomicBool>,
 }
 
 impl<T> PathfinderServiceEventConsumer<T>
 where
     T: TravelDuration + Sync + 'static,
 {
-    pub fn new(
-        game_command_tx: Sender<GameCommand>,
-        pathfinder: Pathfinder<T>,
-    ) -> PathfinderServiceEventConsumer<T> {
-        let pathfinder = RwLock::new(pathfinder);
-        let pathfinder = Arc::new(pathfinder);
+    pub fn new(pathfinder: Pathfinder<T>) -> PathfinderServiceEventConsumer<T> {
+        let pathfinder = Arc::new(Mutex::new(pathfinder));
 
-        let (command_tx, command_rx) = mpsc::channel();
+        let (update_tx, update_rx) = update_channel(UPDATE_CHANNEL_BOUND);
+
+        let run = Arc::new(AtomicBool::new(true));
+        let done = Arc::new(AtomicBool::new(false));
 
         let mut service = Service {
-            game_command_tx,
-            command_rx,
+            update_rx,
             pathfinder: pathfinder.clone(),
+            run: run.clone(),
+            done: done.clone(),
         };
 
-        let join_handle = thread::spawn(move || {
+        thread::spawn(move || {
             service.run();
         });
 
         PathfinderServiceEventConsumer {
-            command_tx,
+            update_tx,
             pathfinder,
-            join_handle: Some(join_handle),
+            run,
+            done,
         }
     }
 
-    pub fn command_tx(&self) -> Sender<PathfinderCommand<T>> {
-        self.command_tx.clone()
+    pub fn update_tx(&self) -> &UpdateSender<Pathfinder<T>> {
+        &self.update_tx
     }
 
     fn reset_pathfinder(&mut self, game_state: &GameState) {
         self.pathfinder
-            .write()
+            .lock()
             .unwrap()
             .reset_edges(&game_state.world);
     }
@@ -102,21 +88,14 @@ where
     fn update_pathfinder_with_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
         for cell in cells {
             self.pathfinder
-                .write()
+                .lock()
                 .unwrap()
                 .update_node(&game_state.world, cell);
         }
     }
 
     fn update_pathfinder_with_roads(&mut self, game_state: &GameState, result: &RoadBuilderResult) {
-        result.update_pathfinder(&game_state.world, &mut self.pathfinder.write().unwrap());
-    }
-
-    fn shutdown(&mut self) {
-        self.command_tx.send(PathfinderCommand::Shutdown).unwrap();
-        if let Some(join_handle) = self.join_handle.take() {
-            join_handle.join().unwrap();
-        }
+        result.update_pathfinder(&game_state.world, &mut self.pathfinder.lock().unwrap());
     }
 }
 
@@ -124,6 +103,10 @@ impl<T> GameEventConsumer for PathfinderServiceEventConsumer<T>
 where
     T: TravelDuration + Sync + 'static,
 {
+    fn name(&self) -> &'static str {
+        "pathfinder_service_event_consumer"
+    }
+
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
             GameEvent::CellsRevealed(selection) => {
@@ -142,10 +125,15 @@ where
         CaptureEvent::No
     }
 
-    fn consume_engine_event(&mut self, _: &GameState, event: Arc<Event>) -> CaptureEvent {
-        if let Event::Shutdown = *event {
-            self.shutdown();
-        }
+    fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {
+        self.run.store(false, STORE_ORDERING);
+    }
+
+    fn is_shutdown(&self) -> bool {
+        self.done.load(LOAD_ORDERING)
     }
 }

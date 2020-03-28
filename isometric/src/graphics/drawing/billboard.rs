@@ -25,7 +25,7 @@ fn get_floats(world_coord: WorldCoord, width: f32, height: f32) -> Vec<f32> {
 
 pub fn create_billboard(name: String, texture: &str) -> Command {
     Command::CreateDrawing(Drawing::billboard(
-        name.clone(),
+        name,
         BILLBOARD_FLOATS,
         texture.to_string(),
     ))

@@ -2,6 +2,7 @@ extern crate glutin;
 
 use super::transform::Transform;
 use commons::na;
+use commons::{v2, V2};
 use serde::{Deserialize, Serialize};
 
 pub trait PhysicalPositionExt {
@@ -153,6 +154,18 @@ impl WorldCoord {
     pub fn to_gl_coord_4d(self, transformer: &Transform) -> GLCoord4D {
         transformer.project(self)
     }
+
+    pub fn to_v2_round(&self) -> V2<usize> {
+        v2(self.x.round() as usize, self.y.round() as usize)
+    }
+
+    pub fn to_v2_floor(&self) -> V2<usize> {
+        v2(self.x.floor() as usize, self.y.floor() as usize)
+    }
+
+    pub fn to_v2_ceil(&self) -> V2<usize> {
+        v2(self.x.ceil() as usize, self.y.ceil() as usize)
+    }
 }
 
 impl Into<WorldCoord> for na::Point4<f32> {
@@ -302,6 +315,27 @@ mod tests {
         let expected = transform.project(world_coord);
 
         assert_eq!(world_coord.to_gl_coord_4d(&transform), expected);
+    }
+
+    #[test]
+    fn test_world_to_2d_round() {
+        let world_coord = WorldCoord::new(5.9, 6.1, 7.0);
+
+        assert_eq!(world_coord.to_v2_round(), v2(6, 6));
+    }
+
+    #[test]
+    fn test_world_to_2d_floor() {
+        let world_coord = WorldCoord::new(5.9, 6.1, 7.0);
+
+        assert_eq!(world_coord.to_v2_floor(), v2(5, 6));
+    }
+
+    #[test]
+    fn test_world_to_2d_ceil() {
+        let world_coord = WorldCoord::new(5.9, 6.1, 7.0);
+
+        assert_eq!(world_coord.to_v2_ceil(), v2(6, 7));
     }
 
     #[test]

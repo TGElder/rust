@@ -2,21 +2,27 @@ use super::*;
 use isometric::event_handlers::RotateHandler as EngineRotateHandler;
 use isometric::{EventHandler, VirtualKeyCode};
 
+const HANDLE: &str = "rotate_handler";
+
 pub struct RotateHandler {
-    command_tx: Sender<GameCommand>,
+    game_tx: UpdateSender<Game>,
     engine_rotatehandler: EngineRotateHandler,
 }
 
 impl RotateHandler {
-    pub fn new(command_tx: Sender<GameCommand>) -> RotateHandler {
+    pub fn new(game_tx: &UpdateSender<Game>) -> RotateHandler {
         RotateHandler {
-            command_tx,
+            game_tx: game_tx.clone_with_handle(HANDLE),
             engine_rotatehandler: EngineRotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E),
         }
     }
 }
 
 impl GameEventConsumer for RotateHandler {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
         CaptureEvent::No
     }
@@ -28,9 +34,14 @@ impl GameEventConsumer for RotateHandler {
             self.engine_rotatehandler.no_rotate_over_undrawn();
         }
         let commands = self.engine_rotatehandler.handle_event(event);
-        self.command_tx
-            .send(GameCommand::EngineCommands(commands))
-            .unwrap();
+        self.game_tx
+            .update(move |game| game.send_engine_commands(commands));
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

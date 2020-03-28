@@ -37,10 +37,12 @@ impl Texture {
         self.height
     }
 
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn bind(&self) {
         gl::BindTexture(gl::TEXTURE_2D, self.id);
     }
 
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn unbind(&self) {
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }

@@ -151,14 +151,12 @@ impl World {
     }
 
     pub fn snap(&self, world_coord: WorldCoord) -> WorldCoord {
-        let x = world_coord.x.round();
-        let y = world_coord.y.round();
-        let z = if let Some(cell) = self.get_cell(&v2(x as usize, y as usize)) {
+        let z = if let Some(cell) = self.get_cell(&world_coord.to_v2_round()) {
             cell.elevation()
         } else {
             world_coord.z
         };
-        WorldCoord::new(x, y, z)
+        WorldCoord::new(world_coord.x.round(), world_coord.y.round(), z)
     }
 
     pub fn snap_to_edge(&self, WorldCoord { x, y, .. }: WorldCoord) -> WorldCoord {
@@ -269,7 +267,8 @@ impl World {
         position: &V2<usize>,
         function: &dyn Fn(&WorldCell) -> Option<f32>,
     ) -> Option<f32> {
-        let values: Vec<f32> = get_corners(&position)
+        let values: Vec<f32> = self
+            .get_corners_in_bounds(&position)
             .iter()
             .map(|p| function(self.get_cell_unsafe(p)))
             .flatten()
@@ -279,6 +278,26 @@ impl World {
         } else {
             Some(values.iter().sum::<f32>() / (values.iter().count() as f32))
         }
+    }
+
+    pub fn tile_avg_groundwater(&self, position: &V2<usize>) -> Option<f32> {
+        self.tile_average(&position, &|cell| {
+            if !self.is_sea(&cell.position) {
+                Some(cell.climate.groundwater())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn tile_avg_temperature(&self, position: &V2<usize>) -> Option<f32> {
+        self.tile_average(&position, &|cell| {
+            if !self.is_sea(&cell.position) {
+                Some(cell.climate.temperature)
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -637,6 +656,24 @@ mod tests {
         let world = world();
         let actual = world.tile_average(&v2(0, 0), &|_| None);
         assert_eq!(actual, None);
+    }
+
+    #[test]
+    fn test_tile_groundwater_average() {
+        let mut world = world();
+        world.mut_cell_unsafe(&v2(0, 0)).climate.rainfall = 1.0;
+        world.mut_cell_unsafe(&v2(1, 1)).climate.river_water = 3.0;
+        let actual = world.tile_avg_groundwater(&v2(0, 0));
+        assert_eq!(actual, Some(1.0)); // ( 1 + 0 + 3 + 0 ) / 4
+    }
+
+    #[test]
+    fn test_tile_temperature_average() {
+        let mut world = world();
+        world.mut_cell_unsafe(&v2(0, 0)).climate.temperature = 10.0;
+        world.mut_cell_unsafe(&v2(1, 1)).climate.temperature = 30.0;
+        let actual = world.tile_avg_temperature(&v2(0, 0));
+        assert_eq!(actual, Some(10.0)); // ( 10 + 0 + 30 + 0 ) / 4
     }
 
     #[test]

@@ -18,10 +18,13 @@ impl Ord for Claim {
     fn cmp(&self, other: &Self) -> Ordering {
         self.duration.cmp(&other.duration).then(
             self.since_micros.cmp(&other.since_micros).then(
-                self.controller
-                    .x
-                    .cmp(&other.controller.x)
-                    .then(self.controller.y.cmp(&other.controller.y)),
+                self.controller.x.cmp(&other.controller.x).then(
+                    self.controller
+                        .y
+                        .cmp(&other.controller.y)
+                        .then(self.position.x.cmp(&other.position.x))
+                        .then(self.position.y.cmp(&other.position.y)),
+                ),
             ),
         )
     }
@@ -72,20 +75,27 @@ impl Territory {
         }
     }
 
+    pub fn add_controller(&mut self, controller: V2<usize>) {
+        self.territory.insert(controller, HashSet::new());
+    }
+
+    pub fn remove_controller(&mut self, controller: &V2<usize>) {
+        self.territory.remove(controller);
+    }
+
     pub fn set_durations(
         &mut self,
         controller: V2<usize>,
         durations: &HashMap<V2<usize>, Duration>,
         game_micros: &u128,
     ) -> Vec<TerritoryChange> {
+        if !self.territory.contains_key(&controller) {
+            return vec![];
+        }
         let changes = self.update_claims(&controller, &durations, game_micros);
         self.territory
             .insert(controller, durations.keys().cloned().collect());
         changes
-    }
-
-    pub fn get_claim(&self, position: &V2<usize>, controller: &V2<usize>) -> Option<&Claim> {
-        self.claims.get(position).unwrap().get(controller)
     }
 
     pub fn who_claims(&self, position: &V2<usize>) -> HashSet<V2<usize>> {
@@ -116,7 +126,7 @@ impl Territory {
             .collect()
     }
 
-    pub fn who_controls_tile(&self, position: &V2<usize>) -> Option<V2<usize>> {
+    pub fn who_controls_tile(&self, position: &V2<usize>) -> Option<&Claim> {
         let candidates = self.who_claims_tile(position);
         self.claims
             .get_corners_in_bounds(position)
@@ -124,37 +134,17 @@ impl Territory {
             .flat_map(|corner| self.claims.get(corner).unwrap().values())
             .filter(|claim| candidates.contains(&claim.controller))
             .min_by(|a, b| a.cmp(&b))
-            .map(|claim| claim.controller)
     }
 
-    pub fn who_controls(&self, position: &V2<usize>) -> Option<V2<usize>> {
-        self.claims.get(position).ok().and_then(|map| {
-            map.values()
-                .min_by(|a, b| a.cmp(&b))
-                .map(|claim| claim.controller)
-        })
+    pub fn who_controls(&self, position: &V2<usize>) -> Option<&Claim> {
+        self.claims
+            .get(position)
+            .ok()
+            .and_then(|map| map.values().min_by(|a, b| a.cmp(&b)))
     }
 
     pub fn controllers(&self) -> HashSet<V2<usize>> {
         self.territory.keys().cloned().collect()
-    }
-
-    #[allow(dead_code)]
-    pub fn claimed_territory(&self, controller: &V2<usize>) -> Option<&HashSet<V2<usize>>> {
-        self.territory.get(controller)
-    }
-
-    pub fn controlled_tiles(&self, controller: &V2<usize>) -> HashSet<V2<usize>> {
-        self.territory
-            .get(controller)
-            .map(|territory| {
-                territory
-                    .iter()
-                    .filter(|position| self.who_controls_tile(position) == Some(*controller))
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default()
     }
 
     fn update_claims(
@@ -192,16 +182,16 @@ impl Territory {
     ) -> Vec<TerritoryChange> {
         let mut out = vec![];
         for position in claims {
-            let previous_controller = self.who_controls(&position);
+            let previous_controller = self.who_controls(&position).map(|claim| claim.controller);
             if let Ok(map) = self.claims.get_mut(&position) {
                 map.remove(controller);
+                let new_controller = self.who_controls(&position).map(|claim| claim.controller);
+                out.append(&mut Self::get_territory_changes(
+                    position,
+                    previous_controller,
+                    new_controller,
+                ));
             }
-            let new_controller = self.who_controls(&position);
-            out.append(&mut Self::get_territory_changes(
-                position,
-                previous_controller,
-                new_controller,
-            ));
         }
         out
     }
@@ -214,7 +204,7 @@ impl Territory {
     ) -> Vec<TerritoryChange> {
         let mut out = vec![];
         for (position, duration) in durations {
-            let previous_controller = self.who_controls(position);
+            let previous_controller = self.who_controls(position).map(|claim| claim.controller);
             let claims = self.claims.get_mut(&position).unwrap();
 
             let since_micros = match claims.get(controller) {
@@ -232,7 +222,7 @@ impl Territory {
                 },
             );
 
-            let new_controller = self.who_controls(position);
+            let new_controller = self.who_controls(position).map(|claim| claim.controller);
             out.append(&mut Self::get_territory_changes(
                 *position,
                 previous_controller,
@@ -276,7 +266,9 @@ mod tests {
 
     #[test]
     fn new_controller_changes() {
-        let changes = territory().set_durations(
+        let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        let changes = territory.set_durations(
             v2(1, 1),
             &[
                 (v2(1, 0), Duration::from_millis(1)),
@@ -297,8 +289,27 @@ mod tests {
     }
 
     #[test]
+    fn add_controller() {
+        let mut territory = territory();
+        territory.add_controller(v2(0, 0));
+        assert_eq!(
+            territory.controllers(),
+            [v2(0, 0)].iter().cloned().collect()
+        );
+    }
+
+    #[test]
+    fn remove_controller() {
+        let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.remove_controller(&v2(1, 1));
+        assert_eq!(territory.controllers(), HashSet::new(),);
+    }
+
+    #[test]
     fn no_longer_claimed_no_other_claim_changes() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
         territory.set_durations(
             v2(1, 1),
             &[
@@ -323,6 +334,8 @@ mod tests {
     #[test]
     fn no_longer_claimed_other_claim_changes() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.add_controller(v2(2, 2));
         territory.set_durations(
             v2(1, 1),
             &[(v2(0, 0), Duration::from_millis(1))]
@@ -352,6 +365,7 @@ mod tests {
     #[test]
     fn additional_claim_changes() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
         territory.set_durations(
             v2(1, 1),
             &[(v2(1, 0), Duration::from_millis(1))]
@@ -380,6 +394,8 @@ mod tests {
     #[test]
     fn owner_change_through_duration_decrease_changes() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.add_controller(v2(2, 2));
         territory.set_durations(
             v2(1, 1),
             &[(v2(0, 0), Duration::from_millis(2))]
@@ -416,6 +432,8 @@ mod tests {
     #[test]
     fn owner_change_through_duration_increase_changes() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.add_controller(v2(2, 2));
         territory.set_durations(
             v2(1, 1),
             &[(v2(0, 0), Duration::from_millis(2))]
@@ -457,6 +475,7 @@ mod tests {
     #[test]
     fn who_claims_single_claim() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
         territory.set_durations(
             v2(1, 1),
             &[(v2(0, 0), Duration::from_millis(2))]
@@ -474,6 +493,8 @@ mod tests {
     #[test]
     fn who_claims_multiple_claims() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.add_controller(v2(2, 2));
         territory.set_durations(
             v2(1, 1),
             &[(v2(0, 0), Duration::from_millis(2))]
@@ -504,6 +525,7 @@ mod tests {
     #[test]
     fn who_controls_single_claim() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
         territory.set_durations(
             v2(1, 1),
             &[(v2(0, 0), Duration::from_millis(2))]
@@ -512,12 +534,22 @@ mod tests {
                 .collect(),
             &0,
         );
-        assert_eq!(territory.who_controls(&v2(0, 0)), Some(v2(1, 1)));
+        assert_eq!(
+            territory.who_controls(&v2(0, 0)),
+            Some(&Claim {
+                controller: v2(1, 1),
+                position: v2(0, 0),
+                duration: Duration::from_millis(2),
+                since_micros: 0
+            })
+        );
     }
 
     #[test]
     fn who_controls_multiple_claims_different_durations() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.add_controller(v2(2, 2));
         territory.set_durations(
             v2(1, 1),
             &[(v2(0, 0), Duration::from_millis(2))]
@@ -534,12 +566,22 @@ mod tests {
                 .collect(),
             &1,
         );
-        assert_eq!(territory.who_controls(&v2(0, 0)), Some(v2(2, 2)));
+        assert_eq!(
+            territory.who_controls(&v2(0, 0)),
+            Some(&Claim {
+                controller: v2(2, 2),
+                position: v2(0, 0),
+                duration: Duration::from_millis(1),
+                since_micros: 1
+            })
+        );
     }
 
     #[test]
     fn who_controls_multiple_claims_same_durations() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.add_controller(v2(2, 2));
         territory.set_durations(
             v2(1, 1),
             &[(v2(0, 0), Duration::from_millis(2))]
@@ -556,7 +598,15 @@ mod tests {
                 .collect(),
             &1,
         );
-        assert_eq!(territory.who_controls(&v2(0, 0)), Some(v2(1, 1)));
+        assert_eq!(
+            territory.who_controls(&v2(0, 0)),
+            Some(&Claim {
+                controller: v2(1, 1),
+                position: v2(0, 0),
+                duration: Duration::from_millis(2),
+                since_micros: 0
+            })
+        );
     }
 
     #[test]
@@ -567,6 +617,7 @@ mod tests {
     #[test]
     fn who_controls_tile_not_all_corners_claimed() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
         territory.set_durations(
             v2(1, 1),
             &[
@@ -585,6 +636,7 @@ mod tests {
     #[test]
     fn who_controls_tile_all_corners_claimed() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
         territory.set_durations(
             v2(1, 1),
             &[
@@ -598,12 +650,22 @@ mod tests {
             .collect(),
             &0,
         );
-        assert_eq!(territory.who_controls_tile(&v2(0, 0)), Some(v2(1, 1)),);
+        assert_eq!(
+            territory.who_controls_tile(&v2(0, 0)),
+            Some(&Claim {
+                controller: v2(1, 1),
+                position: v2(0, 0),
+                duration: Duration::from_millis(2),
+                since_micros: 0
+            })
+        );
     }
 
     #[test]
     fn who_controls_tile_multiple_claims_different_durations() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.add_controller(v2(2, 2));
         territory.set_durations(
             v2(1, 1),
             &[
@@ -630,12 +692,22 @@ mod tests {
             .collect(),
             &1,
         );
-        assert_eq!(territory.who_controls_tile(&v2(0, 0)), Some(v2(2, 2)));
+        assert_eq!(
+            territory.who_controls_tile(&v2(0, 0)),
+            Some(&Claim {
+                controller: v2(2, 2),
+                position: v2(0, 0),
+                duration: Duration::from_millis(1),
+                since_micros: 1
+            })
+        );
     }
 
     #[test]
     fn who_controls_tile_multiple_claims_same_durations() {
         let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.add_controller(v2(2, 2));
         territory.set_durations(
             v2(1, 1),
             &[
@@ -660,60 +732,24 @@ mod tests {
             .iter()
             .cloned()
             .collect(),
-            &1,
-        );
-        assert_eq!(territory.who_controls_tile(&v2(0, 0)), Some(v2(1, 1)));
-    }
-
-    #[test]
-    fn claimed_territory() {
-        let mut territory = territory();
-        territory.set_durations(
-            v2(1, 1),
-            &[(v2(0, 0), Duration::from_millis(2))]
-                .iter()
-                .cloned()
-                .collect(),
-            &0,
-        );
-        territory.set_durations(
-            v2(2, 2),
-            &[(v2(0, 0), Duration::from_millis(1))]
-                .iter()
-                .cloned()
-                .collect(),
             &1,
         );
         assert_eq!(
-            territory.claimed_territory(&v2(1, 1)),
-            Some(&[v2(0, 0)].iter().cloned().collect())
+            territory.who_controls_tile(&v2(0, 0)),
+            Some(&Claim {
+                controller: v2(1, 1),
+                position: v2(0, 0),
+                duration: Duration::from_millis(2),
+                since_micros: 0
+            })
         );
-    }
-
-    #[test]
-    fn claimed_territory_no_claims() {
-        assert_eq!(territory().claimed_territory(&v2(1, 1)), None);
     }
 
     #[test]
     fn controllers() {
         let mut territory = territory();
-        territory.set_durations(
-            v2(1, 1),
-            &[(v2(0, 0), Duration::from_millis(2))]
-                .iter()
-                .cloned()
-                .collect(),
-            &0,
-        );
-        territory.set_durations(
-            v2(2, 2),
-            &[(v2(0, 0), Duration::from_millis(1))]
-                .iter()
-                .cloned()
-                .collect(),
-            &1,
-        );
+        territory.add_controller(v2(1, 1));
+        territory.add_controller(v2(2, 2));
         assert_eq!(
             territory.controllers(),
             [v2(1, 1), v2(2, 2)].iter().cloned().collect()
@@ -723,64 +759,5 @@ mod tests {
     #[test]
     fn controllers_no_controllers() {
         assert_eq!(territory().controllers(), HashSet::new());
-    }
-
-    #[test]
-    fn controlled_tiles_no_claims() {
-        assert_eq!(territory().controlled_tiles(&v2(1, 1)), HashSet::new());
-    }
-
-    #[test]
-    fn controlled_tiles_shows_controlled() {
-        let mut territory = territory();
-        territory.set_durations(
-            v2(1, 1),
-            &[
-                (v2(0, 0), Duration::from_millis(2)),
-                (v2(1, 0), Duration::from_millis(2)),
-                (v2(1, 1), Duration::from_millis(2)),
-                (v2(0, 1), Duration::from_millis(2)),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
-            &0,
-        );
-        assert_eq!(
-            territory.controlled_tiles(&v2(1, 1)),
-            [v2(0, 0)].iter().cloned().collect()
-        );
-    }
-
-    #[test]
-    fn controlled_territory_does_not_show_claimed_but_not_controlled() {
-        let mut territory = territory();
-        territory.set_durations(
-            v2(1, 1),
-            &[
-                (v2(0, 0), Duration::from_millis(2)),
-                (v2(1, 0), Duration::from_millis(2)),
-                (v2(1, 1), Duration::from_millis(2)),
-                (v2(0, 1), Duration::from_millis(2)),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
-            &0,
-        );
-        territory.set_durations(
-            v2(2, 2),
-            &[
-                (v2(0, 0), Duration::from_millis(1)),
-                (v2(1, 0), Duration::from_millis(1)),
-                (v2(1, 1), Duration::from_millis(1)),
-                (v2(0, 1), Duration::from_millis(1)),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
-            &1,
-        );
-        assert_eq!(territory.controlled_tiles(&v2(1, 1)), HashSet::new());
     }
 }

@@ -1,19 +1,20 @@
 mod coloring;
 
+pub use coloring::tile_color;
 use coloring::*;
 
 use super::*;
-use crate::world::*;
-use commons::*;
 use isometric::Color;
 
+const HANDLE: &str = "world_artist_handler";
+
 pub struct WorldArtistHandler {
-    command_tx: Sender<GameCommand>,
+    command_tx: Sender<Vec<Command>>,
     world_artist: Option<WorldArtist>,
 }
 
 impl WorldArtistHandler {
-    pub fn new(command_tx: Sender<GameCommand>) -> WorldArtistHandler {
+    pub fn new(command_tx: Sender<Vec<Command>>) -> WorldArtistHandler {
         WorldArtistHandler {
             command_tx,
             world_artist: None,
@@ -27,7 +28,7 @@ impl WorldArtistHandler {
                 road_color: Color::new(0.6, 0.4, 0.0, 1.0),
                 river_color: Color::new(0.0, 0.0, 1.0, 1.0),
                 waterfall_color: Color::new(0.0, 0.75, 1.0, 1.0),
-                slab_size: 64,
+                slab_size: 16,
                 vegetation_exageration: 100.0,
                 waterfall_gradient: game_state.params.avatar_travel.max_navigable_river_gradient,
             },
@@ -38,10 +39,8 @@ impl WorldArtistHandler {
 
     fn draw_all(&mut self, game_state: &GameState) {
         if let Some(world_artist) = &mut self.world_artist {
-            let command = GameCommand::EngineCommands(
-                world_artist.init(&game_state.world, &create_coloring(game_state)),
-            );
-            self.command_tx.send(command).unwrap();
+            let commands = world_artist.init(&game_state.world, &create_coloring(game_state));
+            self.command_tx.send(commands).unwrap();
         }
     }
 
@@ -49,9 +48,19 @@ impl WorldArtistHandler {
         if let Some(ref mut world_artist) = self.world_artist {
             let commands =
                 world_artist.draw_affected(&game_state.world, &create_coloring(game_state), &cells);
-            self.command_tx
-                .send(GameCommand::EngineCommands(commands))
-                .unwrap();
+            self.command_tx.send(commands).unwrap();
+        }
+    }
+
+    fn update_object(
+        &mut self,
+        game_state: &GameState,
+        object: &WorldObject,
+        position: &V2<usize>,
+    ) {
+        match object {
+            WorldObject::House(..) => (),
+            _ => self.update_cells(game_state, &[*position]),
         }
     }
 
@@ -65,6 +74,10 @@ impl WorldArtistHandler {
 }
 
 impl GameEventConsumer for WorldArtistHandler {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
             GameEvent::Init => self.init(game_state),
@@ -77,10 +90,8 @@ impl GameEventConsumer for WorldArtistHandler {
             GameEvent::RoadsUpdated(result) => self.update_cells(game_state, result.path()),
             GameEvent::TerritoryChanged(changes) => self.draw_territory(game_state, changes),
             GameEvent::ObjectUpdated {
-                object: WorldObject::Farm,
-                position,
-                ..
-            } => self.update_cells(game_state, &[*position]),
+                object, position, ..
+            } => self.update_object(game_state, object, position),
             _ => (),
         }
         CaptureEvent::No
@@ -88,5 +99,11 @@ impl GameEventConsumer for WorldArtistHandler {
 
     fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

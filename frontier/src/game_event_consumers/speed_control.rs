@@ -1,6 +1,7 @@
 use super::*;
 use isometric::{Button, ElementState, VirtualKeyCode};
 
+const HANDLE: &str = "speed_control";
 const SECONDS_PER_HOUR: f32 = 3600.0;
 
 pub struct SpeedControlBindings {
@@ -18,17 +19,16 @@ impl Default for SpeedControlBindings {
 }
 
 pub struct SpeedControl {
-    command_tx: Sender<GameCommand>,
-    bindings: SpeedControlBindings,
-    hours_per_second: [f32; 11],
+    game_tx: UpdateSender<Game>,
+    hours_per_second: [f32; 13],
     index: usize,
+    bindings: SpeedControlBindings,
 }
 
 impl SpeedControl {
-    pub fn new(command_tx: Sender<GameCommand>) -> SpeedControl {
+    pub fn new(game_tx: &UpdateSender<Game>) -> SpeedControl {
         SpeedControl {
-            command_tx,
-            bindings: SpeedControlBindings::default(),
+            game_tx: game_tx.clone_with_handle(HANDLE),
             hours_per_second: [
                 0.0,
                 0.000_277_778, // Real time
@@ -41,8 +41,11 @@ impl SpeedControl {
                 4.0,
                 8.0,
                 16.0,
+                32.0,
+                64.0,
             ],
             index: 6,
+            bindings: SpeedControlBindings::default(),
         }
     }
 
@@ -62,16 +65,18 @@ impl SpeedControl {
 
     fn update_speed(&mut self) {
         let speed = self.hours_per_second[self.index] * SECONDS_PER_HOUR;
-        let function: Box<dyn FnOnce(&mut GameState) -> Vec<GameCommand> + Send> =
-            Box::new(move |game_state| {
-                game_state.speed = speed;
-                vec![]
-            });
-        self.command_tx.send(GameCommand::Update(function)).unwrap();
+        self.game_tx.update(move |game: &mut Game| {
+            game.mut_state().speed = speed;
+            println!("speed = {}", game.game_state().speed);
+        });
     }
 }
 
 impl GameEventConsumer for SpeedControl {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, _: &GameState, event: &GameEvent) -> CaptureEvent {
         if let GameEvent::Init = event {
             self.update_speed();
@@ -94,5 +99,11 @@ impl GameEventConsumer for SpeedControl {
             }
         }
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

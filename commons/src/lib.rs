@@ -1,4 +1,5 @@
 pub extern crate float_cmp;
+pub extern crate futures;
 pub extern crate image;
 pub extern crate nalgebra as na;
 pub extern crate num;
@@ -11,6 +12,7 @@ pub mod hub;
 pub mod index2d;
 pub mod junction;
 pub mod scale;
+pub mod update;
 
 pub type M<T> = na::DMatrix<T>;
 pub type V2<T> = na::Vector2<T>;
@@ -23,6 +25,9 @@ use num::Float;
 use std::cmp::Ordering;
 use std::default::Default;
 use std::fmt::Debug;
+use std::sync::{Arc, Mutex};
+
+pub type Arm<T> = Arc<Mutex<T>>;
 
 pub fn v2<T: 'static + Copy + PartialEq + Debug>(x: T, y: T) -> na::Vector2<T> {
     na::Vector2::new(x, y)

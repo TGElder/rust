@@ -90,7 +90,7 @@ impl LabelEdit {
 
 impl EventHandler for LabelEdit {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
-        self.text_editor.handle_event(event.clone());
+        self.text_editor.handle_event(event);
         self.draw()
     }
 }

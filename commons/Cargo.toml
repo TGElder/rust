@@ -5,6 +5,7 @@ authors = ["Thomas Elder <tgelder@gmail.com>"]
 
 [dependencies]
 float-cmp = "0.5"
+futures = { version = "0.3", features = ["thread-pool"] }
 image = "0.22"
 nalgebra = { version = "0.18", features = ["serde-serialize"] }
 num = "0.2"

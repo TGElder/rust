@@ -1,14 +1,15 @@
 use super::*;
-use crate::avatar::*;
+
+const HANDLE: &str = "avatar_artist_handler";
 
 pub struct AvatarArtistHandler {
-    command_tx: Sender<GameCommand>,
+    command_tx: Sender<Vec<Command>>,
     avatar_artist: Option<AvatarArtist>,
     travel_mode_fn: Option<TravelModeFn>,
 }
 
 impl AvatarArtistHandler {
-    pub fn new(command_tx: Sender<GameCommand>) -> AvatarArtistHandler {
+    pub fn new(command_tx: Sender<Vec<Command>>) -> AvatarArtistHandler {
         AvatarArtistHandler {
             command_tx,
             avatar_artist: None,
@@ -32,20 +33,22 @@ impl AvatarArtistHandler {
         if let (Some(avatar_artist), Some(travel_mode_fn)) =
             (&mut self.avatar_artist, &self.travel_mode_fn)
         {
-            let draw = avatar_artist.draw_avatars(
+            let commands = avatar_artist.draw_avatars(
                 &game_state.avatars,
                 &game_state.world,
                 &game_state.game_micros,
                 &travel_mode_fn,
             );
-            self.command_tx
-                .send(GameCommand::EngineCommands(draw))
-                .unwrap();
+            self.command_tx.send(commands).unwrap();
         }
     }
 }
 
 impl GameEventConsumer for AvatarArtistHandler {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         if let GameEvent::Init = event {
             self.init(game_state);
@@ -58,5 +61,11 @@ impl GameEventConsumer for AvatarArtistHandler {
             self.draw_avatars(game_state);
         }
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

@@ -31,7 +31,7 @@ pub fn draw_text(name: String, text: &str, world_coord: WorldCoord, font: &Font)
     vec![
         Command::CreateDrawing(Drawing::text(name.clone(), floats.len(), font, world_coord)),
         Command::UpdateDrawing{
-            name: name.clone(),
+            name: name,
             index: 0,
             floats,
         }

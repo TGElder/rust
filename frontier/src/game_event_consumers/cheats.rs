@@ -5,6 +5,8 @@ use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;
 
+const HANDLE: &str = "cheats";
+
 pub struct CheatBindings {
     reveal_all: Button,
     move_avatar: Button,
@@ -24,58 +26,54 @@ impl Default for CheatBindings {
 }
 
 pub struct Cheats {
-    command_tx: Sender<GameCommand>,
+    game_tx: UpdateSender<Game>,
     bindings: CheatBindings,
     world_coord: Option<WorldCoord>,
 }
 
 impl Cheats {
-    pub fn new(command_tx: Sender<GameCommand>) -> Cheats {
+    pub fn new(game_tx: &UpdateSender<Game>) -> Cheats {
         Cheats {
-            command_tx,
+            game_tx: game_tx.clone_with_handle(HANDLE),
             bindings: CheatBindings::default(),
             world_coord: None,
         }
     }
+
     fn update_world_coord(&mut self, world_coord: WorldCoord) {
         self.world_coord = Some(world_coord);
     }
 
     fn reveal_all(&mut self, _: &GameState) {
-        self.command_tx
-            .send(GameCommand::VisitCells(CellSelection::All))
-            .unwrap();
-        self.command_tx
-            .send(GameCommand::RevealCells(CellSelection::All))
-            .unwrap();
+        self.game_tx.update(move |game| {
+            game.reveal_all_cells();
+            game.visit_all_cells();
+        });
     }
 
     fn move_avatar(&mut self, game_state: &GameState) {
-        if let Some(WorldCoord { x, y, .. }) = self.world_coord {
+        if let Some(world_coord) = self.world_coord {
             if let Some(name) = &game_state.selected_avatar {
                 let new_state = AvatarState::Stationary {
-                    position: v2(x.round() as usize, y.round() as usize),
+                    position: world_coord.to_v2_round(),
                     rotation: Rotation::Down,
                 };
-                self.command_tx
-                    .send(GameCommand::UpdateAvatar {
-                        name: name.to_string(),
-                        new_state,
-                    })
-                    .unwrap();
+                self.send_update_avatar_state_command(name, new_state);
             }
         };
     }
 
     fn remove_avatar(&mut self, game_state: &GameState) {
         if let Some(name) = &game_state.selected_avatar {
-            self.command_tx
-                .send(GameCommand::UpdateAvatar {
-                    name: name.to_string(),
-                    new_state: AvatarState::Absent,
-                })
-                .unwrap();
+            self.send_update_avatar_state_command(name, AvatarState::Absent);
         }
+    }
+
+    fn send_update_avatar_state_command(&mut self, name: &str, avatar_state: AvatarState) {
+        let name = name.to_string();
+        self.game_tx.update(move |game| {
+            game.update_avatar_state(name.to_string(), avatar_state);
+        });
     }
 
     fn add_avatars(&mut self, game_state: &GameState) {
@@ -88,23 +86,26 @@ impl Cheats {
             .enumerate()
             .for_each(|(i, state)| {
                 let name = (base_index + i).to_string();
-                self.command_tx
-                    .send(GameCommand::AddAvatar {
-                        name: name.clone(),
-                        avatar: Avatar {
-                            name,
-                            birthday: game_state.game_micros,
-                            state,
-                            farm: None,
-                            children: vec![],
-                        },
-                    })
-                    .unwrap()
+                let avatar = Avatar {
+                    name: name.clone(),
+                    birthday: 0,
+                    state,
+                    farm: None,
+                    children: vec![],
+                    commute: None,
+                };
+                self.game_tx.update(move |game| {
+                    game.mut_state().avatars.insert(name, avatar);
+                });
             });
     }
 }
 
 impl GameEventConsumer for Cheats {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
         CaptureEvent::No
     }
@@ -131,5 +132,11 @@ impl GameEventConsumer for Cheats {
             }
         }
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

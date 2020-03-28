@@ -48,7 +48,7 @@ impl VegetationArtist {
 
         let size = VegetationType::DeciduousTree.height() * self.exaggeration;
         out.append(&mut create_and_update_billboards(
-            format!("{:?}-trees", from).to_string(),
+            format!("{:?}-trees", from),
             trees,
             size,
             size,
@@ -57,7 +57,7 @@ impl VegetationArtist {
 
         let size = VegetationType::PalmTree.height() * self.exaggeration;
         out.append(&mut create_and_update_billboards(
-            format!("{:?}-palms", from).to_string(),
+            format!("{:?}-palms", from),
             palms,
             size,
             size,
@@ -66,7 +66,7 @@ impl VegetationArtist {
 
         let size = VegetationType::EvergreenTree.height() * self.exaggeration;
         out.append(&mut create_and_update_billboards(
-            format!("{:?}-pines", from).to_string(),
+            format!("{:?}-pines", from),
             pines,
             size,
             size,
@@ -75,7 +75,7 @@ impl VegetationArtist {
 
         let size = VegetationType::Cactus.height() * self.exaggeration;
         out.append(&mut create_and_update_billboards(
-            format!("{:?}-cacti", from).to_string(),
+            format!("{:?}-cacti", from),
             cacti,
             size,
             size,

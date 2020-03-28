@@ -1,23 +1,31 @@
 use super::*;
 use isometric::{Button, ElementState, VirtualKeyCode};
 
+const HANDLE: &str = "select_avatar";
+
 pub struct SelectAvatar {
-    command_tx: Sender<GameCommand>,
+    game_tx: UpdateSender<Game>,
 }
 
 impl SelectAvatar {
-    pub fn new(command_tx: Sender<GameCommand>) -> SelectAvatar {
-        SelectAvatar { command_tx }
+    pub fn new(game_tx: &UpdateSender<Game>) -> SelectAvatar {
+        SelectAvatar {
+            game_tx: game_tx.clone_with_handle(HANDLE),
+        }
     }
 
     fn select_avatar(&mut self, name: String) {
-        self.command_tx
-            .send(GameCommand::SelectAvatar(name))
-            .unwrap();
+        self.game_tx.update(move |game: &mut Game| {
+            game.mut_state().selected_avatar = Some(name);
+        });
     }
 }
 
 impl GameEventConsumer for SelectAvatar {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
         CaptureEvent::No
     }
@@ -52,5 +60,11 @@ impl GameEventConsumer for SelectAvatar {
             }
         }
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

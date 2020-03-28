@@ -1,19 +1,19 @@
 use super::*;
-use crate::road_builder::*;
 use crate::travel_duration::TravelDuration;
-use commons::edge::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
+const HANDLE: &str = "basic_road_builder";
+
 pub struct BasicRoadBuilder {
-    command_tx: Sender<GameCommand>,
+    game_tx: UpdateSender<Game>,
     travel_duration: Option<AutoRoadTravelDuration>,
     binding: Button,
 }
 
 impl BasicRoadBuilder {
-    pub fn new(command_tx: Sender<GameCommand>) -> BasicRoadBuilder {
+    pub fn new(game_tx: &UpdateSender<Game>) -> BasicRoadBuilder {
         BasicRoadBuilder {
-            command_tx,
+            game_tx: game_tx.clone_with_handle(HANDLE),
             travel_duration: None,
             binding: Button::Key(VirtualKeyCode::R),
         }
@@ -36,17 +36,12 @@ impl BasicRoadBuilder {
                         let edge = Edge::new(path[0], path[1]);
                         let toggle = game_state.world.is_road(&edge);
                         let result = RoadBuilderResult::new(vec![path[0], path[1]], toggle);
-                        self.command_tx
-                            .send(GameCommand::UpdateRoads(result))
-                            .unwrap();
                         let start_at = game_state.game_micros;
-                        self.command_tx
-                            .send(GameCommand::WalkPositions {
-                                name: name.to_string(),
-                                positions: path,
-                                start_at,
-                            })
-                            .unwrap();
+                        let name = name.clone();
+                        self.game_tx.update(move |game| {
+                            game.update_roads(result);
+                            game.walk_positions(name, path, start_at);
+                        });
                     }
                 }
             }
@@ -55,6 +50,10 @@ impl BasicRoadBuilder {
 }
 
 impl GameEventConsumer for BasicRoadBuilder {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         if let GameEvent::Init = event {
             self.init(game_state);
@@ -75,5 +74,11 @@ impl GameEventConsumer for BasicRoadBuilder {
             }
         }
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

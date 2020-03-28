@@ -1,27 +1,19 @@
 use super::*;
 use crate::visibility_computer::*;
-use commons::grid::*;
+
+const HANDLE: &str = "visibility_handler";
 
 pub struct VisibilityHandler {
-    command_tx: Sender<GameCommand>,
+    game_tx: UpdateSender<Game>,
     visibility_computer: VisibilityComputer,
-    visited_matrix: Option<M<bool>>,
 }
 
 impl VisibilityHandler {
-    pub fn new(command_tx: Sender<GameCommand>) -> VisibilityHandler {
+    pub fn new(game_tx: &UpdateSender<Game>) -> VisibilityHandler {
         VisibilityHandler {
-            command_tx,
+            game_tx: game_tx.clone_with_handle(HANDLE),
             visibility_computer: VisibilityComputer::default(),
-            visited_matrix: None,
         }
-    }
-
-    fn init(&mut self, game_state: &GameState) {
-        let world = &game_state.world;
-        let width = world.width();
-        let height = world.height();
-        self.visited_matrix = Some(M::from_element(width, height, false));
     }
 
     fn check_visibility(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
@@ -33,25 +25,31 @@ impl VisibilityHandler {
                     .get_newly_visible_from(&game_state.world, *cell),
             );
         }
-        self.command_tx
-            .send(GameCommand::RevealCells(CellSelection::Some(newly_visible)))
-            .unwrap();
+
+        self.game_tx
+            .update(move |game: &mut Game| game.reveal_cells(newly_visible));
     }
 }
 
 impl GameEventConsumer for VisibilityHandler {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        match event {
-            GameEvent::Init => self.init(game_state),
-            GameEvent::CellsVisited(CellSelection::Some(cells)) => {
-                self.check_visibility(game_state, cells)
-            }
-            _ => (),
+        if let GameEvent::CellsVisited(CellSelection::Some(cells)) = event {
+            self.check_visibility(game_state, cells)
         }
         CaptureEvent::No
     }
 
     fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
         CaptureEvent::No
+    }
+
+    fn shutdown(&mut self) {}
+
+    fn is_shutdown(&self) -> bool {
+        true
     }
 }

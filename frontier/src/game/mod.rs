@@ -1,28 +1,27 @@
 mod game_params;
 mod game_state;
-mod handlers;
 mod pathfinder_service;
 
 pub use game_params::*;
 pub use game_state::*;
-pub use handlers::*;
 pub use pathfinder_service::*;
 
 use crate::avatar::*;
 use crate::road_builder::*;
 use crate::territory::*;
 use crate::world::*;
-use commons::edge::*;
 use commons::grid::Grid;
-use commons::{M, V2};
+use commons::update::*;
+use commons::V2;
+use commons::*;
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
-use std::convert::TryInto;
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
+use std::collections::HashMap;
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+const UPDATE_CHANNEL_BOUND: usize = 10_000;
 
 pub enum CellSelection {
     All,
@@ -30,16 +29,13 @@ pub enum CellSelection {
 }
 
 pub struct TerritoryState {
-    controller: V2<usize>,
-    durations: HashMap<V2<usize>, Duration>,
+    pub controller: V2<usize>,
+    pub durations: HashMap<V2<usize>, Duration>,
 }
 
 pub enum GameEvent {
     Init,
-    Tick {
-        start_millis_exclusive: u128,
-        end_millis_inclusive: u128,
-    },
+    Tick,
     Save(String),
     Load(String),
     EngineEvent(Arc<Event>),
@@ -52,45 +48,23 @@ pub enum GameEvent {
         built: bool,
     },
     TerritoryChanged(Vec<TerritoryChange>),
-    Traffic {
-        name: String,
-        edges: Vec<Edge>,
-    },
 }
 
-pub enum GameCommand {
-    Event(GameEvent),
-    EngineCommands(Vec<Command>),
-    VisitCells(CellSelection),
-    RevealCells(CellSelection),
-    UpdateRoads(RoadBuilderResult),
-    UpdateObject {
-        object: WorldObject,
-        position: V2<usize>,
-        build: bool,
-    },
-    SetTerritory(Vec<TerritoryState>),
-    AddAvatar {
-        name: String,
-        avatar: Avatar,
-    },
-    UpdateAvatar {
-        name: String,
-        new_state: AvatarState,
-    },
-    SetAvatarFarm {
-        name: String,
-        farm: Option<V2<usize>>,
-    },
-    WalkPositions {
-        name: String,
-        positions: Vec<V2<usize>>,
-        start_at: u128,
-    },
-    SelectAvatar(String),
-    FollowAvatar(bool),
-    Update(Box<dyn FnOnce(&mut GameState) -> Vec<GameCommand> + Send>),
-    Shutdown,
+impl GameEvent {
+    fn describe(&self) -> &'static str {
+        match self {
+            GameEvent::Init => "init",
+            GameEvent::Tick { .. } => "tick",
+            GameEvent::Save(..) => "save",
+            GameEvent::Load(..) => "save",
+            GameEvent::EngineEvent(..) => "engine event",
+            GameEvent::CellsVisited(..) => "cells visited",
+            GameEvent::CellsRevealed(..) => "cells revealed",
+            GameEvent::RoadsUpdated(..) => "roads updated",
+            GameEvent::ObjectUpdated { .. } => "object updated",
+            GameEvent::TerritoryChanged(..) => "territory changed",
+        }
+    }
 }
 
 pub enum CaptureEvent {
@@ -99,8 +73,11 @@ pub enum CaptureEvent {
 }
 
 pub trait GameEventConsumer: Send {
+    fn name(&self) -> &'static str;
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent;
     fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent;
+    fn shutdown(&mut self);
+    fn is_shutdown(&self) -> bool;
 }
 
 pub struct Game {
@@ -108,19 +85,31 @@ pub struct Game {
     real_time: Instant,
     consumers: Vec<Box<dyn GameEventConsumer>>,
     engine_tx: Sender<Vec<Command>>,
-    command_tx: Sender<GameCommand>,
-    command_rx: Receiver<GameCommand>,
+    update_tx: UpdateSender<Game>,
+    update_rx: UpdateReceiver<Game>,
     avatar_travel_duration: AvatarTravelDuration,
+    run: bool,
 }
 
 impl Game {
-    pub fn new(game_state: GameState, engine: &mut IsometricEngine) -> Game {
-        let (command_tx, command_rx) = mpsc::channel();
+    pub fn new(
+        game_state: GameState,
+        engine: &mut IsometricEngine,
+        mut init_events: Vec<GameEvent>,
+    ) -> Game {
+        let (update_tx, update_rx) = update_channel(UPDATE_CHANNEL_BOUND);
 
-        let event_forwarder = EventForwarder::new(command_tx.clone());
-        engine.add_event_consumer(event_forwarder);
+        engine.add_event_consumer(EventForwarder::new(
+            update_tx.clone_with_handle("event_forwarder"),
+        ));
 
-        let mut out = Game {
+        update_tx.update(move |game| {
+            init_events
+                .drain(..)
+                .for_each(|event| game.consume_event(event))
+        });
+
+        Game {
             real_time: Instant::now(),
             avatar_travel_duration: AvatarTravelDuration::from_params(
                 &game_state.params.avatar_travel,
@@ -128,21 +117,22 @@ impl Game {
             game_state,
             consumers: vec![],
             engine_tx: engine.command_tx(),
-            command_tx,
-            command_rx,
-        };
-
-        out.add_consumer(ShutdownHandler::new(out.command_tx()));
-
-        out
+            update_tx,
+            update_rx,
+            run: true,
+        }
     }
 
     pub fn game_state(&self) -> &GameState {
         &self.game_state
     }
 
-    pub fn command_tx(&self) -> Sender<GameCommand> {
-        self.command_tx.clone()
+    pub fn mut_state(&mut self) -> &mut GameState {
+        &mut self.game_state
+    }
+
+    pub fn update_tx(&self) -> &UpdateSender<Game> {
+        &self.update_tx
     }
 
     pub fn add_consumer<T>(&mut self, consumer: T)
@@ -152,16 +142,14 @@ impl Game {
         self.consumers.push(Box::new(consumer));
     }
 
+    pub fn send_engine_commands(&mut self, commands: Vec<Command>) {
+        self.engine_tx.send(commands).unwrap();
+    }
+
     fn on_tick(&mut self) {
         let from = self.game_state.game_micros;
         self.update_game_micros();
         let to = self.game_state.game_micros;
-        self.command_tx
-            .send(GameCommand::Event(GameEvent::Tick {
-                start_millis_exclusive: from,
-                end_millis_inclusive: to,
-            }))
-            .unwrap();
         self.process_visited_cells(&from, &to);
         self.evolve_avatars();
     }
@@ -172,16 +160,23 @@ impl Game {
                 self.on_tick();
             }
             for consumer in self.consumers.iter_mut() {
-                match consumer.consume_engine_event(&self.game_state, event.clone()) {
-                    CaptureEvent::Yes => return,
-                    CaptureEvent::No => (),
+                let capture = consumer.consume_engine_event(&self.game_state, event.clone());
+                if let CaptureEvent::Yes = capture {
+                    return;
                 }
             }
         } else {
+            let log_duration_threshold = &self.game_state.params.log_duration_threshold;
             for consumer in self.consumers.iter_mut() {
-                match consumer.consume_game_event(&self.game_state, &event) {
-                    CaptureEvent::Yes => return,
-                    CaptureEvent::No => (),
+                let start = Instant::now();
+                let capture = consumer.consume_game_event(&self.game_state, &event);
+                log_time(
+                    format!("event,{},{}", event.describe(), consumer.name()),
+                    start.elapsed(),
+                    log_duration_threshold,
+                );
+                if let CaptureEvent::Yes = capture {
+                    return;
                 }
             }
         }
@@ -203,12 +198,6 @@ impl Game {
                     let edges = path.edges_between_times(from, to);
                     if !edges.is_empty() {
                         edges.iter().for_each(|edge| visited_cells.push(*edge.to()));
-                        self.command_tx
-                            .send(GameCommand::Event(GameEvent::Traffic {
-                                name: avatar.name.clone(),
-                                edges,
-                            }))
-                            .unwrap();
                     }
                 }
                 AvatarState::Stationary { position, .. } => visited_cells.push(*position),
@@ -220,14 +209,25 @@ impl Game {
 
     fn evolve_avatars(&mut self) {
         let game_micros = &self.game_state.game_micros;
-        self.game_state
-            .avatars
-            .values_mut()
-            .for_each(|Avatar { state, .. }| {
+        let selected_avatar_name = self
+            .game_state
+            .selected_avatar()
+            .map(|avatar| avatar.name.to_string());
+        self.game_state.avatars.values_mut().for_each(
+            |Avatar {
+                 state, ref name, ..
+             }| {
                 if let Some(new_state) = Self::evolve_avatar(game_micros, state) {
-                    *state = new_state
+                    if let AvatarState::Stationary { .. } = new_state {
+                        if Some(name) != selected_avatar_name.as_ref() {
+                            *state = AvatarState::Absent;
+                            return;
+                        }
+                    }
+                    *state = new_state;
                 }
-            })
+            },
+        )
     }
 
     fn evolve_avatar(game_micros: &u128, state: &AvatarState) -> Option<AvatarState> {
@@ -238,42 +238,35 @@ impl Game {
         }
     }
 
-    fn visit_all_cells(&mut self) {
+    pub fn visit_all_cells(&mut self) {
         self.game_state.world.visit_all();
-        self.command_tx
-            .send(GameCommand::Event(GameEvent::CellsVisited(
-                CellSelection::All,
-            )))
-            .unwrap();
+        self.consume_event(GameEvent::CellsVisited(CellSelection::All));
     }
 
-    fn visit_cells(&mut self, cells: Vec<V2<usize>>) {
+    pub fn visit_cells(&mut self, cells: Vec<V2<usize>>) {
         let mut send = vec![];
         for position in cells {
-            if let Some(world_cell) = self.game_state.world.mut_cell(&position) {
-                if !world_cell.visited {
-                    world_cell.visited = true;
-                    send.push(position);
-                }
+            let world_cell = match self.game_state.world.mut_cell(&position) {
+                Some(world_cell) => world_cell,
+                None => continue,
+            };
+            if !world_cell.visited {
+                world_cell.visited = true;
+                send.push(position);
             }
         }
-        self.command_tx
-            .send(GameCommand::Event(GameEvent::CellsVisited(
-                CellSelection::Some(send),
-            )))
-            .unwrap();
+        if send.is_empty() {
+            return;
+        }
+        self.consume_event(GameEvent::CellsVisited(CellSelection::Some(send)));
     }
 
-    fn reveal_all_cells(&mut self) {
+    pub fn reveal_all_cells(&mut self) {
         self.game_state.world.reveal_all();
-        self.command_tx
-            .send(GameCommand::Event(GameEvent::CellsRevealed(
-                CellSelection::All,
-            )))
-            .unwrap();
+        self.consume_event(GameEvent::CellsRevealed(CellSelection::All));
     }
 
-    fn reveal_cells(&mut self, cells: Vec<V2<usize>>) {
+    pub fn reveal_cells(&mut self, cells: Vec<V2<usize>>) {
         let mut send = vec![];
         for position in cells {
             if let Some(world_cell) = self.game_state.world.mut_cell(&position) {
@@ -283,53 +276,77 @@ impl Game {
                 }
             }
         }
-        self.command_tx
-            .send(GameCommand::Event(GameEvent::CellsRevealed(
-                CellSelection::Some(send),
-            )))
-            .unwrap();
+        if send.is_empty() {
+            return;
+        }
+        self.consume_event(GameEvent::CellsRevealed(CellSelection::Some(send)));
     }
 
-    fn build_object(&mut self, object: WorldObject, position: V2<usize>) -> Option<GameEvent> {
+    pub fn update_roads(&mut self, result: RoadBuilderResult) {
+        result.update_roads(&mut self.game_state.world);
+        self.consume_event(GameEvent::RoadsUpdated(result));
+    }
+
+    fn build_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
         if let Some(cell) = self.game_state.world.mut_cell(&position) {
             if let WorldObject::None = cell.object {
                 cell.object = object;
-                return Some(GameEvent::ObjectUpdated {
-                    object,
-                    position,
-                    built: true,
-                });
+                return true;
             }
         }
-        None
+        false
     }
 
-    fn destroy_object(&mut self, object: WorldObject, position: V2<usize>) -> Option<GameEvent> {
+    fn destroy_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
         if let Some(cell) = self.game_state.world.mut_cell(&position) {
             if object == cell.object {
                 cell.object = WorldObject::None;
-                return Some(GameEvent::ObjectUpdated {
-                    object,
-                    position,
-                    built: false,
-                });
+                return true;
             }
         }
-        None
+        false
     }
 
-    fn update_object(&mut self, object: WorldObject, position: V2<usize>, build: bool) {
-        let event = if build {
+    pub fn update_object(&mut self, object: WorldObject, position: V2<usize>, build: bool) -> bool {
+        let success = if build {
             self.build_object(object, position)
         } else {
             self.destroy_object(object, position)
         };
-        event
-            .into_iter()
-            .for_each(|event| self.command_tx.send(GameCommand::Event(event)).unwrap());
+        if let WorldObject::House(..) = object {
+            if build {
+                self.game_state.territory.add_controller(position);
+            } else {
+                self.set_territory(vec![TerritoryState {
+                    controller: position,
+                    durations: HashMap::new(),
+                }]);
+                self.game_state.territory.remove_controller(&position);
+            }
+        };
+        if success {
+            self.consume_event(GameEvent::ObjectUpdated {
+                object,
+                position,
+                built: build,
+            })
+        }
+        success
     }
 
-    fn set_territory(&mut self, states: Vec<TerritoryState>) {
+    pub fn clear_object(&mut self, position: V2<usize>) -> bool {
+        let cell = match self.game_state.world.get_cell(&position) {
+            Some(cell) => *cell,
+            _ => return false,
+        };
+        if cell.object != WorldObject::None {
+            self.update_object(cell.object, position, false)
+        } else {
+            true
+        }
+    }
+
+    pub fn set_territory(&mut self, states: Vec<TerritoryState>) {
         let mut changes = vec![];
         for TerritoryState {
             controller,
@@ -342,46 +359,21 @@ impl Game {
                 &self.game_state.game_micros,
             ));
         }
-        self.command_tx
-            .send(GameCommand::Event(GameEvent::TerritoryChanged(changes)))
-            .unwrap();
+        self.consume_event(GameEvent::TerritoryChanged(changes));
     }
 
-    fn add_avatar(&mut self, name: String, avatar: Avatar) {
-        self.game_state.avatars.insert(name, avatar);
-    }
-
-    fn update_avatar(&mut self, name: String, new_state: AvatarState) {
+    pub fn update_avatar_state(&mut self, name: String, new_state: AvatarState) {
         if let Some(avatar) = self.game_state.avatars.get_mut(&name) {
             avatar.state = new_state
         }
     }
 
-    fn set_avatar_farm(&mut self, name: String, farm: Option<V2<usize>>) {
-        if let Some(farm) = farm {
-            if let Some(cell) = self.game_state.world.mut_cell(&farm) {
-                if let (Some(avatar), WorldObject::None) =
-                    (self.game_state.avatars.get_mut(&name), WorldObject::None)
-                {
-                    cell.object = WorldObject::Farm;
-                    avatar.farm = Some(farm);
-                    let event = GameEvent::ObjectUpdated {
-                        object: WorldObject::Farm,
-                        position: farm,
-                        built: true,
-                    };
-                    self.command_tx.send(GameCommand::Event(event)).unwrap()
-                }
-            }
-        }
-    }
-
-    fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
+    pub fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
         let start_at = start_at.max(self.game_state.game_micros);
-        if let Entry::Occupied(mut avatar) = self.game_state.avatars.entry(name.clone()) {
+        if let Entry::Occupied(mut avatar) = self.game_state.avatars.entry(name) {
             if let Some(new_state) = avatar.get().state.walk_positions(
                 &self.game_state.world,
-                positions.clone(),
+                positions,
                 &self.avatar_travel_duration,
                 start_at,
             ) {
@@ -390,107 +382,81 @@ impl Game {
         }
     }
 
-    fn select_avatar(&mut self, name: String) {
-        self.game_state.selected_avatar = Some(name);
-    }
-
-    fn set_follow_avatar(&mut self, follow_avatar: bool) {
-        self.game_state.follow_avatar = follow_avatar;
-    }
-
-    fn update(&mut self, function: Box<dyn FnOnce(&mut GameState) -> Vec<GameCommand> + Send>) {
-        let commands = function(&mut self.game_state);
-        for command in commands {
-            self.command_tx.send(command).unwrap();
-        }
+    pub fn save(&mut self, path: String) {
+        self.game_state.to_file(&path);
+        self.consume_event(GameEvent::Save(path));
     }
 
     pub fn run(&mut self) {
         loop {
-            let command = self.command_rx.recv().unwrap();
-            match command {
-                GameCommand::Event(event) => self.consume_event(event),
-                GameCommand::EngineCommands(commands) => self.engine_tx.send(commands).unwrap(),
-                GameCommand::VisitCells(selection) => {
-                    match selection {
-                        CellSelection::All => self.visit_all_cells(),
-                        CellSelection::Some(cells) => self.visit_cells(cells),
-                    };
+            if self.run {
+                self.consume_event(GameEvent::Tick);
+            } else {
+                self.progress_shutdown();
+                if self.consumers.is_empty() {
+                    return;
                 }
-                GameCommand::RevealCells(selection) => {
-                    match selection {
-                        CellSelection::All => self.reveal_all_cells(),
-                        CellSelection::Some(cells) => self.reveal_cells(cells),
-                    };
-                }
-                GameCommand::UpdateRoads(result) => {
-                    result.update_roads(&mut self.game_state.world);
-                    self.command_tx
-                        .send(GameCommand::Event(GameEvent::RoadsUpdated(result)))
-                        .unwrap();
-                }
-                GameCommand::UpdateObject {
-                    object,
-                    position,
-                    build,
-                } => self.update_object(object, position, build),
-                GameCommand::SetTerritory(states) => self.set_territory(states),
-                GameCommand::AddAvatar { name, avatar } => self.add_avatar(name, avatar),
-                GameCommand::UpdateAvatar { name, new_state } => {
-                    self.update_avatar(name, new_state)
-                }
-                GameCommand::SetAvatarFarm { name, farm } => self.set_avatar_farm(name, farm),
-                GameCommand::WalkPositions {
-                    name,
-                    positions,
-                    start_at,
-                } => self.walk_positions(name, positions, start_at),
-                GameCommand::SelectAvatar(name) => self.select_avatar(name),
-                GameCommand::FollowAvatar(follow_avatar) => self.set_follow_avatar(follow_avatar),
-                GameCommand::Update(function) => self.update(function),
-                GameCommand::Shutdown => return,
+            }
+            for update in self.update_rx.get_updates() {
+                self.handle_update(update);
+            }
+        }
+    }
+
+    fn handle_update(&mut self, update: Arm<Update<Game>>) {
+        let start = Instant::now();
+        let handle = update.lock().unwrap().sender_handle();
+        process_update(update, self);
+        log_time(
+            handle.to_string(),
+            start.elapsed(),
+            &self.game_state.params.log_duration_threshold,
+        );
+    }
+
+    pub fn shutdown(&mut self) {
+        self.run = false;
+        self.shutdown_next_consumer();
+    }
+
+    fn shutdown_next_consumer(&mut self) -> bool {
+        if let Some(consumer) = self.consumers.first_mut() {
+            consumer.shutdown();
+            return true;
+        }
+        false
+    }
+
+    fn progress_shutdown(&mut self) {
+        if let Some(consumer) = self.consumers.first() {
+            if consumer.is_shutdown() {
+                println!("{} is done", consumer.name());
+                self.consumers.remove(0);
+                self.shutdown_next_consumer();
             }
         }
     }
 }
 
-struct ShutdownHandler {
-    command_tx: Sender<GameCommand>,
-}
-
-impl ShutdownHandler {
-    pub fn new(command_tx: Sender<GameCommand>) -> ShutdownHandler {
-        ShutdownHandler { command_tx }
-    }
-}
-
-impl GameEventConsumer for ShutdownHandler {
-    fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
-        CaptureEvent::No
-    }
-
-    fn consume_engine_event(&mut self, _: &GameState, event: Arc<Event>) -> CaptureEvent {
-        if let Event::Shutdown = *event {
-            self.command_tx.send(GameCommand::Shutdown).unwrap();
-        }
-        CaptureEvent::No
+fn log_time(description: String, duration: Duration, threshold: &Duration) {
+    if duration >= *threshold {
+        println!("{},{}ms", description, duration.as_millis());
     }
 }
 
 struct EventForwarder {
-    command_tx: Sender<GameCommand>,
+    game_tx: UpdateSender<Game>,
 }
 
 impl EventForwarder {
-    pub fn new(command_tx: Sender<GameCommand>) -> EventForwarder {
-        EventForwarder { command_tx }
+    pub fn new(game_tx: UpdateSender<Game>) -> EventForwarder {
+        EventForwarder { game_tx }
     }
 }
 
 impl EventConsumer for EventForwarder {
     fn consume_event(&mut self, event: Arc<Event>) {
-        self.command_tx
-            .send(GameCommand::Event(GameEvent::EngineEvent(event)))
-            .unwrap();
+        self.game_tx
+            .update(move |game| game.consume_event(GameEvent::EngineEvent(event)));
     }
 }

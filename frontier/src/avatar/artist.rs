@@ -293,11 +293,8 @@ impl AvatarArtist {
     ) -> bool {
         let travel_modes = match state {
             AvatarState::Walking { .. } => {
-                let from = v2(
-                    world_coord.x.floor() as usize,
-                    world_coord.y.floor() as usize,
-                );
-                let to = v2(world_coord.x.ceil() as usize, world_coord.y.ceil() as usize);
+                let from = world_coord.to_v2_floor();
+                let to = world_coord.to_v2_ceil();
                 travel_mode_fn
                     .travel_mode_between(world, &from, &to)
                     .map(|mode| vec![mode])
