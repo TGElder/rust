@@ -82,7 +82,7 @@ pub trait GameEventConsumer: Send {
 
 pub struct Game {
     game_state: GameState,
-    real_time: Instant,
+    previous_instant: Instant,
     consumers: Vec<Box<dyn GameEventConsumer>>,
     engine_tx: Sender<Vec<Command>>,
     update_tx: UpdateSender<Game>,
@@ -110,7 +110,7 @@ impl Game {
         });
 
         Game {
-            real_time: Instant::now(),
+            previous_instant: Instant::now(),
             avatar_travel_duration: AvatarTravelDuration::from_params(
                 &game_state.params.avatar_travel,
             ),
@@ -183,11 +183,13 @@ impl Game {
     }
 
     fn update_game_micros(&mut self) {
-        let current_time = Instant::now();
-        let interval = current_time.duration_since(self.real_time).as_micros();
+        let current_instant = Instant::now();
+        let interval = current_instant
+            .duration_since(self.previous_instant)
+            .as_micros();
         let interval = (interval as f32 * self.game_state.speed).round();
         self.game_state.game_micros += interval as u128;
-        self.real_time = current_time;
+        self.previous_instant = current_instant;
     }
 
     fn process_visited_cells(&mut self, from: &u128, to: &u128) {

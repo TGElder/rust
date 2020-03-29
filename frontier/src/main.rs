@@ -115,7 +115,6 @@ fn main() {
 fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) {
     let mut rng = rng(seed);
     let params = GameParams::new(seed);
-    let start_micros = params.start_micros();
     let mut world = generate_world(size, &mut rng, &params.world_gen);
     if reveal_all {
         world.reveal_all();
@@ -141,7 +140,7 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
     let game_state = GameState {
         territory: Territory::new(&world),
         world,
-        game_micros: start_micros,
+        game_micros: 0,
         params,
         avatars,
         selected_avatar: Some("0".to_string()),

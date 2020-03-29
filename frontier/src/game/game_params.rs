@@ -5,7 +5,6 @@ use crate::world_gen::*;
 use commons::*;
 use isometric::Color;
 
-use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -23,8 +22,6 @@ pub struct GameParams {
     pub town_exclusive_duration: Duration,
     pub town_travel_duration: Duration,
     pub avatars: usize,
-    pub history_start_date: NaiveDateTime,
-    pub play_start_date: NaiveDateTime,
     pub sim: SimParams,
     pub house_color: Color,
     pub log_duration_threshold: Duration,
@@ -45,25 +42,10 @@ impl GameParams {
             town_exclusive_duration: Duration::from_secs(60 * 60 * 3),
             town_travel_duration: Duration::from_secs(60 * 60 * 24),
             avatars: 4096,
-            history_start_date: NaiveDate::from_ymd(1400, 1, 1).and_hms(0, 0, 0),
-            play_start_date: NaiveDate::from_ymd(1500, 1, 1).and_hms(0, 0, 0),
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
             log_duration_threshold: Duration::from_millis(15),
         }
-    }
-
-    pub fn start_micros(&self) -> u128 {
-        if self.history_start_date > self.play_start_date {
-            panic!(
-                "History start date {:?} must be before play start date {:?}",
-                self.history_start_date, self.play_start_date
-            );
-        }
-        self.play_start_date
-            .signed_duration_since(self.history_start_date)
-            .num_microseconds()
-            .unwrap() as u128
     }
 }
 

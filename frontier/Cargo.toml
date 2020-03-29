@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 bincode = "1.2.1"
-chrono = {version="0.4",features = ["serde"]}
 commons = { path = "../commons" }
 isometric = { path = "../isometric" }
 pioneer = { path = "../pioneer" }
