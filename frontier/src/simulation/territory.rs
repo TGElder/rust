@@ -8,7 +8,7 @@ const HANDLE: &str = "territory_sim";
 
 pub struct TerritorySim {
     game_tx: UpdateSender<Game>,
-    pathfinder_tx: UpdateSender<Pathfinder<AvatarTravelDuration>>,
+    pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
     duration: Duration,
 }
 
@@ -21,7 +21,7 @@ impl Step for TerritorySim {
 impl TerritorySim {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        pathfinder_tx: &UpdateSender<Pathfinder<AvatarTravelDuration>>,
+        pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
         duration: Duration,
     ) -> TerritorySim {
         TerritorySim {
@@ -52,7 +52,7 @@ impl TerritorySim {
         let duration = self.duration;
         let durations = self
             .pathfinder_tx
-            .update(move |pathfinder| pathfinder.positions_within(&corners, duration))
+            .update(move |service| service.pathfinder().positions_within(&corners, duration))
             .await;
         let states = vec![TerritoryState {
             controller,

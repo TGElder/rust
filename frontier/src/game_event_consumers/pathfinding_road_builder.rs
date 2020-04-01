@@ -1,5 +1,4 @@
 use super::*;
-use crate::pathfinder::*;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
@@ -7,7 +6,7 @@ const HANDLE: &str = "pathfinding_road_builder";
 
 pub struct PathfindingRoadBuilder {
     game_tx: UpdateSender<Game>,
-    pathfinder_tx: UpdateSender<Pathfinder<AutoRoadTravelDuration>>,
+    pathfinder_tx: UpdateSender<PathfinderService<AutoRoadTravelDuration>>,
     pool: ThreadPool,
     world_coord: Option<WorldCoord>,
     binding: Button,
@@ -16,7 +15,7 @@ pub struct PathfindingRoadBuilder {
 impl PathfindingRoadBuilder {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        pathfinder_tx: &UpdateSender<Pathfinder<AutoRoadTravelDuration>>,
+        pathfinder_tx: &UpdateSender<PathfinderService<AutoRoadTravelDuration>>,
         pool: ThreadPool,
     ) -> PathfindingRoadBuilder {
         PathfindingRoadBuilder {
@@ -44,7 +43,7 @@ impl PathfindingRoadBuilder {
         let game_tx = self.game_tx.clone();
         self.pool.spawn_ok(async move {
             let result = pathfinder_tx
-                .update(move |pathfinder| auto_build_road(from, to, &pathfinder))
+                .update(move |service| auto_build_road(from, to, &service.pathfinder()))
                 .await;
             if let Some(result) = result {
                 game_tx.update(move |game| game.update_roads(result));
@@ -82,11 +81,5 @@ impl GameEventConsumer for PathfindingRoadBuilder {
             }
         }
         CaptureEvent::No
-    }
-
-    fn shutdown(&mut self) {}
-
-    fn is_shutdown(&self) -> bool {
-        true
     }
 }

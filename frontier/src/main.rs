@@ -28,6 +28,7 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 use simulation::*;
 use std::env;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 fn main() {
@@ -43,16 +44,22 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let avatar_pathfinder = Pathfinder::new(
+    let avatar_pathfinder = Arc::new(Mutex::new(Pathfinder::new(
         &game.game_state().world,
         AvatarTravelDuration::from_params(&game.game_state().params.avatar_travel),
-    );
-    let avatar_pathfinder_service = PathfinderServiceEventConsumer::new(avatar_pathfinder);
-    let road_pathfinder = Pathfinder::new(
+    )));
+    let mut avatar_pathfinder_service = PathfinderService::new(avatar_pathfinder.clone());
+    let road_pathfinder = Arc::new(Mutex::new(Pathfinder::new(
         &game.game_state().world,
         AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
+    )));
+    let mut road_pathfinder_service = PathfinderService::new(road_pathfinder.clone());
+
+    let mut sim = create_simulation(
+        &game.game_state().params,
+        game.update_tx(),
+        avatar_pathfinder_service.update_tx(),
     );
-    let road_pathfinder_service = PathfinderServiceEventConsumer::new(road_pathfinder);
 
     game.add_consumer(EventHandlerAdapter::new(
         ZoomHandler::default(),
@@ -68,11 +75,7 @@ fn main() {
     game.add_consumer(FarmCandidateHandler::new(
         avatar_pathfinder_service.update_tx(),
     ));
-    game.add_consumer(create_simulation_runner(
-        &game.game_state().params,
-        game.update_tx(),
-        avatar_pathfinder_service.update_tx(),
-    ));
+    game.add_consumer(SimulationManager::new(sim.update_tx()));
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.update_tx()));
@@ -87,7 +90,7 @@ fn main() {
     game.add_consumer(PathfindingRoadBuilder::new(
         game.update_tx(),
         road_pathfinder_service.update_tx(),
-        thread_pool,
+        thread_pool.clone(),
     ));
     game.add_consumer(ObjectBuilder::new(
         game.game_state().params.house_color,
@@ -98,18 +101,32 @@ fn main() {
         game.game_state().params.seed,
         game.update_tx(),
     ));
-    game.add_consumer(Save::new(game.update_tx()));
+    game.add_consumer(Save::new(game.update_tx(), sim.update_tx()));
 
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
-    game.add_consumer(avatar_pathfinder_service);
-    game.add_consumer(road_pathfinder_service);
+    game.add_consumer(PathfinderUpdater::new(avatar_pathfinder));
+    game.add_consumer(PathfinderUpdater::new(road_pathfinder));
     game.add_consumer(SelectAvatar::new(game.update_tx()));
     game.add_consumer(SpeedControl::new(game.update_tx()));
-    game.add_consumer(ShutdownHandler::new(game.update_tx()));
+    game.add_consumer(ShutdownHandler::new(
+        avatar_pathfinder_service.update_tx(),
+        road_pathfinder_service.update_tx(),
+        game.update_tx(),
+        sim.update_tx(),
+        thread_pool,
+    ));
 
+    let avatar_pathfinder_handle = thread::spawn(move || avatar_pathfinder_service.run());
+    let road_pathfinder_handle = thread::spawn(move || road_pathfinder_service.run());
     let game_handle = thread::spawn(move || game.run());
+    let sim_handle = thread::spawn(move || sim.run());
+
     engine.run();
+
+    sim_handle.join().unwrap();
     game_handle.join().unwrap();
+    road_pathfinder_handle.join().unwrap();
+    avatar_pathfinder_handle.join().unwrap();
 }
 
 fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) {
@@ -171,11 +188,11 @@ fn parse_args(args: Vec<String>) -> (GameState, Vec<GameEvent>) {
     }
 }
 
-fn create_simulation_runner(
+fn create_simulation(
     params: &GameParams,
     game_tx: &UpdateSender<Game>,
-    pathfinder_tx: &UpdateSender<Pathfinder<AvatarTravelDuration>>,
-) -> SimulationRunner {
+    pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
+) -> Simulation {
     let seed = params.seed;
     let house_color = params.house_color;
 
@@ -201,7 +218,7 @@ fn create_simulation_runner(
         game_tx,
     );
 
-    SimulationRunner::new(
+    Simulation::new(
         params.sim.start_year,
         vec![
             Box::new(territory_sim),

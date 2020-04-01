@@ -141,10 +141,4 @@ impl GameEventConsumer for ObjectArtistHandler {
     fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
         CaptureEvent::No
     }
-
-    fn shutdown(&mut self) {}
-
-    fn is_shutdown(&self) -> bool {
-        true
-    }
 }

@@ -133,10 +133,4 @@ impl GameEventConsumer for Cheats {
         }
         CaptureEvent::No
     }
-
-    fn shutdown(&mut self) {}
-
-    fn is_shutdown(&self) -> bool {
-        true
-    }
 }

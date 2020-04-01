@@ -50,7 +50,7 @@ struct Parent {
 pub struct ChildrenSim {
     params: ChildrenParams,
     game_tx: UpdateSender<Game>,
-    pathfinder_tx: UpdateSender<Pathfinder<AvatarTravelDuration>>,
+    pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
     rng: SmallRng,
 }
 
@@ -65,7 +65,7 @@ impl ChildrenSim {
         params: &ChildrenParams,
         seed: u64,
         game_tx: &UpdateSender<Game>,
-        pathfinder_tx: &UpdateSender<Pathfinder<AvatarTravelDuration>>,
+        pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
     ) -> ChildrenSim {
         ChildrenSim {
             game_tx: game_tx.clone_with_handle(HANDLE),
@@ -126,9 +126,10 @@ impl ChildrenSim {
 
     async fn get_farm(&mut self, position: V2<usize>) -> Option<V2<usize>> {
         self.pathfinder_tx
-            .update(move |pathfinder| {
-                let mut candidates =
-                    pathfinder.closest_targets(&[position], FARM_CANDIDATE_TARGETS);
+            .update(move |service| {
+                let mut candidates = service
+                    .pathfinder()
+                    .closest_targets(&[position], FARM_CANDIDATE_TARGETS);
                 candidates.pop()
             })
             .await
@@ -142,7 +143,11 @@ impl ChildrenSim {
 
     async fn remove_candidate(&mut self, farm: V2<usize>) {
         self.pathfinder_tx
-            .update(move |pathfinder| pathfinder.load_target(FARM_CANDIDATE_TARGETS, &farm, false))
+            .update(move |service| {
+                service
+                    .pathfinder()
+                    .load_target(FARM_CANDIDATE_TARGETS, &farm, false)
+            })
             .await
     }
 }

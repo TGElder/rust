@@ -38,10 +38,4 @@ impl GameEventConsumer for RotateHandler {
             .update(move |game| game.send_engine_commands(commands));
         CaptureEvent::No
     }
-
-    fn shutdown(&mut self) {}
-
-    fn is_shutdown(&self) -> bool {
-        true
-    }
 }

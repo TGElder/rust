@@ -12,7 +12,7 @@ struct Farmless {
 
 pub struct FarmAssignerSim {
     game_tx: UpdateSender<Game>,
-    pathfinder_tx: UpdateSender<Pathfinder<AvatarTravelDuration>>,
+    pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
 }
 
 impl Step for FarmAssignerSim {
@@ -24,7 +24,7 @@ impl Step for FarmAssignerSim {
 impl FarmAssignerSim {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        pathfinder_tx: &UpdateSender<Pathfinder<AvatarTravelDuration>>,
+        pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
     ) -> FarmAssignerSim {
         FarmAssignerSim {
             game_tx: game_tx.clone_with_handle(HANDLE),
@@ -54,9 +54,10 @@ impl FarmAssignerSim {
 
     async fn get_farm(&mut self, position: V2<usize>) -> Option<V2<usize>> {
         self.pathfinder_tx
-            .update(move |pathfinder| {
-                let mut candidates =
-                    pathfinder.closest_targets(&[position], FARM_CANDIDATE_TARGETS);
+            .update(move |service| {
+                let mut candidates = service
+                    .pathfinder()
+                    .closest_targets(&[position], FARM_CANDIDATE_TARGETS);
                 candidates.pop()
             })
             .await
@@ -70,7 +71,11 @@ impl FarmAssignerSim {
 
     async fn remove_candidate(&mut self, farm: V2<usize>) {
         self.pathfinder_tx
-            .update(move |pathfinder| pathfinder.load_target(FARM_CANDIDATE_TARGETS, &farm, false))
+            .update(move |service| {
+                service
+                    .pathfinder()
+                    .load_target(FARM_CANDIDATE_TARGETS, &farm, false)
+            })
             .await
     }
 }

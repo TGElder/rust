@@ -116,10 +116,4 @@ impl GameEventConsumer for BasicAvatarControls {
         }
         CaptureEvent::No
     }
-
-    fn shutdown(&mut self) {}
-
-    fn is_shutdown(&self) -> bool {
-        true
-    }
 }

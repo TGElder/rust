@@ -1,5 +1,4 @@
 use super::*;
-use crate::pathfinder::*;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, MouseButton, VirtualKeyCode};
 use std::default::Default;
@@ -22,7 +21,7 @@ impl Default for PathfinderAvatarBindings {
 
 pub struct PathfindingAvatarControls {
     game_tx: UpdateSender<Game>,
-    pathfinder_tx: UpdateSender<Pathfinder<AvatarTravelDuration>>,
+    pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
     pool: ThreadPool,
     world_coord: Option<WorldCoord>,
     bindings: PathfinderAvatarBindings,
@@ -31,7 +30,7 @@ pub struct PathfindingAvatarControls {
 impl PathfindingAvatarControls {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        pathfinder_tx: &UpdateSender<Pathfinder<AvatarTravelDuration>>,
+        pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
         pool: ThreadPool,
     ) -> PathfindingAvatarControls {
         PathfindingAvatarControls {
@@ -55,7 +54,7 @@ impl PathfindingAvatarControls {
                 game_tx.update(move |game| stop_selected_avatar(game)).await
             {
                 let positions = pathfinder_tx
-                    .update(move |pathfinder| pathfinder.find_path(&stop_position, &[to]))
+                    .update(move |service| service.pathfinder().find_path(&stop_position, &[to]))
                     .await;
                 if let Some(positions) = positions {
                     game_tx.update(move |game| {
@@ -134,11 +133,5 @@ impl GameEventConsumer for PathfindingAvatarControls {
             };
         }
         CaptureEvent::No
-    }
-
-    fn shutdown(&mut self) {}
-
-    fn is_shutdown(&self) -> bool {
-        true
     }
 }

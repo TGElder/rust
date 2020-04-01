@@ -100,10 +100,4 @@ impl GameEventConsumer for SpeedControl {
         }
         CaptureEvent::No
     }
-
-    fn shutdown(&mut self) {}
-
-    fn is_shutdown(&self) -> bool {
-        true
-    }
 }

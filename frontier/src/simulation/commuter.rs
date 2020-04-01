@@ -4,7 +4,7 @@ const HANDLE: &str = "commuter_sim";
 
 pub struct CommuterSim {
     game_tx: UpdateSender<Game>,
-    pathfinder_tx: UpdateSender<Pathfinder<AvatarTravelDuration>>,
+    pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
 }
 
 struct Commute {
@@ -21,7 +21,7 @@ impl Step for CommuterSim {
 impl CommuterSim {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        pathfinder_tx: &UpdateSender<Pathfinder<AvatarTravelDuration>>,
+        pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
     ) -> CommuterSim {
         CommuterSim {
             game_tx: game_tx.clone_with_handle(HANDLE),
@@ -58,7 +58,7 @@ impl CommuterSim {
 
     async fn get_path(&mut self, commute: Commute) -> Option<Vec<V2<usize>>> {
         self.pathfinder_tx
-            .update(move |pathfinder| get_path(pathfinder, commute))
+            .update(move |service| get_path(&mut service.pathfinder(), commute))
             .await
     }
 

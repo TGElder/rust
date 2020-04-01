@@ -76,8 +76,6 @@ pub trait GameEventConsumer: Send {
     fn name(&self) -> &'static str;
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent;
     fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent;
-    fn shutdown(&mut self);
-    fn is_shutdown(&self) -> bool;
 }
 
 pub struct Game {
@@ -390,15 +388,8 @@ impl Game {
     }
 
     pub fn run(&mut self) {
-        loop {
-            if self.run {
-                self.consume_event(GameEvent::Tick);
-            } else {
-                self.progress_shutdown();
-                if self.consumers.is_empty() {
-                    return;
-                }
-            }
+        while self.run {
+            self.consume_event(GameEvent::Tick);
             for update in self.update_rx.get_updates() {
                 self.handle_update(update);
             }
@@ -418,25 +409,6 @@ impl Game {
 
     pub fn shutdown(&mut self) {
         self.run = false;
-        self.shutdown_next_consumer();
-    }
-
-    fn shutdown_next_consumer(&mut self) -> bool {
-        if let Some(consumer) = self.consumers.first_mut() {
-            consumer.shutdown();
-            return true;
-        }
-        false
-    }
-
-    fn progress_shutdown(&mut self) {
-        if let Some(consumer) = self.consumers.first() {
-            if consumer.is_shutdown() {
-                println!("{} is done", consumer.name());
-                self.consumers.remove(0);
-                self.shutdown_next_consumer();
-            }
-        }
     }
 }
 

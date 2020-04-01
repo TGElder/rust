@@ -7,12 +7,12 @@ const HANDLE: &str = "farm_candidate_handler";
 pub const FARM_CANDIDATE_TARGETS: &str = "farm_candidates";
 
 pub struct FarmCandidateHandler {
-    pathfinder_tx: UpdateSender<Pathfinder<AvatarTravelDuration>>,
+    pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
 }
 
 impl FarmCandidateHandler {
     pub fn new(
-        pathfinder_tx: &UpdateSender<Pathfinder<AvatarTravelDuration>>,
+        pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
     ) -> FarmCandidateHandler {
         FarmCandidateHandler {
             pathfinder_tx: pathfinder_tx.clone_with_handle(HANDLE),
@@ -21,7 +21,8 @@ impl FarmCandidateHandler {
 
     fn init(&mut self, game_state: &GameState) {
         let candidate_map = candidate_map_all_positions(game_state);
-        self.pathfinder_tx.update(move |pathfinder| {
+        self.pathfinder_tx.update(move |service| {
+            let pathfinder = &mut service.pathfinder();
             pathfinder.init_targets(FARM_CANDIDATE_TARGETS.to_string());
             update_pathfinder(pathfinder, candidate_map);
         });
@@ -29,15 +30,15 @@ impl FarmCandidateHandler {
 
     fn update_all(&mut self, game_state: &GameState) {
         let candidate_map = candidate_map_all_positions(game_state);
-        self.pathfinder_tx.update(move |pathfinder| {
-            update_pathfinder(pathfinder, candidate_map);
+        self.pathfinder_tx.update(move |service| {
+            update_pathfinder(&mut service.pathfinder(), candidate_map);
         });
     }
 
     fn update_positions(&mut self, game_state: &GameState, positions: Vec<V2<usize>>) {
         let candidate_map = candidate_map(game_state, positions);
-        self.pathfinder_tx.update(move |pathfinder| {
-            update_pathfinder(pathfinder, candidate_map);
+        self.pathfinder_tx.update(move |service| {
+            update_pathfinder(&mut service.pathfinder(), candidate_map);
         });
     }
 }
@@ -120,11 +121,5 @@ impl GameEventConsumer for FarmCandidateHandler {
 
     fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
         CaptureEvent::No
-    }
-
-    fn shutdown(&mut self) {}
-
-    fn is_shutdown(&self) -> bool {
-        true
     }
 }

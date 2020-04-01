@@ -120,10 +120,4 @@ impl GameEventConsumer for PrimeMover {
         }
         CaptureEvent::No
     }
-
-    fn shutdown(&mut self) {}
-
-    fn is_shutdown(&self) -> bool {
-        true
-    }
 }
