@@ -58,7 +58,7 @@ impl PathfindingAvatarControls {
                     .await;
                 if let Some(positions) = positions {
                     game_tx.update(move |game| {
-                        game.walk_positions(name, positions, stop_micros);
+                        game.walk_positions(name, positions, stop_micros, None, None);
                     });
                 }
             }

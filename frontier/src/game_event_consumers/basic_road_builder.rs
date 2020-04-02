@@ -40,7 +40,7 @@ impl BasicRoadBuilder {
                         let name = name.clone();
                         self.game_tx.update(move |game| {
                             game.update_roads(result);
-                            game.walk_positions(name, path, start_at);
+                            game.walk_positions(name, path, start_at, None, None);
                         });
                     }
                 }

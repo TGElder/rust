@@ -13,7 +13,9 @@ use crate::world::World;
 use commons::{v2, V2};
 use isometric::coords::*;
 use serde::{Deserialize, Serialize};
+use std::default::Default;
 use std::f32::consts::PI;
+use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Rotation {
@@ -21,6 +23,12 @@ pub enum Rotation {
     Up,
     Right,
     Down,
+}
+
+impl Default for Rotation {
+    fn default() -> Rotation {
+        Rotation::Up
+    }
 }
 
 impl Rotation {
@@ -75,7 +83,7 @@ impl AvatarState {
         match self {
             AvatarState::Walking(ref path) if path.done(instant) => Some(AvatarState::Stationary {
                 position: *path.final_position(),
-                rotation: path.compute_final_rotation(),
+                rotation: path.compute_final_rotation().unwrap_or_default(),
             }),
             _ => None,
         }
@@ -125,28 +133,38 @@ impl AvatarState {
         positions: Vec<V2<usize>>,
         travel_duration: &T,
         start_at: u128,
+        pause_at_start: Option<Duration>,
+        pause_at_end: Option<Duration>,
     ) -> Option<AvatarState>
     where
         T: TravelDuration,
     {
         match self {
             AvatarState::Stationary { position: from, .. } => {
-                if *from == positions[0] {
-                    return Some(AvatarState::Walking(Path::new(
-                        world,
-                        positions,
-                        travel_duration,
-                        start_at,
-                    )));
+                if *from != positions[0] {
+                    return None;
                 }
+                let mut path = Path::new(world, positions, travel_duration, start_at);
+                if let Some(pause) = pause_at_start {
+                    path = path.with_pause_at_start(pause.as_micros());
+                }
+                if let Some(pause) = pause_at_end {
+                    path = path.with_pause_at_end(pause.as_micros());
+                }
+                return Some(AvatarState::Walking(path));
             }
             AvatarState::Walking(path) => {
                 if *path.final_point_arrival() != start_at {
                     return None;
                 }
-                if let Some(path) = path.extend(world, positions, travel_duration) {
-                    return Some(AvatarState::Walking(path));
+                let mut path = match path.extend(world, positions, travel_duration) {
+                    Some(path) => path,
+                    None => return None,
+                };
+                if let Some(pause) = pause_at_end {
+                    path = path.with_pause_at_end(pause.as_micros());
                 }
+                return Some(AvatarState::Walking(path));
             }
             _ => (),
         }
@@ -188,8 +206,6 @@ pub struct Avatar {
     pub children: Vec<String>,
     pub commute: Option<Vec<V2<usize>>>,
 }
-
-use std::time::Duration;
 
 #[allow(dead_code)]
 struct TestTravelDuration {
@@ -265,6 +281,8 @@ mod tests {
             vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             &travel_duration(),
             0,
+            None,
+            None,
         );
         assert_eq!(
             new_state,
@@ -289,6 +307,8 @@ mod tests {
             vec![v2(0, 1), v2(1, 1), v2(2, 1)],
             &travel_duration(),
             1000,
+            None,
+            None,
         );
         assert_eq!(new_state, None,)
     }
@@ -303,6 +323,8 @@ mod tests {
             vec![v2(1, 0), v2(2, 0), v2(2, 1)],
             &travel_duration(),
             1000,
+            None,
+            None,
         );
         assert_eq!(
             new_state,
@@ -325,6 +347,8 @@ mod tests {
             vec![v2(1, 1), v2(2, 1), v2(2, 2)],
             &travel_duration(),
             1000,
+            None,
+            None,
         );
         assert_eq!(new_state, None,)
     }
@@ -339,8 +363,59 @@ mod tests {
             vec![v2(1, 0), v2(2, 0), v2(2, 1)],
             &travel_duration(),
             2000,
+            None,
+            None,
         );
         assert_eq!(new_state, None,)
+    }
+
+    #[test]
+    fn test_walk_positions_stationary_with_pauses() {
+        let world = world();
+        let state = AvatarState::Stationary {
+            position: v2(0, 0),
+            rotation: Rotation::Up,
+        };
+        let new_state = state.walk_positions(
+            &world,
+            vec![v2(0, 0), v2(1, 0), v2(2, 0)],
+            &travel_duration(),
+            0,
+            Some(Duration::from_secs(10)),
+            Some(Duration::from_secs(20)),
+        );
+        let expected_path = Path::new(
+            &world,
+            vec![v2(0, 0), v2(1, 0), v2(2, 0)],
+            &travel_duration(),
+            0,
+        )
+        .with_pause_at_start(Duration::from_secs(10).as_micros())
+        .with_pause_at_end(Duration::from_secs(20).as_micros());
+        assert_eq!(new_state, Some(AvatarState::Walking(expected_path)),)
+    }
+
+    #[test]
+    fn test_walk_positions_walking_with_pauses() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(1, 0)];
+        let state = AvatarState::Walking(Path::new(&world, positions, &travel_duration(), 0));
+        let new_state = state.walk_positions(
+            &world,
+            vec![v2(1, 0), v2(2, 0), v2(2, 1)],
+            &travel_duration(),
+            1000,
+            Some(Duration::from_secs(10)),
+            Some(Duration::from_secs(20)),
+        );
+        let expected_path = Path::new(
+            &world,
+            vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
+            &travel_duration(),
+            0,
+        )
+        .with_pause_at_end(Duration::from_secs(20).as_micros());
+        assert_eq!(new_state, Some(AvatarState::Walking(expected_path)),)
     }
 
     #[test]

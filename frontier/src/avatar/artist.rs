@@ -197,7 +197,7 @@ impl AvatarArtist {
 
     #[rustfmt::skip]
     fn get_rotation_matrix(state: &AvatarState, instant: &u128) -> na::Matrix3<f32> {
-        let rotation = state.rotation(instant).unwrap_or(Rotation::Up);
+        let rotation = state.rotation(instant).unwrap_or_default();
         let cos = rotation.angle().cos();
         let sin = rotation.angle().sin();
         na::Matrix3::from_vec(vec![

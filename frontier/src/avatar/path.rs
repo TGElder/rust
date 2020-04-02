@@ -109,28 +109,28 @@ impl Path {
         })
     }
 
-    fn compute_rotation_at_index(&self, index: usize) -> Rotation {
+    fn compute_rotation_at_index(&self, index: usize) -> Option<Rotation> {
         let from = self.points[index - 1];
         let to = self.points[index];
         if to.x > from.x {
-            Rotation::Right
+            Some(Rotation::Right)
         } else if from.x > to.x {
-            Rotation::Left
+            Some(Rotation::Left)
         } else if to.y > from.y {
-            Rotation::Up
+            Some(Rotation::Up)
         } else if from.y > to.y {
-            Rotation::Down
+            Some(Rotation::Down)
         } else {
-            panic!("Avatar is walking between {:?} and {:?}. Cannot work out which direction avatar is facing.", from, to);
+            None
         }
     }
 
     pub fn compute_rotation(&self, instant: &u128) -> Option<Rotation> {
         self.compute_current_index(instant)
-            .map(|index| self.compute_rotation_at_index(index))
+            .and_then(|index| self.compute_rotation_at_index(index))
     }
 
-    pub fn compute_final_rotation(&self) -> Rotation {
+    pub fn compute_final_rotation(&self) -> Option<Rotation> {
         self.compute_rotation_at_index(self.points.len() - 1)
     }
 
@@ -177,6 +177,37 @@ impl Path {
         self.compute_between_times(from_exclusive, to_inclusive, &|s, i| {
             Edge::new(s.points[i - 1], s.points[i])
         })
+    }
+
+    pub fn with_pause_at_start(mut self, pause: u128) -> Path {
+        let first_point = match self.points.first() {
+            Some(first_point) => *first_point,
+            None => return self,
+        };
+        let first_arrival = match self.point_arrivals.first() {
+            Some(first_arrival) => *first_arrival,
+            None => return self,
+        };
+        self.point_arrivals
+            .iter_mut()
+            .for_each(|arrival| *arrival += pause);
+        self.points.insert(0, first_point);
+        self.point_arrivals.insert(0, first_arrival);
+        self
+    }
+
+    pub fn with_pause_at_end(mut self, pause: u128) -> Path {
+        let last_point = match self.points.last() {
+            Some(last_point) => *last_point,
+            None => return self,
+        };
+        let last_arrival = match self.point_arrivals.last() {
+            Some(last_arrival) => *last_arrival,
+            None => return self,
+        };
+        self.points.push(last_point);
+        self.point_arrivals.push(last_arrival + pause);
+        self
     }
 }
 
@@ -295,10 +326,10 @@ mod tests {
         let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(0, 1), v2(0, 0)];
         let path = Path::new(&world, points, &travel_duration(), 0);
-        assert_eq!(path.compute_rotation_at_index(1), Rotation::Up);
-        assert_eq!(path.compute_rotation_at_index(2), Rotation::Right);
-        assert_eq!(path.compute_rotation_at_index(3), Rotation::Left);
-        assert_eq!(path.compute_rotation_at_index(4), Rotation::Down);
+        assert_eq!(path.compute_rotation_at_index(1), Some(Rotation::Up));
+        assert_eq!(path.compute_rotation_at_index(2), Some(Rotation::Right));
+        assert_eq!(path.compute_rotation_at_index(3), Some(Rotation::Left));
+        assert_eq!(path.compute_rotation_at_index(4), Some(Rotation::Down));
     }
 
     #[test]
@@ -317,7 +348,7 @@ mod tests {
         let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let path = Path::new(&world, points, &travel_duration(), 0);
-        assert_eq!(path.compute_final_rotation(), Rotation::Right);
+        assert_eq!(path.compute_final_rotation(), Some(Rotation::Right));
     }
 
     #[test]
@@ -412,6 +443,62 @@ mod tests {
         let path = Path::new(&world, points, &travel_duration(), 0);
         let actual = path.edges_between_times(&10_000, &10_500);
         let expected = vec![];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_with_pause_at_start() {
+        let path = Path {
+            points: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
+            point_arrivals: vec![0, 10, 20],
+        };
+        let actual = path.with_pause_at_start(1);
+        let expected = Path {
+            points: vec![v2(0, 0), v2(0, 0), v2(1, 0), v2(2, 0)],
+            point_arrivals: vec![0, 1, 11, 21],
+        };
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_with_pause_at_start_empty() {
+        let path = Path {
+            points: vec![],
+            point_arrivals: vec![],
+        };
+        let actual = path.with_pause_at_start(1);
+        let expected = Path {
+            points: vec![],
+            point_arrivals: vec![],
+        };
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_with_pause_at_end() {
+        let path = Path {
+            points: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
+            point_arrivals: vec![0, 10, 20],
+        };
+        let actual = path.with_pause_at_end(1);
+        let expected = Path {
+            points: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 0)],
+            point_arrivals: vec![0, 10, 20, 21],
+        };
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_with_pause_at_end_empty() {
+        let path = Path {
+            points: vec![],
+            point_arrivals: vec![],
+        };
+        let actual = path.with_pause_at_end(1);
+        let expected = Path {
+            points: vec![],
+            point_arrivals: vec![],
+        };
         assert_eq!(actual, expected);
     }
 

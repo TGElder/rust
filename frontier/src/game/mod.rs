@@ -368,7 +368,14 @@ impl Game {
         }
     }
 
-    pub fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
+    pub fn walk_positions(
+        &mut self,
+        name: String,
+        positions: Vec<V2<usize>>,
+        start_at: u128,
+        pause_at_start: Option<Duration>,
+        pause_at_end: Option<Duration>,
+    ) {
         let start_at = start_at.max(self.game_state.game_micros);
         if let Entry::Occupied(mut avatar) = self.game_state.avatars.entry(name) {
             if let Some(new_state) = avatar.get().state.walk_positions(
@@ -376,6 +383,8 @@ impl Game {
                 positions,
                 &self.avatar_travel_duration,
                 start_at,
+                pause_at_start,
+                pause_at_end,
             ) {
                 avatar.get_mut().state = new_state;
             }
