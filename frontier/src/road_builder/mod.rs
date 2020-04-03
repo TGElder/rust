@@ -69,7 +69,7 @@ pub fn auto_build_road<T>(
 where
     T: TravelDuration,
 {
-    if let Some(path) = pathfinder.find_path(&from, &[to]) {
+    if let Some(path) = pathfinder.find_path(&[from], &[to]) {
         return Some(RoadBuilderResult {
             path,
             toggle: false,
@@ -176,11 +176,11 @@ mod tests {
             toggle: true,
             path: vec![v2(0, 0), v2(1, 0)],
         };
-        assert_eq!(pathfinder.find_path(&v2(1, 0), &[v2(0, 0)]), None);
+        assert_eq!(pathfinder.find_path(&[v2(1, 0)], &[v2(0, 0)]), None);
         result.update_roads(&mut world);
         result.update_pathfinder(&world, &mut pathfinder);
         assert_eq!(
-            pathfinder.find_path(&v2(1, 0), &[v2(0, 0)]),
+            pathfinder.find_path(&[v2(1, 0)], &[v2(0, 0)]),
             Some(vec![v2(1, 0), v2(0, 0)])
         );
     }
@@ -189,7 +189,7 @@ mod tests {
     fn test_auto_build_road() {
         let mut world = world();
         let mut pathfinder = pathfinder();
-        assert_eq!(pathfinder.find_path(&v2(1, 0), &[v2(0, 0)]), None);
+        assert_eq!(pathfinder.find_path(&[v2(1, 0)], &[v2(0, 0)]), None);
         assert!(!world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
         let result = auto_build_road(v2(0, 0), v2(1, 0), &pathfinder).unwrap();
         assert_eq!(
@@ -202,7 +202,7 @@ mod tests {
         result.update_roads(&mut world);
         result.update_pathfinder(&world, &mut pathfinder);
         assert_eq!(
-            pathfinder.find_path(&v2(1, 0), &[v2(0, 0)]),
+            pathfinder.find_path(&[v2(1, 0)], &[v2(0, 0)]),
             Some(vec![v2(1, 0), v2(0, 0)])
         );
         assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));

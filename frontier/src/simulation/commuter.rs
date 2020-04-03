@@ -1,5 +1,7 @@
 use super::*;
 
+use commons::*;
+
 const HANDLE: &str = "commuter_sim";
 
 pub struct CommuterSim {
@@ -90,7 +92,7 @@ fn get_path(
     pathfinder: &mut Pathfinder<AvatarTravelDuration>,
     commute: Commute,
 ) -> Option<Vec<V2<usize>>> {
-    pathfinder.find_path(&commute.from, &[commute.to])
+    pathfinder.find_path(&get_corners(&commute.from), &get_corners(&commute.to))
 }
 
 fn set_commute(game: &mut Game, avatar: String, commute: Option<Vec<V2<usize>>>) {

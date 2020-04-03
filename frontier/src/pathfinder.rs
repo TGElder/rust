@@ -116,29 +116,32 @@ where
         }
     }
 
-    pub fn find_path(&self, from: &V2<usize>, to: &[V2<usize>]) -> Option<Vec<V2<usize>>> {
-        if let Ok(from) = self.get_network_index(from) {
-            let to_indices = &self.get_network_indices(to);
-            if to_indices.is_empty() {
-                return None;
-            }
-            let path =
-                self.network
-                    .find_path(from, &to_indices, None, &self.manhattan_distance(to));
-            match path {
-                Some(ref path) if path.is_empty() => None,
-                Some(ref path) => {
-                    let mut out = vec![];
-                    out.push(self.get_position_from_network_index(path[0].from).unwrap());
-                    for edge in path {
-                        out.push(self.get_position_from_network_index(edge.to).unwrap());
-                    }
-                    Some(out)
+    pub fn find_path(&self, from: &[V2<usize>], to: &[V2<usize>]) -> Option<Vec<V2<usize>>> {
+        let to_indices = &self.get_network_indices(to);
+        if to_indices.is_empty() {
+            return None;
+        }
+        let from_indices = &self.get_network_indices(from);
+        if from_indices.is_empty() {
+            return None;
+        }
+        let path = self.network.find_path(
+            &from_indices,
+            &to_indices,
+            None,
+            &self.manhattan_distance(to),
+        );
+        match path {
+            Some(ref path) if path.is_empty() => None,
+            Some(ref path) => {
+                let mut out = vec![];
+                out.push(self.get_position_from_network_index(path[0].from).unwrap());
+                for edge in path {
+                    out.push(self.get_position_from_network_index(edge.to).unwrap());
                 }
-                None => None,
+                Some(out)
             }
-        } else {
-            None
+            None => None,
         }
     }
 
@@ -433,7 +436,7 @@ mod tests {
     fn test_find_path() {
         let pathfinder = pathfinder();
         assert_eq!(
-            pathfinder.find_path(&v2(2, 2), &[v2(1, 0)]),
+            pathfinder.find_path(&[v2(2, 2)], &[v2(1, 0)]),
             Some(vec![v2(2, 2), v2(2, 1), v2(1, 1), v2(1, 0),])
         );
     }
@@ -441,20 +444,29 @@ mod tests {
     #[test]
     fn test_find_path_impossible() {
         let pathfinder = pathfinder();
-        assert_eq!(pathfinder.find_path(&v2(2, 2), &[v2(2, 0)]), None);
+        assert_eq!(pathfinder.find_path(&[v2(2, 2)], &[v2(2, 0)]), None);
     }
 
     #[test]
     fn test_find_path_length_0() {
         let pathfinder = pathfinder();
-        assert_eq!(pathfinder.find_path(&v2(2, 2), &[v2(2, 2)]), None);
+        assert_eq!(pathfinder.find_path(&[v2(2, 2)], &[v2(2, 2)]), None);
     }
 
     #[test]
-    fn test_find_path_multiple_targets() {
+    fn test_find_path_multiple_from() {
         let pathfinder = pathfinder();
         assert_eq!(
-            pathfinder.find_path(&v2(0, 0), &[v2(2, 1), v2(0, 2)]),
+            pathfinder.find_path(&[v2(0, 0), v2(1, 0)], &[v2(1, 2)]),
+            Some(vec![v2(1, 0), v2(1, 1), v2(1, 2)])
+        );
+    }
+
+    #[test]
+    fn test_find_path_multiple_to() {
+        let pathfinder = pathfinder();
+        assert_eq!(
+            pathfinder.find_path(&[v2(0, 0)], &[v2(2, 1), v2(0, 2)]),
             Some(vec![v2(0, 0), v2(0, 1), v2(0, 2)])
         );
     }

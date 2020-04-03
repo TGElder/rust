@@ -54,7 +54,7 @@ impl PathfindingAvatarControls {
                 game_tx.update(move |game| stop_selected_avatar(game)).await
             {
                 let positions = pathfinder_tx
-                    .update(move |service| service.pathfinder().find_path(&stop_position, &[to]))
+                    .update(move |service| service.pathfinder().find_path(&[stop_position], &[to]))
                     .await;
                 if let Some(positions) = positions {
                     game_tx.update(move |game| {

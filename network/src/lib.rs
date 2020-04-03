@@ -191,7 +191,7 @@ impl Network {
 
     pub fn find_path(
         &self,
-        from: usize,
+        from: &[usize],
         to: &[usize],
         max_cost: Option<u32>,
         heuristic: &dyn Fn(usize) -> u32,
@@ -243,10 +243,10 @@ impl Network {
             }
         }
 
-        fn get_path(from: usize, to: usize, edges: &[Option<Edge>]) -> Vec<Edge> {
+        fn get_path(from: &[usize], to: usize, edges: &[Option<Edge>]) -> Vec<Edge> {
             let mut out = vec![];
             let mut current = to;
-            while current != from {
+            while !from.contains(&current) {
                 if let Some(Some(edge)) = edges.get(current) {
                     current = edge.from;
                     out.push(edge.clone());
@@ -264,7 +264,9 @@ impl Network {
         let mut edges = vec![None; self.nodes];
         let mut heap = BinaryHeap::new();
 
-        heap.push(AStarNode::new(from, None, 0, heuristic));
+        for from in from.iter() {
+            heap.push(AStarNode::new(*from, None, 0, heuristic));
+        }
 
         while let Some(AStarNode {
             index,
@@ -619,7 +621,7 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(1, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, &[3], None, &|_| 0);
+        let actual = network.find_path(&[0], &[3], None, &|_| 0);
         let expected = Some(vec![
             Edge::new(0, 1, 1),
             Edge::new(1, 2, 1),
@@ -633,7 +635,7 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(1, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(3, &[0], None, &|_| 0);
+        let actual = network.find_path(&[3], &[0], None, &|_| 0);
         let expected = None;
         assert_eq!(actual, expected);
     }
@@ -643,7 +645,7 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(1, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, &[3], Some(2), &|_| 0);
+        let actual = network.find_path(&[0], &[3], Some(2), &|_| 0);
         let expected = None;
         assert_eq!(actual, expected);
     }
@@ -653,7 +655,7 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(1, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, &[3], Some(3), &|_| 0);
+        let actual = network.find_path(&[0], &[3], Some(3), &|_| 0);
         let expected = Some(vec![
             Edge::new(0, 1, 1),
             Edge::new(1, 2, 1),
@@ -665,7 +667,7 @@ mod tests {
     #[test]
     fn test_find_path_isolated_nodes() {
         let network = Network::new(4, &[]);
-        let actual = network.find_path(0, &[3], Some(2), &|_| 0);
+        let actual = network.find_path(&[0], &[3], Some(2), &|_| 0);
         let expected = None;
         assert_eq!(actual, expected);
     }
@@ -680,7 +682,7 @@ mod tests {
         ];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, &[3], None, &|_| 0);
+        let actual = network.find_path(&[0], &[3], None, &|_| 0);
         let via_1 = Some(vec![Edge::new(0, 1, 1), Edge::new(1, 3, 1)]);
         let via_2 = Some(vec![Edge::new(0, 2, 1), Edge::new(2, 3, 1)]);
         assert!(actual == via_1 || actual == via_2);
@@ -696,7 +698,7 @@ mod tests {
         ];
         let network = Network::new(4, &edges);
 
-        let actual = network.find_path(0, &[3], Some(3), &|_| 0);
+        let actual = network.find_path(&[0], &[3], Some(3), &|_| 0);
         let expected = Some(vec![
             Edge::new(0, 1, 1),
             Edge::new(1, 2, 1),
@@ -719,7 +721,7 @@ mod tests {
             .collect();
 
         let network = Network::new(16, &edges);
-        let actual = network.find_path(10, &[13], None, &|_| 0);
+        let actual = network.find_path(&[10], &[13], None, &|_| 0);
         let expected = Some(vec![
             Edge::new(10, 11, 1),
             Edge::new(11, 7, 1),
@@ -732,7 +734,28 @@ mod tests {
     }
 
     #[test]
-    fn test_find_path_multiple_targets() {
+    fn test_find_path_multiple_from() {
+        let edges = vec![
+            Edge::new(1, 0, 1),
+            Edge::new(2, 1, 1),
+            Edge::new(3, 2, 2),
+            Edge::new(4, 0, 1),
+            Edge::new(5, 4, 1),
+            Edge::new(6, 5, 1),
+        ];
+        let network = Network::new(7, &edges);
+
+        let actual = network.find_path(&[3, 6], &[0], None, &|_| 0);
+        let expected = Some(vec![
+            Edge::new(6, 5, 1),
+            Edge::new(5, 4, 1),
+            Edge::new(4, 0, 1),
+        ]);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_find_path_multiple_to() {
         let edges = vec![
             Edge::new(0, 1, 1),
             Edge::new(1, 2, 1),
@@ -743,12 +766,32 @@ mod tests {
         ];
         let network = Network::new(7, &edges);
 
-        let actual = network.find_path(0, &[3, 6], None, &|_| 0);
+        let actual = network.find_path(&[0], &[3, 6], None, &|_| 0);
         let expected = Some(vec![
             Edge::new(0, 4, 1),
             Edge::new(4, 5, 1),
             Edge::new(5, 6, 1),
         ]);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_find_path_from_equals_to() {
+        let edges = vec![Edge::new(0, 1, 1)];
+        let network = Network::new(2, &edges);
+
+        let actual = network.find_path(&[0], &[0], None, &|_| 0);
+        let expected = Some(vec![]);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_find_path_from_overlaps_to() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(1, 2, 1)];
+        let network = Network::new(3, &edges);
+
+        let actual = network.find_path(&[0, 1], &[1, 2], None, &|_| 0);
+        let expected = Some(vec![]);
         assert_eq!(actual, expected);
     }
 
