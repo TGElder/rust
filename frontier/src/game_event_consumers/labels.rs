@@ -32,10 +32,14 @@ impl LabelEditorHandler {
 
     fn start_edit(&mut self, game_state: &GameState) {
         if let Some(world_coord) = self.world_coord {
-            if let Some(cell) = game_state.world.get_cell(&world_coord.to_v2_round()) {
+            let position = world_coord.to_v2_round();
+            if let Some(cell) = game_state.world.get_cell(&position) {
                 let z = game_state.world.sea_level().max(cell.elevation);
-                self.label_editor
-                    .start_edit(WorldCoord { z, ..world_coord });
+                self.label_editor.start_edit(WorldCoord::new(
+                    position.x as f32,
+                    position.y as f32,
+                    z,
+                ));
             }
         }
     }
