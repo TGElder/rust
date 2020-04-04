@@ -64,8 +64,7 @@ impl TravelDuration for AutoRoadTravelDuration {
             return None;
         }
         if let (Some(from), Some(to)) = (world.get_cell(from), world.get_cell(to)) {
-            if from.elevation() < world.sea_level()
-                || to.elevation() < world.sea_level()
+            if (from.elevation() < world.sea_level() && to.elevation() < world.sea_level())
                 || from.river.corner()
                 || to.river.corner()
                 || (from.river.here() && to.river.here())
@@ -225,7 +224,7 @@ mod tests {
 
     #[rustfmt::skip]
     #[test]
-    fn can_not_build_into_sea() {
+    fn can_not_build_in_sea() {
          let mut world = World::new(
             M::from_vec(3, 3, vec![
                 1.0, 1.0, 0.0,
@@ -237,7 +236,7 @@ mod tests {
 
         world.reveal_all();
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(1, 1), &v2(2, 1)), None);
+        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(2, 1), &v2(3, 1)), None);
     }
 
     #[rustfmt::skip]
