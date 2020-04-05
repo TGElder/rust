@@ -1,8 +1,10 @@
 mod constant;
 mod gradient;
+mod no_river_corners;
 
-pub use self::constant::*;
-pub use self::gradient::*;
+pub use constant::*;
+pub use gradient::*;
+pub use no_river_corners::*;
 
 use crate::world::World;
 use commons::scale::*;

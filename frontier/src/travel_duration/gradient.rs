@@ -58,9 +58,14 @@ mod tests {
     use crate::world::World;
     use commons::{v2, M};
 
+    #[rustfmt::skip]
     fn world() -> World {
         World::new(
-            M::from_vec(3, 3, vec![1.0, 1.0, 3.0, 1.0, 1.0, 3.0, 1.0, 1.5, 3.0]),
+            M::from_vec(3, 3, vec![
+                1.0, 1.0, 3.0,
+                1.0, 1.0, 3.0,
+                1.0, 1.5, 3.0
+            ]),
             2.0,
         )
     }
