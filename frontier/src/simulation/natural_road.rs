@@ -82,8 +82,8 @@ fn compute_visitors(
     let mut out = HashMap::new();
     let game_state = game.game_state();
     for avatar in game_state.avatars.values() {
-        if let Some(commute) = &avatar.commute {
-            for edge in commute.edges() {
+        if let Some(route) = &avatar.route {
+            for edge in route.edges() {
                 if should_compute_visitors(&game_state.world, &edge, &travel_duration) {
                     let visitors = out.entry(edge).or_insert(0);
                     *visitors += 1;

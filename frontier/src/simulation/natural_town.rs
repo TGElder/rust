@@ -14,7 +14,7 @@ pub struct NaturalTownSimParams {
 impl Default for NaturalTownSimParams {
     fn default() -> NaturalTownSimParams {
         NaturalTownSimParams {
-            visitor_count_threshold: 8,
+            visitor_count_threshold: 32,
         }
     }
 }
@@ -104,8 +104,8 @@ fn compute_visitors(game: &Game) -> HashMap<V2<usize>, usize> {
     let mut out = HashMap::new();
     let game_state = game.game_state();
     for avatar in game_state.avatars.values() {
-        if let Some(commute) = &avatar.commute {
-            for position in commute {
+        if let Some(route) = &avatar.route {
+            for position in route {
                 if is_town_candidate(&game_state, &position) {
                     let visitors = out.entry(*position).or_insert(0);
                     *visitors += 1;

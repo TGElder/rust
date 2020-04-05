@@ -62,7 +62,7 @@ impl Step for ChildrenSim {
 
 impl ChildrenSim {
     pub fn new(
-        params: &ChildrenParams,
+        params: ChildrenParams,
         seed: u64,
         game_tx: &UpdateSender<Game>,
         pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
@@ -70,7 +70,7 @@ impl ChildrenSim {
         ChildrenSim {
             game_tx: game_tx.clone_with_handle(HANDLE),
             pathfinder_tx: pathfinder_tx.clone_with_handle(HANDLE),
-            params: *params,
+            params,
             rng: SeedableRng::seed_from_u64(seed),
         }
     }
@@ -163,7 +163,7 @@ fn add_child(game: &mut Game, child: Child, farm: V2<usize>) -> bool {
         state: AvatarState::Absent,
         farm: Some(farm),
         children: vec![],
-        commute: None,
+        route: None,
     };
     game_state.avatars.insert(avatar.name.clone(), avatar);
     true

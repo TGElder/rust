@@ -78,15 +78,16 @@ impl TravelModeFn {
         if let Some(cell) = world.get_cell(position) {
             if world.is_sea(position) {
                 out.push(TravelMode::Sea);
-            }
-            if cell.road.here() {
-                out.push(TravelMode::Road);
-            }
-            if self.is_navigable_river_here(world, position) {
-                out.push(TravelMode::River);
-            }
-            if out.is_empty() {
-                out.push(TravelMode::Walk);
+            } else {
+                if cell.road.here() {
+                    out.push(TravelMode::Road);
+                }
+                if self.is_navigable_river_here(world, position) {
+                    out.push(TravelMode::River);
+                }
+                if out.is_empty() {
+                    out.push(TravelMode::Walk);
+                }
             }
         }
         out

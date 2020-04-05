@@ -88,18 +88,18 @@ impl PrimeMover {
             .filter(|avatar| avatar.state == AvatarState::Absent)
             .filter(|avatar| Some(&avatar.name) != selected)
             .filter(|avatar| !self.is_frozen(&avatar.name))
-            .filter(|avatar| some_and_non_empty(&avatar.commute))
+            .filter(|avatar| some_and_non_empty(&avatar.route))
             .collect()
     }
 
     fn move_avatar(&mut self, game_state: &GameState, avatar: &Avatar) {
         let start_at = game_state.game_micros;
-        if let Some(commute) = &avatar.commute {
+        if let Some(route) = &avatar.route {
             self.state.visible_avatars.insert(avatar.name.clone());
             if self.next_direction(avatar.name.clone()) {
-                self.walk_positions(avatar.name.clone(), commute.clone(), start_at);
+                self.walk_positions(avatar.name.clone(), route.clone(), start_at);
             } else {
-                self.walk_positions_reverse(avatar.name.clone(), commute.clone(), start_at);
+                self.walk_positions_reverse(avatar.name.clone(), route.clone(), start_at);
             }
         }
     }

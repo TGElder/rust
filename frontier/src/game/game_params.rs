@@ -40,7 +40,7 @@ impl GameParams {
             farm_constraints: FarmConstraints::default(),
             snow_temperature: 0.0,
             town_exclusive_duration: Duration::from_secs(60 * 60 * 3),
-            town_travel_duration: Duration::from_secs(60 * 60 * 24),
+            town_travel_duration: Duration::from_secs(60 * 60 * 12),
             avatars: 4096,
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),

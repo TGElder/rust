@@ -9,6 +9,7 @@ pub struct SimParams {
     pub children: ChildrenParams,
     pub natural_road: NaturalRoadSimParams,
     pub natural_town: NaturalTownSimParams,
+    pub route: RouteSimParams,
 }
 
 impl Default for SimParams {
@@ -18,6 +19,7 @@ impl Default for SimParams {
             children: ChildrenParams::default(),
             natural_road: NaturalRoadSimParams::default(),
             natural_town: NaturalTownSimParams::default(),
+            route: RouteSimParams::default(),
         }
     }
 }

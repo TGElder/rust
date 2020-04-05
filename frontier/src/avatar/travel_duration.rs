@@ -27,9 +27,9 @@ impl Default for AvatarTravelParams {
             walk_1_cell_duration_millis_range: (2_400_000.0, 3_600_000.0),
             min_navigable_river_width: 0.1,
             max_navigable_river_gradient: 0.1,
-            river_1_cell_duration_millis: 600_000.0,
+            river_1_cell_duration_millis: 1_200_000.0,
             road_1_cell_duration_millis: 1_200_000,
-            sea_1_cell_duration_millis: 600_000,
+            sea_1_cell_duration_millis: 1_200_000,
             travel_mode_change_penalty_millis: 1_800_000,
         }
     }
@@ -66,10 +66,10 @@ impl AvatarTravelDuration {
     pub fn from_params(p: &AvatarTravelParams) -> AvatarTravelDuration {
         let walk = GradientTravelDuration::boxed(
             Scale::new(
-                (-p.max_walk_gradient, p.max_walk_gradient),
+                (0.0, p.max_walk_gradient),
                 p.walk_1_cell_duration_millis_range,
             ),
-            false,
+            true,
         );
         let river = GradientTravelDuration::boxed(
             Scale::new(

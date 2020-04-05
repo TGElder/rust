@@ -77,7 +77,7 @@ impl Cheats {
     }
 
     fn add_avatars(&mut self, game_state: &GameState) {
-        const AVATARS: usize = 100;
+        const AVATARS: usize = 9;
         let base_index = game_state.avatars.len();
         println!("{} avatars", AVATARS + base_index);
         let mut rng = rand::thread_rng();
@@ -92,7 +92,7 @@ impl Cheats {
                     state,
                     farm: None,
                     children: vec![],
-                    commute: None,
+                    route: None,
                 };
                 self.game_tx.update(move |game| {
                     game.mut_state().avatars.insert(name, avatar);

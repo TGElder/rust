@@ -18,19 +18,19 @@ use std::thread;
 use std::time::Duration;
 
 mod children;
-mod commuter;
 mod farm_assigner;
 mod natural_road;
 mod natural_town;
 mod params;
+mod route;
 mod territory;
 
 pub use children::*;
-pub use commuter::*;
 pub use farm_assigner::*;
 pub use natural_road::*;
 pub use natural_town::*;
 pub use params::*;
+pub use route::*;
 pub use territory::*;
 
 const STEP_CHECK_DELAY: Duration = Duration::from_millis(100);

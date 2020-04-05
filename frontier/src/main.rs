@@ -149,7 +149,7 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
                     state,
                     farm: None,
                     children: vec![],
-                    commute: None,
+                    route: None,
                 },
             )
         })
@@ -204,8 +204,8 @@ fn create_simulation(
             .max(params.town_travel_duration),
     );
     let farm_assigner_sim = FarmAssignerSim::new(game_tx, pathfinder_tx);
-    let children_sim = ChildrenSim::new(&params.sim.children, seed, game_tx, pathfinder_tx);
-    let commuter_sim = CommuterSim::new(game_tx, pathfinder_tx);
+    let children_sim = ChildrenSim::new(params.sim.children, seed, game_tx, pathfinder_tx);
+    let route_sim = RouteSim::new(params.sim.route, seed, game_tx, pathfinder_tx);
     let natural_town_sim = NaturalTownSim::new(
         params.sim.natural_town,
         house_color,
@@ -224,7 +224,7 @@ fn create_simulation(
             Box::new(territory_sim),
             Box::new(farm_assigner_sim),
             Box::new(children_sim),
-            Box::new(commuter_sim),
+            Box::new(route_sim),
             Box::new(natural_town_sim),
             Box::new(natural_road_sim),
         ],

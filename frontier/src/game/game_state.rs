@@ -65,7 +65,7 @@ mod tests {
                 },
                 farm: Some(v2(9, 9)),
                 children: vec!["Franklin".to_string()],
-                commute: Some(vec![v2(1, 0), v2(2, 0)]),
+                route: Some(vec![v2(1, 0), v2(2, 0)]),
             },
         );
         let game_state = GameState {
