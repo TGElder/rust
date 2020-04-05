@@ -1,4 +1,5 @@
 use super::*;
+use commons::grid::Grid;
 use isometric::Color;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -118,6 +119,14 @@ fn compute_visitors(game: &Game) -> HashMap<V2<usize>, usize> {
 
 fn is_town_candidate(game_state: &GameState, position: &V2<usize>) -> bool {
     if game_state.world.is_sea(position) {
+        return false;
+    }
+    if let Some(WorldCell {
+        object: WorldObject::Farm,
+        ..
+    }) = game_state.world.get_cell(position)
+    {
+    } else {
         return false;
     }
     if let Some(Claim { duration, .. }) = game_state.territory.who_controls(position) {
