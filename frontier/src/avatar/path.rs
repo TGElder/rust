@@ -2,6 +2,7 @@ use super::*;
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::*;
+use commons::grid::Grid;
 use commons::{v2, V2};
 use isometric::coords::*;
 use std::ops::Add;
@@ -55,7 +56,8 @@ impl Path {
             } else {
                 panic!(
                     "Tried to create avatar path over impassable edge from {:?} to {:?}",
-                    from, to
+                    world.get_cell(&from).unwrap(),
+                    world.get_cell(&to).unwrap()
                 );
             }
         }

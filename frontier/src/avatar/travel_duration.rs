@@ -1,9 +1,8 @@
 use super::travel_mode::*;
 use crate::travel_duration::*;
-use crate::world::World;
+use crate::world::{World, WorldCell};
 use commons::scale::*;
 use commons::*;
-use isometric::cell_traits::*;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::time::Duration;
@@ -132,15 +131,17 @@ impl AvatarTravelDuration {
 
 impl TravelDuration for AvatarTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
-        if let Some(cell) = world.get_cell(from) {
-            if cell.is_visible() {
-                return self
-                    .get_duration_fn(world, from, to)
-                    .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
-                    .map(|duration| duration + self.travel_mode_change_penalty(world, from, to));
-            }
-        }
-        None
+        match world.get_cell(from) {
+            Some(WorldCell { visible: true, .. }) => (),
+            _ => return None,
+        };
+        match world.get_cell(to) {
+            Some(WorldCell { visible: true, .. }) => (),
+            _ => return None,
+        };
+        self.get_duration_fn(world, from, to)
+            .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
+            .map(|duration| duration + self.travel_mode_change_penalty(world, from, to))
     }
 
     fn min_duration(&self) -> Duration {
@@ -156,5 +157,62 @@ impl TravelDuration for AvatarTravelDuration {
             .max(self.road.max_duration())
             .max(self.river.max_duration())
             + Duration::from_millis(self.travel_mode_change_penalty_millis)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    fn avatar_travel_duration() -> AvatarTravelDuration {
+        AvatarTravelDuration::new(
+            TravelModeFn::new(0.5),
+            test_travel_duration(),
+            test_travel_duration(),
+            test_travel_duration(),
+            test_travel_duration(),
+            100,
+        )
+    }
+
+    fn test_travel_duration() -> Box<dyn TravelDuration> {
+        ConstantTravelDuration::boxed(Duration::from_millis(10))
+    }
+
+    #[rustfmt::skip]
+    #[test]
+    fn cannot_travel_into_invisible() {
+         let mut world = World::new(
+            M::from_vec(3, 3, vec![
+                1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0,
+            ]),
+            0.5,
+        );
+
+        world.reveal_all();
+        world.mut_cell_unsafe(&v2(0, 0)).visible = false;
+
+        assert_eq!(avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), None);
+    }
+
+    #[rustfmt::skip]
+    #[test]
+    fn cannot_travel_from_invisible() {
+         let mut world = World::new(
+            M::from_vec(3, 3, vec![
+                1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0,
+            ]),
+            0.5,
+        );
+
+        world.reveal_all();
+        world.mut_cell_unsafe(&v2(0, 0)).visible = false;
+
+        assert_eq!(avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)), None);
     }
 }

@@ -1,5 +1,5 @@
 use crate::travel_duration::*;
-use crate::world::World;
+use crate::world::{World, WorldCell};
 use commons::edge::*;
 use commons::scale::*;
 use commons::*;
@@ -56,13 +56,14 @@ impl AutoRoadTravelDuration {
 
 impl TravelDuration for AutoRoadTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
-        if !world
-            .get_cell(from)
-            .map(|cell| cell.is_visible())
-            .unwrap_or(false)
-        {
-            return None;
-        }
+        match world.get_cell(from) {
+            Some(WorldCell { visible: true, .. }) => (),
+            _ => return None,
+        };
+        match world.get_cell(to) {
+            Some(WorldCell { visible: true, .. }) => (),
+            _ => return None,
+        };
         if let (Some(from), Some(to)) = (world.get_cell(from), world.get_cell(to)) {
             if (from.elevation() < world.sea_level() && to.elevation() < world.sea_level())
                 || from.river.corner()
@@ -260,7 +261,7 @@ mod tests {
 
     #[rustfmt::skip]
     #[test]
-    fn can_build_into_invisible() {
+    fn cannot_build_into_invisible() {
          let mut world = World::new(
             M::from_vec(3, 3, vec![
                 1.0, 1.0, 1.0,
@@ -270,9 +271,28 @@ mod tests {
             0.5,
         );
 
-        world.mut_cell_unsafe(&v2(0, 0)).visible = true;
+        world.reveal_all();
+        world.mut_cell_unsafe(&v2(0, 0)).visible = false;
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), Some(off_road_travel_duration().max_duration()));
+        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), None);
+    }
+
+    #[rustfmt::skip]
+    #[test]
+    fn cannot_build_from_invisible() {
+         let mut world = World::new(
+            M::from_vec(3, 3, vec![
+                1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0,
+            ]),
+            0.5,
+        );
+
+        world.reveal_all();
+        world.mut_cell_unsafe(&v2(0, 0)).visible = false;
+
+        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)), None);
     }
 
     #[rustfmt::skip]
