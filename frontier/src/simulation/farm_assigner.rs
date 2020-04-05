@@ -16,6 +16,10 @@ pub struct FarmAssignerSim {
 }
 
 impl Step for FarmAssignerSim {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn step(&mut self, _: u128) {
         block_on(self.step_async())
     }

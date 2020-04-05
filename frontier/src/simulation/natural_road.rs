@@ -26,6 +26,10 @@ pub struct NaturalRoadSim {
 }
 
 impl Step for NaturalRoadSim {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn step(&mut self, _: u128) {
         block_on(self.step_async())
     }

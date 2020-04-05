@@ -24,7 +24,7 @@ pub struct GameParams {
     pub avatars: usize,
     pub sim: SimParams,
     pub house_color: Color,
-    pub log_duration_threshold: Duration,
+    pub log_duration_threshold: Option<Duration>,
 }
 
 impl GameParams {
@@ -44,7 +44,7 @@ impl GameParams {
             avatars: 4096,
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
-            log_duration_threshold: Duration::from_millis(15),
+            log_duration_threshold: None,
         }
     }
 }

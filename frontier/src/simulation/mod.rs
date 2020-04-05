@@ -15,7 +15,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 mod children;
 mod farm_assigner;
@@ -37,6 +37,7 @@ const STEP_CHECK_DELAY: Duration = Duration::from_millis(100);
 const UPDATE_CHANNEL_BOUND: usize = 100;
 
 pub trait Step {
+    fn name(&self) -> &'static str;
     fn step(&mut self, year: u128);
 }
 
@@ -84,9 +85,10 @@ impl Simulation {
     fn step(&mut self) {
         if self.step {
             let year = &mut self.state.year;
-            println!("Year {}", year);
             for step in &mut self.steps {
+                let start = Instant::now();
                 step.step(*year);
+                println!("{},{},{}", year, step.name(), start.elapsed().as_millis());
             }
             *year += 1;
         } else {

@@ -55,6 +55,10 @@ pub struct ChildrenSim {
 }
 
 impl Step for ChildrenSim {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn step(&mut self, year: u128) {
         block_on(self.step_async(year))
     }

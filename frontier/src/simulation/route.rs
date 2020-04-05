@@ -40,6 +40,10 @@ struct Route {
 }
 
 impl Step for RouteSim {
+    fn name(&self) -> &'static str {
+        HANDLE
+    }
+
     fn step(&mut self, _: u128) {
         block_on(self.step_async())
     }

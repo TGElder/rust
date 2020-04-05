@@ -28,9 +28,9 @@ impl Default for AvatarTravelParams {
             stream_1_cell_duration_millis_range: (4_800_000.0, 9_600_000.0),
             min_navigable_river_width: 0.1,
             max_navigable_river_gradient: 0.1,
-            river_1_cell_duration_millis: 1_200_000.0,
+            river_1_cell_duration_millis: 900_000.0,
             road_1_cell_duration_millis: 1_200_000,
-            sea_1_cell_duration_millis: 1_200_000,
+            sea_1_cell_duration_millis: 900_000,
             travel_mode_change_penalty_millis: 1_800_000,
         }
     }

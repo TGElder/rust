@@ -421,9 +421,11 @@ impl Game {
     }
 }
 
-fn log_time(description: String, duration: Duration, threshold: &Duration) {
-    if duration >= *threshold {
-        println!("{},{}ms", description, duration.as_millis());
+fn log_time(description: String, duration: Duration, threshold: &Option<Duration>) {
+    if let Some(threshold) = threshold {
+        if duration >= *threshold {
+            println!("{},{}ms", description, duration.as_millis());
+        }
     }
 }
 
