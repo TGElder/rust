@@ -106,19 +106,18 @@ impl NaturalTownSim {
 }
 
 fn compute_visitors(game: &Game) -> HashMap<V2<usize>, usize> {
-    let mut out = HashMap::new();
     let game_state = game.game_state();
-    for avatar in game_state.avatars.values() {
-        if let Some(route) = &avatar.route {
-            for position in route {
-                if is_town_candidate(&game_state, &position) {
-                    let visitors = out.entry(*position).or_insert(0);
-                    *visitors += 1;
-                }
-            }
-        }
-    }
-    out
+    game_state
+        .avatars
+        .values()
+        .flat_map(|avatar| &avatar.route)
+        .flat_map(|route| route.iter())
+        .flat_map(|position| game_state.world.get_corners_behind_in_bounds(position))
+        .filter(|tile| is_town_candidate(&game_state, &tile))
+        .fold(HashMap::new(), |mut map, tile| {
+            *map.entry(tile).or_insert(0) += 1;
+            map
+        })
 }
 
 fn is_town_candidate(game_state: &GameState, position: &V2<usize>) -> bool {
@@ -133,7 +132,7 @@ fn is_town_candidate(game_state: &GameState, position: &V2<usize>) -> bool {
     } else {
         return false;
     }
-    if let Some(Claim { duration, .. }) = game_state.territory.who_controls(position) {
+    if let Some(Claim { duration, .. }) = game_state.territory.who_controls_tile(position) {
         if *duration <= game_state.params.town_exclusive_duration {
             return false;
         }
