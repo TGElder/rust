@@ -69,12 +69,7 @@ fn main() {
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
     game.add_consumer(ObjectArtistHandler::new(engine.command_tx()));
-
     game.add_consumer(VisibilityHandler::new(game.update_tx()));
-    game.add_consumer(FarmCandidateHandler::new(
-        avatar_pathfinder_service.update_tx(),
-    ));
-    game.add_consumer(SimulationManager::new(sim.update_tx()));
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.update_tx()));
@@ -96,17 +91,21 @@ fn main() {
         game.update_tx(),
     ));
     game.add_consumer(Cheats::new(game.update_tx()));
+    game.add_consumer(Save::new(game.update_tx(), sim.update_tx()));
+    game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
+    game.add_consumer(SelectAvatar::new(game.update_tx()));
+    game.add_consumer(SpeedControl::new(game.update_tx()));
+
     game.add_consumer(PrimeMover::new(
         game.game_state().params.seed,
         game.update_tx(),
     ));
-    game.add_consumer(Save::new(game.update_tx(), sim.update_tx()));
-
-    game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
     game.add_consumer(PathfinderUpdater::new(avatar_pathfinder));
     game.add_consumer(PathfinderUpdater::new(road_pathfinder));
-    game.add_consumer(SelectAvatar::new(game.update_tx()));
-    game.add_consumer(SpeedControl::new(game.update_tx()));
+    game.add_consumer(FarmCandidateHandler::new(
+        avatar_pathfinder_service.update_tx(),
+    ));
+    game.add_consumer(SimulationManager::new(sim.update_tx()));
     game.add_consumer(ShutdownHandler::new(
         avatar_pathfinder_service.update_tx(),
         road_pathfinder_service.update_tx(),
