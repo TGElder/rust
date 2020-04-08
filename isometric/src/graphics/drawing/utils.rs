@@ -121,13 +121,13 @@ pub fn get_specific_colored_vertices_from_triangle(points: &[V3<f32>; 3], colors
 }
 
 #[rustfmt::skip]
-pub fn get_textured_vertices_from_triangle(points: &[V3<f32>; 3], color: &Color, from: V2<f32>, to: V2<f32>) -> Vec<f32> {
+pub fn get_textured_vertices_from_triangle(points: &[V3<f32>; 3], colors: &[Color; 3], from: V2<f32>, to: V2<f32>) -> Vec<f32> {
     let x_scale = Scale::new((from.x, to.x), (0.0, 1.0));
     let y_scale = Scale::new((from.y, to.y), (0.0, 1.0));
     vec![
-        points[0].x, points[0].y, points[0].z, color.r, color.g, color.b, color.a, x_scale.scale(points[0].x as f32), y_scale.scale(points[0].y as f32),
-        points[1].x, points[1].y, points[1].z, color.r, color.g, color.b, color.a, x_scale.scale(points[1].x as f32), y_scale.scale(points[1].y as f32),
-        points[2].x, points[2].y, points[2].z, color.r, color.g, color.b, color.a, x_scale.scale(points[2].x as f32), y_scale.scale(points[2].y as f32),
+        points[0].x, points[0].y, points[0].z, colors[0].r, colors[0].g, colors[0].b, colors[0].a, x_scale.scale(points[0].x as f32), y_scale.scale(points[0].y as f32),
+        points[1].x, points[1].y, points[1].z, colors[1].r, colors[1].g, colors[1].b, colors[1].a, x_scale.scale(points[1].x as f32), y_scale.scale(points[1].y as f32),
+        points[2].x, points[2].y, points[2].z, colors[2].r, colors[2].g, colors[2].b, colors[2].a, x_scale.scale(points[2].x as f32), y_scale.scale(points[2].y as f32),
     ]
 }
 

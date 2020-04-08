@@ -28,7 +28,7 @@ impl WorldArtistHandler {
                 road_color: Color::new(0.6, 0.4, 0.0, 1.0),
                 river_color: Color::new(0.0, 0.0, 1.0, 1.0),
                 waterfall_color: Color::new(0.0, 0.75, 1.0, 1.0),
-                slab_size: 16,
+                slab_size: 64,
                 vegetation_exageration: 100.0,
                 waterfall_gradient: game_state.params.avatar_travel.max_navigable_river_gradient,
             },
@@ -39,15 +39,19 @@ impl WorldArtistHandler {
 
     fn draw_all(&mut self, game_state: &GameState) {
         if let Some(world_artist) = &mut self.world_artist {
-            let commands = world_artist.init(&game_state.world, &create_coloring(game_state));
+            let commands =
+                world_artist.init(&game_state.world, &DefaultWorldColoring::new(game_state));
             self.command_tx.send(commands).unwrap();
         }
     }
 
     fn update_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
         if let Some(ref mut world_artist) = self.world_artist {
-            let commands =
-                world_artist.draw_affected(&game_state.world, &create_coloring(game_state), &cells);
+            let commands = world_artist.draw_affected(
+                &game_state.world,
+                &DefaultWorldColoring::new(game_state),
+                &cells,
+            );
             self.command_tx.send(commands).unwrap();
         }
     }
@@ -58,9 +62,8 @@ impl WorldArtistHandler {
         object: &WorldObject,
         position: &V2<usize>,
     ) {
-        match object {
-            WorldObject::House(..) => (),
-            _ => self.update_cells(game_state, &[*position]),
+        if let WorldObject::Farm = object {
+            self.update_cells(game_state, &[*position]);
         }
     }
 

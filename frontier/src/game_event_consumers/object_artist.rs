@@ -1,9 +1,6 @@
 use super::*;
-use crate::farms::FarmArtist;
-use crate::game_event_consumers::world_artist::tile_color;
 use crate::houses::HouseArtist;
 use commons::*;
-use isometric::Color;
 
 const HANDLE: &str = "object_artist_handler";
 
@@ -14,7 +11,6 @@ pub struct ObjectArtistHandler {
 
 struct ObjectArtistState {
     house_artist: HouseArtist,
-    farm_artist: FarmArtist,
 }
 
 impl ObjectArtistHandler {
@@ -36,25 +32,10 @@ impl ObjectArtistHandler {
                         .house_artist
                         .draw_house_at(&game_state.world, position, *color)
                 }
-                WorldObject::Farm => Self::draw_farm(state, game_state, position),
                 _ => return,
             };
             self.command_tx.send(commands).unwrap();
         }
-    }
-
-    fn draw_farm(
-        state: &ObjectArtistState,
-        game_state: &GameState,
-        position: &V2<usize>,
-    ) -> Vec<Command> {
-        let color = tile_color(game_state, position).unwrap_or_else(Color::transparent);
-        state.farm_artist.draw_farm_at(
-            &game_state.world,
-            game_state.params.world_gen.sea_level as f32,
-            position,
-            &color,
-        )
     }
 
     fn erase_object(&mut self, object: &WorldObject, game_state: &GameState, position: &V2<usize>) {
@@ -66,7 +47,6 @@ impl ObjectArtistHandler {
                 WorldObject::House(..) => state
                     .house_artist
                     .erase_house_at(&game_state.world, position),
-                WorldObject::Farm => state.farm_artist.erase_farm_at(&game_state.world, position),
                 _ => return,
             };
             self.command_tx.send(commands).unwrap();
@@ -84,29 +64,11 @@ impl ObjectArtistHandler {
         }
     }
 
-    fn draw_affected(
-        &mut self,
-        object: &WorldObject,
-        game_state: &GameState,
-        positions: &[V2<usize>],
-    ) {
-        positions
-            .iter()
-            .flat_map(|position| game_state.world.expand_position(&position))
-            .for_each(|position| self.draw_object(object, game_state, &position))
-    }
-
     fn init(&mut self, game_state: &GameState) {
         self.state = Some(ObjectArtistState {
             house_artist: HouseArtist::new(game_state.params.light_direction),
-            farm_artist: FarmArtist::new(),
         });
         self.draw_all(game_state);
-    }
-
-    fn territory_change(&mut self, game_state: &GameState, changes: &[TerritoryChange]) {
-        let changes: Vec<V2<usize>> = changes.iter().map(|change| change.position).collect();
-        self.draw_affected(&WorldObject::Farm, game_state, &changes);
     }
 }
 
@@ -129,10 +91,6 @@ impl GameEventConsumer for ObjectArtistHandler {
                     self.erase_object(object, game_state, position);
                 }
             }
-            GameEvent::RoadsUpdated(result) => {
-                self.draw_affected(&WorldObject::Farm, game_state, result.path())
-            }
-            GameEvent::TerritoryChanged(changes) => self.territory_change(game_state, changes),
             _ => (),
         }
         CaptureEvent::No

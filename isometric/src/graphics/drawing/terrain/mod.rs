@@ -96,12 +96,12 @@ where
     ]
 }
 
-pub fn textured_tile<T>(
+pub fn textured_tiles<T>(
     name: String,
     terrain: &dyn Grid<T>,
     sea_level: f32,
-    tile: &V2<usize>,
-    color: &Color,
+    tiles: &[V2<usize>],
+    coloring: &dyn TerrainColoring<T>,
     texture: String,
 ) -> Vec<Command>
 where
@@ -110,14 +110,22 @@ where
     let mut floats = vec![];
     let geometry = TerrainGeometry::of(terrain);
 
-    for triangle in geometry.get_triangles_for_tile(&tile) {
-        let triangle = clip_triangle_to_sea_level(triangle, sea_level);
-        floats.append(&mut get_textured_vertices_from_triangle(
-            &triangle,
-            &color,
-            v2(tile.x as f32, tile.y as f32),
-            v2(tile.x as f32 + 1.0, tile.y as f32 + 1.0),
-        ));
+    for tile in tiles {
+        for triangle in geometry.get_triangles_for_tile(&tile) {
+            let triangle = clip_triangle_to_sea_level(triangle, sea_level);
+            let colors = coloring.color(terrain, &tile, &triangle);
+            let colors = [
+                colors[0].unwrap_or_else(Color::transparent),
+                colors[1].unwrap_or_else(Color::transparent),
+                colors[2].unwrap_or_else(Color::transparent),
+            ];
+            floats.append(&mut get_textured_vertices_from_triangle(
+                &triangle,
+                &colors,
+                v2(tile.x as f32, tile.y as f32),
+                v2(tile.x as f32 + 1.0, tile.y as f32 + 1.0),
+            ));
+        }
     }
 
     vec![
@@ -174,9 +182,9 @@ pub struct TerrainDrawing {
 impl TerrainDrawing {
     pub fn new(name: String, width: usize, height: usize, slab_size: usize) -> TerrainDrawing {
         let index = TerrainIndex::new(width, height, slab_size);
-        let max_floats_per_index = 9 * // 9 floats per triangle
-            2 * // 2 triangles per cell
-            slab_size * slab_size * 4; // cells per slab
+        let max_floats_per_index = 18 * // 18 floats per colored triangle
+            4 * // 4 triangles per cell
+            slab_size * slab_size; // cells per slab
         TerrainDrawing {
             name,
             index,

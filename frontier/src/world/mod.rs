@@ -1,4 +1,5 @@
 mod climate;
+mod farm_artist;
 mod vegetation_artist;
 mod world_artist;
 mod world_cell;
@@ -15,6 +16,7 @@ use commons::unsafe_ordering;
 use commons::*;
 use isometric::cell_traits::*;
 use isometric::coords::WorldCoord;
+use isometric::Command;
 use serde::{Deserialize, Serialize};
 
 const ROAD_WIDTH: f32 = 0.05;

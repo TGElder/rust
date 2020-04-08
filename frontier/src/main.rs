@@ -1,5 +1,4 @@
 mod avatar;
-mod farms;
 mod game;
 mod game_event_consumers;
 mod houses;

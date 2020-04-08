@@ -1,9 +1,15 @@
+use super::farm_artist::*;
 use super::vegetation_artist::*;
-use crate::world::*;
+use super::*;
 use commons::*;
 use isometric::drawing::*;
 use isometric::*;
 use std::collections::HashSet;
+
+pub trait WorldColoring {
+    fn terrain(&self) -> &dyn TerrainColoring<WorldCell>;
+    fn farms(&self) -> &dyn TerrainColoring<WorldCell>;
+}
 
 #[derive(Hash, PartialEq, Eq, Debug)]
 struct Slab {
@@ -36,6 +42,7 @@ pub struct WorldArtist {
     height: usize,
     drawing: TerrainDrawing,
     vegetation_artist: VegetationArtist,
+    farm_artist: FarmArtist,
     params: WorldArtistParameters,
 }
 
@@ -54,6 +61,7 @@ impl WorldArtist {
             height,
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, params.slab_size),
             vegetation_artist: VegetationArtist::new(params.vegetation_exageration),
+            farm_artist: FarmArtist::new(),
             params,
         }
     }
@@ -65,11 +73,12 @@ impl WorldArtist {
     fn draw_slab(
         &mut self,
         world: &World,
-        coloring: &dyn TerrainColoring<WorldCell>,
+        coloring: &dyn WorldColoring,
         slab: &Slab,
     ) -> Vec<Command> {
         let mut out = self.draw_slab_tiles(world, coloring, slab);
         out.append(&mut self.draw_slab_rivers_roads(world, slab));
+        out.append(&mut self.draw_slab_farms(world, coloring, slab));
         out.append(&mut self.draw_slab_vegetation(world, slab));
         out
     }
@@ -77,13 +86,13 @@ impl WorldArtist {
     fn draw_slab_tiles(
         &mut self,
         world: &World,
-        coloring: &dyn TerrainColoring<WorldCell>,
+        coloring: &dyn WorldColoring,
         slab: &Slab,
     ) -> Vec<Command> {
         let to = slab.to();
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
         self.drawing
-            .update(world, world.sea_level(), coloring, slab.from, to)
+            .update(world, world.sea_level(), coloring.terrain(), slab.from, to)
     }
 
     fn get_road_river_positions(
@@ -191,6 +200,18 @@ impl WorldArtist {
         out
     }
 
+    fn draw_slab_farms(
+        &mut self,
+        world: &World,
+        coloring: &dyn WorldColoring,
+        slab: &Slab,
+    ) -> Vec<Command> {
+        let to = slab.to();
+        let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
+        self.farm_artist
+            .draw(world, coloring.farms(), &slab.from, &to)
+    }
+
     fn draw_slab_vegetation(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
         let to = slab.to();
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
@@ -200,7 +221,7 @@ impl WorldArtist {
     fn draw_slabs(
         &mut self,
         world: &World,
-        coloring: &dyn TerrainColoring<WorldCell>,
+        coloring: &dyn WorldColoring,
         slabs: HashSet<Slab>,
     ) -> Vec<Command> {
         let mut out = vec![];
@@ -221,10 +242,11 @@ impl WorldArtist {
     pub fn draw_affected(
         &mut self,
         world: &World,
-        coloring: &dyn TerrainColoring<WorldCell>,
+        coloring: &dyn WorldColoring,
         positions: &[V2<usize>],
     ) -> Vec<Command> {
-        self.draw_slabs(world, coloring, self.get_affected_slabs(&world, positions))
+        let affected = self.get_affected_slabs(&world, positions);
+        self.draw_slabs(world, coloring, affected)
     }
 
     fn get_all_slabs(&self) -> HashSet<Slab> {
@@ -239,19 +261,11 @@ impl WorldArtist {
         out
     }
 
-    pub fn draw_all(
-        &mut self,
-        world: &World,
-        coloring: &dyn TerrainColoring<WorldCell>,
-    ) -> Vec<Command> {
+    pub fn draw_all(&mut self, world: &World, coloring: &dyn WorldColoring) -> Vec<Command> {
         self.draw_slabs(world, coloring, self.get_all_slabs())
     }
 
-    pub fn init(
-        &mut self,
-        world: &World,
-        coloring: &dyn TerrainColoring<WorldCell>,
-    ) -> Vec<Command> {
+    pub fn init(&mut self, world: &World, coloring: &dyn WorldColoring) -> Vec<Command> {
         let mut out = vec![];
         out.append(&mut self.draw_terrain());
         out.append(&mut self.draw_all(world, coloring));

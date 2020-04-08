@@ -1,5 +1,4 @@
 use crate::game::*;
-use crate::game_event_consumers::farm_candidate_handler::is_farm_candidate;
 use crate::territory::*;
 use crate::world::*;
 use commons::*;
@@ -10,31 +9,60 @@ fn sea_color() -> Color {
     Color::new(0.0, 0.0, 1.0, 1.0)
 }
 
-#[allow(clippy::type_complexity)]
-pub fn create_coloring(
-    game_state: &GameState,
-) -> SeaLevelColoring<
+type DefaultTerrainColoring<'a> = SeaLevelColoring<
     WorldCell,
     LayerColoring<
         WorldCell,
-        LayerColoring<
-            WorldCell,
-            ShadedTileTerrainColoring<WorldCell, BaseColoring>,
-            TerritoryColoring,
-        >,
-        FarmCandidateColoring,
+        ShadedTileTerrainColoring<WorldCell, BaseColoring<'a>>,
+        TerritoryColoring<'a>,
     >,
-> {
+>;
+
+type DefaultFarmColoring<'a> = SeaLevelColoring<WorldCell, TerritoryColoring<'a>>;
+
+pub struct DefaultWorldColoring<'a> {
+    terrain: DefaultTerrainColoring<'a>,
+    farms: DefaultFarmColoring<'a>,
+}
+
+impl<'a> DefaultWorldColoring<'a> {
+    pub fn new(game_state: &'a GameState) -> DefaultWorldColoring {
+        DefaultWorldColoring {
+            terrain: terrain(game_state),
+            farms: farms(game_state),
+        }
+    }
+}
+
+impl<'a> WorldColoring for DefaultWorldColoring<'a> {
+    fn terrain(&self) -> &dyn TerrainColoring<WorldCell> {
+        &self.terrain
+    }
+
+    fn farms(&self) -> &dyn TerrainColoring<WorldCell> {
+        &self.farms
+    }
+}
+
+fn terrain(game_state: &GameState) -> DefaultTerrainColoring {
     let base = ShadedTileTerrainColoring::new(
         BaseColoring::new(game_state),
         game_state.params.light_direction,
     );
     let territory = TerritoryColoring::new(game_state);
-    let farm_candidates = FarmCandidateColoring::new(game_state);
-    let layers = LayerColoring::new(LayerColoring::new(base, territory), farm_candidates);
+    let layers = LayerColoring::new(base, territory);
     SeaLevelColoring::new(
         layers,
         Some(sea_color()),
+        game_state.params.world_gen.sea_level as f32,
+    )
+}
+
+fn farms(game_state: &GameState) -> DefaultFarmColoring {
+    let territory = TerritoryColoring::new(game_state);
+    SeaLevelColoring::new(
+        territory,
+        None,
         game_state.params.world_gen.sea_level as f32,
     )
 }
@@ -134,33 +162,6 @@ impl<'a> TerrainColoring<WorldCell> for TerritoryColoring<'a> {
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
         let color = tile_color(self.game_state, tile);
-        [color, color, color]
-    }
-}
-
-pub struct FarmCandidateColoring<'a> {
-    game_state: &'a GameState,
-}
-
-impl<'a> FarmCandidateColoring<'a> {
-    fn new(game_state: &'a GameState) -> FarmCandidateColoring {
-        FarmCandidateColoring { game_state }
-    }
-}
-
-impl<'a> TerrainColoring<WorldCell> for FarmCandidateColoring<'a> {
-    fn color(
-        &self,
-        _: &dyn Grid<WorldCell>,
-        tile: &V2<usize>,
-        _: &[V3<f32>; 3],
-    ) -> [Option<Color>; 3] {
-        let highlight = self.game_state.params.artist.farm_candidate_highlight;
-        let color = if is_farm_candidate(self.game_state, &tile) {
-            Some(highlight)
-        } else {
-            None
-        };
         [color, color, color]
     }
 }
