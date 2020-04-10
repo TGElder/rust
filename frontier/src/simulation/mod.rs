@@ -19,6 +19,7 @@ use std::time::{Duration, Instant};
 
 mod children;
 mod farm_assigner;
+mod farm_unassigner;
 mod natural_road;
 mod natural_town;
 mod params;
@@ -27,6 +28,7 @@ mod territory;
 
 pub use children::*;
 pub use farm_assigner::*;
+pub use farm_unassigner::*;
 pub use natural_road::*;
 pub use natural_town::*;
 pub use params::*;

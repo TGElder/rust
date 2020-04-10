@@ -201,6 +201,7 @@ fn create_simulation(
             .town_exclusive_duration
             .max(params.town_travel_duration),
     );
+    let farm_unassigner_sim = FarmUnassignerSim::new(game_tx);
     let farm_assigner_sim = FarmAssignerSim::new(game_tx, pathfinder_tx);
     let children_sim = ChildrenSim::new(params.sim.children, seed, game_tx, pathfinder_tx);
     let route_sim = RouteSim::new(params.sim.route, seed, game_tx, pathfinder_tx);
@@ -220,6 +221,7 @@ fn create_simulation(
         params.sim.start_year,
         vec![
             Box::new(territory_sim),
+            Box::new(farm_unassigner_sim),
             Box::new(farm_assigner_sim),
             Box::new(children_sim),
             Box::new(route_sim),
