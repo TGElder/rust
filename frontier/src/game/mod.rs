@@ -313,18 +313,18 @@ impl Game {
         } else {
             self.destroy_object(object, position)
         };
-        if let WorldObject::House(..) = object {
-            if build {
-                self.game_state.territory.add_controller(position);
-            } else {
-                self.set_territory(vec![TerritoryState {
-                    controller: position,
-                    durations: HashMap::new(),
-                }]);
-                self.game_state.territory.remove_controller(&position);
-            }
-        };
         if success {
+            if let WorldObject::House(..) = object {
+                if build {
+                    self.game_state.territory.add_controller(position);
+                } else {
+                    self.set_territory(vec![TerritoryState {
+                        controller: position,
+                        durations: HashMap::new(),
+                    }]);
+                    self.game_state.territory.remove_controller(&position);
+                }
+            };
             self.consume_event(GameEvent::ObjectUpdated {
                 object,
                 position,
