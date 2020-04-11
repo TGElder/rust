@@ -120,14 +120,42 @@ pub fn get_specific_colored_vertices_from_triangle(points: &[V3<f32>; 3], colors
     ]
 }
 
+pub fn get_texture_coordinates(
+    points: &[V3<f32>; 3],
+    texture_from: V2<f32>,
+    texture_to: V2<f32>,
+    rotation: f32,
+) -> [V2<f32>; 3] {
+    let x_scale = Scale::new((texture_from.x, texture_to.x), (0.0, 1.0));
+    let y_scale = Scale::new((texture_from.y, texture_to.y), (0.0, 1.0));
+
+    let rotation_matrix = na::Rotation2::new(-rotation);
+
+    [
+        rotation_matrix
+            * v2(
+                x_scale.scale(points[0].x as f32),
+                y_scale.scale(points[0].y as f32),
+            ),
+        rotation_matrix
+            * v2(
+                x_scale.scale(points[1].x as f32),
+                y_scale.scale(points[1].y as f32),
+            ),
+        rotation_matrix
+            * v2(
+                x_scale.scale(points[2].x as f32),
+                y_scale.scale(points[2].y as f32),
+            ),
+    ]
+}
+
 #[rustfmt::skip]
-pub fn get_textured_vertices_from_triangle(points: &[V3<f32>; 3], colors: &[Color; 3], from: V2<f32>, to: V2<f32>) -> Vec<f32> {
-    let x_scale = Scale::new((from.x, to.x), (0.0, 1.0));
-    let y_scale = Scale::new((from.y, to.y), (0.0, 1.0));
+pub fn get_textured_vertices_from_triangle(points: &[V3<f32>; 3], colors: &[Color; 3], texture_coordinates: &[V2<f32>; 3]) -> Vec<f32> {
     vec![
-        points[0].x, points[0].y, points[0].z, colors[0].r, colors[0].g, colors[0].b, colors[0].a, x_scale.scale(points[0].x as f32), y_scale.scale(points[0].y as f32),
-        points[1].x, points[1].y, points[1].z, colors[1].r, colors[1].g, colors[1].b, colors[1].a, x_scale.scale(points[1].x as f32), y_scale.scale(points[1].y as f32),
-        points[2].x, points[2].y, points[2].z, colors[2].r, colors[2].g, colors[2].b, colors[2].a, x_scale.scale(points[2].x as f32), y_scale.scale(points[2].y as f32),
+        points[0].x, points[0].y, points[0].z, colors[0].r, colors[0].g, colors[0].b, colors[0].a, texture_coordinates[0].x, texture_coordinates[0].y,
+        points[1].x, points[1].y, points[1].z, colors[1].r, colors[1].g, colors[1].b, colors[1].a, texture_coordinates[1].x, texture_coordinates[1].y,
+        points[2].x, points[2].y, points[2].z, colors[2].r, colors[2].g, colors[2].b, colors[2].a, texture_coordinates[2].x, texture_coordinates[2].y,
     ]
 }
 

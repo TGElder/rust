@@ -140,8 +140,9 @@ impl ChildrenSim {
     }
 
     async fn add_child(&mut self, child: Child, farm: V2<usize>) -> bool {
+        let rotate_farm = self.rng.gen();
         self.game_tx
-            .update(move |game| add_child(game, child, farm))
+            .update(move |game| add_child(game, child, farm, rotate_farm))
             .await
     }
 
@@ -156,8 +157,14 @@ impl ChildrenSim {
     }
 }
 
-fn add_child(game: &mut Game, child: Child, farm: V2<usize>) -> bool {
-    if !game.update_object(WorldObject::Farm, farm, true) {
+fn add_child(game: &mut Game, child: Child, farm: V2<usize>, rotate_farm: bool) -> bool {
+    if !game.update_object(
+        WorldObject::Farm {
+            rotated: rotate_farm,
+        },
+        farm,
+        true,
+    ) {
         return false;
     }
     let game_state = game.mut_state();

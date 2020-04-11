@@ -77,7 +77,7 @@ fn unassign_non_existent_farms(game: &mut Game, farmers: Vec<Farmer>) {
 
 fn unassign_non_existent_farm(game: &mut Game, farmer: &Farmer) {
     if let Some(WorldCell {
-        object: WorldObject::Farm,
+        object: WorldObject::Farm { .. },
         ..
     }) = game.game_state().world.get_cell(&farmer.farm)
     {

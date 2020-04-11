@@ -87,6 +87,7 @@ fn main() {
         thread_pool.clone(),
     ));
     game.add_consumer(ObjectBuilder::new(
+        game.game_state().params.seed,
         game.game_state().params.house_color,
         game.update_tx(),
     ));
@@ -202,7 +203,7 @@ fn create_simulation(
             .max(params.town_travel_duration),
     );
     let farm_unassigner_sim = FarmUnassignerSim::new(game_tx);
-    let farm_assigner_sim = FarmAssignerSim::new(game_tx, pathfinder_tx);
+    let farm_assigner_sim = FarmAssignerSim::new(game_tx, pathfinder_tx, seed);
     let children_sim = ChildrenSim::new(params.sim.children, seed, game_tx, pathfinder_tx);
     let route_sim = RouteSim::new(params.sim.route, seed, game_tx, pathfinder_tx);
     let natural_town_sim = NaturalTownSim::new(

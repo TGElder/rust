@@ -125,7 +125,7 @@ fn is_town_candidate(game_state: &GameState, position: &V2<usize>) -> bool {
         return false;
     }
     if let Some(WorldCell {
-        object: WorldObject::Farm,
+        object: WorldObject::Farm { .. },
         ..
     }) = game_state.world.get_cell(position)
     {

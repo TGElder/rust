@@ -56,17 +56,6 @@ impl WorldArtistHandler {
         }
     }
 
-    fn update_object(
-        &mut self,
-        game_state: &GameState,
-        object: &WorldObject,
-        position: &V2<usize>,
-    ) {
-        if let WorldObject::Farm = object {
-            self.update_cells(game_state, &[*position]);
-        }
-    }
-
     fn draw_territory(&mut self, game_state: &GameState, changes: &[TerritoryChange]) {
         let affected: Vec<V2<usize>> = changes
             .iter()
@@ -92,9 +81,9 @@ impl GameEventConsumer for WorldArtistHandler {
             }
             GameEvent::RoadsUpdated(result) => self.update_cells(game_state, result.path()),
             GameEvent::TerritoryChanged(changes) => self.draw_territory(game_state, changes),
-            GameEvent::ObjectUpdated {
-                object, position, ..
-            } => self.update_object(game_state, object, position),
+            GameEvent::ObjectUpdated { position, .. } => {
+                self.update_cells(game_state, &[*position])
+            }
             _ => (),
         }
         CaptureEvent::No

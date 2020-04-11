@@ -135,7 +135,7 @@ impl<'a> TerrainColoring<WorldCell> for BaseColoring<'a> {
         tile: &V2<usize>,
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        if let WorldObject::Farm = self.game_state.world.get_cell_unsafe(tile).object {
+        if let WorldObject::Farm { .. } = self.game_state.world.get_cell_unsafe(tile).object {
             [None, None, None]
         } else {
             let color = Some(self.get_color(&self.game_state.world, tile));

@@ -1,5 +1,7 @@
 use super::*;
-use isometric::drawing::{textured_tiles, TerrainColoring};
+
+use isometric::drawing::{textured_tiles, TerrainColoring, TexturedTile};
+use std::f32::consts::PI;
 
 const TEXTURE: &str = "farm.png";
 
@@ -22,11 +24,12 @@ impl FarmArtist {
             for y in from.y..to.y {
                 let tile = v2(x, y);
                 if let Some(WorldCell {
-                    object: WorldObject::Farm,
+                    object: WorldObject::Farm { rotated },
                     ..
                 }) = world.get_cell(&tile)
                 {
-                    tiles.push(tile);
+                    let rotation = if *rotated { PI / 2.0 } else { 0.0 };
+                    tiles.push(TexturedTile { tile, rotation });
                 }
             }
         }

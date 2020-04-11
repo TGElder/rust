@@ -1,6 +1,8 @@
 use super::*;
 
 use crate::game_event_consumers::FARM_CANDIDATE_TARGETS;
+use commons::rand::prelude::*;
+use commons::rand::rngs::SmallRng;
 
 const HANDLE: &str = "farm_assigner_sim";
 
@@ -13,6 +15,7 @@ struct Farmless {
 pub struct FarmAssignerSim {
     game_tx: UpdateSender<Game>,
     pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
+    rng: SmallRng,
 }
 
 impl Step for FarmAssignerSim {
@@ -29,10 +32,12 @@ impl FarmAssignerSim {
     pub fn new(
         game_tx: &UpdateSender<Game>,
         pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
+        seed: u64,
     ) -> FarmAssignerSim {
         FarmAssignerSim {
             game_tx: game_tx.clone_with_handle(HANDLE),
             pathfinder_tx: pathfinder_tx.clone_with_handle(HANDLE),
+            rng: SeedableRng::seed_from_u64(seed),
         }
     }
 
@@ -51,7 +56,8 @@ impl FarmAssignerSim {
             Some(farm) => farm,
             None => return,
         };
-        if self.set_farm(farmless.name, farm).await {
+        let rotated = self.rng.gen();
+        if self.set_farm(farmless.name, farm, rotated).await {
             self.remove_candidate(farm).await;
         }
     }
@@ -67,9 +73,9 @@ impl FarmAssignerSim {
             .await
     }
 
-    async fn set_farm(&mut self, avatar: String, position: V2<usize>) -> bool {
+    async fn set_farm(&mut self, avatar: String, position: V2<usize>, rotated: bool) -> bool {
         self.game_tx
-            .update(move |game| set_farm(game, avatar, position))
+            .update(move |game| set_farm(game, avatar, position, rotated))
             .await
     }
 
@@ -106,11 +112,11 @@ fn as_farmless(avatar: &Avatar) -> Option<Farmless> {
     })
 }
 
-fn set_farm(game: &mut Game, avatar: String, farm: V2<usize>) -> bool {
+fn set_farm(game: &mut Game, avatar: String, farm: V2<usize>, rotated: bool) -> bool {
     if !game.game_state().avatars.contains_key(&avatar) {
         return false;
     }
-    if game.update_object(WorldObject::Farm, farm, true) {
+    if game.update_object(WorldObject::Farm { rotated }, farm, true) {
         let avatar = game.mut_state().avatars.get_mut(&avatar).unwrap();
         avatar.farm = Some(farm);
         true

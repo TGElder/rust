@@ -1,4 +1,6 @@
 use super::*;
+use commons::rand::prelude::*;
+use commons::rand::rngs::SmallRng;
 use isometric::coords::*;
 use isometric::Color;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
@@ -6,10 +8,11 @@ use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 const HANDLE: &str = "object_builder_handler";
 
 pub struct ObjectBuilder {
-    house_color: Color,
     game_tx: UpdateSender<Game>,
-    world_coord: Option<WorldCoord>,
+    house_color: Color,
+    rng: SmallRng,
     bindings: ObjectBuilderBindings,
+    world_coord: Option<WorldCoord>,
 }
 
 struct ObjectBuilderBindings {
@@ -19,16 +22,17 @@ struct ObjectBuilderBindings {
 }
 
 impl ObjectBuilder {
-    pub fn new(house_color: Color, game_tx: &UpdateSender<Game>) -> ObjectBuilder {
+    pub fn new(seed: u64, house_color: Color, game_tx: &UpdateSender<Game>) -> ObjectBuilder {
         ObjectBuilder {
-            house_color,
             game_tx: game_tx.clone_with_handle(HANDLE),
-            world_coord: None,
+            house_color,
+            rng: SeedableRng::seed_from_u64(seed),
             bindings: ObjectBuilderBindings {
                 build_house: Button::Key(VirtualKeyCode::H),
                 build_farm: Button::Key(VirtualKeyCode::F),
                 demolish: Button::Key(VirtualKeyCode::U),
             },
+            world_coord: None,
         }
     }
 
@@ -41,34 +45,18 @@ impl ObjectBuilder {
             .map(|world_coord| world_coord.to_v2_floor())
     }
 
-    fn toggle_object_at_cursor(&mut self, object: WorldObject) {
+    fn build_object_at_cursor(&mut self, object: WorldObject) {
         if let Some(position) = self.get_position() {
             self.game_tx
-                .update(move |game| toggle_object(game, object, position));
+                .update(move |game| game.update_object(object, position, true));
         }
     }
 
-    fn demolish_at_cursor(&mut self) {
+    fn clear_object_at_cursor(&mut self) {
         if let Some(position) = self.get_position() {
             self.game_tx.update(move |game| game.clear_object(position));
         }
     }
-}
-
-fn toggle_object(game: &mut Game, object: WorldObject, position: V2<usize>) {
-    let game_state = game.game_state();
-    let cell = match game_state.world.get_cell(&position) {
-        Some(cell) => cell,
-        None => return,
-    };
-    let build = if cell.object == WorldObject::None {
-        true
-    } else if cell.object == object {
-        false
-    } else {
-        return;
-    };
-    game.update_object(object, position, build);
 }
 
 impl GameEventConsumer for ObjectBuilder {
@@ -92,11 +80,12 @@ impl GameEventConsumer for ObjectBuilder {
         } = *event
         {
             if button == &self.bindings.build_house {
-                self.toggle_object_at_cursor(WorldObject::House(self.house_color));
+                self.build_object_at_cursor(WorldObject::House(self.house_color));
             } else if button == &self.bindings.build_farm {
-                self.toggle_object_at_cursor(WorldObject::Farm);
+                let rotated = self.rng.gen();
+                self.build_object_at_cursor(WorldObject::Farm { rotated });
             } else if button == &self.bindings.demolish {
-                self.demolish_at_cursor();
+                self.clear_object_at_cursor();
             }
         }
         CaptureEvent::No

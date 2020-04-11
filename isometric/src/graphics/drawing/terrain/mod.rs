@@ -96,11 +96,16 @@ where
     ]
 }
 
+pub struct TexturedTile {
+    pub tile: V2<usize>,
+    pub rotation: f32,
+}
+
 pub fn textured_tiles<T>(
     name: String,
     terrain: &dyn Grid<T>,
     sea_level: f32,
-    tiles: &[V2<usize>],
+    textured_tiles: &[TexturedTile],
     coloring: &dyn TerrainColoring<T>,
     texture: String,
 ) -> Vec<Command>
@@ -110,7 +115,8 @@ where
     let mut floats = vec![];
     let geometry = TerrainGeometry::of(terrain);
 
-    for tile in tiles {
+    for textured_tile in textured_tiles {
+        let tile = textured_tile.tile;
         for triangle in geometry.get_triangles_for_tile(&tile) {
             let triangle = clip_triangle_to_sea_level(triangle, sea_level);
             let colors = coloring.color(terrain, &tile, &triangle);
@@ -119,11 +125,18 @@ where
                 colors[1].unwrap_or_else(Color::transparent),
                 colors[2].unwrap_or_else(Color::transparent),
             ];
+            let texture_from = v2(tile.x as f32, tile.y as f32);
+            let texture_to = texture_from + v2(1.0, 1.0);
+            let texture_coordinates = get_texture_coordinates(
+                &triangle,
+                texture_from,
+                texture_to,
+                textured_tile.rotation,
+            );
             floats.append(&mut get_textured_vertices_from_triangle(
                 &triangle,
                 &colors,
-                v2(tile.x as f32, tile.y as f32),
-                v2(tile.x as f32 + 1.0, tile.y as f32 + 1.0),
+                &texture_coordinates,
             ));
         }
     }

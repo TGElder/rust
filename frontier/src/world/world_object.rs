@@ -43,5 +43,5 @@ pub enum WorldObject {
     None,
     Vegetation(VegetationType),
     House(Color),
-    Farm,
+    Farm { rotated: bool },
 }
