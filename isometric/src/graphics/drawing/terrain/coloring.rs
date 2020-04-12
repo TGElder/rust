@@ -19,22 +19,23 @@ where
     ) -> [Option<Color>; 3];
 }
 
-pub struct ShadedTileTerrainColoring<T, C>
+pub struct ShadedTileTerrainColoring<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
-    C: TerrainColoring<T>,
 {
-    coloring: C,
+    coloring: Box<dyn TerrainColoring<T> + 'a>,
     shading: Box<dyn SquareColoring>,
     phantom: PhantomData<T>,
 }
 
-impl<T, C> ShadedTileTerrainColoring<T, C>
+impl<'a, T> ShadedTileTerrainColoring<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
-    C: TerrainColoring<T>,
 {
-    pub fn new(coloring: C, light_direction: V3<f32>) -> ShadedTileTerrainColoring<T, C> {
+    pub fn new(
+        coloring: Box<dyn TerrainColoring<T> + 'a>,
+        light_direction: V3<f32>,
+    ) -> ShadedTileTerrainColoring<'a, T> {
         ShadedTileTerrainColoring {
             coloring,
             shading: Box::new(AngleSquareColoring::new(
@@ -46,10 +47,9 @@ where
     }
 }
 
-impl<T, C> TerrainColoring<T> for ShadedTileTerrainColoring<T, C>
+impl<'a, T> TerrainColoring<T> for ShadedTileTerrainColoring<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
-    C: TerrainColoring<T>,
 {
     fn color(
         &self,
@@ -146,23 +146,25 @@ where
     }
 }
 
-pub struct SeaLevelColoring<T, C>
+pub struct SeaLevelColoring<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
-    C: TerrainColoring<T>,
 {
-    coloring: C,
+    coloring: Box<dyn TerrainColoring<T> + 'a>,
     sea_color: Option<Color>,
     sea_level: f32,
     phantom: PhantomData<T>,
 }
 
-impl<T, C> SeaLevelColoring<T, C>
+impl<'a, T> SeaLevelColoring<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
-    C: TerrainColoring<T>,
 {
-    pub fn new(coloring: C, sea_color: Option<Color>, sea_level: f32) -> SeaLevelColoring<T, C> {
+    pub fn new(
+        coloring: Box<dyn TerrainColoring<T> + 'a>,
+        sea_color: Option<Color>,
+        sea_level: f32,
+    ) -> SeaLevelColoring<'a, T> {
         SeaLevelColoring {
             coloring,
             sea_color,
@@ -178,10 +180,9 @@ where
     }
 }
 
-impl<T, C> TerrainColoring<T> for SeaLevelColoring<T, C>
+impl<'a, T> TerrainColoring<T> for SeaLevelColoring<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
-    C: TerrainColoring<T>,
 {
     fn color(
         &self,
@@ -197,37 +198,29 @@ where
     }
 }
 
-pub struct LayerColoring<T, C, D>
+pub struct LayerColoring<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
-    C: TerrainColoring<T>,
-    D: TerrainColoring<T>,
 {
-    bottom: C,
-    top: D,
+    layers: Vec<Box<dyn TerrainColoring<T> + 'a>>,
     phantom: PhantomData<T>,
 }
 
-impl<T, C, D> LayerColoring<T, C, D>
+impl<'a, T> LayerColoring<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
-    C: TerrainColoring<T>,
-    D: TerrainColoring<T>,
 {
-    pub fn new(bottom: C, top: D) -> LayerColoring<T, C, D> {
+    pub fn new(layers: Vec<Box<dyn TerrainColoring<T> + 'a>>) -> LayerColoring<'a, T> {
         LayerColoring {
-            bottom,
-            top,
+            layers,
             phantom: PhantomData,
         }
     }
 }
 
-impl<T, C, D> TerrainColoring<T> for LayerColoring<T, C, D>
+impl<'a, T> TerrainColoring<T> for LayerColoring<'a, T>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
-    C: TerrainColoring<T>,
-    D: TerrainColoring<T>,
 {
     fn color(
         &self,
@@ -235,20 +228,48 @@ where
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        let bottom = self.bottom.color(terrain, tile, triangle);
-        let top = self.top.color(terrain, tile, triangle);
-        let mut out = [None; 3];
-        for i in 0..3 {
-            out[i] = if let Some(top) = top[i] {
-                if let Some(bottom) = bottom[i] {
-                    Some(top.layer_over(&bottom))
-                } else {
-                    None
+        let mut out = match self.layers.first() {
+            Some(coloring) => coloring.color(terrain, tile, triangle),
+            None => return [None; 3],
+        };
+        for layer in self.layers.iter().skip(1) {
+            let colors = layer.color(terrain, tile, triangle);
+            for i in 0..3 {
+                if let Some(top) = colors[i] {
+                    if let Some(bottom) = out[i] {
+                        out[i] = Some(top.layer_over(&bottom));
+                    }
                 }
-            } else {
-                bottom[i]
             }
         }
         out
+    }
+}
+
+#[derive(Default)]
+pub struct NoneColoring<T>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    phantom: PhantomData<T>,
+}
+
+impl<T> NoneColoring<T>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    pub fn new() -> NoneColoring<T> {
+        NoneColoring {
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> TerrainColoring<T> for NoneColoring<T>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    fn color(&self, _: &dyn Grid<T>, _: &V2<usize>, _: &[V3<f32>; 3]) -> [Option<Color>; 3] {
+        [None, None, None]
     }
 }

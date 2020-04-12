@@ -6,9 +6,9 @@ use isometric::drawing::*;
 use isometric::*;
 use std::collections::HashSet;
 
-pub trait WorldColoring {
-    fn terrain(&self) -> &dyn TerrainColoring<WorldCell>;
-    fn farms(&self) -> &dyn TerrainColoring<WorldCell>;
+pub struct WorldColoring<'a> {
+    pub terrain: Box<dyn TerrainColoring<WorldCell> + 'a>,
+    pub farms: Box<dyn TerrainColoring<WorldCell> + 'a>,
 }
 
 #[derive(Hash, PartialEq, Eq, Debug)]
@@ -70,12 +70,7 @@ impl WorldArtist {
         self.drawing.init()
     }
 
-    fn draw_slab(
-        &mut self,
-        world: &World,
-        coloring: &dyn WorldColoring,
-        slab: &Slab,
-    ) -> Vec<Command> {
+    fn draw_slab(&mut self, world: &World, coloring: &WorldColoring, slab: &Slab) -> Vec<Command> {
         let mut out = self.draw_slab_tiles(world, coloring, slab);
         out.append(&mut self.draw_slab_rivers_roads(world, slab));
         out.append(&mut self.draw_slab_farms(world, coloring, slab));
@@ -86,13 +81,18 @@ impl WorldArtist {
     fn draw_slab_tiles(
         &mut self,
         world: &World,
-        coloring: &dyn WorldColoring,
+        coloring: &WorldColoring,
         slab: &Slab,
     ) -> Vec<Command> {
         let to = slab.to();
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
-        self.drawing
-            .update(world, world.sea_level(), coloring.terrain(), slab.from, to)
+        self.drawing.update(
+            world,
+            world.sea_level(),
+            coloring.terrain.as_ref(),
+            slab.from,
+            to,
+        )
     }
 
     fn get_road_river_positions(
@@ -203,13 +203,13 @@ impl WorldArtist {
     fn draw_slab_farms(
         &mut self,
         world: &World,
-        coloring: &dyn WorldColoring,
+        coloring: &WorldColoring,
         slab: &Slab,
     ) -> Vec<Command> {
         let to = slab.to();
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
         self.farm_artist
-            .draw(world, coloring.farms(), &slab.from, &to)
+            .draw(world, coloring.farms.as_ref(), &slab.from, &to)
     }
 
     fn draw_slab_vegetation(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
@@ -221,7 +221,7 @@ impl WorldArtist {
     fn draw_slabs(
         &mut self,
         world: &World,
-        coloring: &dyn WorldColoring,
+        coloring: &WorldColoring,
         slabs: HashSet<Slab>,
     ) -> Vec<Command> {
         let mut out = vec![];
@@ -242,7 +242,7 @@ impl WorldArtist {
     pub fn draw_affected(
         &mut self,
         world: &World,
-        coloring: &dyn WorldColoring,
+        coloring: &WorldColoring,
         positions: &[V2<usize>],
     ) -> Vec<Command> {
         let affected = self.get_affected_slabs(&world, positions);
@@ -261,11 +261,11 @@ impl WorldArtist {
         out
     }
 
-    pub fn draw_all(&mut self, world: &World, coloring: &dyn WorldColoring) -> Vec<Command> {
+    pub fn draw_all(&mut self, world: &World, coloring: &WorldColoring) -> Vec<Command> {
         self.draw_slabs(world, coloring, self.get_all_slabs())
     }
 
-    pub fn init(&mut self, world: &World, coloring: &dyn WorldColoring) -> Vec<Command> {
+    pub fn init(&mut self, world: &World, coloring: &WorldColoring) -> Vec<Command> {
         let mut out = vec![];
         out.append(&mut self.draw_terrain());
         out.append(&mut self.draw_all(world, coloring));

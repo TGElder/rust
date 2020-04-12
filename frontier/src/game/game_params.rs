@@ -1,4 +1,5 @@
 use crate::avatar::*;
+use crate::game_event_consumers::WorldColoringParameters;
 use crate::road_builder::*;
 use crate::simulation::*;
 use crate::world_gen::*;
@@ -12,7 +13,7 @@ use std::time::Duration;
 pub struct GameParams {
     pub seed: u64,
     pub world_gen: WorldGenParameters,
-    pub artist: ArtistParams,
+    pub world_coloring: WorldColoringParameters,
     pub avatar_travel: AvatarTravelParams,
     pub auto_road_travel: AutoRoadTravelParams,
     pub starting_distance_from_shore: usize,
@@ -32,7 +33,7 @@ impl GameParams {
         GameParams {
             seed,
             world_gen: WorldGenParameters::default(),
-            artist: ArtistParams::default(),
+            world_coloring: WorldColoringParameters::default(),
             avatar_travel: AvatarTravelParams::default(),
             auto_road_travel: AutoRoadTravelParams::default(),
             starting_distance_from_shore: 32,
@@ -62,21 +63,6 @@ impl Default for FarmConstraints {
             min_groundwater: 0.1,
             max_slope: 0.2,
             min_temperature: 0.0,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct ArtistParams {
-    pub territory_alpha: f32,
-    pub farm_candidate_highlight: Color,
-}
-
-impl Default for ArtistParams {
-    fn default() -> ArtistParams {
-        ArtistParams {
-            territory_alpha: 0.3,
-            farm_candidate_highlight: Color::new(0.0, 1.0, 0.0, 0.0),
         }
     }
 }

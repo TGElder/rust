@@ -1,23 +1,34 @@
 mod coloring;
 
-pub use coloring::tile_color;
+pub use coloring::WorldColoringParameters;
 use coloring::*;
 
 use super::*;
 use isometric::Color;
+use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
 const HANDLE: &str = "world_artist_handler";
 
+struct WorldArtistHandlerBindings {
+    toggle_territory_layer: Button,
+}
+
 pub struct WorldArtistHandler {
     command_tx: Sender<Vec<Command>>,
+    bindings: WorldArtistHandlerBindings,
     world_artist: Option<WorldArtist>,
+    territory_layer: bool,
 }
 
 impl WorldArtistHandler {
     pub fn new(command_tx: Sender<Vec<Command>>) -> WorldArtistHandler {
         WorldArtistHandler {
             command_tx,
+            bindings: WorldArtistHandlerBindings {
+                toggle_territory_layer: Button::Key(VirtualKeyCode::O),
+            },
             world_artist: None,
+            territory_layer: false,
         }
     }
 
@@ -39,8 +50,10 @@ impl WorldArtistHandler {
 
     fn draw_all(&mut self, game_state: &GameState) {
         if let Some(world_artist) = &mut self.world_artist {
-            let commands =
-                world_artist.init(&game_state.world, &DefaultWorldColoring::new(game_state));
+            let commands = world_artist.init(
+                &game_state.world,
+                &world_coloring(game_state, self.territory_layer),
+            );
             self.command_tx.send(commands).unwrap();
         }
     }
@@ -49,7 +62,7 @@ impl WorldArtistHandler {
         if let Some(ref mut world_artist) = self.world_artist {
             let commands = world_artist.draw_affected(
                 &game_state.world,
-                &DefaultWorldColoring::new(game_state),
+                &world_coloring(game_state, self.territory_layer),
                 &cells,
             );
             self.command_tx.send(commands).unwrap();
@@ -57,6 +70,9 @@ impl WorldArtistHandler {
     }
 
     fn draw_territory(&mut self, game_state: &GameState, changes: &[TerritoryChange]) {
+        if !self.territory_layer {
+            return;
+        }
         let affected: Vec<V2<usize>> = changes
             .iter()
             .flat_map(|change| game_state.world.expand_position(&change.position))
@@ -89,7 +105,19 @@ impl GameEventConsumer for WorldArtistHandler {
         CaptureEvent::No
     }
 
-    fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
+    fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent {
+        if let Event::Button {
+            ref button,
+            state: ElementState::Pressed,
+            modifiers: ModifiersState { alt: false, .. },
+            ..
+        } = *event
+        {
+            if button == &self.bindings.toggle_territory_layer {
+                self.territory_layer = !self.territory_layer;
+                self.draw_all(game_state);
+            }
+        }
         CaptureEvent::No
     }
 }
