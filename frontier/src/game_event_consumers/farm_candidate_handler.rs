@@ -2,9 +2,27 @@ use super::*;
 use crate::pathfinder::*;
 use commons::v2;
 use isometric::cell_traits::WithVisibility;
+use serde::{Deserialize, Serialize};
 
 const HANDLE: &str = "farm_candidate_handler";
 pub const FARM_CANDIDATE_TARGETS: &str = "farm_candidates";
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct FarmConstraints {
+    pub min_groundwater: f32,
+    pub max_slope: f32,
+    pub min_temperature: f32,
+}
+
+impl Default for FarmConstraints {
+    fn default() -> FarmConstraints {
+        FarmConstraints {
+            min_groundwater: 0.1,
+            max_slope: 0.2,
+            min_temperature: 0.0,
+        }
+    }
+}
 
 pub struct FarmCandidateHandler {
     pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,

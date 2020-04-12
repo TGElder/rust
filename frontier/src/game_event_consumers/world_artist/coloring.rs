@@ -178,7 +178,8 @@ impl<'a> TerritoryColoring<'a> {
             ..
         }) = game_state.territory.who_controls_tile(tile)
         {
-            if let WorldObject::House(mut color) = game_state.world.get_cell_unsafe(&controller).object
+            if let WorldObject::House(mut color) =
+                game_state.world.get_cell_unsafe(&controller).object
             {
                 color.a = if *duration <= game_state.params.town_exclusive_duration {
                     self.params.territory_exclusive_alpha

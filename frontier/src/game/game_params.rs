@@ -1,4 +1,5 @@
 use crate::avatar::*;
+use crate::game_event_consumers::FarmConstraints;
 use crate::game_event_consumers::WorldColoringParameters;
 use crate::road_builder::*;
 use crate::simulation::*;
@@ -46,23 +47,6 @@ impl GameParams {
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
             log_duration_threshold: None,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct FarmConstraints {
-    pub min_groundwater: f32,
-    pub max_slope: f32,
-    pub min_temperature: f32,
-}
-
-impl Default for FarmConstraints {
-    fn default() -> FarmConstraints {
-        FarmConstraints {
-            min_groundwater: 0.1,
-            max_slope: 0.2,
-            min_temperature: 0.0,
         }
     }
 }
