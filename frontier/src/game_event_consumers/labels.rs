@@ -65,6 +65,18 @@ impl LabelEditorHandler {
     }
 }
 
+fn capture_if_keypress(event: Arc<Event>) -> CaptureEvent {
+    if let Event::Button {
+        button: Button::Key(..),
+        ..
+    } = *event
+    {
+        CaptureEvent::Yes
+    } else {
+        CaptureEvent::No
+    }
+}
+
 impl GameEventConsumer for LabelEditorHandler {
     fn name(&self) -> &'static str {
         HANDLE
@@ -80,25 +92,20 @@ impl GameEventConsumer for LabelEditorHandler {
     }
 
     fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent {
-        if let Event::WorldPositionChanged(world_coord) = *event {
-            self.update_world_coord(world_coord);
-        }
         let editor_commands = self.label_editor.handle_event(event.clone());
         if !editor_commands.is_empty() {
             self.game_tx
                 .update(move |game| game.send_engine_commands(editor_commands));
-            return CaptureEvent::Yes;
+            return capture_if_keypress(event);
         }
-        if let Event::Button {
-            ref button,
-            state: ElementState::Pressed,
-            modifiers: ModifiersState { alt: false, .. },
-            ..
-        } = *event
-        {
-            if button == &self.binding {
-                self.start_edit(&game_state)
-            }
+        match *event {
+            Event::WorldPositionChanged(world_coord) => self.update_world_coord(world_coord),
+            Event::Button {
+                ref button,
+                state: ElementState::Pressed,
+                modifiers: ModifiersState { alt: false, .. },
+            } if button == &self.binding => self.start_edit(&game_state),
+            _ => (),
         }
         CaptureEvent::No
     }

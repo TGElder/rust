@@ -65,12 +65,6 @@ fn main() {
         game.update_tx(),
     ));
 
-    // Drawing
-    game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
-    game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
-    game.add_consumer(ObjectArtistHandler::new(engine.command_tx()));
-    game.add_consumer(VisibilityHandler::new(game.update_tx()));
-
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.update_tx()));
     game.add_consumer(RotateHandler::new(game.update_tx()));
@@ -96,6 +90,12 @@ fn main() {
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
     game.add_consumer(SelectAvatar::new(game.update_tx()));
     game.add_consumer(SpeedControl::new(game.update_tx()));
+
+    // Drawing
+    game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
+    game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
+    game.add_consumer(ObjectArtistHandler::new(engine.command_tx()));
+    game.add_consumer(VisibilityHandler::new(game.update_tx()));
 
     game.add_consumer(PrimeMover::new(
         game.game_state().params.seed,
