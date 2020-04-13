@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::default::Default;
 
 const HANDLE: &str = "natural_road_sim";
+const BATCH_SIZE: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NaturalRoadSimParams {
@@ -54,10 +55,25 @@ impl NaturalRoadSim {
         self.build_roads(roads_to_build).await;
     }
 
+    async fn get_avatars(&mut self) -> Vec<String> {
+        self.game_tx.update(|game| get_avatars(game)).await
+    }
+
     async fn compute_visitors(&mut self) -> HashMap<Edge, usize> {
+        let mut out = HashMap::new();
+        let avatars = self.get_avatars().await;
+        for batch in avatars.chunks(BATCH_SIZE) {
+            for (edge, visitors) in self.compute_visitors_for_avatars(batch.to_vec()).await {
+                *out.entry(edge).or_insert(0) += visitors;
+            }
+        }
+        out
+    }
+
+    async fn compute_visitors_for_avatars(&mut self, avatars: Vec<String>) -> HashMap<Edge, usize> {
         let travel_duration = self.travel_duration.clone();
         self.game_tx
-            .update(move |game| compute_visitors(game, travel_duration))
+            .update(move |game| compute_visitors_for_avatars(game, travel_duration, avatars))
             .await
     }
 
@@ -79,23 +95,26 @@ impl NaturalRoadSim {
     }
 }
 
-fn compute_visitors(
+fn get_avatars(game: &Game) -> Vec<String> {
+    game.game_state().avatars.keys().cloned().collect()
+}
+
+fn compute_visitors_for_avatars(
     game: &Game,
     travel_duration: Arc<AutoRoadTravelDuration>,
+    avatars: Vec<String>,
 ) -> HashMap<Edge, usize> {
-    let mut out = HashMap::new();
     let game_state = game.game_state();
-    for avatar in game_state.avatars.values() {
-        if let Some(route) = &avatar.route {
-            for edge in route.edges() {
-                if should_compute_visitors(&game_state.world, &edge, &travel_duration) {
-                    let visitors = out.entry(edge).or_insert(0);
-                    *visitors += 1;
-                }
-            }
-        }
-    }
-    out
+    avatars
+        .iter()
+        .flat_map(|avatar| game_state.avatars.get(avatar))
+        .flat_map(|avatar| &avatar.route)
+        .flat_map(|route| route.edges())
+        .filter(|edge| should_compute_visitors(&game_state.world, &edge, &travel_duration))
+        .fold(HashMap::new(), |mut map, edge| {
+            *map.entry(edge).or_insert(0) += 1;
+            map
+        })
 }
 
 fn should_compute_visitors(

@@ -2,10 +2,12 @@ use super::*;
 use commons::grid::Grid;
 use isometric::Color;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::default::Default;
 
 const HANDLE: &str = "natural_town_sim";
+const AVATAR_BATCH_SIZE: usize = 128;
+const CANDIDATE_BATCH_SIZE: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NaturalTownSimParams {
@@ -60,13 +62,31 @@ impl NaturalTownSim {
                 self.territory_sim.step_controller(town).await
             }
             visitors.remove(&town);
-            visitors = self.filter_to_candidates(visitors).await;
+            visitors = self.remove_non_candidates(visitors).await;
         }
     }
 
     async fn compute_visitors(&mut self) -> HashMap<V2<usize>, usize> {
+        let mut out = HashMap::new();
+        let avatars = self.get_avatars().await;
+        for batch in avatars.chunks(AVATAR_BATCH_SIZE) {
+            for (position, visitors) in self.compute_visitors_for_avatars(batch.to_vec()).await {
+                *out.entry(position).or_insert(0) += visitors;
+            }
+        }
+        out
+    }
+
+    async fn get_avatars(&mut self) -> Vec<String> {
+        self.game_tx.update(|game| get_avatars(game)).await
+    }
+
+    async fn compute_visitors_for_avatars(
+        &mut self,
+        avatars: Vec<String>,
+    ) -> HashMap<V2<usize>, usize> {
         self.game_tx
-            .update(move |game| compute_visitors(game))
+            .update(move |game| compute_visitors_for_avatars(game, avatars))
             .await
     }
 
@@ -95,21 +115,35 @@ impl NaturalTownSim {
             .await
     }
 
-    async fn filter_to_candidates(
+    async fn remove_non_candidates(
         &mut self,
-        visitors: HashMap<V2<usize>, usize>,
+        mut visitors: HashMap<V2<usize>, usize>,
     ) -> HashMap<V2<usize>, usize> {
+        let candidates: Vec<V2<usize>> = visitors.keys().cloned().collect();
+        for batch in candidates.chunks(CANDIDATE_BATCH_SIZE) {
+            for candidate in self.find_non_candidates(batch.to_vec()).await {
+                visitors.remove(&candidate);
+            }
+        }
+        visitors
+    }
+
+    async fn find_non_candidates(&mut self, candidates: Vec<V2<usize>>) -> HashSet<V2<usize>> {
         self.game_tx
-            .update(move |game| filter_to_candidates(game, visitors))
+            .update(move |game| find_non_candidates(game, candidates))
             .await
     }
 }
 
-fn compute_visitors(game: &Game) -> HashMap<V2<usize>, usize> {
+fn get_avatars(game: &Game) -> Vec<String> {
+    game.game_state().avatars.keys().cloned().collect()
+}
+
+fn compute_visitors_for_avatars(game: &Game, avatars: Vec<String>) -> HashMap<V2<usize>, usize> {
     let game_state = game.game_state();
-    game_state
-        .avatars
-        .values()
+    avatars
+        .iter()
+        .flat_map(|avatar| game_state.avatars.get(avatar))
         .flat_map(|avatar| &avatar.route)
         .flat_map(|route| route.iter())
         .flat_map(|position| game_state.world.get_corners_behind_in_bounds(position))
@@ -150,12 +184,9 @@ fn build_town(game: &mut Game, position: V2<usize>, house_color: Color) -> bool 
     }
 }
 
-fn filter_to_candidates(
-    game: &mut Game,
-    mut visitors: HashMap<V2<usize>, usize>,
-) -> HashMap<V2<usize>, usize> {
-    visitors
-        .drain()
-        .filter(|(position, _)| is_town_candidate(game.game_state(), position))
+fn find_non_candidates(game: &mut Game, mut candidates: Vec<V2<usize>>) -> HashSet<V2<usize>> {
+    candidates
+        .drain(..)
+        .filter(|position| !is_town_candidate(game.game_state(), position))
         .collect()
 }
