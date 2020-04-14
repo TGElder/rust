@@ -1,6 +1,5 @@
-use crate::game::*;
-use crate::territory::*;
-use crate::world::*;
+use super::*;
+
 use commons::*;
 use isometric::drawing::*;
 use isometric::*;

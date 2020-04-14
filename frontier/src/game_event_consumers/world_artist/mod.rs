@@ -4,7 +4,7 @@ pub use coloring::WorldColoringParameters;
 use coloring::*;
 
 use super::*;
-use isometric::Color;
+use crate::artists::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
 const HANDLE: &str = "world_artist_handler";
@@ -36,12 +36,8 @@ impl WorldArtistHandler {
         let world_artist = WorldArtist::new(
             &game_state.world,
             WorldArtistParameters {
-                road_color: Color::new(0.6, 0.4, 0.0, 1.0),
-                river_color: Color::new(0.0, 0.0, 1.0, 1.0),
-                waterfall_color: Color::new(0.0, 0.75, 1.0, 1.0),
-                slab_size: 64,
-                vegetation_exageration: 100.0,
                 waterfall_gradient: game_state.params.avatar_travel.max_navigable_river_gradient,
+                ..WorldArtistParameters::default()
             },
         );
         self.world_artist = Some(world_artist);

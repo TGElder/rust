@@ -49,7 +49,7 @@ pub fn compute_vegetation<R: Rng>(
                 _ => continue,
             };
 
-            let r: f32 = rng.gen_range(0.0, 1.0);
+            let r = rng.gen_range(0.0, 1.0);
             if r <= groundwater {
                 for candidate in candidates.iter() {
                     if candidate.in_range_temperature(temperature)

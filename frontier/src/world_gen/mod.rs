@@ -1,9 +1,11 @@
 mod rainfall_gen;
+mod resource_gen;
 mod river_water;
 mod temperature;
 mod vegetation_gen;
 
 use self::rainfall_gen::*;
+use self::resource_gen::*;
 use self::river_water::*;
 use self::temperature::*;
 use self::vegetation_gen::*;
@@ -38,6 +40,7 @@ pub struct WorldGenParameters {
     pub rainfall: RainfallGenParams,
     pub temperature: TemperatureParams,
     pub vegetation: VegetationParams,
+    pub resources: ResourceParams,
 }
 
 impl Default for WorldGenParameters {
@@ -57,6 +60,7 @@ impl Default for WorldGenParameters {
             rainfall: RainfallGenParams::default(),
             temperature: TemperatureParams::default(),
             vegetation: VegetationParams::default(),
+            resources: ResourceParams::default(),
         }
     }
 }
@@ -121,6 +125,9 @@ pub fn generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParamet
     let vegetation = compute_vegetation(&mut out, &params, rng);
     load_vegetation(&mut out, &vegetation);
     set_vegetation_height(&mut out);
+
+    let resources = compute_resources(&mut out, &params, rng);
+    load_resources(&mut out, &resources);
 
     out
 }

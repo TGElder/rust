@@ -1,4 +1,5 @@
 use super::climate::*;
+use super::resource::*;
 use super::world_object::*;
 use commons::junction::*;
 use commons::*;
@@ -15,6 +16,7 @@ pub struct WorldCell {
     pub road: Junction,
     pub climate: Climate,
     pub object: WorldObject,
+    pub resource: Resource,
 }
 
 impl WorldCell {
@@ -28,6 +30,7 @@ impl WorldCell {
             road: Junction::default(),
             climate: Climate::default(),
             object: WorldObject::None,
+            resource: Resource::None,
         }
     }
 }

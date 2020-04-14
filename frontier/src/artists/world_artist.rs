@@ -1,4 +1,5 @@
 use super::farm_artist::*;
+use super::resource_artist::*;
 use super::vegetation_artist::*;
 use super::*;
 use commons::*;
@@ -33,8 +34,23 @@ pub struct WorldArtistParameters {
     pub river_color: Color,
     pub waterfall_color: Color,
     pub slab_size: usize,
-    pub vegetation_exageration: f32,
     pub waterfall_gradient: f32,
+    pub vegetation: VegatationArtistParams,
+    pub resource: ResourceArtistParameters,
+}
+
+impl Default for WorldArtistParameters {
+    fn default() -> WorldArtistParameters {
+        WorldArtistParameters {
+            road_color: Color::new(0.6, 0.4, 0.0, 1.0),
+            river_color: Color::new(0.0, 0.0, 1.0, 1.0),
+            waterfall_color: Color::new(0.0, 0.75, 1.0, 1.0),
+            slab_size: 64,
+            waterfall_gradient: 0.1,
+            vegetation: VegatationArtistParams::default(),
+            resource: ResourceArtistParameters::default(),
+        }
+    }
 }
 
 pub struct WorldArtist {
@@ -42,6 +58,7 @@ pub struct WorldArtist {
     height: usize,
     drawing: TerrainDrawing,
     vegetation_artist: VegetationArtist,
+    resource_artist: ResourceArtist,
     farm_artist: FarmArtist,
     params: WorldArtistParameters,
 }
@@ -60,7 +77,8 @@ impl WorldArtist {
             width,
             height,
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, params.slab_size),
-            vegetation_artist: VegetationArtist::new(params.vegetation_exageration),
+            vegetation_artist: VegetationArtist::new(params.vegetation),
+            resource_artist: ResourceArtist::new(params.resource),
             farm_artist: FarmArtist::new(),
             params,
         }
@@ -73,8 +91,14 @@ impl WorldArtist {
     fn draw_slab(&mut self, world: &World, coloring: &WorldColoring, slab: &Slab) -> Vec<Command> {
         let mut out = self.draw_slab_tiles(world, coloring, slab);
         out.append(&mut self.draw_slab_rivers_roads(world, slab));
-        out.append(&mut self.draw_slab_farms(world, coloring, slab));
-        out.append(&mut self.draw_slab_vegetation(world, slab));
+
+        let from = slab.from;
+        let to = slab.to();
+        let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
+        out.append(&mut self.draw_slab_farms(world, coloring, &from, &to));
+        out.append(&mut self.draw_slab_vegetation(world, &from, &to));
+        out.append(&mut self.draw_slab_resources(world, &from, &to));
+
         out
     }
 
@@ -204,18 +228,29 @@ impl WorldArtist {
         &mut self,
         world: &World,
         coloring: &WorldColoring,
-        slab: &Slab,
+        from: &V2<usize>,
+        to: &V2<usize>,
     ) -> Vec<Command> {
-        let to = slab.to();
-        let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
         self.farm_artist
-            .draw(world, coloring.farms.as_ref(), &slab.from, &to)
+            .draw(world, coloring.farms.as_ref(), from, to)
     }
 
-    fn draw_slab_vegetation(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
-        let to = slab.to();
-        let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
-        self.vegetation_artist.draw(world, &slab.from, &to)
+    fn draw_slab_vegetation(
+        &mut self,
+        world: &World,
+        from: &V2<usize>,
+        to: &V2<usize>,
+    ) -> Vec<Command> {
+        self.vegetation_artist.draw(world, from, to)
+    }
+
+    fn draw_slab_resources(
+        &mut self,
+        world: &World,
+        from: &V2<usize>,
+        to: &V2<usize>,
+    ) -> Vec<Command> {
+        self.resource_artist.draw(world, from, to)
     }
 
     fn draw_slabs(

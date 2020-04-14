@@ -1,5 +1,6 @@
 #![type_length_limit = "1870613"]
 
+mod artists;
 mod avatar;
 mod game;
 mod game_event_consumers;
