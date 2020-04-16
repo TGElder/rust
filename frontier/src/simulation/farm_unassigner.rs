@@ -52,19 +52,19 @@ impl FarmUnassignerSim {
 
 fn get_farmer(game: &mut Game) -> Vec<Farmer> {
     game.game_state()
-        .avatars
+        .citizens
         .values()
         .flat_map(as_farmer)
         .collect()
 }
 
-fn as_farmer(avatar: &Avatar) -> Option<Farmer> {
-    let farm = match avatar.farm {
+fn as_farmer(citizen: &Citizen) -> Option<Farmer> {
+    let farm = match citizen.farm {
         Some(farm) => farm,
         None => return None,
     };
     Some(Farmer {
-        name: avatar.name.clone(),
+        name: citizen.name.clone(),
         farm,
     })
 }
@@ -82,8 +82,8 @@ fn unassign_non_existent_farm(game: &mut Game, farmer: &Farmer) {
     }) = game.game_state().world.get_cell(&farmer.farm)
     {
     } else {
-        match game.mut_state().avatars.get_mut(&farmer.name) {
-            Some(Avatar { farm, .. }) if *farm == Some(farmer.farm) => *farm = None,
+        match game.mut_state().citizens.get_mut(&farmer.name) {
+            Some(Citizen { farm, .. }) if *farm == Some(farmer.farm) => *farm = None,
             _ => (),
         };
     }

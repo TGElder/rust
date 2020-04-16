@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::default::Default;
 
 const HANDLE: &str = "route_sim";
+const JOURNEY_PREFIX: &str = "journey_";
+const COMMUTE_PREFIX: &str = "commute_";
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RouteSimParams {
@@ -29,12 +31,13 @@ pub struct RouteSim {
 }
 
 #[derive(Clone)]
-struct RouteAvatar {
+struct RouteCitizen {
     name: String,
     farm: V2<usize>,
 }
 
 struct Route {
+    name: String,
     from: V2<usize>,
     to: V2<usize>,
 }
@@ -65,30 +68,43 @@ impl RouteSim {
     }
 
     async fn step_async(&mut self) {
-        let avatars = self.get_avatars().await;
-        for avatar in avatars.iter() {
-            self.step_avatar(avatar, &avatars).await
+        self.clear_routes().await;
+        let citizens = self.get_citizens().await;
+        for citizen in citizens.iter() {
+            self.step_citizen(citizen, &citizens).await
         }
     }
 
-    async fn get_avatars(&mut self) -> Vec<RouteAvatar> {
-        self.game_tx.update(|game| get_avatars(game)).await
+    async fn clear_routes(&mut self) {
+        self.game_tx.update(|game| clear_routes(game)).await
     }
 
-    async fn step_avatar(&mut self, avatar: &RouteAvatar, avatars: &[RouteAvatar]) {
-        let route = match self.get_route(avatar, avatars).await {
+    async fn get_citizens(&mut self) -> Vec<RouteCitizen> {
+        self.game_tx.update(|game| get_citizens(game)).await
+    }
+
+    async fn step_citizen(&mut self, citizen: &RouteCitizen, citizens: &[RouteCitizen]) {
+        let route = match self.get_route(citizen, citizens).await {
             Some(route) => route,
             None => return,
         };
-        let path = self.get_path(route).await;
-        self.set_route(avatar.name.clone(), path).await;
+        let name = route.name.clone();
+        let path = match self.get_path(route).await {
+            Some(path) => path,
+            None => return,
+        };
+        self.add_route(name, path).await;
     }
 
-    async fn get_route(&mut self, avatar: &RouteAvatar, avatars: &[RouteAvatar]) -> Option<Route> {
+    async fn get_route(
+        &mut self,
+        citizen: &RouteCitizen,
+        citizens: &[RouteCitizen],
+    ) -> Option<Route> {
         if self.go_on_journey() {
-            self.get_journey(avatar, avatars)
+            self.get_journey(citizen, citizens)
         } else {
-            self.get_commute(avatar.clone()).await
+            self.get_commute(citizen.clone()).await
         }
     }
 
@@ -96,17 +112,18 @@ impl RouteSim {
         self.rng.gen_range(0.0, 1.0) <= self.params.journey_percentage
     }
 
-    fn get_journey(&mut self, avatar: &RouteAvatar, avatars: &[RouteAvatar]) -> Option<Route> {
-        let visiting = avatars.choose(&mut self.rng);
+    fn get_journey(&mut self, citizen: &RouteCitizen, citizens: &[RouteCitizen]) -> Option<Route> {
+        let visiting = citizens.choose(&mut self.rng);
         visiting.map(|visiting| Route {
-            from: avatar.farm,
+            name: journey_name(&citizen.name),
+            from: citizen.farm,
             to: visiting.farm,
         })
     }
 
-    async fn get_commute(&mut self, avatar: RouteAvatar) -> Option<Route> {
+    async fn get_commute(&mut self, citizen: RouteCitizen) -> Option<Route> {
         self.game_tx
-            .update(move |game| get_commute(game, avatar))
+            .update(move |game| get_commute(game, citizen))
             .await
     }
 
@@ -116,38 +133,51 @@ impl RouteSim {
             .await
     }
 
-    async fn set_route(&mut self, avatar: String, route: Option<Vec<V2<usize>>>) {
+    async fn add_route(&mut self, name: String, route: Vec<V2<usize>>) {
         self.game_tx
-            .update(move |game| set_route(game, avatar, route))
+            .update(move |game| add_route(game, name, route))
             .await
     }
 }
 
-fn get_avatars(game: &mut Game) -> Vec<RouteAvatar> {
+fn clear_routes(game: &mut Game) {
+    game.mut_state().routes.clear();
+}
+
+fn get_citizens(game: &mut Game) -> Vec<RouteCitizen> {
     game.game_state()
-        .avatars
+        .citizens
         .values()
-        .flat_map(|avatar| as_route_avatar(avatar))
+        .flat_map(|citizen| as_route_citizen(citizen))
         .collect()
 }
 
-fn as_route_avatar(avatar: &Avatar) -> Option<RouteAvatar> {
-    avatar.farm.map(|farm| RouteAvatar {
-        name: avatar.name.clone(),
+fn as_route_citizen(citizen: &Citizen) -> Option<RouteCitizen> {
+    citizen.farm.map(|farm| RouteCitizen {
+        name: citizen.name.clone(),
         farm,
     })
 }
 
-fn get_commute(game: &mut Game, avatar: RouteAvatar) -> Option<Route> {
+fn get_commute(game: &mut Game, citizen: RouteCitizen) -> Option<Route> {
     let game_state = game.game_state();
     game_state
         .territory
-        .who_controls_tile(&avatar.farm)
+        .who_controls_tile(&citizen.farm)
         .map(|claim| claim.controller)
         .map(|from| Route {
-            to: avatar.farm,
+            name: commute_name(&citizen.name),
+            to: citizen.farm,
             from,
         })
+}
+
+fn journey_name(citizen_name: &str) -> String {
+    format!("{:?}{:?}", JOURNEY_PREFIX, citizen_name)
+}
+
+fn commute_name(citizen_name: &str) -> String {
+    format!("{:?}{:?}", COMMUTE_PREFIX, citizen_name)
 }
 
 fn get_path(
@@ -157,8 +187,6 @@ fn get_path(
     pathfinder.find_path(&get_corners(&route.from), &get_corners(&route.to))
 }
 
-fn set_route(game: &mut Game, avatar: String, route: Option<Vec<V2<usize>>>) {
-    if let Some(avatar) = game.mut_state().avatars.get_mut(&avatar) {
-        avatar.route = route;
-    };
+fn add_route(game: &mut Game, name: String, route: Vec<V2<usize>>) {
+    game.mut_state().routes.insert(name, route);
 }

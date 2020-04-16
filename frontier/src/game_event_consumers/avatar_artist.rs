@@ -33,7 +33,7 @@ impl AvatarArtistHandler {
         if let (Some(avatar_artist), Some(travel_mode_fn)) =
             (&mut self.avatar_artist, &self.travel_mode_fn)
         {
-            let commands = avatar_artist.draw_avatars(
+            let commands = avatar_artist.update_avatars(
                 &game_state.avatars,
                 &game_state.world,
                 &game_state.game_micros,

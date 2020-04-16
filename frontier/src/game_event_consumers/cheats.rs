@@ -1,6 +1,5 @@
 use super::*;
-use crate::shore_start::*;
-use commons::*;
+use crate::citizen::*;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;
@@ -11,7 +10,7 @@ pub struct CheatBindings {
     reveal_all: Button,
     move_avatar: Button,
     remove_avatar: Button,
-    add_avatars: Button,
+    add_citizen: Button,
 }
 
 impl Default for CheatBindings {
@@ -20,7 +19,7 @@ impl Default for CheatBindings {
             reveal_all: Button::Key(VirtualKeyCode::V),
             move_avatar: Button::Key(VirtualKeyCode::H),
             remove_avatar: Button::Key(VirtualKeyCode::R),
-            add_avatars: Button::Key(VirtualKeyCode::A),
+            add_citizen: Button::Key(VirtualKeyCode::A),
         }
     }
 }
@@ -76,28 +75,20 @@ impl Cheats {
         });
     }
 
-    fn add_avatars(&mut self, game_state: &GameState) {
-        const AVATARS: usize = 9;
-        let base_index = game_state.avatars.len();
-        println!("{} avatars", AVATARS + base_index);
-        let mut rng = rand::thread_rng();
-        random_avatar_states(&game_state.world, &mut rng, AVATARS)
-            .into_iter()
-            .enumerate()
-            .for_each(|(i, state)| {
-                let name = (base_index + i).to_string();
-                let avatar = Avatar {
-                    name: name.clone(),
-                    birthday: 0,
-                    state,
-                    farm: None,
-                    children: vec![],
-                    route: None,
-                };
-                self.game_tx.update(move |game| {
-                    game.mut_state().avatars.insert(name, avatar);
-                });
+    fn add_citizen(&mut self, game_state: &GameState) {
+        let len = game_state.citizens.len();
+        println!("{} citizens", len + 1);
+        if let Some(world_coord) = self.world_coord {
+            let citizen = Citizen {
+                name: len.to_string(),
+                birthday: game_state.params.sim.start_year,
+                birthplace: world_coord.to_v2_round(),
+                farm: None,
+            };
+            self.game_tx.update(move |game| {
+                game.mut_state().citizens.insert(len.to_string(), citizen);
             });
+        };
     }
 }
 
@@ -127,8 +118,8 @@ impl GameEventConsumer for Cheats {
                 self.move_avatar(game_state);
             } else if button == &self.bindings.remove_avatar {
                 self.remove_avatar(game_state)
-            } else if button == &self.bindings.add_avatars {
-                self.add_avatars(game_state)
+            } else if button == &self.bindings.add_citizen {
+                self.add_citizen(game_state)
             }
         }
         CaptureEvent::No

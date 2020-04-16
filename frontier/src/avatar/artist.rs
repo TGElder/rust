@@ -7,7 +7,7 @@ use isometric::drawing::{
 };
 use isometric::Color;
 use isometric::Command;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter::once;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -141,7 +141,20 @@ impl AvatarArtist {
             .collect()
     }
 
-    pub fn draw_avatars(
+    pub fn update_avatars(
+        &mut self,
+        avatars: &HashMap<String, Avatar>,
+        world: &World,
+        instant: &u128,
+        travel_mode_fn: &TravelModeFn,
+    ) -> Vec<Command> {
+        let mut out = vec![];
+        out.append(&mut self.draw_avatars(avatars, world, instant, travel_mode_fn));
+        out.append(&mut self.erase_avatars(avatars));
+        out
+    }
+
+    fn draw_avatars(
         &mut self,
         avatars: &HashMap<String, Avatar>,
         world: &World,
@@ -189,10 +202,20 @@ impl AvatarArtist {
                 travel_mode_fn,
             ));
         } else {
-            out.append(&mut self.hide_body(name));
-            out.append(&mut self.hide_boat(name));
+            out.append(&mut self.hide(name));
         }
         out
+    }
+
+    fn erase_avatars(&mut self, avatars: &HashMap<String, Avatar>) -> Vec<Command> {
+        let mut to_erase: HashSet<String> = self.last_draw_state.keys().cloned().collect();
+        to_erase.retain(|avatar| !avatars.contains_key(avatar));
+        self.last_draw_state
+            .retain(|avatar, _| !to_erase.contains(avatar));
+        to_erase
+            .drain()
+            .flat_map(|avatar| self.erase(&avatar))
+            .collect()
     }
 
     #[rustfmt::skip]
@@ -254,20 +277,6 @@ impl AvatarArtist {
         update_billboard(part_drawing_name(&name, &part), world_coord, width, height)
     }
 
-    fn hide_part(&self, name: &str, part: &BodyPart) -> Command {
-        Command::SetDrawingVisibility {
-            name: part_drawing_name(name, part),
-            visible: false,
-        }
-    }
-
-    fn hide_body(&self, name: &str) -> Vec<Command> {
-        self.body_parts
-            .iter()
-            .map(|part| self.hide_part(name, part))
-            .collect()
-    }
-
     fn draw_boat_if_required(
         &self,
         name: &str,
@@ -280,7 +289,7 @@ impl AvatarArtist {
         if self.should_draw_boat(state, world, world_coord, travel_mode_fn) {
             self.draw_boat(name, state, world_coord, instant)
         } else {
-            self.hide_boat(name)
+            vec![self.hide_boat(name)]
         }
     }
 
@@ -326,10 +335,41 @@ impl AvatarArtist {
         )
     }
 
-    fn hide_boat(&self, name: &str) -> Vec<Command> {
-        vec![Command::SetDrawingVisibility {
+    fn hide(&self, name: &str) -> Vec<Command> {
+        self.body_parts
+            .iter()
+            .map(|part| self.hide_part(name, part))
+            .chain(once(self.hide_boat(name)))
+            .collect()
+    }
+
+    fn hide_part(&self, name: &str, part: &BodyPart) -> Command {
+        Command::SetDrawingVisibility {
+            name: part_drawing_name(name, part),
+            visible: false,
+        }
+    }
+
+    fn hide_boat(&self, name: &str) -> Command {
+        Command::SetDrawingVisibility {
             name: boat_drawing_name(name),
             visible: false,
-        }]
+        }
+    }
+
+    fn erase(&self, name: &str) -> Vec<Command> {
+        self.body_parts
+            .iter()
+            .map(|part| self.erase_part(name, part))
+            .chain(once(self.erase_boat(name)))
+            .collect()
+    }
+
+    fn erase_part(&self, name: &str, part: &BodyPart) -> Command {
+        Command::Erase(part_drawing_name(name, part))
+    }
+
+    fn erase_boat(&self, name: &str) -> Command {
+        Command::Erase(boat_drawing_name(name))
     }
 }

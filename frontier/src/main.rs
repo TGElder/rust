@@ -2,6 +2,7 @@
 
 mod artists;
 mod avatar;
+mod citizen;
 mod game;
 mod game_event_consumers;
 mod houses;
@@ -29,6 +30,7 @@ use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 use simulation::*;
+use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -139,30 +141,27 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
         world.reveal_all();
         world.visit_all();
     }
-    let avatars = random_avatar_states(&world, &mut rng, 1)
-        .into_iter()
-        .enumerate()
-        .map(|(i, state)| {
-            (
-                i.to_string(),
-                Avatar {
-                    name: i.to_string(),
-                    birthday: params.sim.start_year,
-                    state,
-                    farm: None,
-                    children: vec![],
-                    route: None,
-                },
-            )
-        })
-        .collect();
+    let shore_start = shore_start(32, &world, &mut rng);
+    let mut avatars = HashMap::new();
+    avatars.insert(
+        "0".to_string(),
+        Avatar {
+            name: "0".to_string(),
+            state: AvatarState::Stationary {
+                position: shore_start.at(),
+                rotation: shore_start.rotation(),
+            },
+        },
+    );
     let game_state = GameState {
         territory: Territory::new(&world),
         world,
         game_micros: 0,
         params,
         avatars,
+        citizens: HashMap::new(),
         selected_avatar: Some("0".to_string()),
+        routes: HashMap::new(),
         follow_avatar: true,
         speed: 1.0,
     };

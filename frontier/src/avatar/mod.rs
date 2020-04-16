@@ -200,11 +200,7 @@ impl AvatarState {
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Avatar {
     pub name: String,
-    pub birthday: u128,
     pub state: AvatarState,
-    pub farm: Option<V2<usize>>,
-    pub children: Vec<String>,
-    pub route: Option<Vec<V2<usize>>>,
 }
 
 #[allow(dead_code)]

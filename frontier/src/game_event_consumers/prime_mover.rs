@@ -14,7 +14,7 @@ use std::time::Duration;
 const HANDLE: &str = "prime_mover";
 
 pub struct PrimeMoverParams {
-    max_visible_avatars: usize,
+    max_visible_routes: usize,
     pause_at_start_of_journey: Option<Duration>,
     pause_at_end_of_journey: Option<Duration>,
     freeze_duration: Option<Duration>,
@@ -23,7 +23,7 @@ pub struct PrimeMoverParams {
 impl Default for PrimeMoverParams {
     fn default() -> PrimeMoverParams {
         PrimeMoverParams {
-            max_visible_avatars: 1024,
+            max_visible_routes: 1024,
             pause_at_start_of_journey: Some(Duration::from_secs(60 * 30)),
             pause_at_end_of_journey: Some(Duration::from_secs(60 * 30)),
             freeze_duration: Some(Duration::from_secs(60 * 60)),
@@ -33,7 +33,7 @@ impl Default for PrimeMoverParams {
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PrimeMoverState {
-    visible_avatars: HashSet<String>,
+    visible_routes: HashSet<String>,
     last_directions: HashMap<String, bool>,
     frozen_until: HashMap<String, u128>,
 }
@@ -61,55 +61,51 @@ impl PrimeMover {
 
     fn tick(&mut self, game_state: &GameState) {
         if self.active {
-            self.update_visible_avatars(game_state);
+            self.update_visible_routes(game_state);
             self.prune_frozen(game_state);
-            self.move_avatars(game_state);
+            self.show_routes(game_state);
         }
     }
 
-    fn move_avatars(&mut self, game_state: &GameState) {
+    fn show_routes(&mut self, game_state: &GameState) {
         let candidates = self.get_candidates(game_state);
         let required = self.get_required_count();
         let chosen = candidates.choose_multiple(&mut self.rng, required);
-        for avatar in chosen {
-            self.move_avatar(game_state, avatar);
+        for (name, route) in chosen {
+            self.show_route(game_state, name, route);
         }
     }
 
     fn get_required_count(&self) -> usize {
-        self.params.max_visible_avatars - self.state.visible_avatars.len()
+        self.params.max_visible_routes - self.state.visible_routes.len()
     }
 
-    fn get_candidates<'a>(&self, game_state: &'a GameState) -> Vec<&'a Avatar> {
-        let selected = game_state.selected_avatar().map(|avatar| &avatar.name);
+    fn get_candidates<'a>(
+        &self,
+        game_state: &'a GameState,
+    ) -> Vec<(&'a String, &'a Vec<V2<usize>>)> {
         game_state
-            .avatars
-            .values()
-            .filter(|avatar| avatar.state == AvatarState::Absent)
-            .filter(|avatar| Some(&avatar.name) != selected)
-            .filter(|avatar| !self.is_frozen(&avatar.name))
-            .filter(|avatar| some_and_non_empty(&avatar.route))
+            .routes
+            .iter()
+            .filter(|(name, _)| !is_visible(game_state, &name))
+            .filter(|(name, _)| !self.is_frozen(&name))
             .collect()
     }
 
-    fn move_avatar(&mut self, game_state: &GameState, avatar: &Avatar) {
+    fn show_route(&mut self, game_state: &GameState, name: &str, route: &[V2<usize>]) {
         let start_at = game_state.game_micros;
-        if let Some(route) = &avatar.route {
-            self.state.visible_avatars.insert(avatar.name.clone());
-            if self.next_direction(avatar.name.clone()) {
-                self.walk_positions(avatar.name.clone(), route.clone(), start_at);
-            } else {
-                self.walk_positions_reverse(avatar.name.clone(), route.clone(), start_at);
-            }
+        self.state.visible_routes.insert(name.to_string());
+        if self.next_direction(name.to_string()) {
+            self.walk_positions(name.to_string(), route.to_vec(), start_at);
+        } else {
+            self.walk_positions_reverse(name.to_string(), route.to_vec(), start_at);
         }
     }
 
-    fn next_direction(&mut self, avatar_name: String) -> bool {
+    fn next_direction(&mut self, name: String) -> bool {
         let last_directions = &mut self.state.last_directions;
         let rng = &mut self.rng;
-        let direction = last_directions
-            .entry(avatar_name)
-            .or_insert_with(|| rng.gen());
+        let direction = last_directions.entry(name).or_insert_with(|| rng.gen());
         *direction = !*direction;
         *direction
     }
@@ -118,11 +114,14 @@ impl PrimeMover {
         let pause_at_start = self.params.pause_at_start_of_journey;
         let pause_at_end = self.params.pause_at_end_of_journey;
         self.game_tx.update(move |game| {
-            game.mut_state().avatars.get_mut(&name).unwrap().state = AvatarState::Stationary {
-                position: positions[0],
-                rotation: Rotation::Up,
-            };
-            game.walk_positions(name, positions, start_at, pause_at_start, pause_at_end);
+            walk_positions(
+                game,
+                name,
+                positions,
+                start_at,
+                pause_at_start,
+                pause_at_end,
+            )
         });
     }
 
@@ -136,13 +135,13 @@ impl PrimeMover {
         self.walk_positions(name, positions, start_at);
     }
 
-    fn update_visible_avatars(&mut self, game_state: &GameState) {
+    fn update_visible_routes(&mut self, game_state: &GameState) {
         let (visible, mut invisible) = self
             .state
-            .visible_avatars
+            .visible_routes
             .drain()
             .partition(|name| is_visible(game_state, name));
-        self.state.visible_avatars = visible;
+        self.state.visible_routes = visible;
         if let Some(delay) = self.params.freeze_duration {
             let delay = delay.as_micros();
             invisible.drain().for_each(|name| {
@@ -153,8 +152,8 @@ impl PrimeMover {
         }
     }
 
-    fn is_frozen(&self, avatar_name: &str) -> bool {
-        self.state.frozen_until.contains_key(avatar_name)
+    fn is_frozen(&self, name: &str) -> bool {
+        self.state.frozen_until.contains_key(name)
     }
 
     fn prune_frozen(&mut self, game_state: &GameState) {
@@ -183,19 +182,35 @@ impl PrimeMover {
     }
 }
 
-fn is_visible(game_state: &GameState, avatar_name: &str) -> bool {
-    match game_state.avatars.get(avatar_name) {
-        Some(avatar) => avatar.state != AvatarState::Absent,
-        None => false,
-    }
+fn is_visible(game_state: &GameState, name: &str) -> bool {
+    game_state.avatars.get(name).is_some()
 }
 
-fn some_and_non_empty<T>(vector: &Option<Vec<T>>) -> bool {
-    if let Some(vector) = vector {
-        !vector.is_empty()
-    } else {
-        false
-    }
+fn walk_positions(
+    game: &mut Game,
+    name: String,
+    positions: Vec<V2<usize>>,
+    start_at: u128,
+    pause_at_start: Option<Duration>,
+    pause_at_end: Option<Duration>,
+) {
+    let first = match positions.first() {
+        Some(first) => first,
+        None => return,
+    };
+    add_avatar(game, name.clone(), *first);
+    game.walk_positions(name, positions, start_at, pause_at_start, pause_at_end);
+}
+
+fn add_avatar(game: &mut Game, name: String, position: V2<usize>) {
+    let avatar = Avatar {
+        name: name.clone(),
+        state: AvatarState::Stationary {
+            position,
+            rotation: Rotation::Up,
+        },
+    };
+    game.mut_state().avatars.insert(name, avatar);
 }
 
 impl GameEventConsumer for PrimeMover {

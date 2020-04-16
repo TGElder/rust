@@ -1,4 +1,5 @@
 use crate::avatar::*;
+use crate::citizen::*;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;

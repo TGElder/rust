@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::default::Default;
 
 const HANDLE: &str = "natural_town_sim";
-const AVATAR_BATCH_SIZE: usize = 128;
+const ROUTE_BATCH_SIZE: usize = 128;
 const CANDIDATE_BATCH_SIZE: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -68,25 +68,25 @@ impl NaturalTownSim {
 
     async fn compute_visitors(&mut self) -> HashMap<V2<usize>, usize> {
         let mut out = HashMap::new();
-        let avatars = self.get_avatars().await;
-        for batch in avatars.chunks(AVATAR_BATCH_SIZE) {
-            for (position, visitors) in self.compute_visitors_for_avatars(batch.to_vec()).await {
+        let routes = self.get_routes().await;
+        for batch in routes.chunks(ROUTE_BATCH_SIZE) {
+            for (position, visitors) in self.compute_visitors_for_routes(batch.to_vec()).await {
                 *out.entry(position).or_insert(0) += visitors;
             }
         }
         out
     }
 
-    async fn get_avatars(&mut self) -> Vec<String> {
-        self.game_tx.update(|game| get_avatars(game)).await
+    async fn get_routes(&mut self) -> Vec<String> {
+        self.game_tx.update(|game| get_routes(game)).await
     }
 
-    async fn compute_visitors_for_avatars(
+    async fn compute_visitors_for_routes(
         &mut self,
-        avatars: Vec<String>,
+        routes: Vec<String>,
     ) -> HashMap<V2<usize>, usize> {
         self.game_tx
-            .update(move |game| compute_visitors_for_avatars(game, avatars))
+            .update(move |game| compute_visitors_for_routes(game, routes))
             .await
     }
 
@@ -135,16 +135,15 @@ impl NaturalTownSim {
     }
 }
 
-fn get_avatars(game: &Game) -> Vec<String> {
-    game.game_state().avatars.keys().cloned().collect()
+fn get_routes(game: &Game) -> Vec<String> {
+    game.game_state().routes.keys().cloned().collect()
 }
 
-fn compute_visitors_for_avatars(game: &Game, avatars: Vec<String>) -> HashMap<V2<usize>, usize> {
+fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<usize>, usize> {
     let game_state = game.game_state();
-    avatars
+    routes
         .iter()
-        .flat_map(|avatar| game_state.avatars.get(avatar))
-        .flat_map(|avatar| &avatar.route)
+        .flat_map(|route| game_state.routes.get(route))
         .flat_map(|route| route.iter())
         .flat_map(|position| game_state.world.get_corners_behind_in_bounds(position))
         .filter(|tile| is_town_candidate(&game_state, &tile))

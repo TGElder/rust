@@ -73,9 +73,9 @@ impl FarmAssignerSim {
             .await
     }
 
-    async fn set_farm(&mut self, avatar: String, position: V2<usize>, rotated: bool) -> bool {
+    async fn set_farm(&mut self, citizen: String, position: V2<usize>, rotated: bool) -> bool {
         self.game_tx
-            .update(move |game| set_farm(game, avatar, position, rotated))
+            .update(move |game| set_farm(game, citizen, position, rotated))
             .await
     }
 
@@ -92,33 +92,29 @@ impl FarmAssignerSim {
 
 fn get_farmless(game: &mut Game) -> Vec<Farmless> {
     game.game_state()
-        .avatars
+        .citizens
         .values()
         .flat_map(as_farmless)
         .collect()
 }
 
-fn as_farmless(avatar: &Avatar) -> Option<Farmless> {
-    if avatar.farm.is_some() {
+fn as_farmless(citizen: &Citizen) -> Option<Farmless> {
+    if citizen.farm.is_some() {
         return None;
     }
-    let position = match avatar.state {
-        AvatarState::Stationary { position, .. } => position,
-        _ => return None,
-    };
     Some(Farmless {
-        name: avatar.name.clone(),
-        position,
+        name: citizen.name.clone(),
+        position: citizen.birthplace,
     })
 }
 
-fn set_farm(game: &mut Game, avatar: String, farm: V2<usize>, rotated: bool) -> bool {
-    if !game.game_state().avatars.contains_key(&avatar) {
+fn set_farm(game: &mut Game, citizen: String, farm: V2<usize>, rotated: bool) -> bool {
+    if !game.game_state().citizens.contains_key(&citizen) {
         return false;
     }
     if game.update_object(WorldObject::Farm { rotated }, farm, true) {
-        let avatar = game.mut_state().avatars.get_mut(&avatar).unwrap();
-        avatar.farm = Some(farm);
+        let citizen = game.mut_state().citizens.get_mut(&citizen).unwrap();
+        citizen.farm = Some(farm);
         true
     } else {
         false

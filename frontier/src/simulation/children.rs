@@ -39,7 +39,7 @@ impl Default for ChildrenParams {
 
 struct Child {
     birthday: u128,
-    position: V2<usize>,
+    birthplace: V2<usize>,
 }
 
 struct Parent {
@@ -89,9 +89,9 @@ impl ChildrenSim {
         self.game_tx
             .update(|game| {
                 game.game_state()
-                    .avatars
+                    .citizens
                     .values()
-                    .flat_map(|avatar| as_parent(avatar))
+                    .flat_map(|citizen| as_parent(citizen))
                     .collect()
             })
             .await
@@ -102,7 +102,7 @@ impl ChildrenSim {
             Some(child) => child,
             _ => return,
         };
-        let farm = match self.get_farm(child.position).await {
+        let farm = match self.get_farm(child.birthplace).await {
             Some(farm) => farm,
             _ => return,
         };
@@ -117,7 +117,7 @@ impl ChildrenSim {
         }
         let child = Child {
             birthday: *year,
-            position: parent.farm,
+            birthplace: parent.farm,
         };
         Some(child)
     }
@@ -168,21 +168,19 @@ fn add_child(game: &mut Game, child: Child, farm: V2<usize>, rotate_farm: bool) 
         return false;
     }
     let game_state = game.mut_state();
-    let avatar = Avatar {
-        name: game_state.avatars.len().to_string(),
+    let citizen = Citizen {
+        name: game_state.citizens.len().to_string(),
         birthday: child.birthday,
-        state: AvatarState::Absent,
+        birthplace: child.birthplace,
         farm: Some(farm),
-        children: vec![],
-        route: None,
     };
-    game_state.avatars.insert(avatar.name.clone(), avatar);
+    game_state.citizens.insert(citizen.name.clone(), citizen);
     true
 }
 
-fn as_parent(avatar: &Avatar) -> Option<Parent> {
-    avatar.farm.map(|farm| Parent {
-        birthday: avatar.birthday,
+fn as_parent(citizen: &Citizen) -> Option<Parent> {
+    citizen.farm.map(|farm| Parent {
+        birthday: citizen.birthday,
         farm,
     })
 }

@@ -149,7 +149,7 @@ impl Game {
         self.update_game_micros();
         let to = self.game_state.game_micros;
         self.process_visited_cells(&from, &to);
-        self.evolve_avatars();
+        self.update_avatars();
     }
 
     fn consume_event(&mut self, event: GameEvent) {
@@ -207,27 +207,21 @@ impl Game {
         self.visit_cells(visited_cells);
     }
 
+    fn update_avatars(&mut self) {
+        self.evolve_avatars();
+        self.prune_avatars();
+    }
+
     fn evolve_avatars(&mut self) {
         let game_micros = &self.game_state.game_micros;
-        let selected_avatar_name = self
-            .game_state
-            .selected_avatar()
-            .map(|avatar| avatar.name.to_string());
-        self.game_state.avatars.values_mut().for_each(
-            |Avatar {
-                 state, ref name, ..
-             }| {
+        self.game_state
+            .avatars
+            .values_mut()
+            .for_each(|Avatar { state, .. }| {
                 if let Some(new_state) = Self::evolve_avatar(game_micros, state) {
-                    if let AvatarState::Stationary { .. } = new_state {
-                        if Some(name) != selected_avatar_name.as_ref() {
-                            *state = AvatarState::Absent;
-                            return;
-                        }
-                    }
                     *state = new_state;
                 }
-            },
-        )
+            });
     }
 
     fn evolve_avatar(game_micros: &u128, state: &AvatarState) -> Option<AvatarState> {
@@ -236,6 +230,21 @@ impl Game {
         } else {
             None
         }
+    }
+
+    fn prune_avatars(&mut self) {
+        let selected_avatar_name = self
+            .game_state
+            .selected_avatar()
+            .map(|avatar| avatar.name.to_string());
+        self.game_state.avatars.retain(|_, avatar| match avatar {
+            Avatar {
+                state: AvatarState::Stationary { .. },
+                ref name,
+                ..
+            } if Some(name) != selected_avatar_name.as_ref() => false,
+            _ => true,
+        });
     }
 
     pub fn visit_all_cells(&mut self) {

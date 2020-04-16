@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::avatar::*;
+use crate::citizen::*;
 use crate::territory::*;
 use crate::world::*;
 
@@ -14,9 +15,11 @@ pub struct GameState {
     pub world: World,
     pub game_micros: u128,
     pub params: GameParams,
+    pub citizens: HashMap<String, Citizen>,
     pub avatars: HashMap<String, Avatar>,
     pub selected_avatar: Option<String>,
     pub follow_avatar: bool,
+    pub routes: HashMap<String, Vec<V2<usize>>>,
     pub territory: Territory,
     pub speed: f32,
 }
@@ -53,29 +56,38 @@ mod tests {
             0.5,
         );
         let mut avatars = HashMap::new();
-        let name = "avatar";
         avatars.insert(
-            name.to_string(),
+            "avatar".to_string(),
             Avatar {
-                name: name.to_string(),
-                birthday: 1234,
+                name: "avatar".to_string(),
                 state: AvatarState::Stationary {
                     position: v2(1, 1),
                     rotation: Rotation::Down,
                 },
-                farm: Some(v2(9, 9)),
-                children: vec!["Franklin".to_string()],
-                route: Some(vec![v2(1, 0), v2(2, 0)]),
             },
         );
+        let mut citizens = HashMap::new();
+        citizens.insert(
+            "citizen".to_string(),
+            Citizen {
+                name: "citizen".to_string(),
+                birthday: 1234,
+                birthplace: v2(8, 4),
+                farm: Some(v2(9, 9)),
+            },
+        );
+        let mut routes = HashMap::new();
+        routes.insert("route".to_string(), vec![v2(1, 0), v2(2, 0)]);
         let game_state = GameState {
             territory: Territory::new(&world),
             world,
             game_micros: 123,
             params: GameParams::new(1986),
             avatars,
-            selected_avatar: Some(name.to_string()),
+            citizens,
+            selected_avatar: Some("avatar".to_string()),
             follow_avatar: false,
+            routes,
             speed: 1.0,
         };
         game_state.to_file("test_save");
