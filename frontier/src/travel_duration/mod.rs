@@ -42,7 +42,7 @@ pub trait TravelDuration: Send + Sync {
             (0.0, 255.0),
             (0 as f32, self.max_duration().as_millis() as f32),
         );
-        Duration::from_millis(scale.scale(cost as f32) as u64)
+        Duration::from_millis(scale.scale(cost as f32).round() as u64)
     }
 }
 
@@ -129,6 +129,18 @@ mod tests {
         assert_eq!(
             test_duration.get_duration_from_cost(255 * 3),
             Duration::from_millis(12)
+        );
+    }
+
+    #[test]
+    fn test_get_duration_from_cost_rounds() {
+        let test_duration = TestDuration {
+            millis: 1,
+            max_millis: 4,
+        };
+        assert_eq!(
+            test_duration.get_duration_from_cost(384),
+            Duration::from_millis(6)
         );
     }
 

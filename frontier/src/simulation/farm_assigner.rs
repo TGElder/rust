@@ -68,7 +68,7 @@ impl FarmAssignerSim {
                 let mut candidates = service
                     .pathfinder()
                     .closest_targets(&[position], FARM_CANDIDATE_TARGETS);
-                candidates.pop()
+                candidates.pop().map(|result| result.position)
             })
             .await
     }

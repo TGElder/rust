@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
+use std::iter::once;
 #[cfg(test)]
 #[macro_use]
 extern crate hamcrest;
@@ -93,6 +94,13 @@ impl Edge {
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub struct NodeWithinResult {
     pub index: usize,
+    pub cost: u128,
+}
+
+#[derive(Eq, PartialEq, Debug, Clone)]
+pub struct ClosestTargetResult {
+    pub node: usize,
+    pub path: Vec<usize>,
     pub cost: u128,
 }
 
@@ -243,21 +251,6 @@ impl Network {
             }
         }
 
-        fn get_path(from: &[usize], to: usize, edges: &[Option<Edge>]) -> Vec<Edge> {
-            let mut out = vec![];
-            let mut current = to;
-            while !from.contains(&current) {
-                if let Some(Some(edge)) = edges.get(current) {
-                    current = edge.from;
-                    out.push(edge.clone());
-                } else {
-                    panic!("When building path after pathfinding, did not have an edge from {}. This is never expected to happen.", current);
-                }
-            }
-            out.reverse();
-            out
-        }
-
         let mut to_vector = vec![false; self.nodes];
         to.iter().for_each(|to| to_vector[*to] = true);
         let mut closed = vec![false; self.nodes];
@@ -341,26 +334,61 @@ impl Network {
         out
     }
 
-    pub fn closest_targets(&self, start_nodes: &[usize], targets: &[bool]) -> Vec<usize> {
+    pub fn closest_targets(
+        &self,
+        start_nodes: &[usize],
+        targets: &[bool],
+    ) -> Vec<ClosestTargetResult> {
+        #[derive(Eq)]
+        struct Node {
+            index: usize,
+            cost: u128,
+            entry: Option<Edge>,
+        }
+
+        impl Node {
+            fn new(index: usize, cost: u128, entry: Option<Edge>) -> Node {
+                Node { index, cost, entry }
+            }
+        }
+
+        impl Ord for Node {
+            fn cmp(&self, other: &Node) -> Ordering {
+                self.cost.cmp(&other.cost).reverse()
+            }
+        }
+
+        impl PartialOrd for Node {
+            fn partial_cmp(&self, other: &Node) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        impl PartialEq for Node {
+            fn eq(&self, other: &Node) -> bool {
+                self.cost == other.cost
+            }
+        }
+
         if targets.len() != self.nodes {
             panic!("Length of target slice must equal size of network");
         }
 
         let mut closed = vec![false; self.nodes];
+        let mut edges = vec![None; self.nodes];
         let mut heap = BinaryHeap::new();
         let mut out = vec![];
         let mut closest_cost = None;
+
         for node in start_nodes {
-            heap.push(Node {
-                index: *node,
-                cost: 0,
-            });
+            heap.push(Node::new(*node, 0, None))
         }
 
-        while let Some(Node { index, cost }) = heap.pop() {
+        while let Some(Node { index, cost, entry }) = heap.pop() {
             if closed[index] {
                 continue;
             }
+            edges[index] = entry;
             if targets[index] {
                 if let Some(closest_cost) = closest_cost {
                     if closest_cost < cost {
@@ -369,7 +397,15 @@ impl Network {
                 } else {
                     closest_cost = Some(cost);
                 }
-                out.push(index);
+                out.push(ClosestTargetResult {
+                    node: index,
+                    cost,
+                    path: get_path(start_nodes, index, &edges)
+                        .drain(..)
+                        .map(|edge| edge.from)
+                        .chain(once(index))
+                        .collect(),
+                });
             }
             closed[index] = true;
             for edge in self.get_out(index) {
@@ -380,6 +416,7 @@ impl Network {
                 heap.push(Node {
                     index: neighbour,
                     cost: cost + u128::from(edge.cost),
+                    entry: Some(*edge),
                 });
             }
         }
@@ -387,9 +424,28 @@ impl Network {
         out
     }
 
-    pub fn closest_loaded_targets(&self, start_nodes: &[usize], targets: &str) -> Vec<usize> {
+    pub fn closest_loaded_targets(
+        &self,
+        start_nodes: &[usize],
+        targets: &str,
+    ) -> Vec<ClosestTargetResult> {
         self.closest_targets(start_nodes, &self.targets[targets])
     }
+}
+
+fn get_path(from: &[usize], to: usize, edges: &[Option<Edge>]) -> Vec<Edge> {
+    let mut out = vec![];
+    let mut current = to;
+    while !from.contains(&current) {
+        if let Some(Some(edge)) = edges.get(current) {
+            current = edge.from;
+            out.push(edge.clone());
+        } else {
+            panic!("When building path after pathfinding, did not have an edge from {}. This is never expected to happen.", current);
+        }
+    }
+    out.reverse();
+    out
 }
 
 #[cfg(test)]
@@ -849,7 +905,11 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
         let network = Network::new(3, &edges);
         let actual = network.closest_targets(&[0], &[false, true, true]);
-        let expected = vec![1];
+        let expected = vec![ClosestTargetResult {
+            node: 1,
+            path: vec![0, 1],
+            cost: 1,
+        }];
         assert_that!(&actual, contains(expected).exactly());
     }
 
@@ -858,7 +918,18 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 1)];
         let network = Network::new(3, &edges);
         let actual = network.closest_targets(&[0], &[false, true, true]);
-        let expected = vec![1, 2];
+        let expected = vec![
+            ClosestTargetResult {
+                node: 1,
+                path: vec![0, 1],
+                cost: 1,
+            },
+            ClosestTargetResult {
+                node: 2,
+                path: vec![0, 2],
+                cost: 1,
+            },
+        ];
         assert_that!(&actual, contains(expected).exactly());
     }
 
@@ -867,7 +938,11 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 3), Edge::new(0, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
         let actual = network.closest_targets(&[0], &[false, true, false, true]);
-        let expected = vec![3];
+        let expected = vec![ClosestTargetResult {
+            node: 3,
+            path: vec![0, 2, 3],
+            cost: 2,
+        }];
         assert_that!(&actual, contains(expected).exactly());
     }
 
@@ -876,7 +951,11 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
         let network = Network::new(3, &edges);
         let actual = network.closest_targets(&[0], &[true, true, true]);
-        let expected = vec![0];
+        let expected = vec![ClosestTargetResult {
+            node: 0,
+            path: vec![0],
+            cost: 0,
+        }];
         assert_that!(&actual, contains(expected).exactly());
     }
 
@@ -885,7 +964,19 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
         let actual = network.closest_targets(&[0, 2], &[false, true, false, true]);
-        let expected = vec![1, 3];
+        let expected = vec![
+            ClosestTargetResult {
+                node: 1,
+                path: vec![0, 1],
+                cost: 1,
+            },
+            ClosestTargetResult {
+                node: 3,
+                path: vec![2, 3],
+                cost: 1,
+            },
+        ];
+
         assert_that!(&actual, contains(expected).exactly());
     }
 
@@ -905,7 +996,11 @@ mod tests {
         network.load_target("targets", 1, true);
         network.load_target("targets", 2, true);
         let actual = network.closest_loaded_targets(&[0], "targets");
-        let expected = vec![1];
+        let expected = vec![ClosestTargetResult {
+            node: 1,
+            path: vec![0, 1],
+            cost: 1,
+        }];
         assert_that!(&actual, contains(expected).exactly());
     }
 
