@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::default::Default;
 
 const HANDLE: &str = "route_sim";
-const JOURNEY_PREFIX: &str = "journey_";
-const COMMUTE_PREFIX: &str = "commute_";
+const JOURNEY_PREFIX: &str = "journey-";
+const COMMUTE_PREFIX: &str = "commute-";
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RouteSimParams {
@@ -141,7 +141,13 @@ impl RouteSim {
 }
 
 fn clear_routes(game: &mut Game) {
-    game.mut_state().routes.clear();
+    game.mut_state()
+        .routes
+        .retain(|route_name, _| !created_here(route_name));
+}
+
+fn created_here(route_name: &str) -> bool {
+    route_name.starts_with(COMMUTE_PREFIX) || !route_name.starts_with(JOURNEY_PREFIX)
 }
 
 fn get_citizens(game: &mut Game) -> Vec<RouteCitizen> {

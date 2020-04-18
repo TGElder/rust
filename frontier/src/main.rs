@@ -111,6 +111,9 @@ fn main() {
     game.add_consumer(FarmCandidateHandler::new(
         avatar_pathfinder_service.update_tx(),
     ));
+    game.add_consumer(ResourceRouteTargets::new(
+        avatar_pathfinder_service.update_tx(),
+    ));
     game.add_consumer(SimulationManager::new(sim.update_tx()));
     game.add_consumer(ShutdownHandler::new(
         avatar_pathfinder_service.update_tx(),
@@ -208,6 +211,7 @@ fn create_simulation(
     let farm_assigner_sim = FarmAssignerSim::new(game_tx, pathfinder_tx, seed);
     let children_sim = ChildrenSim::new(params.sim.children, seed, game_tx, pathfinder_tx);
     let route_sim = RouteSim::new(params.sim.route, seed, game_tx, pathfinder_tx);
+    let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
     let natural_town_sim = NaturalTownSim::new(
         params.sim.natural_town,
         house_color,
@@ -228,6 +232,7 @@ fn create_simulation(
             Box::new(farm_assigner_sim),
             Box::new(children_sim),
             Box::new(route_sim),
+            Box::new(resource_routes_sim),
             Box::new(natural_town_sim),
             Box::new(natural_road_sim),
         ],

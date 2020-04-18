@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub enum Resource {
     None,
     Gems,
+    Oranges,
 }
 
 impl Resource {
@@ -11,6 +12,7 @@ impl Resource {
         match self {
             Resource::None => "none",
             Resource::Gems => "gems",
+            Resource::Oranges => "oranges",
         }
     }
 }

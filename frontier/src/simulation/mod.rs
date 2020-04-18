@@ -8,7 +8,7 @@ use crate::world::*;
 use commons::edge::*;
 use commons::futures::executor::block_on;
 use commons::update::*;
-use commons::V2;
+use commons::{v2, V2};
 use isometric::Event;
 use isometric::{Button, ElementState, VirtualKeyCode};
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,7 @@ mod farm_unassigner;
 mod natural_road;
 mod natural_town;
 mod params;
+mod resource_routes;
 mod route;
 mod territory;
 
@@ -33,6 +34,7 @@ pub use farm_unassigner::*;
 pub use natural_road::*;
 pub use natural_town::*;
 pub use params::*;
+pub use resource_routes::*;
 pub use route::*;
 pub use territory::*;
 
