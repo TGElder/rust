@@ -142,7 +142,10 @@ fn main() {
 
 fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) {
     let mut rng = rng(seed);
-    let params = GameParams::new(seed);
+    let params = GameParams {
+        seed,
+        ..GameParams::default()
+    };
     let mut world = generate_world(size, &mut rng, &params.world_gen);
     if reveal_all {
         world.reveal_all();
@@ -167,6 +170,7 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
             class: SettlementClass::OldWorld,
             position: shore_start.origin(),
             color: params.house_color,
+            population: params.old_world_population,
         },
     );
     let game_state = GameState {
@@ -232,6 +236,7 @@ fn create_simulation(
         game_tx,
         territory_sim.clone(),
     );
+    let population_sim = PopulationSim::new(game_tx);
     let natural_road_sim = NaturalRoadSim::new(
         params.sim.natural_road,
         AutoRoadTravelDuration::from_params(&params.auto_road_travel),
@@ -248,6 +253,7 @@ fn create_simulation(
             Box::new(route_sim),
             Box::new(resource_routes_sim),
             Box::new(natural_town_sim),
+            Box::new(population_sim),
             Box::new(natural_road_sim),
         ],
     )

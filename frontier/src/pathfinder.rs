@@ -38,6 +38,10 @@ where
         out
     }
 
+    pub fn in_bounds(&self, position: &V2<usize>) -> bool {
+        self.index.get_index(position).is_ok()
+    }
+
     fn get_network_index(&self, position: &V2<usize>) -> usize {
         self.index.get_index(position).unwrap()
     }
@@ -287,6 +291,16 @@ mod tests {
 
     fn pathfinder() -> Pathfinder<TestTravelDuration> {
         Pathfinder::new(&world(), travel_duration())
+    }
+
+    #[test]
+    fn test_in_bounds() {
+        assert!(pathfinder().in_bounds(&v2(1, 1)));
+    }
+
+    #[test]
+    fn test_out_of_bounds() {
+        assert!(!pathfinder().in_bounds(&v2(3, 1)));
     }
 
     #[test]

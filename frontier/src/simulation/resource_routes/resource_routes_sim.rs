@@ -103,8 +103,12 @@ fn get_path_to_resource(
     settlement: V2<usize>,
     target_set: String,
 ) -> Option<Vec<V2<usize>>> {
+    let corners: Vec<V2<usize>> = get_corners(&settlement)
+        .drain(..)
+        .filter(|corner| pathfinder.in_bounds(corner))
+        .collect();
     pathfinder
-        .closest_targets(&get_corners(&settlement), &target_set, 1)
+        .closest_targets(&corners, &target_set, 1)
         .pop()
         .map(|result| result.path)
 }

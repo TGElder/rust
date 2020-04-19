@@ -7,9 +7,10 @@ pub struct Settlement {
     pub class: SettlementClass,
     pub position: V2<usize>,
     pub color: Color,
+    pub population: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub enum SettlementClass {
     Town,
     OldWorld,

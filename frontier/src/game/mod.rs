@@ -367,6 +367,13 @@ impl Game {
         true
     }
 
+    pub fn update_settlement(&mut self, settlement: Settlement) {
+        self.game_state
+            .settlements
+            .insert(settlement.position, settlement.clone());
+        self.consume_event(GameEvent::SettlementUpdated(settlement));
+    }
+
     pub fn remove_settlement(&mut self, position: V2<usize>) -> bool {
         let settlement = match self.game_state.settlements.remove(&position) {
             Some(settlement) => settlement,

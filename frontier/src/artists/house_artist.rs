@@ -32,6 +32,7 @@ impl HouseArtist {
         world: &World,
         position: &V2<usize>,
         base_color: Color,
+        height: f32,
     ) -> Vec<Command> {
         let world_coord = world.snap_to_middle(WorldCoord::new(
             position.x as f32,
@@ -46,6 +47,7 @@ impl HouseArtist {
                 &DrawHouseParams {
                     basement_z,
                     base_color,
+                    height,
                     ..self.params
                 },
             );

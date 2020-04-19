@@ -86,6 +86,7 @@ mod tests {
                 class: SettlementClass::Town,
                 position: v2(3, 2),
                 color: Color::new(1.0, 0.0, 0.0, 1.0),
+                population: 71,
             },
         );
         let mut routes = HashMap::new();
@@ -94,7 +95,7 @@ mod tests {
             territory: Territory::new(&world),
             world,
             game_micros: 123,
-            params: GameParams::new(1986),
+            params: GameParams::default(),
             avatars,
             settlements,
             citizens,

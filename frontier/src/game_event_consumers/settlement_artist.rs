@@ -39,11 +39,15 @@ impl SettlementArtist {
             class: SettlementClass::Town,
             position,
             color,
+            population,
         } = settlement
         {
-            let commands = state
-                .house_artist
-                .draw_house_at(&game_state.world, position, *color);
+            let commands = state.house_artist.draw_house_at(
+                &game_state.world,
+                position,
+                *color,
+                house_height(*population),
+            );
             self.command_tx.send(commands).unwrap();
         }
     }
@@ -78,6 +82,10 @@ impl SettlementArtist {
         });
         self.draw_all(game_state);
     }
+}
+
+fn house_height(population: usize) -> f32 {
+    0.5 + (population as f32 / 100.0)
 }
 
 impl GameEventConsumer for SettlementArtist {

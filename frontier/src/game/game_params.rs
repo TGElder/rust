@@ -8,6 +8,7 @@ use commons::*;
 use isometric::Color;
 
 use serde::{Deserialize, Serialize};
+use std::default::Default;
 use std::time::Duration;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -27,12 +28,13 @@ pub struct GameParams {
     pub sim: SimParams,
     pub house_color: Color,
     pub log_duration_threshold: Option<Duration>,
+    pub old_world_population: usize,
 }
 
-impl GameParams {
-    pub fn new(seed: u64) -> GameParams {
+impl Default for GameParams {
+    fn default() -> GameParams {
         GameParams {
-            seed,
+            seed: 0,
             world_gen: WorldGenParameters::default(),
             world_coloring: WorldColoringParameters::default(),
             avatar_travel: AvatarTravelParams::default(),
@@ -47,6 +49,7 @@ impl GameParams {
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
             log_duration_threshold: None,
+            old_world_population: 100,
         }
     }
 }
