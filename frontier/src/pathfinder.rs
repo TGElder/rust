@@ -212,10 +212,11 @@ where
         &self,
         positions: &[V2<usize>],
         targets: &str,
+        n_closest: usize,
     ) -> Vec<ClosestTargetResult> {
         let indices = self.get_network_indices(positions);
         self.network
-            .closest_loaded_targets(&indices, targets)
+            .closest_loaded_targets(&indices, targets, n_closest)
             .drain(..)
             .map(|result| self.as_closest_target_result(result))
             .collect()
@@ -620,7 +621,7 @@ mod tests {
         pathfinder.load_target("targets", &v2(0, 2), true);
         pathfinder.load_target("targets", &v2(1, 2), true);
         pathfinder.load_target("targets", &v2(2, 2), true);
-        let actual = pathfinder.closest_targets(&[v2(1, 0)], "targets");
+        let actual = pathfinder.closest_targets(&[v2(1, 0)], "targets", 1);
         let expected = vec![ClosestTargetResult {
             position: v2(1, 2),
             path: vec![v2(1, 0), v2(1, 1), v2(1, 2)],

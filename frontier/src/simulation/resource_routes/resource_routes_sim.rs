@@ -100,7 +100,7 @@ fn get_path_to_resource(
     target_set: String,
 ) -> Option<Vec<V2<usize>>> {
     pathfinder
-        .closest_targets(&get_corners(&town), &target_set)
+        .closest_targets(&get_corners(&town), &target_set, 1)
         .pop()
         .map(|result| result.path)
 }

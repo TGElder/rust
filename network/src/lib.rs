@@ -338,6 +338,7 @@ impl Network {
         &self,
         start_nodes: &[usize],
         targets: &[bool],
+        n_closest: usize,
     ) -> Vec<ClosestTargetResult> {
         #[derive(Eq)]
         struct Node {
@@ -378,7 +379,7 @@ impl Network {
         let mut edges = vec![None; self.nodes];
         let mut heap = BinaryHeap::new();
         let mut out = vec![];
-        let mut closest_cost = None;
+        let mut last_cost = None;
 
         for node in start_nodes {
             heap.push(Node::new(*node, 0, None))
@@ -390,13 +391,12 @@ impl Network {
             }
             edges[index] = entry;
             if targets[index] {
-                if let Some(closest_cost) = closest_cost {
-                    if closest_cost < cost {
+                if let Some(last_cost) = last_cost {
+                    if out.len() >= n_closest && last_cost < cost {
                         return out;
                     }
-                } else {
-                    closest_cost = Some(cost);
                 }
+                last_cost = Some(cost);
                 out.push(ClosestTargetResult {
                     node: index,
                     cost,
@@ -428,8 +428,9 @@ impl Network {
         &self,
         start_nodes: &[usize],
         targets: &str,
+        n_closest: usize,
     ) -> Vec<ClosestTargetResult> {
-        self.closest_targets(start_nodes, &self.targets[targets])
+        self.closest_targets(start_nodes, &self.targets[targets], n_closest)
     }
 }
 
@@ -896,15 +897,15 @@ mod tests {
     fn test_closest_targets_no_closest_targets() {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 1)];
         let network = Network::new(4, &edges);
-        let actual = network.closest_targets(&[0], &[false, false, false, true]);
+        let actual = network.closest_targets(&[0], &[false, false, false, true], 1);
         assert!(actual.is_empty());
     }
 
     #[test]
-    fn test_closest_targets_single_closest_target() {
+    fn test_closest_targets_with_tie() {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
         let network = Network::new(3, &edges);
-        let actual = network.closest_targets(&[0], &[false, true, true]);
+        let actual = network.closest_targets(&[0], &[false, true, true], 1);
         let expected = vec![ClosestTargetResult {
             node: 1,
             path: vec![0, 1],
@@ -917,7 +918,7 @@ mod tests {
     fn test_closest_targets_multiple_closest_targets() {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 1)];
         let network = Network::new(3, &edges);
-        let actual = network.closest_targets(&[0], &[false, true, true]);
+        let actual = network.closest_targets(&[0], &[false, true, true], 1);
         let expected = vec![
             ClosestTargetResult {
                 node: 1,
@@ -937,7 +938,7 @@ mod tests {
     fn test_closest_targets_closest_target_more_edges() {
         let edges = vec![Edge::new(0, 1, 3), Edge::new(0, 2, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
-        let actual = network.closest_targets(&[0], &[false, true, false, true]);
+        let actual = network.closest_targets(&[0], &[false, true, false, true], 1);
         let expected = vec![ClosestTargetResult {
             node: 3,
             path: vec![0, 2, 3],
@@ -950,7 +951,7 @@ mod tests {
     fn test_closest_targets_start_node_is_target() {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
         let network = Network::new(3, &edges);
-        let actual = network.closest_targets(&[0], &[true, true, true]);
+        let actual = network.closest_targets(&[0], &[true, true, true], 1);
         let expected = vec![ClosestTargetResult {
             node: 0,
             path: vec![0],
@@ -963,7 +964,7 @@ mod tests {
     fn test_closest_targets_multiple_start_nodes() {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(2, 3, 1)];
         let network = Network::new(4, &edges);
-        let actual = network.closest_targets(&[0, 2], &[false, true, false, true]);
+        let actual = network.closest_targets(&[0, 2], &[false, true, false, true], 1);
         let expected = vec![
             ClosestTargetResult {
                 node: 1,
@@ -981,11 +982,71 @@ mod tests {
     }
 
     #[test]
+    fn test_multiple_closest_targets() {
+        let edges = vec![
+            Edge::new(0, 1, 1),
+            Edge::new(1, 2, 1),
+            Edge::new(0, 3, 2),
+            Edge::new(3, 4, 2),
+        ];
+        let network = Network::new(5, &edges);
+        let actual = network.closest_targets(&[0], &[false, true, true, true, true], 3);
+        let expected = vec![
+            ClosestTargetResult {
+                node: 1,
+                path: vec![0, 1],
+                cost: 1,
+            },
+            ClosestTargetResult {
+                node: 2,
+                path: vec![0, 1, 2],
+                cost: 2,
+            },
+            ClosestTargetResult {
+                node: 3,
+                path: vec![0, 3],
+                cost: 2,
+            },
+        ];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    fn test_multiple_closest_targets_with_tie() {
+        let edges = vec![
+            Edge::new(0, 1, 1),
+            Edge::new(1, 2, 1),
+            Edge::new(0, 3, 2),
+            Edge::new(3, 4, 2),
+        ];
+        let network = Network::new(5, &edges);
+        let actual = network.closest_targets(&[0], &[false, true, true, true, true], 2);
+        let expected = vec![
+            ClosestTargetResult {
+                node: 1,
+                path: vec![0, 1],
+                cost: 1,
+            },
+            ClosestTargetResult {
+                node: 2,
+                path: vec![0, 1, 2],
+                cost: 2,
+            },
+            ClosestTargetResult {
+                node: 3,
+                path: vec![0, 3],
+                cost: 2,
+            },
+        ];
+        assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
     #[should_panic]
     fn test_closest_targets_wrong_number_of_targets() {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 1)];
         let network = Network::new(3, &edges);
-        network.closest_targets(&[0, 2], &[false, true, false, true]);
+        network.closest_targets(&[0, 2], &[false, true, false, true], 1);
     }
 
     #[test]
@@ -995,7 +1056,7 @@ mod tests {
         network.init_targets(String::from("targets"));
         network.load_target("targets", 1, true);
         network.load_target("targets", 2, true);
-        let actual = network.closest_loaded_targets(&[0], "targets");
+        let actual = network.closest_loaded_targets(&[0], "targets", 1);
         let expected = vec![ClosestTargetResult {
             node: 1,
             path: vec![0, 1],
@@ -1009,6 +1070,6 @@ mod tests {
     fn test_closest_loaded_targets_unknown_name() {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
         let network = Network::new(3, &edges);
-        network.closest_loaded_targets(&[0], "targets");
+        network.closest_loaded_targets(&[0], "targets", 1);
     }
 }

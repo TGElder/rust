@@ -131,9 +131,10 @@ impl ChildrenSim {
     async fn get_farm(&mut self, position: V2<usize>) -> Option<V2<usize>> {
         self.pathfinder_tx
             .update(move |service| {
-                let mut candidates = service
-                    .pathfinder()
-                    .closest_targets(&[position], FARM_CANDIDATE_TARGETS);
+                let mut candidates =
+                    service
+                        .pathfinder()
+                        .closest_targets(&[position], FARM_CANDIDATE_TARGETS, 1);
                 candidates.pop().map(|result| result.position)
             })
             .await
