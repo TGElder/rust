@@ -2,33 +2,28 @@ use super::*;
 use commons::rand::prelude::*;
 use commons::rand::rngs::SmallRng;
 use isometric::coords::*;
-use isometric::Color;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
 const HANDLE: &str = "object_builder_handler";
 
 pub struct ObjectBuilder {
     game_tx: UpdateSender<Game>,
-    house_color: Color,
     rng: SmallRng,
     bindings: ObjectBuilderBindings,
     world_coord: Option<WorldCoord>,
 }
 
 struct ObjectBuilderBindings {
-    build_house: Button,
     build_farm: Button,
     demolish: Button,
 }
 
 impl ObjectBuilder {
-    pub fn new(seed: u64, house_color: Color, game_tx: &UpdateSender<Game>) -> ObjectBuilder {
+    pub fn new(seed: u64, game_tx: &UpdateSender<Game>) -> ObjectBuilder {
         ObjectBuilder {
             game_tx: game_tx.clone_with_handle(HANDLE),
-            house_color,
             rng: SeedableRng::seed_from_u64(seed),
             bindings: ObjectBuilderBindings {
-                build_house: Button::Key(VirtualKeyCode::H),
                 build_farm: Button::Key(VirtualKeyCode::F),
                 demolish: Button::Key(VirtualKeyCode::U),
             },
@@ -79,9 +74,7 @@ impl GameEventConsumer for ObjectBuilder {
             ..
         } = *event
         {
-            if button == &self.bindings.build_house {
-                self.build_object_at_cursor(WorldObject::House(self.house_color));
-            } else if button == &self.bindings.build_farm {
+            if button == &self.bindings.build_farm {
                 let rotated = self.rng.gen();
                 self.build_object_at_cursor(WorldObject::Farm { rotated });
             } else if button == &self.bindings.demolish {

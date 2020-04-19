@@ -2,6 +2,7 @@ use super::*;
 
 use crate::avatar::*;
 use crate::citizen::*;
+use crate::settlement::*;
 use crate::territory::*;
 use crate::world::*;
 
@@ -17,6 +18,7 @@ pub struct GameState {
     pub params: GameParams,
     pub citizens: HashMap<String, Citizen>,
     pub avatars: HashMap<String, Avatar>,
+    pub settlements: HashMap<V2<usize>, Settlement>,
     pub selected_avatar: Option<String>,
     pub follow_avatar: bool,
     pub routes: HashMap<String, Vec<V2<usize>>>,
@@ -48,6 +50,7 @@ mod tests {
 
     use super::*;
     use commons::*;
+    use isometric::Color;
 
     #[test]
     fn save_load_round_trip() {
@@ -76,6 +79,15 @@ mod tests {
                 farm: Some(v2(9, 9)),
             },
         );
+        let mut settlements = HashMap::new();
+        settlements.insert(
+            v2(3, 2),
+            Settlement {
+                class: SettlementClass::Town,
+                position: v2(3, 2),
+                color: Color::new(1.0, 0.0, 0.0, 1.0),
+            },
+        );
         let mut routes = HashMap::new();
         routes.insert("route".to_string(), vec![v2(1, 0), v2(2, 0)]);
         let game_state = GameState {
@@ -84,6 +96,7 @@ mod tests {
             game_micros: 123,
             params: GameParams::new(1986),
             avatars,
+            settlements,
             citizens,
             selected_avatar: Some("avatar".to_string()),
             follow_avatar: false,

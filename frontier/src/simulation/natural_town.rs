@@ -1,4 +1,5 @@
 use super::*;
+use crate::settlement::*;
 use commons::grid::Grid;
 use isometric::Color;
 use serde::{Deserialize, Serialize};
@@ -24,7 +25,7 @@ impl Default for NaturalTownSimParams {
 
 pub struct NaturalTownSim {
     params: NaturalTownSimParams,
-    house_color: Color,
+    town_color: Color,
     game_tx: UpdateSender<Game>,
     territory_sim: TerritorySim,
 }
@@ -42,13 +43,13 @@ impl Step for NaturalTownSim {
 impl NaturalTownSim {
     pub fn new(
         params: NaturalTownSimParams,
-        house_color: Color,
+        town_color: Color,
         game_tx: &UpdateSender<Game>,
         territory_sim: TerritorySim,
     ) -> NaturalTownSim {
         NaturalTownSim {
             params,
-            house_color,
+            town_color,
             game_tx: game_tx.clone_with_handle(HANDLE),
             territory_sim,
         }
@@ -59,7 +60,7 @@ impl NaturalTownSim {
         visitors = self.filter_over_threshold(visitors);
         while let Some(town) = self.find_town_candidate(&visitors) {
             if self.build_town(town).await {
-                self.territory_sim.step_controller(town).await
+                self.territory_sim.step_controller(town).await;
             }
             visitors.remove(&town);
             visitors = self.remove_non_candidates(visitors).await;
@@ -109,9 +110,9 @@ impl NaturalTownSim {
     }
 
     async fn build_town(&mut self, position: V2<usize>) -> bool {
-        let house_color = self.house_color;
+        let town_color = self.town_color;
         self.game_tx
-            .update(move |game| build_town(game, position, house_color))
+            .update(move |game| build_town(game, position, town_color))
             .await
     }
 
@@ -174,13 +175,13 @@ fn is_town_candidate(game_state: &GameState, position: &V2<usize>) -> bool {
 }
 
 #[allow(clippy::collapsible_if)]
-fn build_town(game: &mut Game, position: V2<usize>, house_color: Color) -> bool {
-    let house = WorldObject::House(house_color);
-    if game.clear_object(position) {
-        game.update_object(house, position, true)
-    } else {
-        false
-    }
+fn build_town(game: &mut Game, position: V2<usize>, color: Color) -> bool {
+    let settlement = Settlement {
+        class: SettlementClass::Town,
+        position,
+        color,
+    };
+    game.add_settlement(settlement)
 }
 
 fn find_non_candidates(game: &mut Game, mut candidates: Vec<V2<usize>>) -> HashSet<V2<usize>> {

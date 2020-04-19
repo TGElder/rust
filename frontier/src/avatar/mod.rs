@@ -1,9 +1,7 @@
-mod artist;
 mod path;
 mod travel_duration;
 mod travel_mode;
 
-pub use artist::*;
 use path::*;
 pub use travel_duration::*;
 pub use travel_mode::*;
@@ -32,6 +30,15 @@ impl Default for Rotation {
 }
 
 impl Rotation {
+    pub fn angle(self) -> f32 {
+        match self {
+            Rotation::Left => 4.0 * (PI / 4.0),
+            Rotation::Up => 2.0 * (PI / 4.0),
+            Rotation::Right => 0.0 * (PI / 4.0),
+            Rotation::Down => 6.0 * (PI / 4.0),
+        }
+    }
+
     fn clockwise(self) -> Rotation {
         match self {
             Rotation::Left => Rotation::Up,
@@ -47,15 +54,6 @@ impl Rotation {
             Rotation::Up => Rotation::Left,
             Rotation::Right => Rotation::Up,
             Rotation::Down => Rotation::Right,
-        }
-    }
-
-    fn angle(self) -> f32 {
-        match self {
-            Rotation::Left => 4.0 * (PI / 4.0),
-            Rotation::Up => 2.0 * (PI / 4.0),
-            Rotation::Right => 0.0 * (PI / 4.0),
-            Rotation::Down => 6.0 * (PI / 4.0),
         }
     }
 }

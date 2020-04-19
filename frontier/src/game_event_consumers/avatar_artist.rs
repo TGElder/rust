@@ -1,4 +1,5 @@
 use super::*;
+use crate::artists::AvatarArtist;
 
 const HANDLE: &str = "avatar_artist_handler";
 

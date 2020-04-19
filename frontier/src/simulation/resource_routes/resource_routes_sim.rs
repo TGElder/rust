@@ -4,7 +4,6 @@ use super::resource_routes_targets::target_set;
 use super::*;
 
 use commons::grid::get_corners;
-use std::collections::HashSet;
 
 const HANDLE: &str = "resource_route_sim";
 const ROUTE_PREFIX: &str = "resource-";
@@ -37,9 +36,9 @@ impl ResourceRouteSim {
 
     async fn step_async(&mut self) {
         self.clear_routes().await;
-        let towns = self.get_towns().await;
+        let settlements = self.get_settlements().await;
         for resource in RESOURCES.iter() {
-            self.step_resource(&towns, resource).await;
+            self.step_resource(&settlements, resource).await;
         }
     }
 
@@ -47,33 +46,38 @@ impl ResourceRouteSim {
         self.game_tx.update(|game| clear_routes(game)).await;
     }
 
-    async fn get_towns(&mut self) -> HashSet<V2<usize>> {
-        self.game_tx.update(|game| get_towns(game)).await
+    async fn get_settlements(&mut self) -> Vec<V2<usize>> {
+        self.game_tx.update(|game| get_settlements(game)).await
     }
 
-    async fn step_resource(&mut self, towns: &HashSet<V2<usize>>, resource: &Resource) {
-        for town in towns.iter() {
-            if let Some(path) = self.get_path_to_resource(*town, resource).await {
-                self.add_route(town, resource, path).await;
+    async fn step_resource(&mut self, settlements: &[V2<usize>], resource: &Resource) {
+        for settlement in settlements.iter() {
+            if let Some(path) = self.get_path_to_resource(*settlement, resource).await {
+                self.add_route(settlement, resource, path).await;
             }
         }
     }
 
     async fn get_path_to_resource(
         &mut self,
-        town: V2<usize>,
+        settlement: V2<usize>,
         resource: &Resource,
     ) -> Option<Vec<V2<usize>>> {
         let target_set = target_set(resource);
         self.pathfinder_tx
             .update(move |service| {
-                get_path_to_resource(&mut service.pathfinder(), town, target_set)
+                get_path_to_resource(&mut service.pathfinder(), settlement, target_set)
             })
             .await
     }
 
-    async fn add_route(&mut self, town: &V2<usize>, resource: &Resource, path: Vec<V2<usize>>) {
-        let name = route_name(town, resource);
+    async fn add_route(
+        &mut self,
+        settlement: &V2<usize>,
+        resource: &Resource,
+        path: Vec<V2<usize>>,
+    ) {
+        let name = route_name(settlement, resource);
         self.game_tx
             .update(move |game| add_route(game, name, path))
             .await;
@@ -90,17 +94,17 @@ fn created_here(route_name: &str) -> bool {
     route_name.starts_with(ROUTE_PREFIX)
 }
 
-fn get_towns(game: &mut Game) -> HashSet<V2<usize>> {
-    game.game_state().territory.controllers()
+fn get_settlements(game: &mut Game) -> Vec<V2<usize>> {
+    game.game_state().settlements.keys().cloned().collect()
 }
 
 fn get_path_to_resource(
     pathfinder: &mut Pathfinder<AvatarTravelDuration>,
-    town: V2<usize>,
+    settlement: V2<usize>,
     target_set: String,
 ) -> Option<Vec<V2<usize>>> {
     pathfinder
-        .closest_targets(&get_corners(&town), &target_set, 1)
+        .closest_targets(&get_corners(&settlement), &target_set, 1)
         .pop()
         .map(|result| result.path)
 }
@@ -109,6 +113,6 @@ fn add_route(game: &mut Game, name: String, path: Vec<V2<usize>>) {
     game.mut_state().routes.insert(name, path);
 }
 
-fn route_name(town: &V2<usize>, resource: &Resource) -> String {
-    format!("{}-{:?}-{}", ROUTE_PREFIX, town, resource.name())
+fn route_name(settlement: &V2<usize>, resource: &Resource) -> String {
+    format!("{}-{:?}-{}", ROUTE_PREFIX, settlement, resource.name())
 }

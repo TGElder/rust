@@ -8,6 +8,7 @@ pub use pathfinder_service::*;
 
 use crate::avatar::*;
 use crate::road_builder::*;
+use crate::settlement::*;
 use crate::territory::*;
 use crate::world::*;
 use commons::grid::Grid;
@@ -47,6 +48,7 @@ pub enum GameEvent {
         position: V2<usize>,
         built: bool,
     },
+    SettlementUpdated(Settlement),
     TerritoryChanged(Vec<TerritoryChange>),
 }
 
@@ -62,6 +64,7 @@ impl GameEvent {
             GameEvent::CellsRevealed(..) => "cells revealed",
             GameEvent::RoadsUpdated(..) => "roads updated",
             GameEvent::ObjectUpdated { .. } => "object updated",
+            GameEvent::SettlementUpdated { .. } => "settlement updated",
             GameEvent::TerritoryChanged(..) => "territory changed",
         }
     }
@@ -323,17 +326,6 @@ impl Game {
             self.destroy_object(object, position)
         };
         if success {
-            if let WorldObject::House(..) = object {
-                if build {
-                    self.game_state.territory.add_controller(position);
-                } else {
-                    self.set_territory(vec![TerritoryState {
-                        controller: position,
-                        durations: HashMap::new(),
-                    }]);
-                    self.game_state.territory.remove_controller(&position);
-                }
-            };
             self.consume_event(GameEvent::ObjectUpdated {
                 object,
                 position,
@@ -353,6 +345,42 @@ impl Game {
         } else {
             true
         }
+    }
+
+    pub fn add_settlement(&mut self, settlement: Settlement) -> bool {
+        if self
+            .game_state
+            .settlements
+            .contains_key(&settlement.position)
+        {
+            return false;
+        }
+        if let SettlementClass::Town = settlement.class {
+            self.game_state
+                .territory
+                .add_controller(settlement.position);
+        };
+        self.game_state
+            .settlements
+            .insert(settlement.position, settlement.clone());
+        self.consume_event(GameEvent::SettlementUpdated(settlement));
+        true
+    }
+
+    pub fn remove_settlement(&mut self, position: V2<usize>) -> bool {
+        let settlement = match self.game_state.settlements.remove(&position) {
+            Some(settlement) => settlement,
+            None => return false,
+        };
+        if let SettlementClass::Town = settlement.class {
+            self.set_territory(vec![TerritoryState {
+                controller: position,
+                durations: HashMap::new(),
+            }]);
+            self.game_state.territory.remove_controller(&position)
+        }
+        self.consume_event(GameEvent::SettlementUpdated(settlement));
+        true
     }
 
     pub fn set_territory(&mut self, states: Vec<TerritoryState>) {

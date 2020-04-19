@@ -5,10 +5,10 @@ mod avatar;
 mod citizen;
 mod game;
 mod game_event_consumers;
-mod houses;
 mod label_editor;
 mod pathfinder;
 mod road_builder;
+mod settlement;
 mod shore_start;
 mod simulation;
 mod territory;
@@ -21,6 +21,7 @@ use crate::avatar::*;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
+use crate::settlement::*;
 use crate::shore_start::*;
 use crate::territory::*;
 use crate::world_gen::*;
@@ -87,6 +88,9 @@ fn main() {
     ));
     game.add_consumer(ObjectBuilder::new(
         game.game_state().params.seed,
+        game.update_tx(),
+    ));
+    game.add_consumer(TownBuilder::new(
         game.game_state().params.house_color,
         game.update_tx(),
     ));
@@ -99,7 +103,7 @@ fn main() {
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
-    game.add_consumer(ObjectArtistHandler::new(engine.command_tx()));
+    game.add_consumer(SettlementArtist::new(engine.command_tx()));
     game.add_consumer(VisibilityHandler::new(game.update_tx()));
 
     game.add_consumer(PrimeMover::new(
@@ -156,6 +160,15 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
             },
         },
     );
+    let mut settlements = HashMap::new();
+    settlements.insert(
+        shore_start.origin(),
+        Settlement {
+            class: SettlementClass::OldWorld,
+            position: shore_start.origin(),
+            color: params.house_color,
+        },
+    );
     let game_state = GameState {
         territory: Territory::new(&world),
         world,
@@ -165,6 +178,7 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
         citizens: HashMap::new(),
         selected_avatar: Some("0".to_string()),
         routes: HashMap::new(),
+        settlements,
         follow_avatar: true,
         speed: 1.0,
     };
