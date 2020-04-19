@@ -17,6 +17,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+mod farm;
 mod natural_road;
 mod natural_town;
 mod params;
@@ -24,6 +25,7 @@ mod population;
 mod resource_routes;
 mod territory;
 
+pub use farm::*;
 pub use natural_road::*;
 pub use natural_town::*;
 pub use params::*;

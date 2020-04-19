@@ -211,6 +211,7 @@ fn create_simulation(
     game_tx: &UpdateSender<Game>,
     pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
 ) -> Simulation {
+    let seed = params.seed;
     let house_color = params.house_color;
 
     let territory_sim = TerritorySim::new(
@@ -221,6 +222,7 @@ fn create_simulation(
             .max(params.town_travel_duration),
     );
     let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
+    let farm_sim = FarmSim::new(seed, game_tx);
     let natural_town_sim = NaturalTownSim::new(
         params.sim.natural_town,
         house_color,
@@ -239,6 +241,7 @@ fn create_simulation(
         vec![
             Box::new(territory_sim),
             Box::new(resource_routes_sim),
+            Box::new(farm_sim),
             Box::new(natural_town_sim),
             Box::new(population_sim),
             Box::new(natural_road_sim),
