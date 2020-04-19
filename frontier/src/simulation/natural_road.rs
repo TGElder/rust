@@ -108,7 +108,7 @@ fn compute_visitors_for_routes(
     routes
         .iter()
         .flat_map(|route| game_state.routes.get(route))
-        .flat_map(|route| route.edges())
+        .flat_map(|route| route.path.edges())
         .filter(|edge| should_compute_visitors(&game_state.world, &edge, &travel_duration))
         .fold(HashMap::new(), |mut map, edge| {
             *map.entry(edge).or_insert(0) += 1;

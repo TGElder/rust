@@ -4,6 +4,7 @@ use super::demand::get_demand;
 use super::resource_routes_targets::target_set;
 use super::*;
 
+use crate::route::*;
 use commons::grid::get_corners;
 
 const HANDLE: &str = "resource_route_sim";
@@ -119,7 +120,11 @@ fn add_routes(game: &mut Game, resource: Resource, path: Vec<V2<usize>>, quantit
             None => continue,
         };
         let name = route_name(&resource, from, to, i);
-        game.mut_state().routes.insert(name, path.clone());
+        let route = Route {
+            resource,
+            path: path.clone(),
+        };
+        game.mut_state().routes.insert(name, route);
     }
 }
 

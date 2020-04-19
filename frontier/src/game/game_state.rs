@@ -2,6 +2,7 @@ use super::*;
 
 use crate::avatar::*;
 use crate::citizen::*;
+use crate::route::*;
 use crate::settlement::*;
 use crate::territory::*;
 use crate::world::*;
@@ -21,7 +22,7 @@ pub struct GameState {
     pub settlements: HashMap<V2<usize>, Settlement>,
     pub selected_avatar: Option<String>,
     pub follow_avatar: bool,
-    pub routes: HashMap<String, Vec<V2<usize>>>,
+    pub routes: HashMap<String, Route>,
     pub territory: Territory,
     pub speed: f32,
 }
@@ -90,7 +91,13 @@ mod tests {
             },
         );
         let mut routes = HashMap::new();
-        routes.insert("route".to_string(), vec![v2(1, 0), v2(2, 0)]);
+        routes.insert(
+            "route".to_string(),
+            Route {
+                resource: Resource::Oranges,
+                path: vec![v2(1, 0), v2(2, 0)],
+            },
+        );
         let game_state = GameState {
             territory: Territory::new(&world),
             world,

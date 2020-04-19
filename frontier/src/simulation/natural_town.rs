@@ -144,7 +144,7 @@ fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<u
     routes
         .iter()
         .flat_map(|route| game_state.routes.get(route))
-        .flat_map(|route| route.last())
+        .flat_map(|route| route.path.last())
         .filter(|position| is_town_candidate(&game_state, &position))
         .fold(HashMap::new(), |mut map, position| {
             *map.entry(*position).or_insert(0) += 1;

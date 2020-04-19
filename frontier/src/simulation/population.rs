@@ -54,7 +54,7 @@ fn get_route_ends(game: &mut Game) -> Vec<V2<usize>> {
     game.game_state()
         .routes
         .values()
-        .flat_map(|route| route.last())
+        .flat_map(|route| route.path.last())
         .cloned()
         .collect()
 }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::route::*;
 use commons::rand::rngs::SmallRng;
 use commons::*;
 use isometric::{Button, ElementState, VirtualKeyCode};
@@ -80,10 +81,7 @@ impl PrimeMover {
         self.params.max_visible_routes - self.state.visible_routes.len()
     }
 
-    fn get_candidates<'a>(
-        &self,
-        game_state: &'a GameState,
-    ) -> Vec<(&'a String, &'a Vec<V2<usize>>)> {
+    fn get_candidates<'a>(&self, game_state: &'a GameState) -> Vec<(&'a String, &'a Route)> {
         game_state
             .routes
             .iter()
@@ -92,13 +90,13 @@ impl PrimeMover {
             .collect()
     }
 
-    fn show_route(&mut self, game_state: &GameState, name: &str, route: &[V2<usize>]) {
+    fn show_route(&mut self, game_state: &GameState, name: &str, route: &Route) {
         let start_at = game_state.game_micros;
         self.state.visible_routes.insert(name.to_string());
         if self.next_direction(name.to_string()) {
-            self.walk_positions(name.to_string(), route.to_vec(), start_at);
+            self.walk_positions(name.to_string(), route.path.clone(), start_at);
         } else {
-            self.walk_positions_reverse(name.to_string(), route.to_vec(), start_at);
+            self.walk_positions_reverse(name.to_string(), route.path.clone(), start_at);
         }
     }
 

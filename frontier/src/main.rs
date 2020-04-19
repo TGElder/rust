@@ -8,6 +8,7 @@ mod game_event_consumers;
 mod label_editor;
 mod pathfinder;
 mod road_builder;
+mod route;
 mod settlement;
 mod shore_start;
 mod simulation;
