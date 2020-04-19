@@ -2,7 +2,6 @@
 
 mod artists;
 mod avatar;
-mod citizen;
 mod game;
 mod game_event_consumers;
 mod label_editor;
@@ -177,7 +176,6 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
         game_micros: 0,
         params,
         avatars,
-        citizens: HashMap::new(),
         selected_avatar: Some("0".to_string()),
         routes: HashMap::new(),
         settlements,

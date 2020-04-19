@@ -1,7 +1,6 @@
 use super::*;
 
 use crate::avatar::*;
-use crate::citizen::*;
 use crate::route::*;
 use crate::settlement::*;
 use crate::territory::*;
@@ -17,7 +16,6 @@ pub struct GameState {
     pub world: World,
     pub game_micros: u128,
     pub params: GameParams,
-    pub citizens: HashMap<String, Citizen>,
     pub avatars: HashMap<String, Avatar>,
     pub settlements: HashMap<V2<usize>, Settlement>,
     pub selected_avatar: Option<String>,
@@ -70,16 +68,6 @@ mod tests {
                 },
             },
         );
-        let mut citizens = HashMap::new();
-        citizens.insert(
-            "citizen".to_string(),
-            Citizen {
-                name: "citizen".to_string(),
-                birthday: 1234,
-                birthplace: v2(8, 4),
-                farm: Some(v2(9, 9)),
-            },
-        );
         let mut settlements = HashMap::new();
         settlements.insert(
             v2(3, 2),
@@ -105,7 +93,6 @@ mod tests {
             params: GameParams::default(),
             avatars,
             settlements,
-            citizens,
             selected_avatar: Some("avatar".to_string()),
             follow_avatar: false,
             routes,

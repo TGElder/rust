@@ -1,5 +1,4 @@
 use super::*;
-use crate::citizen::*;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;
@@ -10,7 +9,6 @@ pub struct CheatBindings {
     reveal_all: Button,
     move_avatar: Button,
     remove_avatar: Button,
-    add_citizen: Button,
 }
 
 impl Default for CheatBindings {
@@ -19,7 +17,6 @@ impl Default for CheatBindings {
             reveal_all: Button::Key(VirtualKeyCode::V),
             move_avatar: Button::Key(VirtualKeyCode::H),
             remove_avatar: Button::Key(VirtualKeyCode::R),
-            add_citizen: Button::Key(VirtualKeyCode::A),
         }
     }
 }
@@ -74,22 +71,6 @@ impl Cheats {
             game.update_avatar_state(name.to_string(), avatar_state);
         });
     }
-
-    fn add_citizen(&mut self, game_state: &GameState) {
-        let len = game_state.citizens.len();
-        println!("{} citizens", len + 1);
-        if let Some(world_coord) = self.world_coord {
-            let citizen = Citizen {
-                name: len.to_string(),
-                birthday: game_state.params.sim.start_year,
-                birthplace: world_coord.to_v2_round(),
-                farm: None,
-            };
-            self.game_tx.update(move |game| {
-                game.mut_state().citizens.insert(len.to_string(), citizen);
-            });
-        };
-    }
 }
 
 impl GameEventConsumer for Cheats {
@@ -118,8 +99,6 @@ impl GameEventConsumer for Cheats {
                 self.move_avatar(game_state);
             } else if button == &self.bindings.remove_avatar {
                 self.remove_avatar(game_state)
-            } else if button == &self.bindings.add_citizen {
-                self.add_citizen(game_state)
             }
         }
         CaptureEvent::No
