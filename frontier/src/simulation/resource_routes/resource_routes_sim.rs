@@ -1,12 +1,12 @@
 #![allow(clippy::trivially_copy_pass_by_ref)]
 
+use super::demand::get_demand;
 use super::resource_routes_targets::target_set;
 use super::*;
 
 use commons::grid::get_corners;
 
 const HANDLE: &str = "resource_route_sim";
-const ROUTE_PREFIX: &str = "resource-";
 
 pub struct ResourceRouteSim {
     game_tx: UpdateSender<Game>,
@@ -37,8 +37,8 @@ impl ResourceRouteSim {
     async fn step_async(&mut self) {
         self.clear_routes().await;
         let settlements = self.get_settlements().await;
-        for resource in RESOURCES.iter() {
-            self.step_resource(&settlements, resource).await;
+        for settlement in settlements {
+            self.step_settlement(&settlement).await;
         }
     }
 
@@ -46,77 +46,83 @@ impl ResourceRouteSim {
         self.game_tx.update(|game| clear_routes(game)).await;
     }
 
-    async fn get_settlements(&mut self) -> Vec<V2<usize>> {
+    async fn get_settlements(&mut self) -> Vec<Settlement> {
         self.game_tx.update(|game| get_settlements(game)).await
     }
 
-    async fn step_resource(&mut self, settlements: &[V2<usize>], resource: &Resource) {
-        for settlement in settlements.iter() {
-            if let Some(path) = self.get_path_to_resource(*settlement, resource).await {
-                self.add_route(settlement, resource, path).await;
+    async fn step_settlement(&mut self, settlement: &Settlement) {
+        for demand in get_demand(&settlement) {
+            let mut paths = self
+                .get_paths_to_resource(settlement.position, &demand.resource, demand.sources)
+                .await;
+            for path in paths.drain(..) {
+                self.add_routes(demand.resource, path, demand.quantity)
+                    .await;
             }
         }
     }
 
-    async fn get_path_to_resource(
+    async fn get_paths_to_resource(
         &mut self,
         settlement: V2<usize>,
         resource: &Resource,
-    ) -> Option<Vec<V2<usize>>> {
+        sources: usize,
+    ) -> Vec<Vec<V2<usize>>> {
         let target_set = target_set(resource);
         self.pathfinder_tx
             .update(move |service| {
-                get_path_to_resource(&mut service.pathfinder(), settlement, target_set)
+                get_paths_to_resource(&mut service.pathfinder(), settlement, target_set, sources)
             })
             .await
     }
 
-    async fn add_route(
-        &mut self,
-        settlement: &V2<usize>,
-        resource: &Resource,
-        path: Vec<V2<usize>>,
-    ) {
-        let name = route_name(settlement, resource);
+    async fn add_routes(&mut self, resource: Resource, path: Vec<V2<usize>>, quantity: usize) {
         self.game_tx
-            .update(move |game| add_route(game, name, path))
+            .update(move |game| add_routes(game, resource, path, quantity))
             .await;
     }
 }
 
 fn clear_routes(game: &mut Game) {
-    game.mut_state()
-        .routes
-        .retain(|route_name, _| !created_here(route_name));
+    game.mut_state().routes.clear();
 }
 
-fn created_here(route_name: &str) -> bool {
-    route_name.starts_with(ROUTE_PREFIX)
+fn get_settlements(game: &mut Game) -> Vec<Settlement> {
+    game.game_state().settlements.values().cloned().collect()
 }
 
-fn get_settlements(game: &mut Game) -> Vec<V2<usize>> {
-    game.game_state().settlements.keys().cloned().collect()
-}
-
-fn get_path_to_resource(
+fn get_paths_to_resource(
     pathfinder: &mut Pathfinder<AvatarTravelDuration>,
     settlement: V2<usize>,
     target_set: String,
-) -> Option<Vec<V2<usize>>> {
+    sources: usize,
+) -> Vec<Vec<V2<usize>>> {
     let corners: Vec<V2<usize>> = get_corners(&settlement)
         .drain(..)
         .filter(|corner| pathfinder.in_bounds(corner))
         .collect();
     pathfinder
-        .closest_targets(&corners, &target_set, 1)
-        .pop()
+        .closest_targets(&corners, &target_set, sources)
+        .drain(..)
         .map(|result| result.path)
+        .collect()
 }
 
-fn add_route(game: &mut Game, name: String, path: Vec<V2<usize>>) {
-    game.mut_state().routes.insert(name, path);
+fn add_routes(game: &mut Game, resource: Resource, path: Vec<V2<usize>>, quantity: usize) {
+    for i in 0..quantity {
+        let from = match path.first() {
+            Some(first) => first,
+            None => continue,
+        };
+        let to = match path.last() {
+            Some(last) => last,
+            None => continue,
+        };
+        let name = route_name(&resource, from, to, i);
+        game.mut_state().routes.insert(name, path.clone());
+    }
 }
 
-fn route_name(settlement: &V2<usize>, resource: &Resource) -> String {
-    format!("{}-{:?}-{}", ROUTE_PREFIX, settlement, resource.name())
+fn route_name(resource: &Resource, from: &V2<usize>, to: &V2<usize>, number: usize) -> String {
+    format!("{}-{}-{}-{}", resource.name(), from, to, number,)
 }

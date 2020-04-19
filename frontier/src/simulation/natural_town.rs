@@ -1,6 +1,5 @@
 use super::*;
 use crate::settlement::*;
-use commons::grid::Grid;
 use isometric::Color;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -18,7 +17,7 @@ pub struct NaturalTownSimParams {
 impl Default for NaturalTownSimParams {
     fn default() -> NaturalTownSimParams {
         NaturalTownSimParams {
-            visitor_count_threshold: 32,
+            visitor_count_threshold: 1,
         }
     }
 }
@@ -145,25 +144,16 @@ fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<u
     routes
         .iter()
         .flat_map(|route| game_state.routes.get(route))
-        .flat_map(|route| route.iter())
-        .flat_map(|position| game_state.world.get_corners_behind_in_bounds(position))
-        .filter(|tile| is_town_candidate(&game_state, &tile))
-        .fold(HashMap::new(), |mut map, tile| {
-            *map.entry(tile).or_insert(0) += 1;
+        .flat_map(|route| route.last())
+        .filter(|position| is_town_candidate(&game_state, &position))
+        .fold(HashMap::new(), |mut map, position| {
+            *map.entry(*position).or_insert(0) += 1;
             map
         })
 }
 
 fn is_town_candidate(game_state: &GameState, position: &V2<usize>) -> bool {
     if game_state.world.is_sea(position) {
-        return false;
-    }
-    if let Some(WorldCell {
-        object: WorldObject::Farm { .. },
-        ..
-    }) = game_state.world.get_cell(position)
-    {
-    } else {
         return false;
     }
     if let Some(Claim { duration, .. }) = game_state.territory.who_controls_tile(position) {

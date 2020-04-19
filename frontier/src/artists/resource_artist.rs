@@ -86,8 +86,8 @@ impl ResourceArtist {
 
 fn texture(resource: Resource) -> Option<&'static str> {
     match resource {
-        Resource::None => None,
         Resource::Gems => Some("gems.png"),
         Resource::Oranges => Some("orange.png"),
+        _ => None,
     }
 }

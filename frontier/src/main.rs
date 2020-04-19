@@ -112,9 +112,6 @@ fn main() {
     ));
     game.add_consumer(PathfinderUpdater::new(avatar_pathfinder));
     game.add_consumer(PathfinderUpdater::new(road_pathfinder));
-    game.add_consumer(FarmCandidateHandler::new(
-        avatar_pathfinder_service.update_tx(),
-    ));
     game.add_consumer(ResourceRouteTargets::new(
         avatar_pathfinder_service.update_tx(),
     ));
@@ -215,7 +212,6 @@ fn create_simulation(
     game_tx: &UpdateSender<Game>,
     pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
 ) -> Simulation {
-    let seed = params.seed;
     let house_color = params.house_color;
 
     let territory_sim = TerritorySim::new(
@@ -225,10 +221,6 @@ fn create_simulation(
             .town_exclusive_duration
             .max(params.town_travel_duration),
     );
-    let farm_unassigner_sim = FarmUnassignerSim::new(game_tx);
-    let farm_assigner_sim = FarmAssignerSim::new(game_tx, pathfinder_tx, seed);
-    let children_sim = ChildrenSim::new(params.sim.children, seed, game_tx, pathfinder_tx);
-    let route_sim = RouteSim::new(params.sim.route, seed, game_tx, pathfinder_tx);
     let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
     let natural_town_sim = NaturalTownSim::new(
         params.sim.natural_town,
@@ -247,10 +239,6 @@ fn create_simulation(
         params.sim.start_year,
         vec![
             Box::new(territory_sim),
-            Box::new(farm_unassigner_sim),
-            Box::new(farm_assigner_sim),
-            Box::new(children_sim),
-            Box::new(route_sim),
             Box::new(resource_routes_sim),
             Box::new(natural_town_sim),
             Box::new(population_sim),

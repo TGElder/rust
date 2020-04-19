@@ -1,5 +1,4 @@
 use crate::avatar::*;
-use crate::citizen::*;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
@@ -18,26 +17,18 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-mod children;
-mod farm_assigner;
-mod farm_unassigner;
 mod natural_road;
 mod natural_town;
 mod params;
 mod population;
 mod resource_routes;
-mod route;
 mod territory;
 
-pub use children::*;
-pub use farm_assigner::*;
-pub use farm_unassigner::*;
 pub use natural_road::*;
 pub use natural_town::*;
 pub use params::*;
 pub use population::*;
 pub use resource_routes::*;
-pub use route::*;
 pub use territory::*;
 
 const STEP_CHECK_DELAY: Duration = Duration::from_millis(100);

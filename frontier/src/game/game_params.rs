@@ -1,5 +1,4 @@
 use crate::avatar::*;
-use crate::game_event_consumers::FarmConstraints;
 use crate::game_event_consumers::WorldColoringParameters;
 use crate::road_builder::*;
 use crate::simulation::*;
@@ -20,7 +19,6 @@ pub struct GameParams {
     pub auto_road_travel: AutoRoadTravelParams,
     pub starting_distance_from_shore: usize,
     pub light_direction: V3<f32>,
-    pub farm_constraints: FarmConstraints,
     pub snow_temperature: f32,
     pub town_exclusive_duration: Duration,
     pub town_travel_duration: Duration,
@@ -41,7 +39,6 @@ impl Default for GameParams {
             auto_road_travel: AutoRoadTravelParams::default(),
             starting_distance_from_shore: 32,
             light_direction: v3(-1.0, 0.0, 1.0),
-            farm_constraints: FarmConstraints::default(),
             snow_temperature: 0.0,
             town_exclusive_duration: Duration::from_secs(60 * 60 * 3),
             town_travel_duration: Duration::from_secs(60 * 60 * 12),
@@ -49,7 +46,7 @@ impl Default for GameParams {
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
             log_duration_threshold: None,
-            old_world_population: 100,
+            old_world_population: 64,
         }
     }
 }
