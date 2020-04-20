@@ -126,8 +126,9 @@ pub fn generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParamet
     load_vegetation(&mut out, &vegetation);
     set_vegetation_height(&mut out);
 
-    let resources = compute_resources(&mut out, &params, rng);
-    load_resources(&mut out, &resources);
+    let mut resource_gen = ResourceGen::new(&mut out, &params, rng);
+    let resources = resource_gen.compute_resources();
+    resource_gen.load_resources(&resources);
 
     out
 }

@@ -1,6 +1,4 @@
-#![allow(clippy::trivially_copy_pass_by_ref)]
-
-use super::demand::get_demand;
+use super::demand::get_demands;
 use super::resource_routes_targets::target_set;
 use super::*;
 
@@ -52,9 +50,9 @@ impl ResourceRouteSim {
     }
 
     async fn step_settlement(&mut self, settlement: &Settlement) {
-        for demand in get_demand(&settlement) {
+        for demand in get_demands(&settlement) {
             let mut paths = self
-                .get_paths_to_resource(settlement.position, &demand.resource, demand.sources)
+                .get_paths_to_resource(settlement.position, demand.resource, demand.sources)
                 .await;
             for path in paths.drain(..) {
                 self.add_routes(demand.resource, path, demand.quantity)
@@ -66,7 +64,7 @@ impl ResourceRouteSim {
     async fn get_paths_to_resource(
         &mut self,
         settlement: V2<usize>,
-        resource: &Resource,
+        resource: Resource,
         sources: usize,
     ) -> Vec<Vec<V2<usize>>> {
         let target_set = target_set(resource);
@@ -119,7 +117,7 @@ fn add_routes(game: &mut Game, resource: Resource, path: Vec<V2<usize>>, quantit
             Some(last) => last,
             None => continue,
         };
-        let name = route_name(&resource, from, to, i);
+        let name = route_name(resource, from, to, i);
         let route = Route {
             resource,
             path: path.clone(),
@@ -128,6 +126,6 @@ fn add_routes(game: &mut Game, resource: Resource, path: Vec<V2<usize>>, quantit
     }
 }
 
-fn route_name(resource: &Resource, from: &V2<usize>, to: &V2<usize>, number: usize) -> String {
+fn route_name(resource: Resource, from: &V2<usize>, to: &V2<usize>, number: usize) -> String {
     format!("{}-{}-{}-{}", resource.name(), from, to, number,)
 }

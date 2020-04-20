@@ -1,5 +1,3 @@
-#![allow(clippy::trivially_copy_pass_by_ref)]
-
 use super::*;
 
 use commons::grid::{get_corners, Grid};
@@ -22,11 +20,11 @@ impl ResourceRouteTargets {
 
     fn init(&mut self, game_state: &GameState) {
         for resource in RESOURCES.iter() {
-            self.init_resource(game_state, resource);
+            self.init_resource(game_state, *resource);
         }
     }
 
-    fn init_resource(&mut self, game_state: &GameState, resource: &Resource) {
+    fn init_resource(&mut self, game_state: &GameState, resource: Resource) {
         let targets = get_targets(game_state, resource);
         block_on(self.load_targets(target_set(resource), targets));
     }
@@ -37,7 +35,7 @@ impl ResourceRouteTargets {
     }
 }
 
-fn get_targets(game_state: &GameState, resource: &Resource) -> HashSet<V2<usize>> {
+fn get_targets(game_state: &GameState, resource: Resource) -> HashSet<V2<usize>> {
     let mut out = HashSet::new();
     for x in 0..game_state.world.width() {
         for y in 0..game_state.world.height() {
@@ -53,14 +51,14 @@ fn get_targets(game_state: &GameState, resource: &Resource) -> HashSet<V2<usize>
     out
 }
 
-fn resource_at(game_state: &GameState, resource: &Resource, position: &V2<usize>) -> bool {
+fn resource_at(game_state: &GameState, resource: Resource, position: &V2<usize>) -> bool {
     match game_state.world.get_cell(position) {
-        Some(cell) if cell.resource == *resource => true,
+        Some(cell) if cell.resource == resource => true,
         _ => false,
     }
 }
 
-pub fn target_set(resource: &Resource) -> String {
+pub fn target_set(resource: Resource) -> String {
     format!("resource-{}", resource.name())
 }
 

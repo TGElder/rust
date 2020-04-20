@@ -82,7 +82,7 @@ mod tests {
         routes.insert(
             "route".to_string(),
             Route {
-                resource: Resource::Oranges,
+                resource: Resource::Bananas,
                 path: vec![v2(1, 0), v2(2, 0)],
             },
         );
