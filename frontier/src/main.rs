@@ -103,7 +103,7 @@ fn main() {
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
-    game.add_consumer(SettlementArtist::new(engine.command_tx()));
+    game.add_consumer(SettlementArtist::new(game.update_tx()));
     game.add_consumer(VisibilityHandler::new(game.update_tx()));
 
     game.add_consumer(PrimeMover::new(

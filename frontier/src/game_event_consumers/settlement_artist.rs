@@ -6,7 +6,7 @@ use crate::settlement::*;
 const HANDLE: &str = "settlement_artist";
 
 pub struct SettlementArtist {
-    command_tx: Sender<Vec<Command>>,
+    game_tx: UpdateSender<Game>,
     state: Option<SettlementArtistState>,
 }
 
@@ -15,9 +15,9 @@ struct SettlementArtistState {
 }
 
 impl SettlementArtist {
-    pub fn new(command_tx: Sender<Vec<Command>>) -> SettlementArtist {
+    pub fn new(game_tx: &UpdateSender<Game>) -> SettlementArtist {
         SettlementArtist {
-            command_tx,
+            game_tx: game_tx.clone_with_handle(HANDLE),
             state: None,
         }
     }
@@ -39,16 +39,23 @@ impl SettlementArtist {
             class: SettlementClass::Town,
             position,
             color,
-            population,
+            ..
         } = settlement
         {
+            let house_height = house_height(settlement);
+            let roof_height = roof_height();
             let commands = state.house_artist.draw_house_at(
                 &game_state.world,
                 position,
                 *color,
-                house_height(*population),
+                house_height,
+                roof_height,
             );
-            self.command_tx.send(commands).unwrap();
+            self.add_void_then_send_commands(
+                house_height + roof_height,
+                settlement.position,
+                commands,
+            );
         }
     }
 
@@ -66,8 +73,25 @@ impl SettlementArtist {
             let commands = state
                 .house_artist
                 .erase_house_at(&game_state.world, position);
-            self.command_tx.send(commands).unwrap();
+            self.add_void_then_send_commands(0.0, settlement.position, commands);
         }
+    }
+
+    fn add_void_then_send_commands(
+        &mut self,
+        void_height: f32,
+        position: V2<usize>,
+        commands: Vec<Command>,
+    ) {
+        self.game_tx.update(move |game| {
+            game.force_object(
+                WorldObject::Void {
+                    height: void_height,
+                },
+                position,
+            );
+            game.send_engine_commands(commands);
+        });
     }
 
     fn draw_all(&mut self, game_state: &GameState) {
@@ -84,8 +108,12 @@ impl SettlementArtist {
     }
 }
 
-fn house_height(population: usize) -> f32 {
-    0.5 + (population as f32 / 100.0)
+fn roof_height() -> f32 {
+    0.5
+}
+
+fn house_height(settlement: &Settlement) -> f32 {
+    0.5 + (settlement.population as f32 / 100.0)
 }
 
 impl GameEventConsumer for SettlementArtist {

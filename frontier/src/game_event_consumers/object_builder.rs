@@ -43,13 +43,14 @@ impl ObjectBuilder {
     fn build_object_at_cursor(&mut self, object: WorldObject) {
         if let Some(position) = self.get_position() {
             self.game_tx
-                .update(move |game| game.update_object(object, position, true));
+                .update(move |game| game.add_object(object, position));
         }
     }
 
     fn clear_object_at_cursor(&mut self) {
         if let Some(position) = self.get_position() {
-            self.game_tx.update(move |game| game.clear_object(position));
+            self.game_tx
+                .update(move |game| game.force_object(WorldObject::None, position));
         }
     }
 }

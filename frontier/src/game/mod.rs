@@ -43,11 +43,7 @@ pub enum GameEvent {
     CellsVisited(CellSelection),
     CellsRevealed(CellSelection),
     RoadsUpdated(RoadBuilderResult),
-    ObjectUpdated {
-        object: WorldObject,
-        position: V2<usize>,
-        built: bool,
-    },
+    ObjectUpdated(V2<usize>),
     SettlementUpdated(Settlement),
     TerritoryChanged(Vec<TerritoryChange>),
 }
@@ -299,52 +295,27 @@ impl Game {
         self.consume_event(GameEvent::RoadsUpdated(result));
     }
 
-    fn build_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
-        if let Some(cell) = self.game_state.world.mut_cell(&position) {
-            if let WorldObject::None = cell.object {
-                cell.object = object;
-                return true;
-            }
-        }
-        false
-    }
-
-    fn destroy_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
-        if let Some(cell) = self.game_state.world.mut_cell(&position) {
-            if object == cell.object {
-                cell.object = WorldObject::None;
-                return true;
-            }
-        }
-        false
-    }
-
-    pub fn update_object(&mut self, object: WorldObject, position: V2<usize>, build: bool) -> bool {
-        let success = if build {
-            self.build_object(object, position)
-        } else {
-            self.destroy_object(object, position)
-        };
-        if success {
-            self.consume_event(GameEvent::ObjectUpdated {
-                object,
-                position,
-                built: build,
-            })
-        }
-        success
-    }
-
-    pub fn clear_object(&mut self, position: V2<usize>) -> bool {
-        let cell = match self.game_state.world.get_cell(&position) {
-            Some(cell) => *cell,
-            _ => return false,
+    pub fn add_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
+        let cell = match self.game_state.world.mut_cell(&position) {
+            Some(cell) => cell,
+            None => return false,
         };
         if cell.object != WorldObject::None {
-            self.update_object(cell.object, position, false)
-        } else {
-            true
+            return false;
         }
+        cell.object = object;
+        self.consume_event(GameEvent::ObjectUpdated(position));
+        true
+    }
+
+    pub fn force_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
+        let cell = match self.game_state.world.mut_cell(&position) {
+            Some(cell) => cell,
+            None => return false,
+        };
+        cell.object = object;
+        self.consume_event(GameEvent::ObjectUpdated(position));
+        true
     }
 
     pub fn add_settlement(&mut self, settlement: Settlement) -> bool {

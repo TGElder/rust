@@ -51,7 +51,9 @@ impl ResourceArtist {
                 }
 
                 if texture(cell.resource).is_some() {
-                    world_coord.z += self.params.hover + self.params.size / 2.0;
+                    world_coord.z += get_height_adjustment(world, &position);
+                    world_coord.z += self.params.hover;
+                    world_coord.z += self.params.size / 2.0;
                     resources
                         .entry(cell.resource)
                         .or_insert_with(Vec::new)
@@ -81,6 +83,18 @@ impl ResourceArtist {
         }
 
         out
+    }
+}
+
+fn get_height_adjustment(world: &World, position: &V2<usize>) -> f32 {
+    if let Some(WorldCell {
+        object: WorldObject::Void { height },
+        ..
+    }) = world.get_cell(position)
+    {
+        *height
+    } else {
+        0.0
     }
 }
 

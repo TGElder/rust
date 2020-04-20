@@ -80,5 +80,5 @@ fn is_farmland_route(route: &Route) -> bool {
 }
 
 fn build_farm(game: &mut Game, position: V2<usize>, rotated: bool) {
-    game.update_object(WorldObject::Farm { rotated }, position, true);
+    game.add_object(WorldObject::Farm { rotated }, position);
 }
