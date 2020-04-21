@@ -98,41 +98,11 @@ impl Territory {
         changes
     }
 
-    pub fn who_claims(&self, position: &V2<usize>) -> HashSet<V2<usize>> {
-        self.claims
-            .get(position)
-            .map(|map| map.values().map(|claim| claim.controller).collect())
-            .unwrap_or_default()
-    }
-
-    fn claims(&self, position: &V2<usize>, controller: &V2<usize>) -> bool {
-        if let Ok(set) = self.claims.get(position) {
-            return set.contains_key(controller);
-        }
-        false
-    }
-
-    fn claims_tile(&self, position: &V2<usize>, controller: &V2<usize>) -> bool {
-        self.claims
-            .get_corners_in_bounds(position)
-            .iter()
-            .all(|corner| self.claims(corner, controller))
-    }
-
-    fn who_claims_tile(&self, position: &V2<usize>) -> HashSet<V2<usize>> {
-        self.who_claims(position)
-            .into_iter()
-            .filter(|controller| self.claims_tile(position, controller))
-            .collect()
-    }
-
     pub fn who_controls_tile(&self, position: &V2<usize>) -> Option<&Claim> {
-        let candidates = self.who_claims_tile(position);
         self.claims
             .get_corners_in_bounds(position)
             .iter()
             .flat_map(|corner| self.claims.get(corner).unwrap().values())
-            .filter(|claim| candidates.contains(&claim.controller))
             .min_by(|a, b| a.cmp(&b))
     }
 
@@ -468,56 +438,6 @@ mod tests {
     }
 
     #[test]
-    fn who_claims_no_claims() {
-        assert_eq!(territory().who_claims(&v2(0, 0)), HashSet::new());
-    }
-
-    #[test]
-    fn who_claims_single_claim() {
-        let mut territory = territory();
-        territory.add_controller(v2(1, 1));
-        territory.set_durations(
-            v2(1, 1),
-            &[(v2(0, 0), Duration::from_millis(2))]
-                .iter()
-                .cloned()
-                .collect(),
-            &0,
-        );
-        assert_eq!(
-            territory.who_claims(&v2(0, 0)),
-            [v2(1, 1)].iter().cloned().collect()
-        );
-    }
-
-    #[test]
-    fn who_claims_multiple_claims() {
-        let mut territory = territory();
-        territory.add_controller(v2(1, 1));
-        territory.add_controller(v2(2, 2));
-        territory.set_durations(
-            v2(1, 1),
-            &[(v2(0, 0), Duration::from_millis(2))]
-                .iter()
-                .cloned()
-                .collect(),
-            &0,
-        );
-        territory.set_durations(
-            v2(2, 2),
-            &[(v2(0, 0), Duration::from_millis(2))]
-                .iter()
-                .cloned()
-                .collect(),
-            &0,
-        );
-        assert_eq!(
-            territory.who_claims(&v2(0, 0)),
-            [v2(1, 1), v2(2, 2)].iter().cloned().collect()
-        );
-    }
-
-    #[test]
     fn who_controls_no_claims() {
         assert_eq!(territory().who_controls(&v2(0, 0)), None);
     }
@@ -620,17 +540,21 @@ mod tests {
         territory.add_controller(v2(1, 1));
         territory.set_durations(
             v2(1, 1),
-            &[
-                (v2(0, 0), Duration::from_millis(2)),
-                (v2(1, 0), Duration::from_millis(2)),
-                (v2(1, 1), Duration::from_millis(2)),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
+            &[(v2(0, 0), Duration::from_millis(2))]
+                .iter()
+                .cloned()
+                .collect(),
             &0,
         );
-        assert_eq!(territory.who_controls_tile(&v2(0, 0)), None);
+        assert_eq!(
+            territory.who_controls(&v2(0, 0)),
+            Some(&Claim {
+                controller: v2(1, 1),
+                position: v2(0, 0),
+                duration: Duration::from_millis(2),
+                since_micros: 0
+            })
+        );
     }
 
     #[test]
