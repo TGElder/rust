@@ -1,9 +1,10 @@
-use super::demand::get_demands;
+use super::demand::*;
 use super::resource_routes_targets::target_set;
 use super::*;
 
 use crate::route::*;
 use commons::grid::get_corners;
+use std::collections::HashMap;
 
 const HANDLE: &str = "resource_route_sim";
 
@@ -34,31 +35,43 @@ impl ResourceRouteSim {
     }
 
     async fn step_async(&mut self) {
-        self.clear_routes().await;
+        let mut routes = HashMap::new();
         let settlements = self.get_settlements().await;
         for settlement in settlements {
-            self.step_settlement(&settlement).await;
+            routes.extend(self.step_settlement(&settlement).await);
         }
-    }
-
-    async fn clear_routes(&mut self) {
-        self.game_tx.update(|game| clear_routes(game)).await;
+        self.update_routes(routes).await;
     }
 
     async fn get_settlements(&mut self) -> Vec<Settlement> {
         self.game_tx.update(|game| get_settlements(game)).await
     }
 
-    async fn step_settlement(&mut self, settlement: &Settlement) {
+    async fn step_settlement(&mut self, settlement: &Settlement) -> HashMap<String, Route> {
+        let mut out = HashMap::new();
         for demand in get_demands(&settlement) {
-            let mut paths = self
-                .get_paths_to_resource(settlement.position, demand.resource, demand.sources)
-                .await;
-            for path in paths.drain(..) {
-                self.add_routes(demand.resource, path, demand.quantity)
-                    .await;
-            }
+            out.extend(self.create_routes_from_demand(settlement, demand).await)
         }
+        out
+    }
+
+    async fn create_routes_from_demand(
+        &mut self,
+        settlement: &Settlement,
+        demand: Demand,
+    ) -> HashMap<String, Route> {
+        let mut out = HashMap::new();
+        let mut paths = self
+            .get_paths_to_resource(settlement.position, demand.resource, demand.sources)
+            .await;
+        for path in paths.drain(..) {
+            out.extend(create_routes_from_path(
+                demand.resource,
+                path,
+                demand.quantity,
+            ));
+        }
+        out
     }
 
     async fn get_paths_to_resource(
@@ -75,15 +88,15 @@ impl ResourceRouteSim {
             .await
     }
 
-    async fn add_routes(&mut self, resource: Resource, path: Vec<V2<usize>>, quantity: usize) {
+    async fn update_routes(&mut self, routes: HashMap<String, Route>) {
         self.game_tx
-            .update(move |game| add_routes(game, resource, path, quantity))
+            .update(|game| update_routes(game, routes))
             .await;
     }
 }
 
-fn clear_routes(game: &mut Game) {
-    game.mut_state().routes.clear();
+fn update_routes(game: &mut Game, routes: HashMap<String, Route>) {
+    game.mut_state().routes = routes
 }
 
 fn get_settlements(game: &mut Game) -> Vec<Settlement> {
@@ -107,23 +120,33 @@ fn get_paths_to_resource(
         .collect()
 }
 
-fn add_routes(game: &mut Game, resource: Resource, path: Vec<V2<usize>>, quantity: usize) {
-    for i in 0..quantity {
-        let from = match path.first() {
-            Some(first) => first,
-            None => continue,
-        };
-        let to = match path.last() {
-            Some(last) => last,
-            None => continue,
-        };
-        let name = route_name(resource, from, to, i);
-        let route = Route {
-            resource,
-            path: path.clone(),
-        };
-        game.mut_state().routes.insert(name, route);
-    }
+fn create_routes_from_path(
+    resource: Resource,
+    path: Vec<V2<usize>>,
+    quantity: usize,
+) -> HashMap<String, Route> {
+    (0..quantity)
+        .flat_map(|i| create_route_from_path(resource, path.clone(), i))
+        .collect()
+}
+
+fn create_route_from_path(
+    resource: Resource,
+    path: Vec<V2<usize>>,
+    number: usize,
+) -> Option<(String, Route)> {
+    let from = match path.first() {
+        Some(first) => first,
+        None => return None,
+    };
+    let to = match path.last() {
+        Some(last) => last,
+        None => return None,
+    };
+    Some((
+        route_name(resource, from, to, number),
+        Route { resource, path },
+    ))
 }
 
 fn route_name(resource: Resource, from: &V2<usize>, to: &V2<usize>, number: usize) -> String {
