@@ -24,8 +24,10 @@ where
 
     fn handle_event(&mut self, event: Arc<Event>) {
         let commands = self.event_handler.handle_event(event);
-        self.game_tx
-            .update(move |game| game.send_engine_commands(commands));
+        if !commands.is_empty() {
+            self.game_tx
+                .update(move |game| game.send_engine_commands(commands));
+        }
     }
 }
 

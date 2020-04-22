@@ -34,8 +34,10 @@ impl GameEventConsumer for RotateHandler {
             self.engine_rotatehandler.no_rotate_over_undrawn();
         }
         let commands = self.engine_rotatehandler.handle_event(event);
-        self.game_tx
-            .update(move |game| game.send_engine_commands(commands));
+        if !commands.is_empty() {
+            self.game_tx
+                .update(move |game| game.send_engine_commands(commands));
+        }
         CaptureEvent::No
     }
 }
