@@ -102,8 +102,17 @@ impl Territory {
         self.claims
             .get_corners_in_bounds(position)
             .iter()
-            .flat_map(|corner| self.claims.get(corner).unwrap().values())
+            .flat_map(|corner| self.claims.get(corner))
+            .flat_map(|map| map.values())
             .min_by(|a, b| a.cmp(&b))
+    }
+
+    pub fn anyone_controls_tile(&self, position: &V2<usize>) -> bool {
+        self.claims
+            .get_corners_in_bounds(position)
+            .iter()
+            .flat_map(|corner| self.claims.get(corner))
+            .any(|map| !map.is_empty())
     }
 
     pub fn who_controls(&self, position: &V2<usize>) -> Option<&Claim> {
@@ -531,7 +540,9 @@ mod tests {
 
     #[test]
     fn who_controls_tile_no_claims() {
-        assert_eq!(territory().who_controls_tile(&v2(0, 0)), None);
+        let territory = territory();
+        assert_eq!(territory.who_controls_tile(&v2(0, 0)), None);
+        assert!(!territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]
@@ -555,6 +566,7 @@ mod tests {
                 since_micros: 0
             })
         );
+        assert!(territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]
@@ -583,6 +595,7 @@ mod tests {
                 since_micros: 0
             })
         );
+        assert!(territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]
@@ -625,6 +638,7 @@ mod tests {
                 since_micros: 1
             })
         );
+        assert!(territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]
@@ -667,6 +681,7 @@ mod tests {
                 since_micros: 0
             })
         );
+        assert!(territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]

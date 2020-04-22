@@ -153,15 +153,7 @@ fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<u
 }
 
 fn is_town_candidate(game_state: &GameState, position: &V2<usize>) -> bool {
-    if game_state.world.is_sea(position) {
-        return false;
-    }
-    if let Some(Claim { duration, .. }) = game_state.territory.who_controls_tile(position) {
-        if *duration <= game_state.params.town_exclusive_duration {
-            return false;
-        }
-    }
-    true
+    !game_state.world.is_sea(position) && !game_state.territory.anyone_controls_tile(position)
 }
 
 #[allow(clippy::collapsible_if)]

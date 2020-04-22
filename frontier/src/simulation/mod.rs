@@ -2,7 +2,6 @@ use crate::avatar::*;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
-use crate::territory::*;
 use crate::world::*;
 use commons::edge::*;
 use commons::futures::executor::block_on;

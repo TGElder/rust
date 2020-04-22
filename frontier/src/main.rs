@@ -214,13 +214,7 @@ fn create_simulation(
     let seed = params.seed;
     let house_color = params.house_color;
 
-    let territory_sim = TerritorySim::new(
-        game_tx,
-        pathfinder_tx,
-        params
-            .town_exclusive_duration
-            .max(params.town_travel_duration),
-    );
+    let territory_sim = TerritorySim::new(game_tx, pathfinder_tx, params.town_travel_duration);
     let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
     let farm_sim = FarmSim::new(seed, game_tx);
     let natural_town_sim = NaturalTownSim::new(

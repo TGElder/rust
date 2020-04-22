@@ -179,7 +179,7 @@ impl<'a> TerritoryColoring<'a> {
         }) = game_state.territory.who_controls_tile(tile)
         {
             if let Some(Settlement { mut color, .. }) = game_state.settlements.get(&controller) {
-                color.a = if *duration <= game_state.params.town_exclusive_duration {
+                color.a = if *duration <= game_state.params.town_travel_duration {
                     self.params.territory_exclusive_alpha
                 } else {
                     self.params.territory_non_exclusive_alpha
