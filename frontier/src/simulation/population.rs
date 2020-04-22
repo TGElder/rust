@@ -30,7 +30,11 @@ impl PopulationSim {
         let route_ends = self.get_route_ends().await;
         let controllers = self.get_controllers(route_ends).await;
         let populations = get_populations(controllers);
-        self.set_populations(populations).await
+        let towns = self.get_towns().await;
+        for town in towns {
+            self.set_population(town, *populations.get(&town).unwrap_or(&0))
+                .await
+        }
     }
 
     async fn get_route_ends(&mut self) -> Vec<V2<usize>> {
@@ -43,9 +47,13 @@ impl PopulationSim {
             .await
     }
 
-    async fn set_populations(&mut self, populations: HashMap<V2<usize>, usize>) {
+    async fn get_towns(&mut self) -> Vec<V2<usize>> {
+        self.game_tx.update(move |game| get_towns(game)).await
+    }
+
+    async fn set_population(&mut self, town: V2<usize>, population: usize) {
         self.game_tx
-            .update(move |game| set_populations(game, populations))
+            .update(move |game| set_population(game, town, population))
             .await
     }
 }
@@ -75,20 +83,25 @@ fn get_populations(controllers: Vec<V2<usize>>) -> HashMap<V2<usize>, usize> {
     out
 }
 
-fn set_populations(game: &mut Game, populations: HashMap<V2<usize>, usize>) {
-    let updated: Vec<Settlement> = game
-        .game_state()
+fn get_towns(game: &mut Game) -> Vec<V2<usize>> {
+    game.game_state()
         .settlements
         .values()
         .filter(|settlement| is_town(settlement))
-        .map(|settlement| Settlement {
-            population: *populations.get(&settlement.position).unwrap_or(&0),
-            ..*settlement
-        })
-        .collect();
-    for settlement in updated {
-        game.update_settlement(settlement);
-    }
+        .map(|settlement| settlement.position)
+        .collect()
+}
+
+fn set_population(game: &mut Game, settlement: V2<usize>, population: usize) {
+    let settlement = match game.game_state().settlements.get(&settlement) {
+        Some(settlement) => settlement,
+        None => return,
+    };
+    let updated_settlement = Settlement {
+        population,
+        ..*settlement
+    };
+    game.update_settlement(updated_settlement);
 }
 
 fn is_town(settlement: &Settlement) -> bool {
