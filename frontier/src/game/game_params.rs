@@ -44,7 +44,7 @@ impl Default for GameParams {
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
             log_duration_threshold: None,
-            old_world_population: 64,
+            old_world_population: 8192,
         }
     }
 }

@@ -1,9 +1,15 @@
 use super::*;
 
+use crate::route::*;
 use crate::settlement::*;
 use std::collections::HashMap;
 
 const HANDLE: &str = "population_sim";
+
+pub struct RouteSummary {
+    start: V2<usize>,
+    end: V2<usize>,
+}
 
 pub struct PopulationSim {
     game_tx: UpdateSender<Game>,
@@ -27,9 +33,9 @@ impl PopulationSim {
     }
 
     async fn step_async(&mut self) {
-        let route_ends = self.get_route_ends().await;
-        let controllers = self.get_controllers(route_ends).await;
-        let populations = get_populations(controllers);
+        let route_summaries = self.get_route_summaries().await;
+        let activity = self.get_activity(route_summaries).await;
+        let populations = get_populations(activity);
         let towns = self.get_towns().await;
         for town in towns {
             self.set_population(town, *populations.get(&town).unwrap_or(&0))
@@ -37,13 +43,15 @@ impl PopulationSim {
         }
     }
 
-    async fn get_route_ends(&mut self) -> Vec<V2<usize>> {
-        self.game_tx.update(move |game| get_route_ends(game)).await
+    async fn get_route_summaries(&mut self) -> Vec<RouteSummary> {
+        self.game_tx
+            .update(move |game| get_route_summaries(game))
+            .await
     }
 
-    async fn get_controllers(&mut self, positions: Vec<V2<usize>>) -> Vec<V2<usize>> {
+    async fn get_activity(&mut self, summaries: Vec<RouteSummary>) -> Vec<V2<usize>> {
         self.game_tx
-            .update(move |game| get_controllers(game, positions))
+            .update(move |game| get_activity(game, summaries))
             .await
     }
 
@@ -58,27 +66,48 @@ impl PopulationSim {
     }
 }
 
-fn get_route_ends(game: &mut Game) -> Vec<V2<usize>> {
+fn get_route_summaries(game: &mut Game) -> Vec<RouteSummary> {
     game.game_state()
         .routes
         .values()
-        .flat_map(|route| route.path.last())
-        .cloned()
+        .flat_map(|route| as_route_summary(route))
         .collect()
 }
 
-fn get_controllers(game: &mut Game, positions: Vec<V2<usize>>) -> Vec<V2<usize>> {
-    positions
+fn as_route_summary(route: &Route) -> Option<RouteSummary> {
+    let path = &route.path;
+    let start = match path.first() {
+        Some(&start) => start,
+        None => return None,
+    };
+    let end = match path.last() {
+        Some(&end) => end,
+        None => return None,
+    };
+    Some(RouteSummary { start, end })
+}
+
+fn get_activity(game: &mut Game, summaries: Vec<RouteSummary>) -> Vec<V2<usize>> {
+    summaries
         .iter()
-        .flat_map(|position| game.game_state().territory.who_controls(position))
-        .map(|claim| claim.controller)
+        .filter(|summary| is_activity(game, summary))
+        .map(|summary| summary.end)
         .collect()
 }
 
-fn get_populations(controllers: Vec<V2<usize>>) -> HashMap<V2<usize>, usize> {
+fn is_activity(game: &mut Game, summary: &RouteSummary) -> bool {
+    let end_controller = match game.game_state().territory.who_controls(&summary.end) {
+        Some(controller) => Some(controller),
+        None => return false,
+    };
+    let start_controller = game.game_state().territory.who_controls(&summary.start);
+    start_controller != end_controller
+}
+
+fn get_populations(activity: Vec<V2<usize>>) -> HashMap<V2<usize>, usize> {
     let mut out = HashMap::new();
-    for controller in controllers {
-        *out.entry(controller).or_insert(0) += 1
+    for position in activity {
+        *out.entry(position).or_insert(0) += 1
     }
     out
 }
@@ -97,11 +126,17 @@ fn set_population(game: &mut Game, settlement: V2<usize>, population: usize) {
         Some(settlement) => settlement,
         None => return,
     };
-    let updated_settlement = Settlement {
-        population,
-        ..*settlement
-    };
-    game.update_settlement(updated_settlement);
+    if settlement.population != population {
+        println!(
+            "The population of {:?} increases from {} to {}",
+            settlement.position, settlement.population, population
+        );
+        let updated_settlement = Settlement {
+            population,
+            ..*settlement
+        };
+        game.update_settlement(updated_settlement);
+    }
 }
 
 fn is_town(settlement: &Settlement) -> bool {
