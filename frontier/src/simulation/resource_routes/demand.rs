@@ -54,6 +54,7 @@ fn get_quantity(population: usize, resource: Resource) -> usize {
         Resource::Ivory => population / 128,
         Resource::Spice => population / 32,
         Resource::Stone => population / 4,
+        Resource::Wood => population / 2,
         _ => 0,
     }
 }

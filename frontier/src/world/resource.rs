@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const RESOURCES: [Resource; 11] = [
+pub const RESOURCES: [Resource; 12] = [
     Resource::Bananas,
     Resource::Coal,
     Resource::Deer,
@@ -12,6 +12,7 @@ pub const RESOURCES: [Resource; 11] = [
     Resource::Ivory,
     Resource::Spice,
     Resource::Stone,
+    Resource::Wood,
 ];
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
@@ -28,6 +29,7 @@ pub enum Resource {
     Ivory,
     Spice,
     Stone,
+    Wood,
 }
 
 impl Resource {
@@ -45,6 +47,7 @@ impl Resource {
             Resource::Ivory => "ivory",
             Resource::Spice => "spice",
             Resource::Stone => "stone",
+            Resource::Wood => "wood",
         }
     }
 }

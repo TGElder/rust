@@ -109,7 +109,6 @@ fn texture(resource: Resource) -> Option<&'static str> {
         Resource::Iron => Some("iron.png"),
         Resource::Ivory => Some("ivory.png"),
         Resource::Spice => Some("spice.png"),
-        Resource::Stone => Some("stone.png"),
         _ => None,
     }
 }

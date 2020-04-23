@@ -113,7 +113,7 @@ fn roof_height() -> f32 {
 }
 
 fn house_height(settlement: &Settlement) -> f32 {
-    0.5 + (settlement.population as f32 / 100.0)
+    0.5 + (settlement.population as f32 / 1000.0)
 }
 
 impl GameEventConsumer for SettlementArtist {

@@ -117,6 +117,17 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             }
             Resource::Spice => self.has_vegetation_type(position, VegetationType::PalmTree),
             Resource::Stone => self.is_cliff(position),
+            Resource::Wood => self.has_vegetation(position),
+            _ => false,
+        }
+    }
+
+    fn has_vegetation(&self, position: &V2<usize>) -> bool {
+        match self.world.get_cell(position) {
+            Some(WorldCell {
+                object: WorldObject::Vegetation(..),
+                ..
+            }) => true,
             _ => false,
         }
     }
@@ -176,16 +187,17 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
 fn probability(resource: Resource) -> f32 {
     match resource {
         Resource::Bananas => 1.0 / 512.0,
-        Resource::Coal => 1.0 / 1024.0,
+        Resource::Coal => 1.0 / 512.0,
         Resource::Deer => 1.0 / 512.0,
         Resource::Farmland => 1.0,
         Resource::Fur => 1.0 / 512.0,
-        Resource::Gems => 1.0 / 8192.0,
-        Resource::Gold => 1.0 / 2048.0,
-        Resource::Iron => 1.0 / 2048.0,
+        Resource::Gems => 1.0 / 4096.0,
+        Resource::Gold => 1.0 / 8192.0,
+        Resource::Iron => 1.0 / 512.0,
         Resource::Ivory => 1.0 / 2048.0,
         Resource::Spice => 1.0 / 512.0,
-        Resource::Stone => 1.0 / 256.0,
+        Resource::Stone => 1.0,
+        Resource::Wood => 1.0,
         _ => 0.0,
     }
 }
