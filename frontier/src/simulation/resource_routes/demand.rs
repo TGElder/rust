@@ -1,6 +1,6 @@
 use super::*;
 
-const OLD_WORLD_DEMAND: [Resource; 7] = [
+const HOMELAND_DEMAND: [Resource; 7] = [
     Resource::Bananas,
     Resource::Deer,
     Resource::Fur,
@@ -24,9 +24,9 @@ pub fn get_demands(settlement: &Settlement) -> Vec<Demand> {
             .iter()
             .map(|resource| get_demand(settlement, *resource))
             .collect(),
-        SettlementClass::OldWorld => RESOURCES
+        SettlementClass::Homeland => RESOURCES
             .iter()
-            .filter(|resource| OLD_WORLD_DEMAND.contains(resource))
+            .filter(|resource| HOMELAND_DEMAND.contains(resource))
             .map(|resource| get_demand(settlement, *resource))
             .collect(),
     }
@@ -46,7 +46,6 @@ fn get_quantity(population: usize, resource: Resource) -> usize {
         Resource::Bananas => population / 32,
         Resource::Coal => population / 8,
         Resource::Deer => population / 32,
-        Resource::Farmland => 1,
         Resource::Fur => population / 32,
         Resource::Gems => population / 128,
         Resource::Gold => population / 128,
@@ -54,14 +53,14 @@ fn get_quantity(population: usize, resource: Resource) -> usize {
         Resource::Ivory => population / 128,
         Resource::Spice => population / 32,
         Resource::Stone => population / 4,
-        Resource::Wood => population / 2,
-        _ => 0,
+        _ => 1,
     }
 }
 
 fn get_sources(population: usize, resource: Resource) -> usize {
     match resource {
         Resource::Farmland => population,
+        Resource::Wood => population / 2,
         _ => 1,
     }
 }

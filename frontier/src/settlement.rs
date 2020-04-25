@@ -13,5 +13,5 @@ pub struct Settlement {
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub enum SettlementClass {
     Town,
-    OldWorld,
+    Homeland,
 }

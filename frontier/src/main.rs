@@ -164,10 +164,10 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
     settlements.insert(
         shore_start.origin(),
         Settlement {
-            class: SettlementClass::OldWorld,
+            class: SettlementClass::Homeland,
             position: shore_start.origin(),
             color: params.house_color,
-            population: params.old_world_population,
+            population: params.homeland_population,
         },
     );
     let game_state = GameState {
@@ -223,12 +223,14 @@ fn create_simulation(
         game_tx,
         territory_sim.clone(),
     );
-    let population_sim = PopulationSim::new(game_tx);
+    let town_population_sim = TownPopulationSim::new(game_tx);
     let natural_road_sim = NaturalRoadSim::new(
         params.sim.natural_road,
         AutoRoadTravelDuration::from_params(&params.auto_road_travel),
         game_tx,
     );
+    let homeland_population_sim =
+        HomelandPopulationSim::new(params.sim.homeland_population, game_tx);
 
     Simulation::new(
         params.sim.start_year,
@@ -237,8 +239,9 @@ fn create_simulation(
             Box::new(resource_routes_sim),
             Box::new(farm_sim),
             Box::new(natural_town_sim),
-            Box::new(population_sim),
+            Box::new(town_population_sim),
             Box::new(natural_road_sim),
+            Box::new(homeland_population_sim),
         ],
     )
 }

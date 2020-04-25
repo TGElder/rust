@@ -4,18 +4,18 @@ use crate::route::*;
 use crate::settlement::*;
 use std::collections::HashMap;
 
-const HANDLE: &str = "population_sim";
+const HANDLE: &str = "town_population_sim";
 
 pub struct RouteSummary {
     start: V2<usize>,
     end: V2<usize>,
 }
 
-pub struct PopulationSim {
+pub struct TownPopulationSim {
     game_tx: UpdateSender<Game>,
 }
 
-impl Step for PopulationSim {
+impl Step for TownPopulationSim {
     fn name(&self) -> &'static str {
         HANDLE
     }
@@ -25,9 +25,9 @@ impl Step for PopulationSim {
     }
 }
 
-impl PopulationSim {
-    pub fn new(game_tx: &UpdateSender<Game>) -> PopulationSim {
-        PopulationSim {
+impl TownPopulationSim {
+    pub fn new(game_tx: &UpdateSender<Game>) -> TownPopulationSim {
+        TownPopulationSim {
             game_tx: game_tx.clone_with_handle(HANDLE),
         }
     }
@@ -128,7 +128,7 @@ fn set_population(game: &mut Game, settlement: V2<usize>, population: usize) {
     };
     if settlement.population != population {
         println!(
-            "The population of {:?} increases from {} to {}",
+            "The population of {:?} increased from {} to {}",
             settlement.position, settlement.population, population
         );
         let updated_settlement = Settlement {

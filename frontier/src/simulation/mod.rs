@@ -17,20 +17,22 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 mod farm;
+mod homeland_population;
 mod natural_road;
 mod natural_town;
 mod params;
-mod population;
 mod resource_routes;
 mod territory;
+mod town_population;
 
 pub use farm::*;
+pub use homeland_population::*;
 pub use natural_road::*;
 pub use natural_town::*;
 pub use params::*;
-pub use population::*;
 pub use resource_routes::*;
 pub use territory::*;
+pub use town_population::*;
 
 const STEP_CHECK_DELAY: Duration = Duration::from_millis(100);
 const UPDATE_CHANNEL_BOUND: usize = 100;
