@@ -9,11 +9,15 @@ const HANDLE: &str = "homeland_population_sim";
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HomelandPopulationSimParams {
     growth_rate: f32,
+    max: usize,
 }
 
 impl Default for HomelandPopulationSimParams {
     fn default() -> HomelandPopulationSimParams {
-        HomelandPopulationSimParams { growth_rate: 1.1 }
+        HomelandPopulationSimParams {
+            growth_rate: 1.1,
+            max: 65536,
+        }
     }
 }
 
@@ -46,8 +50,7 @@ impl HomelandPopulationSim {
     async fn step_async(&mut self) {
         let homelands = self.get_homelands().await;
         for homeland in homelands {
-            self.grow_population(homeland, self.params.growth_rate)
-                .await
+            self.grow_population(homeland).await
         }
     }
 
@@ -55,9 +58,11 @@ impl HomelandPopulationSim {
         self.game_tx.update(move |game| get_homelands(game)).await
     }
 
-    async fn grow_population(&mut self, homeland: V2<usize>, growth: f32) {
+    async fn grow_population(&mut self, homeland: V2<usize>) {
+        let growth_rate = self.params.growth_rate;
+        let max = self.params.max;
         self.game_tx
-            .update(move |game| grow_population(game, homeland, growth))
+            .update(move |game| grow_population(game, homeland, growth_rate, max))
             .await
     }
 }
@@ -79,12 +84,12 @@ fn is_homeland(settlement: &Settlement) -> bool {
     }
 }
 
-fn grow_population(game: &mut Game, settlement: V2<usize>, growth: f32) {
+fn grow_population(game: &mut Game, settlement: V2<usize>, growth_rate: f32, max: usize) {
     let settlement = match game.game_state().settlements.get(&settlement) {
         Some(settlement) => settlement,
         None => return,
     };
-    let population = (settlement.population as f32 * growth) as usize;
+    let population = ((settlement.population as f32 * growth_rate) as usize).min(max);
     println!(
         "The population of {:?} increased from {} to {}",
         settlement.position, settlement.population, population

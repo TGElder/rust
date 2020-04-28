@@ -33,17 +33,15 @@ impl Edge {
 }
 
 pub trait Edges {
-    fn edges(&self) -> Vec<Edge>;
+    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = Edge> + 'a>;
 }
 
-impl Edges for Vec<V2<usize>> {
-    fn edges(&self) -> Vec<Edge> {
+impl Edges for [V2<usize>] {
+    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = Edge> + 'a> {
         if self.len() <= 1 {
-            vec![]
+            Box::new(std::iter::empty())
         } else {
-            (0..self.len() - 1)
-                .map(|i| Edge::new(self[i], self[i + 1]))
-                .collect()
+            Box::new((0..self.len() - 1).map(move |i| Edge::new(self[i], self[i + 1])))
         }
     }
 }
@@ -103,9 +101,19 @@ mod tests {
     }
 
     #[test]
-    fn test_edges() {
+    fn test_edges_with_vector() {
         let positions = vec![v2(0, 0), v2(1, 0), v2(2, 0)];
-        let edges = positions.edges();
+        let edges: Vec<Edge> = positions.edges().collect();
+        assert_eq!(
+            edges,
+            vec![Edge::new(v2(0, 0), v2(1, 0)), Edge::new(v2(1, 0), v2(2, 0))]
+        );
+    }
+
+    #[test]
+    fn test_edges_with_array() {
+        let positions = [v2(0, 0), v2(1, 0), v2(2, 0)];
+        let edges: Vec<Edge> = positions.edges().collect();
         assert_eq!(
             edges,
             vec![Edge::new(v2(0, 0), v2(1, 0)), Edge::new(v2(1, 0), v2(2, 0))]
@@ -116,13 +124,13 @@ mod tests {
     fn test_edges_singleton_list() {
         let positions = vec![v2(0, 0)];
         let edges = positions.edges();
-        assert_eq!(edges, vec![]);
+        assert_eq!(edges.count(), 0);
     }
 
     #[test]
     fn test_edges_empty_list() {
         let positions = vec![];
         let edges = positions.edges();
-        assert_eq!(edges, vec![]);
+        assert_eq!(edges.count(), 0);
     }
 }

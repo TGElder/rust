@@ -60,7 +60,7 @@ fn get_quantity(population: usize, resource: Resource) -> usize {
 fn get_sources(population: usize, resource: Resource) -> usize {
     match resource {
         Resource::Farmland => population,
-        Resource::Wood => population / 2,
+        Resource::Wood => population / 4,
         _ => 1,
     }
 }

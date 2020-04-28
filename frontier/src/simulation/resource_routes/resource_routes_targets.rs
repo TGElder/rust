@@ -1,6 +1,6 @@
 use super::*;
 
-use commons::grid::{get_corners, Grid};
+use commons::grid::Grid;
 use std::collections::HashSet;
 
 const HANDLE: &str = "resource_route_targets";
@@ -40,12 +40,9 @@ fn get_targets(game_state: &GameState, resource: Resource) -> HashSet<V2<usize>>
     for x in 0..game_state.world.width() {
         for y in 0..game_state.world.height() {
             let position = &v2(x, y);
-            get_corners(&position)
-                .drain(..)
-                .filter(|corner| resource_at(game_state, resource, &corner))
-                .for_each(|corner| {
-                    out.insert(corner);
-                });
+            if resource_at(game_state, resource, &position) {
+                out.insert(*position);
+            }
         }
     }
     out

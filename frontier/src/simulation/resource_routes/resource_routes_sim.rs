@@ -135,20 +135,16 @@ fn create_route_from_path(
     path: Vec<V2<usize>>,
     number: usize,
 ) -> Option<(String, Route)> {
-    let from = match path.first() {
-        Some(first) => first,
-        None => return None,
-    };
-    let to = match path.last() {
-        Some(last) => last,
-        None => return None,
-    };
-    Some((
-        route_name(resource, from, to, number),
-        Route { resource, path },
-    ))
+    if let [from, .., to] = path.as_slice() {
+        Some((
+            route_name(resource, from, to, number),
+            Route { resource, path },
+        ))
+    } else {
+        None
+    }
 }
 
 fn route_name(resource: Resource, from: &V2<usize>, to: &V2<usize>, number: usize) -> String {
-    format!("{}-{}-{}-{}", resource.name(), from, to, number,)
+    format!("{}-{:?}-{:?}-{}", resource.name(), from, to, number,)
 }

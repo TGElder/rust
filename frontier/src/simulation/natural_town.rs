@@ -4,6 +4,7 @@ use isometric::Color;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::default::Default;
+use std::iter::once;
 
 const HANDLE: &str = "natural_town_sim";
 const ROUTE_BATCH_SIZE: usize = 128;
@@ -62,7 +63,7 @@ impl NaturalTownSim {
                 self.territory_sim.step_controller(town).await;
             }
             visitors.remove(&town);
-            visitors = self.remove_non_candidates(visitors).await;
+            visitors = self.remove_already_controlled(visitors).await;
         }
     }
 
@@ -115,22 +116,22 @@ impl NaturalTownSim {
             .await
     }
 
-    async fn remove_non_candidates(
+    async fn remove_already_controlled(
         &mut self,
         mut visitors: HashMap<V2<usize>, usize>,
     ) -> HashMap<V2<usize>, usize> {
         let candidates: Vec<V2<usize>> = visitors.keys().cloned().collect();
         for batch in candidates.chunks(CANDIDATE_BATCH_SIZE) {
-            for candidate in self.find_non_candidates(batch.to_vec()).await {
+            for candidate in self.get_already_controlled(batch.to_vec()).await {
                 visitors.remove(&candidate);
             }
         }
         visitors
     }
 
-    async fn find_non_candidates(&mut self, candidates: Vec<V2<usize>>) -> HashSet<V2<usize>> {
+    async fn get_already_controlled(&mut self, candidates: Vec<V2<usize>>) -> HashSet<V2<usize>> {
         self.game_tx
-            .update(move |game| find_non_candidates(game, candidates))
+            .update(move |game| get_already_controlled(game, candidates))
             .await
     }
 }
@@ -144,16 +145,28 @@ fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<u
     routes
         .iter()
         .flat_map(|route| game_state.routes.get(route))
-        .flat_map(|route| route.path.last())
-        .filter(|position| is_town_candidate(&game_state, &position))
+        .flat_map(|route| get_economic_activity_positions(game, &route.path))
+        .filter(|position| !game_state.world.is_sea(position))
+        .filter(|position| !already_controlled(&game_state, &position))
         .fold(HashMap::new(), |mut map, position| {
-            *map.entry(*position).or_insert(0) += 1;
+            *map.entry(position).or_insert(0) += 1;
             map
         })
 }
 
-fn is_town_candidate(game_state: &GameState, position: &V2<usize>) -> bool {
-    !game_state.world.is_sea(position) && !game_state.territory.anyone_controls_tile(position)
+fn get_economic_activity_positions<'a>(
+    game: &'a Game,
+    path: &'a [V2<usize>],
+) -> Box<dyn Iterator<Item = V2<usize>> + 'a> {
+    let end = match path.last() {
+        Some(&end) => end,
+        None => return Box::new(std::iter::empty()),
+    };
+    Box::new(once(end).chain(get_port_positions(game, &path)))
+}
+
+fn already_controlled(game_state: &GameState, position: &V2<usize>) -> bool {
+    game_state.territory.anyone_controls_tile(position)
 }
 
 #[allow(clippy::collapsible_if)]
@@ -167,9 +180,9 @@ fn build_town(game: &mut Game, position: V2<usize>, color: Color) -> bool {
     game.add_settlement(settlement)
 }
 
-fn find_non_candidates(game: &mut Game, mut candidates: Vec<V2<usize>>) -> HashSet<V2<usize>> {
+fn get_already_controlled(game: &mut Game, mut candidates: Vec<V2<usize>>) -> HashSet<V2<usize>> {
     candidates
         .drain(..)
-        .filter(|position| !is_town_candidate(game.game_state(), position))
+        .filter(|position| already_controlled(game.game_state(), position))
         .collect()
 }

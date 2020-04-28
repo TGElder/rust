@@ -24,6 +24,7 @@ mod params;
 mod resource_routes;
 mod territory;
 mod town_population;
+mod utils;
 
 pub use farm::*;
 pub use homeland_population::*;
@@ -33,6 +34,7 @@ pub use params::*;
 pub use resource_routes::*;
 pub use territory::*;
 pub use town_population::*;
+use utils::*;
 
 const STEP_CHECK_DELAY: Duration = Duration::from_millis(100);
 const UPDATE_CHANNEL_BOUND: usize = 100;

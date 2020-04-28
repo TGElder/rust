@@ -223,7 +223,7 @@ fn create_simulation(
         game_tx,
         territory_sim.clone(),
     );
-    let town_population_sim = TownPopulationSim::new(game_tx);
+    let town_population_sim = TownPopulationSim::new(params.sim.town_population, game_tx);
     let natural_road_sim = NaturalRoadSim::new(
         params.sim.natural_road,
         AutoRoadTravelDuration::from_params(&params.auto_road_travel),
