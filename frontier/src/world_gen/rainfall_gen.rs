@@ -24,7 +24,6 @@ impl Default for RainfallGenParams {
             over_capacity_99pc_distance: 0.25,
             evaporation_99pc_distance: 1.0,
             wind_probabilities: [0.1, 0.13, 0.15, 0.17, 0.15, 0.13, 0.1, 0.08],
-            // wind_probabilities: [0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0],
         }
     }
 }

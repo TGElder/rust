@@ -1,14 +1,10 @@
 mod rainfall_gen;
 mod resource_gen;
 mod river_water;
+mod sea_border;
 mod temperature;
 mod vegetation_gen;
 
-use self::rainfall_gen::*;
-use self::resource_gen::*;
-use self::river_water::*;
-use self::temperature::*;
-use self::vegetation_gen::*;
 use crate::world::World;
 use commons::scale::Scale;
 use commons::*;
@@ -17,12 +13,18 @@ use pioneer::erosion::Erosion;
 use pioneer::mesh::Mesh;
 use pioneer::mesh_splitter::MeshSplitter;
 use pioneer::river_runner::*;
+use rainfall_gen::*;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
+use resource_gen::*;
+use river_water::*;
+use sea_border::with_sea_border;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::f64::MAX;
 use std::fmt::Debug;
+use temperature::*;
+use vegetation_gen::*;
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct WorldGenParameters {
@@ -94,6 +96,7 @@ pub fn generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParamet
         (0.0, params.max_height),
     ));
     let terrain = rescaled.get_z_vector().map(|z| z as f32);
+    let terrain = with_sea_border(terrain, params.sea_level as f32);
     let mut out = World::new(terrain, params.sea_level as f32);
 
     let temperatures = compute_temperatures(&out, &params);
