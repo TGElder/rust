@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::default::Default;
 
 const HANDLE: &str = "town_population_sim";
+const BATCH_SIZE: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TownPopulationSimParams {
@@ -55,10 +56,12 @@ impl TownPopulationSim {
         let routes = self.get_routes_names().await;
         let mut out = vec![];
         println!("{} routes", routes.len());
-        for route in routes {
-            if let Some(summary) = self.get_controller_summary_from_route_name(route).await {
-                out.push(summary)
-            }
+        for batch in routes.chunks(BATCH_SIZE) {
+            out.append(
+                &mut self
+                    .get_controller_summaries_from_route_names(batch.to_vec())
+                    .await,
+            )
         }
         out
     }
@@ -67,12 +70,12 @@ impl TownPopulationSim {
         self.game_tx.update(|game| get_routes_names(game)).await
     }
 
-    async fn get_controller_summary_from_route_name(
+    async fn get_controller_summaries_from_route_names(
         &self,
-        route_name: String,
-    ) -> Option<ControllerSummary> {
+        route_names: Vec<String>,
+    ) -> Vec<ControllerSummary> {
         self.game_tx
-            .update(move |game| get_controller_summary_from_route_name(game, route_name))
+            .update(move |game| get_controller_summaries_from_route_names(game, route_names))
             .await
     }
 
@@ -117,9 +120,19 @@ fn get_routes_names(game: &mut Game) -> Vec<String> {
     game.game_state().routes.keys().cloned().collect()
 }
 
+fn get_controller_summaries_from_route_names(
+    game: &mut Game,
+    route_names: Vec<String>,
+) -> Vec<ControllerSummary> {
+    route_names
+        .iter()
+        .flat_map(|route_name| get_controller_summary_from_route_name(game, route_name))
+        .collect()
+}
+
 fn get_controller_summary_from_route_name(
     game: &mut Game,
-    route_name: String,
+    route_name: &str,
 ) -> Option<ControllerSummary> {
     PositionSummary::from_route_name(game, route_name)
         .map(|summary| summary.to_controller_summary(&game.game_state().territory))
@@ -198,10 +211,10 @@ pub struct PositionSummary {
 }
 
 impl PositionSummary {
-    fn from_route_name(game: &Game, route_name: String) -> Option<PositionSummary> {
+    fn from_route_name(game: &Game, route_name: &str) -> Option<PositionSummary> {
         game.game_state()
             .routes
-            .get(&route_name)
+            .get(route_name)
             .and_then(|Route { path, .. }| PositionSummary::from_path(game, path))
     }
 
