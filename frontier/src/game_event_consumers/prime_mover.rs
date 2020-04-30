@@ -35,7 +35,7 @@ impl Default for PrimeMoverParams {
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PrimeMoverState {
     visible_routes: HashSet<String>,
-    last_directions: HashMap<String, bool>,
+    last_outbound: HashMap<String, bool>,
     frozen_until: HashMap<String, u128>,
 }
 
@@ -93,19 +93,23 @@ impl PrimeMover {
     fn show_route(&mut self, game_state: &GameState, name: &str, route: &Route) {
         let start_at = game_state.game_micros;
         self.state.visible_routes.insert(name.to_string());
-        if self.next_direction(name.to_string()) {
+        if self.outbound(name) {
             self.walk_positions(name.to_string(), route.path.clone(), start_at);
         } else {
             self.walk_positions_reverse(name.to_string(), route.path.clone(), start_at);
         }
     }
 
-    fn next_direction(&mut self, name: String) -> bool {
-        let last_directions = &mut self.state.last_directions;
-        let rng = &mut self.rng;
-        let direction = last_directions.entry(name).or_insert_with(|| rng.gen());
-        *direction = !*direction;
-        *direction
+    fn outbound(&mut self, name: &str) -> bool {
+        let last_outbound = &mut self.state.last_outbound;
+        if let Some(outbound) = last_outbound.get_mut(name) {
+            *outbound = !*outbound;
+            *outbound
+        } else {
+            let outbound = false;
+            last_outbound.insert(name.to_string(), outbound);
+            outbound
+        }
     }
 
     fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
