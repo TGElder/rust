@@ -64,12 +64,11 @@ impl TravelDuration for AutoRoadTravelDuration {
             Some(WorldCell { visible: true, .. }) => (),
             _ => return None,
         };
+        if world.is_sea(from) && world.is_sea(to) {
+            return None;
+        }
         if let (Some(from), Some(to)) = (world.get_cell(from), world.get_cell(to)) {
-            if (from.elevation() < world.sea_level() && to.elevation() < world.sea_level())
-                || from.river.corner()
-                || to.river.corner()
-                || (from.river.here() && to.river.here())
-            {
+            if from.river.corner() || to.river.corner() || (from.river.here() && to.river.here()) {
                 None
             } else if world.is_road(&Edge::new(from.position(), to.position())) {
                 self.road
