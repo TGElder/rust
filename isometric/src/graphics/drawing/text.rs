@@ -29,11 +29,12 @@ pub fn draw_text(name: String, text: &str, world_coord: WorldCoord, font: &Font)
     }
 
     vec![
-        Command::CreateDrawing(Drawing::text(name.clone(), floats.len(), font, world_coord)),
-        Command::UpdateDrawing{
-            name: name,
+        Command::CreateDrawing(Drawing::text(name.clone(), floats.len(), world_coord)),
+        Command::UpdateVertices{
+            name: name.clone(),
             index: 0,
             floats,
-        }
+        },
+        Command::UpdateTexture{name, texture: Some(font.texture().clone())},
     ]
 }

@@ -4,49 +4,23 @@ use crate::world::World;
 use commons::{na, v3, V3};
 use isometric::coords::*;
 use isometric::drawing::{
-    create_billboard, create_boat, draw_boat, update_billboard, DrawBoatParams,
+    create_billboard, create_boat, draw_boat, update_billboard_texture, update_billboard_vertices,
+    DrawBoatParams,
 };
 use isometric::Color;
 use isometric::Command;
 use std::collections::{HashMap, HashSet};
 use std::iter::once;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum AvatarDrawState {
-    Stationary {
-        position: V2<usize>,
-        rotation: Rotation,
-    },
-    Moving,
-    Absent,
-}
-
-fn avatar_draw_state(state: &AvatarState) -> AvatarDrawState {
-    match state {
-        AvatarState::Stationary {
-            position, rotation, ..
-        } => AvatarDrawState::Stationary {
-            position: *position,
-            rotation: *rotation,
-        },
-        AvatarState::Absent => AvatarDrawState::Absent,
-        AvatarState::Walking(..) => AvatarDrawState::Moving,
-    }
-}
-
-pub struct AvatarArtist {
-    params: AvatarArtistParams,
-    body_parts: Vec<BodyPart>,
-    last_draw_state: HashMap<String, AvatarDrawState>,
-}
-
 pub struct AvatarArtistParams {
     pixels_per_cell: f32,
     boat_params: DrawBoatParams,
+    load_size: f32,
+    load_height: f32,
 }
 
 impl AvatarArtistParams {
-    fn new(light_direction: &V3<f32>) -> AvatarArtistParams {
+    pub fn new(light_direction: &V3<f32>) -> AvatarArtistParams {
         AvatarArtistParams {
             pixels_per_cell: 1280.0,
             boat_params: DrawBoatParams {
@@ -58,34 +32,22 @@ impl AvatarArtistParams {
                 sail_color: Color::new(1.0, 1.0, 1.0, 1.0),
                 light_direction: *light_direction,
             },
+            load_size: 0.15,
+            load_height: 0.3,
         }
     }
 }
 
-struct BodyPart {
-    offset: V3<f32>,
-    handle: String,
-    texture: String,
-    texture_width: usize,
-    texture_height: usize,
-}
-
-fn drawing_name(name: &str, part: &str) -> String {
-    format!("avatar-{}-{}", name.to_string(), part)
-}
-
-fn part_drawing_name(name: &str, part: &BodyPart) -> String {
-    drawing_name(name, &part.handle)
-}
-
-fn boat_drawing_name(name: &str) -> String {
-    drawing_name(name, "boat")
+pub struct AvatarArtist {
+    params: AvatarArtistParams,
+    body_parts: Vec<BodyPart>,
+    last_draw_state: HashMap<String, AvatarDrawState>,
 }
 
 impl AvatarArtist {
-    pub fn new(light_direction: &V3<f32>) -> AvatarArtist {
+    pub fn new(params: AvatarArtistParams) -> AvatarArtist {
         AvatarArtist {
-            params: AvatarArtistParams::new(light_direction),
+            params,
             body_parts: vec![
                 BodyPart {
                     offset: v3(0.0, 0.0, 96.0),
@@ -137,8 +99,9 @@ impl AvatarArtist {
     pub fn init(&self, name: &str) -> Vec<Command> {
         self.body_parts
             .iter()
-            .map(move |part| create_billboard(part_drawing_name(&name, &part), &part.texture))
+            .flat_map(move |part| create_part_drawing(name, part))
             .chain(once(create_boat(boat_drawing_name(&name))))
+            .chain(once(create_billboard(load_drawing_name(&name))))
             .collect()
     }
 
@@ -164,22 +127,20 @@ impl AvatarArtist {
     ) -> Vec<Command> {
         avatars
             .values()
-            .flat_map(|Avatar { name, state, .. }| {
-                self.draw_avatar(&name, state, world, instant, travel_mode_fn)
-            })
+            .flat_map(|avatar| self.draw_avatar(avatar, world, instant, travel_mode_fn))
             .collect()
     }
 
     fn draw_avatar(
         &mut self,
-        name: &str,
-        state: &AvatarState,
+        avatar: &Avatar,
         world: &World,
         instant: &u128,
         travel_mode_fn: &TravelModeFn,
     ) -> Vec<Command> {
         let mut out = vec![];
-
+        let name = &avatar.name;
+        let state = &avatar.state;
         let new_draw_state = avatar_draw_state(&state);
         let last_draw_state = self.last_draw_state.get(name);
         if let Some(last_draw_state) = last_draw_state {
@@ -202,6 +163,7 @@ impl AvatarArtist {
                 instant,
                 travel_mode_fn,
             ));
+            out.append(&mut self.draw_load(&name, &avatar.load, world_coord));
         } else {
             out.append(&mut self.hide(name));
         }
@@ -275,7 +237,7 @@ impl AvatarArtist {
         );
         let width = (part.texture_width as f32) / self.params.pixels_per_cell;
         let height = (part.texture_height as f32) / self.params.pixels_per_cell;
-        update_billboard(part_drawing_name(&name, &part), world_coord, width, height)
+        update_billboard_vertices(part_drawing_name(&name, &part), world_coord, width, height)
     }
 
     fn draw_boat_if_required(
@@ -336,11 +298,39 @@ impl AvatarArtist {
         )
     }
 
+    fn draw_load(
+        &self,
+        name: &str,
+        load: &AvatarLoad,
+        mut world_coord: WorldCoord,
+    ) -> Vec<Command> {
+        if let AvatarLoad::Resource(resource) = load {
+            let texture = match resource_texture(*resource) {
+                Some(texture) => texture,
+                None => return vec![self.hide_load(name)],
+            };
+            let mut out = vec![];
+            let name = load_drawing_name(name);
+            world_coord.z += self.params.load_height;
+            out.append(&mut update_billboard_vertices(
+                name.clone(),
+                world_coord,
+                self.params.load_size,
+                self.params.load_size,
+            ));
+            out.append(&mut update_billboard_texture(name, texture));
+            out
+        } else {
+            vec![self.hide_load(name)]
+        }
+    }
+
     fn hide(&self, name: &str) -> Vec<Command> {
         self.body_parts
             .iter()
             .map(|part| self.hide_part(name, part))
             .chain(once(self.hide_boat(name)))
+            .chain(once(self.hide_load(name)))
             .collect()
     }
 
@@ -358,11 +348,19 @@ impl AvatarArtist {
         }
     }
 
+    fn hide_load(&self, name: &str) -> Command {
+        Command::SetDrawingVisibility {
+            name: load_drawing_name(name),
+            visible: false,
+        }
+    }
+
     fn erase(&self, name: &str) -> Vec<Command> {
         self.body_parts
             .iter()
             .map(|part| self.erase_part(name, part))
             .chain(once(self.erase_boat(name)))
+            .chain(once(self.erase_load(name)))
             .collect()
     }
 
@@ -373,4 +371,81 @@ impl AvatarArtist {
     fn erase_boat(&self, name: &str) -> Command {
         Command::Erase(boat_drawing_name(name))
     }
+
+    fn erase_load(&self, name: &str) -> Command {
+        Command::Erase(load_drawing_name(name))
+    }
+}
+
+fn drawing_name(name: &str, part: &str) -> String {
+    format!("avatar-{}-{}", name.to_string(), part)
+}
+
+fn part_drawing_name(name: &str, part: &BodyPart) -> String {
+    drawing_name(name, &part.handle)
+}
+
+fn boat_drawing_name(name: &str) -> String {
+    drawing_name(name, "boat")
+}
+
+fn load_drawing_name(name: &str) -> String {
+    drawing_name(name, "load")
+}
+
+fn create_part_drawing<'a>(
+    name: &'a str,
+    part: &'a BodyPart,
+) -> impl Iterator<Item = Command> + 'a {
+    let name = part_drawing_name(&name, &part);
+    once(create_billboard(name.clone())).chain(update_billboard_texture(name, &part.texture))
+}
+
+fn resource_texture(resource: Resource) -> Option<&'static str> {
+    match resource {
+        Resource::Bananas => Some("bananas.png"),
+        Resource::Coal => Some("coal.png"),
+        Resource::Deer => Some("deer.png"),
+        Resource::Farmland => Some("wheat.png"),
+        Resource::Fur => Some("fur.png"),
+        Resource::Gems => Some("gems.png"),
+        Resource::Gold => Some("gold.png"),
+        Resource::Iron => Some("iron.png"),
+        Resource::Ivory => Some("ivory.png"),
+        Resource::Spice => Some("spice.png"),
+        Resource::Stone => Some("stone.png"),
+        Resource::Wood => Some("wood.png"),
+        _ => None,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AvatarDrawState {
+    Stationary {
+        position: V2<usize>,
+        rotation: Rotation,
+    },
+    Moving,
+    Absent,
+}
+
+fn avatar_draw_state(state: &AvatarState) -> AvatarDrawState {
+    match state {
+        AvatarState::Stationary {
+            position, rotation, ..
+        } => AvatarDrawState::Stationary {
+            position: *position,
+            rotation: *rotation,
+        },
+        AvatarState::Absent => AvatarDrawState::Absent,
+        AvatarState::Walking(..) => AvatarDrawState::Moving,
+    }
+}
+
+struct BodyPart {
+    offset: V3<f32>,
+    handle: String,
+    texture: String,
+    texture_width: usize,
+    texture_height: usize,
 }

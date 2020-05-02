@@ -72,7 +72,7 @@ pub fn draw_house(name: String, world_coordinate: WorldCoord, p: &DrawHouseParam
 
     vec![
         Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
-        Command::UpdateDrawing {
+        Command::UpdateVertices {
             name,
             index: 0,
             floats,

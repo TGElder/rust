@@ -94,9 +94,19 @@ impl PrimeMover {
         let start_at = game_state.game_micros;
         self.state.visible_routes.insert(name.to_string());
         if self.outbound(name) {
-            self.walk_positions(name.to_string(), route.path.clone(), start_at);
+            self.walk_positions(
+                name.to_string(),
+                route.path.clone(),
+                start_at,
+                AvatarLoad::None,
+            );
         } else {
-            self.walk_positions_reverse(name.to_string(), route.path.clone(), start_at);
+            self.walk_positions_reverse(
+                name.to_string(),
+                route.path.clone(),
+                start_at,
+                AvatarLoad::Resource(route.resource),
+            );
         }
     }
 
@@ -112,10 +122,21 @@ impl PrimeMover {
         }
     }
 
-    fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
+    fn walk_positions(
+        &mut self,
+        name: String,
+        positions: Vec<V2<usize>>,
+        start_at: u128,
+        load: AvatarLoad,
+    ) {
         let pause_at_start = self.params.pause_at_start_of_journey;
         let pause_at_end = self.params.pause_at_end_of_journey;
+        let first = match positions.first() {
+            Some(first) => *first,
+            None => return,
+        };
         self.game_tx.update(move |game| {
+            add_avatar(game, name.clone(), first, load);
             walk_positions(
                 game,
                 name,
@@ -132,9 +153,10 @@ impl PrimeMover {
         name: String,
         mut positions: Vec<V2<usize>>,
         start_at: u128,
+        load: AvatarLoad,
     ) {
         positions.reverse();
-        self.walk_positions(name, positions, start_at);
+        self.walk_positions(name, positions, start_at, load);
     }
 
     fn update_visible_routes(&mut self, game_state: &GameState) {
@@ -196,21 +218,17 @@ fn walk_positions(
     pause_at_start: Option<Duration>,
     pause_at_end: Option<Duration>,
 ) {
-    let first = match positions.first() {
-        Some(first) => first,
-        None => return,
-    };
-    add_avatar(game, name.clone(), *first);
     game.walk_positions(name, positions, start_at, pause_at_start, pause_at_end);
 }
 
-fn add_avatar(game: &mut Game, name: String, position: V2<usize>) {
+fn add_avatar(game: &mut Game, name: String, position: V2<usize>, load: AvatarLoad) {
     let avatar = Avatar {
         name: name.clone(),
         state: AvatarState::Stationary {
             position,
             rotation: Rotation::Up,
         },
+        load,
     };
     game.mut_state().avatars.insert(name, avatar);
 }

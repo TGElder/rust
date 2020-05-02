@@ -158,6 +158,7 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
                 position: shore_start.at(),
                 rotation: shore_start.rotation(),
             },
+            load: AvatarLoad::None,
         },
     );
     let mut settlements = HashMap::new();

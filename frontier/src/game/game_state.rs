@@ -66,6 +66,7 @@ mod tests {
                     position: v2(1, 1),
                     rotation: Rotation::Down,
                 },
+                load: AvatarLoad::Resource(Resource::Gold),
             },
         );
         let mut settlements = HashMap::new();

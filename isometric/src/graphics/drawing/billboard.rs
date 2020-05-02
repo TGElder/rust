@@ -23,25 +23,28 @@ fn get_floats(world_coord: WorldCoord, width: f32, height: f32) -> Vec<f32> {
     ]
 }
 
-pub fn create_billboard(name: String, texture: &str) -> Command {
-    Command::CreateDrawing(Drawing::billboard(
-        name,
-        BILLBOARD_FLOATS,
-        texture.to_string(),
-    ))
+pub fn create_billboard(name: String) -> Command {
+    Command::CreateDrawing(Drawing::billboard(name, BILLBOARD_FLOATS))
 }
 
-pub fn update_billboard(
+pub fn update_billboard_vertices(
     name: String,
     world_coord: WorldCoord,
     width: f32,
     height: f32,
 ) -> Vec<Command> {
     let floats = get_floats(world_coord, width, height);
-    vec![Command::UpdateDrawing {
+    vec![Command::UpdateVertices {
         name,
         index: 0,
         floats,
+    }]
+}
+
+pub fn update_billboard_texture(name: String, texture: &str) -> Vec<Command> {
+    vec![Command::UpdateTexture {
+        name,
+        texture: Some(texture.to_string()),
     }]
 }
 
@@ -59,15 +62,15 @@ pub fn create_and_update_billboards(
     }
 
     vec![
-        Command::CreateDrawing(Drawing::billboard(
-            name.clone(),
-            floats.len(),
-            texture.to_string(),
-        )),
-        Command::UpdateDrawing {
-            name,
+        Command::CreateDrawing(Drawing::billboard(name.clone(), floats.len())),
+        Command::UpdateVertices {
+            name: name.clone(),
             index: 0,
             floats,
+        },
+        Command::UpdateTexture {
+            name,
+            texture: Some(texture.to_string()),
         },
     ]
 }

@@ -95,7 +95,7 @@ pub fn draw_boat(
         &sail_coloring,
     ));
 
-    vec![Command::UpdateDrawing {
+    vec![Command::UpdateVertices {
         name: name.to_string(),
         index: 0,
         floats,

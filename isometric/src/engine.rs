@@ -49,10 +49,14 @@ pub enum Command {
     },
     Event(Event),
     CreateDrawing(Drawing),
-    UpdateDrawing {
+    UpdateVertices {
         name: String,
         floats: Vec<f32>,
         index: usize,
+    },
+    UpdateTexture {
+        name: String,
+        texture: Option<String>,
     },
     SetDrawingVisibility {
         name: String,
@@ -222,11 +226,12 @@ impl IsometricEngine {
             Command::Rotate { center, yaw } => self.graphics.rotate(center, yaw),
             Command::Event(event) => self.consume_event(event),
             Command::CreateDrawing(drawing) => self.graphics.add_drawing(drawing),
-            Command::UpdateDrawing {
+            Command::UpdateTexture { name, texture } => self.graphics.update_texture(name, texture),
+            Command::UpdateVertices {
                 name,
                 index,
                 floats,
-            } => self.graphics.update_drawing(name, index, floats),
+            } => self.graphics.update_vertices(name, index, floats),
             Command::SetDrawingVisibility { name, visible } => {
                 self.graphics.set_drawing_visibility(name, visible)
             }

@@ -7,7 +7,7 @@ pub use travel_duration::*;
 pub use travel_mode::*;
 
 use crate::travel_duration::*;
-use crate::world::World;
+use crate::world::{Resource, World};
 use commons::{v2, V2};
 use isometric::coords::*;
 use serde::{Deserialize, Serialize};
@@ -15,47 +15,11 @@ use std::default::Default;
 use std::f32::consts::PI;
 use std::time::Duration;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub enum Rotation {
-    Left,
-    Up,
-    Right,
-    Down,
-}
-
-impl Default for Rotation {
-    fn default() -> Rotation {
-        Rotation::Up
-    }
-}
-
-impl Rotation {
-    pub fn angle(self) -> f32 {
-        match self {
-            Rotation::Left => 4.0 * (PI / 4.0),
-            Rotation::Up => 2.0 * (PI / 4.0),
-            Rotation::Right => 0.0 * (PI / 4.0),
-            Rotation::Down => 6.0 * (PI / 4.0),
-        }
-    }
-
-    fn clockwise(self) -> Rotation {
-        match self {
-            Rotation::Left => Rotation::Up,
-            Rotation::Up => Rotation::Right,
-            Rotation::Right => Rotation::Down,
-            Rotation::Down => Rotation::Left,
-        }
-    }
-
-    fn anticlockwise(self) -> Rotation {
-        match self {
-            Rotation::Left => Rotation::Down,
-            Rotation::Up => Rotation::Left,
-            Rotation::Right => Rotation::Up,
-            Rotation::Down => Rotation::Right,
-        }
-    }
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct Avatar {
+    pub name: String,
+    pub state: AvatarState,
+    pub load: AvatarLoad,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -195,10 +159,53 @@ impl AvatarState {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub enum Rotation {
+    Left,
+    Up,
+    Right,
+    Down,
+}
+
+impl Default for Rotation {
+    fn default() -> Rotation {
+        Rotation::Up
+    }
+}
+
+impl Rotation {
+    pub fn angle(self) -> f32 {
+        match self {
+            Rotation::Left => 4.0 * (PI / 4.0),
+            Rotation::Up => 2.0 * (PI / 4.0),
+            Rotation::Right => 0.0 * (PI / 4.0),
+            Rotation::Down => 6.0 * (PI / 4.0),
+        }
+    }
+
+    fn clockwise(self) -> Rotation {
+        match self {
+            Rotation::Left => Rotation::Up,
+            Rotation::Up => Rotation::Right,
+            Rotation::Right => Rotation::Down,
+            Rotation::Down => Rotation::Left,
+        }
+    }
+
+    fn anticlockwise(self) -> Rotation {
+        match self {
+            Rotation::Left => Rotation::Down,
+            Rotation::Up => Rotation::Left,
+            Rotation::Right => Rotation::Up,
+            Rotation::Down => Rotation::Right,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct Avatar {
-    pub name: String,
-    pub state: AvatarState,
+pub enum AvatarLoad {
+    None,
+    Resource(Resource),
 }
 
 #[allow(dead_code)]

@@ -18,12 +18,15 @@ pub fn draw_textured(name: String, color: &Color, texture: &str, corners: [World
         Command::CreateDrawing(Drawing::textured(
             name.clone(),
             floats.len(),
-            texture.to_string(),
         )),
-        Command::UpdateDrawing {
-            name,
+        Command::UpdateVertices {
+            name: name.clone(),
             index: 0,
             floats,
+        },
+        Command::UpdateTexture {
+            name,
+            texture: Some(texture.to_string()),
         }
     ]
 }

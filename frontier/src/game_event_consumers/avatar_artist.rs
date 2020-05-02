@@ -1,5 +1,5 @@
 use super::*;
-use crate::artists::AvatarArtist;
+use crate::artists::{AvatarArtist, AvatarArtistParams};
 
 const HANDLE: &str = "avatar_artist_handler";
 
@@ -26,7 +26,8 @@ impl AvatarArtistHandler {
     }
 
     fn init_avatar_artist(&mut self, game_state: &GameState) {
-        let avatar_artist = AvatarArtist::new(&game_state.params.light_direction);
+        let avatar_artist =
+            AvatarArtist::new(AvatarArtistParams::new(&game_state.params.light_direction));
         self.avatar_artist = Some(avatar_artist);
     }
 

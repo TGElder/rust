@@ -7,7 +7,6 @@ mod vertex_objects;
 use self::program::Program;
 use self::texture::{Texture, TextureLibrary};
 use self::vertex_objects::MultiVBO;
-use crate::font::Font;
 use commons::na;
 use coords::*;
 use std::collections::HashMap;
@@ -23,7 +22,6 @@ pub struct Drawing {
     drawing_type: DrawingType,
     indices: usize,
     max_floats_per_index: usize,
-    texture: Option<String>,
     visibility_check_coord: Option<WorldCoord>,
     visible: bool,
 }
@@ -35,48 +33,39 @@ impl Drawing {
             drawing_type: DrawingType::Plain,
             indices: 1,
             max_floats_per_index: floats,
-            texture: None,
             visibility_check_coord: None,
             visible: true,
         }
     }
 
-    pub fn textured(name: String, floats: usize, texture: String) -> Drawing {
+    pub fn textured(name: String, floats: usize) -> Drawing {
         Drawing {
             name,
             drawing_type: DrawingType::Textured,
             indices: 1,
             max_floats_per_index: floats,
-            texture: Some(texture),
             visibility_check_coord: None,
             visible: true,
         }
     }
 
-    pub fn billboard(name: String, floats: usize, texture: String) -> Drawing {
+    pub fn billboard(name: String, floats: usize) -> Drawing {
         Drawing {
             name,
             drawing_type: DrawingType::Billboard,
             indices: 1,
             max_floats_per_index: floats,
-            texture: Some(texture),
             visibility_check_coord: None,
             visible: true,
         }
     }
 
-    pub fn text(
-        name: String,
-        floats: usize,
-        font: &Font,
-        visibility_check_coord: WorldCoord,
-    ) -> Drawing {
+    pub fn text(name: String, floats: usize, visibility_check_coord: WorldCoord) -> Drawing {
         Drawing {
             name,
             drawing_type: DrawingType::Text,
             indices: 1,
             max_floats_per_index: floats,
-            texture: Some(font.texture().clone()),
             visibility_check_coord: Some(visibility_check_coord),
             visible: true,
         }
@@ -88,7 +77,6 @@ impl Drawing {
             drawing_type: DrawingType::Plain,
             indices,
             max_floats_per_index,
-            texture: None,
             visibility_check_coord: None,
             visible: true,
         }
@@ -102,18 +90,15 @@ struct GLDrawing {
 }
 
 impl GLDrawing {
-    pub fn new(drawing: Drawing, texture_library: &mut TextureLibrary) -> GLDrawing {
+    pub fn new(drawing: Drawing) -> GLDrawing {
         GLDrawing {
             buffer: MultiVBO::new(
                 drawing.drawing_type,
                 drawing.indices,
                 drawing.max_floats_per_index,
             ),
-            texture: drawing
-                .texture
-                .as_ref()
-                .map(|texture| texture_library.get_texture(texture)),
             drawing,
+            texture: None,
         }
     }
 
@@ -215,16 +200,20 @@ impl GraphicsEngine {
     }
 
     pub fn add_drawing(&mut self, drawing: Drawing) {
-        self.drawings.insert(
-            drawing.name.clone(),
-            GLDrawing::new(drawing, &mut self.texture_library),
-        );
+        self.drawings
+            .insert(drawing.name.clone(), GLDrawing::new(drawing));
     }
 
-    pub fn update_drawing(&mut self, name: String, index: usize, vertices: Vec<f32>) {
+    pub fn update_vertices(&mut self, name: String, index: usize, vertices: Vec<f32>) {
         let mut gl_drawing = self.drawings.get_mut(&name).unwrap();
         gl_drawing.load(index, vertices);
         gl_drawing.drawing.visible = true;
+    }
+
+    pub fn update_texture(&mut self, name: String, texture: Option<String>) {
+        let gl_drawing = self.drawings.get_mut(&name).unwrap();
+        let texture_library = &mut self.texture_library;
+        gl_drawing.texture = texture.map(|texture| texture_library.get_texture(&texture))
     }
 
     pub fn remove_drawing(&mut self, name: &str) {

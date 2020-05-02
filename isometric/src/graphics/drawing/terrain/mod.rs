@@ -50,7 +50,7 @@ where
 
     vec![
         Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
-        Command::UpdateDrawing {
+        Command::UpdateVertices {
             name,
             index: 0,
             floats,
@@ -88,7 +88,7 @@ where
 
     vec![
         Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
-        Command::UpdateDrawing {
+        Command::UpdateVertices {
             name,
             index: 0,
             floats,
@@ -142,11 +142,15 @@ where
     }
 
     vec![
-        Command::CreateDrawing(Drawing::textured(name.clone(), floats.len(), texture)),
-        Command::UpdateDrawing {
-            name,
+        Command::CreateDrawing(Drawing::textured(name.clone(), floats.len())),
+        Command::UpdateVertices {
+            name: name.clone(),
             index: 0,
             floats,
+        },
+        Command::UpdateTexture {
+            name: name,
+            texture: Some(texture),
         },
     ]
 }
@@ -245,7 +249,7 @@ impl TerrainDrawing {
         }
 
         let index = self.index.get(from).unwrap();
-        vec![Command::UpdateDrawing {
+        vec![Command::UpdateVertices {
             name: self.name.clone(),
             index,
             floats,

@@ -23,7 +23,7 @@ pub fn draw_sea(name: String, width: f32, height: f32, level: f32) -> Vec<Comman
 
     vec![
         Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
-        Command::UpdateDrawing {
+        Command::UpdateVertices {
             name,
             index: 0,
             floats,
