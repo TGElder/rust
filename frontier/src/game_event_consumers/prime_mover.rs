@@ -85,6 +85,7 @@ impl PrimeMover {
         game_state
             .routes
             .iter()
+            .filter(|(_, route)| route.path.len() > 1)
             .filter(|(name, _)| !is_visible(game_state, &name))
             .filter(|(name, _)| !self.is_frozen(&name))
             .collect()
