@@ -75,7 +75,7 @@ mod tests {
                 class: SettlementClass::Town,
                 position: v2(3, 2),
                 color: Color::new(1.0, 0.0, 0.0, 1.0),
-                population: 71,
+                population: 71.4,
             },
         );
         let mut routes = HashMap::new();

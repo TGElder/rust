@@ -15,7 +15,6 @@ pub struct Demand {
     pub position: V2<usize>,
     pub resource: Resource,
     pub sources: usize,
-    pub quantity: usize,
 }
 
 pub fn get_demands(settlement: &Settlement) -> Vec<Demand> {
@@ -37,15 +36,16 @@ fn get_demand(settlement: &Settlement, resource: Resource) -> Demand {
         position: settlement.position,
         resource,
         sources: get_sources(settlement.population, resource),
-        quantity: get_quantity(settlement.population, resource),
     }
 }
 
-fn get_quantity(population: usize, resource: Resource) -> usize {
+fn get_sources(population: f32, resource: Resource) -> usize {
+    let population = population.round() as usize;
     match resource {
         Resource::Bananas => population / 32,
         Resource::Coal => population / 8,
         Resource::Deer => population / 32,
+        Resource::Farmland => population,
         Resource::Fur => population / 32,
         Resource::Gems => population / 128,
         Resource::Gold => population / 128,
@@ -53,13 +53,6 @@ fn get_quantity(population: usize, resource: Resource) -> usize {
         Resource::Ivory => population / 128,
         Resource::Spice => population / 32,
         Resource::Stone => population / 4,
-        _ => 1,
-    }
-}
-
-fn get_sources(population: usize, resource: Resource) -> usize {
-    match resource {
-        Resource::Farmland => population,
         Resource::Wood => population / 4,
         _ => 1,
     }

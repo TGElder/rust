@@ -61,14 +61,17 @@ impl ResourceRouteSim {
         demand: Demand,
     ) -> HashMap<String, Route> {
         let mut out = HashMap::new();
-        let mut paths = self
+        let paths = self
             .get_paths_to_resource(settlement.position, demand.resource, demand.sources)
             .await;
-        for path in paths.drain(..) {
-            out.extend(create_routes_from_path(
+        if paths.is_empty() {
+            return out;
+        }
+        for i in 0..demand.sources {
+            out.extend(create_route_from_path(
                 demand.resource,
-                path,
-                demand.quantity,
+                paths[i % paths.len()].clone(),
+                i,
             ));
         }
         out
@@ -119,25 +122,14 @@ fn get_paths_to_resource(
         .map(|result| result.path)
         .collect()
 }
-
-fn create_routes_from_path(
-    resource: Resource,
-    path: Vec<V2<usize>>,
-    quantity: usize,
-) -> HashMap<String, Route> {
-    (0..quantity)
-        .flat_map(|i| create_route_from_path(resource, path.clone(), i))
-        .collect()
-}
-
 fn create_route_from_path(
     resource: Resource,
     path: Vec<V2<usize>>,
-    number: usize,
+    repeat: usize,
 ) -> Option<(String, Route)> {
     if let [from, .., to] = path.as_slice() {
         Some((
-            route_name(resource, from, to, number),
+            route_name(resource, from, to, repeat),
             Route { resource, path },
         ))
     } else {
@@ -145,6 +137,6 @@ fn create_route_from_path(
     }
 }
 
-fn route_name(resource: Resource, from: &V2<usize>, to: &V2<usize>, number: usize) -> String {
-    format!("{}-{:?}-{:?}-{}", resource.name(), from, to, number,)
+fn route_name(resource: Resource, from: &V2<usize>, to: &V2<usize>, repeat: usize) -> String {
+    format!("{}-{:?}-{:?}-{}", resource.name(), from, to, repeat,)
 }

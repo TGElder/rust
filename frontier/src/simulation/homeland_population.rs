@@ -9,14 +9,14 @@ const HANDLE: &str = "homeland_population_sim";
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HomelandPopulationSimParams {
     growth_rate: f32,
-    max: usize,
+    max: f32,
 }
 
 impl Default for HomelandPopulationSimParams {
     fn default() -> HomelandPopulationSimParams {
         HomelandPopulationSimParams {
             growth_rate: 1.1,
-            max: 65536,
+            max: 262_144.0,
         }
     }
 }
@@ -84,12 +84,12 @@ fn is_homeland(settlement: &Settlement) -> bool {
     }
 }
 
-fn grow_population(game: &mut Game, settlement: V2<usize>, growth_rate: f32, max: usize) {
+fn grow_population(game: &mut Game, settlement: V2<usize>, growth_rate: f32, max: f32) {
     let settlement = match game.game_state().settlements.get(&settlement) {
         Some(settlement) => settlement,
         None => return,
     };
-    let population = ((settlement.population as f32 * growth_rate) as usize).min(max);
+    let population = (settlement.population as f32 * growth_rate).min(max);
     println!(
         "The population of {:?} increased from {} to {}",
         settlement.position, settlement.population, population

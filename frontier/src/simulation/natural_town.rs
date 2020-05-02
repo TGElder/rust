@@ -175,7 +175,7 @@ fn build_town(game: &mut Game, position: V2<usize>, color: Color) -> bool {
         class: SettlementClass::Town,
         position,
         color,
-        population: 0,
+        population: 0.0,
     };
     game.add_settlement(settlement)
 }

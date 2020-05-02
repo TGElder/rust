@@ -191,7 +191,7 @@ fn probability(resource: Resource) -> f32 {
         Resource::Deer => 1.0 / 512.0,
         Resource::Farmland => 1.0,
         Resource::Fur => 1.0 / 512.0,
-        Resource::Gems => 1.0 / 4096.0,
+        Resource::Gems => 1.0 / 65536.0,
         Resource::Gold => 1.0 / 8192.0,
         Resource::Iron => 1.0 / 512.0,
         Resource::Ivory => 1.0 / 2048.0,

@@ -13,12 +13,14 @@ const BATCH_SIZE: usize = 128;
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TownPopulationSimParams {
     population_per_route: f32,
+    min_population_change: f32,
 }
 
 impl Default for TownPopulationSimParams {
     fn default() -> TownPopulationSimParams {
         TownPopulationSimParams {
             population_per_route: 0.5,
+            min_population_change: 0.1,
         }
     }
 }
@@ -97,11 +99,8 @@ impl TownPopulationSim {
 
     async fn set_populations(&mut self, populations: HashMap<V2<usize>, f32>) {
         for town in self.get_towns().await {
-            self.set_population(
-                town,
-                populations.get(&town).unwrap_or(&0.0).floor() as usize,
-            )
-            .await
+            self.set_population(town, *populations.get(&town).unwrap_or(&0.0))
+                .await
         }
     }
 
@@ -109,9 +108,10 @@ impl TownPopulationSim {
         self.game_tx.update(move |game| get_towns(game)).await
     }
 
-    async fn set_population(&mut self, town: V2<usize>, population: usize) {
+    async fn set_population(&mut self, town: V2<usize>, population: f32) {
+        let min_change = self.params.min_population_change;
         self.game_tx
-            .update(move |game| set_population(game, town, population))
+            .update(move |game| set_population(game, town, population, min_change))
             .await
     }
 }
@@ -155,12 +155,12 @@ fn is_town(settlement: &Settlement) -> bool {
     }
 }
 
-fn set_population(game: &mut Game, settlement: V2<usize>, population: usize) {
+fn set_population(game: &mut Game, settlement: V2<usize>, population: f32, min_change: f32) {
     let settlement = match game.game_state().settlements.get(&settlement) {
         Some(settlement) => settlement,
         None => return,
     };
-    if settlement.population != population {
+    if (settlement.population - population).abs() >= min_change {
         println!(
             "The population of {:?} increased from {} to {}",
             settlement.position, settlement.population, population
