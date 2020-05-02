@@ -6,4 +6,5 @@ use serde::{Deserialize, Serialize};
 pub struct Route {
     pub resource: Resource,
     pub path: Vec<V2<usize>>,
+    pub traffic: usize,
 }

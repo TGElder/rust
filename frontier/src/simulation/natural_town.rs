@@ -1,4 +1,5 @@
 use super::*;
+use crate::route::*;
 use crate::settlement::*;
 use isometric::Color;
 use serde::{Deserialize, Serialize};
@@ -145,24 +146,37 @@ fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<u
     routes
         .iter()
         .flat_map(|route| game_state.routes.get(route))
-        .flat_map(|route| get_economic_activity_positions(game, &route.path))
-        .filter(|position| !game_state.world.is_sea(position))
-        .filter(|position| !already_controlled(&game_state, &position))
-        .fold(HashMap::new(), |mut map, position| {
-            *map.entry(position).or_insert(0) += 1;
+        .flat_map(|route| get_economic_activity_traffic(game, &route))
+        .filter(|Traffic { position, .. }| !game_state.world.is_sea(position))
+        .filter(|Traffic { position, .. }| !already_controlled(&game_state, &position))
+        .fold(HashMap::new(), |mut map, traffic| {
+            *map.entry(traffic.position).or_insert(0) += traffic.traffic;
             map
         })
 }
 
-fn get_economic_activity_positions<'a>(
+fn get_economic_activity_traffic<'a>(
     game: &'a Game,
-    path: &'a [V2<usize>],
-) -> Box<dyn Iterator<Item = V2<usize>> + 'a> {
-    let end = match path.last() {
+    route: &'a Route,
+) -> Box<dyn Iterator<Item = Traffic> + 'a> {
+    let end = match route.path.last() {
         Some(&end) => end,
         None => return Box::new(std::iter::empty()),
     };
-    Box::new(once(end).chain(get_port_positions(game, &path)))
+    Box::new(
+        once(Traffic {
+            position: end,
+            traffic: route.traffic,
+        })
+        .chain(get_port_traffic(game, &route)),
+    )
+}
+
+fn get_port_traffic<'a>(game: &'a Game, route: &'a Route) -> impl Iterator<Item = Traffic> + 'a {
+    get_port_positions(game, &route.path).map(move |position| Traffic {
+        position,
+        traffic: route.traffic,
+    })
 }
 
 fn already_controlled(game_state: &GameState, position: &V2<usize>) -> bool {
@@ -185,4 +199,9 @@ fn get_already_controlled(game: &mut Game, mut candidates: Vec<V2<usize>>) -> Ha
         .drain(..)
         .filter(|position| already_controlled(game.game_state(), position))
         .collect()
+}
+
+struct Traffic {
+    position: V2<usize>,
+    traffic: usize,
 }

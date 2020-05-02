@@ -67,11 +67,15 @@ impl ResourceRouteSim {
         if paths.is_empty() {
             return out;
         }
+        let mut traffic: Vec<usize> = vec![0; paths.len()];
         for i in 0..demand.sources {
+            traffic[i % paths.len()] += 1
+        }
+        for i in 0..paths.len() {
             out.extend(create_route_from_path(
                 demand.resource,
                 paths[i % paths.len()].clone(),
-                i,
+                traffic[i],
             ));
         }
         out
@@ -125,18 +129,22 @@ fn get_paths_to_resource(
 fn create_route_from_path(
     resource: Resource,
     path: Vec<V2<usize>>,
-    repeat: usize,
+    traffic: usize,
 ) -> Option<(String, Route)> {
     if let [from, .., to] = path.as_slice() {
         Some((
-            route_name(resource, from, to, repeat),
-            Route { resource, path },
+            route_name(resource, from, to),
+            Route {
+                resource,
+                path,
+                traffic,
+            },
         ))
     } else {
         None
     }
 }
 
-fn route_name(resource: Resource, from: &V2<usize>, to: &V2<usize>, repeat: usize) -> String {
-    format!("{}-{:?}-{:?}-{}", resource.name(), from, to, repeat,)
+fn route_name(resource: Resource, from: &V2<usize>, to: &V2<usize>) -> String {
+    format!("{}-{:?}-{:?}", resource.name(), from, to)
 }

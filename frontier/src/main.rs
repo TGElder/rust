@@ -98,15 +98,15 @@ fn main() {
     game.add_consumer(Save::new(game.update_tx(), sim.update_tx()));
     game.add_consumer(SelectAvatar::new(game.update_tx()));
     game.add_consumer(SpeedControl::new(game.update_tx()));
-    
+
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
     game.add_consumer(SettlementArtist::new(game.update_tx()));
     game.add_consumer(VisibilityHandler::new(game.update_tx()));
-    
+
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
-    
+
     game.add_consumer(PrimeMover::new(
         game.game_state().params.seed,
         game.update_tx(),

@@ -85,6 +85,7 @@ mod tests {
             Route {
                 resource: Resource::Bananas,
                 path: vec![v2(1, 0), v2(2, 0)],
+                traffic: 2,
             },
         );
         let game_state = GameState {

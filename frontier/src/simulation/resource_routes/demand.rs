@@ -22,11 +22,13 @@ pub fn get_demands(settlement: &Settlement) -> Vec<Demand> {
         SettlementClass::Town => RESOURCES
             .iter()
             .map(|resource| get_demand(settlement, *resource))
+            .filter(|demand| demand.sources > 0)
             .collect(),
         SettlementClass::Homeland => RESOURCES
             .iter()
             .filter(|resource| HOMELAND_DEMAND.contains(resource))
             .map(|resource| get_demand(settlement, *resource))
+            .filter(|demand| demand.sources > 0)
             .collect(),
     }
 }

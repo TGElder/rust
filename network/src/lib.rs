@@ -375,6 +375,10 @@ impl Network {
             panic!("Length of target slice must equal size of network");
         }
 
+        if n_closest == 0 {
+            return vec![];
+        }
+
         let mut closed = vec![false; self.nodes];
         let mut edges = vec![None; self.nodes];
         let mut heap = BinaryHeap::new();
@@ -1039,6 +1043,14 @@ mod tests {
             },
         ];
         assert_that!(&actual, contains(expected).exactly());
+    }
+
+    #[test]
+    fn test_closest_targets_zero_targets() {
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 1)];
+        let network = Network::new(4, &edges);
+        let actual = network.closest_targets(&[0], &[false, true, true, true], 0);
+        assert!(actual.is_empty());
     }
 
     #[test]

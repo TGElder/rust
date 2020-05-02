@@ -12,14 +12,14 @@ const BATCH_SIZE: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TownPopulationSimParams {
-    population_per_route: f32,
+    population_per_traffic: f32,
     min_population_change: f32,
 }
 
 impl Default for TownPopulationSimParams {
     fn default() -> TownPopulationSimParams {
         TownPopulationSimParams {
-            population_per_route: 0.5,
+            population_per_traffic: 0.5,
             min_population_change: 0.1,
         }
     }
@@ -90,8 +90,9 @@ impl TownPopulationSim {
             let activity = summary.get_activity();
             let activity_count = activity.len();
             for position in activity {
-                *out.entry(position).or_insert(0.0) +=
-                    self.params.population_per_route / activity_count as f32;
+                *out.entry(position).or_insert(0.0) += (summary.traffic as f32
+                    * self.params.population_per_traffic)
+                    / activity_count as f32;
             }
         }
         out
@@ -177,6 +178,7 @@ pub struct ControllerSummary {
     origin: Option<V2<usize>>,
     destination: Option<V2<usize>>,
     ports: HashSet<V2<usize>>,
+    traffic: usize,
 }
 
 impl ControllerSummary {
@@ -208,6 +210,7 @@ pub struct PositionSummary {
     origin: V2<usize>,
     destination: V2<usize>,
     ports: Vec<V2<usize>>,
+    traffic: usize,
 }
 
 impl PositionSummary {
@@ -215,15 +218,16 @@ impl PositionSummary {
         game.game_state()
             .routes
             .get(route_name)
-            .and_then(|Route { path, .. }| PositionSummary::from_path(game, path))
+            .and_then(|route| PositionSummary::from_route(game, route))
     }
 
-    fn from_path(game: &Game, path: &[V2<usize>]) -> Option<PositionSummary> {
-        if let [origin, .., destination] = path {
+    fn from_route(game: &Game, route: &Route) -> Option<PositionSummary> {
+        if let [origin, .., destination] = *route.path {
             Some(PositionSummary {
-                origin: *origin,
-                destination: *destination,
-                ports: get_port_positions(game, &path).collect(),
+                origin,
+                destination,
+                ports: get_port_positions(game, &route.path).collect(),
+                traffic: route.traffic,
             })
         } else {
             None
@@ -235,6 +239,7 @@ impl PositionSummary {
             origin: get_controller(territory, &self.origin),
             destination: get_controller(territory, &self.destination),
             ports: self.get_port_controllers(territory),
+            traffic: self.traffic,
         }
     }
 
