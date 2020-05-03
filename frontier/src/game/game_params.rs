@@ -25,7 +25,6 @@ pub struct GameParams {
     pub sim: SimParams,
     pub house_color: Color,
     pub log_duration_threshold: Option<Duration>,
-    pub homeland_population: f32,
 }
 
 impl Default for GameParams {
@@ -44,7 +43,6 @@ impl Default for GameParams {
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
             log_duration_threshold: None,
-            homeland_population: 128.0,
         }
     }
 }

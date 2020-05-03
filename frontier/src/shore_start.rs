@@ -111,6 +111,7 @@ impl ShoreStart {
         self.origin
     }
 
+    #[allow(dead_code)]
     pub fn at(&self) -> V2<usize> {
         self.at
     }

@@ -49,7 +49,8 @@ impl TownBuilder {
             position,
             color: self.house_color,
             class: SettlementClass::Town,
-            population: 0.0,
+            current_population: 0.0,
+            target_population: 0.0,
         };
         self.game_tx
             .update(move |game| game.add_settlement(settlement));

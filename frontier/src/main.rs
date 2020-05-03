@@ -156,7 +156,7 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
         Avatar {
             name: "0".to_string(),
             state: AvatarState::Stationary {
-                position: shore_start.at(),
+                position: shore_start.origin(),
                 rotation: shore_start.rotation(),
             },
             load: AvatarLoad::None,
@@ -169,7 +169,8 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
             class: SettlementClass::Homeland,
             position: shore_start.origin(),
             color: params.house_color,
-            population: params.homeland_population,
+            current_population: 0.0,
+            target_population: 0.0,
         },
     );
     let game_state = GameState {
@@ -231,8 +232,8 @@ fn create_simulation(
         AutoRoadTravelDuration::from_params(&params.auto_road_travel),
         game_tx,
     );
-    let homeland_population_sim =
-        HomelandPopulationSim::new(params.sim.homeland_population, game_tx);
+    let homeland_population_sim = HomelandPopulationSim::new(game_tx);
+    let growth_sim = PopulationChangeSim::new(params.sim.population_change, game_tx);
 
     Simulation::new(
         params.sim.start_year,
@@ -244,6 +245,7 @@ fn create_simulation(
             Box::new(town_population_sim),
             Box::new(natural_road_sim),
             Box::new(homeland_population_sim),
+            Box::new(growth_sim),
         ],
     )
 }

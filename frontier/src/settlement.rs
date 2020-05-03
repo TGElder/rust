@@ -7,7 +7,8 @@ pub struct Settlement {
     pub class: SettlementClass,
     pub position: V2<usize>,
     pub color: Color,
-    pub population: f32,
+    pub current_population: f64,
+    pub target_population: f64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]

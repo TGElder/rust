@@ -187,13 +187,13 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
 fn probability(resource: Resource) -> f32 {
     match resource {
         Resource::Bananas => 1.0 / 512.0,
-        Resource::Coal => 1.0 / 512.0,
+        Resource::Coal => 1.0 / 4196.0,
         Resource::Deer => 1.0 / 512.0,
         Resource::Farmland => 1.0,
         Resource::Fur => 1.0 / 512.0,
-        Resource::Gems => 1.0 / 65536.0,
+        Resource::Gems => 1.0 / 32768.0,
         Resource::Gold => 1.0 / 8192.0,
-        Resource::Iron => 1.0 / 512.0,
+        Resource::Iron => 1.0 / 4196.0,
         Resource::Ivory => 1.0 / 2048.0,
         Resource::Spice => 1.0 / 512.0,
         Resource::Stone => 1.0,

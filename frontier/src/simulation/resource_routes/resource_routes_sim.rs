@@ -40,6 +40,7 @@ impl ResourceRouteSim {
         for settlement in settlements {
             routes.extend(self.step_settlement(&settlement).await);
         }
+        println!("{} routes", routes.len());
         self.update_routes(routes).await;
     }
 

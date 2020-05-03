@@ -12,15 +12,13 @@ const BATCH_SIZE: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TownPopulationSimParams {
-    population_per_traffic: f32,
-    min_population_change: f32,
+    population_per_traffic: f64,
 }
 
 impl Default for TownPopulationSimParams {
     fn default() -> TownPopulationSimParams {
         TownPopulationSimParams {
             population_per_traffic: 0.5,
-            min_population_change: 0.1,
         }
     }
 }
@@ -51,13 +49,12 @@ impl TownPopulationSim {
     async fn step_async(&mut self) {
         let route_summaries = self.get_route_summaries().await;
         let populations = self.compute_populations(route_summaries);
-        self.set_populations(populations).await;
+        self.set_target_populations(populations).await;
     }
 
     async fn get_route_summaries(&mut self) -> Vec<ControllerSummary> {
         let routes = self.get_routes_names().await;
         let mut out = vec![];
-        println!("{} routes", routes.len());
         for batch in routes.chunks(BATCH_SIZE) {
             out.append(
                 &mut self
@@ -84,23 +81,23 @@ impl TownPopulationSim {
     fn compute_populations(
         &self,
         route_summaries: Vec<ControllerSummary>,
-    ) -> HashMap<V2<usize>, f32> {
+    ) -> HashMap<V2<usize>, f64> {
         let mut out = HashMap::new();
         for summary in route_summaries {
             let activity = summary.get_activity();
             let activity_count = activity.len();
             for position in activity {
-                *out.entry(position).or_insert(0.0) += (summary.traffic as f32
+                *out.entry(position).or_insert(0.0) += (summary.traffic as f64
                     * self.params.population_per_traffic)
-                    / activity_count as f32;
+                    / activity_count as f64;
             }
         }
         out
     }
 
-    async fn set_populations(&mut self, populations: HashMap<V2<usize>, f32>) {
+    async fn set_target_populations(&mut self, populations: HashMap<V2<usize>, f64>) {
         for town in self.get_towns().await {
-            self.set_population(town, *populations.get(&town).unwrap_or(&0.0))
+            self.set_target_population(town, *populations.get(&town).unwrap_or(&0.0))
                 .await
         }
     }
@@ -109,10 +106,9 @@ impl TownPopulationSim {
         self.game_tx.update(move |game| get_towns(game)).await
     }
 
-    async fn set_population(&mut self, town: V2<usize>, population: f32) {
-        let min_change = self.params.min_population_change;
+    async fn set_target_population(&mut self, town: V2<usize>, population: f64) {
         self.game_tx
-            .update(move |game| set_population(game, town, population, min_change))
+            .update(move |game| set_target_population(game, town, population))
             .await
     }
 }
@@ -156,22 +152,16 @@ fn is_town(settlement: &Settlement) -> bool {
     }
 }
 
-fn set_population(game: &mut Game, settlement: V2<usize>, population: f32, min_change: f32) {
+fn set_target_population(game: &mut Game, settlement: V2<usize>, target_population: f64) {
     let settlement = match game.game_state().settlements.get(&settlement) {
         Some(settlement) => settlement,
         None => return,
     };
-    if (settlement.population - population).abs() >= min_change {
-        println!(
-            "The population of {:?} increased from {} to {}",
-            settlement.position, settlement.population, population
-        );
-        let updated_settlement = Settlement {
-            population,
-            ..*settlement
-        };
-        game.update_settlement(updated_settlement);
-    }
+    let updated_settlement = Settlement {
+        target_population,
+        ..*settlement
+    };
+    game.update_settlement(updated_settlement);
 }
 
 pub struct ControllerSummary {

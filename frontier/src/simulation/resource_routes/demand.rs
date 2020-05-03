@@ -37,25 +37,25 @@ fn get_demand(settlement: &Settlement, resource: Resource) -> Demand {
     Demand {
         position: settlement.position,
         resource,
-        sources: get_sources(settlement.population, resource),
+        sources: get_sources(settlement.current_population, resource),
     }
 }
 
-fn get_sources(population: f32, resource: Resource) -> usize {
-    let population = population.round() as usize;
-    match resource {
-        Resource::Bananas => population / 32,
-        Resource::Coal => population / 8,
-        Resource::Deer => population / 32,
+fn get_sources(population: f64, resource: Resource) -> usize {
+    let sources = match resource {
+        Resource::Bananas => population / 32.0,
+        Resource::Coal => population / 16.0,
+        Resource::Deer => population / 32.0,
         Resource::Farmland => population,
-        Resource::Fur => population / 32,
-        Resource::Gems => population / 128,
-        Resource::Gold => population / 128,
-        Resource::Iron => population / 8,
-        Resource::Ivory => population / 128,
-        Resource::Spice => population / 32,
-        Resource::Stone => population / 4,
-        Resource::Wood => population / 4,
-        _ => 1,
-    }
+        Resource::Fur => population / 32.0,
+        Resource::Gems => population / 64.0,
+        Resource::Gold => population / 64.0,
+        Resource::Iron => population / 16.0,
+        Resource::Ivory => population / 64.0,
+        Resource::Spice => population / 32.0,
+        Resource::Stone => population / 8.0,
+        Resource::Wood => population / 4.0,
+        _ => 1.0,
+    };
+    sources.round() as usize
 }

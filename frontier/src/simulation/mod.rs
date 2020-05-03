@@ -21,6 +21,7 @@ mod homeland_population;
 mod natural_road;
 mod natural_town;
 mod params;
+mod population_change;
 mod resource_routes;
 mod territory;
 mod town_population;
@@ -31,6 +32,7 @@ pub use homeland_population::*;
 pub use natural_road::*;
 pub use natural_town::*;
 pub use params::*;
+pub use population_change::*;
 pub use resource_routes::*;
 pub use territory::*;
 pub use town_population::*;
@@ -68,7 +70,7 @@ impl Simulation {
             update_rx,
             state: SimulationState { year: start_year },
             run: true,
-            step: false,
+            step: true,
         }
     }
     pub fn update_tx(&self) -> &UpdateSender<Simulation> {

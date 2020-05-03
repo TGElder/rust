@@ -190,20 +190,18 @@ impl Game {
     }
 
     fn process_visited_cells(&mut self, from: &u128, to: &u128) {
-        let mut visited_cells = vec![];
-        for avatar in self.game_state.avatars.values() {
+        if let Some(avatar) = self.game_state.selected_avatar() {
+            let mut visited_cells = vec![];
             match &avatar.state {
                 AvatarState::Walking(path) => {
                     let edges = path.edges_between_times(from, to);
-                    if !edges.is_empty() {
-                        edges.iter().for_each(|edge| visited_cells.push(*edge.to()));
-                    }
+                    edges.iter().for_each(|edge| visited_cells.push(*edge.to()));
                 }
                 AvatarState::Stationary { position, .. } => visited_cells.push(*position),
                 _ => (),
             }
+            self.visit_cells(visited_cells);
         }
-        self.visit_cells(visited_cells);
     }
 
     fn update_avatars(&mut self) {
