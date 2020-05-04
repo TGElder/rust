@@ -17,8 +17,8 @@ pub struct ResourceArtistParameters {
 impl Default for ResourceArtistParameters {
     fn default() -> ResourceArtistParameters {
         ResourceArtistParameters {
-            size: 0.75,
-            hover: 0.25,
+            size: 0.7,
+            hover: 0.5,
         }
     }
 }
@@ -37,11 +37,6 @@ impl ResourceArtist {
         for x in from.x..to.x {
             for y in from.y..to.y {
                 let position = v2(x, y);
-                let mut world_coord =
-                    match world.snap_to_middle(WorldCoord::new(x as f32, y as f32, 0.0)) {
-                        Some(world_coord) => world_coord,
-                        None => continue,
-                    };
                 let cell = match world.get_cell(&position) {
                     Some(cell) => cell,
                     None => continue,
@@ -49,9 +44,8 @@ impl ResourceArtist {
                 if !cell.is_visible() {
                     continue;
                 }
-
                 if texture(cell.resource).is_some() {
-                    world_coord.z += get_height_adjustment(world, &position);
+                    let mut world_coord = WorldCoord::new(x as f32, y as f32, cell.elevation);
                     world_coord.z += self.params.hover;
                     world_coord.z += self.params.size / 2.0;
                     resources
@@ -83,18 +77,6 @@ impl ResourceArtist {
         }
 
         out
-    }
-}
-
-fn get_height_adjustment(world: &World, position: &V2<usize>) -> f32 {
-    if let Some(WorldCell {
-        object: WorldObject::Void { height },
-        ..
-    }) = world.get_cell(position)
-    {
-        *height
-    } else {
-        0.0
     }
 }
 

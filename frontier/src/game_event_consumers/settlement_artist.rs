@@ -51,11 +51,11 @@ impl SettlementArtist {
                 house_height,
                 roof_height,
             );
-            self.add_void_then_send_commands(
-                house_height + roof_height,
-                settlement.position,
-                commands,
-            );
+            let position = *position;
+            self.game_tx.update(move |game| {
+                game.force_object(WorldObject::None, position);
+                game.send_engine_commands(commands);
+            });
         }
     }
 
@@ -73,25 +73,10 @@ impl SettlementArtist {
             let commands = state
                 .house_artist
                 .erase_house_at(&game_state.world, position);
-            self.add_void_then_send_commands(0.0, settlement.position, commands);
+            self.game_tx.update(move |game| {
+                game.send_engine_commands(commands);
+            });
         }
-    }
-
-    fn add_void_then_send_commands(
-        &mut self,
-        void_height: f32,
-        position: V2<usize>,
-        commands: Vec<Command>,
-    ) {
-        self.game_tx.update(move |game| {
-            game.force_object(
-                WorldObject::Void {
-                    height: void_height,
-                },
-                position,
-            );
-            game.send_engine_commands(commands);
-        });
     }
 
     fn draw_all(&mut self, game_state: &GameState) {

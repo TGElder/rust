@@ -1,11 +1,11 @@
 use super::*;
 use crate::route::*;
 use crate::settlement::*;
+use commons::grid::Grid;
 use isometric::Color;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::default::Default;
-use std::iter::once;
 
 const HANDLE: &str = "natural_town_sim";
 const ROUTE_BATCH_SIZE: usize = 128;
@@ -148,6 +148,7 @@ fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<u
         .flat_map(|route| game_state.routes.get(route))
         .flat_map(|route| get_economic_activity_traffic(game, &route))
         .filter(|Traffic { position, .. }| !game_state.world.is_sea(position))
+        .filter(|Traffic { position, .. }| all_corners_visible(&game_state, &position))
         .filter(|Traffic { position, .. }| !already_controlled(&game_state, &position))
         .fold(HashMap::new(), |mut map, traffic| {
             *map.entry(traffic.position).or_insert(0) += traffic.traffic;
@@ -158,29 +159,54 @@ fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<u
 fn get_economic_activity_traffic<'a>(
     game: &'a Game,
     route: &'a Route,
+) -> impl Iterator<Item = Traffic> + 'a {
+    get_destination_traffic(game, route).chain(get_port_traffic(game, &route))
+}
+
+fn get_destination_traffic<'a>(
+    game: &'a Game,
+    route: &'a Route,
 ) -> Box<dyn Iterator<Item = Traffic> + 'a> {
     let end = match route.path.last() {
         Some(&end) => end,
         None => return Box::new(std::iter::empty()),
     };
     Box::new(
-        once(Traffic {
-            position: end,
-            traffic: route.traffic,
-        })
-        .chain(get_port_traffic(game, &route)),
+        game.game_state()
+            .world
+            .get_corners_behind_in_bounds(&end)
+            .into_iter()
+            .map(move |position| Traffic {
+                position,
+                traffic: route.traffic,
+            }),
     )
 }
 
 fn get_port_traffic<'a>(game: &'a Game, route: &'a Route) -> impl Iterator<Item = Traffic> + 'a {
-    get_port_positions(game, &route.path).map(move |position| Traffic {
-        position,
-        traffic: route.traffic,
-    })
+    get_port_positions(game, &route.path)
+        .flat_map(move |position| {
+            game.game_state()
+                .world
+                .get_corners_behind_in_bounds(&position)
+        })
+        .map(move |position| Traffic {
+            position,
+            traffic: route.traffic,
+        })
 }
 
 fn already_controlled(game_state: &GameState, position: &V2<usize>) -> bool {
     game_state.territory.anyone_controls_tile(position)
+}
+
+fn all_corners_visible(game_state: &GameState, position: &V2<usize>) -> bool {
+    let world = &game_state.world;
+    world
+        .get_corners_in_bounds(position)
+        .iter()
+        .flat_map(|position| world.get_cell(position))
+        .all(|corner| corner.visible)
 }
 
 #[allow(clippy::collapsible_if)]

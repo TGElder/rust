@@ -6,5 +6,4 @@ pub enum WorldObject {
     None,
     Vegetation(VegetationType),
     Farm { rotated: bool },
-    Void { height: f32 },
 }
