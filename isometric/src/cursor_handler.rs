@@ -45,6 +45,7 @@ impl CursorHandler {
 
     fn compute_world_cursor(&self, transform: &mut Transform) -> Option<WorldCoord> {
         self.gl_cursor
+            .filter(|gl_coord| gl_coord.z < 1.0)
             .map(|gl_coord| gl_coord.to_world_coord(transform))
     }
 

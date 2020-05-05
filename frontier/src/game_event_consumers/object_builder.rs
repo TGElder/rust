@@ -31,8 +31,8 @@ impl ObjectBuilder {
         }
     }
 
-    fn update_world_coord(&mut self, world_coord: WorldCoord) {
-        self.world_coord = Some(world_coord);
+    fn update_world_coord(&mut self, world_coord: Option<WorldCoord>) {
+        self.world_coord = world_coord;
     }
 
     fn get_position(&self) -> Option<V2<usize>> {

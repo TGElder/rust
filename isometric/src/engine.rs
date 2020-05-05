@@ -23,8 +23,8 @@ pub enum Event {
     Shutdown,
     Resize(glutin::dpi::PhysicalSize),
     DPIChanged(f64),
-    CursorMoved(GLCoord4D),
-    WorldPositionChanged(WorldCoord),
+    CursorMoved(Option<GLCoord4D>),
+    WorldPositionChanged(Option<WorldCoord>),
     GlutinEvent(glutin::Event),
     Drag(GLCoord4D),
     Button {
@@ -252,16 +252,10 @@ impl IsometricEngine {
     }
 
     fn consume_cursors(&mut self) {
-        self.cursor_handler
-            .gl_cursor()
-            .iter()
-            .for_each(|gl_cursor| self.consume_event(Event::CursorMoved(*gl_cursor)));
-        self.cursor_handler
-            .world_cursor()
-            .iter()
-            .for_each(|world_cursor| {
-                self.consume_event(Event::WorldPositionChanged(*world_cursor))
-            });
+        let gl_cursor = self.cursor_handler.gl_cursor();
+        self.consume_event(Event::CursorMoved(gl_cursor));
+        let world_cursor = self.cursor_handler.world_cursor();
+        self.consume_event(Event::WorldPositionChanged(world_cursor));
     }
 
     fn shutdown(&mut self) {

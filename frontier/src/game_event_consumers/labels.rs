@@ -26,8 +26,8 @@ impl LabelEditorHandler {
         }
     }
 
-    fn update_world_coord(&mut self, world_coord: WorldCoord) {
-        self.world_coord = Some(world_coord);
+    fn update_world_coord(&mut self, world_coord: Option<WorldCoord>) {
+        self.world_coord = world_coord;
     }
 
     fn start_edit(&mut self, game_state: &GameState) {

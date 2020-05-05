@@ -18,9 +18,9 @@ impl DragHandler {
         vec![]
     }
 
-    fn handle_cursor_moved(&mut self, position: GLCoord4D) -> Vec<Command> {
+    fn handle_cursor_moved(&mut self, position: Option<GLCoord4D>) -> Vec<Command> {
         let out = if self.dragging {
-            if let Some(last_pos) = self.last_pos {
+            if let (Some(last_pos), Some(position)) = (self.last_pos, position) {
                 let drag = GLCoord4D::new(
                     position.x - last_pos.x,
                     position.y - last_pos.y,
@@ -34,7 +34,7 @@ impl DragHandler {
         } else {
             vec![]
         };
-        self.last_pos = Some(position);
+        self.last_pos = position;
         out
     }
 }

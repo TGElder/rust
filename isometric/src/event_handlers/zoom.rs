@@ -57,7 +57,7 @@ impl EventHandler for ZoomHandler {
                 ..
             } => self.zoom(0.5),
             Event::CursorMoved(gl_position) => {
-                self.cursor_position = Some(gl_position);
+                self.cursor_position = gl_position;
                 vec![]
             }
             _ => vec![],
