@@ -117,7 +117,7 @@ impl PrimeMover {
             *outbound = !*outbound;
             *outbound
         } else {
-            let outbound = false;
+            let outbound = true;
             last_outbound.insert(name.to_string(), outbound);
             outbound
         }
