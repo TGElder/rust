@@ -36,6 +36,8 @@ impl Step for NaturalTownSim {
         HANDLE
     }
 
+    fn init(&mut self) {}
+
     fn step(&mut self, _: u128) {
         block_on(self.step_async())
     }

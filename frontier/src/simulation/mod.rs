@@ -43,6 +43,7 @@ const UPDATE_CHANNEL_BOUND: usize = 100;
 
 pub trait Step {
     fn name(&self) -> &'static str;
+    fn init(&mut self);
     fn step(&mut self, year: u128);
 }
 
@@ -73,15 +74,19 @@ impl Simulation {
             step: true,
         }
     }
+
     pub fn update_tx(&self) -> &UpdateSender<Simulation> {
         &self.update_tx
     }
 
-    pub fn shutdown(&mut self) {
-        self.run = false;
+    fn init(&mut self) {
+        for step in &mut self.steps {
+            step.init();
+        }
     }
 
     pub fn run(&mut self) {
+        self.init();
         while self.run {
             self.step();
         }
@@ -101,6 +106,17 @@ impl Simulation {
         }
         let updates = self.update_rx.get_updates();
         process_updates(updates, self);
+    }
+
+    fn toggle_step(&mut self) {
+        self.step = !self.step;
+        if self.step {
+            self.init();
+        }
+    }
+
+    pub fn shutdown(&mut self) {
+        self.run = false;
     }
 
     fn get_path(path: &str) -> String {
@@ -135,6 +151,10 @@ impl SimulationManager {
         }
     }
 
+    fn toggle_step(&mut self) {
+        self.sim_tx.update(move |sim| sim.toggle_step());
+    }
+
     fn load(&mut self, path: String) {
         self.sim_tx.update(move |sim| sim.load(&path));
     }
@@ -160,7 +180,7 @@ impl GameEventConsumer for SimulationManager {
         } = *event
         {
             if button == &self.binding {
-                self.sim_tx.update(|sim| sim.step = !sim.step);
+                self.toggle_step();
             }
         }
         CaptureEvent::No

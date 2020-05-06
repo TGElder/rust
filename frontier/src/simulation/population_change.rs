@@ -29,6 +29,10 @@ impl Step for PopulationChangeSim {
         HANDLE
     }
 
+    fn init(&mut self) {
+        block_on(self.init_async())
+    }
+
     fn step(&mut self, _: u128) {
         block_on(self.step_async())
     }
@@ -44,6 +48,13 @@ impl PopulationChangeSim {
             game_tx: game_tx.clone_with_handle(HANDLE),
             last_update_micros: 0,
         }
+    }
+
+    async fn init_async(&mut self) {
+        self.last_update_micros = self
+            .game_tx
+            .update(|game| game.game_state().game_micros)
+            .await;
     }
 
     async fn step_async(&mut self) {
