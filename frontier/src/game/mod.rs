@@ -18,6 +18,7 @@ use commons::*;
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::iter::{empty, once};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -190,18 +191,37 @@ impl Game {
     }
 
     fn process_visited_cells(&mut self, from: &u128, to: &u128) {
+        let visited_cells = self
+            .avatar_visited_cells(from, to)
+            .chain(self.town_visited_cells())
+            .collect();
+        self.visit_cells(visited_cells);
+    }
+
+    fn avatar_visited_cells<'a>(
+        &'a self,
+        from: &'a u128,
+        to: &'a u128,
+    ) -> Box<dyn Iterator<Item = V2<usize>> + 'a> {
         if let Some(avatar) = self.game_state.selected_avatar() {
-            let mut visited_cells = vec![];
             match &avatar.state {
                 AvatarState::Walking(path) => {
                     let edges = path.edges_between_times(from, to);
-                    edges.iter().for_each(|edge| visited_cells.push(*edge.to()));
+                    return Box::new(edges.into_iter().map(|edge| *edge.to()));
                 }
-                AvatarState::Stationary { position, .. } => visited_cells.push(*position),
+                AvatarState::Stationary { position, .. } => return Box::new(once(*position)),
                 _ => (),
             }
-            self.visit_cells(visited_cells);
         }
+        Box::new(empty())
+    }
+
+    fn town_visited_cells<'a>(&'a self) -> impl Iterator<Item = V2<usize>> + 'a {
+        let world = &self.game_state.world;
+        self.game_state
+            .settlements
+            .keys()
+            .flat_map(move |town| world.get_corners_in_bounds(town))
     }
 
     fn update_avatars(&mut self) {
