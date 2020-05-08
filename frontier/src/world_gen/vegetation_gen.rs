@@ -68,7 +68,8 @@ pub fn compute_vegetation<R: Rng>(
 pub fn load_vegetation(world: &mut World, vegetation: &M<WorldObject>) {
     for x in 0..vegetation.width() {
         for y in 0..vegetation.height() {
-            world.mut_cell_unsafe(&v2(x, y)).object = vegetation[(x, y)];
+            let position = v2(x, y);
+            world.mut_cell_unsafe(&position).object = *vegetation.get_cell_unsafe(&position);
         }
     }
 }

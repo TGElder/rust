@@ -30,7 +30,9 @@ pub fn compute_river_water(world: &World, params: &WorldGenParameters) -> M<f32>
 pub fn load_river_water(world: &mut World, river_water: &M<f32>) {
     for x in 0..river_water.width() {
         for y in 0..river_water.height() {
-            world.mut_cell_unsafe(&v2(x, y)).climate.river_water = river_water[(x, y)] as f32;
+            let position = v2(x, y);
+            world.mut_cell_unsafe(&position).climate.river_water =
+                *river_water.get_cell_unsafe(&position);
         }
     }
 }

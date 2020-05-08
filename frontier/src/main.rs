@@ -44,7 +44,7 @@ fn main() {
         "Frontier",
         1024,
         1024,
-        game_state.params.world_gen.max_height as f32 + 1.0, // +1 for trees at top
+        game_state.params.world_gen.max_height as f32 + 1.2, // +1.2 for resources at top
     );
 
     let mut game = Game::new(game_state, &mut engine, init_events);

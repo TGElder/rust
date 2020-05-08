@@ -58,7 +58,9 @@ fn compute_sunshine_temperatures(
 pub fn load_temperatures(world: &mut World, temperatures: &M<f64>) {
     for x in 0..temperatures.width() {
         for y in 0..temperatures.height() {
-            world.mut_cell_unsafe(&v2(x, y)).climate.temperature = temperatures[(x, y)] as f32;
+            let position = v2(x, y);
+            world.mut_cell_unsafe(&position).climate.temperature =
+                *temperatures.get_cell_unsafe(&position) as f32;
         }
     }
 }

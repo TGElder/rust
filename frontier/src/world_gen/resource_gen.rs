@@ -1,7 +1,9 @@
 use super::*;
 use crate::world::*;
 use commons::rand::prelude::*;
+use commons::rand::seq::SliceRandom;
 use commons::*;
+use std::collections::{HashMap, HashSet};
 use std::default::Default;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -50,14 +52,34 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     pub fn compute_resources(&mut self) -> M<Resource> {
-        let width = self.world.width() - 1;
-        let height = self.world.height() - 1;
+        let width = self.world.width();
+        let height = self.world.height();
         let mut out = M::from_element(width, height, Resource::None);
+        self.add_limited_resources(&mut out);
+        self.add_unlimited_resources(&mut out);
+        out
+    }
 
-        // Otherwise probability one resources dominate
-        let mut resources_by_probability = RESOURCES;
-        resources_by_probability
-            .sort_by(|&a, &b| probability(a).partial_cmp(&probability(b)).unwrap());
+    fn add_limited_resources(&mut self, resources: &mut M<Resource>) {
+        let mut taken: HashSet<V2<usize>> = HashSet::new();
+        for (resource, mut candidates) in self.get_candidates() {
+            candidates.retain(|candidate| !taken.contains(candidate));
+            if let Some(count) = count(resource) {
+                let chosen: Vec<&V2<usize>> =
+                    candidates.choose_multiple(&mut self.rng, count).collect();
+                chosen
+                    .iter()
+                    .for_each(|position| *resources.mut_cell_unsafe(position) = resource);
+                taken.extend(chosen);
+            }
+        }
+    }
+
+    fn get_candidates(&self) -> HashMap<Resource, Vec<V2<usize>>> {
+        let width = self.world.width();
+        let height = self.world.height();
+
+        let mut out = HashMap::new();
 
         for x in 0..width {
             for y in 0..height {
@@ -65,37 +87,53 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                 if self.world.is_sea(&position) {
                     continue;
                 }
-                let resources: Vec<Resource> = resources_by_probability
+                RESOURCES
                     .iter()
-                    .cloned()
-                    .filter(|&resource| self.is_candidate(resource, &position))
-                    .collect();
-                if let Some(resource) = self.get_random_resource(&resources) {
-                    out[(x, y)] = resource;
-                }
+                    .filter(|&resource| {
+                        count(*resource).is_some() && self.is_candidate(*resource, &position)
+                    })
+                    .for_each(|resource| {
+                        out.entry(*resource)
+                            .or_insert_with(|| vec![])
+                            .push(position)
+                    });
             }
         }
+
         out
+    }
+
+    fn add_unlimited_resources(&self, resources: &mut M<Resource>) {
+        let width = self.world.width();
+        let height = self.world.height();
+
+        for x in 0..width {
+            for y in 0..height {
+                self.add_unlimited_resource(resources, &v2(x, y));
+            }
+        }
+    }
+
+    fn add_unlimited_resource(&self, resources: &mut M<Resource>, position: &V2<usize>) {
+        if *resources.get_cell_unsafe(position) != Resource::None {
+            return;
+        }
+        RESOURCES
+            .iter()
+            .filter(|&resource| {
+                count(*resource).is_none() && self.is_candidate(*resource, position)
+            })
+            .for_each(|resource| *resources.mut_cell_unsafe(position) = *resource);
     }
 
     pub fn load_resources(&mut self, resources: &M<Resource>) {
         for x in 0..resources.width() {
             for y in 0..resources.height() {
-                self.world.mut_cell_unsafe(&v2(x, y)).resource = resources[(x, y)];
+                let position = v2(x, y);
+                self.world.mut_cell_unsafe(&position).resource =
+                    *resources.get_cell_unsafe(&position);
             }
         }
-    }
-
-    fn get_random_resource(&mut self, resources: &[Resource]) -> Option<Resource> {
-        let r = self.rng.gen_range(0.0, 1.0);
-        let mut cum = 0.0;
-        for resource in resources {
-            cum += probability(*resource);
-            if r <= cum {
-                return Some(*resource);
-            }
-        }
-        None
     }
 
     fn is_candidate(&self, resource: Resource, position: &V2<usize>) -> bool {
@@ -187,20 +225,17 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 }
 
-fn probability(resource: Resource) -> f32 {
+fn count(resource: Resource) -> Option<usize> {
     match resource {
-        Resource::Bananas => 1.0 / 512.0,
-        Resource::Coal => 1.0 / 4196.0,
-        Resource::Deer => 1.0 / 512.0,
-        Resource::Farmland => 1.0,
-        Resource::Fur => 1.0 / 512.0,
-        Resource::Gems => 1.0 / 32768.0,
-        Resource::Gold => 1.0 / 8192.0,
-        Resource::Iron => 1.0 / 4196.0,
-        Resource::Ivory => 1.0 / 2048.0,
-        Resource::Spice => 1.0 / 512.0,
-        Resource::Stone => 1.0,
-        Resource::Wood => 1.0,
-        _ => 0.0,
+        Resource::Bananas => Some(8),
+        Resource::Coal => Some(8),
+        Resource::Deer => Some(8),
+        Resource::Fur => Some(8),
+        Resource::Gems => Some(4),
+        Resource::Gold => Some(2),
+        Resource::Iron => Some(8),
+        Resource::Ivory => Some(8),
+        Resource::Spice => Some(8),
+        _ => None,
     }
 }

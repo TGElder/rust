@@ -73,7 +73,9 @@ fn calculate_probability(
 pub fn load_rainfall(world: &mut World, rainfall: &M<f64>) {
     for x in 0..rainfall.width() {
         for y in 0..rainfall.height() {
-            world.mut_cell_unsafe(&v2(x, y)).climate.rainfall = rainfall[(x, y)] as f32;
+            let position = v2(x, y);
+            world.mut_cell_unsafe(&position).climate.rainfall =
+                *rainfall.get_cell_unsafe(&position) as f32;
         }
     }
 }

@@ -57,11 +57,11 @@ impl VisibilityHandler {
         };
         let newly_visited: HashSet<V2<usize>> = cells
             .drain()
-            .filter(|cell| !visited[(cell.x, cell.y)])
+            .filter(|cell| !visited.get_cell_unsafe(cell))
             .collect();
         newly_visited
             .iter()
-            .for_each(|cell| visited[(cell.x, cell.y)] = true);
+            .for_each(|cell| *visited.mut_cell_unsafe(cell) = true);
         newly_visited
     }
 
