@@ -405,6 +405,7 @@ fn resource_texture(resource: Resource) -> Option<&'static str> {
     match resource {
         Resource::Bananas => Some("bananas.png"),
         Resource::Coal => Some("coal.png"),
+        Resource::Crabs => Some("crabs.png"),
         Resource::Deer => Some("deer.png"),
         Resource::Farmland => Some("wheat.png"),
         Resource::Fur => Some("fur.png"),
@@ -414,6 +415,8 @@ fn resource_texture(resource: Resource) -> Option<&'static str> {
         Resource::Ivory => Some("ivory.png"),
         Resource::Spice => Some("spice.png"),
         Resource::Stone => Some("stone.png"),
+        Resource::Truffles => Some("truffles.png"),
+        Resource::Whales => Some("whales.png"),
         Resource::Wood => Some("wood.png"),
         _ => None,
     }

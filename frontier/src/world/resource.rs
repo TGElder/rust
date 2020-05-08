@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-pub const RESOURCES: [Resource; 12] = [
+pub const RESOURCES: [Resource; 15] = [
     Resource::Bananas,
     Resource::Coal,
+    Resource::Crabs,
     Resource::Deer,
     Resource::Farmland,
     Resource::Fur,
@@ -12,6 +13,8 @@ pub const RESOURCES: [Resource; 12] = [
     Resource::Ivory,
     Resource::Spice,
     Resource::Stone,
+    Resource::Truffles,
+    Resource::Whales,
     Resource::Wood,
 ];
 
@@ -20,6 +23,7 @@ pub enum Resource {
     None,
     Bananas,
     Coal,
+    Crabs,
     Deer,
     Farmland,
     Fur,
@@ -29,6 +33,8 @@ pub enum Resource {
     Ivory,
     Spice,
     Stone,
+    Truffles,
+    Whales,
     Wood,
 }
 
@@ -38,6 +44,7 @@ impl Resource {
             Resource::None => "none",
             Resource::Bananas => "bananas",
             Resource::Coal => "coal",
+            Resource::Crabs => "crabs",
             Resource::Deer => "deer",
             Resource::Farmland => "farmland",
             Resource::Fur => "fur",
@@ -47,6 +54,8 @@ impl Resource {
             Resource::Ivory => "ivory",
             Resource::Spice => "spice",
             Resource::Stone => "stone",
+            Resource::Truffles => "truffles",
+            Resource::Whales => "whales",
             Resource::Wood => "wood",
         }
     }

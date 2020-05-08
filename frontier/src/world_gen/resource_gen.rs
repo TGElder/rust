@@ -26,12 +26,14 @@ impl Default for FarmlandConstraints {
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct ResourceParams {
     farmland: FarmlandConstraints,
+    shallow_depth_pc: f32,
 }
 
 impl Default for ResourceParams {
     fn default() -> ResourceParams {
         ResourceParams {
             farmland: FarmlandConstraints::default(),
+            shallow_depth_pc: 0.25,
         }
     }
 }
@@ -84,9 +86,6 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         for x in 0..width {
             for y in 0..height {
                 let position = v2(x, y);
-                if self.world.is_sea(&position) {
-                    continue;
-                }
                 RESOURCES
                     .iter()
                     .filter(|&resource| {
@@ -141,26 +140,51 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             return false;
         }
         match resource {
-            Resource::Bananas => self.has_vegetation_type(position, VegetationType::PalmTree),
-            Resource::Coal => self.is_cliff(position),
-            Resource::Deer => self.has_vegetation_type(position, VegetationType::DeciduousTree),
-            Resource::Farmland => self.is_farmland_candidate(position),
-            Resource::Fur => self.has_vegetation_type(position, VegetationType::EvergreenTree),
-            Resource::Gems => true,
-            Resource::Gold => self.by_river(position),
-            Resource::Iron => self.is_cliff(position),
+            Resource::Bananas => {
+                !self.is_sea(position)
+                    && self.has_vegetation_type(position, VegetationType::PalmTree)
+            }
+            Resource::Coal => !self.is_sea(position) && self.is_cliff(position),
+            Resource::Crabs => self.in_shallow_sea(position),
+            Resource::Deer => {
+                !self.is_sea(position)
+                    && !self.is_cliff(position)
+                    && self.among_vegetation_type(position, VegetationType::DeciduousTree)
+            }
+            Resource::Farmland => !self.is_sea(position) && self.is_farmland_candidate(position),
+            Resource::Fur => {
+                !self.is_sea(position)
+                    && self.has_vegetation_type(position, VegetationType::EvergreenTree)
+            }
+            Resource::Gems => !self.is_sea(position),
+            Resource::Gold => !self.is_sea(position) && self.by_river(position),
+            Resource::Iron => !self.is_sea(position) && self.is_cliff(position),
             Resource::Ivory => {
-                !self.is_cliff(position)
+                !self.is_sea(position)
+                    && !self.is_cliff(position)
                     && self.among_vegetation_type(position, VegetationType::PalmTree)
             }
-            Resource::Spice => self.has_vegetation_type(position, VegetationType::PalmTree),
-            Resource::Stone => self.is_cliff(position),
+            Resource::Spice => {
+                !self.is_sea(position)
+                    && self.has_vegetation_type(position, VegetationType::PalmTree)
+            }
+            Resource::Stone => !self.is_sea(position) && self.is_cliff(position),
+            Resource::Truffles => {
+                !self.is_sea(position)
+                    && self.has_vegetation_type(position, VegetationType::DeciduousTree)
+            }
+            Resource::Whales => self.in_deep_sea(position),
             Resource::Wood => {
-                self.has_vegetation(position)
+                !self.is_sea(position)
+                    && self.has_vegetation(position)
                     && !self.has_vegetation_type(position, VegetationType::Cactus)
             }
-            _ => false,
+            Resource::None => false,
         }
+    }
+
+    fn is_sea(&self, position: &V2<usize>) -> bool {
+        self.world.is_sea(position)
     }
 
     fn has_vegetation(&self, position: &V2<usize>) -> bool {
@@ -203,7 +227,11 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn is_beach(&self, position: &V2<usize>) -> bool {
-        self.world.get_lowest_corner(&position) <= self.params.beach_level
+        let elevation = match self.world.get_cell(position) {
+            Some(WorldCell { elevation, .. }) => elevation,
+            None => return false,
+        };
+        *elevation > self.world.sea_level() && *elevation <= self.params.beach_level
     }
 
     fn is_cliff(&self, position: &V2<usize>) -> bool {
@@ -223,19 +251,40 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             .iter()
             .any(|edge| self.world.is_river(edge))
     }
+
+    fn in_shallow_sea(&self, position: &V2<usize>) -> bool {
+        self.in_sea_between_depths(position, 0.0, self.params.resources.shallow_depth_pc)
+    }
+
+    fn in_deep_sea(&self, position: &V2<usize>) -> bool {
+        self.in_sea_between_depths(position, self.params.resources.shallow_depth_pc, 1.0)
+    }
+
+    fn in_sea_between_depths(&self, position: &V2<usize>, from_depth_pc: f32, to_depth_pc: f32) -> bool {
+        let from_depth = self.world.sea_level() * (1.0 - from_depth_pc);
+        let to_depth = self.world.sea_level() * (1.0 - to_depth_pc);
+        if let Some(WorldCell { elevation, .. }) = self.world.get_cell(position) {
+            *elevation >= to_depth && *elevation <= from_depth
+        } else {
+            false
+        }
+    }
 }
 
 fn count(resource: Resource) -> Option<usize> {
     match resource {
         Resource::Bananas => Some(8),
         Resource::Coal => Some(8),
+        Resource::Crabs => Some(8),
         Resource::Deer => Some(8),
         Resource::Fur => Some(8),
         Resource::Gems => Some(4),
         Resource::Gold => Some(2),
         Resource::Iron => Some(8),
-        Resource::Ivory => Some(8),
+        Resource::Ivory => Some(6),
         Resource::Spice => Some(8),
+        Resource::Truffles => Some(6),
+        Resource::Whales => Some(8),
         _ => None,
     }
 }

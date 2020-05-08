@@ -45,7 +45,8 @@ impl ResourceArtist {
                     continue;
                 }
                 if texture(cell.resource).is_some() {
-                    let mut world_coord = WorldCoord::new(x as f32, y as f32, cell.elevation);
+                    let mut world_coord =
+                        WorldCoord::new(x as f32, y as f32, cell.elevation.max(world.sea_level()));
                     world_coord.z += self.params.hover;
                     world_coord.z += self.params.size / 2.0;
                     resources
@@ -84,6 +85,7 @@ fn texture(resource: Resource) -> Option<&'static str> {
     match resource {
         Resource::Bananas => Some("bananas.png"),
         Resource::Coal => Some("coal.png"),
+        Resource::Crabs => Some("crabs.png"),
         Resource::Deer => Some("deer.png"),
         Resource::Fur => Some("fur.png"),
         Resource::Gems => Some("gems.png"),
@@ -91,6 +93,8 @@ fn texture(resource: Resource) -> Option<&'static str> {
         Resource::Iron => Some("iron.png"),
         Resource::Ivory => Some("ivory.png"),
         Resource::Spice => Some("spice.png"),
+        Resource::Truffles => Some("truffles.png"),
+        Resource::Whales => Some("whales.png"),
         _ => None,
     }
 }
