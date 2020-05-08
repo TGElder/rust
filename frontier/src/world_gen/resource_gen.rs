@@ -117,7 +117,10 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             }
             Resource::Spice => self.has_vegetation_type(position, VegetationType::PalmTree),
             Resource::Stone => self.is_cliff(position),
-            Resource::Wood => self.has_vegetation(position),
+            Resource::Wood => {
+                self.has_vegetation(position)
+                    && !self.has_vegetation_type(position, VegetationType::Cactus)
+            }
             _ => false,
         }
     }
