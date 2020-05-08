@@ -111,7 +111,7 @@ fn compute_visitors_for_routes(
         .iter()
         .flat_map(|route| game_state.routes.get(route))
         .flat_map(|route| route.path.edges())
-        .filter(|edge| should_compute_visitors(&game_state.world, &edge, &travel_duration))
+        .filter(|edge| should_compute_visitors(&game_state, &edge, &travel_duration))
         .fold(HashMap::new(), |mut map, edge| {
             *map.entry(edge).or_insert(0) += 1;
             map
@@ -119,11 +119,15 @@ fn compute_visitors_for_routes(
 }
 
 fn should_compute_visitors(
-    world: &World,
+    game_state: &GameState,
     edge: &Edge,
     travel_duration: &AutoRoadTravelDuration,
 ) -> bool {
+    let world = &game_state.world;
     if world.is_road(&edge) {
+        return false;
+    }
+    if !visited(game_state, edge.from()) || !visited(game_state, edge.to()) {
         return false;
     }
     travel_duration

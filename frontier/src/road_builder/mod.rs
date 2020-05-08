@@ -123,7 +123,10 @@ mod tests {
     }
 
     fn pathfinder() -> Pathfinder<TestDuration> {
-        Pathfinder::new(&world(), TestDuration {})
+        let world = &world();
+        let mut out = Pathfinder::new(world, TestDuration {});
+        out.reset_edges(world);
+        out
     }
 
     #[test]

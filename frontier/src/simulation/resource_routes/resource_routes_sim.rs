@@ -64,36 +64,38 @@ impl ResourceRouteSim {
         demand: Demand,
     ) -> HashMap<String, Route> {
         let mut out = HashMap::new();
-        let paths = self
-            .get_paths_to_resource(settlement.position, demand.resource, demand.sources)
+        let targets = self
+            .get_closest_targets(settlement.position, demand.resource, demand.sources)
             .await;
-        if paths.is_empty() {
+        if targets.is_empty() {
             return out;
         }
-        let mut traffic: Vec<usize> = vec![0; paths.len()];
+        let mut traffic: Vec<usize> = vec![0; targets.len()];
         for i in 0..demand.sources {
-            traffic[i % paths.len()] += 1
+            traffic[i % targets.len()] += 1
         }
-        for i in 0..paths.len() {
-            out.extend(create_route_from_path(
+        for i in 0..targets.len() {
+            let target = &targets[i % targets.len()];
+            out.extend(create_route(
                 demand.resource,
-                paths[i % paths.len()].clone(),
+                target.path.clone(),
+                target.duration,
                 traffic[i],
             ));
         }
         out
     }
 
-    async fn get_paths_to_resource(
+    async fn get_closest_targets(
         &mut self,
         settlement: V2<usize>,
         resource: Resource,
         sources: usize,
-    ) -> Vec<Vec<V2<usize>>> {
+    ) -> Vec<ClosestTargetResult> {
         let target_set = target_set(resource);
         self.pathfinder_tx
             .update(move |service| {
-                get_paths_to_resource(&mut service.pathfinder(), settlement, target_set, sources)
+                get_closest_targets(&mut service.pathfinder(), settlement, target_set, sources)
             })
             .await
     }
@@ -113,25 +115,22 @@ fn get_settlements(game: &mut Game) -> Vec<Settlement> {
     game.game_state().settlements.values().cloned().collect()
 }
 
-fn get_paths_to_resource(
+fn get_closest_targets(
     pathfinder: &mut Pathfinder<AvatarTravelDuration>,
     settlement: V2<usize>,
     target_set: String,
     sources: usize,
-) -> Vec<Vec<V2<usize>>> {
+) -> Vec<ClosestTargetResult> {
     let corners: Vec<V2<usize>> = get_corners(&settlement)
         .drain(..)
         .filter(|corner| pathfinder.in_bounds(corner))
         .collect();
-    pathfinder
-        .closest_targets(&corners, &target_set, sources)
-        .drain(..)
-        .map(|result| result.path)
-        .collect()
+    pathfinder.closest_targets(&corners, &target_set, sources)
 }
-fn create_route_from_path(
+fn create_route(
     resource: Resource,
     path: Vec<V2<usize>>,
+    duration: Duration,
     traffic: usize,
 ) -> Option<(String, Route)> {
     if let [from, .., to] = path.as_slice() {
@@ -140,6 +139,7 @@ fn create_route_from_path(
             Route {
                 resource,
                 path,
+                duration,
                 traffic,
             },
         ))

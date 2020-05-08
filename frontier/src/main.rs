@@ -26,6 +26,7 @@ use crate::shore_start::*;
 use crate::territory::*;
 use crate::world_gen::*;
 use commons::futures::executor::ThreadPool;
+use commons::index2d::Vec2D;
 use commons::update::*;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
@@ -147,7 +148,6 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
     let mut world = generate_world(size, &mut rng, &params.world_gen);
     if reveal_all {
         world.reveal_all();
-        world.visit_all();
     }
     let shore_start = shore_start(32, &world, &mut rng);
     let mut avatars = HashMap::new();
@@ -175,6 +175,7 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
     );
     let game_state = GameState {
         territory: Territory::new(&world),
+        first_visited: Vec2D::same_size_as(&world, None),
         world,
         game_micros: 0,
         params,
@@ -185,13 +186,16 @@ fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) 
         follow_avatar: true,
         speed: 1.0,
     };
-    let init_events = vec![GameEvent::Init];
+    let mut init_events = vec![GameEvent::Init];
+    if reveal_all {
+        init_events.push(GameEvent::CellsRevealed(CellSelection::All));
+    }
     (game_state, init_events)
 }
 
 fn load(path: &str) -> (GameState, Vec<GameEvent>) {
     let game_state = GameState::from_file(path);
-    let init_events = vec![GameEvent::Load(path.to_string()), GameEvent::Init];
+    let init_events = vec![GameEvent::Init, GameEvent::Load(path.to_string())];
     (game_state, init_events)
 }
 
@@ -219,6 +223,7 @@ fn create_simulation(
 
     let territory_sim = TerritorySim::new(game_tx, pathfinder_tx, params.town_travel_duration);
     let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
+    let first_visited_sim = FirstVisitedSim::new(game_tx);
     let farm_sim = FarmSim::new(seed, game_tx);
     let natural_town_sim = NaturalTownSim::new(
         params.sim.natural_town,
@@ -240,6 +245,7 @@ fn create_simulation(
         vec![
             Box::new(territory_sim),
             Box::new(resource_routes_sim),
+            Box::new(first_visited_sim),
             Box::new(farm_sim),
             Box::new(natural_town_sim),
             Box::new(town_population_sim),

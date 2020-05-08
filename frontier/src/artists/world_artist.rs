@@ -84,7 +84,7 @@ impl WorldArtist {
         }
     }
 
-    pub fn draw_terrain(&self) -> Vec<Command> {
+    pub fn init(&self) -> Vec<Command> {
         self.drawing.init()
     }
 
@@ -298,13 +298,6 @@ impl WorldArtist {
 
     pub fn draw_all(&mut self, world: &World, coloring: &WorldColoring) -> Vec<Command> {
         self.draw_slabs(world, coloring, self.get_all_slabs())
-    }
-
-    pub fn init(&mut self, world: &World, coloring: &WorldColoring) -> Vec<Command> {
-        let mut out = vec![];
-        out.append(&mut self.draw_terrain());
-        out.append(&mut self.draw_all(world, coloring));
-        out
     }
 }
 

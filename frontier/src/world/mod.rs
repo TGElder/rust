@@ -143,14 +143,6 @@ impl World {
         }
     }
 
-    pub fn visit_all(&mut self) {
-        for x in 0..self.width {
-            for y in 0..self.height {
-                self.mut_cell_unsafe(&v2(x, y)).visited = true;
-            }
-        }
-    }
-
     pub fn snap(&self, world_coord: WorldCoord) -> WorldCoord {
         let z = if let Some(cell) = self.get_cell(&world_coord.to_v2_round()) {
             cell.elevation()

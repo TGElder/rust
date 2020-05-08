@@ -6,6 +6,8 @@ use crate::settlement::*;
 use crate::territory::*;
 use crate::world::*;
 
+use commons::index2d::Vec2D;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -22,6 +24,7 @@ pub struct GameState {
     pub follow_avatar: bool,
     pub routes: HashMap<String, Route>,
     pub territory: Territory,
+    pub first_visited: Vec2D<Option<u128>>,
     pub speed: f32,
 }
 
@@ -87,10 +90,12 @@ mod tests {
                 resource: Resource::Bananas,
                 path: vec![v2(1, 0), v2(2, 0)],
                 traffic: 2,
+                duration: Duration::from_secs(3),
             },
         );
         let game_state = GameState {
             territory: Territory::new(&world),
+            first_visited: Vec2D::same_size_as(&world, None),
             world,
             game_micros: 123,
             params: GameParams::default(),

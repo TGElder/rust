@@ -150,6 +150,7 @@ fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<u
         .flat_map(|route| game_state.routes.get(route))
         .flat_map(|route| get_economic_activity_traffic(game, &route))
         .filter(|Traffic { position, .. }| !game_state.world.is_sea(position))
+        .filter(|Traffic { position, .. }| visited(game_state, position))
         .filter(|Traffic { position, .. }| all_corners_visible(&game_state, &position))
         .filter(|Traffic { position, .. }| !already_controlled(&game_state, &position))
         .fold(HashMap::new(), |mut map, traffic| {

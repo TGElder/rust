@@ -18,7 +18,6 @@ use commons::*;
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::iter::{empty, once};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -37,11 +36,10 @@ pub struct TerritoryState {
 
 pub enum GameEvent {
     Init,
-    Tick,
+    Tick { from_micros: u128, to_micros: u128 },
     Save(String),
     Load(String),
     EngineEvent(Arc<Event>),
-    CellsVisited(CellSelection),
     CellsRevealed(CellSelection),
     RoadsUpdated(RoadBuilderResult),
     ObjectUpdated(V2<usize>),
@@ -57,7 +55,6 @@ impl GameEvent {
             GameEvent::Save(..) => "save",
             GameEvent::Load(..) => "save",
             GameEvent::EngineEvent(..) => "engine event",
-            GameEvent::CellsVisited(..) => "cells visited",
             GameEvent::CellsRevealed(..) => "cells revealed",
             GameEvent::RoadsUpdated(..) => "roads updated",
             GameEvent::ObjectUpdated { .. } => "object updated",
@@ -145,18 +142,18 @@ impl Game {
     }
 
     fn on_tick(&mut self) {
-        let from = self.game_state.game_micros;
+        let from_micros = self.game_state.game_micros;
         self.update_game_micros();
-        let to = self.game_state.game_micros;
-        self.process_visited_cells(&from, &to);
+        let to_micros = self.game_state.game_micros;
         self.update_avatars();
+        self.consume_event(GameEvent::Tick {
+            from_micros,
+            to_micros,
+        });
     }
 
     fn consume_event(&mut self, event: GameEvent) {
         if let GameEvent::EngineEvent(event) = event {
-            if let Event::Tick = *event {
-                self.on_tick();
-            }
             for consumer in self.consumers.iter_mut() {
                 let capture = consumer.consume_engine_event(&self.game_state, event.clone());
                 if let CaptureEvent::Yes = capture {
@@ -188,40 +185,6 @@ impl Game {
         let interval = (interval as f32 * self.game_state.speed).round();
         self.game_state.game_micros += interval as u128;
         self.previous_instant = current_instant;
-    }
-
-    fn process_visited_cells(&mut self, from: &u128, to: &u128) {
-        let visited_cells = self
-            .avatar_visited_cells(from, to)
-            .chain(self.town_visited_cells())
-            .collect();
-        self.visit_cells(visited_cells);
-    }
-
-    fn avatar_visited_cells<'a>(
-        &'a self,
-        from: &'a u128,
-        to: &'a u128,
-    ) -> Box<dyn Iterator<Item = V2<usize>> + 'a> {
-        if let Some(avatar) = self.game_state.selected_avatar() {
-            match &avatar.state {
-                AvatarState::Walking(path) => {
-                    let edges = path.edges_between_times(from, to);
-                    return Box::new(edges.into_iter().map(|edge| *edge.to()));
-                }
-                AvatarState::Stationary { position, .. } => return Box::new(once(*position)),
-                _ => (),
-            }
-        }
-        Box::new(empty())
-    }
-
-    fn town_visited_cells<'a>(&'a self) -> impl Iterator<Item = V2<usize>> + 'a {
-        let world = &self.game_state.world;
-        self.game_state
-            .settlements
-            .keys()
-            .flat_map(move |town| world.get_corners_in_bounds(town))
     }
 
     fn update_avatars(&mut self) {
@@ -262,29 +225,6 @@ impl Game {
             } if Some(name) != selected_avatar_name.as_ref() => false,
             _ => true,
         });
-    }
-
-    pub fn visit_all_cells(&mut self) {
-        self.game_state.world.visit_all();
-        self.consume_event(GameEvent::CellsVisited(CellSelection::All));
-    }
-
-    pub fn visit_cells(&mut self, cells: Vec<V2<usize>>) {
-        let mut send = vec![];
-        for position in cells {
-            let world_cell = match self.game_state.world.mut_cell(&position) {
-                Some(world_cell) => world_cell,
-                None => continue,
-            };
-            if !world_cell.visited {
-                world_cell.visited = true;
-                send.push(position);
-            }
-        }
-        if send.is_empty() {
-            return;
-        }
-        self.consume_event(GameEvent::CellsVisited(CellSelection::Some(send)));
     }
 
     pub fn reveal_all_cells(&mut self) {
@@ -431,7 +371,7 @@ impl Game {
 
     pub fn run(&mut self) {
         while self.run {
-            self.consume_event(GameEvent::Tick);
+            self.on_tick();
             for update in self.update_rx.get_updates() {
                 self.handle_update(update);
             }

@@ -40,13 +40,13 @@ impl WorldArtistHandler {
                 ..WorldArtistParameters::default()
             },
         );
+        self.command_tx.send(world_artist.init()).unwrap();
         self.world_artist = Some(world_artist);
-        self.draw_all(game_state);
     }
 
     fn draw_all(&mut self, game_state: &GameState) {
         if let Some(world_artist) = &mut self.world_artist {
-            let commands = world_artist.init(
+            let commands = world_artist.draw_all(
                 &game_state.world,
                 &world_coloring(game_state, self.territory_layer),
             );
@@ -85,6 +85,7 @@ impl GameEventConsumer for WorldArtistHandler {
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
             GameEvent::Init => self.init(game_state),
+            GameEvent::Load(..) => self.draw_all(game_state),
             GameEvent::CellsRevealed(selection) => {
                 match selection {
                     CellSelection::All => self.draw_all(game_state),

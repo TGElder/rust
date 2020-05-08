@@ -29,13 +29,11 @@ where
     T: TravelDuration,
 {
     pub fn new(world: &World, travel_duration: T) -> Pathfinder<T> {
-        let mut out = Pathfinder {
+        Pathfinder {
             index: Index2D::new(world.width(), world.height()),
             travel_duration,
             network: Network::new(world.width() * world.height(), &[]),
-        };
-        out.reset_edges(world);
-        out
+        }
     }
 
     pub fn in_bounds(&self, position: &V2<usize>) -> bool {
@@ -290,7 +288,10 @@ mod tests {
     }
 
     fn pathfinder() -> Pathfinder<TestTravelDuration> {
-        Pathfinder::new(&world(), travel_duration())
+        let world = &world();
+        let mut out = Pathfinder::new(world, travel_duration());
+        out.reset_edges(world);
+        out
     }
 
     #[test]
