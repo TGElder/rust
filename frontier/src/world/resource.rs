@@ -18,7 +18,7 @@ pub const RESOURCES: [Resource; 15] = [
     Resource::Wood,
 ];
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Resource {
     None,
     Bananas,

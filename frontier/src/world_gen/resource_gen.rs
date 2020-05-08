@@ -3,7 +3,7 @@ use crate::world::*;
 use commons::rand::prelude::*;
 use commons::rand::seq::SliceRandom;
 use commons::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::default::Default;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -77,11 +77,11 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         }
     }
 
-    fn get_candidates(&self) -> HashMap<Resource, Vec<V2<usize>>> {
+    fn get_candidates(&self) -> BTreeMap<Resource, Vec<V2<usize>>> {
         let width = self.world.width();
         let height = self.world.height();
 
-        let mut out = HashMap::new();
+        let mut out = BTreeMap::new();
 
         for x in 0..width {
             for y in 0..height {
@@ -260,7 +260,12 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         self.in_sea_between_depths(position, self.params.resources.shallow_depth_pc, 1.0)
     }
 
-    fn in_sea_between_depths(&self, position: &V2<usize>, from_depth_pc: f32, to_depth_pc: f32) -> bool {
+    fn in_sea_between_depths(
+        &self,
+        position: &V2<usize>,
+        from_depth_pc: f32,
+        to_depth_pc: f32,
+    ) -> bool {
         let from_depth = self.world.sea_level() * (1.0 - from_depth_pc);
         let to_depth = self.world.sea_level() * (1.0 - to_depth_pc);
         if let Some(WorldCell { elevation, .. }) = self.world.get_cell(position) {
