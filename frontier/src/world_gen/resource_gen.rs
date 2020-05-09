@@ -1,5 +1,6 @@
 use super::*;
 use crate::world::*;
+use commons::edge::Edge;
 use commons::rand::prelude::*;
 use commons::rand::seq::SliceRandom;
 use commons::*;
@@ -27,6 +28,7 @@ impl Default for FarmlandConstraints {
 pub struct ResourceParams {
     farmland: FarmlandConstraints,
     shallow_depth_pc: f32,
+    cliff_edges_for_cliff: (usize, usize),
 }
 
 impl Default for ResourceParams {
@@ -34,6 +36,7 @@ impl Default for ResourceParams {
         ResourceParams {
             farmland: FarmlandConstraints::default(),
             shallow_depth_pc: 0.25,
+            cliff_edges_for_cliff: (1, 2),
         }
     }
 }
@@ -142,88 +145,48 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         match resource {
             Resource::Bananas => {
                 !self.is_sea(position)
-                    && self.has_vegetation_type(position, VegetationType::PalmTree)
+                    && self.has_vegetation_type_adjacent(position, VegetationType::PalmTree)
             }
             Resource::Coal => !self.is_sea(position) && self.is_cliff(position),
             Resource::Crabs => self.in_shallow_sea(position),
             Resource::Deer => {
                 !self.is_sea(position)
-                    && !self.is_cliff(position)
+                    && self.is_flat(position)
                     && self.among_vegetation_type(position, VegetationType::DeciduousTree)
             }
             Resource::Farmland => !self.is_sea(position) && self.is_farmland_candidate(position),
             Resource::Fur => {
                 !self.is_sea(position)
-                    && self.has_vegetation_type(position, VegetationType::EvergreenTree)
+                    && self.has_vegetation_type_adjacent(position, VegetationType::EvergreenTree)
             }
             Resource::Gems => !self.is_sea(position),
-            Resource::Gold => !self.is_sea(position) && self.by_river(position),
+            Resource::Gold => !self.is_sea(position) && self.in_river(position),
             Resource::Iron => !self.is_sea(position) && self.is_cliff(position),
             Resource::Ivory => {
                 !self.is_sea(position)
-                    && !self.is_cliff(position)
+                    && self.is_flat(position)
                     && self.among_vegetation_type(position, VegetationType::PalmTree)
             }
             Resource::Spice => {
                 !self.is_sea(position)
-                    && self.has_vegetation_type(position, VegetationType::PalmTree)
+                    && self.has_vegetation_type_adjacent(position, VegetationType::PalmTree)
             }
             Resource::Stone => !self.is_sea(position) && self.is_cliff(position),
             Resource::Truffles => {
                 !self.is_sea(position)
-                    && self.has_vegetation_type(position, VegetationType::DeciduousTree)
+                    && self.has_vegetation_type_adjacent(position, VegetationType::DeciduousTree)
             }
             Resource::Whales => self.in_deep_sea(position),
             Resource::Wood => {
                 !self.is_sea(position)
-                    && self.has_vegetation(position)
-                    && !self.has_vegetation_type(position, VegetationType::Cactus)
+                    && (self.has_vegetation_type_adjacent(position, VegetationType::PalmTree)
+                        || self
+                            .has_vegetation_type_adjacent(position, VegetationType::DeciduousTree)
+                        || self
+                            .has_vegetation_type_adjacent(position, VegetationType::EvergreenTree))
             }
             Resource::None => false,
         }
-    }
-
-    fn is_sea(&self, position: &V2<usize>) -> bool {
-        self.world.is_sea(position)
-    }
-
-    fn has_vegetation(&self, position: &V2<usize>) -> bool {
-        match self.world.get_cell(position) {
-            Some(WorldCell {
-                object: WorldObject::Vegetation(..),
-                ..
-            }) => true,
-            _ => false,
-        }
-    }
-
-    fn has_vegetation_type(&self, position: &V2<usize>, vegetation_type: VegetationType) -> bool {
-        match self.world.get_cell(position) {
-            Some(WorldCell {
-                object: WorldObject::Vegetation(actual),
-                ..
-            }) if *actual == vegetation_type => true,
-            _ => false,
-        }
-    }
-
-    fn among_vegetation_type(&self, position: &V2<usize>, vegetation_type: VegetationType) -> bool {
-        match self.world.get_cell(position) {
-            Some(WorldCell {
-                object: WorldObject::None,
-                ..
-            }) => (),
-            _ => return false,
-        };
-        match self.world.tile_avg_temperature(&position) {
-            Some(temperature) if vegetation_type.in_range_temperature(temperature) => (),
-            _ => return false,
-        };
-        match self.world.tile_avg_groundwater(&position) {
-            Some(groundwater) if vegetation_type.in_range_groundwater(groundwater) => (),
-            _ => return false,
-        };
-        true
     }
 
     fn is_beach(&self, position: &V2<usize>) -> bool {
@@ -234,22 +197,99 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         *elevation > self.world.sea_level() && *elevation <= self.params.beach_level
     }
 
-    fn is_cliff(&self, position: &V2<usize>) -> bool {
-        self.world.get_max_abs_rise(&position) > self.params.cliff_gradient
+    fn is_sea(&self, position: &V2<usize>) -> bool {
+        self.world.is_sea(position)
     }
 
-    fn is_farmland_candidate(&self, position: &V2<usize>) -> bool {
-        !self.is_cliff(position)
-            && (self.among_vegetation_type(position, VegetationType::EvergreenTree)
-                || self.among_vegetation_type(position, VegetationType::DeciduousTree)
-                || self.among_vegetation_type(position, VegetationType::PalmTree))
-    }
-
-    fn by_river(&self, position: &V2<usize>) -> bool {
+    fn has_vegetation_type_adjacent(
+        &self,
+        position: &V2<usize>,
+        vegetation_type: VegetationType,
+    ) -> bool {
         self.world
-            .get_border(position)
+            .get_corners_behind_in_bounds(position)
             .iter()
-            .any(|edge| self.world.is_river(edge))
+            .any(|position| self.has_vegetation_type_on_tile(position, vegetation_type))
+    }
+
+    fn has_vegetation_type_on_tile(
+        &self,
+        position: &V2<usize>,
+        vegetation_type: VegetationType,
+    ) -> bool {
+        match self.world.get_cell(position) {
+            Some(WorldCell {
+                object: WorldObject::Vegetation(actual),
+                ..
+            }) if *actual == vegetation_type => true,
+            _ => false,
+        }
+    }
+
+    fn among_vegetation_type(&self, position: &V2<usize>, vegetation_type: VegetationType) -> bool {
+        if self
+            .world
+            .get_corners_behind_in_bounds(position)
+            .iter()
+            .any(|tile| self.has_object(tile))
+        {
+            return false;
+        }
+        match self.world.get_cell(&position) {
+            Some(WorldCell { climate, .. })
+                if vegetation_type.in_range_temperature(climate.temperature)
+                    && vegetation_type.in_range_groundwater(climate.groundwater()) =>
+            {
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn has_object(&self, position: &V2<usize>) -> bool {
+        if let Some(WorldCell {
+            object: WorldObject::None,
+            ..
+        }) = self.world.get_cell(position)
+        {
+            false
+        } else {
+            true
+        }
+    }
+
+    fn is_cliff(&self, position: &V2<usize>) -> bool {
+        let adjacent_cliff_edges = self.count_adjacent_cliff_edges(position);
+        adjacent_cliff_edges >= self.params.resources.cliff_edges_for_cliff.0
+            && adjacent_cliff_edges <= self.params.resources.cliff_edges_for_cliff.1
+    }
+
+    fn is_flat(&self, position: &V2<usize>) -> bool {
+        self.count_adjacent_cliff_edges(position) == 0
+    }
+
+    fn count_adjacent_cliff_edges(&self, position: &V2<usize>) -> usize {
+        self.get_adjacent_edges(position)
+            .iter()
+            .flat_map(|edge| self.world.get_rise(edge.from(), edge.to()))
+            .filter(|rise| rise.abs() > self.params.cliff_gradient)
+            .count()
+    }
+
+    fn get_adjacent_edges(&self, position: &V2<usize>) -> Vec<Edge> {
+        let x = position.x;
+        let y = position.y;
+        let mut edges = vec![
+            Edge::new(v2(x, y), v2(x + 1, y)),
+            Edge::new(v2(x, y), v2(x, y + 1)),
+        ];
+        if x > 0 {
+            edges.push(Edge::new(v2(x, y), v2(x - 1, y)));
+        }
+        if y > 0 {
+            edges.push(Edge::new(v2(x, y), v2(x, y - 1)));
+        }
+        edges
     }
 
     fn in_shallow_sea(&self, position: &V2<usize>) -> bool {
@@ -273,6 +313,32 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         } else {
             false
         }
+    }
+
+    fn is_farmland_candidate(&self, position: &V2<usize>) -> bool {
+        if self.is_sea(position)
+            || self.has_object(position)
+            || self.world.get_max_abs_rise(position) > self.params.resources.farmland.max_slope
+        {
+            return false;
+        }
+        match self.world.get_cell(position) {
+            Some(WorldCell { climate, .. })
+                if climate.temperature >= self.params.resources.farmland.min_temperature
+                    && climate.groundwater() >= self.params.resources.farmland.min_groundwater =>
+            {
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn in_river(&self, position: &V2<usize>) -> bool {
+        let cell = match self.world.get_cell(position) {
+            Some(cell) => cell,
+            None => return false,
+        };
+        cell.river.here()
     }
 }
 
