@@ -13,7 +13,7 @@ pub struct PopulationChangeSimParams {
 impl Default for PopulationChangeSimParams {
     fn default() -> PopulationChangeSimParams {
         PopulationChangeSimParams {
-            gap_half_life: Duration::from_secs(60 * 60 * 24 * 28),
+            gap_half_life: Duration::from_secs(60 * 60 * 1024),
         }
     }
 }
