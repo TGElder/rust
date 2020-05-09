@@ -1,6 +1,7 @@
 use super::*;
 
 const HANDLE: &str = "first_visited_sim";
+const BATCH_SIZE: usize = 128;
 
 pub struct FirstVisitedSim {
     game_tx: UpdateSender<Game>,
@@ -27,8 +28,10 @@ impl FirstVisitedSim {
 
     async fn step_async(&mut self) {
         let start_at = self.get_game_micros().await;
-        for route in self.get_routes().await {
-            self.update_first_visited_for_route(start_at, route).await;
+        let routes = self.get_routes().await;
+        for batch in routes.chunks(BATCH_SIZE) {
+            self.update_first_visited_for_routes(start_at, batch.to_vec())
+                .await;
         }
     }
 
@@ -40,9 +43,9 @@ impl FirstVisitedSim {
         self.game_tx.update(|game| get_routes(game)).await
     }
 
-    async fn update_first_visited_for_route(&mut self, start_at: u128, route: String) {
+    async fn update_first_visited_for_routes(&mut self, start_at: u128, routes: Vec<String>) {
         self.game_tx
-            .update(move |game| update_first_visited_for_route(game, start_at, route))
+            .update(move |game| update_first_visited_for_routes(game, start_at, routes))
             .await;
     }
 }
@@ -53,6 +56,12 @@ fn get_game_micros(game: &mut Game) -> u128 {
 
 fn get_routes(game: &Game) -> Vec<String> {
     game.game_state().routes.keys().cloned().collect()
+}
+
+fn update_first_visited_for_routes(game: &mut Game, start_at: u128, routes: Vec<String>) {
+    for route in routes {
+        update_first_visited_for_route(game, start_at, route);
+    }
 }
 
 fn update_first_visited_for_route(game: &mut Game, start_at: u128, route: String) {
