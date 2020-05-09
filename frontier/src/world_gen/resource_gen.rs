@@ -207,7 +207,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         vegetation_type: VegetationType,
     ) -> bool {
         self.world
-            .get_corners_behind_in_bounds(position)
+            .get_adjacent_tiles_in_bounds(position)
             .iter()
             .any(|position| self.has_vegetation_type_on_tile(position, vegetation_type))
     }
@@ -229,7 +229,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     fn among_vegetation_type(&self, position: &V2<usize>, vegetation_type: VegetationType) -> bool {
         if self
             .world
-            .get_corners_behind_in_bounds(position)
+            .get_adjacent_tiles_in_bounds(position)
             .iter()
             .any(|tile| self.has_object(tile))
         {

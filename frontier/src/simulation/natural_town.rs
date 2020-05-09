@@ -177,7 +177,7 @@ fn get_destination_traffic<'a>(
     Box::new(
         game.game_state()
             .world
-            .get_corners_behind_in_bounds(&end)
+            .get_adjacent_tiles_in_bounds(&end)
             .into_iter()
             .map(move |position| Traffic {
                 position,
@@ -191,7 +191,7 @@ fn get_port_traffic<'a>(game: &'a Game, route: &'a Route) -> impl Iterator<Item 
         .flat_map(move |position| {
             game.game_state()
                 .world
-                .get_corners_behind_in_bounds(&position)
+                .get_adjacent_tiles_in_bounds(&position)
         })
         .map(move |position| Traffic {
             position,

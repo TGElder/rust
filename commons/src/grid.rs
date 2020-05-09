@@ -80,7 +80,7 @@ pub trait Grid<T> {
             .collect()
     }
 
-    fn get_corners_behind_in_bounds(&self, position: &V2<usize>) -> Vec<V2<usize>> {
+    fn get_adjacent_tiles_in_bounds(&self, position: &V2<usize>) -> Vec<V2<usize>> {
         [v2(0, 0), v2(-1, 0), v2(-1, -1), v2(0, -1)]
             .iter()
             .flat_map(|delta| self.offset(position, *delta))
@@ -253,19 +253,19 @@ mod tests {
     }
 
     #[test]
-    fn test_get_corners_behind() {
+    fn test_get_adjacent_tiles() {
         let matrix: M<usize> = M::zeros(3, 3);
         assert!(same_elements(
-            &matrix.get_corners_behind_in_bounds(&v2(1, 1)),
+            &matrix.get_adjacent_tiles_in_bounds(&v2(1, 1)),
             &[v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)]
         ));
     }
 
     #[test]
-    fn test_get_corners_behind_some_corners_out_of_bounds() {
+    fn test_get_adjacent_tiles_some_tiles_out_of_bounds() {
         let matrix: M<usize> = M::zeros(3, 3);
         assert!(same_elements(
-            &matrix.get_corners_behind_in_bounds(&v2(0, 0)),
+            &matrix.get_adjacent_tiles_in_bounds(&v2(0, 0)),
             &[v2(0, 0)]
         ));
     }
