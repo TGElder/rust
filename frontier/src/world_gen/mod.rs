@@ -3,6 +3,7 @@ mod resource_gen;
 mod river_water;
 mod sea_border;
 mod temperature;
+mod validation;
 mod vegetation_gen;
 
 use crate::world::World;
@@ -24,6 +25,7 @@ use std::default::Default;
 use std::f64::MAX;
 use std::fmt::Debug;
 use temperature::*;
+use validation::*;
 use vegetation_gen::*;
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
@@ -43,6 +45,7 @@ pub struct WorldGenParameters {
     pub temperature: TemperatureParams,
     pub vegetation: VegetationParams,
     pub resources: ResourceParams,
+    pub validation: WorldValidationParams,
 }
 
 impl Default for WorldGenParameters {
@@ -63,6 +66,7 @@ impl Default for WorldGenParameters {
             temperature: TemperatureParams::default(),
             vegetation: VegetationParams::default(),
             resources: ResourceParams::default(),
+            validation: WorldValidationParams::default(),
         }
     }
 }
@@ -72,6 +76,15 @@ pub fn rng(seed: u64) -> SmallRng {
 }
 
 pub fn generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParameters) -> World {
+    loop {
+        let candidate = try_generate_world(size, rng, params);
+        if world_is_valid(&params.validation, &candidate) {
+            return candidate;
+        }
+    }
+}
+
+fn try_generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParameters) -> World {
     let mut mesh = Mesh::new(1, 0.0);
     mesh.set_z(0, 0, MAX);
 
