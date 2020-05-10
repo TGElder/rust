@@ -111,12 +111,12 @@ mod tests {
 
     #[test]
     fn test_get_river_water_origin() {
-        assert!(river_water(11.0, v3(0.0, 0.0, 0.0)).almost(11.0));
+        assert!(river_water(11.0, v3(0.0, 0.0, 0.0)).almost(&11.0));
     }
 
     #[test]
     fn test_get_river_water_other() {
-        assert!(river_water(11.0, v3(4.0, 0.0, 0.0)).almost(2.2));
+        assert!(river_water(11.0, v3(4.0, 0.0, 0.0)).almost(&2.2));
     }
 
     #[test]

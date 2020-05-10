@@ -318,9 +318,9 @@ mod tests {
         let at = start + 1_500;
         let actual = path.compute_world_coord(&world, &at).unwrap();
         let expected = WorldCoord::new(0.25, 1.0, 0.25);
-        assert!(((actual.x * 100.0).round() / 100.0).almost(expected.x));
-        assert!(((actual.y * 100.0).round() / 100.0).almost(expected.y));
-        assert!(((actual.z * 100.0).round() / 100.0).almost(expected.z));
+        assert!(((actual.x * 100.0).round() / 100.0).almost(&expected.x));
+        assert!(((actual.y * 100.0).round() / 100.0).almost(&expected.y));
+        assert!(((actual.z * 100.0).round() / 100.0).almost(&expected.z));
     }
 
     #[test]

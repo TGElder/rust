@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_get_max_flow_over_sea_level() {
-        assert!(get_max_flow_over_sea_level(&mesh(), 0.5, &flow_map()).almost(7.0));
+        assert!(get_max_flow_over_sea_level(&mesh(), 0.5, &flow_map()).almost(&7.0));
     }
 
     #[test]

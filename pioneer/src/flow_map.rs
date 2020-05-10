@@ -143,6 +143,6 @@ mod tests {
             ],
         );
         let flow_map = FlowMap { flow };
-        assert!(flow_map.get_max_flow().almost(16.0));
+        assert!(flow_map.get_max_flow().almost(&16.0));
     }
 }

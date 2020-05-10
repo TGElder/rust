@@ -173,10 +173,10 @@ mod tests {
 
     #[test]
     fn test_run() {
-        assert!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 0.0, 1.0)).almost(3.0));
-        assert!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 1.0, 1.0)).almost((10.0 as f32).sqrt()));
-        assert!(run(&v3(0.0, 0.0, 0.0), &v3(2.0, 2.0, 1.0)).almost((8.0 as f32).sqrt()));
-        assert!(run(&v3(0.0, 0.0, 0.0), &v3(1.0, 3.0, 1.0)).almost((10.0 as f32).sqrt()));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 0.0, 1.0)).almost(&3.0));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 1.0, 1.0)).almost(&(10.0 as f32).sqrt()));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(2.0, 2.0, 1.0)).almost(&(8.0 as f32).sqrt()));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(1.0, 3.0, 1.0)).almost(&(10.0 as f32).sqrt()));
     }
 
     #[test]
@@ -188,7 +188,7 @@ mod tests {
         };
         assert!(visibility_computer
             .planet_curve_adjustment(100.0)
-            .almost(0.0));
+            .almost(&0.0));
     }
 
     #[test]
@@ -200,7 +200,7 @@ mod tests {
         };
         assert!(visibility_computer
             .planet_curve_adjustment(100.0)
-            .almost(1000.0 - (990_000.0 as f32).sqrt()));
+            .almost(&(1000.0 - (990_000.0 as f32).sqrt())));
     }
 
     fn test_check_visibility_along_line(

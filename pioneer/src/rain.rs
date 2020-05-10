@@ -237,7 +237,7 @@ mod tests {
         cloud.volume = 0.5;
         cloud.capacity = 1.0;
         cloud.evaporate(0.1);
-        assert!(cloud.volume.almost(0.5 + (0.1 * 0.5)));
+        assert!(cloud.volume.almost(&(0.5 + (0.1 * 0.5))));
     }
 
     #[test]
@@ -246,7 +246,7 @@ mod tests {
         cloud.volume = 1.1;
         cloud.capacity = 1.0;
         cloud.evaporate(0.1);
-        assert!(cloud.volume.almost(1.1));
+        assert!(cloud.volume.almost(&1.1));
     }
 
     #[test]
@@ -254,7 +254,7 @@ mod tests {
         let mut cloud = cloud();
         cloud.volume = 0.25;
         cloud.capacity = 1.0;
-        assert!(cloud.under_capacity().almost(0.25));
+        assert!(cloud.under_capacity().almost(&0.25));
     }
 
     #[test]
@@ -262,7 +262,7 @@ mod tests {
         let mut cloud = cloud();
         cloud.volume = 1.25;
         cloud.capacity = 1.0;
-        assert!(cloud.under_capacity().almost(1.0));
+        assert!(cloud.under_capacity().almost(&1.0));
     }
 
     #[test]
@@ -270,7 +270,7 @@ mod tests {
         let mut cloud = cloud();
         cloud.volume = 0.25;
         cloud.capacity = 1.0;
-        assert!(cloud.over_capacity().almost(0.0));
+        assert!(cloud.over_capacity().almost(&0.0));
     }
 
     #[test]
@@ -278,7 +278,7 @@ mod tests {
         let mut cloud = cloud();
         cloud.volume = 1.25;
         cloud.capacity = 1.0;
-        assert!(cloud.over_capacity().almost(0.25));
+        assert!(cloud.over_capacity().almost(&0.25));
     }
 
     #[test]

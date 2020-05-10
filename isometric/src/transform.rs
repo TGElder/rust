@@ -296,8 +296,8 @@ mod tests {
         let actual = transform.project(WorldCoord::new(11.0, -17.0, 7.0));
         // Because World Coord would have mapped to same GLCoord in identity projection
 
-        assert!(actual.x.almost(11.0));
-        assert!(actual.y.almost(-17.0));
+        assert!(actual.x.almost(&11.0));
+        assert!(actual.y.almost(&-17.0));
         // z is not maintained
     }
 

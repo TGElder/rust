@@ -448,9 +448,9 @@ mod tests {
             .compute_world_coord(&world, &(start + duration.as_micros() / 4))
             .unwrap();
         let expected = WorldCoord::new(1.0, 1.25, 1.25);
-        assert!(((actual.x * 100.0).round() / 100.0).almost(expected.x));
-        assert!(((actual.y * 100.0).round() / 100.0).almost(expected.y));
-        assert!(((actual.z * 100.0).round() / 100.0).almost(expected.z));
+        assert!(((actual.x * 100.0).round() / 100.0).almost(&expected.x));
+        assert!(((actual.y * 100.0).round() / 100.0).almost(&expected.y));
+        assert!(((actual.z * 100.0).round() / 100.0).almost(&expected.z));
     }
 
     #[test]

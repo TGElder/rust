@@ -2,7 +2,7 @@ mod coloring;
 mod geometry;
 
 pub use self::coloring::*;
-use self::geometry::*;
+pub use self::geometry::*;
 
 use super::utils::*;
 use crate::graphics::Drawing;

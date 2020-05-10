@@ -1,6 +1,5 @@
 use crate::world::*;
 use commons::*;
-use isometric::coords::WorldCoord;
 use isometric::drawing::{draw_house, DrawHouseParams};
 use isometric::Color;
 use isometric::Command;
@@ -16,7 +15,6 @@ impl HouseArtist {
                 width: 0.25,
                 height: 0.5,
                 roof_height: 0.5,
-                basement_z: 0.0,
                 base_color: Color::new(1.0, 0.0, 0.0, 1.0),
                 light_direction,
             },
@@ -35,26 +33,17 @@ impl HouseArtist {
         height: f32,
         roof_height: f32,
     ) -> Vec<Command> {
-        let world_coord = world.snap_to_middle(WorldCoord::new(
-            position.x as f32,
-            position.y as f32,
-            0 as f32,
-        ));
-        if let Some(world_coord) = world_coord {
-            let basement_z = world.get_lowest_corner(position);
-            return draw_house(
-                Self::get_name(position),
-                world_coord,
-                &DrawHouseParams {
-                    basement_z,
-                    base_color,
-                    height,
-                    roof_height,
-                    ..self.params
-                },
-            );
-        }
-        return vec![];
+        draw_house(
+            Self::get_name(position),
+            world,
+            position,
+            &DrawHouseParams {
+                base_color,
+                height,
+                roof_height,
+                ..self.params
+            },
+        )
     }
 
     pub fn erase_house_at(&self, _: &World, position: &V2<usize>) -> Vec<Command> {

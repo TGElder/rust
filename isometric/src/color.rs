@@ -81,27 +81,27 @@ mod tests {
     #[test]
     fn test_mul() {
         let result = Color::new(0.1, 0.2, 0.3, 0.4) * Color::new(0.5, 0.6, 0.7, 0.8);
-        assert!(result.r.almost(0.1 * 0.5));
-        assert!(result.g.almost(0.2 * 0.6));
-        assert!(result.b.almost(0.3 * 0.7));
-        assert!(result.a.almost(0.4 * 0.8));
+        assert!(result.r.almost(&(0.1 * 0.5)));
+        assert!(result.g.almost(&(0.2 * 0.6)));
+        assert!(result.b.almost(&(0.3 * 0.7)));
+        assert!(result.a.almost(&(0.4 * 0.8)));
     }
 
     #[test]
     fn test_blend() {
         let result = Color::new(0.1, 0.2, 0.3, 0.4).blend(0.2, &Color::new(0.5, 0.6, 0.7, 0.8));
-        assert!(result.r.almost(0.1 * 0.2 + 0.5 * 0.8));
-        assert!(result.g.almost(0.2 * 0.2 + 0.6 * 0.8));
-        assert!(result.b.almost(0.3 * 0.2 + 0.7 * 0.8));
-        assert!(result.a.almost(0.4 * 0.2 + 0.8 * 0.8));
+        assert!(result.r.almost(&(0.1 * 0.2 + 0.5 * 0.8)));
+        assert!(result.g.almost(&(0.2 * 0.2 + 0.6 * 0.8)));
+        assert!(result.b.almost(&(0.3 * 0.2 + 0.7 * 0.8)));
+        assert!(result.a.almost(&(0.4 * 0.2 + 0.8 * 0.8)));
     }
 
     #[test]
     fn test_layer_over() {
         let result = Color::new(0.1, 0.2, 0.3, 0.4).layer_over(&Color::new(0.5, 0.6, 0.7, 0.8));
-        assert!(result.r.almost(0.1 * 0.4 + 0.5 * 0.6));
-        assert!(result.g.almost(0.2 * 0.4 + 0.6 * 0.6));
-        assert!(result.b.almost(0.3 * 0.4 + 0.7 * 0.6));
-        assert!(result.a.almost(1.0));
+        assert!(result.r.almost(&(0.1 * 0.4 + 0.5 * 0.6)));
+        assert!(result.g.almost(&(0.2 * 0.4 + 0.6 * 0.6)));
+        assert!(result.b.almost(&(0.3 * 0.4 + 0.7 * 0.6)));
+        assert!(result.a.almost(&1.0));
     }
 }

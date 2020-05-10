@@ -174,9 +174,9 @@ where
     }
 
     fn entire_triangle_at_sea_level(&self, triangle: &[V3<f32>; 3]) -> bool {
-        triangle[0].z.almost(self.sea_level)
-            && triangle[1].z.almost(self.sea_level)
-            && triangle[2].z.almost(self.sea_level)
+        triangle[0].z.almost(&self.sea_level)
+            && triangle[1].z.almost(&self.sea_level)
+            && triangle[2].z.almost(&self.sea_level)
     }
 }
 

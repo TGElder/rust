@@ -42,7 +42,7 @@ mod tests {
     #[test]
     fn test_scale() {
         let scale = Scale::<f32>::new((2000.0, 2016.0), (11.0, 55.0));
-        assert!(scale.scale(2003.0).almost(19.25));
+        assert!(scale.scale(2003.0).almost(&19.25));
     }
 
     #[test]

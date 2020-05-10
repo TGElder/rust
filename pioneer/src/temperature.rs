@@ -81,6 +81,6 @@ mod tests {
 
         assert!(mapper
             .compute_temperature_at(11, 21, 0.0)
-            .almost(mapper.compute_temperature_at(11, 21, 1.0)));
+            .almost(&mapper.compute_temperature_at(11, 21, 1.0)));
     }
 }

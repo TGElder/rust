@@ -319,7 +319,7 @@ mod tests {
 
         fn check_splits(mesh: &Mesh, splits: Vec<Split>) {
             for split in splits {
-                assert!(mesh.get_z(split.x, split.y).almost(split.z));
+                assert!(mesh.get_z(split.x, split.y).almost(&split.z));
             }
         }
 
