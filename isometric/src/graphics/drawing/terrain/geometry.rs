@@ -91,11 +91,11 @@ where
 
         if border.len() == 4 {
             vec![
-                [border[0], border[3], border[2]],
-                [border[0], border[2], border[1]],
+                [border[0], border[2], border[3]],
+                [border[0], border[1], border[2]],
             ]
         } else if border.len() == 3 {
-            vec![[border[0], border[2], border[1]]]
+            vec![[border[0], border[1], border[2]]]
         } else {
             vec![]
         }
@@ -388,8 +388,8 @@ mod tests {
         assert_eq!(
             actual,
             vec![
-                [v3(0.5, 0.5, 4.0), v3(0.5, 1.5, 4.0), v3(1.5, 1.5, 4.0)],
-                [v3(0.5, 0.5, 4.0), v3(1.5, 1.5, 4.0), v3(1.5, 0.5, 4.0)],
+                [v3(0.5, 0.5, 4.0), v3(1.5, 1.5, 4.0), v3(0.5, 1.5, 4.0)],
+                [v3(0.5, 0.5, 4.0), v3(1.5, 0.5, 4.0), v3(1.5, 1.5, 4.0)],
             ]
         );
     }
@@ -400,7 +400,7 @@ mod tests {
 
         assert_eq!(
             actual,
-            vec![[v3(1.0, 0.0, 0.0), v3(0.5, 0.5, 4.0), v3(1.5, 0.5, 4.0)],]
+            vec![[v3(1.0, 0.0, 0.0), v3(1.5, 0.5, 4.0), v3(0.5, 0.5, 4.0)],]
         );
     }
 
@@ -475,10 +475,10 @@ mod tests {
     fn test_get_triangles_for_tile_a() {
         let actual = TerrainGeometry::of(&terrain()).get_triangles_for_tile(&v2(1, 0));
 
-        assert!(actual.contains(&[v3(1.0, 0.0, 0.0), v3(1.5, 0.5, 4.0), v3(1.6, 0.9, 3.0)]));
-        assert!(actual.contains(&[v3(1.0, 0.0, 0.0), v3(1.6, 0.9, 3.0), v3(2.0, 0.0, 0.0)]));
-        assert!(actual.contains(&[v3(1.0, 0.0, 0.0), v3(1.0, 0.5, 4.0), v3(1.5, 0.5, 4.0)]));
-        assert!(actual.contains(&[v3(2.0, 0.0, 0.0), v3(1.6, 0.9, 3.0), v3(2.0, 0.9, 3.0)]));
+        assert!(actual.contains(&[v3(1.0, 0.0, 0.0), v3(1.6, 0.9, 3.0), v3(1.5, 0.5, 4.0)]));
+        assert!(actual.contains(&[v3(1.0, 0.0, 0.0), v3(2.0, 0.0, 0.0), v3(1.6, 0.9, 3.0)]));
+        assert!(actual.contains(&[v3(1.0, 0.0, 0.0), v3(1.5, 0.5, 4.0), v3(1.0, 0.5, 4.0)]));
+        assert!(actual.contains(&[v3(2.0, 0.0, 0.0), v3(2.0, 0.9, 3.0), v3(1.6, 0.9, 3.0)]));
         assert_eq!(actual.len(), 4);
     }
 
@@ -486,10 +486,10 @@ mod tests {
     fn test_get_triangles_for_tile_b() {
         let actual = TerrainGeometry::of(&terrain()).get_triangles_for_tile(&v2(1, 1));
 
-        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(2.0, 2.0, 1.0)]));
-        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(2.0, 2.0, 1.0), v3(1.6, 1.1, 3.0)]));
-        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.0, 1.6, 2.0), v3(1.1, 1.6, 2.0)]));
-        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.5, 1.5, 4.0)]));
+        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(2.0, 2.0, 1.0), v3(1.1, 1.6, 2.0)]));
+        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(1.6, 1.1, 3.0), v3(2.0, 2.0, 1.0)]));
+        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.0, 1.6, 2.0)]));
+        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.5, 1.5, 4.0), v3(1.1, 1.6, 2.0)]));
         assert_eq!(actual.len(), 4);
     }
 
@@ -500,9 +500,9 @@ mod tests {
 
         let actual = TerrainGeometry::of(&terrain).get_triangles_for_tile(&v2(1, 1));
 
-        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.6, 1.1, 3.0)]));
-        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.0, 1.6, 2.0), v3(1.1, 1.6, 2.0)]));
-        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.5, 1.5, 4.0)]));
+        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(1.6, 1.1, 3.0), v3(1.1, 1.6, 2.0)]));
+        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.0, 1.6, 2.0)]));
+        assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.5, 1.5, 4.0), v3(1.1, 1.6, 2.0)]));
         assert_eq!(actual.len(), 3);
     }
 }

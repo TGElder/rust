@@ -5,7 +5,7 @@ use color::Color;
 use commons::{na, v3, V3};
 use coords::*;
 
-const BOAT_FLOATS: usize = 270;
+const BOAT_FLOATS: usize = 540;
 
 pub struct DrawBoatParams {
     pub width: f32,
@@ -55,42 +55,42 @@ pub fn draw_boat(
     let sc = (rotation * v3(-0.3 * width_2, 1.5 * width_2, p.side_height)) + world_coordinate;
 
     let mut floats = vec![];
-    floats.append(&mut get_colored_vertices_from_square(
+    floats.append(&mut get_colored_vertices_from_square_both_sides(
         &[al, bl, bh, ah],
         &square_coloring,
     ));
-    floats.append(&mut get_colored_vertices_from_square(
+    floats.append(&mut get_colored_vertices_from_square_both_sides(
         &[dl, al, ah, dh],
         &square_coloring,
     ));
-    floats.append(&mut get_colored_vertices_from_square(
+    floats.append(&mut get_colored_vertices_from_square_both_sides(
         &[el, bl, bh, eh],
         &square_coloring,
     ));
-    floats.append(&mut get_colored_vertices_from_square(
+    floats.append(&mut get_colored_vertices_from_square_both_sides(
         &[dl, cl, ch, dh],
         &square_coloring,
     ));
-    floats.append(&mut get_colored_vertices_from_square(
+    floats.append(&mut get_colored_vertices_from_square_both_sides(
         &[cl, el, eh, ch],
         &square_coloring,
     ));
-    floats.append(&mut get_colored_vertices_from_square(
+    floats.append(&mut get_colored_vertices_from_square_both_sides(
         &[al, bl, cl, dl],
         &square_coloring,
     ));
-    floats.append(&mut get_colored_vertices_from_triangle(
+    floats.append(&mut get_colored_vertices_from_triangle_both_sides(
         &[bl, el, cl],
         &triangle_coloring,
     ));
-    floats.append(&mut get_colored_vertices_from_triangle(
+    floats.append(&mut get_colored_vertices_from_triangle_both_sides(
         &[bh, eh, ch],
         &triangle_coloring,
     ));
 
     let sail_coloring = AngleTriangleColoring::new(p.sail_color, p.light_direction);
 
-    floats.append(&mut get_colored_vertices_from_triangle(
+    floats.append(&mut get_colored_vertices_from_triangle_both_sides(
         &[sa, sb, sc],
         &sail_coloring,
     ));

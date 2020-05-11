@@ -15,11 +15,11 @@ fn get_floats(world_coord: WorldCoord, width: f32, height: f32) -> Vec<f32> {
 
     vec![
         p.x, p.y, p.z, 0.0, 1.0, left, top, 
+        p.x, p.y, p.z, 1.0, 0.0, right, bottom,
         p.x, p.y, p.z, 0.0, 0.0, left, bottom, 
-        p.x, p.y, p.z, 1.0, 0.0, right, bottom,
         p.x, p.y, p.z, 0.0, 1.0, left, top,
-        p.x, p.y, p.z, 1.0, 0.0, right, bottom,
         p.x, p.y, p.z, 1.0, 1.0, right, top,
+        p.x, p.y, p.z, 1.0, 0.0, right, bottom,
     ]
 }
 

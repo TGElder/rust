@@ -18,11 +18,11 @@ pub fn draw_text(name: String, text: &str, world_coord: WorldCoord, font: &Font)
 
         floats.append(&mut vec![
             p.x, p.y, p.z, top_left.x, bottom_right.y, xs, 0.0,
+            p.x, p.y, p.z, bottom_right.x, top_left.y, xs + w, h,
             p.x, p.y, p.z, top_left.x, top_left.y, xs, h,
-            p.x, p.y, p.z, bottom_right.x, top_left.y, xs + w, h,
             p.x, p.y, p.z, top_left.x, bottom_right.y, xs, 0.0,
-            p.x, p.y, p.z, bottom_right.x, top_left.y, xs + w, h,
             p.x, p.y, p.z, bottom_right.x, bottom_right.y, xs + w, 0.0,
+            p.x, p.y, p.z, bottom_right.x, top_left.y, xs + w, h,
         ]);
 
         xs += font.get_advance(character) as f32;

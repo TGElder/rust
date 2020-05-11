@@ -36,7 +36,7 @@ impl Default for GameParams {
             avatar_travel: AvatarTravelParams::default(),
             auto_road_travel: AutoRoadTravelParams::default(),
             starting_distance_from_shore: 32,
-            light_direction: v3(-1.0, 0.0, 1.0),
+            light_direction: v3(0.0, 8.0, -1.0),
             snow_temperature: 0.0,
             town_travel_duration: Duration::from_secs(60 * 60 * 6),
             avatars: 4096,
