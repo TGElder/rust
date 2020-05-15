@@ -235,6 +235,7 @@ impl TravelDuration for TestTravelDuration {
 mod tests {
 
     use super::*;
+    use commons::almost::Almost;
     use commons::*;
 
     fn travel_duration() -> TestTravelDuration {

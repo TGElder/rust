@@ -139,13 +139,13 @@ fn main() {
     avatar_pathfinder_handle.join().unwrap();
 }
 
-fn new(size: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) {
+fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) {
     let mut rng = rng(seed);
     let params = GameParams {
         seed,
         ..GameParams::default()
     };
-    let mut world = generate_world(size, &mut rng, &params.world_gen);
+    let mut world = generate_world(power, &mut rng, &params.world_gen);
     if reveal_all {
         world.reveal_all();
     }
@@ -202,10 +202,10 @@ fn load(path: &str) -> (GameState, Vec<GameEvent>) {
 #[allow(clippy::comparison_chain)]
 fn parse_args(args: Vec<String>) -> (GameState, Vec<GameEvent>) {
     if args.len() > 2 {
-        let size = args[1].parse().unwrap();
+        let power = args[1].parse().unwrap();
         let seed = args[2].parse().unwrap();
         let reveal_all = args.contains(&"-r".to_string());
-        new(size, seed, reveal_all)
+        new(power, seed, reveal_all)
     } else if args.len() == 2 {
         load(&args[1])
     } else {

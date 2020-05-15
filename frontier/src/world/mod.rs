@@ -298,6 +298,7 @@ impl World {
 mod tests {
 
     use super::*;
+    use commons::almost::Almost;
 
     #[rustfmt::skip]
     fn world() -> World {

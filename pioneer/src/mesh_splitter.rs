@@ -136,6 +136,7 @@ impl MeshSplitter {
 mod tests {
 
     use super::*;
+    use commons::almost::Almost;
     use commons::*;
     use rand::rngs::mock::StepRng;
     use std::u64;

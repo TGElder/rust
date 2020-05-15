@@ -128,6 +128,7 @@ impl VisibilityComputer {
 mod tests {
 
     use super::*;
+    use commons::almost::Almost;
 
     #[test]
     fn test_bresenham_circle() {

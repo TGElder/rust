@@ -75,23 +75,23 @@ pub fn rng(seed: u64) -> SmallRng {
     SeedableRng::seed_from_u64(seed)
 }
 
-pub fn generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParameters) -> World {
+pub fn generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParameters) -> World {
     loop {
-        let candidate = try_generate_world(size, rng, params);
+        let candidate = try_generate_world(power, rng, params);
         if world_is_valid(&params.validation, &candidate) {
             return candidate;
         }
     }
 }
 
-fn try_generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParameters) -> World {
+fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParameters) -> World {
     let mut mesh = Mesh::new(1, 0.0);
     mesh.set_z(0, 0, MAX);
 
     println!("Generating world...");
-    for i in 0..size {
+    for i in 0..power {
         mesh = MeshSplitter::split(&mesh, rng, params.split_range);
-        if i < (size - 1) {
+        if i < (power - 1) {
             let threshold = i * 2;
             mesh = Erosion::erode(
                 mesh,
@@ -101,7 +101,7 @@ fn try_generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParamet
                 params.erosion_amount,
             );
         }
-        println!("{}", size - i);
+        println!("{}", power - i);
     }
 
     let rescaled = mesh.rescale(&Scale::new(
@@ -138,9 +138,10 @@ fn try_generate_world<T: Rng>(size: usize, rng: &mut T, params: &WorldGenParamet
     let river_water = river_water.map(|v| v.sqrt());
     load_river_water(&mut out, &river_water);
 
-    let vegetation = compute_vegetation(&mut out, &params, rng);
-    load_vegetation(&mut out, &vegetation);
-    set_vegetation_height(&mut out);
+    let mut vegetation_gen = VegetationGen::new(power, &mut out, &params, rng);
+    let vegetation = vegetation_gen.compute_vegetation();
+    vegetation_gen.load_vegetation(&vegetation);
+    vegetation_gen.set_vegetation_height();
 
     let mut resource_gen = ResourceGen::new(&mut out, &params, rng);
     let resources = resource_gen.compute_resources();

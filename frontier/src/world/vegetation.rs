@@ -30,8 +30,8 @@ impl VegetationType {
     pub fn in_range_temperature(self, temperature: f32) -> bool {
         match self {
             VegetationType::PalmTree => temperature >= 20.0,
-            VegetationType::DeciduousTree => temperature >= 10.0 && temperature <= 20.0,
-            VegetationType::EvergreenTree => temperature >= 0.0,
+            VegetationType::DeciduousTree => temperature >= 5.0 && temperature <= 25.0,
+            VegetationType::EvergreenTree => temperature >= 0.0 && temperature <= 10.0,
             VegetationType::Cactus => temperature >= 10.0,
         }
     }

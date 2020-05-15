@@ -97,6 +97,7 @@ fn river_water(flow: f32, delta: V3<f32>) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use commons::almost::Almost;
     use commons::junction::*;
 
     #[test]

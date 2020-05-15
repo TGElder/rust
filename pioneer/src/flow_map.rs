@@ -72,6 +72,7 @@ mod tests {
 
     use super::*;
 
+    use commons::almost::Almost;
     use single_downhill_map::MockDownhillMap;
 
     #[rustfmt::skip]

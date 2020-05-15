@@ -37,7 +37,7 @@ impl<T: Float> Scale<T> {
 mod tests {
 
     use super::*;
-    use Almost;
+    use almost::Almost;
 
     #[test]
     fn test_scale() {

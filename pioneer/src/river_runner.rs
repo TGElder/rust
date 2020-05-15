@@ -147,6 +147,7 @@ fn get_river_cells_from_junction_matrix(junctions: M<Junction>) -> Vec<PositionJ
 mod tests {
 
     use super::*;
+    use commons::almost::Almost;
     use single_downhill_map::MockDownhillMap;
 
     #[rustfmt::skip]

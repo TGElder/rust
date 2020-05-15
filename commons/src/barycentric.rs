@@ -36,7 +36,7 @@ pub fn triangle_interpolate(p: V2<f32>, triangle: &[V3<f32>; 3]) -> Option<V3<f3
 mod tests {
 
     use super::*;
-    use crate::Almost;
+    use almost::Almost;
 
     fn triangle2() -> [V2<f32>; 3] {
         [v2(0.0, 1.0), v2(2.0, 5.0), v2(4.0, 3.0)]

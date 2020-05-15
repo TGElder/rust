@@ -230,6 +230,7 @@ impl Add for Path {
 mod tests {
 
     use super::*;
+    use commons::almost::Almost;
     use commons::*;
 
     fn travel_duration() -> TestTravelDuration {

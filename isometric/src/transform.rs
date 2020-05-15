@@ -151,6 +151,7 @@ impl Transform {
 mod tests {
 
     use super::*;
+    use commons::almost::Almost;
     use std::f32::consts::PI;
 
     #[rustfmt::skip]

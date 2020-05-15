@@ -195,6 +195,7 @@ impl<'a> RainfallComputer<'a> {
 mod tests {
 
     use super::*;
+    use commons::almost::Almost;
 
     fn params() -> RainfallParams {
         RainfallParams {

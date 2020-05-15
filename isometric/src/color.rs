@@ -76,7 +76,7 @@ impl Color {
 mod tests {
 
     use super::*;
-    use commons::*;
+    use commons::almost::Almost;
 
     #[test]
     fn test_mul() {
