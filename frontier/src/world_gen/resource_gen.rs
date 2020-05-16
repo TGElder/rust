@@ -1,6 +1,8 @@
 use super::*;
 use crate::world::*;
 use commons::edge::Edge;
+use commons::equalize::{equalize_with_filter, PositionValue};
+use commons::perlin::stacked_perlin_noise;
 use commons::rand::prelude::*;
 use commons::rand::seq::SliceRandom;
 use commons::*;
@@ -42,6 +44,7 @@ impl Default for ResourceParams {
 }
 
 pub struct ResourceGen<'a, R: Rng> {
+    power: usize,
     world: &'a mut World,
     params: &'a WorldGenParameters,
     rng: &'a mut R,
@@ -49,11 +52,17 @@ pub struct ResourceGen<'a, R: Rng> {
 
 impl<'a, R: Rng> ResourceGen<'a, R> {
     pub fn new(
+        power: usize,
         world: &'a mut World,
         params: &'a WorldGenParameters,
         rng: &'a mut R,
     ) -> ResourceGen<'a, R> {
-        ResourceGen { world, params, rng }
+        ResourceGen {
+            power,
+            world,
+            params,
+            rng,
+        }
     }
 
     pub fn compute_resources(&mut self) -> M<Resource> {
@@ -68,14 +77,21 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     fn add_limited_resources(&mut self, resources: &mut M<Resource>) {
         let mut taken: HashSet<V2<usize>> = HashSet::new();
         for (resource, mut candidates) in self.get_candidates() {
+            let count = match count(resource) {
+                Some(count) if count > 0 => count,
+                _ => continue,
+            };
             candidates.retain(|candidate| !taken.contains(candidate));
-            if let Some(count) = count(resource) {
-                let chosen: Vec<&V2<usize>> =
-                    candidates.choose_multiple(&mut self.rng, count).collect();
-                chosen
-                    .iter()
-                    .for_each(|position| *resources.mut_cell_unsafe(position) = resource);
-                taken.extend(chosen);
+            let distribution = self.get_distribution(resource, count, candidates.len());
+            for _ in 0..count {
+                let choice = candidates.choose_weighted(&mut self.rng, |position| {
+                    distribution.get_cell_unsafe(position)
+                });
+                if let Ok(choice) = choice {
+                    *resources.mut_cell_unsafe(choice) = resource;
+                    taken.insert(*choice);
+                    candidates.retain(|candidate| !taken.contains(candidate));
+                }
             }
         }
     }
@@ -103,6 +119,25 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         }
 
         out
+    }
+
+    fn get_distribution(
+        &mut self,
+        resource: Resource,
+        resource_count: usize,
+        candidate_count: usize,
+    ) -> M<f64> {
+        let spread = ((spread(resource) * resource_count) as f64 / candidate_count as f64).min(1.0);
+        equalize_with_filter(
+            stacked_perlin_noise(
+                self.world.width(),
+                self.world.height(),
+                self.rng.gen(),
+                (0..self.power).map(|_| 1.0).collect(),
+            ),
+            &|PositionValue { position, .. }| self.is_candidate(resource, position),
+        )
+        .map(|v| if v <= spread { 1.0 } else { 0.0 })
     }
 
     fn add_unlimited_resources(&self, resources: &mut M<Resource>) {
@@ -357,5 +392,23 @@ fn count(resource: Resource) -> Option<usize> {
         Resource::Truffles => Some(6),
         Resource::Whales => Some(8),
         _ => None,
+    }
+}
+
+fn spread(resource: Resource) -> usize {
+    match resource {
+        Resource::Bananas => 16,
+        Resource::Coal => 4,
+        Resource::Crabs => 16,
+        Resource::Deer => 16,
+        Resource::Fur => 16,
+        Resource::Gems => 4,
+        Resource::Gold => 4,
+        Resource::Iron => 4,
+        Resource::Ivory => 16,
+        Resource::Spice => 4,
+        Resource::Truffles => 16,
+        Resource::Whales => 64,
+        _ => 1,
     }
 }

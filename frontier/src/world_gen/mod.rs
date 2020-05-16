@@ -149,7 +149,7 @@ fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParame
     vegetation_gen.load_vegetation(&vegetation);
     vegetation_gen.set_vegetation_height();
 
-    let mut resource_gen = ResourceGen::new(&mut out, &params, rng);
+    let mut resource_gen = ResourceGen::new(power, &mut out, &params, rng);
     let resources = resource_gen.compute_resources();
     resource_gen.load_resources(&resources);
 
