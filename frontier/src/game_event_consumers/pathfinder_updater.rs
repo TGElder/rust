@@ -48,7 +48,7 @@ where
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
-            GameEvent::Load(..) => self.reset_pathfinder(game_state),
+            GameEvent::Init => self.reset_pathfinder(game_state),
             GameEvent::CellsRevealed(selection) => {
                 match selection {
                     CellSelection::All => self.reset_pathfinder(game_state),

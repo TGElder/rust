@@ -36,7 +36,9 @@ impl VisibilityHandler {
 
     fn init(&mut self, game_state: &GameState) {
         let world = &game_state.world;
-        self.state.visited = Some(M::from_element(world.width(), world.height(), false));
+        if self.state.visited.is_none() {
+            self.state.visited = Some(M::from_element(world.width(), world.height(), false));
+        }
     }
 
     fn tick(&mut self, game_state: &GameState, from: &u128, to: &u128) {

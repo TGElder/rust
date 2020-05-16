@@ -84,8 +84,10 @@ impl GameEventConsumer for WorldArtistHandler {
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
-            GameEvent::Init => self.init(game_state),
-            GameEvent::Load(..) => self.draw_all(game_state),
+            GameEvent::Init => {
+                self.init(game_state);
+                self.draw_all(game_state);
+            }
             GameEvent::CellsRevealed(selection) => {
                 match selection {
                     CellSelection::All => self.draw_all(game_state),

@@ -195,7 +195,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
 
 fn load(path: &str) -> (GameState, Vec<GameEvent>) {
     let game_state = GameState::from_file(path);
-    let init_events = vec![GameEvent::Init, GameEvent::Load(path.to_string())];
+    let init_events = vec![GameEvent::Load(path.to_string()), GameEvent::Init];
     (game_state, init_events)
 }
 
