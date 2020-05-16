@@ -7,11 +7,17 @@ use std::collections::HashMap;
 use std::default::Default;
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub struct VegetationParams {}
+pub struct VegetationParams {
+    cactus_clumping: usize,
+    tree_clumping: usize,
+}
 
 impl Default for VegetationParams {
     fn default() -> VegetationParams {
-        VegetationParams {}
+        VegetationParams {
+            cactus_clumping: 7,
+            tree_clumping: 1,
+        }
     }
 }
 
@@ -29,7 +35,7 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
         params: &'a WorldGenParameters,
         rng: &'a mut R,
     ) -> VegetationGen<'a, R> {
-        let type_to_noise = get_vegetation_type_to_noise(power, world.width(), world.height(), rng);
+        let type_to_noise = get_vegetation_type_to_noise(power, world, rng, &params.vegetation);
         VegetationGen {
             world,
             params,
@@ -73,10 +79,13 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
             _ => return None,
         };
 
+        if self.rng.gen::<f32>() > groundwater {
+            return None;
+        };
+
         let mut candidates = vec![];
         for (vegetation_type, noise) in self.type_to_noise.iter() {
-            let r = *noise.get_cell_unsafe(position) as f32;
-            if r <= groundwater
+            if self.rng.gen::<f32>() <= *noise.get_cell_unsafe(position) as f32
                 && vegetation_type.in_range_temperature(temperature)
                 && vegetation_type.in_range_groundwater(groundwater)
             {
@@ -85,7 +94,6 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
         }
         candidates.choose(self.rng).copied()
     }
-
     pub fn load_vegetation(&mut self, vegetation: &M<WorldObject>) {
         for x in 0..vegetation.width() {
             for y in 0..vegetation.height() {
@@ -113,9 +121,9 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
 
 fn get_vegetation_type_to_noise<R: Rng>(
     power: usize,
-    width: usize,
-    height: usize,
+    world: &World,
     rng: &mut R,
+    params: &VegetationParams,
 ) -> HashMap<VegetationType, M<f64>> {
     let vegetation_types = [
         VegetationType::PalmTree,
@@ -128,24 +136,44 @@ fn get_vegetation_type_to_noise<R: Rng>(
         .map(|vegetation_type| {
             (
                 vegetation_type,
-                get_vegetation_frequency_weights(power, *vegetation_type),
+                get_vegetation_frequency_weights(power, *vegetation_type, params),
             )
         })
         .map(|(vegetation_type, frequency_weights)| {
             (
                 *vegetation_type,
-                stacked_perlin_noise(width, height, rng.gen(), frequency_weights),
+                equalize_ignoring_sea(
+                    stacked_perlin_noise(
+                        world.width(),
+                        world.height(),
+                        rng.gen(),
+                        frequency_weights,
+                    ),
+                    world,
+                ),
             )
         })
         .collect()
 }
 
-fn get_vegetation_frequency_weights(size: usize, vegetation_type: VegetationType) -> Vec<f64> {
+fn get_vegetation_frequency_weights(
+    power: usize,
+    vegetation_type: VegetationType,
+    params: &VegetationParams,
+) -> Vec<f64> {
     match vegetation_type {
-        VegetationType::Cactus => equal_frequency_weights_starting_at(7, size),
-        VegetationType::DeciduousTree => equal_frequency_weights_starting_at(1, size),
-        VegetationType::EvergreenTree => equal_frequency_weights_starting_at(1, size),
-        VegetationType::PalmTree => equal_frequency_weights_starting_at(1, size),
+        VegetationType::Cactus => {
+            equal_frequency_weights_starting_at(params.cactus_clumping, power)
+        }
+        VegetationType::DeciduousTree => {
+            equal_frequency_weights_starting_at(params.tree_clumping, power)
+        }
+        VegetationType::EvergreenTree => {
+            equal_frequency_weights_starting_at(params.tree_clumping, power)
+        }
+        VegetationType::PalmTree => {
+            equal_frequency_weights_starting_at(params.tree_clumping, power)
+        }
     }
 }
 

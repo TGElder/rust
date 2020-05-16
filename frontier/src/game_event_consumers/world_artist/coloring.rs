@@ -96,7 +96,7 @@ impl<'a> BaseColoring<'a> {
         world
             .tile_average(&position, &|cell| {
                 if !world.is_sea(&cell.position) {
-                    Some(cell.climate.groundwater())
+                    Some(cell.climate.groundwater)
                 } else {
                     None
                 }

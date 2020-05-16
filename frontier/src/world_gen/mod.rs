@@ -1,3 +1,4 @@
+mod groundwater_gen;
 mod rainfall_gen;
 mod resource_gen;
 mod river_water;
@@ -7,8 +8,10 @@ mod validation;
 mod vegetation_gen;
 
 use crate::world::World;
+use commons::equalize::{equalize_with_filter, PositionValue};
 use commons::scale::Scale;
 use commons::*;
+use groundwater_gen::*;
 use num::Float;
 use pioneer::erosion::Erosion;
 use pioneer::mesh::Mesh;
@@ -138,6 +141,9 @@ fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParame
     let river_water = river_water.map(|v| v.sqrt());
     load_river_water(&mut out, &river_water);
 
+    let groundwater = compute_groundwater(&out);
+    load_groundwater(&mut out, &groundwater);
+
     let mut vegetation_gen = VegetationGen::new(power, &mut out, &params, rng);
     let vegetation = vegetation_gen.compute_vegetation();
     vegetation_gen.load_vegetation(&vegetation);
@@ -157,6 +163,15 @@ where
     let (min, max) = min_max_ignoring_sea(&output, world);
     let scale = Scale::new((min, max), (T::zero(), T::one()));
     output.map(|v| scale.scale(v))
+}
+
+fn equalize_ignoring_sea<T>(output: M<T>, world: &World) -> M<T>
+where
+    T: 'static + Debug + Float,
+{
+    equalize_with_filter(output, &|PositionValue { position, .. }| {
+        !world.is_sea(position)
+    })
 }
 
 fn min_max_ignoring_sea<T>(output: &M<T>, world: &World) -> (T, T)

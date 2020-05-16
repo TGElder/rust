@@ -6,12 +6,12 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 
 #[derive(Debug)]
-struct PositionValue<T>
+pub struct PositionValue<T>
 where
     T: 'static + Float + Debug,
 {
-    position: V2<usize>,
-    value: T,
+    pub position: V2<usize>,
+    pub value: T,
 }
 
 impl<T> Ord for PositionValue<T>
@@ -43,7 +43,17 @@ where
     }
 }
 
-pub fn equalize<T, U: Grid<T>>(mut grid: U) -> U
+pub fn equalize<T, U: Grid<T>>(grid: U) -> U
+where
+    T: 'static + Float + Debug,
+{
+    equalize_with_filter(grid, &|_| true)
+}
+
+pub fn equalize_with_filter<T, U: Grid<T>>(
+    mut grid: U,
+    filter: &dyn Fn(&PositionValue<T>) -> bool,
+) -> U
 where
     T: 'static + Float + Debug,
 {
@@ -56,10 +66,13 @@ where
         for y in 0..height {
             let position = v2(x, y);
             let value = grid.get_cell_unsafe(&position);
-            sorted.push(PositionValue {
+            let position_value = PositionValue {
                 position,
                 value: *value,
-            });
+            };
+            if filter(&position_value) {
+                sorted.push(position_value);
+            }
         }
     }
     sorted.sort();
@@ -112,6 +125,29 @@ mod tests {
         .iter()
         .cloned()
         .collect();
+
+        assert!(same_elements(&actual, &expected));
+    }
+
+    #[test]
+    fn test_equalize_with_filter() {
+        let input = M::from_vec(
+            3,
+            3,
+            vec![10.0, 2.0, 0.0, 102.0, 101.0, 0.0, 0.0, 3.0, 100.0],
+        );
+
+        let actual: Vec<f64> =
+            equalize_with_filter(input, &|PositionValue { value, .. }| *value != 0.0)
+                .iter()
+                .cloned()
+                .collect();
+
+        let expected: Vec<f64> =
+            M::from_vec(3, 3, vec![0.4, 0.0, 0.0, 1.0, 0.8, 0.0, 0.0, 0.2, 0.6])
+                .iter()
+                .cloned()
+                .collect();
 
         assert!(same_elements(&actual, &expected));
     }

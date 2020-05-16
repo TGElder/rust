@@ -6,10 +6,5 @@ pub struct Climate {
     pub rainfall: f32,
     pub vegetation_elevation: f32,
     pub river_water: f32,
-}
-
-impl Climate {
-    pub fn groundwater(&self) -> f32 {
-        self.rainfall.max(self.river_water)
-    }
+    pub groundwater: f32,
 }

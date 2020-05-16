@@ -276,7 +276,7 @@ impl World {
     pub fn tile_avg_groundwater(&self, position: &V2<usize>) -> Option<f32> {
         self.tile_average(&position, &|cell| {
             if !self.is_sea(&cell.position) {
-                Some(cell.climate.groundwater())
+                Some(cell.climate.groundwater)
             } else {
                 None
             }
@@ -658,8 +658,8 @@ mod tests {
     #[test]
     fn test_tile_groundwater_average() {
         let mut world = world();
-        world.mut_cell_unsafe(&v2(0, 0)).climate.rainfall = 1.0;
-        world.mut_cell_unsafe(&v2(1, 1)).climate.river_water = 3.0;
+        world.mut_cell_unsafe(&v2(0, 0)).climate.groundwater = 1.0;
+        world.mut_cell_unsafe(&v2(1, 1)).climate.groundwater = 3.0;
         let actual = world.tile_avg_groundwater(&v2(0, 0));
         assert_eq!(actual, Some(1.0)); // ( 1 + 0 + 3 + 0 ) / 4
     }

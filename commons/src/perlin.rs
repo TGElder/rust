@@ -1,5 +1,4 @@
 use crate::M;
-use equalize::equalize;
 use noise::{utils::*, Perlin, Seedable};
 
 pub fn stacked_perlin_noise(
@@ -17,7 +16,7 @@ pub fn stacked_perlin_noise(
             perlin_noise(&perlin, 2f64.powf(i as f64), seed + i as u32, width, height) * weight
         })
         .sum();
-    equalize(stacked_noise)
+    stacked_noise
 }
 
 fn perlin_noise(

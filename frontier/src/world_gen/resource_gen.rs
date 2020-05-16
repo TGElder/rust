@@ -238,7 +238,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         match self.world.get_cell(&position) {
             Some(WorldCell { climate, .. })
                 if vegetation_type.in_range_temperature(climate.temperature)
-                    && vegetation_type.in_range_groundwater(climate.groundwater()) =>
+                    && vegetation_type.in_range_groundwater(climate.groundwater) =>
             {
                 true
             }
@@ -325,7 +325,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         match self.world.get_cell(position) {
             Some(WorldCell { climate, .. })
                 if climate.temperature >= self.params.resources.farmland.min_temperature
-                    && climate.groundwater() >= self.params.resources.farmland.min_groundwater =>
+                    && climate.groundwater >= self.params.resources.farmland.min_groundwater =>
             {
                 true
             }
