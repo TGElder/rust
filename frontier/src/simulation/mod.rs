@@ -95,6 +95,8 @@ impl Simulation {
     }
 
     fn step(&mut self) {
+        let updates = self.update_rx.get_updates();
+        process_updates(updates, self);
         if self.step {
             let year = &mut self.state.year;
             for step in &mut self.steps {
@@ -106,8 +108,6 @@ impl Simulation {
         } else {
             thread::sleep(STEP_CHECK_DELAY);
         }
-        let updates = self.update_rx.get_updates();
-        process_updates(updates, self);
     }
 
     fn toggle_step(&mut self) {
