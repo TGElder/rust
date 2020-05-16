@@ -59,6 +59,7 @@ fn get_farms(game: &mut Game) -> HashSet<V2<usize>> {
         .filter(|route| is_farmland_route(route))
         .flat_map(|route| route.path.last())
         .filter(|position| !is_farm(game, position))
+        .filter(|position| !is_town(game, position))
         .cloned()
         .collect()
 }
@@ -71,6 +72,10 @@ fn is_farm(game: &Game, position: &V2<usize>) -> bool {
         }) => true,
         _ => false,
     }
+}
+
+fn is_town(game: &Game, position: &V2<usize>) -> bool {
+    game.game_state().settlements.contains_key(position)
 }
 
 fn is_farmland_route(route: &Route) -> bool {
