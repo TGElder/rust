@@ -156,12 +156,12 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         if *resources.get_cell_unsafe(position) != Resource::None {
             return;
         }
-        RESOURCES
+        let resource = [Resource::Farmland, Resource::Stone, Resource::Wood]
             .iter()
-            .filter(|&resource| {
-                count(*resource).is_none() && self.is_candidate(*resource, position)
-            })
-            .for_each(|resource| *resources.mut_cell_unsafe(position) = *resource);
+            .find(|&resource| self.is_candidate(*resource, position));
+        if let Some(resource) = resource {
+            *resources.mut_cell_unsafe(position) = *resource;
+        }
     }
 
     pub fn load_resources(&mut self, resources: &M<Resource>) {
