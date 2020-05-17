@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
+pub const VEGETATION_TYPES: [VegetationType; 4] = [
+    VegetationType::PalmTree,
+    VegetationType::DeciduousTree,
+    VegetationType::EvergreenTree,
+    VegetationType::Cactus,
+];
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum VegetationType {
     EvergreenTree,
     DeciduousTree,
@@ -42,6 +49,24 @@ impl VegetationType {
             VegetationType::DeciduousTree => groundwater >= 0.1,
             VegetationType::EvergreenTree => groundwater >= 0.1,
             VegetationType::Cactus => groundwater <= 0.1,
+        }
+    }
+
+    pub fn clumping(self) -> usize {
+        match self {
+            VegetationType::Cactus => 5,
+            VegetationType::DeciduousTree => 1,
+            VegetationType::EvergreenTree => 1,
+            VegetationType::PalmTree => 1,
+        }
+    }
+
+    pub fn spread(self) -> f32 {
+        match self {
+            VegetationType::Cactus => 0.25,
+            VegetationType::DeciduousTree => 0.33,
+            VegetationType::EvergreenTree => 0.5,
+            VegetationType::PalmTree => 0.75,
         }
     }
 }

@@ -82,16 +82,11 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                 _ => continue,
             };
             candidates.retain(|candidate| !taken.contains(candidate));
-            let distribution = self.get_distribution(resource, count, candidates.len());
-            for _ in 0..count {
-                let choice = candidates.choose_weighted(&mut self.rng, |position| {
-                    distribution.get_cell_unsafe(position)
-                });
-                if let Ok(choice) = choice {
-                    *resources.mut_cell_unsafe(choice) = resource;
-                    taken.insert(*choice);
-                    candidates.retain(|candidate| !taken.contains(candidate));
-                }
+            let candidates = self.reduce_candidates(candidates, resource, count);
+            let chosen = candidates.choose_multiple(&mut self.rng, count);
+            for choice in chosen {
+                *resources.mut_cell_unsafe(choice) = resource;
+                taken.insert(*choice);
             }
         }
     }
@@ -121,14 +116,13 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         out
     }
 
-    fn get_distribution(
+    fn reduce_candidates(
         &mut self,
+        mut candidates: Vec<V2<usize>>,
         resource: Resource,
         resource_count: usize,
-        candidate_count: usize,
-    ) -> M<f64> {
-        let spread = ((spread(resource) * resource_count) as f64 / candidate_count as f64).min(1.0);
-        equalize_with_filter(
+    ) -> Vec<V2<usize>> {
+        let noise = equalize_with_filter(
             stacked_perlin_noise(
                 self.world.width(),
                 self.world.height(),
@@ -136,8 +130,15 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                 (0..self.power).map(|_| 1.0).collect(),
             ),
             &|PositionValue { position, .. }| self.is_candidate(resource, position),
-        )
-        .map(|v| if v <= spread { 1.0 } else { 0.0 })
+        );
+        candidates.sort_by(|a, b| {
+            noise
+                .get_cell_unsafe(a)
+                .partial_cmp(&noise.get_cell_unsafe(b))
+                .unwrap()
+        });
+        candidates.truncate(resource_count * spread(resource));
+        candidates
     }
 
     fn add_unlimited_resources(&self, resources: &mut M<Resource>) {
@@ -397,18 +398,18 @@ fn count(resource: Resource) -> Option<usize> {
 
 fn spread(resource: Resource) -> usize {
     match resource {
-        Resource::Bananas => 16,
-        Resource::Coal => 4,
-        Resource::Crabs => 16,
-        Resource::Deer => 16,
-        Resource::Fur => 16,
-        Resource::Gems => 4,
-        Resource::Gold => 4,
-        Resource::Iron => 4,
-        Resource::Ivory => 16,
-        Resource::Spice => 4,
-        Resource::Truffles => 16,
-        Resource::Whales => 64,
+        Resource::Bananas => 32,
+        Resource::Coal => 8,
+        Resource::Crabs => 32,
+        Resource::Deer => 32,
+        Resource::Fur => 32,
+        Resource::Gems => 8,
+        Resource::Gold => 8,
+        Resource::Iron => 8,
+        Resource::Ivory => 32,
+        Resource::Spice => 8,
+        Resource::Truffles => 32,
+        Resource::Whales => 128,
         _ => 1,
     }
 }

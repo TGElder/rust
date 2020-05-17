@@ -7,25 +7,19 @@ use std::collections::HashMap;
 use std::default::Default;
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub struct VegetationParams {
-    cactus_clumping: usize,
-    tree_clumping: usize,
-}
+pub struct VegetationParams {}
 
 impl Default for VegetationParams {
     fn default() -> VegetationParams {
-        VegetationParams {
-            cactus_clumping: 7,
-            tree_clumping: 1,
-        }
+        VegetationParams {}
     }
 }
 
 pub struct VegetationGen<'a, R: Rng> {
+    power: usize,
     world: &'a mut World,
     params: &'a WorldGenParameters,
     rng: &'a mut R,
-    type_to_noise: HashMap<VegetationType, M<f64>>,
 }
 
 impl<'a, R: Rng> VegetationGen<'a, R> {
@@ -35,18 +29,18 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
         params: &'a WorldGenParameters,
         rng: &'a mut R,
     ) -> VegetationGen<'a, R> {
-        let type_to_noise = get_vegetation_type_to_noise(power, world, rng, &params.vegetation);
         VegetationGen {
+            power,
             world,
             params,
             rng,
-            type_to_noise,
         }
     }
 
     pub fn compute_vegetation(&mut self) -> M<WorldObject> {
         let width = self.world.width();
         let height = self.world.height();
+        let type_to_noise = self.get_vegetation_type_to_noise();
         let mut out = M::from_element(width, height, WorldObject::None);
         for x in 0..width - 1 {
             for y in 0..height - 1 {
@@ -54,7 +48,7 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
                 if !self.suitable_for_vegetation(&position) {
                     continue;
                 }
-                if let Some(object) = self.roll_for_vegetation(&position) {
+                if let Some(object) = self.roll_for_vegetation(&position, &type_to_noise) {
                     out[(x, y)] = object;
                 }
             }
@@ -69,31 +63,68 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
             && world.get_lowest_corner(&position) > self.params.beach_level
     }
 
-    fn roll_for_vegetation(&mut self, position: &V2<usize>) -> Option<WorldObject> {
-        let temperature = match self.world.tile_avg_temperature(&position) {
-            Some(temperature) => temperature,
-            _ => return None,
-        };
-        let groundwater = match self.world.tile_avg_groundwater(&position) {
-            Some(groundwater) => groundwater,
-            _ => return None,
-        };
-
-        if self.rng.gen::<f32>() > groundwater {
-            return None;
-        };
-
+    fn roll_for_vegetation(
+        &mut self,
+        position: &V2<usize>,
+        type_to_noise: &HashMap<VegetationType, M<f64>>,
+    ) -> Option<WorldObject> {
         let mut candidates = vec![];
-        for (vegetation_type, noise) in self.type_to_noise.iter() {
-            if self.rng.gen::<f32>() <= *noise.get_cell_unsafe(position) as f32
-                && vegetation_type.in_range_temperature(temperature)
-                && vegetation_type.in_range_groundwater(groundwater)
+        for (vegetation_type, noise) in type_to_noise.iter() {
+            if *noise.get_cell_unsafe(position) as f32 <= vegetation_type.spread()
+                && self.is_candidate(*vegetation_type, position)
             {
                 candidates.push(WorldObject::Vegetation(*vegetation_type));
             }
         }
-        candidates.choose(self.rng).copied()
+
+        candidates
+            .choose(self.rng)
+            .filter(|_| !self.thin(position))
+            .copied()
     }
+
+    fn thin(&mut self, position: &V2<usize>) -> bool {
+        let groundwater = match self.world.tile_avg_groundwater(&position) {
+            Some(groundwater) => groundwater,
+            _ => return true,
+        };
+
+        self.rng.gen::<f32>() > groundwater
+    }
+
+    pub fn get_vegetation_type_to_noise(&mut self) -> HashMap<VegetationType, M<f64>> {
+        VEGETATION_TYPES
+            .iter()
+            .map(|vegetation_type| (*vegetation_type, self.get_noise(*vegetation_type)))
+            .collect()
+    }
+
+    fn get_noise(&mut self, vegetation_type: VegetationType) -> M<f64> {
+        let weights = get_vegetation_frequency_weights(self.power, vegetation_type);
+        equalize_with_filter(
+            stacked_perlin_noise(
+                self.world.width(),
+                self.world.height(),
+                self.rng.gen(),
+                weights,
+            ),
+            &|PositionValue { position, .. }| self.is_candidate(vegetation_type, position),
+        )
+    }
+
+    fn is_candidate(&self, vegetation_type: VegetationType, position: &V2<usize>) -> bool {
+        let temperature = match self.world.tile_avg_temperature(&position) {
+            Some(temperature) => temperature,
+            _ => return false,
+        };
+        let groundwater = match self.world.tile_avg_groundwater(&position) {
+            Some(groundwater) => groundwater,
+            _ => return false,
+        };
+        vegetation_type.in_range_temperature(temperature)
+            && vegetation_type.in_range_groundwater(groundwater)
+    }
+
     pub fn load_vegetation(&mut self, vegetation: &M<WorldObject>) {
         for x in 0..vegetation.width() {
             for y in 0..vegetation.height() {
@@ -119,62 +150,8 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
     }
 }
 
-fn get_vegetation_type_to_noise<R: Rng>(
-    power: usize,
-    world: &World,
-    rng: &mut R,
-    params: &VegetationParams,
-) -> HashMap<VegetationType, M<f64>> {
-    let vegetation_types = [
-        VegetationType::PalmTree,
-        VegetationType::DeciduousTree,
-        VegetationType::EvergreenTree,
-        VegetationType::Cactus,
-    ];
-    vegetation_types
-        .iter()
-        .map(|vegetation_type| {
-            (
-                vegetation_type,
-                get_vegetation_frequency_weights(power, *vegetation_type, params),
-            )
-        })
-        .map(|(vegetation_type, frequency_weights)| {
-            (
-                *vegetation_type,
-                equalize_ignoring_sea(
-                    stacked_perlin_noise(
-                        world.width(),
-                        world.height(),
-                        rng.gen(),
-                        frequency_weights,
-                    ),
-                    world,
-                ),
-            )
-        })
-        .collect()
-}
-
-fn get_vegetation_frequency_weights(
-    power: usize,
-    vegetation_type: VegetationType,
-    params: &VegetationParams,
-) -> Vec<f64> {
-    match vegetation_type {
-        VegetationType::Cactus => {
-            equal_frequency_weights_starting_at(params.cactus_clumping, power)
-        }
-        VegetationType::DeciduousTree => {
-            equal_frequency_weights_starting_at(params.tree_clumping, power)
-        }
-        VegetationType::EvergreenTree => {
-            equal_frequency_weights_starting_at(params.tree_clumping, power)
-        }
-        VegetationType::PalmTree => {
-            equal_frequency_weights_starting_at(params.tree_clumping, power)
-        }
-    }
+fn get_vegetation_frequency_weights(power: usize, vegetation_type: VegetationType) -> Vec<f64> {
+    equal_frequency_weights_starting_at(vegetation_type.clumping(), power)
 }
 
 fn equal_frequency_weights_starting_at(start_at: usize, total: usize) -> Vec<f64> {
