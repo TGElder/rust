@@ -37,10 +37,7 @@ impl ResourceArtist {
         for x in from.x..to.x {
             for y in from.y..to.y {
                 let position = v2(x, y);
-                let cell = match world.get_cell(&position) {
-                    Some(cell) => cell,
-                    None => continue,
-                };
+                let cell = unwrap_or!(world.get_cell(&position), continue);
                 if !cell.is_visible() {
                     continue;
                 }

@@ -105,10 +105,7 @@ fn get_settlements(game: &mut Game) -> Vec<V2<usize>> {
 }
 
 fn adjust_population(game: &mut Game, settlement: V2<usize>, gap_decay: f64) {
-    let settlement = match game.game_state().settlements.get(&settlement) {
-        Some(settlement) => settlement,
-        None => return,
-    };
+    let settlement = unwrap_or!(game.game_state().settlements.get(&settlement), return);
     let gap = settlement.target_population - settlement.current_population;
     let current_population = settlement.target_population - gap * gap_decay;
     let updated_settlement = Settlement {

@@ -33,10 +33,7 @@ impl TownBuilder {
     }
 
     fn toggle_town(&mut self, game_state: &GameState) {
-        let position = match self.get_position() {
-            Some(position) => position,
-            None => return,
-        };
+        let position = unwrap_or!(self.get_position(), return);
         if game_state.settlements.contains_key(&position) {
             self.remove_town(position);
         } else {

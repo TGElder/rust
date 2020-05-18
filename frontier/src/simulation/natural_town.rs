@@ -170,10 +170,7 @@ fn get_destination_traffic<'a>(
     game: &'a Game,
     route: &'a Route,
 ) -> Box<dyn Iterator<Item = Traffic> + 'a> {
-    let end = match route.path.last() {
-        Some(&end) => end,
-        None => return Box::new(std::iter::empty()),
-    };
+    let end = unwrap_or!(route.path.last(), return Box::new(std::iter::empty()));
     Box::new(
         game.game_state()
             .world

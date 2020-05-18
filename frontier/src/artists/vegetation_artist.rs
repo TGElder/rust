@@ -41,10 +41,7 @@ impl VegetationArtist {
                         Some(world_coord) => world_coord,
                         None => continue,
                     };
-                let cell = match world.get_cell(&position) {
-                    Some(cell) => cell,
-                    None => continue,
-                };
+                let cell = unwrap_or!(world.get_cell(&position), continue);
                 if !cell.is_visible() {
                     continue;
                 }

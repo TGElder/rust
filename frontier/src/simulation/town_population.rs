@@ -155,10 +155,7 @@ fn is_town(settlement: &Settlement) -> bool {
 }
 
 fn set_target_population(game: &mut Game, settlement: V2<usize>, target_population: f64) {
-    let settlement = match game.game_state().settlements.get(&settlement) {
-        Some(settlement) => settlement,
-        None => return,
-    };
+    let settlement = unwrap_or!(game.game_state().settlements.get(&settlement), return);
     let updated_settlement = Settlement {
         target_population,
         ..*settlement

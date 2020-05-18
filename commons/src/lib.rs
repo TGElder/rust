@@ -17,6 +17,7 @@ pub mod index2d;
 pub mod junction;
 pub mod perlin;
 pub mod scale;
+pub mod unwrap_or;
 pub mod update;
 
 pub type M<T> = na::DMatrix<T>;

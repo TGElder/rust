@@ -305,10 +305,10 @@ impl AvatarArtist {
         mut world_coord: WorldCoord,
     ) -> Vec<Command> {
         if let AvatarLoad::Resource(resource) = load {
-            let texture = match resource_texture(*resource) {
-                Some(texture) => texture,
-                None => return vec![self.hide_load(name)],
-            };
+            let texture = unwrap_or!(
+                resource_texture(*resource),
+                return vec![self.hide_load(name)]
+            );
             let mut out = vec![];
             let name = load_drawing_name(name);
             world_coord.z += self.params.load_height;

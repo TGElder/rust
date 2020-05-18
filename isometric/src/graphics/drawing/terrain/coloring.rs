@@ -229,10 +229,8 @@ where
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        let mut out = match self.layers.first() {
-            Some(coloring) => coloring.color(terrain, tile, triangle),
-            None => return [None; 3],
-        };
+        let mut out =
+            unwrap_or!(self.layers.first(), return [None; 3]).color(terrain, tile, triangle);
         for layer in self.layers.iter().skip(1) {
             let colors = layer.color(terrain, tile, triangle);
             for i in 0..3 {

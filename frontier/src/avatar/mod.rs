@@ -119,10 +119,8 @@ impl AvatarState {
                 if *path.final_point_arrival() != start_at {
                     return None;
                 }
-                let mut path = match path.extend(world, positions, travel_duration) {
-                    Some(path) => path,
-                    None => return None,
-                };
+                let mut path =
+                    unwrap_or!(path.extend(world, positions, travel_duration), return None);
                 if let Some(pause) = pause_at_end {
                     path = path.with_pause_at_end(pause.as_micros());
                 }

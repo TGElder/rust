@@ -370,10 +370,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn in_river(&self, position: &V2<usize>) -> bool {
-        let cell = match self.world.get_cell(position) {
-            Some(cell) => cell,
-            None => return false,
-        };
+        let cell = unwrap_or!(self.world.get_cell(position), return false);
         cell.river.here()
     }
 }

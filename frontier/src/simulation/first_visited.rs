@@ -65,10 +65,7 @@ fn update_first_visited_for_routes(game: &mut Game, start_at: u128, routes: Vec<
 }
 
 fn update_first_visited_for_route(game: &mut Game, start_at: u128, route: String) {
-    let route = match game.game_state().routes.get(&route) {
-        Some(route) => route,
-        None => return,
-    };
+    let route = unwrap_or!(game.game_state().routes.get(&route), return);
     let first_visited = start_at + route.duration.as_micros();
     for position in route.path.clone() {
         update_first_visited_if_required(game, &position, first_visited);
@@ -76,10 +73,7 @@ fn update_first_visited_for_route(game: &mut Game, start_at: u128, route: String
 }
 
 fn update_first_visited_if_required(game: &mut Game, position: &V2<usize>, first_visited: u128) {
-    let maybe_first_visited = match game.mut_state().first_visited.get_mut(position) {
-        Ok(maybe_first_visited) => maybe_first_visited,
-        Err(..) => return,
-    };
+    let maybe_first_visited = ok_or!(game.mut_state().first_visited.get_mut(position), return);
     match maybe_first_visited {
         None => *maybe_first_visited = Some(first_visited),
         Some(current_first_visited) if first_visited < *current_first_visited => {

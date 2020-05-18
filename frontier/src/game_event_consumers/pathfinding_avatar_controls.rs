@@ -43,10 +43,7 @@ impl PathfindingAvatarControls {
     }
 
     fn walk_to(&mut self) {
-        let to = match self.world_coord {
-            Some(world_coord) => world_coord.to_v2_round(),
-            _ => return,
-        };
+        let to = unwrap_or!(self.world_coord, return).to_v2_round();
         let game_tx = self.game_tx.clone();
         let pathfinder_tx = self.pathfinder_tx.clone();
         self.pool.spawn_ok(async move {

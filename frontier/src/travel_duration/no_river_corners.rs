@@ -17,10 +17,7 @@ impl NoRiverCornersTravelDuration {
 }
 
 fn river_corner(world: &World, position: &V2<usize>) -> bool {
-    let cell = match world.get_cell(position) {
-        Some(cell) => cell,
-        None => return true,
-    };
+    let cell = unwrap_or!(world.get_cell(position), return true);
     cell.river.corner()
 }
 

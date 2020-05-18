@@ -53,10 +53,7 @@ impl VisibilityHandler {
         &mut self,
         mut cells: HashSet<V2<usize>>,
     ) -> HashSet<V2<usize>> {
-        let visited = match &mut self.state.visited {
-            Some(visited) => visited,
-            None => return HashSet::new(),
-        };
+        let visited = unwrap_or!(&mut self.state.visited, return HashSet::new());
         let newly_visited: HashSet<V2<usize>> = cells
             .drain()
             .filter(|cell| !visited.get_cell_unsafe(cell))

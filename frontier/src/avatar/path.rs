@@ -182,14 +182,8 @@ impl Path {
     }
 
     pub fn with_pause_at_start(mut self, pause: u128) -> Path {
-        let first_point = match self.points.first() {
-            Some(first_point) => *first_point,
-            None => return self,
-        };
-        let first_arrival = match self.point_arrivals.first() {
-            Some(first_arrival) => *first_arrival,
-            None => return self,
-        };
+        let first_point = *unwrap_or!(self.points.first(), return self);
+        let first_arrival = *unwrap_or!(self.point_arrivals.first(), return self);
         self.point_arrivals
             .iter_mut()
             .for_each(|arrival| *arrival += pause);
@@ -199,14 +193,8 @@ impl Path {
     }
 
     pub fn with_pause_at_end(mut self, pause: u128) -> Path {
-        let last_point = match self.points.last() {
-            Some(last_point) => *last_point,
-            None => return self,
-        };
-        let last_arrival = match self.point_arrivals.last() {
-            Some(last_arrival) => *last_arrival,
-            None => return self,
-        };
+        let last_point = *unwrap_or!(self.points.last(), return self);
+        let last_arrival = *unwrap_or!(self.point_arrivals.last(), return self);
         self.points.push(last_point);
         self.point_arrivals.push(last_arrival + pause);
         self

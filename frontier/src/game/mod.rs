@@ -254,10 +254,7 @@ impl Game {
     }
 
     pub fn add_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
-        let cell = match self.game_state.world.mut_cell(&position) {
-            Some(cell) => cell,
-            None => return false,
-        };
+        let cell = unwrap_or!(self.game_state.world.mut_cell(&position), return false);
         if cell.object != WorldObject::None {
             return false;
         }
@@ -267,10 +264,7 @@ impl Game {
     }
 
     pub fn force_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
-        let cell = match self.game_state.world.mut_cell(&position) {
-            Some(cell) => cell,
-            None => return false,
-        };
+        let cell = unwrap_or!(self.game_state.world.mut_cell(&position), return false);
         cell.object = object;
         self.consume_event(GameEvent::ObjectUpdated(position));
         true
@@ -304,10 +298,7 @@ impl Game {
     }
 
     pub fn remove_settlement(&mut self, position: V2<usize>) -> bool {
-        let settlement = match self.game_state.settlements.remove(&position) {
-            Some(settlement) => settlement,
-            None => return false,
-        };
+        let settlement = unwrap_or!(self.game_state.settlements.remove(&position), return false);
         if let SettlementClass::Town = settlement.class {
             self.set_territory(vec![TerritoryState {
                 controller: position,

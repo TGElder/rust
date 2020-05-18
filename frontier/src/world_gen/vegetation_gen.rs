@@ -84,11 +84,7 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
     }
 
     fn thin(&mut self, position: &V2<usize>) -> bool {
-        let groundwater = match self.world.tile_avg_groundwater(&position) {
-            Some(groundwater) => groundwater,
-            _ => return true,
-        };
-
+        let groundwater = unwrap_or!(self.world.tile_avg_groundwater(&position), return true);
         self.rng.gen::<f32>() > groundwater
     }
 
@@ -113,14 +109,8 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
     }
 
     fn is_candidate(&self, vegetation_type: VegetationType, position: &V2<usize>) -> bool {
-        let temperature = match self.world.tile_avg_temperature(&position) {
-            Some(temperature) => temperature,
-            _ => return false,
-        };
-        let groundwater = match self.world.tile_avg_groundwater(&position) {
-            Some(groundwater) => groundwater,
-            _ => return false,
-        };
+        let temperature = unwrap_or!(self.world.tile_avg_temperature(&position), return false);
+        let groundwater = unwrap_or!(self.world.tile_avg_groundwater(&position), return false);
         vegetation_type.in_range_temperature(temperature)
             && vegetation_type.in_range_groundwater(groundwater)
     }

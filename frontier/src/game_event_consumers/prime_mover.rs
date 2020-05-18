@@ -132,10 +132,7 @@ impl PrimeMover {
     ) {
         let pause_at_start = self.params.pause_at_start_of_journey;
         let pause_at_end = self.params.pause_at_end_of_journey;
-        let first = match positions.first() {
-            Some(first) => *first,
-            None => return,
-        };
+        let first = *unwrap_or!(positions.first(), return);
         self.game_tx.update(move |game| {
             add_avatar(game, name.clone(), first, load);
             walk_positions(

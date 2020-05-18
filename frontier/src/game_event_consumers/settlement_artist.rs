@@ -31,10 +31,7 @@ impl SettlementArtist {
     }
 
     fn draw_settlement(&mut self, game_state: &GameState, settlement: &Settlement) {
-        let state = match &self.state {
-            Some(state) => state,
-            None => return,
-        };
+        let state = unwrap_or!(&self.state, return);
         if let Settlement {
             class: SettlementClass::Town,
             position,
@@ -60,10 +57,7 @@ impl SettlementArtist {
     }
 
     fn erase_settlement(&mut self, game_state: &GameState, settlement: &Settlement) {
-        let state = match &self.state {
-            Some(state) => state,
-            None => return,
-        };
+        let state = unwrap_or!(&self.state, return);
         if let Settlement {
             class: SettlementClass::Town,
             position,
