@@ -293,9 +293,7 @@ impl VAO {
     }
 
     fn get_draw_mode(&self) -> gl::types::GLenum {
-        match self.drawing_type {
-            _ => gl::TRIANGLES,
-        }
+        gl::TRIANGLES
     }
 
     pub fn floats_per_vertex(&self) -> usize {

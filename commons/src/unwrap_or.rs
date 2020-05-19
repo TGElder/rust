@@ -39,7 +39,7 @@ mod tests {
     fn test_unwrap_or_return_value() {
         fn function(option: Option<usize>) -> usize {
             let value = unwrap_or!(option, return 0);
-            return value + 1;
+            value + 1
         }
 
         assert_eq!(function(None), 0);
@@ -81,7 +81,7 @@ mod tests {
     fn test_ok_or_return_value() {
         fn function(option: Result<usize, usize>) -> usize {
             let value = ok_or!(option, return 0);
-            return value + 1;
+            value + 1
         }
 
         assert_eq!(function(Err(0)), 0);
