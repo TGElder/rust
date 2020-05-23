@@ -97,7 +97,7 @@ impl Simulation {
     fn step(&mut self) {
         let updates = self.update_rx.get_updates();
         process_updates(updates, self);
-        if self.step {
+        if self.run && self.step {
             let year = &mut self.state.year;
             for step in &mut self.steps {
                 let start = Instant::now();
