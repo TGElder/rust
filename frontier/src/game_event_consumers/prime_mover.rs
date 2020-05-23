@@ -71,14 +71,9 @@ impl PrimeMover {
     fn show_routes(&mut self, game_state: &GameState) {
         let candidates = self.get_candidates(game_state);
         let required = self.get_required_count();
-        let chosen = candidates.choose_multiple(&mut self.rng, required);
-        for (name, route) in chosen {
+        for (name, route) in self.choose_multiple_weighted(candidates, required) {
             self.show_route(game_state, name, route);
         }
-    }
-
-    fn get_required_count(&self) -> usize {
-        self.params.max_visible_routes - self.state.visible_routes.len()
     }
 
     fn get_candidates<'a>(&self, game_state: &'a GameState) -> Vec<(&'a String, &'a Route)> {
@@ -89,6 +84,26 @@ impl PrimeMover {
             .filter(|(name, _)| !is_visible(game_state, &name))
             .filter(|(name, _)| !self.is_frozen(&name))
             .collect()
+    }
+
+    fn get_required_count(&self) -> usize {
+        self.params.max_visible_routes - self.state.visible_routes.len()
+    }
+
+    fn choose_multiple_weighted<'a>(
+        &mut self,
+        mut candidates: Vec<(&'a String, &'a Route)>,
+        amount: usize,
+    ) -> Vec<(&'a String, &'a Route)> {
+        let mut out = vec![];
+        while out.len() < amount && !candidates.is_empty() {
+            let choice = *candidates
+                .choose_weighted(&mut self.rng, |candidate| candidate.1.duration.as_millis())
+                .unwrap();
+            candidates.retain(|candidate| candidate.0 != choice.0);
+            out.push(choice);
+        }
+        out
     }
 
     fn show_route(&mut self, game_state: &GameState, name: &str, route: &Route) {

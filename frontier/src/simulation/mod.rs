@@ -135,6 +135,7 @@ impl Simulation {
         let path = Self::get_path(path);
         let file = BufReader::new(File::open(path).unwrap());
         self.state = bincode::deserialize_from(file).unwrap();
+        self.step = false;
     }
 }
 
