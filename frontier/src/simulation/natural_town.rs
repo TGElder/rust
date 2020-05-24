@@ -214,6 +214,7 @@ fn build_town(game: &mut Game, position: V2<usize>, color: Color) -> bool {
     let settlement = Settlement {
         class: SettlementClass::Town,
         position,
+        name: format!("{},{}", position.x, position.y),
         color,
         current_population: 0.0,
         target_population: 0.0,

@@ -1,5 +1,5 @@
 use crate::avatar::*;
-use crate::game_event_consumers::WorldColoringParameters;
+use crate::game_event_consumers::{TownArtistParameters, WorldColoringParameters};
 use crate::road_builder::*;
 use crate::simulation::*;
 use crate::world_gen::*;
@@ -24,6 +24,7 @@ pub struct GameParams {
     pub avatars: usize,
     pub sim: SimParams,
     pub house_color: Color,
+    pub town_artist: TownArtistParameters,
     pub homeland_distance: Duration,
     pub log_duration_threshold: Option<Duration>,
 }
@@ -43,6 +44,7 @@ impl Default for GameParams {
             avatars: 4096,
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
+            town_artist: TownArtistParameters::default(),
             homeland_distance: Duration::from_secs(0),
             log_duration_threshold: None,
         }

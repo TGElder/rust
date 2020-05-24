@@ -32,27 +32,7 @@ where
     let y = position.y as f32 + 0.5;
     let w = p.width;
 
-    let geometry = TerrainGeometry::of(terrain);
-    let triangles = geometry.get_triangles_for_tile(position);
-    let get_base_corner = move |offset: V2<usize>| {
-        let corner2d = v2(
-            x + (offset.x as f32 * 2.0 - 1.0) * w,
-            y + (offset.y as f32 * 2.0 - 1.0) * w,
-        );
-        interpolate_any(corner2d, &triangles).unwrap_or_else(|| {
-            v3(
-                corner2d.x,
-                corner2d.y,
-                terrain.get_cell_unsafe(&(position + offset)).elevation(),
-            )
-        })
-    };
-
-    let a = get_base_corner(v2(0, 0));
-    let b = get_base_corner(v2(1, 0));
-    let c = get_base_corner(v2(1, 1));
-    let d = get_base_corner(v2(0, 1));
-
+    let [a, b, c, d] = get_house_base_corners(terrain, position, w);
     let zs = [a.z, b.z, c.z, d.z];
     let floor_z = zs.iter().max_by(unsafe_ordering).unwrap();
 
@@ -104,6 +84,41 @@ where
             index: 0,
             floats,
         },
+    ]
+}
+
+pub fn get_house_base_corners<T>(
+    terrain: &dyn Grid<T>,
+    position: &V2<usize>,
+    width: f32,
+) -> [V3<f32>; 4]
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    let x = position.x as f32 + 0.5;
+    let y = position.y as f32 + 0.5;
+
+    let geometry = TerrainGeometry::of(terrain);
+    let triangles = geometry.get_triangles_for_tile(position);
+    let get_base_corner = move |offset: V2<usize>| {
+        let corner2d = v2(
+            x + (offset.x as f32 * 2.0 - 1.0) * width,
+            y + (offset.y as f32 * 2.0 - 1.0) * width,
+        );
+        interpolate_any(corner2d, &triangles).unwrap_or_else(|| {
+            v3(
+                corner2d.x,
+                corner2d.y,
+                terrain.get_cell_unsafe(&(position + offset)).elevation(),
+            )
+        })
+    };
+
+    [
+        get_base_corner(v2(0, 0)),
+        get_base_corner(v2(1, 0)),
+        get_base_corner(v2(1, 1)),
+        get_base_corner(v2(0, 1)),
     ]
 }
 

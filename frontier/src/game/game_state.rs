@@ -79,6 +79,7 @@ mod tests {
                 class: SettlementClass::Town,
                 position: v2(3, 2),
                 color: Color::new(1.0, 0.0, 0.0, 1.0),
+                name: "name".to_string(),
                 current_population: 71.4,
                 target_population: 41.1,
                 gap_half_life: Some(Duration::from_secs(3)),

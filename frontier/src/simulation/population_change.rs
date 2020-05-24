@@ -86,6 +86,7 @@ fn adjust_population(game: &mut Game, settlement: V2<usize>, gap_seconds: f64) {
     let current_population = settlement.target_population - gap * gap_decay;
     let updated_settlement = Settlement {
         current_population,
+        name: settlement.name.clone(),
         ..*settlement
     };
     game.update_settlement(updated_settlement);

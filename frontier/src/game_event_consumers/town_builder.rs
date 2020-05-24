@@ -44,8 +44,9 @@ impl TownBuilder {
     fn add_town(&mut self, position: V2<usize>) {
         let settlement = Settlement {
             position,
-            color: self.house_color,
             class: SettlementClass::Town,
+            name: format!("{},{}", position.x, position.y),
+            color: self.house_color,
             current_population: 0.0,
             target_population: 0.0,
             gap_half_life: None,

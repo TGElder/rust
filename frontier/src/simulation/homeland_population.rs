@@ -105,6 +105,7 @@ fn set_target_population(game: &mut Game, settlement: V2<usize>, target_populati
     let settlement = unwrap_or!(game.game_state().settlements.get(&settlement), return);
     let updated_settlement = Settlement {
         target_population,
+        name: settlement.name.clone(),
         ..*settlement
     };
     game.update_settlement(updated_settlement);

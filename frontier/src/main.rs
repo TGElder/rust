@@ -107,7 +107,8 @@ fn main() {
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
-    game.add_consumer(SettlementArtist::new(game.update_tx()));
+    game.add_consumer(TownHouses::new(game.update_tx()));
+    game.add_consumer(TownLabels::new(game.update_tx()));
     game.add_consumer(VisibilityHandler::new(game.update_tx()));
 
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
@@ -173,6 +174,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         Settlement {
             class: SettlementClass::Homeland,
             position: shore_start.origin(),
+            name: "homeland".to_string(),
             color: params.house_color,
             current_population: 0.0,
             target_population: 0.0,

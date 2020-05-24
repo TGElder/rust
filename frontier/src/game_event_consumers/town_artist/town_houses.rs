@@ -1,24 +1,18 @@
 use super::*;
 
-use crate::artists::HouseArtist;
 use crate::settlement::*;
+use isometric::drawing::{draw_house, DrawHouseParams};
 
-const HANDLE: &str = "settlement_artist";
+const HANDLE: &str = "town_houses";
 
-pub struct SettlementArtist {
+pub struct TownHouses {
     game_tx: UpdateSender<Game>,
-    state: Option<SettlementArtistState>,
 }
 
-struct SettlementArtistState {
-    house_artist: HouseArtist,
-}
-
-impl SettlementArtist {
-    pub fn new(game_tx: &UpdateSender<Game>) -> SettlementArtist {
-        SettlementArtist {
+impl TownHouses {
+    pub fn new(game_tx: &UpdateSender<Game>) -> TownHouses {
+        TownHouses {
             game_tx: game_tx.clone_with_handle(HANDLE),
-            state: None,
         }
     }
 
@@ -26,12 +20,11 @@ impl SettlementArtist {
         if game_state.settlements.contains_key(&settlement.position) {
             self.draw_settlement(game_state, settlement)
         } else {
-            self.erase_settlement(game_state, settlement)
+            self.erase_settlement(settlement)
         }
     }
 
     fn draw_settlement(&mut self, game_state: &GameState, settlement: &Settlement) {
-        let state = unwrap_or!(&self.state, return);
         if let Settlement {
             class: SettlementClass::Town,
             position,
@@ -39,14 +32,19 @@ impl SettlementArtist {
             ..
         } = settlement
         {
-            let house_height = house_height(settlement);
-            let roof_height = roof_height();
-            let commands = state.house_artist.draw_house_at(
+            let params = game_state.params.town_artist;
+            let draw_house_params = DrawHouseParams {
+                width: params.house_width,
+                height: get_house_height_without_roof(&params, settlement),
+                roof_height: params.house_roof_height,
+                base_color: *color,
+                light_direction: game_state.params.light_direction,
+            };
+            let commands = draw_house(
+                get_name(settlement),
                 &game_state.world,
-                position,
-                *color,
-                house_height,
-                roof_height,
+                &settlement.position,
+                &draw_house_params,
             );
             let position = *position;
             self.game_tx.update(move |game| {
@@ -56,21 +54,10 @@ impl SettlementArtist {
         }
     }
 
-    fn erase_settlement(&mut self, game_state: &GameState, settlement: &Settlement) {
-        let state = unwrap_or!(&self.state, return);
-        if let Settlement {
-            class: SettlementClass::Town,
-            position,
-            ..
-        } = settlement
-        {
-            let commands = state
-                .house_artist
-                .erase_house_at(&game_state.world, position);
-            self.game_tx.update(move |game| {
-                game.send_engine_commands(commands);
-            });
-        }
+    fn erase_settlement(&mut self, settlement: &Settlement) {
+        let command = Command::Erase(get_name(settlement));
+        self.game_tx
+            .update(move |game| game.send_engine_commands(vec![command]));
     }
 
     fn draw_all(&mut self, game_state: &GameState) {
@@ -80,22 +67,15 @@ impl SettlementArtist {
     }
 
     fn init(&mut self, game_state: &GameState) {
-        self.state = Some(SettlementArtistState {
-            house_artist: HouseArtist::new(game_state.params.light_direction),
-        });
         self.draw_all(game_state);
     }
 }
 
-fn roof_height() -> f32 {
-    0.5
+fn get_name(settlement: &Settlement) -> String {
+    format!("house-{:?}", settlement.position)
 }
 
-fn house_height(settlement: &Settlement) -> f32 {
-    (settlement.current_population + 1.0).log(10.0) as f32
-}
-
-impl GameEventConsumer for SettlementArtist {
+impl GameEventConsumer for TownHouses {
     fn name(&self) -> &'static str {
         HANDLE
     }

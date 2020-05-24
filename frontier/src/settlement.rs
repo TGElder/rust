@@ -7,6 +7,7 @@ use std::time::Duration;
 pub struct Settlement {
     pub class: SettlementClass,
     pub position: V2<usize>,
+    pub name: String,
     pub color: Color,
     pub current_population: f64,
     pub target_population: f64,
