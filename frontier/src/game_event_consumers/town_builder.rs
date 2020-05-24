@@ -48,6 +48,7 @@ impl TownBuilder {
             class: SettlementClass::Town,
             current_population: 0.0,
             target_population: 0.0,
+            gap_half_life: None,
         };
         self.game_tx
             .update(move |game| game.add_settlement(settlement));

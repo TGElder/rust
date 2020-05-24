@@ -39,6 +39,7 @@ use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 
 fn main() {
     let (game_state, init_events) = parse_args(env::args().collect());
@@ -146,6 +147,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
     let mut rng = rng(seed);
     let params = GameParams {
         seed,
+        homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(power as f32)) as u64),
         ..GameParams::default()
     };
     let mut world = generate_world(power, &mut rng, &params.world_gen);
@@ -174,6 +176,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
             color: params.house_color,
             current_population: 0.0,
             target_population: 0.0,
+            gap_half_life: Some(params.homeland_distance),
         },
     );
     let game_state = GameState {
@@ -241,7 +244,7 @@ fn create_simulation(
         game_tx,
     );
     let homeland_population_sim = HomelandPopulationSim::new(game_tx);
-    let growth_sim = PopulationChangeSim::new(params.sim.population_change, game_tx);
+    let growth_sim = PopulationChangeSim::new(game_tx);
 
     Simulation::new(
         params.sim.start_year,

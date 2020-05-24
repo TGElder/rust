@@ -24,6 +24,7 @@ pub struct GameParams {
     pub avatars: usize,
     pub sim: SimParams,
     pub house_color: Color,
+    pub homeland_distance: Duration,
     pub log_duration_threshold: Option<Duration>,
 }
 
@@ -42,6 +43,7 @@ impl Default for GameParams {
             avatars: 4096,
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
+            homeland_distance: Duration::from_secs(0),
             log_duration_threshold: None,
         }
     }

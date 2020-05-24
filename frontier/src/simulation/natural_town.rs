@@ -217,6 +217,7 @@ fn build_town(game: &mut Game, position: V2<usize>, color: Color) -> bool {
         color,
         current_population: 0.0,
         target_population: 0.0,
+        gap_half_life: None,
     };
     game.add_settlement(settlement)
 }

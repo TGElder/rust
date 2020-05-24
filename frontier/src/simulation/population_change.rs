@@ -1,25 +1,9 @@
 use super::*;
 use crate::settlement::Settlement;
-use serde::{Deserialize, Serialize};
-use std::default::Default;
 
 const HANDLE: &str = "population_change_sim";
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PopulationChangeSimParams {
-    gap_half_life: Duration,
-}
-
-impl Default for PopulationChangeSimParams {
-    fn default() -> PopulationChangeSimParams {
-        PopulationChangeSimParams {
-            gap_half_life: Duration::from_secs(60 * 60 * 2048),
-        }
-    }
-}
-
 pub struct PopulationChangeSim {
-    gap_decay_per_second: f64,
     game_tx: UpdateSender<Game>,
     last_update_micros: u128,
 }
@@ -39,12 +23,8 @@ impl Step for PopulationChangeSim {
 }
 
 impl PopulationChangeSim {
-    pub fn new(
-        params: PopulationChangeSimParams,
-        game_tx: &UpdateSender<Game>,
-    ) -> PopulationChangeSim {
+    pub fn new(game_tx: &UpdateSender<Game>) -> PopulationChangeSim {
         PopulationChangeSim {
-            gap_decay_per_second: get_gap_decay_per_second(&params.gap_half_life),
             game_tx: game_tx.clone_with_handle(HANDLE),
             last_update_micros: 0,
         }
@@ -59,17 +39,16 @@ impl PopulationChangeSim {
 
     async fn step_async(&mut self) {
         let current_micros = self.get_game_micros().await;
-        let gap_decay = self.get_gap_decay(current_micros).await;
+        let gap_seconds = self.get_gap_seconds(current_micros).await;
         for settlement in self.get_settlements().await {
-            self.adjust_population(settlement, gap_decay).await
+            self.adjust_population(settlement, gap_seconds).await
         }
         self.last_update_micros = current_micros;
     }
 
-    async fn get_gap_decay(&mut self, current_micros: u128) -> f64 {
-        let micros_delta = (current_micros - self.last_update_micros) as f64;
-        let seconds_delta = micros_delta / 1_000_000.0;
-        self.gap_decay_per_second.powf(seconds_delta)
+    async fn get_gap_seconds(&mut self, current_micros: u128) -> f64 {
+        let gap_micros = (current_micros - self.last_update_micros) as f64;
+        gap_micros / 1_000_000.0
     }
 
     async fn get_game_micros(&mut self) -> u128 {
@@ -87,11 +66,6 @@ impl PopulationChangeSim {
     }
 }
 
-fn get_gap_decay_per_second(gap_half_life: &Duration) -> f64 {
-    let exponent = 1.0 / gap_half_life.as_secs_f64();
-    0.5f64.powf(exponent)
-}
-
 fn get_game_micros(game: &mut Game) -> u128 {
     game.game_state().game_micros
 }
@@ -104,8 +78,10 @@ fn get_settlements(game: &mut Game) -> Vec<V2<usize>> {
         .collect()
 }
 
-fn adjust_population(game: &mut Game, settlement: V2<usize>, gap_decay: f64) {
+fn adjust_population(game: &mut Game, settlement: V2<usize>, gap_seconds: f64) {
     let settlement = unwrap_or!(game.game_state().settlements.get(&settlement), return);
+    let gap_half_life = unwrap_or!(settlement.gap_half_life, return);
+    let gap_decay = get_gap_decay(&gap_half_life, gap_seconds);
     let gap = settlement.target_population - settlement.current_population;
     let current_population = settlement.target_population - gap * gap_decay;
     let updated_settlement = Settlement {
@@ -113,4 +89,10 @@ fn adjust_population(game: &mut Game, settlement: V2<usize>, gap_decay: f64) {
         ..*settlement
     };
     game.update_settlement(updated_settlement);
+}
+
+fn get_gap_decay(gap_half_life: &Duration, gap_seconds: f64) -> f64 {
+    let exponent = 1.0 / gap_half_life.as_secs_f64();
+    let gap_decay_per_second = 0.5f64.powf(exponent);
+    gap_decay_per_second.powf(gap_seconds)
 }

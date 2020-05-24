@@ -5,6 +5,7 @@ use crate::settlement::*;
 use crate::territory::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::convert::TryInto;
 use std::default::Default;
 
 const HANDLE: &str = "town_population_sim";
@@ -50,8 +51,8 @@ impl TownPopulationSim {
 
     async fn step_async(&mut self) {
         let route_summaries = self.get_route_summaries().await;
-        let populations = self.compute_populations(route_summaries);
-        self.set_target_populations(populations).await;
+        let updates = self.compute_updates(route_summaries);
+        self.update_settlements(updates).await;
     }
 
     async fn get_route_summaries(&mut self) -> Vec<ControllerSummary> {
@@ -80,27 +81,32 @@ impl TownPopulationSim {
             .await
     }
 
-    fn compute_populations(
+    fn compute_updates(
         &self,
         route_summaries: Vec<ControllerSummary>,
-    ) -> HashMap<V2<usize>, f64> {
+    ) -> HashMap<V2<usize>, SettlementUpdate> {
         let mut out = HashMap::new();
         for summary in route_summaries {
             let activity = summary.get_activity();
             let activity_count = activity.len();
             for position in activity {
-                *out.entry(position).or_insert(0.0) += (summary.traffic as f64
-                    * self.params.population_per_traffic)
+                let update = out.entry(position).or_insert_with(SettlementUpdate::new);
+                update.population += (summary.traffic as f64 * self.params.population_per_traffic)
                     / activity_count as f64;
+                update.total_duration += summary.duration * summary.traffic.try_into().unwrap();
+                update.traffic += summary.traffic;
             }
         }
         out
     }
 
-    async fn set_target_populations(&mut self, populations: HashMap<V2<usize>, f64>) {
+    async fn update_settlements(&mut self, updates: HashMap<V2<usize>, SettlementUpdate>) {
         for town in self.get_towns().await {
-            self.set_target_population(town, *populations.get(&town).unwrap_or(&0.0))
-                .await
+            self.update_settlement(
+                town,
+                *updates.get(&town).unwrap_or(&SettlementUpdate::new()),
+            )
+            .await
         }
     }
 
@@ -108,9 +114,9 @@ impl TownPopulationSim {
         self.game_tx.update(move |game| get_towns(game)).await
     }
 
-    async fn set_target_population(&mut self, town: V2<usize>, population: f64) {
+    async fn update_settlement(&mut self, town: V2<usize>, update: SettlementUpdate) {
         self.game_tx
-            .update(move |game| set_target_population(game, town, population))
+            .update(move |game| update_settlement(game, town, update))
             .await
     }
 }
@@ -154,24 +160,29 @@ fn is_town(settlement: &Settlement) -> bool {
     }
 }
 
-fn set_target_population(game: &mut Game, settlement: V2<usize>, target_population: f64) {
+fn update_settlement(game: &mut Game, settlement: V2<usize>, update: SettlementUpdate) {
     let settlement = unwrap_or!(game.game_state().settlements.get(&settlement), return);
     let updated_settlement = Settlement {
-        target_population,
+        target_population: update.population,
+        gap_half_life: update.avg_duration().map(|duration| duration * 2),
         ..*settlement
     };
     game.update_settlement(updated_settlement);
 }
-
+#[derive(Debug)]
 pub struct ControllerSummary {
-    origin: Option<V2<usize>>,
+    origin: V2<usize>,
     destination: Option<V2<usize>>,
     ports: HashSet<V2<usize>>,
     traffic: usize,
+    duration: Duration,
 }
 
 impl ControllerSummary {
     fn get_activity(&self) -> Vec<V2<usize>> {
+        if self.destination.is_none() {
+            return vec![];
+        }
         self.get_destination_activity()
             .into_iter()
             .chain(self.get_port_activity())
@@ -179,7 +190,7 @@ impl ControllerSummary {
     }
 
     fn get_destination_activity(&self) -> Option<V2<usize>> {
-        if self.destination == self.origin {
+        if self.destination == Some(self.origin) {
             None
         } else {
             self.destination
@@ -189,7 +200,7 @@ impl ControllerSummary {
     fn get_port_activity<'a>(&'a self) -> impl Iterator<Item = V2<usize>> + 'a {
         self.ports
             .iter()
-            .filter(move |&&port| Some(port) != self.origin)
+            .filter(move |&&port| port != self.origin)
             .filter(move |&&port| Some(port) != self.destination)
             .cloned()
     }
@@ -200,6 +211,7 @@ pub struct PositionSummary {
     destination: V2<usize>,
     ports: Vec<V2<usize>>,
     traffic: usize,
+    duration: Duration,
 }
 
 impl PositionSummary {
@@ -211,12 +223,17 @@ impl PositionSummary {
     }
 
     fn from_route(game: &Game, route: &Route) -> Option<PositionSummary> {
-        if let [origin, .., destination] = *route.path {
+        let settlement = unwrap_or!(
+            game.game_state().settlements.get(&route.settlement),
+            return None
+        );
+        if let Some(&destination) = route.path.last() {
             Some(PositionSummary {
-                origin,
+                origin: route.settlement,
                 destination,
                 ports: get_port_positions(game, &route.path).collect(),
                 traffic: route.traffic,
+                duration: route.duration + get_extra_duration(game, settlement),
             })
         } else {
             None
@@ -225,10 +242,11 @@ impl PositionSummary {
 
     fn to_controller_summary(&self, territory: &Territory) -> ControllerSummary {
         ControllerSummary {
-            origin: get_controller(territory, &self.origin),
+            origin: self.origin,
             destination: get_controller(territory, &self.destination),
             ports: self.get_port_controllers(territory),
             traffic: self.traffic,
+            duration: self.duration,
         }
     }
 
@@ -240,8 +258,41 @@ impl PositionSummary {
     }
 }
 
+fn get_extra_duration(game: &Game, settlement: &Settlement) -> Duration {
+    if settlement.class == SettlementClass::Homeland {
+        game.game_state().params.homeland_distance
+    } else {
+        Duration::from_secs(0)
+    }
+}
+
 fn get_controller(territory: &Territory, position: &V2<usize>) -> Option<V2<usize>> {
     territory
         .who_controls(position)
         .map(|claim| claim.controller)
+}
+
+#[derive(Clone, Copy)]
+pub struct SettlementUpdate {
+    population: f64,
+    total_duration: Duration,
+    traffic: usize,
+}
+
+impl SettlementUpdate {
+    fn new() -> SettlementUpdate {
+        SettlementUpdate {
+            population: 0.0,
+            total_duration: Duration::from_secs(0),
+            traffic: 0,
+        }
+    }
+
+    fn avg_duration(&self) -> Option<Duration> {
+        if self.traffic == 0 {
+            None
+        } else {
+            Some(self.total_duration / self.traffic.try_into().unwrap())
+        }
+    }
 }

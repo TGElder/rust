@@ -81,6 +81,7 @@ mod tests {
                 color: Color::new(1.0, 0.0, 0.0, 1.0),
                 current_population: 71.4,
                 target_population: 41.1,
+                gap_half_life: Some(Duration::from_secs(3)),
             },
         );
         let mut routes = HashMap::new();
@@ -88,6 +89,7 @@ mod tests {
             "route".to_string(),
             Route {
                 resource: Resource::Bananas,
+                settlement: v2(4, 1),
                 path: vec![v2(1, 0), v2(2, 0)],
                 traffic: 2,
                 duration: Duration::from_secs(3),

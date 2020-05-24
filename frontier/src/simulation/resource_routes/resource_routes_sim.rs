@@ -78,6 +78,7 @@ impl ResourceRouteSim {
             let target = &targets[i % targets.len()];
             out.extend(create_route(
                 demand.resource,
+                settlement.position,
                 target.path.clone(),
                 target.duration,
                 traffic[i],
@@ -129,6 +130,7 @@ fn get_closest_targets(
 }
 fn create_route(
     resource: Resource,
+    settlement: V2<usize>,
     path: Vec<V2<usize>>,
     duration: Duration,
     traffic: usize,
@@ -138,6 +140,7 @@ fn create_route(
             route_name(resource, from, to),
             Route {
                 resource,
+                settlement,
                 path,
                 duration,
                 traffic,
