@@ -8,6 +8,7 @@ mod avatar;
 mod game;
 mod game_event_consumers;
 mod label_editor;
+mod names;
 mod pathfinder;
 mod road_builder;
 mod route;
@@ -22,6 +23,7 @@ mod world_gen;
 
 use crate::avatar::*;
 use crate::game::*;
+use crate::names::ListNamer;
 use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::settlement::*;
@@ -98,6 +100,7 @@ fn main() {
     game.add_consumer(TownBuilder::new(
         game.game_state().params.house_color,
         game.update_tx(),
+        Box::new(ListNamer::from_file("town_names")),
     ));
     game.add_consumer(Cheats::new(game.update_tx()));
     game.add_consumer(Save::new(game.update_tx(), sim.update_tx()));
@@ -238,6 +241,7 @@ fn create_simulation(
         house_color,
         game_tx,
         territory_sim.clone(),
+        Box::new(ListNamer::from_file("town_names")),
     );
     let town_population_sim = TownPopulationSim::new(params.sim.town_population, game_tx);
     let natural_road_sim = NaturalRoadSim::new(

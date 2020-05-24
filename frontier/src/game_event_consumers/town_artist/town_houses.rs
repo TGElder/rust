@@ -16,6 +16,10 @@ impl TownHouses {
         }
     }
 
+    fn init(&mut self, game_state: &GameState) {
+        self.draw_all(game_state);
+    }
+
     fn update_settlement(&mut self, game_state: &GameState, settlement: &Settlement) {
         if game_state.settlements.contains_key(&settlement.position) {
             self.draw_settlement(game_state, settlement)
@@ -64,10 +68,6 @@ impl TownHouses {
         for settlement in game_state.settlements.values() {
             self.draw_settlement(&game_state, &settlement);
         }
-    }
-
-    fn init(&mut self, game_state: &GameState) {
-        self.draw_all(game_state);
     }
 }
 

@@ -1,4 +1,5 @@
 use super::*;
+use crate::names::Namer;
 use crate::route::*;
 use crate::settlement::*;
 use commons::grid::Grid;
@@ -29,6 +30,7 @@ pub struct NaturalTownSim {
     town_color: Color,
     game_tx: UpdateSender<Game>,
     territory_sim: TerritorySim,
+    namer: Box<dyn Namer + Send>,
 }
 
 impl Step for NaturalTownSim {
@@ -49,12 +51,14 @@ impl NaturalTownSim {
         town_color: Color,
         game_tx: &UpdateSender<Game>,
         territory_sim: TerritorySim,
+        namer: Box<dyn Namer + Send>,
     ) -> NaturalTownSim {
         NaturalTownSim {
             params,
             town_color,
             game_tx: game_tx.clone_with_handle(HANDLE),
             territory_sim,
+            namer,
         }
     }
 
@@ -113,9 +117,10 @@ impl NaturalTownSim {
     }
 
     async fn build_town(&mut self, position: V2<usize>) -> bool {
+        let name = self.namer.next_name();
         let town_color = self.town_color;
         self.game_tx
-            .update(move |game| build_town(game, position, town_color))
+            .update(move |game| build_town(game, position, name, town_color))
             .await
     }
 
@@ -209,12 +214,11 @@ fn all_corners_visible(game_state: &GameState, position: &V2<usize>) -> bool {
         .all(|corner| corner.visible)
 }
 
-#[allow(clippy::collapsible_if)]
-fn build_town(game: &mut Game, position: V2<usize>, color: Color) -> bool {
+fn build_town(game: &mut Game, position: V2<usize>, name: String, color: Color) -> bool {
     let settlement = Settlement {
         class: SettlementClass::Town,
         position,
-        name: format!("{},{}", position.x, position.y),
+        name,
         color,
         current_population: 0.0,
         target_population: 0.0,

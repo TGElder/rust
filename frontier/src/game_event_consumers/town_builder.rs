@@ -1,4 +1,5 @@
 use super::*;
+use crate::names::Namer;
 use crate::settlement::*;
 use isometric::coords::*;
 use isometric::Color;
@@ -9,15 +10,21 @@ const HANDLE: &str = "town_builder";
 pub struct TownBuilder {
     house_color: Color,
     game_tx: UpdateSender<Game>,
+    namer: Box<dyn Namer + Send>,
     binding: Button,
     world_coord: Option<WorldCoord>,
 }
 
 impl TownBuilder {
-    pub fn new(house_color: Color, game_tx: &UpdateSender<Game>) -> TownBuilder {
+    pub fn new(
+        house_color: Color,
+        game_tx: &UpdateSender<Game>,
+        namer: Box<dyn Namer + Send>,
+    ) -> TownBuilder {
         TownBuilder {
             house_color,
             game_tx: game_tx.clone_with_handle(HANDLE),
+            namer,
             binding: Button::Key(VirtualKeyCode::H),
             world_coord: None,
         }
@@ -45,7 +52,7 @@ impl TownBuilder {
         let settlement = Settlement {
             position,
             class: SettlementClass::Town,
-            name: format!("{},{}", position.x, position.y),
+            name: self.namer.next_name(),
             color: self.house_color,
             current_population: 0.0,
             target_population: 0.0,
