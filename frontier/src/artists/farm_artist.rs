@@ -3,7 +3,7 @@ use super::*;
 use isometric::drawing::{textured_tiles, TerrainColoring, TexturedTile};
 use std::f32::consts::PI;
 
-const TEXTURE: &str = "farm.png";
+const TEXTURE: &str = "resources/textures/farm.png";
 
 pub struct FarmArtist {}
 

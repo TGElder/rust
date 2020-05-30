@@ -101,7 +101,7 @@ fn main() {
     game.add_consumer(TownBuilder::new(
         game.game_state().params.house_color,
         game.update_tx(),
-        Box::new(ListNamer::from_file("town_names")),
+        Box::new(ListNamer::from_file("resources/names/town_names")),
     ));
     game.add_consumer(Cheats::new(game.update_tx()));
     game.add_consumer(Save::new(game.update_tx(), sim.update_tx()));
@@ -242,7 +242,7 @@ fn create_simulation(
         house_color,
         game_tx,
         territory_sim.clone(),
-        Box::new(ListNamer::from_file("town_names")),
+        Box::new(ListNamer::from_file("resources/names/town_names")),
     );
     let town_population_sim = TownPopulationSim::new(params.sim.town_population, game_tx);
     let natural_road_sim = NaturalRoadSim::new(

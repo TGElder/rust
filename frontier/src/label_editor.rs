@@ -19,7 +19,10 @@ pub struct LabelEditor {
 impl LabelEditor {
     pub fn new(labels: HashMap<String, Label>) -> LabelEditor {
         LabelEditor {
-            font: Arc::new(Font::from_csv_and_texture("serif.csv", "serif.png")),
+            font: Arc::new(Font::from_csv_and_texture(
+                "resources/fonts/serif.csv",
+                "resources/fonts/serif.png",
+            )),
             edit: None,
             labels,
         }

@@ -84,9 +84,9 @@ impl VegetationArtist {
 
 fn texture(vegetation_type: VegetationType) -> &'static str {
     match vegetation_type {
-        VegetationType::EvergreenTree => "pine.png",
-        VegetationType::DeciduousTree => "tree.png",
-        VegetationType::PalmTree => "palm.png",
-        VegetationType::Cactus => "cactus.png",
+        VegetationType::EvergreenTree => "resources/textures/pine.png",
+        VegetationType::DeciduousTree => "resources/textures/tree.png",
+        VegetationType::PalmTree => "resources/textures/palm.png",
+        VegetationType::Cactus => "resources/textures/cactus.png",
     }
 }

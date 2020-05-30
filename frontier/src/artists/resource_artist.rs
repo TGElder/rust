@@ -80,18 +80,18 @@ impl ResourceArtist {
 
 fn texture(resource: Resource) -> Option<&'static str> {
     match resource {
-        Resource::Bananas => Some("bananas.png"),
-        Resource::Coal => Some("coal.png"),
-        Resource::Crabs => Some("crabs.png"),
-        Resource::Deer => Some("deer.png"),
-        Resource::Fur => Some("fur.png"),
-        Resource::Gems => Some("gems.png"),
-        Resource::Gold => Some("gold.png"),
-        Resource::Iron => Some("iron.png"),
-        Resource::Ivory => Some("ivory.png"),
-        Resource::Spice => Some("spice.png"),
-        Resource::Truffles => Some("truffles.png"),
-        Resource::Whales => Some("whales.png"),
+        Resource::Bananas => Some("resources/textures/bananas.png"),
+        Resource::Coal => Some("resources/textures/coal.png"),
+        Resource::Crabs => Some("resources/textures/crabs.png"),
+        Resource::Deer => Some("resources/textures/deer.png"),
+        Resource::Fur => Some("resources/textures/fur.png"),
+        Resource::Gems => Some("resources/textures/gems.png"),
+        Resource::Gold => Some("resources/textures/gold.png"),
+        Resource::Iron => Some("resources/textures/iron.png"),
+        Resource::Ivory => Some("resources/textures/ivory.png"),
+        Resource::Spice => Some("resources/textures/spice.png"),
+        Resource::Truffles => Some("resources/textures/truffles.png"),
+        Resource::Whales => Some("resources/textures/whales.png"),
         _ => None,
     }
 }
