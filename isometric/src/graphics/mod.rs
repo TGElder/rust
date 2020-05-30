@@ -1,14 +1,17 @@
 pub mod drawing;
+mod label_visibility_check;
 mod program;
 mod shader;
 pub mod texture;
 mod vertex_objects;
 
+use self::label_visibility_check::{LabelVisibilityCheck, LabelVisibilityChecker};
 use self::program::Program;
 use self::texture::{Texture, TextureLibrary};
 use self::vertex_objects::MultiVBO;
 use commons::na;
 use coords::*;
+use glutin::dpi::PhysicalSize;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ffi::c_void;
@@ -16,120 +19,24 @@ use std::iter::FromIterator;
 use std::sync::Arc;
 use transform::{Isometric, Transform};
 
-#[derive(Debug)]
-pub struct Drawing {
-    name: String,
-    drawing_type: DrawingType,
-    indices: usize,
-    max_floats_per_index: usize,
-    visibility_check_coord: Option<WorldCoord>,
-    visible: bool,
-}
-
-impl Drawing {
-    pub fn plain(name: String, floats: usize) -> Drawing {
-        Drawing {
-            name,
-            drawing_type: DrawingType::Plain,
-            indices: 1,
-            max_floats_per_index: floats,
-            visibility_check_coord: None,
-            visible: true,
-        }
-    }
-
-    pub fn textured(name: String, floats: usize) -> Drawing {
-        Drawing {
-            name,
-            drawing_type: DrawingType::Textured,
-            indices: 1,
-            max_floats_per_index: floats,
-            visibility_check_coord: None,
-            visible: true,
-        }
-    }
-
-    pub fn billboard(name: String, floats: usize) -> Drawing {
-        Drawing {
-            name,
-            drawing_type: DrawingType::Billboard,
-            indices: 1,
-            max_floats_per_index: floats,
-            visibility_check_coord: None,
-            visible: true,
-        }
-    }
-
-    pub fn text(name: String, floats: usize, visibility_check_coord: WorldCoord) -> Drawing {
-        Drawing {
-            name,
-            drawing_type: DrawingType::Text,
-            indices: 1,
-            max_floats_per_index: floats,
-            visibility_check_coord: Some(visibility_check_coord),
-            visible: true,
-        }
-    }
-
-    pub fn multi(name: String, indices: usize, max_floats_per_index: usize) -> Drawing {
-        Drawing {
-            name,
-            drawing_type: DrawingType::Plain,
-            indices,
-            max_floats_per_index,
-            visibility_check_coord: None,
-            visible: true,
-        }
-    }
-}
-
-struct GLDrawing {
-    drawing: Drawing,
-    buffer: MultiVBO,
-    texture: Option<Arc<Texture>>,
-}
-
-impl GLDrawing {
-    pub fn new(drawing: Drawing) -> GLDrawing {
-        GLDrawing {
-            buffer: MultiVBO::new(
-                drawing.drawing_type,
-                drawing.indices,
-                drawing.max_floats_per_index,
-            ),
-            drawing,
-            texture: None,
-        }
-    }
-
-    pub fn load(&mut self, index: usize, floats: Vec<f32>) {
-        self.buffer.load(index, floats);
-    }
-
-    pub fn draw(&self) {
-        self.buffer.draw();
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum DrawingType {
-    Plain,
-    Text,
-    Billboard,
-    Textured,
-}
-
 pub struct GraphicsEngine {
     programs: [Program; 4],
-    viewport_size: glutin::dpi::PhysicalSize,
+    viewport_size: PhysicalSize,
+    label_padding: f32,
     transform: Transform,
     projection: Isometric,
     drawings: HashMap<String, GLDrawing>,
     texture_library: TextureLibrary,
 }
 
+pub struct GraphicsEngineParameters {
+    pub z_scale: f32,
+    pub viewport_size: PhysicalSize,
+    pub label_padding: f32,
+}
+
 impl GraphicsEngine {
-    pub fn new(z_scale: f32, viewport_size: glutin::dpi::PhysicalSize) -> GraphicsEngine {
+    pub fn new(params: GraphicsEngineParameters) -> GraphicsEngine {
         let programs = [
             Program::from_shaders(
                 DrawingType::Plain,
@@ -137,7 +44,7 @@ impl GraphicsEngine {
                 include_str!("shaders/plain.frag"),
             ),
             Program::from_shaders(
-                DrawingType::Text,
+                DrawingType::Label,
                 include_str!("shaders/text.vert"),
                 include_str!("shaders/text.frag"),
             ),
@@ -158,8 +65,8 @@ impl GraphicsEngine {
         let transform = Transform::new(
             GLCoord3D::new(
                 1.0,
-                viewport_size.width as f32 / viewport_size.height as f32,
-                z_scale,
+                params.viewport_size.width as f32 / params.viewport_size.height as f32,
+                params.z_scale,
             ),
             GLCoord2D::new(0.0, 0.0),
             Box::new(projection),
@@ -167,13 +74,14 @@ impl GraphicsEngine {
 
         let mut out = GraphicsEngine {
             programs,
-            viewport_size,
+            viewport_size: params.viewport_size,
+            label_padding: params.label_padding,
             transform,
             projection,
             drawings: HashMap::new(),
             texture_library: TextureLibrary::default(),
         };
-        out.set_viewport_size(viewport_size);
+        out.set_viewport_size(params.viewport_size);
         out.setup_open_gl();
         out
     }
@@ -193,10 +101,11 @@ impl GraphicsEngine {
     }
 
     fn compute_draw_order(&self, drawing_type: DrawingType) -> Vec<&GLDrawing> {
-        let mut out =
-            Vec::from_iter(self.drawings.values().filter(|d| {
-                d.drawing.drawing_type == drawing_type && self.should_draw(&d.drawing)
-            }));
+        let mut out = Vec::from_iter(
+            self.drawings
+                .values()
+                .filter(|d| d.drawing.drawing_type == drawing_type),
+        );
         out.sort_by_key(|gl_drawing| gl_drawing.texture.as_ref().map(|texture| texture.id()));
         out
     }
@@ -240,7 +149,7 @@ impl GraphicsEngine {
             DrawingType::Plain => {
                 program.load_matrix4("projection", self.transform.compute_transformation_matrix())
             }
-            DrawingType::Text => {
+            DrawingType::Label => {
                 program.load_matrix4("projection", self.transform.compute_transformation_matrix());
                 program.load_matrix2("pixel_to_screen", self.get_pixel_to_screen());
             }
@@ -304,7 +213,11 @@ impl GraphicsEngine {
         program.set_used();
         self.prepare_program(program);
         let mut current_texture: &Option<Arc<Texture>> = &None;
+        let mut label_visibility_checker = LabelVisibilityChecker::new(self);
         for gl_drawing in self.compute_draw_order(program.drawing_type) {
+            if !self.should_draw(&gl_drawing.drawing, &mut label_visibility_checker) {
+                continue;
+            }
             let new_texture = &gl_drawing.texture;
             if Self::textures_are_different(current_texture, new_texture) {
                 Self::change_bound_texture(current_texture, new_texture);
@@ -317,7 +230,7 @@ impl GraphicsEngine {
         }
     }
 
-    pub fn set_viewport_size(&mut self, viewport_size: glutin::dpi::PhysicalSize) {
+    pub fn set_viewport_size(&mut self, viewport_size: PhysicalSize) {
         self.transform.scale(
             GLCoord4D::new(0.0, 0.0, 0.0, 1.0),
             GLCoord2D::new(
@@ -337,26 +250,126 @@ impl GraphicsEngine {
         }
     }
 
-    fn should_draw(&self, drawing: &Drawing) -> bool {
+    fn should_draw(
+        &self,
+        drawing: &Drawing,
+        label_visibility_checker: &mut LabelVisibilityChecker,
+    ) -> bool {
         if !drawing.visible {
             return false;
         }
-        if let Some(visibility_check_coord) = drawing.visibility_check_coord {
-            self.is_visible(&visibility_check_coord)
+        if let Some(label_visibility_check) = &drawing.label_visibility_check {
+            label_visibility_checker.is_visible(&label_visibility_check)
         } else {
             true
         }
     }
+}
 
-    fn is_visible(&self, world_coord: &WorldCoord) -> bool {
-        let gl_coord_4 = world_coord.to_gl_coord_4d(&self.transform);
-        let gl_coord_2 = GLCoord2D::new(gl_coord_4.x, gl_coord_4.y);
-        let physical_size = self.viewport_size;
-        let buffer_coord = gl_coord_2.to_buffer_coord(physical_size);
-        let z_finder = GLZFinder {};
-        let actual_z = z_finder.get_z_at(buffer_coord);
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum DrawingType {
+    Plain,
+    Label,
+    Billboard,
+    Textured,
+}
 
-        gl_coord_4.z - actual_z < 0.01
+#[derive(Debug)]
+pub struct Drawing {
+    name: String,
+    drawing_type: DrawingType,
+    indices: usize,
+    max_floats_per_index: usize,
+    label_visibility_check: Option<LabelVisibilityCheck>,
+    visible: bool,
+}
+
+impl Drawing {
+    pub fn plain(name: String, floats: usize) -> Drawing {
+        Drawing {
+            name,
+            drawing_type: DrawingType::Plain,
+            indices: 1,
+            max_floats_per_index: floats,
+            label_visibility_check: None,
+            visible: true,
+        }
+    }
+
+    pub fn textured(name: String, floats: usize) -> Drawing {
+        Drawing {
+            name,
+            drawing_type: DrawingType::Textured,
+            indices: 1,
+            max_floats_per_index: floats,
+            label_visibility_check: None,
+            visible: true,
+        }
+    }
+
+    pub fn billboard(name: String, floats: usize) -> Drawing {
+        Drawing {
+            name,
+            drawing_type: DrawingType::Billboard,
+            indices: 1,
+            max_floats_per_index: floats,
+            label_visibility_check: None,
+            visible: true,
+        }
+    }
+
+    pub fn label(
+        name: String,
+        floats: usize,
+        label_visibility_check: LabelVisibilityCheck,
+    ) -> Drawing {
+        Drawing {
+            name,
+            drawing_type: DrawingType::Label,
+            indices: 1,
+            max_floats_per_index: floats,
+            label_visibility_check: Some(label_visibility_check),
+            visible: true,
+        }
+    }
+
+    pub fn multi(name: String, indices: usize, max_floats_per_index: usize) -> Drawing {
+        Drawing {
+            name,
+            drawing_type: DrawingType::Plain,
+            indices,
+            max_floats_per_index,
+            label_visibility_check: None,
+            visible: true,
+        }
+    }
+}
+
+struct GLDrawing {
+    drawing: Drawing,
+    buffer: MultiVBO,
+    texture: Option<Arc<Texture>>,
+}
+
+impl GLDrawing {
+    pub fn new(drawing: Drawing) -> GLDrawing {
+        GLDrawing {
+            buffer: MultiVBO::new(
+                drawing.drawing_type,
+                drawing.indices,
+                drawing.max_floats_per_index,
+            ),
+            drawing,
+            texture: None,
+        }
+    }
+
+    pub fn load(&mut self, index: usize, floats: Vec<f32>) {
+        self.buffer.load(index, floats);
+    }
+
+    pub fn draw(&self) {
+        self.buffer.draw();
     }
 }
 

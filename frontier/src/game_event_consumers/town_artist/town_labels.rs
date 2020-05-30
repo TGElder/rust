@@ -3,7 +3,7 @@ use super::*;
 use crate::settlement::*;
 use commons::unsafe_ordering;
 use isometric::coords::WorldCoord;
-use isometric::drawing::{draw_text, get_house_base_corners};
+use isometric::drawing::{draw_label, get_house_base_corners};
 use isometric::Font;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
@@ -90,7 +90,7 @@ impl TownLabels {
         if settlement.class != SettlementClass::Town {
             return;
         }
-        let commands = draw_text(
+        let commands = draw_label(
             get_name(settlement),
             &self.state.get_label(settlement),
             get_label_position(

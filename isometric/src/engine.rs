@@ -4,7 +4,7 @@ use coords::*;
 use cursor_handler::*;
 use event_handlers::*;
 use events::{EventConsumer, EventHandler, EventHandlerAdapter};
-use graphics::{Drawing, GraphicsEngine};
+use graphics::{Drawing, GraphicsEngine, GraphicsEngineParameters};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
@@ -78,16 +78,24 @@ pub struct IsometricEngine {
     look_at: Option<WorldCoord>,
 }
 
+pub struct IsometricEngineParameters<'a> {
+    pub title: &'a str,
+    pub width: u32,
+    pub height: u32,
+    pub max_z: f32,
+    pub label_padding: f32,
+}
+
 impl IsometricEngine {
     const GL_VERSION: glutin::GlRequest = glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 3));
 
-    pub fn new(title: &str, width: u32, height: u32, max_z: f32) -> IsometricEngine {
+    pub fn new(params: IsometricEngineParameters) -> IsometricEngine {
         let events_loop = glutin::EventsLoop::new();
         let window = glutin::WindowBuilder::new()
-            .with_title(title)
+            .with_title(params.title)
             .with_dimensions(glutin::dpi::LogicalSize::new(
-                f64::from(width),
-                f64::from(height),
+                f64::from(params.width),
+                f64::from(params.height),
             ));
         let context = glutin::ContextBuilder::new()
             .with_gl(IsometricEngine::GL_VERSION)
@@ -102,8 +110,11 @@ impl IsometricEngine {
 
         let dpi_factor = gl_window.get_hidpi_factor();
         let logical_window_size = gl_window.window().get_inner_size().unwrap();
-        let graphics =
-            GraphicsEngine::new(1.0 / max_z, logical_window_size.to_physical(dpi_factor));
+        let graphics = GraphicsEngine::new(GraphicsEngineParameters {
+            z_scale: 1.0 / params.max_z,
+            viewport_size: logical_window_size.to_physical(dpi_factor),
+            label_padding: params.label_padding,
+        });
 
         let (command_tx, command_rx) = mpsc::channel();
 

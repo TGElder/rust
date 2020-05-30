@@ -63,7 +63,7 @@ pub trait ZFinder {
     fn get_z_at(&self, buffer_coordinate: BufferCoordinate) -> f32;
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct GLCoord2D {
     pub x: f32,
     pub y: f32,
@@ -74,11 +74,20 @@ impl GLCoord2D {
         GLCoord2D { x, y }
     }
 
-    pub fn to_buffer_coord(&self, physical_size: glutin::dpi::PhysicalSize) -> BufferCoordinate {
+    pub fn to_buffer_coord(&self, physical_size: &glutin::dpi::PhysicalSize) -> BufferCoordinate {
         BufferCoordinate {
             x: ((((self.x + 1.0) / 2.0) * physical_size.width as f32) - 0.5).floor() as i32,
             y: ((((self.y + 1.0) / 2.0) * physical_size.height as f32) - 0.5).floor() as i32,
         }
+    }
+
+    pub fn to_gl_coord_3d(
+        &self,
+        physical_size: &glutin::dpi::PhysicalSize,
+        z_finder: &dyn ZFinder,
+    ) -> GLCoord3D {
+        let buffer_coord = self.to_buffer_coord(physical_size);
+        GLCoord3D::new(self.x, self.y, z_finder.get_z_at(buffer_coord))
     }
 }
 
@@ -270,8 +279,27 @@ mod tests {
         let physical_size = glutin::dpi::PhysicalSize::new(256.0, 128.0);
 
         assert_eq!(
-            gl_coord_2.to_buffer_coord(physical_size),
+            gl_coord_2.to_buffer_coord(&physical_size),
             BufferCoordinate::new(63, 95)
+        );
+    }
+
+    #[test]
+    fn test_gl_2d_to_gl_4d() {
+        let gl_coord_2 = GLCoord2D::new(-0.5, 0.5);
+        let physical_size = glutin::dpi::PhysicalSize::new(256.0, 128.0);
+
+        struct MockZFinder {}
+        impl ZFinder for MockZFinder {
+            fn get_z_at(&self, buffer_coordinate: BufferCoordinate) -> f32 {
+                assert_eq!(buffer_coordinate, BufferCoordinate::new(63, 95));
+                2.22
+            }
+        }
+
+        assert_eq!(
+            gl_coord_2.to_gl_coord_3d(&physical_size, &MockZFinder {}),
+            GLCoord3D::new(-0.5, 0.5, 2.22)
         );
     }
 

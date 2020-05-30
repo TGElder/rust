@@ -285,7 +285,7 @@ impl VAO {
         self.bind();
         match self.drawing_type {
             DrawingType::Plain => VAO::setup_for_plain_drawing(),
-            DrawingType::Text => VAO::setup_for_sprite_drawing(),
+            DrawingType::Label => VAO::setup_for_sprite_drawing(),
             DrawingType::Billboard => VAO::setup_for_sprite_drawing(),
             DrawingType::Textured => VAO::setup_for_textured_drawing(),
         }
@@ -299,7 +299,7 @@ impl VAO {
     pub fn floats_per_vertex(&self) -> usize {
         match self.drawing_type {
             DrawingType::Plain => 6,
-            DrawingType::Text => 7,
+            DrawingType::Label => 7,
             DrawingType::Textured => 9,
             DrawingType::Billboard => 7,
         }

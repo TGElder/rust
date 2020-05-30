@@ -16,6 +16,7 @@ pub mod hub;
 pub mod index2d;
 pub mod junction;
 pub mod perlin;
+pub mod rectangle;
 pub mod scale;
 pub mod unwrap_or;
 pub mod update;

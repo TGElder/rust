@@ -27,6 +27,7 @@ pub struct GameParams {
     pub town_artist: TownArtistParameters,
     pub homeland_distance: Duration,
     pub log_duration_threshold: Option<Duration>,
+    pub label_padding: f32,
 }
 
 impl Default for GameParams {
@@ -47,6 +48,7 @@ impl Default for GameParams {
             town_artist: TownArtistParameters::default(),
             homeland_distance: Duration::from_secs(0),
             log_duration_threshold: None,
+            label_padding: 2.0,
         }
     }
 }

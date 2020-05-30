@@ -1,5 +1,5 @@
 use isometric::coords::WorldCoord;
-use isometric::drawing::draw_text;
+use isometric::drawing::draw_label;
 use isometric::event_handlers::TextEditor;
 use isometric::EventHandler;
 use isometric::Font;
@@ -113,7 +113,7 @@ impl Label {
 
     fn draw(&self, font: &Font) -> Vec<Command> {
         let name = format!("{:?}", self.world_coord);
-        draw_text(name, &self.text, self.world_coord, font)
+        draw_label(name, &self.text, self.world_coord, font)
     }
 }
 

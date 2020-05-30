@@ -35,7 +35,7 @@ use commons::index2d::Vec2D;
 use commons::update::*;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
-use isometric::IsometricEngine;
+use isometric::{IsometricEngine, IsometricEngineParameters};
 use simulation::*;
 use std::collections::HashMap;
 use std::env;
@@ -46,12 +46,13 @@ use std::time::Duration;
 fn main() {
     let (game_state, init_events) = parse_args(env::args().collect());
 
-    let mut engine = IsometricEngine::new(
-        "Frontier",
-        1024,
-        1024,
-        game_state.params.world_gen.max_height as f32 + 1.2, // +1.2 for resources at top
-    );
+    let mut engine = IsometricEngine::new(IsometricEngineParameters {
+        title: "Frontier",
+        width: 1024,
+        height: 1024,
+        max_z: game_state.params.world_gen.max_height as f32 + 1.2, // +1.2 for resources at top
+        label_padding: game_state.params.label_padding,
+    });
 
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
