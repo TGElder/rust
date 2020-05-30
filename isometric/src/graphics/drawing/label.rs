@@ -6,7 +6,13 @@ use coords::WorldCoord;
 use font::Font;
 
 #[rustfmt::skip]
-pub fn draw_label(name: String, text: &str, world_coord: WorldCoord, font: &Font) -> Vec<Command> {
+pub fn draw_label(
+    name: String,
+    text: &str,
+    world_coord: WorldCoord,
+    font: &Font,
+    draw_order: i32,
+) -> Vec<Command> {
     let mut floats = vec![];
 
     let total_width: f32 = font.get_width(text) as f32;
@@ -32,21 +38,29 @@ pub fn draw_label(name: String, text: &str, world_coord: WorldCoord, font: &Font
         xs += font.get_advance(character) as f32;
     }
 
-    let visibility_check = LabelVisibilityCheck{
+    let visibility_check = LabelVisibilityCheck {
         world_coord,
-        ui_offsets: Rectangle{
+        ui_offsets: Rectangle {
             from: v2(-total_width / 2.0, 0.0),
             to: v2(total_width / 2.0, height),
-        }
+        },
     };
 
     vec![
-        Command::CreateDrawing(Drawing::label(name.clone(), floats.len(), visibility_check)),
-        Command::UpdateVertices{
+        Command::CreateDrawing(Drawing::label(
+            name.clone(),
+            floats.len(),
+            visibility_check,
+            draw_order,
+        )),
+        Command::UpdateVertices {
             name: name.clone(),
             index: 0,
             floats,
         },
-        Command::UpdateTexture{name, texture: Some(font.texture().clone())},
+        Command::UpdateTexture {
+            name,
+            texture: Some(font.texture().clone()),
+        },
     ]
 }

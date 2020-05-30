@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+const DRAW_ORDER: i32 = -1;
+
 pub struct LabelEditor {
     font: Arc<Font>,
     edit: Option<LabelEdit>,
@@ -116,7 +118,7 @@ impl Label {
 
     fn draw(&self, font: &Font) -> Vec<Command> {
         let name = format!("{:?}", self.world_coord);
-        draw_label(name, &self.text, self.world_coord, font)
+        draw_label(name, &self.text, self.world_coord, font, DRAW_ORDER)
     }
 }
 

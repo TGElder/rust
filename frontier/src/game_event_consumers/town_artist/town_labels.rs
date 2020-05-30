@@ -102,6 +102,7 @@ impl TownLabels {
                 &game_state.params.town_artist,
             ),
             &self.font,
+            -settlement.current_population as i32,
         );
         self.game_tx
             .update(move |game| game.send_engine_commands(commands));

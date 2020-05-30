@@ -106,7 +106,12 @@ impl GraphicsEngine {
                 .values()
                 .filter(|d| d.drawing.drawing_type == drawing_type),
         );
-        out.sort_by_key(|gl_drawing| gl_drawing.texture.as_ref().map(|texture| texture.id()));
+        out.sort_by_key(|gl_drawing| {
+            (
+                gl_drawing.texture.as_ref().map(|texture| texture.id()),
+                gl_drawing.drawing.draw_order,
+            )
+        });
         out
     }
 
@@ -280,8 +285,9 @@ pub struct Drawing {
     drawing_type: DrawingType,
     indices: usize,
     max_floats_per_index: usize,
-    label_visibility_check: Option<LabelVisibilityCheck>,
     visible: bool,
+    label_visibility_check: Option<LabelVisibilityCheck>,
+    draw_order: i32,
 }
 
 impl Drawing {
@@ -291,8 +297,9 @@ impl Drawing {
             drawing_type: DrawingType::Plain,
             indices: 1,
             max_floats_per_index: floats,
-            label_visibility_check: None,
             visible: true,
+            label_visibility_check: None,
+            draw_order: 0,
         }
     }
 
@@ -302,8 +309,9 @@ impl Drawing {
             drawing_type: DrawingType::Textured,
             indices: 1,
             max_floats_per_index: floats,
-            label_visibility_check: None,
             visible: true,
+            label_visibility_check: None,
+            draw_order: 0,
         }
     }
 
@@ -313,8 +321,9 @@ impl Drawing {
             drawing_type: DrawingType::Billboard,
             indices: 1,
             max_floats_per_index: floats,
-            label_visibility_check: None,
             visible: true,
+            label_visibility_check: None,
+            draw_order: 0,
         }
     }
 
@@ -322,14 +331,16 @@ impl Drawing {
         name: String,
         floats: usize,
         label_visibility_check: LabelVisibilityCheck,
+        draw_order: i32,
     ) -> Drawing {
         Drawing {
             name,
             drawing_type: DrawingType::Label,
             indices: 1,
             max_floats_per_index: floats,
-            label_visibility_check: Some(label_visibility_check),
             visible: true,
+            label_visibility_check: Some(label_visibility_check),
+            draw_order,
         }
     }
 
@@ -339,8 +350,9 @@ impl Drawing {
             drawing_type: DrawingType::Plain,
             indices,
             max_floats_per_index,
-            label_visibility_check: None,
             visible: true,
+            label_visibility_check: None,
+            draw_order: 0,
         }
     }
 }
