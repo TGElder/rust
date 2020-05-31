@@ -48,10 +48,7 @@ impl TownLabelState {
 impl TownLabels {
     pub fn new(game_tx: &UpdateSender<Game>) -> TownLabels {
         TownLabels {
-            font: Arc::new(Font::from_csv_and_texture(
-                "resources/fonts/serif.csv",
-                "resources/fonts/serif.png",
-            )),
+            font: Arc::new(Font::from_file("resources/fonts/roboto_slab_20.fnt")),
             game_tx: game_tx.clone_with_handle(HANDLE),
             state: TownLabelState::NameOnly,
             binding: Button::Key(VirtualKeyCode::L),

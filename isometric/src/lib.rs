@@ -25,5 +25,6 @@ pub use glutin::VirtualKeyCode;
 extern crate bincode;
 extern crate commons;
 extern crate glutin;
+extern crate regex;
 extern crate serde;
 use commons::image;
