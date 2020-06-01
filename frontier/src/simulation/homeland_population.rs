@@ -31,8 +31,9 @@ impl HomelandPopulationSim {
     async fn step_async(&mut self) {
         let homelands = self.get_homelands().await;
         let visible_cells = self.count_visible().await;
+        let homeland_count = homelands.len();
         for homeland in homelands {
-            self.set_target_population(homeland, visible_cells as f64)
+            self.set_target_population(homeland, visible_cells as f64 / homeland_count as f64)
                 .await
         }
     }

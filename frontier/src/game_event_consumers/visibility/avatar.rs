@@ -52,12 +52,12 @@ impl GameEventConsumer for VisibilityFromAvatar {
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        match event {
-            GameEvent::Tick {
-                from_micros,
-                to_micros,
-            } => self.tick(game_state, from_micros, to_micros),
-            _ => (),
+        if let GameEvent::Tick {
+            from_micros,
+            to_micros,
+        } = event
+        {
+            self.tick(game_state, from_micros, to_micros);
         }
         CaptureEvent::No
     }

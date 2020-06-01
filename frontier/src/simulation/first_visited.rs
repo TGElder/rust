@@ -1,6 +1,7 @@
 use super::*;
+use crate::game::FirstVisit;
 
-const HANDLE: &str = "first_visited_sim";
+const HANDLE: &str = "first_visit_sim";
 const BATCH_SIZE: usize = 128;
 
 pub struct FirstVisitedSim {
@@ -30,7 +31,7 @@ impl FirstVisitedSim {
         let start_at = self.get_game_micros().await;
         let routes = self.get_routes().await;
         for batch in routes.chunks(BATCH_SIZE) {
-            self.update_first_visited_for_routes(start_at, batch.to_vec())
+            self.update_first_visit_for_routes(start_at, batch.to_vec())
                 .await;
         }
     }
@@ -43,9 +44,9 @@ impl FirstVisitedSim {
         self.game_tx.update(|game| get_routes(game)).await
     }
 
-    async fn update_first_visited_for_routes(&mut self, start_at: u128, routes: Vec<String>) {
+    async fn update_first_visit_for_routes(&mut self, start_at: u128, routes: Vec<String>) {
         self.game_tx
-            .update(move |game| update_first_visited_for_routes(game, start_at, routes))
+            .update(move |game| update_first_visit_for_routes(game, start_at, routes))
             .await;
     }
 }
@@ -58,27 +59,31 @@ fn get_routes(game: &Game) -> Vec<String> {
     game.game_state().routes.keys().cloned().collect()
 }
 
-fn update_first_visited_for_routes(game: &mut Game, start_at: u128, routes: Vec<String>) {
+fn update_first_visit_for_routes(game: &mut Game, start_at: u128, routes: Vec<String>) {
     for route in routes {
-        update_first_visited_for_route(game, start_at, route);
+        update_first_visit_for_route(game, start_at, route);
     }
 }
 
-fn update_first_visited_for_route(game: &mut Game, start_at: u128, route: String) {
+fn update_first_visit_for_route(game: &mut Game, start_at: u128, route: String) {
     let route = unwrap_or!(game.game_state().routes.get(&route), return);
-    let first_visited = start_at + route.duration.as_micros();
+    let first_visit = FirstVisit {
+        when: start_at + route.duration.as_micros(),
+        who: route.settlement,
+    };
     for position in route.path.clone() {
-        update_first_visited_if_required(game, &position, first_visited);
+        update_first_visit_if_required(game, &position, first_visit);
     }
 }
 
-fn update_first_visited_if_required(game: &mut Game, position: &V2<usize>, first_visited: u128) {
-    let maybe_first_visited = ok_or!(game.mut_state().first_visited.get_mut(position), return);
-    match maybe_first_visited {
-        None => *maybe_first_visited = Some(first_visited),
-        Some(current_first_visited) if first_visited < *current_first_visited => {
-            *maybe_first_visited = Some(first_visited)
-        }
+fn update_first_visit_if_required(game: &mut Game, position: &V2<usize>, first_visit: FirstVisit) {
+    let maybe_first_visit = ok_or!(game.mut_state().first_visits.get_mut(position), return);
+    match maybe_first_visit {
+        None => *maybe_first_visit = Some(first_visit),
+        Some(FirstVisit {
+            when: current_first_visit,
+            ..
+        }) if first_visit.when < *current_first_visit => *maybe_first_visit = Some(first_visit),
         _ => (),
     };
 }

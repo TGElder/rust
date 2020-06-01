@@ -7,13 +7,13 @@ mod artists;
 mod avatar;
 mod game;
 mod game_event_consumers;
+mod homeland_start;
 mod label_editor;
 mod names;
 mod pathfinder;
 mod road_builder;
 mod route;
 mod settlement;
-mod shore_start;
 mod simulation;
 mod territory;
 mod travel_duration;
@@ -72,8 +72,6 @@ fn main() {
         avatar_pathfinder_service.update_tx(),
     );
 
-    game.add_consumer(SetupNewWorld::new(game.update_tx()));
-
     game.add_consumer(EventHandlerAdapter::new(
         ZoomHandler::default(),
         game.update_tx(),
@@ -116,12 +114,14 @@ fn main() {
 
     // Visibility
     let handler = VisibilityHandler::new(game.update_tx());
+    let setup_new_world = SetupNewWorld::new(game.update_tx(), handler.tx());
     let from_avatar = VisibilityFromAvatar::new(handler.tx());
     let from_towns = VisibilityFromTowns::new(handler.tx());
     game.add_consumer(from_avatar);
     game.add_consumer(from_towns);
     game.add_consumer(handler);
 
+    game.add_consumer(setup_new_world);
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
 
     game.add_consumer(PrimeMover::new(
@@ -170,7 +170,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
     }
     let game_state = GameState {
         territory: Territory::new(&world),
-        first_visited: Vec2D::same_size_as(&world, None),
+        first_visits: Vec2D::same_size_as(&world, None),
         world,
         game_micros: 0,
         params,
@@ -211,7 +211,6 @@ fn create_simulation(
     pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
 ) -> Simulation {
     let seed = params.seed;
-    let house_color = params.house_color;
 
     let territory_sim = TerritorySim::new(game_tx, pathfinder_tx, params.town_travel_duration);
     let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
@@ -219,7 +218,6 @@ fn create_simulation(
     let farm_sim = FarmSim::new(seed, game_tx);
     let natural_town_sim = NaturalTownSim::new(
         params.sim.natural_town,
-        house_color,
         game_tx,
         territory_sim.clone(),
         Box::new(ListNamer::from_file("resources/names/town_names")),

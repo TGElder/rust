@@ -1,6 +1,7 @@
 use crate::travel_duration::*;
 use crate::world::*;
 use commons::index2d::*;
+use commons::manhattan::ManhattanDistance;
 use commons::*;
 use network::ClosestTargetResult as NetworkClosestTargetResult;
 use network::Edge as NetworkEdge;
@@ -108,7 +109,7 @@ where
     }
 
     pub fn manhattan_distance(&self, to: &[V2<usize>]) -> impl Fn(usize) -> u32 {
-        let to: Vec<V2<i32>> = to.iter().map(|to| v2(to.x as i32, to.y as i32)).collect();
+        let to = to.to_vec();
         let index = self.index;
         let minimum_duration = self.travel_duration.min_duration();
         let minimum_cost = self
@@ -116,9 +117,8 @@ where
             .get_cost_from_duration_u8(minimum_duration) as u32;
         move |from| {
             let from = index.get_position(from).unwrap();
-            let from = v2(from.x as i32, from.y as i32);
             to.iter()
-                .map(|to| ((from.x - to.x).abs() + (from.y - to.y).abs()) as u32 * minimum_cost)
+                .map(|to| from.manhattan_distance(&to) as u32 * minimum_cost)
                 .min()
                 .unwrap()
         }

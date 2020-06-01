@@ -41,9 +41,8 @@ impl GameEventConsumer for VisibilityFromTowns {
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        match event {
-            GameEvent::Tick { .. } => self.tick(game_state),
-            _ => (),
+        if let GameEvent::Tick { .. } = event {
+            self.tick(game_state);
         }
         CaptureEvent::No
     }

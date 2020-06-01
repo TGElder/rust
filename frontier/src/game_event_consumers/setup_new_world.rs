@@ -1,27 +1,33 @@
-use crate::avatar::{Avatar, AvatarLoad, AvatarState};
+use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation};
 use crate::game::{CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState};
+use crate::game_event_consumers::VisibilityHandlerMessage;
+use crate::homeland_start::{random_homeland_start, HomelandStart};
 use crate::settlement::{Settlement, SettlementClass};
-use crate::shore_start::shore_start;
-use crate::shore_start::ShoreStart;
+use crate::world::World;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;
 use commons::V2;
-use isometric::Event;
-use std::collections::HashMap;
+use isometric::{Color, Event};
+use std::collections::{HashMap, HashSet};
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 const AVATAR_NAME: &str = "avatar";
-const HOMELAND_NAME: &str = "homeland";
 const HANDLE: &str = "setup_homelands";
 
 pub struct SetupNewWorld {
     game_tx: UpdateSender<Game>,
+    visibility_tx: Sender<VisibilityHandlerMessage>,
 }
 
 impl SetupNewWorld {
-    pub fn new(game_tx: &UpdateSender<Game>) -> SetupNewWorld {
+    pub fn new(
+        game_tx: &UpdateSender<Game>,
+        visibility_tx: &Sender<VisibilityHandlerMessage>,
+    ) -> SetupNewWorld {
         SetupNewWorld {
             game_tx: game_tx.clone_with_handle(HANDLE),
+            visibility_tx: visibility_tx.clone(),
         }
     }
 
@@ -30,23 +36,42 @@ impl SetupNewWorld {
         let seed = params.seed;
         let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
         let world = &game_state.world;
-        let shore_start = shore_start(32, &world, &mut rng);
-        let avatars = gen_avatars(&shore_start);
-        let settlements = get_settlements(params, &shore_start);
+        let homeland_starts = gen_homeland_starts(world, &mut rng, params.homelands);
+        let avatars = gen_avatars(&homeland_starts);
+        let settlements = gen_settlements(params, &homeland_starts);
         self.game_tx
-            .update(move |game| update_game(game, avatars, settlements));
+            .update(move |game| setup_game(game, avatars, settlements));
+
+        let visited = get_visited_positions(&homeland_starts);
+        self.visibility_tx
+            .send(VisibilityHandlerMessage { visited })
+            .unwrap();
     }
 }
 
-fn gen_avatars(shore_start: &ShoreStart) -> HashMap<String, Avatar> {
+fn gen_homeland_starts<R: Rng>(world: &World, rng: &mut R, amount: usize) -> Vec<HomelandStart> {
+    (0..amount)
+        .map(|_| random_homeland_start(world, rng))
+        .collect()
+}
+
+fn get_visited_positions(homeland_starts: &[HomelandStart]) -> HashSet<V2<usize>> {
+    homeland_starts
+        .iter()
+        .flat_map(|start| &start.voyage)
+        .cloned()
+        .collect()
+}
+
+fn gen_avatars(homeland_starts: &[HomelandStart]) -> HashMap<String, Avatar> {
     let mut avatars = HashMap::new();
     avatars.insert(
         AVATAR_NAME.to_string(),
         Avatar {
             name: AVATAR_NAME.to_string(),
             state: AvatarState::Stationary {
-                position: shore_start.origin(),
-                rotation: shore_start.rotation(),
+                position: homeland_starts[0].pre_landfall,
+                rotation: Rotation::Up,
             },
             load: AvatarLoad::None,
         },
@@ -54,27 +79,60 @@ fn gen_avatars(shore_start: &ShoreStart) -> HashMap<String, Avatar> {
     avatars
 }
 
-fn get_settlements(
-    params: &GameParams,
-    shore_start: &ShoreStart,
-) -> HashMap<V2<usize>, Settlement> {
-    let mut settlements = HashMap::new();
-    settlements.insert(
-        shore_start.origin(),
-        Settlement {
-            class: SettlementClass::Homeland,
-            position: shore_start.origin(),
-            name: HOMELAND_NAME.to_string(),
-            color: params.house_color,
-            current_population: 0.0,
-            target_population: 0.0,
-            gap_half_life: Some(params.homeland_distance),
-        },
-    );
-    settlements
+fn homeland_colors() -> [Color; 8] {
+    [
+        Color::new(1.0, 0.0, 0.0, 1.0),
+        Color::new(1.0, 0.0, 1.0, 1.0),
+        Color::new(0.0, 1.0, 0.0, 1.0),
+        Color::new(0.0, 0.0, 1.0, 1.0),
+        Color::new(1.0, 0.5, 0.0, 1.0),
+        Color::new(0.5, 1.0, 0.0, 1.0),
+        Color::new(1.0, 1.0, 1.0, 1.0),
+        Color::new(0.0, 0.0, 0.0, 1.0),
+    ]
 }
 
-fn update_game(
+fn gen_settlements(
+    params: &GameParams,
+    homeland_starts: &[HomelandStart],
+) -> HashMap<V2<usize>, Settlement> {
+    let colors = homeland_colors();
+    homeland_starts
+        .iter()
+        .enumerate()
+        .map(|(i, start)| {
+            get_settlement(
+                params,
+                start,
+                &colors
+                    .get(i)
+                    .expect("Not enough colors for all homeland starts"),
+            )
+        })
+        .map(|settlement| (settlement.position, settlement))
+        .collect()
+}
+
+fn get_settlement(
+    params: &GameParams,
+    homeland_start: &HomelandStart,
+    color: &Color,
+) -> Settlement {
+    Settlement {
+        class: SettlementClass::Homeland,
+        position: homeland_start.homeland,
+        name: format!(
+            "homeland {},{}",
+            homeland_start.homeland.x, homeland_start.homeland.y
+        ),
+        color: *color,
+        current_population: 0.0,
+        target_population: 0.0,
+        gap_half_life: Some(params.homeland_distance),
+    }
+}
+
+fn setup_game(
     game: &mut Game,
     avatars: HashMap<String, Avatar>,
     settlements: HashMap<V2<usize>, Settlement>,

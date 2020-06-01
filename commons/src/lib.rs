@@ -15,6 +15,7 @@ pub mod grid;
 pub mod hub;
 pub mod index2d;
 pub mod junction;
+pub mod manhattan;
 pub mod perlin;
 pub mod rectangle;
 pub mod scale;

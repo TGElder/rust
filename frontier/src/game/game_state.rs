@@ -24,8 +24,14 @@ pub struct GameState {
     pub follow_avatar: bool,
     pub routes: HashMap<String, Route>,
     pub territory: Territory,
-    pub first_visited: Vec2D<Option<u128>>,
+    pub first_visits: Vec2D<Option<FirstVisit>>,
     pub speed: f32,
+}
+
+#[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct FirstVisit {
+    pub when: u128,
+    pub who: V2<usize>,
 }
 
 impl GameState {
@@ -98,7 +104,7 @@ mod tests {
         );
         let game_state = GameState {
             territory: Territory::new(&world),
-            first_visited: Vec2D::same_size_as(&world, None),
+            first_visits: Vec2D::same_size_as(&world, None),
             world,
             game_micros: 123,
             params: GameParams::default(),

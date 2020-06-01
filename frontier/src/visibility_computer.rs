@@ -106,7 +106,7 @@ impl VisibilityComputer {
         out
     }
 
-    pub fn get_newly_visible_from(&mut self, world: &World, origin: V2<usize>) -> Vec<V2<usize>> {
+    pub fn get_newly_visible_from(&self, world: &World, origin: V2<usize>) -> Vec<V2<usize>> {
         let mut out = HashSet::new();
         out.insert(origin);
         for position in bresenham_cicle(&origin, self.max_distance) {
@@ -212,7 +212,7 @@ mod tests {
     ) {
         let world = World::new(M::from_vec(7, 1, heights), 0.0);
 
-        let mut visibility_computer = VisibilityComputer {
+        let visibility_computer = VisibilityComputer {
             head_height,
             planet_radius,
             max_distance: 7,
@@ -309,7 +309,7 @@ mod tests {
             0.5,
         );
 
-        let mut visibility_computer = VisibilityComputer{head_height: 0.0, planet_radius: None, max_distance: 3};
+        let visibility_computer = VisibilityComputer{head_height: 0.0, planet_radius: None, max_distance: 3};
 
         let out = visibility_computer.get_newly_visible_from(&world, v2(3, 3));
 

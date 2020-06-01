@@ -16,9 +16,9 @@ pub fn get_port_positions<'a>(
 }
 
 pub fn visited(game_state: &GameState, position: &V2<usize>) -> bool {
-    let first_visited = match game_state.first_visited.get(position) {
+    let first_visited = match game_state.first_visits.get(position) {
         Ok(Some(first_visited)) => first_visited,
         _ => return false,
     };
-    *first_visited <= game_state.game_micros
+    first_visited.when <= game_state.game_micros
 }

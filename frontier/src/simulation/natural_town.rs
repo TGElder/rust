@@ -3,7 +3,6 @@ use crate::names::Namer;
 use crate::route::*;
 use crate::settlement::*;
 use commons::grid::Grid;
-use isometric::Color;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::default::Default;
@@ -27,7 +26,6 @@ impl Default for NaturalTownSimParams {
 
 pub struct NaturalTownSim {
     params: NaturalTownSimParams,
-    town_color: Color,
     game_tx: UpdateSender<Game>,
     territory_sim: TerritorySim,
     namer: Box<dyn Namer + Send>,
@@ -48,14 +46,12 @@ impl Step for NaturalTownSim {
 impl NaturalTownSim {
     pub fn new(
         params: NaturalTownSimParams,
-        town_color: Color,
         game_tx: &UpdateSender<Game>,
         territory_sim: TerritorySim,
         namer: Box<dyn Namer + Send>,
     ) -> NaturalTownSim {
         NaturalTownSim {
             params,
-            town_color,
             game_tx: game_tx.clone_with_handle(HANDLE),
             territory_sim,
             namer,
@@ -118,9 +114,8 @@ impl NaturalTownSim {
 
     async fn build_town(&mut self, position: V2<usize>) -> bool {
         let name = self.namer.next_name();
-        let town_color = self.town_color;
         self.game_tx
-            .update(move |game| build_town(game, position, name, town_color))
+            .update(move |game| build_town(game, position, name))
             .await
     }
 
@@ -214,17 +209,27 @@ fn all_corners_visible(game_state: &GameState, position: &V2<usize>) -> bool {
         .all(|corner| corner.visible)
 }
 
-fn build_town(game: &mut Game, position: V2<usize>, name: String, color: Color) -> bool {
+fn build_town(game: &mut Game, position: V2<usize>, name: String) -> bool {
+    let parent = unwrap_or!(get_first_visit_settlement(game, position), return false);
     let settlement = Settlement {
         class: SettlementClass::Town,
         position,
         name,
-        color,
+        color: parent.color,
         current_population: 0.0,
         target_population: 0.0,
         gap_half_life: None,
     };
     game.add_settlement(settlement)
+}
+
+fn get_first_visit_settlement(game: &mut Game, position: V2<usize>) -> Option<&Settlement> {
+    let maybe_first_visit = unwrap_or!(
+        game.game_state().first_visits.get_cell(&position),
+        return None
+    );
+    let parent_position = unwrap_or!(maybe_first_visit, return None).who;
+    game.game_state().settlements.get(&parent_position)
 }
 
 fn get_already_controlled(game: &mut Game, mut candidates: Vec<V2<usize>>) -> HashSet<V2<usize>> {
