@@ -113,7 +113,14 @@ fn main() {
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
     game.add_consumer(TownHouses::new(game.update_tx()));
     game.add_consumer(TownLabels::new(game.update_tx()));
-    game.add_consumer(VisibilityHandler::new(game.update_tx()));
+
+    // Visibility
+    let handler = VisibilityHandler::new(game.update_tx());
+    let from_avatar = VisibilityFromAvatar::new(handler.tx());
+    let from_towns = VisibilityFromTowns::new(handler.tx());
+    game.add_consumer(from_avatar);
+    game.add_consumer(from_towns);
+    game.add_consumer(handler);
 
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
 

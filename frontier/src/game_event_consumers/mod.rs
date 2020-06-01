@@ -31,7 +31,7 @@ mod shutdown;
 mod speed_control;
 mod town_artist;
 mod town_builder;
-mod visibility_handler;
+mod visibility;
 mod world_artist;
 
 pub use avatar_artist::*;
@@ -53,5 +53,5 @@ pub use shutdown::*;
 pub use speed_control::*;
 pub use town_artist::*;
 pub use town_builder::*;
-pub use visibility_handler::*;
+pub use visibility::*;
 pub use world_artist::*;
