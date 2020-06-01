@@ -35,6 +35,7 @@ pub struct TerritoryState {
 }
 
 pub enum GameEvent {
+    NewGame,
     Init,
     Tick { from_micros: u128, to_micros: u128 },
     Save(String),
@@ -50,6 +51,7 @@ pub enum GameEvent {
 impl GameEvent {
     fn describe(&self) -> &'static str {
         match self {
+            GameEvent::NewGame => "new_game",
             GameEvent::Init => "init",
             GameEvent::Tick { .. } => "tick",
             GameEvent::Save(..) => "save",

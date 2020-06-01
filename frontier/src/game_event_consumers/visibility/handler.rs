@@ -53,11 +53,9 @@ impl VisibilityHandler {
         &self.tx
     }
 
-    fn init(&mut self, game_state: &GameState) {
+    fn new_game(&mut self, game_state: &GameState) {
         let world = &game_state.world;
-        if self.state.visited.is_none() {
-            self.state.visited = Some(M::from_element(world.width(), world.height(), false));
-        }
+        self.state.visited = Some(M::from_element(world.width(), world.height(), false));
     }
 
     fn tick(&mut self, game_state: &GameState) {
@@ -134,7 +132,7 @@ impl GameEventConsumer for VisibilityHandler {
             return CaptureEvent::No;
         }
         match event {
-            GameEvent::Init => self.init(game_state),
+            GameEvent::NewGame => self.new_game(game_state),
             GameEvent::Tick { .. } => self.tick(game_state),
             GameEvent::CellsRevealed(CellSelection::All) => self.deactive(),
             GameEvent::Save(path) => self.save(&path),

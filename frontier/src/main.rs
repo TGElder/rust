@@ -26,8 +26,6 @@ use crate::game::*;
 use crate::names::ListNamer;
 use crate::pathfinder::*;
 use crate::road_builder::*;
-use crate::settlement::*;
-use crate::shore_start::*;
 use crate::territory::*;
 use crate::world_gen::*;
 use commons::futures::executor::ThreadPool;
@@ -73,6 +71,8 @@ fn main() {
         game.update_tx(),
         avatar_pathfinder_service.update_tx(),
     );
+
+    game.add_consumer(SetupNewWorld::new(game.update_tx()));
 
     game.add_consumer(EventHandlerAdapter::new(
         ZoomHandler::default(),
@@ -162,53 +162,26 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(power as f32)) as u64),
         ..GameParams::default()
     };
+    let mut init_events = vec![GameEvent::NewGame, GameEvent::Init];
     let mut world = generate_world(power, &mut rng, &params.world_gen);
     if reveal_all {
         world.reveal_all();
+        init_events.push(GameEvent::CellsRevealed(CellSelection::All));
     }
-    let shore_start = shore_start(32, &world, &mut rng);
-    let mut avatars = HashMap::new();
-    avatars.insert(
-        "0".to_string(),
-        Avatar {
-            name: "0".to_string(),
-            state: AvatarState::Stationary {
-                position: shore_start.origin(),
-                rotation: shore_start.rotation(),
-            },
-            load: AvatarLoad::None,
-        },
-    );
-    let mut settlements = HashMap::new();
-    settlements.insert(
-        shore_start.origin(),
-        Settlement {
-            class: SettlementClass::Homeland,
-            position: shore_start.origin(),
-            name: "homeland".to_string(),
-            color: params.house_color,
-            current_population: 0.0,
-            target_population: 0.0,
-            gap_half_life: Some(params.homeland_distance),
-        },
-    );
     let game_state = GameState {
         territory: Territory::new(&world),
         first_visited: Vec2D::same_size_as(&world, None),
         world,
         game_micros: 0,
         params,
-        avatars,
-        selected_avatar: Some("0".to_string()),
-        routes: HashMap::new(),
-        settlements,
+        avatars: HashMap::new(),
+        settlements: HashMap::new(),
+        selected_avatar: None,
         follow_avatar: true,
+        routes: HashMap::new(),
         speed: 1.0,
     };
-    let mut init_events = vec![GameEvent::Init];
-    if reveal_all {
-        init_events.push(GameEvent::CellsRevealed(CellSelection::All));
-    }
+
     (game_state, init_events)
 }
 
