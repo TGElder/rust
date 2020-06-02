@@ -82,11 +82,11 @@ fn gen_avatars(homeland_starts: &[HomelandStart]) -> HashMap<String, Avatar> {
 fn homeland_colors() -> [Color; 8] {
     [
         Color::new(1.0, 0.0, 0.0, 1.0),
-        Color::new(1.0, 0.0, 1.0, 1.0),
+        Color::new(1.0, 1.0, 0.0, 1.0),
         Color::new(0.0, 1.0, 0.0, 1.0),
         Color::new(0.0, 0.0, 1.0, 1.0),
         Color::new(1.0, 0.5, 0.0, 1.0),
-        Color::new(0.5, 1.0, 0.0, 1.0),
+        Color::new(1.0, 0.0, 1.0, 1.0),
         Color::new(1.0, 1.0, 1.0, 1.0),
         Color::new(0.0, 0.0, 0.0, 1.0),
     ]
