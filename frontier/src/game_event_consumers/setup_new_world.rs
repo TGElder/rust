@@ -1,7 +1,9 @@
 use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation};
-use crate::game::{CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState};
+use crate::game::{
+    CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
+};
 use crate::game_event_consumers::VisibilityHandlerMessage;
-use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
+use crate::homeland_start::{HomelandStart, HomelandStartGen};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
 use commons::rand::prelude::*;
@@ -36,8 +38,7 @@ impl SetupNewWorld {
         let seed = params.seed;
         let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
         let world = &game_state.world;
-        let homeland_starts =
-            gen_homeland_starts(world, &mut rng, params.homelands, &params.homeland_edges);
+        let homeland_starts = gen_homeland_starts(world, &mut rng, &params.homeland);
         let avatars = gen_avatars(&homeland_starts);
         let settlements = gen_settlements(params, &homeland_starts);
         self.game_tx
@@ -53,11 +54,10 @@ impl SetupNewWorld {
 fn gen_homeland_starts<R: Rng>(
     world: &World,
     rng: &mut R,
-    amount: usize,
-    edges: &[HomelandEdge],
+    params: &HomelandParams,
 ) -> Vec<HomelandStart> {
-    let mut gen = HomelandStartGen::new(world, rng, edges);
-    (0..amount).map(|_| gen.random_start()).collect()
+    let mut gen = HomelandStartGen::new(world, rng, &params.edges, params.min_distance_between);
+    (0..params.count).map(|_| gen.random_start()).collect()
 }
 
 fn get_visited_positions(homeland_starts: &[HomelandStart]) -> HashSet<V2<usize>> {

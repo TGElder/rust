@@ -13,6 +13,8 @@ where
     world: &'a World,
     rng: &'a mut R,
     edges: &'a [HomelandEdge],
+    min_distance_between_homelands: Option<usize>,
+    existing_homelands: Vec<V2<usize>>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -49,12 +51,20 @@ where
         world: &'a World,
         rng: &'a mut R,
         edges: &'a [HomelandEdge],
+        min_distance_between_homelands: Option<usize>,
     ) -> HomelandStartGen<'a, R> {
-        HomelandStartGen { world, rng, edges }
+        HomelandStartGen {
+            world,
+            rng,
+            edges,
+            min_distance_between_homelands,
+            existing_homelands: vec![],
+        }
     }
 
     pub fn random_start(&mut self) -> HomelandStart {
         let homeland = self.random_homeland_position();
+        self.existing_homelands.push(homeland);
         let landfall = closest_position(&homeland, &self.land_positions());
         let voyage = voyage(&homeland, &landfall);
         let pre_landfall = *voyage.last().expect("Empty voyage");
@@ -79,12 +89,21 @@ where
         for x in 0..world.width() {
             for y in 0..world.height() {
                 let position = v2(x, y);
-                if self.position_on_permitted_edge(&position) {
+                if self.position_on_permitted_edge(&position)
+                    && !self.too_close_to_existing_homeland(&position)
+                {
                     out.push(position);
                 }
             }
         }
         out
+    }
+
+    fn too_close_to_existing_homeland(&self, position: &V2<usize>) -> bool {
+        let min_distance = unwrap_or!(self.min_distance_between_homelands, return false);
+        self.existing_homelands
+            .iter()
+            .any(|homeland| homeland.manhattan_distance(position) < min_distance)
     }
 
     fn position_on_permitted_edge(&self, position: &V2<usize>) -> bool {
@@ -165,6 +184,7 @@ mod tests {
                 HomelandEdge::South,
                 HomelandEdge::West,
             ],
+            None,
         );
 
         for _ in 0..100 {
@@ -178,7 +198,7 @@ mod tests {
         let world = world();
         let mut rng = thread_rng();
 
-        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::North]);
+        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::North], None);
 
         for _ in 0..100 {
             let start = gen.random_start();
@@ -191,7 +211,7 @@ mod tests {
         let world = world();
         let mut rng = thread_rng();
 
-        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::East]);
+        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::East], None);
 
         for _ in 0..100 {
             let start = gen.random_start();
@@ -204,7 +224,7 @@ mod tests {
         let world = world();
         let mut rng = thread_rng();
 
-        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::South]);
+        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::South], None);
 
         for _ in 0..100 {
             let start = gen.random_start();
@@ -217,11 +237,35 @@ mod tests {
         let world = world();
         let mut rng = thread_rng();
 
-        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::West]);
+        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::West], None);
 
         for _ in 0..100 {
             let start = gen.random_start();
             assert_eq!(start.homeland.x, 0);
+        }
+    }
+
+    #[test]
+    fn test_100_random_pairs_min_distance() {
+        let world = world();
+        let mut rng = thread_rng();
+
+        for _ in 0..100 {
+            let mut gen = HomelandStartGen::new(
+                &world,
+                &mut rng,
+                &[
+                    HomelandEdge::North,
+                    HomelandEdge::East,
+                    HomelandEdge::South,
+                    HomelandEdge::West,
+                ],
+                Some(3),
+            );
+            let start_1 = gen.random_start();
+            let start_2 = gen.random_start();
+
+            assert!(start_1.homeland.manhattan_distance(&start_2.homeland) >= 3);
         }
     }
 

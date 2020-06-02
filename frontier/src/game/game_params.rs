@@ -22,8 +22,7 @@ pub struct GameParams {
     pub snow_temperature: f32,
     pub town_travel_duration: Duration,
     pub avatars: usize,
-    pub homelands: usize,
-    pub homeland_edges: Vec<HomelandEdge>,
+    pub homeland: HomelandParams,
     pub sim: SimParams,
     pub house_color: Color,
     pub town_artist: TownArtistParameters,
@@ -44,14 +43,30 @@ impl Default for GameParams {
             snow_temperature: 0.0,
             town_travel_duration: Duration::from_secs(60 * 60 * 6),
             avatars: 4096,
-            homelands: 8,
-            homeland_edges: vec![HomelandEdge::East, HomelandEdge::West],
+            homeland: HomelandParams::default(),
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
             town_artist: TownArtistParameters::default(),
             homeland_distance: Duration::from_secs(0),
             log_duration_threshold: None,
             label_padding: 2.0,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct HomelandParams {
+    pub count: usize,
+    pub edges: Vec<HomelandEdge>,
+    pub min_distance_between: Option<usize>,
+}
+
+impl Default for HomelandParams {
+    fn default() -> HomelandParams {
+        HomelandParams {
+            count: 8,
+            edges: vec![HomelandEdge::East, HomelandEdge::West],
+            min_distance_between: Some(32),
         }
     }
 }
