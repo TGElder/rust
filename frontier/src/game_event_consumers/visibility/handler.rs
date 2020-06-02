@@ -71,6 +71,11 @@ impl VisibilityHandler {
         }
     }
 
+    fn drain_messages(&mut self) {
+        while let Ok(_) = self.rx.try_recv() {
+        }
+    }
+
     fn update_visited_get_newly_visited(
         &mut self,
         mut cells: HashSet<V2<usize>>,
@@ -129,6 +134,7 @@ impl GameEventConsumer for VisibilityHandler {
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         if !self.state.active {
+            self.drain_messages();
             return CaptureEvent::No;
         }
         match event {
