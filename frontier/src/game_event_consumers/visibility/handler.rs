@@ -72,8 +72,7 @@ impl VisibilityHandler {
     }
 
     fn drain_messages(&mut self) {
-        while let Ok(_) = self.rx.try_recv() {
-        }
+        while let Ok(_) = self.rx.try_recv() {}
     }
 
     fn update_visited_get_newly_visited(

@@ -1,5 +1,6 @@
 use crate::avatar::*;
 use crate::game_event_consumers::{TownArtistParameters, WorldColoringParameters};
+use crate::homeland_start::HomelandEdge;
 use crate::road_builder::*;
 use crate::simulation::*;
 use crate::world_gen::*;
@@ -17,12 +18,12 @@ pub struct GameParams {
     pub world_coloring: WorldColoringParameters,
     pub avatar_travel: AvatarTravelParams,
     pub auto_road_travel: AutoRoadTravelParams,
-    pub starting_distance_from_shore: usize,
     pub light_direction: V3<f32>,
     pub snow_temperature: f32,
     pub town_travel_duration: Duration,
     pub avatars: usize,
     pub homelands: usize,
+    pub homeland_edges: Vec<HomelandEdge>,
     pub sim: SimParams,
     pub house_color: Color,
     pub town_artist: TownArtistParameters,
@@ -39,12 +40,12 @@ impl Default for GameParams {
             world_coloring: WorldColoringParameters::default(),
             avatar_travel: AvatarTravelParams::default(),
             auto_road_travel: AutoRoadTravelParams::default(),
-            starting_distance_from_shore: 32,
             light_direction: v3(0.0, 8.0, -1.0),
             snow_temperature: 0.0,
             town_travel_duration: Duration::from_secs(60 * 60 * 6),
             avatars: 4096,
             homelands: 8,
+            homeland_edges: vec![HomelandEdge::East, HomelandEdge::West],
             sim: SimParams::default(),
             house_color: Color::new(1.0, 0.0, 0.0, 1.0),
             town_artist: TownArtistParameters::default(),

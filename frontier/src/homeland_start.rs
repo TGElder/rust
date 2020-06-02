@@ -4,6 +4,35 @@ use commons::manhattan::ManhattanDistance;
 use commons::rand::prelude::*;
 use commons::{v2, V2};
 use line_drawing::WalkGrid;
+use serde::{Deserialize, Serialize};
+
+pub struct HomelandStartGen<'a, R>
+where
+    R: Rng,
+{
+    world: &'a World,
+    rng: &'a mut R,
+    edges: &'a [HomelandEdge],
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub enum HomelandEdge {
+    North,
+    South,
+    East,
+    West,
+}
+
+impl HomelandEdge {
+    fn position_is_permitted(&self, world: &World, position: &V2<usize>) -> bool {
+        match self {
+            HomelandEdge::North => position.y == 0,
+            HomelandEdge::East => position.x == world.width() - 1,
+            HomelandEdge::South => position.y == world.height() - 1,
+            HomelandEdge::West => position.x == 0,
+        }
+    }
+}
 
 pub struct HomelandStart {
     pub homeland: V2<usize>,
@@ -12,48 +41,71 @@ pub struct HomelandStart {
     pub voyage: Vec<V2<usize>>,
 }
 
-pub fn random_homeland_start<R: Rng>(world: &World, rng: &mut R) -> HomelandStart {
-    let homeland = random_homeland_position(world, rng);
-    let landfall = closest_position(&homeland, &land_positions(world));
-    let voyage = voyage(&homeland, &landfall);
-    let pre_landfall = *voyage.last().expect("Empty voyage");
-    HomelandStart {
-        homeland,
-        pre_landfall,
-        landfall,
-        voyage,
+impl<'a, R> HomelandStartGen<'a, R>
+where
+    R: Rng,
+{
+    pub fn new(
+        world: &'a World,
+        rng: &'a mut R,
+        edges: &'a [HomelandEdge],
+    ) -> HomelandStartGen<'a, R> {
+        HomelandStartGen { world, rng, edges }
     }
-}
 
-fn random_homeland_position<R: Rng>(world: &World, rng: &mut R) -> V2<usize> {
-    *edge_positions(world)
-        .choose(rng)
-        .expect("No edge positions")
-}
-
-fn edge_positions(world: &World) -> Vec<V2<usize>> {
-    let mut out = vec![];
-    for x in 0..world.width() {
-        for y in 0..world.height() {
-            if x == 0 || x == world.width() - 1 || y == 0 || y == world.height() - 1 {
-                out.push(v2(x, y));
-            }
+    pub fn random_start(&mut self) -> HomelandStart {
+        let homeland = self.random_homeland_position();
+        let landfall = closest_position(&homeland, &self.land_positions());
+        let voyage = voyage(&homeland, &landfall);
+        let pre_landfall = *voyage.last().expect("Empty voyage");
+        HomelandStart {
+            homeland,
+            pre_landfall,
+            landfall,
+            voyage,
         }
     }
-    out
-}
 
-fn land_positions(world: &World) -> Vec<V2<usize>> {
-    let mut out = vec![];
-    for x in 0..world.width() {
-        for y in 0..world.height() {
-            let position = v2(x, y);
-            if !world.is_sea(&position) {
-                out.push(position);
+    fn random_homeland_position(&mut self) -> V2<usize> {
+        *self
+            .edge_positions()
+            .choose(self.rng)
+            .expect("No edge positions")
+    }
+
+    fn edge_positions(&self) -> Vec<V2<usize>> {
+        let world = self.world;
+        let mut out = vec![];
+        for x in 0..world.width() {
+            for y in 0..world.height() {
+                let position = v2(x, y);
+                if self.position_on_permitted_edge(&position) {
+                    out.push(position);
+                }
             }
         }
+        out
     }
-    out
+
+    fn position_on_permitted_edge(&self, position: &V2<usize>) -> bool {
+        self.edges
+            .iter()
+            .any(|edge| edge.position_is_permitted(self.world, &position))
+    }
+
+    fn land_positions(&self) -> Vec<V2<usize>> {
+        let world = self.world;
+        let mut out = vec![];
+        for x in 0..world.width() {
+            for y in 0..world.height() {
+                let position = v2(x, y);
+                if !world.is_sea(&position) {
+                    out.push(position);
+                }
+            }
+        }
+        out
+    }
 }
 
 fn closest_position(position: &V2<usize>, others: &[V2<usize>]) -> V2<usize> {
@@ -81,10 +133,9 @@ mod tests {
 
     use commons::M;
 
-    #[test]
     #[rustfmt::skip]
-    fn test_100_random_homeland_starts() {
-        let world = World::new(
+    fn world() -> World {
+        World::new(
             M::from_vec(
                 6,
                 5,
@@ -97,12 +148,80 @@ mod tests {
                 ],
             ),
             0.0,
-        );
+        )
+    }
+
+    #[test]
+    fn test_100_random_starts() {
+        let world = world();
         let mut rng = thread_rng();
 
+        let mut gen = HomelandStartGen::new(
+            &world,
+            &mut rng,
+            &[
+                HomelandEdge::North,
+                HomelandEdge::East,
+                HomelandEdge::South,
+                HomelandEdge::West,
+            ],
+        );
+
         for _ in 0..100 {
-            let start = random_homeland_start(&world, &mut rng);
+            let start = gen.random_start();
             verify_homeland_start(&world, &start);
+        }
+    }
+
+    #[test]
+    fn test_100_random_starts_north_edge_only() {
+        let world = world();
+        let mut rng = thread_rng();
+
+        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::North]);
+
+        for _ in 0..100 {
+            let start = gen.random_start();
+            assert_eq!(start.homeland.y, 0);
+        }
+    }
+
+    #[test]
+    fn test_100_random_starts_east_edge_only() {
+        let world = world();
+        let mut rng = thread_rng();
+
+        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::East]);
+
+        for _ in 0..100 {
+            let start = gen.random_start();
+            assert_eq!(start.homeland.x, 5);
+        }
+    }
+
+    #[test]
+    fn test_100_random_starts_south_edge_only() {
+        let world = world();
+        let mut rng = thread_rng();
+
+        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::South]);
+
+        for _ in 0..100 {
+            let start = gen.random_start();
+            assert_eq!(start.homeland.y, 4);
+        }
+    }
+
+    #[test]
+    fn test_100_random_starts_west_edge_only() {
+        let world = world();
+        let mut rng = thread_rng();
+
+        let mut gen = HomelandStartGen::new(&world, &mut rng, &[HomelandEdge::West]);
+
+        for _ in 0..100 {
+            let start = gen.random_start();
+            assert_eq!(start.homeland.x, 0);
         }
     }
 

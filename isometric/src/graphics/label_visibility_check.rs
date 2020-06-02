@@ -61,12 +61,12 @@ impl<'a> LabelVisibilityChecker<'a> {
 
     fn get_ui_element(&self, screen_coord: &GLCoord3D, offsets: &Rectangle<f32>) -> Rectangle<f32> {
         Rectangle {
-            from: self.to_screen_coord(screen_coord, &offsets.from),
-            to: self.to_screen_coord(screen_coord, &offsets.to),
+            from: self.to_screen_coord(screen_coord, offsets.from),
+            to: self.to_screen_coord(screen_coord, offsets.to),
         }
     }
 
-    fn to_screen_coord(&self, screen_coord: &GLCoord3D, offset: &V2<f32>) -> V2<f32> {
+    fn to_screen_coord(&self, screen_coord: &GLCoord3D, offset: V2<f32>) -> V2<f32> {
         self.pixel_to_screen * (offset * self.padding) + v2(screen_coord.x, screen_coord.y)
     }
 
@@ -129,12 +129,12 @@ mod tests {
 
     #[test]
     fn should_be_invisible_if_world_coord_invisible() {
-        test(&mut move |check, checker| assert!(!checker.is_visible(&check)))
+        test(&move |check, checker| assert!(!checker.is_visible(&check)))
     }
 
     #[test]
     fn should_be_visible_if_world_coord_visible_and_no_overlapping_ui_elements() {
-        test(&mut move |check, checker| {
+        test(&move |check, checker| {
             check.world_coord.z = 1.0;
             checker.ui_elements.push(Rectangle {
                 from: v2(3.0, 3.0),
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn should_be_invisible_if_world_coord_visible_and_overlapping_ui_elements() {
-        test(&mut move |check, checker| {
+        test(&move |check, checker| {
             check.world_coord.z = 1.0;
             checker.ui_elements.push(Rectangle {
                 from: v2(1.0, 2.0),
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn should_be_invisible_if_world_coord_visible_and_overlapping_ui_elements_due_to_padding() {
-        test(&mut move |check, checker| {
+        test(&move |check, checker| {
             check.world_coord.z = 1.0;
             checker.padding = 3.0;
             checker.ui_elements.push(Rectangle {

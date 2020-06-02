@@ -6,9 +6,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
-const EXTRACT_PATTERN: &'static str = "=\"?([^\\s\"]+)\"?\\s";
-const GLYPH_PATTERN: &'static str = "char id=(\\d+)\\s*x=(\\d+)\\s*y=(\\d+)\\s*width=(\\d+)\\s*height=(\\d+)\\s*xoffset=(-?\\d+)\\s*yoffset=(-?\\d+)\\s*xadvance=(\\d+).*";
-const KERNING_PATTERN: &'static str = "kerning first=(\\d+)\\s*second=(\\d+)\\s*amount=(-?\\d+).*";
+const EXTRACT_PATTERN: &str = "=\"?([^\\s\"]+)\"?\\s";
+const GLYPH_PATTERN: &str = "char id=(\\d+)\\s*x=(\\d+)\\s*y=(\\d+)\\s*width=(\\d+)\\s*height=(\\d+)\\s*xoffset=(-?\\d+)\\s*yoffset=(-?\\d+)\\s*xadvance=(\\d+).*";
+const KERNING_PATTERN: &str = "kerning first=(\\d+)\\s*second=(\\d+)\\s*amount=(-?\\d+).*";
 const UNKNOWN_CHARACTER: char = '?';
 
 pub struct Font {
@@ -51,7 +51,7 @@ impl Font {
 
     fn kernings_from_text(text: &str) -> HashMap<(char, char), i32> {
         let kerning_regex = Regex::new(KERNING_PATTERN)
-            .expect(&format!("Cannot find {:?} in font file", KERNING_PATTERN));
+            .unwrap_or_else(|_| panic!("Cannot find {:?} in font file", KERNING_PATTERN));
 
         kerning_regex
             .captures_iter(&text)
@@ -70,7 +70,7 @@ impl Font {
     fn get_glyph(&self, character: char) -> &Glyph {
         self.glyphs
             .get(&character)
-            .or(self.glyphs.get(&UNKNOWN_CHARACTER))
+            .or_else(|| self.glyphs.get(&UNKNOWN_CHARACTER))
             .unwrap_or_else(|| {
                 panic!(
                     "Could not render character [{}] or fallback [{}]",
@@ -122,7 +122,7 @@ fn extract_value_unsafe<'a>(key: &str, text: &'a str) -> &'a str {
     let regex = Regex::new(&pattern).unwrap();
     regex
         .captures(text)
-        .expect(&format!("Cannot find {:?} in font file", pattern))
+        .unwrap_or_else(|| panic!("Cannot find {:?} in font file", pattern))
         .get(1)
         .unwrap()
         .as_str()
@@ -131,7 +131,7 @@ fn extract_value_unsafe<'a>(key: &str, text: &'a str) -> &'a str {
 fn with_directory(file_name: &str, directory: Option<&Path>) -> String {
     directory
         .map(|path| path.join(file_name).to_string_lossy().to_string())
-        .unwrap_or(file_name.to_string())
+        .unwrap_or_else(|| file_name.to_string())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -149,7 +149,7 @@ struct Glyph {
 impl Glyph {
     pub fn from_text(text: &str) -> HashMap<char, Glyph> {
         let glyph_regex = Regex::new(GLYPH_PATTERN)
-            .expect(&format!("Cannot find {:?} in font file", GLYPH_PATTERN));
+            .unwrap_or_else(|_| panic!("Cannot find {:?} in font file", GLYPH_PATTERN));
 
         glyph_regex
             .captures_iter(&text)
@@ -179,6 +179,8 @@ impl Glyph {
 mod tests {
     use super::*;
 
+    use commons::almost::Almost;
+
     fn test_font() -> Font {
         Font::from_file("resources/test_font.fnt")
     }
@@ -187,9 +189,9 @@ mod tests {
     fn test_metadata() {
         let font = test_font();
         assert_eq!(font.texture, "resources/test_font_0.png".to_string());
-        assert_eq!(font.texture_width, 256.0);
-        assert_eq!(font.texture_height, 256.0);
-        assert_eq!(font.base, 16.0);
+        assert!(font.texture_width.almost(&256.0));
+        assert!(font.texture_height.almost(&256.0));
+        assert!(font.base.almost(&16.0));
     }
 
     #[test]
