@@ -117,8 +117,10 @@ fn main() {
     let setup_new_world = SetupNewWorld::new(game.update_tx(), handler.tx());
     let from_avatar = VisibilityFromAvatar::new(handler.tx());
     let from_towns = VisibilityFromTowns::new(handler.tx());
+    let from_roads = VisibilityFromRoads::new(handler.tx());
     game.add_consumer(from_avatar);
     game.add_consumer(from_towns);
+    game.add_consumer(from_roads);
     game.add_consumer(handler);
 
     game.add_consumer(setup_new_world);

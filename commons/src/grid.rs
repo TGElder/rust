@@ -12,9 +12,9 @@ pub fn get_corners(position: &V2<usize>) -> Vec<V2<usize>> {
 pub trait Grid<T> {
     fn width(&self) -> usize;
     fn height(&self) -> usize;
-    fn in_bounds(&self, &V2<usize>) -> bool;
-    fn get_cell_unsafe(&self, &V2<usize>) -> &T;
-    fn mut_cell_unsafe(&mut self, &V2<usize>) -> &mut T;
+    fn in_bounds(&self, position: &V2<usize>) -> bool;
+    fn get_cell_unsafe(&self, position: &V2<usize>) -> &T;
+    fn mut_cell_unsafe(&mut self, position: &V2<usize>) -> &mut T;
 
     fn get_cell(&self, position: &V2<usize>) -> Option<&T> {
         if self.in_bounds(position) {
