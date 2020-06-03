@@ -1,5 +1,4 @@
 use commons::V2;
-use isometric::Color;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -8,7 +7,7 @@ pub struct Settlement {
     pub class: SettlementClass,
     pub position: V2<usize>,
     pub name: String,
-    pub color: Color,
+    pub nation: String,
     pub current_population: f64,
     pub target_population: f64,
     pub gap_half_life: Option<Duration>,

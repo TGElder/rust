@@ -1,6 +1,7 @@
 use crate::avatar::*;
 use crate::game_event_consumers::{TownArtistParameters, WorldColoringParameters};
 use crate::homeland_start::HomelandEdge;
+use crate::nation::{nation_descriptions, NationDescription};
 use crate::road_builder::*;
 use crate::simulation::*;
 use crate::world_gen::*;
@@ -29,6 +30,7 @@ pub struct GameParams {
     pub homeland_distance: Duration,
     pub log_duration_threshold: Option<Duration>,
     pub label_padding: f32,
+    pub nations: Vec<NationDescription>,
 }
 
 impl Default for GameParams {
@@ -50,6 +52,7 @@ impl Default for GameParams {
             homeland_distance: Duration::from_secs(0),
             log_duration_threshold: None,
             label_padding: 2.0,
+            nations: nation_descriptions(),
         }
     }
 }

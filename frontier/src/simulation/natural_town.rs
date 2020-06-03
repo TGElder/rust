@@ -1,5 +1,5 @@
 use super::*;
-use crate::names::Namer;
+use crate::nation::Nation;
 use crate::route::*;
 use crate::settlement::*;
 use commons::grid::Grid;
@@ -28,7 +28,6 @@ pub struct NaturalTownSim {
     params: NaturalTownSimParams,
     game_tx: UpdateSender<Game>,
     territory_sim: TerritorySim,
-    namer: Box<dyn Namer + Send>,
 }
 
 impl Step for NaturalTownSim {
@@ -48,13 +47,11 @@ impl NaturalTownSim {
         params: NaturalTownSimParams,
         game_tx: &UpdateSender<Game>,
         territory_sim: TerritorySim,
-        namer: Box<dyn Namer + Send>,
     ) -> NaturalTownSim {
         NaturalTownSim {
             params,
             game_tx: game_tx.clone_with_handle(HANDLE),
             territory_sim,
-            namer,
         }
     }
 
@@ -113,9 +110,8 @@ impl NaturalTownSim {
     }
 
     async fn build_town(&mut self, position: V2<usize>) -> bool {
-        let name = self.namer.next_name();
         self.game_tx
-            .update(move |game| build_town(game, position, name))
+            .update(move |game| build_town(game, position))
             .await
     }
 
@@ -209,13 +205,14 @@ fn all_corners_visible(game_state: &GameState, position: &V2<usize>) -> bool {
         .all(|corner| corner.visible)
 }
 
-fn build_town(game: &mut Game, position: V2<usize>, name: String) -> bool {
-    let parent = unwrap_or!(get_first_visit_settlement(game, position), return false);
+fn build_town(game: &mut Game, position: V2<usize>) -> bool {
+    let nation = unwrap_or!(get_first_visit_nation(game, position), return false);
+    let name = get_nation(game, &nation).get_town_name();
     let settlement = Settlement {
         class: SettlementClass::Town,
         position,
         name,
-        color: parent.color,
+        nation,
         current_population: 0.0,
         target_population: 0.0,
         gap_half_life: None,
@@ -223,13 +220,23 @@ fn build_town(game: &mut Game, position: V2<usize>, name: String) -> bool {
     game.add_settlement(settlement)
 }
 
-fn get_first_visit_settlement(game: &mut Game, position: V2<usize>) -> Option<&Settlement> {
+fn get_nation<'a>(game: &'a mut Game, name: &'a str) -> &'a mut Nation {
+    game.mut_state()
+        .nations
+        .get_mut(name)
+        .unwrap_or_else(|| panic!("Unknown nation {}", name))
+}
+
+fn get_first_visit_nation(game: &Game, position: V2<usize>) -> Option<String> {
     let maybe_first_visit = unwrap_or!(
         game.game_state().first_visits.get_cell(&position),
         return None
     );
     let parent_position = unwrap_or!(maybe_first_visit, return None).who;
-    game.game_state().settlements.get(&parent_position)
+    game.game_state()
+        .settlements
+        .get(&parent_position)
+        .map(|settlement| settlement.nation.clone())
 }
 
 fn get_already_controlled(game: &mut Game, mut candidates: Vec<V2<usize>>) -> HashSet<V2<usize>> {

@@ -10,6 +10,7 @@ mod game_event_consumers;
 mod homeland_start;
 mod label_editor;
 mod names;
+mod nation;
 mod pathfinder;
 mod road_builder;
 mod route;
@@ -23,7 +24,6 @@ mod world_gen;
 
 use crate::avatar::*;
 use crate::game::*;
-use crate::names::ListNamer;
 use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::territory::*;
@@ -96,11 +96,7 @@ fn main() {
         game.game_state().params.seed,
         game.update_tx(),
     ));
-    game.add_consumer(TownBuilder::new(
-        game.game_state().params.house_color,
-        game.update_tx(),
-        Box::new(ListNamer::from_file("resources/names/town_names")),
-    ));
+    game.add_consumer(TownBuilder::new(game.update_tx()));
     game.add_consumer(Cheats::new(game.update_tx()));
     game.add_consumer(Save::new(game.update_tx(), sim.update_tx()));
     game.add_consumer(SelectAvatar::new(game.update_tx()));
@@ -177,6 +173,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         game_micros: 0,
         params,
         avatars: HashMap::new(),
+        nations: HashMap::new(),
         settlements: HashMap::new(),
         selected_avatar: None,
         follow_avatar: true,
@@ -218,12 +215,8 @@ fn create_simulation(
     let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
     let first_visited_sim = FirstVisitedSim::new(game_tx);
     let farm_sim = FarmSim::new(seed, game_tx);
-    let natural_town_sim = NaturalTownSim::new(
-        params.sim.natural_town,
-        game_tx,
-        territory_sim.clone(),
-        Box::new(ListNamer::from_file("resources/names/town_names")),
-    );
+    let natural_town_sim =
+        NaturalTownSim::new(params.sim.natural_town, game_tx, territory_sim.clone());
     let town_population_sim = TownPopulationSim::new(params.sim.town_population, game_tx);
     let natural_road_sim = NaturalRoadSim::new(
         params.sim.natural_road,

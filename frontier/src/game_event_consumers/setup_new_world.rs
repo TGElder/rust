@@ -4,12 +4,13 @@ use crate::game::{
 };
 use crate::game_event_consumers::VisibilityHandlerMessage;
 use crate::homeland_start::{HomelandStart, HomelandStartGen};
+use crate::nation::Nation;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;
 use commons::V2;
-use isometric::{Color, Event};
+use isometric::Event;
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -40,9 +41,10 @@ impl SetupNewWorld {
         let world = &game_state.world;
         let homeland_starts = gen_homeland_starts(world, &mut rng, &params.homeland);
         let avatars = gen_avatars(&homeland_starts);
-        let settlements = gen_settlements(params, &homeland_starts);
+        let nations = gen_nations(&mut rng, &params);
+        let settlements = gen_settlements(params, &homeland_starts, &nations);
         self.game_tx
-            .update(move |game| setup_game(game, avatars, settlements));
+            .update(move |game| setup_game(game, avatars, nations, settlements));
 
         let visited = get_visited_positions(&homeland_starts);
         self.visibility_tx
@@ -84,36 +86,23 @@ fn gen_avatars(homeland_starts: &[HomelandStart]) -> HashMap<String, Avatar> {
     avatars
 }
 
-fn homeland_colors() -> [Color; 8] {
-    [
-        Color::new(1.0, 0.0, 0.0, 1.0),
-        Color::new(1.0, 1.0, 0.0, 1.0),
-        Color::new(0.0, 1.0, 0.0, 1.0),
-        Color::new(0.0, 0.0, 1.0, 1.0),
-        Color::new(1.0, 0.5, 0.0, 1.0),
-        Color::new(1.0, 0.0, 1.0, 1.0),
-        Color::new(1.0, 1.0, 1.0, 1.0),
-        Color::new(0.0, 0.0, 0.0, 1.0),
-    ]
+fn gen_nations<R: Rng>(rng: &mut R, params: &GameParams) -> HashMap<String, Nation> {
+    params
+        .nations
+        .choose_multiple(rng, params.homeland.count)
+        .map(|nation| (nation.name.clone(), Nation::from_description(nation)))
+        .collect()
 }
 
 fn gen_settlements(
     params: &GameParams,
     homeland_starts: &[HomelandStart],
+    nations: &HashMap<String, Nation>,
 ) -> HashMap<V2<usize>, Settlement> {
-    let colors = homeland_colors();
-    homeland_starts
-        .iter()
+    nations
+        .keys()
         .enumerate()
-        .map(|(i, start)| {
-            get_settlement(
-                params,
-                start,
-                &colors
-                    .get(i)
-                    .expect("Not enough colors for all homeland starts"),
-            )
-        })
+        .map(|(i, nation)| get_settlement(params, &homeland_starts[i], nation.to_string()))
         .map(|settlement| (settlement.position, settlement))
         .collect()
 }
@@ -121,16 +110,13 @@ fn gen_settlements(
 fn get_settlement(
     params: &GameParams,
     homeland_start: &HomelandStart,
-    color: &Color,
+    nation: String,
 ) -> Settlement {
     Settlement {
         class: SettlementClass::Homeland,
         position: homeland_start.homeland,
-        name: format!(
-            "homeland {},{}",
-            homeland_start.homeland.x, homeland_start.homeland.y
-        ),
-        color: *color,
+        name: nation.clone(),
+        nation,
         current_population: 0.0,
         target_population: 0.0,
         gap_half_life: Some(params.homeland_distance),
@@ -140,10 +126,12 @@ fn get_settlement(
 fn setup_game(
     game: &mut Game,
     avatars: HashMap<String, Avatar>,
+    nations: HashMap<String, Nation>,
     settlements: HashMap<V2<usize>, Settlement>,
 ) {
     let game_state = game.mut_state();
     game_state.avatars = avatars;
+    game_state.nations = nations;
     game_state.settlements = settlements;
     game_state.selected_avatar = Some(AVATAR_NAME.to_string());
 }

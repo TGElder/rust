@@ -166,6 +166,7 @@ fn update_settlement(game: &mut Game, settlement: V2<usize>, update: SettlementU
         target_population: update.population,
         gap_half_life: update.avg_duration().map(|duration| duration * 2),
         name: settlement.name.clone(),
+        nation: settlement.nation.clone(),
         ..*settlement
     };
     game.update_settlement(updated_settlement);

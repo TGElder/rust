@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::avatar::*;
+use crate::nation::Nation;
 use crate::route::*;
 use crate::settlement::*;
 use crate::territory::*;
@@ -19,6 +20,7 @@ pub struct GameState {
     pub game_micros: u128,
     pub params: GameParams,
     pub avatars: HashMap<String, Avatar>,
+    pub nations: HashMap<String, Nation>,
     pub settlements: HashMap<V2<usize>, Settlement>,
     pub selected_avatar: Option<String>,
     pub follow_avatar: bool,
@@ -57,6 +59,7 @@ impl GameState {
 mod tests {
 
     use super::*;
+    use crate::nation::NationDescription;
     use commons::*;
     use isometric::Color;
 
@@ -78,13 +81,22 @@ mod tests {
                 load: AvatarLoad::Resource(Resource::Gold),
             },
         );
+        let mut nations = HashMap::new();
+        nations.insert(
+            "China".to_string(),
+            Nation::from_description(&NationDescription {
+                name: "China".to_string(),
+                color: Color::new(1.0, 0.0, 0.0, 1.0),
+                town_name_file: "china".to_string(),
+            }),
+        );
         let mut settlements = HashMap::new();
         settlements.insert(
             v2(3, 2),
             Settlement {
                 class: SettlementClass::Town,
                 position: v2(3, 2),
-                color: Color::new(1.0, 0.0, 0.0, 1.0),
+                nation: "China".to_string(),
                 name: "name".to_string(),
                 current_population: 71.4,
                 target_population: 41.1,
@@ -109,6 +121,7 @@ mod tests {
             game_micros: 123,
             params: GameParams::default(),
             avatars,
+            nations,
             settlements,
             selected_avatar: Some("avatar".to_string()),
             follow_avatar: false,

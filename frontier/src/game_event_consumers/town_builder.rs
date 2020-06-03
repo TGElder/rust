@@ -1,30 +1,21 @@
 use super::*;
-use crate::names::Namer;
+use crate::nation::Nation;
 use crate::settlement::*;
 use isometric::coords::*;
-use isometric::Color;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
 const HANDLE: &str = "town_builder";
 
 pub struct TownBuilder {
-    house_color: Color,
     game_tx: UpdateSender<Game>,
-    namer: Box<dyn Namer + Send>,
     binding: Button,
     world_coord: Option<WorldCoord>,
 }
 
 impl TownBuilder {
-    pub fn new(
-        house_color: Color,
-        game_tx: &UpdateSender<Game>,
-        namer: Box<dyn Namer + Send>,
-    ) -> TownBuilder {
+    pub fn new(game_tx: &UpdateSender<Game>) -> TownBuilder {
         TownBuilder {
-            house_color,
             game_tx: game_tx.clone_with_handle(HANDLE),
-            namer,
             binding: Button::Key(VirtualKeyCode::H),
             world_coord: None,
         }
@@ -49,23 +40,42 @@ impl TownBuilder {
     }
 
     fn add_town(&mut self, position: V2<usize>) {
-        let settlement = Settlement {
-            position,
-            class: SettlementClass::Town,
-            name: self.namer.next_name(),
-            color: self.house_color,
-            current_population: 0.0,
-            target_population: 0.0,
-            gap_half_life: None,
-        };
         self.game_tx
-            .update(move |game| game.add_settlement(settlement));
+            .update(move |game| add_settlement(game, position));
     }
 
     fn remove_town(&mut self, position: V2<usize>) {
         self.game_tx
             .update(move |game| game.remove_settlement(position));
     }
+}
+
+fn add_settlement(game: &mut Game, position: V2<usize>) {
+    let nation = random_nation_name(game);
+    let name = get_nation(game, &nation).get_town_name();
+
+    let settlement = Settlement {
+        position,
+        class: SettlementClass::Town,
+        name,
+        nation,
+        current_population: 0.0,
+        target_population: 0.0,
+        gap_half_life: None,
+    };
+
+    game.add_settlement(settlement);
+}
+
+fn random_nation_name(game: &Game) -> String {
+    game.game_state().nations.keys().next().unwrap().clone()
+}
+
+fn get_nation<'a>(game: &'a mut Game, name: &'a str) -> &'a mut Nation {
+    game.mut_state()
+        .nations
+        .get_mut(name)
+        .unwrap_or_else(|| panic!("Unknown nation {}", &name))
 }
 
 impl GameEventConsumer for TownBuilder {

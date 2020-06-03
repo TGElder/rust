@@ -107,6 +107,7 @@ fn set_target_population(game: &mut Game, settlement: V2<usize>, target_populati
     let updated_settlement = Settlement {
         target_population,
         name: settlement.name.clone(),
+        nation: settlement.nation.clone(),
         ..*settlement
     };
     game.update_settlement(updated_settlement);

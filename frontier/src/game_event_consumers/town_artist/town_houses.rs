@@ -32,16 +32,20 @@ impl TownHouses {
         if let Settlement {
             class: SettlementClass::Town,
             position,
-            color,
+            nation,
             ..
         } = settlement
         {
             let params = game_state.params.town_artist;
+            let nation = game_state
+                .nations
+                .get(nation)
+                .unwrap_or_else(|| panic!("Unknown nation {}", &nation));
             let draw_house_params = DrawHouseParams {
                 width: params.house_width,
                 height: get_house_height_without_roof(&params, settlement),
                 roof_height: params.house_roof_height,
-                base_color: *color,
+                base_color: *nation.color(),
                 light_direction: game_state.params.light_direction,
             };
             let commands = draw_house(

@@ -1,6 +1,7 @@
 use super::*;
 
-use crate::settlement::*;
+use crate::nation::Nation;
+use crate::settlement::Settlement;
 use commons::*;
 use isometric::drawing::*;
 use isometric::*;
@@ -178,16 +179,24 @@ impl<'a> TerritoryColoring<'a> {
             ..
         }) = game_state.territory.who_controls_tile(tile)
         {
-            if let Some(Settlement { mut color, .. }) = game_state.settlements.get(&controller) {
-                color.a = if *duration <= game_state.params.town_travel_duration {
-                    self.params.territory_exclusive_alpha
-                } else {
-                    self.params.territory_non_exclusive_alpha
-                };
-                return Some(color);
-            }
+            let settlement = unwrap_or!(game_state.settlements.get(&controller), return None);
+            let nation = self.nation(&settlement);
+            let mut color = *nation.color();
+            color.a = if *duration <= game_state.params.town_travel_duration {
+                self.params.territory_exclusive_alpha
+            } else {
+                self.params.territory_non_exclusive_alpha
+            };
+            return Some(color);
         }
         None
+    }
+
+    fn nation(&self, settlement: &Settlement) -> &Nation {
+        self.game_state
+            .nations
+            .get(&settlement.nation)
+            .unwrap_or_else(|| panic!("Unknown nation {}", &settlement.nation))
     }
 }
 
