@@ -64,7 +64,7 @@ pub fn nation_descriptions() -> Vec<NationDescription> {
         },
         NationDescription {
             name: "France".to_string(),
-            color: Color::new(0.0, 0.33, 0.64, 1.0),
+            color: Color::new(0.0, 0.0, 0.5, 1.0),
             town_name_file: "resources/names/towns/france".to_string(),
         },
         NationDescription {
@@ -84,7 +84,7 @@ pub fn nation_descriptions() -> Vec<NationDescription> {
         },
         NationDescription {
             name: "Iran".to_string(),
-            color: Color::new(0.14, 0.62, 0.25, 1.0),
+            color: Color::new(0.0, 1.0, 0.0, 1.0),
             town_name_file: "resources/names/towns/iran".to_string(),
         },
         NationDescription {
@@ -98,8 +98,13 @@ pub fn nation_descriptions() -> Vec<NationDescription> {
             town_name_file: "resources/names/towns/japan".to_string(),
         },
         NationDescription {
+            name: "Nigeria".to_string(),
+            color: Color::new(0.0, 0.5, 0.0, 1.0),
+            town_name_file: "resources/names/towns/nigeria".to_string(),
+        },
+        NationDescription {
             name: "Russia".to_string(),
-            color: Color::new(0.0, 1.0, 0.0, 1.0),
+            color: Color::new(0.0, 0.0, 1.0, 1.0),
             town_name_file: "resources/names/towns/russia".to_string(),
         },
         NationDescription {
