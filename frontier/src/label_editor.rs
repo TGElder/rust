@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-const DRAW_ORDER: i32 = -1;
+const DRAW_ORDER: i32 = 0;
 
 pub struct LabelEditor {
     font: Arc<Font>,

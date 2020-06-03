@@ -108,8 +108,8 @@ impl GraphicsEngine {
         );
         out.sort_by_key(|gl_drawing| {
             (
-                gl_drawing.texture.as_ref().map(|texture| texture.id()),
                 gl_drawing.drawing.draw_order,
+                gl_drawing.texture.as_ref().map(|texture| texture.id()),
             )
         });
         out
