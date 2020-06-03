@@ -377,18 +377,18 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
 
 fn count(resource: Resource) -> Option<usize> {
     match resource {
-        Resource::Bananas => Some(8),
-        Resource::Coal => Some(8),
-        Resource::Crabs => Some(8),
-        Resource::Deer => Some(8),
-        Resource::Fur => Some(8),
+        Resource::Bananas => Some(16),
+        Resource::Coal => Some(16),
+        Resource::Crabs => Some(16),
+        Resource::Deer => Some(16),
+        Resource::Fur => Some(16),
         Resource::Gems => Some(4),
         Resource::Gold => Some(2),
-        Resource::Iron => Some(8),
-        Resource::Ivory => Some(6),
-        Resource::Spice => Some(8),
-        Resource::Truffles => Some(6),
-        Resource::Whales => Some(8),
+        Resource::Iron => Some(16),
+        Resource::Ivory => Some(16),
+        Resource::Spice => Some(16),
+        Resource::Truffles => Some(16),
+        Resource::Whales => Some(16),
         _ => None,
     }
 }
@@ -396,15 +396,15 @@ fn count(resource: Resource) -> Option<usize> {
 fn spread(resource: Resource) -> usize {
     match resource {
         Resource::Bananas => 32,
-        Resource::Coal => 8,
+        Resource::Coal => 16,
         Resource::Crabs => 32,
         Resource::Deer => 32,
         Resource::Fur => 32,
         Resource::Gems => 8,
         Resource::Gold => 8,
-        Resource::Iron => 8,
+        Resource::Iron => 16,
         Resource::Ivory => 32,
-        Resource::Spice => 8,
+        Resource::Spice => 32,
         Resource::Truffles => 32,
         Resource::Whales => 128,
         _ => 1,
