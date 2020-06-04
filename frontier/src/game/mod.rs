@@ -37,11 +37,17 @@ pub struct TerritoryState {
 pub enum GameEvent {
     NewGame,
     Init,
-    Tick { from_micros: u128, to_micros: u128 },
+    Tick {
+        from_micros: u128,
+        to_micros: u128,
+    },
     Save(String),
     Load(String),
     EngineEvent(Arc<Event>),
-    CellsRevealed(CellSelection),
+    CellsRevealed {
+        selection: CellSelection,
+        by: &'static str,
+    },
     RoadsUpdated(RoadBuilderResult),
     ObjectUpdated(V2<usize>),
     SettlementUpdated(Settlement),
@@ -57,7 +63,7 @@ impl GameEvent {
             GameEvent::Save(..) => "save",
             GameEvent::Load(..) => "save",
             GameEvent::EngineEvent(..) => "engine event",
-            GameEvent::CellsRevealed(..) => "cells revealed",
+            GameEvent::CellsRevealed { .. } => "cells revealed",
             GameEvent::RoadsUpdated(..) => "roads updated",
             GameEvent::ObjectUpdated { .. } => "object updated",
             GameEvent::SettlementUpdated { .. } => "settlement updated",
@@ -229,12 +235,15 @@ impl Game {
         });
     }
 
-    pub fn reveal_all_cells(&mut self) {
+    pub fn reveal_all_cells(&mut self, revealed_by: &'static str) {
         self.game_state.world.reveal_all();
-        self.consume_event(GameEvent::CellsRevealed(CellSelection::All));
+        self.consume_event(GameEvent::CellsRevealed {
+            selection: CellSelection::All,
+            by: revealed_by,
+        });
     }
 
-    pub fn reveal_cells(&mut self, cells: Vec<V2<usize>>) {
+    pub fn reveal_cells(&mut self, cells: Vec<V2<usize>>, revealed_by: &'static str) {
         let mut send = vec![];
         for position in cells {
             if let Some(world_cell) = self.game_state.world.mut_cell(&position) {
@@ -247,7 +256,10 @@ impl Game {
         if send.is_empty() {
             return;
         }
-        self.consume_event(GameEvent::CellsRevealed(CellSelection::Some(send)));
+        self.consume_event(GameEvent::CellsRevealed {
+            selection: CellSelection::Some(send),
+            by: revealed_by,
+        });
     }
 
     pub fn update_roads(&mut self, result: RoadBuilderResult) {

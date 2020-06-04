@@ -42,7 +42,7 @@ impl Cheats {
 
     fn reveal_all(&mut self, _: &GameState) {
         self.game_tx.update(move |game| {
-            game.reveal_all_cells();
+            game.reveal_all_cells(HANDLE);
         });
     }
 

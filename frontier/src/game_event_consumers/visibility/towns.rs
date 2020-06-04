@@ -1,4 +1,5 @@
 use crate::game::*;
+use crate::settlement::SettlementClass;
 use commons::grid::Grid;
 use commons::V2;
 use isometric::Event;
@@ -31,8 +32,9 @@ fn town_visited_cells<'a>(game_state: &'a GameState) -> impl Iterator<Item = V2<
     let world = &game_state.world;
     game_state
         .settlements
-        .keys()
-        .flat_map(move |town| world.get_corners_in_bounds(town))
+        .iter()
+        .filter(|(_, settlement)| settlement.class == SettlementClass::Town)
+        .flat_map(move |(position, _)| world.get_corners_in_bounds(position))
 }
 
 impl GameEventConsumer for VisibilityFromTowns {

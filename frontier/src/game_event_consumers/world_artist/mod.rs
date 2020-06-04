@@ -88,7 +88,7 @@ impl GameEventConsumer for WorldArtistHandler {
                 self.init(game_state);
                 self.draw_all(game_state);
             }
-            GameEvent::CellsRevealed(selection) => {
+            GameEvent::CellsRevealed { selection, .. } => {
                 match selection {
                     CellSelection::All => self.draw_all(game_state),
                     CellSelection::Some(cells) => self.update_cells(game_state, &cells),

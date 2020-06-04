@@ -73,6 +73,13 @@ pub trait Grid<T> {
         }
     }
 
+    fn neighbours(&self, position: &V2<usize>) -> Vec<V2<usize>> {
+        [v2(-1, 0), v2(0, -1), v2(1, 0), v2(0, 1)]
+            .iter()
+            .flat_map(|offset| self.offset(position, *offset))
+            .collect()
+    }
+
     fn get_corners_in_bounds(&self, position: &V2<usize>) -> Vec<V2<usize>> {
         get_corners(position)
             .into_iter()
@@ -236,6 +243,22 @@ mod tests {
         {
             assert_eq!(matrix.offset(&v2(0, 0), *delta), None);
         }
+    }
+
+    #[test]
+    fn neighbours_all_in_bounds() {
+        let matrix = M::from_element(3, 3, 1);
+        let actual = matrix.neighbours(&v2(1, 1));
+        let expected = vec![v2(1, 0), v2(2, 1), v2(1, 2), v2(0, 1)];
+        assert!(same_elements(&actual, &expected))
+    }
+
+    #[test]
+    fn neighbours_some_out_of_bounds() {
+        let matrix = M::from_element(3, 3, 1);
+        let actual = matrix.neighbours(&v2(0, 0));
+        let expected = vec![v2(1, 0), v2(0, 1)];
+        assert!(same_elements(&actual, &expected))
     }
 
     #[test]

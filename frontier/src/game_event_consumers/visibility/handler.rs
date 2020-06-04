@@ -102,7 +102,7 @@ impl VisibilityHandler {
             .get_newly_visible_from(&game_state.world, cell);
 
         self.game_tx
-            .update(move |game: &mut Game| game.reveal_cells(newly_visible));
+            .update(move |game: &mut Game| game.reveal_cells(newly_visible, HANDLE));
     }
 
     fn get_path(path: &str) -> String {
@@ -139,7 +139,10 @@ impl GameEventConsumer for VisibilityHandler {
         match event {
             GameEvent::NewGame => self.new_game(game_state),
             GameEvent::Tick { .. } => self.tick(game_state),
-            GameEvent::CellsRevealed(CellSelection::All) => self.deactive(),
+            GameEvent::CellsRevealed {
+                selection: CellSelection::All,
+                ..
+            } => self.deactive(),
             GameEvent::Save(path) => self.save(&path),
             GameEvent::Load(path) => self.load(&path),
             _ => (),

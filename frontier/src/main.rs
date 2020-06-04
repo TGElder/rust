@@ -110,22 +110,23 @@ fn main() {
 
     // Visibility
     let handler = VisibilityHandler::new(game.update_tx());
-    let setup_new_world = SetupNewWorld::new(game.update_tx(), handler.tx());
     let from_avatar = VisibilityFromAvatar::new(handler.tx());
     let from_towns = VisibilityFromTowns::new(handler.tx());
     let from_roads = VisibilityFromRoads::new(handler.tx());
+    let setup_new_world = SetupNewWorld::new(game.update_tx(), handler.tx());
     game.add_consumer(from_avatar);
     game.add_consumer(from_towns);
     game.add_consumer(from_roads);
     game.add_consumer(handler);
-
     game.add_consumer(setup_new_world);
+
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
 
     game.add_consumer(PrimeMover::new(
         game.game_state().params.seed,
         game.update_tx(),
     ));
+    game.add_consumer(Voyager::new(game.update_tx()));
     game.add_consumer(PathfinderUpdater::new(avatar_pathfinder));
     game.add_consumer(PathfinderUpdater::new(road_pathfinder));
     game.add_consumer(ResourceRouteTargets::new(
@@ -164,7 +165,10 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
     let mut world = generate_world(power, &mut rng, &params.world_gen);
     if reveal_all {
         world.reveal_all();
-        init_events.push(GameEvent::CellsRevealed(CellSelection::All));
+        init_events.push(GameEvent::CellsRevealed {
+            selection: CellSelection::All,
+            by: "init",
+        });
     }
     let game_state = GameState {
         territory: Territory::new(&world),

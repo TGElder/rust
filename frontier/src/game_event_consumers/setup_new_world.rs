@@ -63,11 +63,7 @@ fn gen_homeland_starts<R: Rng>(
 }
 
 fn get_visited_positions(homeland_starts: &[HomelandStart]) -> HashSet<V2<usize>> {
-    homeland_starts
-        .iter()
-        .flat_map(|start| &start.voyage)
-        .cloned()
-        .collect()
+    homeland_starts[0].voyage.iter().cloned().collect()
 }
 
 fn gen_avatars(homeland_starts: &[HomelandStart]) -> HashMap<String, Avatar> {
