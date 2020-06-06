@@ -3,29 +3,13 @@ use crate::nation::Nation;
 use crate::route::*;
 use crate::settlement::*;
 use commons::grid::Grid;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::default::Default;
 
 const HANDLE: &str = "natural_town_sim";
 const ROUTE_BATCH_SIZE: usize = 128;
 const CANDIDATE_BATCH_SIZE: usize = 128;
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct NaturalTownSimParams {
-    visitor_count_threshold: usize,
-}
-
-impl Default for NaturalTownSimParams {
-    fn default() -> NaturalTownSimParams {
-        NaturalTownSimParams {
-            visitor_count_threshold: 1,
-        }
-    }
-}
-
 pub struct NaturalTownSim {
-    params: NaturalTownSimParams,
     game_tx: UpdateSender<Game>,
     territory_sim: TerritorySim,
 }
@@ -43,13 +27,8 @@ impl Step for NaturalTownSim {
 }
 
 impl NaturalTownSim {
-    pub fn new(
-        params: NaturalTownSimParams,
-        game_tx: &UpdateSender<Game>,
-        territory_sim: TerritorySim,
-    ) -> NaturalTownSim {
+    pub fn new(game_tx: &UpdateSender<Game>, territory_sim: TerritorySim) -> NaturalTownSim {
         NaturalTownSim {
-            params,
             game_tx: game_tx.clone_with_handle(HANDLE),
             territory_sim,
         }
@@ -57,9 +36,8 @@ impl NaturalTownSim {
 
     async fn step_async(&mut self) {
         let routes = self.get_routes().await;
-        self.update_first_visited(&routes).await;
+        self.update_first_visit(&routes).await;
         let mut visitors = self.compute_visitors(&routes).await;
-        visitors = self.filter_over_threshold(visitors);
         while let Some(town) = self.find_town_candidate(&visitors) {
             if self.build_town(town).await {
                 self.territory_sim.step_controller(town).await;
@@ -73,15 +51,34 @@ impl NaturalTownSim {
         self.game_tx.update(|game| get_routes(game)).await
     }
 
-    async fn update_first_visited(&mut self, routes: &[String]) {
+    async fn update_first_visit(&mut self, routes: &[String]) {
+        self.update_economic_activity_first_visits(routes).await;
+        self.update_all_first_visits(routes).await;
+    }
+
+    async fn update_economic_activity_first_visits(&mut self, routes: &[String]) {
         for batch in routes.chunks(ROUTE_BATCH_SIZE) {
-            self.update_first_visited_for_routes(batch.to_vec()).await;
+            self.update_economic_activity_first_visits_for_routes(batch.to_vec())
+                .await;
         }
     }
 
-    async fn update_first_visited_for_routes(&mut self, routes: Vec<String>) {
+    async fn update_all_first_visits(&mut self, routes: &[String]) {
+        for batch in routes.chunks(ROUTE_BATCH_SIZE) {
+            self.update_all_first_visits_for_routes(batch.to_vec())
+                .await;
+        }
+    }
+
+    async fn update_economic_activity_first_visits_for_routes(&mut self, routes: Vec<String>) {
         self.game_tx
-            .update(move |game| update_first_visit_for_routes(game, routes))
+            .update(move |game| update_economic_activity_first_visits_for_routes(game, routes))
+            .await;
+    }
+
+    async fn update_all_first_visits_for_routes(&mut self, routes: Vec<String>) {
+        self.game_tx
+            .update(move |game| update_all_first_visits_for_routes(game, routes))
             .await;
     }
 
@@ -102,17 +99,6 @@ impl NaturalTownSim {
         self.game_tx
             .update(move |game| compute_visitors_for_routes(game, routes))
             .await
-    }
-
-    fn filter_over_threshold(
-        &self,
-        mut visitors: HashMap<V2<usize>, usize>,
-    ) -> HashMap<V2<usize>, usize> {
-        let threshold = self.params.visitor_count_threshold;
-        visitors
-            .drain()
-            .filter(|(_, visitors)| *visitors >= threshold)
-            .collect()
     }
 
     fn find_town_candidate(&self, visitors: &HashMap<V2<usize>, usize>) -> Option<V2<usize>> {
@@ -152,21 +138,39 @@ fn get_routes(game: &Game) -> Vec<String> {
     game.game_state().routes.keys().cloned().collect()
 }
 
-fn update_first_visit_for_routes(game: &mut Game, routes: Vec<String>) {
+fn update_economic_activity_first_visits_for_routes(game: &mut Game, routes: Vec<String>) {
     for route in routes {
-        update_first_visit_for_route(game, route);
+        update_economic_activity_first_visits_for_route(game, route);
     }
 }
 
-fn update_first_visit_for_route(game: &mut Game, route: String) {
+fn update_all_first_visits_for_routes(game: &mut Game, routes: Vec<String>) {
+    for route in routes {
+        update_all_first_visits_for_route(game, route);
+    }
+}
+
+fn update_economic_activity_first_visits_for_route(game: &mut Game, route: String) {
     let route = unwrap_or!(game.game_state().routes.get(&route), return);
     let first_visit = FirstVisit {
         when: route.start_micros + route.duration.as_micros(),
-        who: route.settlement,
+        who: Some(route.settlement),
     };
     let to_update: Vec<V2<usize>> = get_economic_activity_traffic(game, &route)
         .map(|Traffic { position, .. }| position)
         .collect();
+    for position in to_update {
+        update_first_visit_if_required(game, &position, first_visit);
+    }
+}
+
+fn update_all_first_visits_for_route(game: &mut Game, route: String) {
+    let route = unwrap_or!(game.game_state().routes.get(&route), return);
+    let first_visit = FirstVisit {
+        when: route.start_micros + route.duration.as_micros(),
+        who: None,
+    };
+    let to_update = route.path.clone();
     for position in to_update {
         update_first_visit_if_required(game, &position, first_visit);
     }
@@ -277,7 +281,8 @@ fn get_first_visit_nation(game: &Game, position: V2<usize>) -> Option<String> {
         game.game_state().first_visits.get_cell(&position),
         return None
     );
-    let parent_position = unwrap_or!(maybe_first_visit, return None).who;
+    let maybe_parent_position = unwrap_or!(maybe_first_visit, return None).who;
+    let parent_position = unwrap_or!(maybe_parent_position, return None);
     game.game_state()
         .settlements
         .get(&parent_position)

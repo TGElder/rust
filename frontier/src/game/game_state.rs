@@ -33,7 +33,7 @@ pub struct GameState {
 #[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct FirstVisit {
     pub when: u128,
-    pub who: V2<usize>,
+    pub who: Option<V2<usize>>,
 }
 
 impl GameState {
