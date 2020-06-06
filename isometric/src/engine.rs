@@ -58,6 +58,10 @@ pub enum Command {
         name: String,
         texture: Option<String>,
     },
+    UpdateMask {
+        name: String,
+        texture: Option<String>,
+    },
     SetDrawingVisibility {
         name: String,
         visible: bool,
@@ -238,6 +242,7 @@ impl IsometricEngine {
             Command::Event(event) => self.consume_event(event),
             Command::CreateDrawing(drawing) => self.graphics.add_drawing(drawing),
             Command::UpdateTexture { name, texture } => self.graphics.update_texture(name, texture),
+            Command::UpdateMask { name, texture } => self.graphics.update_mask(name, texture),
             Command::UpdateVertices {
                 name,
                 index,

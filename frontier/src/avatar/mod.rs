@@ -10,6 +10,7 @@ use crate::travel_duration::*;
 use crate::world::{Resource, World};
 use commons::{v2, V2};
 use isometric::coords::*;
+use isometric::Color;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::f32::consts::PI;
@@ -20,6 +21,7 @@ pub struct Avatar {
     pub name: String,
     pub state: AvatarState,
     pub load: AvatarLoad,
+    pub color: Color,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

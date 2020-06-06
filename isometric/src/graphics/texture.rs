@@ -38,12 +38,14 @@ impl Texture {
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn bind(&self) {
+    pub unsafe fn bind(&self, slot: u32) {
+        gl::ActiveTexture(gl::TEXTURE0 + slot);
         gl::BindTexture(gl::TEXTURE_2D, self.id);
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn unbind(&self) {
+    pub unsafe fn unbind(&self, slot: u32) {
+        gl::ActiveTexture(gl::TEXTURE0 + slot);
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
@@ -55,7 +57,7 @@ impl Texture {
         let image_ptr: *const c_void = image.as_ptr() as *const c_void;
 
         unsafe {
-            self.bind();
+            self.bind(0);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
@@ -71,7 +73,7 @@ impl Texture {
                 gl::UNSIGNED_BYTE,
                 image_ptr,
             );
-            self.unbind();
+            self.unbind(0);
         }
     }
 }

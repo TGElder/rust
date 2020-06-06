@@ -2,7 +2,7 @@ use super::*;
 use crate::route::*;
 use commons::rand::rngs::SmallRng;
 use commons::*;
-use isometric::{Button, ElementState, VirtualKeyCode};
+use isometric::{Button, Color, ElementState, VirtualKeyCode};
 use rand::prelude::*;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
@@ -109,11 +109,13 @@ impl PrimeMover {
     fn show_route(&mut self, game_state: &GameState, name: &str, route: &Route) {
         let start_at = game_state.game_micros;
         self.state.visible_routes.insert(name.to_string());
+        let color = unwrap_or!(color(game_state, route), return);
         if self.outbound(name) {
             self.walk_positions(
                 name.to_string(),
                 route.path.clone(),
                 start_at,
+                color,
                 AvatarLoad::None,
             );
         } else {
@@ -121,6 +123,7 @@ impl PrimeMover {
                 name.to_string(),
                 route.path.clone(),
                 start_at,
+                color,
                 AvatarLoad::Resource(route.resource),
             );
         }
@@ -143,13 +146,14 @@ impl PrimeMover {
         name: String,
         positions: Vec<V2<usize>>,
         start_at: u128,
+        color: Color,
         load: AvatarLoad,
     ) {
         let pause_at_start = self.params.pause_at_start_of_journey;
         let pause_at_end = self.params.pause_at_end_of_journey;
         let first = *unwrap_or!(positions.first(), return);
         self.game_tx.update(move |game| {
-            add_avatar(game, name.clone(), first, load);
+            add_avatar(game, name.clone(), first, color, load);
             walk_positions(
                 game,
                 name,
@@ -166,10 +170,11 @@ impl PrimeMover {
         name: String,
         mut positions: Vec<V2<usize>>,
         start_at: u128,
+        color: Color,
         load: AvatarLoad,
     ) {
         positions.reverse();
-        self.walk_positions(name, positions, start_at, load);
+        self.walk_positions(name, positions, start_at, color, load);
     }
 
     fn update_visible_routes(&mut self, game_state: &GameState) {
@@ -219,6 +224,17 @@ impl PrimeMover {
     }
 }
 
+fn color(game_state: &GameState, route: &Route) -> Option<Color> {
+    let settlement = unwrap_or!(game_state.settlements.get(&route.settlement), return None);
+    Some(
+        *game_state
+            .nations
+            .get(&settlement.nation)
+            .unwrap_or_else(|| panic!("Unknown nation {}", settlement.nation))
+            .color(),
+    )
+}
+
 fn is_visible(game_state: &GameState, name: &str) -> bool {
     game_state.avatars.get(name).is_some()
 }
@@ -234,13 +250,14 @@ fn walk_positions(
     game.walk_positions(name, positions, start_at, pause_at_start, pause_at_end);
 }
 
-fn add_avatar(game: &mut Game, name: String, position: V2<usize>, load: AvatarLoad) {
+fn add_avatar(game: &mut Game, name: String, position: V2<usize>, color: Color, load: AvatarLoad) {
     let avatar = Avatar {
         name: name.clone(),
         state: AvatarState::Stationary {
             position,
             rotation: Rotation::Up,
         },
+        color,
         load,
     };
     game.mut_state().avatars.insert(name, avatar);

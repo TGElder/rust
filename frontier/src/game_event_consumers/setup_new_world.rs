@@ -10,7 +10,7 @@ use crate::world::World;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;
 use commons::V2;
-use isometric::Event;
+use isometric::{Color, Event};
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -40,7 +40,7 @@ impl SetupNewWorld {
         let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
         let world = &game_state.world;
         let homeland_starts = gen_homeland_starts(world, &mut rng, &params.homeland);
-        let avatars = gen_avatars(&homeland_starts);
+        let avatars = gen_avatars(&homeland_starts, params.avatar_color);
         let nations = gen_nations(&mut rng, &params);
         let settlements = gen_settlements(params, &homeland_starts, &nations);
         self.game_tx
@@ -66,7 +66,7 @@ fn get_visited_positions(homeland_starts: &[HomelandStart]) -> HashSet<V2<usize>
     homeland_starts[0].voyage.iter().cloned().collect()
 }
 
-fn gen_avatars(homeland_starts: &[HomelandStart]) -> HashMap<String, Avatar> {
+fn gen_avatars(homeland_starts: &[HomelandStart], color: Color) -> HashMap<String, Avatar> {
     let mut avatars = HashMap::new();
     avatars.insert(
         AVATAR_NAME.to_string(),
@@ -76,6 +76,7 @@ fn gen_avatars(homeland_starts: &[HomelandStart]) -> HashMap<String, Avatar> {
                 position: homeland_starts[0].pre_landfall,
                 rotation: Rotation::Up,
             },
+            color,
             load: AvatarLoad::None,
         },
     );

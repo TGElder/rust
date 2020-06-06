@@ -281,12 +281,54 @@ impl VAO {
         }
     }
 
+    fn setup_for_masked_sprite_drawing() {
+        unsafe {
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                (11 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                std::ptr::null(),
+            );
+            gl::EnableVertexAttribArray(1);
+            gl::VertexAttribPointer(
+                1,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                (11 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
+            );
+            gl::EnableVertexAttribArray(2);
+            gl::VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                (11 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                (5 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
+            );
+            gl::EnableVertexAttribArray(3);
+            gl::VertexAttribPointer(
+                3,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                (11 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                (7 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
+            );
+        }
+    }
+
     fn setup(&self) {
         self.bind();
         match self.drawing_type {
             DrawingType::Plain => VAO::setup_for_plain_drawing(),
             DrawingType::Label => VAO::setup_for_sprite_drawing(),
             DrawingType::Billboard => VAO::setup_for_sprite_drawing(),
+            DrawingType::MaskedBillboard => VAO::setup_for_masked_sprite_drawing(),
             DrawingType::Textured => VAO::setup_for_textured_drawing(),
         }
         self.unbind();
@@ -300,8 +342,9 @@ impl VAO {
         match self.drawing_type {
             DrawingType::Plain => 6,
             DrawingType::Label => 7,
-            DrawingType::Textured => 9,
             DrawingType::Billboard => 7,
+            DrawingType::MaskedBillboard => 11,
+            DrawingType::Textured => 9,
         }
     }
 

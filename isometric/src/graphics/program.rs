@@ -127,6 +127,15 @@ impl Program {
             gl::UniformMatrix4fv(matrix_location, 1, gl::FALSE, proj_ptr);
         }
     }
+
+    pub fn link_texture_slot_to_variable(&self, slot: i32, variable: &str) {
+        unsafe {
+            let c_string = CString::new(variable).unwrap();
+            let texture_location =
+                gl::GetUniformLocation(self.id, c_string.as_ptr() as *const gl::types::GLchar);
+            gl::Uniform1i(texture_location, slot);
+        }
+    }
 }
 
 impl Drop for Program {

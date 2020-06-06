@@ -20,7 +20,7 @@ use std::sync::Arc;
 use transform::{Isometric, Transform};
 
 pub struct GraphicsEngine {
-    programs: [Program; 4],
+    programs: [Program; 5],
     viewport_size: PhysicalSize,
     label_padding: f32,
     transform: Transform,
@@ -52,6 +52,11 @@ impl GraphicsEngine {
                 DrawingType::Billboard,
                 include_str!("shaders/billboard.vert"),
                 include_str!("shaders/billboard.frag"),
+            ),
+            Program::from_shaders(
+                DrawingType::MaskedBillboard,
+                include_str!("shaders/masked_billboard.vert"),
+                include_str!("shaders/masked_billboard.frag"),
             ),
             Program::from_shaders(
                 DrawingType::Textured,
@@ -132,6 +137,12 @@ impl GraphicsEngine {
         gl_drawing.texture = texture.map(|texture| texture_library.get_texture(&texture))
     }
 
+    pub fn update_mask(&mut self, name: String, texture: Option<String>) {
+        let gl_drawing = self.drawings.get_mut(&name).unwrap();
+        let texture_library = &mut self.texture_library;
+        gl_drawing.mask = texture.map(|texture| texture_library.get_texture(&texture))
+    }
+
     pub fn remove_drawing(&mut self, name: &str) {
         self.drawings.remove(name);
     }
@@ -161,9 +172,17 @@ impl GraphicsEngine {
             DrawingType::Billboard => {
                 program.load_matrix4("projection", self.transform.compute_transformation_matrix());
                 program.load_matrix3("world_to_screen", self.transform.get_scale_as_matrix());
+                program.link_texture_slot_to_variable(0, "ourTexture");
+            }
+            DrawingType::MaskedBillboard => {
+                program.load_matrix4("projection", self.transform.compute_transformation_matrix());
+                program.load_matrix3("world_to_screen", self.transform.get_scale_as_matrix());
+                program.link_texture_slot_to_variable(0, "ourTexture");
+                program.link_texture_slot_to_variable(1, "ourMask");
             }
             DrawingType::Textured => {
-                program.load_matrix4("projection", self.transform.compute_transformation_matrix())
+                program.load_matrix4("projection", self.transform.compute_transformation_matrix());
+                program.link_texture_slot_to_variable(0, "ourTexture");
             }
         }
     }
@@ -193,10 +212,11 @@ impl GraphicsEngine {
 
     pub fn draw_billboards(&mut self) {
         self.draw(2);
+        self.draw(3);
     }
 
     pub fn draw_textured(&mut self) {
-        self.draw(3);
+        self.draw(4);
     }
 
     fn textures_are_different(a: &Option<Arc<Texture>>, b: &Option<Arc<Texture>>) -> bool {
@@ -205,10 +225,10 @@ impl GraphicsEngine {
         a_id != b_id
     }
 
-    fn change_bound_texture(old: &Option<Arc<Texture>>, new: &Option<Arc<Texture>>) {
+    fn change_bound_texture(slot: u32, old: &Option<Arc<Texture>>, new: &Option<Arc<Texture>>) {
         unsafe {
-            old.iter().for_each(|texture| texture.unbind());
-            new.iter().for_each(|texture| texture.bind());
+            old.iter().for_each(|texture| texture.unbind(slot));
+            new.iter().for_each(|texture| texture.bind(slot));
         }
     }
 
@@ -218,6 +238,7 @@ impl GraphicsEngine {
         program.set_used();
         self.prepare_program(program);
         let mut current_texture: &Option<Arc<Texture>> = &None;
+        let mut current_mask: &Option<Arc<Texture>> = &None;
         let mut label_visibility_checker = LabelVisibilityChecker::new(self);
         for gl_drawing in self.compute_draw_order(program.drawing_type) {
             if !self.should_draw(&gl_drawing.drawing, &mut label_visibility_checker) {
@@ -225,13 +246,19 @@ impl GraphicsEngine {
             }
             let new_texture = &gl_drawing.texture;
             if Self::textures_are_different(current_texture, new_texture) {
-                Self::change_bound_texture(current_texture, new_texture);
+                Self::change_bound_texture(0, current_texture, new_texture);
                 current_texture = new_texture;
+            }
+            let new_mask = &gl_drawing.mask;
+            if Self::textures_are_different(current_mask, new_mask) {
+                Self::change_bound_texture(1, current_mask, new_mask);
+                current_mask = new_mask;
             }
             gl_drawing.draw();
         }
         unsafe {
-            current_texture.iter().for_each(|texture| texture.unbind());
+            current_texture.iter().for_each(|texture| texture.unbind(0));
+            current_mask.iter().for_each(|texture| texture.unbind(1));
         }
     }
 
@@ -276,6 +303,7 @@ pub enum DrawingType {
     Plain,
     Label,
     Billboard,
+    MaskedBillboard,
     Textured,
 }
 
@@ -327,6 +355,18 @@ impl Drawing {
         }
     }
 
+    pub fn masked_billboard(name: String, floats: usize) -> Drawing {
+        Drawing {
+            name,
+            drawing_type: DrawingType::MaskedBillboard,
+            indices: 1,
+            max_floats_per_index: floats,
+            visible: true,
+            label_visibility_check: None,
+            draw_order: 0,
+        }
+    }
+
     pub fn label(
         name: String,
         floats: usize,
@@ -361,6 +401,7 @@ struct GLDrawing {
     drawing: Drawing,
     buffer: MultiVBO,
     texture: Option<Arc<Texture>>,
+    mask: Option<Arc<Texture>>,
 }
 
 impl GLDrawing {
@@ -373,6 +414,7 @@ impl GLDrawing {
             ),
             drawing,
             texture: None,
+            mask: None,
         }
     }
 

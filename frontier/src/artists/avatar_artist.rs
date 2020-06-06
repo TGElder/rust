@@ -4,8 +4,9 @@ use crate::world::World;
 use commons::{na, v3, V3};
 use isometric::coords::*;
 use isometric::drawing::{
-    create_billboard, create_boat, draw_boat, update_billboard_texture, update_billboard_vertices,
-    DrawBoatParams,
+    create_billboard, create_boat, create_masked_billboard, draw_boat, update_billboard_texture,
+    update_billboard_vertices, update_masked_billboard_mask, update_masked_billboard_texture,
+    update_masked_billboard_vertices, DrawBoatParams,
 };
 use isometric::Color;
 use isometric::Command;
@@ -55,6 +56,10 @@ impl AvatarArtist {
                     texture: "resources/textures/body.png".to_string(),
                     texture_width: 128,
                     texture_height: 198,
+                    mask: Some(ColorMask {
+                        mask: "resources/textures/body.png".to_string(),
+                        color: AvatarColor::Base,
+                    }),
                 },
                 BodyPart {
                     offset: v3(12.0, 0.0, 192.0),
@@ -62,6 +67,7 @@ impl AvatarArtist {
                     texture: "resources/textures/head.png".to_string(),
                     texture_width: 96,
                     texture_height: 96,
+                    mask: None,
                 },
                 BodyPart {
                     offset: v3(48.0, 24.0, 192.0),
@@ -69,6 +75,7 @@ impl AvatarArtist {
                     texture: "resources/textures/eye.png".to_string(),
                     texture_width: 16,
                     texture_height: 16,
+                    mask: None,
                 },
                 BodyPart {
                     offset: v3(48.0, -24.0, 192.0),
@@ -76,6 +83,7 @@ impl AvatarArtist {
                     texture: "resources/textures/eye.png".to_string(),
                     texture_width: 16,
                     texture_height: 16,
+                    mask: None,
                 },
                 BodyPart {
                     offset: v3(48.0, 50.0, 96.0),
@@ -83,6 +91,7 @@ impl AvatarArtist {
                     texture: "resources/textures/hand.png".to_string(),
                     texture_width: 32,
                     texture_height: 32,
+                    mask: None,
                 },
                 BodyPart {
                     offset: v3(48.0, -50.0, 96.0),
@@ -90,6 +99,7 @@ impl AvatarArtist {
                     texture: "resources/textures/hand.png".to_string(),
                     texture_width: 32,
                     texture_height: 32,
+                    mask: None,
                 },
             ],
             last_draw_state: HashMap::new(),
@@ -154,7 +164,7 @@ impl AvatarArtist {
             .insert(name.to_string(), new_draw_state);
 
         if let Some(world_coord) = state.compute_world_coord(world, instant) {
-            out.append(&mut self.draw_body(&name, state, instant, world_coord));
+            out.append(&mut self.draw_body(&avatar, instant, world_coord));
             out.append(&mut self.draw_boat_if_required(
                 &name,
                 state,
@@ -204,17 +214,11 @@ impl AvatarArtist {
         }
     }
 
-    fn draw_body(
-        &self,
-        name: &str,
-        state: &AvatarState,
-        instant: &u128,
-        world_coord: WorldCoord,
-    ) -> Vec<Command> {
+    fn draw_body(&self, avatar: &Avatar, instant: &u128, world_coord: WorldCoord) -> Vec<Command> {
         self.body_parts
             .iter()
             .flat_map(|part| {
-                self.draw_part_at_offset(&name, state, instant, world_coord, part)
+                self.draw_part_at_offset(avatar, instant, world_coord, part)
                     .into_iter()
             })
             .collect()
@@ -222,13 +226,12 @@ impl AvatarArtist {
 
     fn draw_part_at_offset(
         &self,
-        name: &str,
-        state: &AvatarState,
+        avatar: &Avatar,
         instant: &u128,
         world_coord: WorldCoord,
         part: &BodyPart,
     ) -> Vec<Command> {
-        let offset = AvatarArtist::get_rotation_matrix(state, instant) * part.offset
+        let offset = AvatarArtist::get_rotation_matrix(&avatar.state, instant) * part.offset
             / self.params.pixels_per_cell;
         let world_coord = WorldCoord::new(
             world_coord.x + offset.x,
@@ -237,7 +240,23 @@ impl AvatarArtist {
         );
         let width = (part.texture_width as f32) / self.params.pixels_per_cell;
         let height = (part.texture_height as f32) / self.params.pixels_per_cell;
-        update_billboard_vertices(part_drawing_name(&name, &part), world_coord, width, height)
+        if let Some(mask) = &part.mask {
+            let color = mask.color.get(avatar);
+            update_masked_billboard_vertices(
+                part_drawing_name(&avatar.name, &part),
+                world_coord,
+                width,
+                height,
+                color,
+            )
+        } else {
+            update_billboard_vertices(
+                part_drawing_name(&avatar.name, &part),
+                world_coord,
+                width,
+                height,
+            )
+        }
     }
 
     fn draw_boat_if_required(
@@ -396,9 +415,34 @@ fn load_drawing_name(name: &str) -> String {
 fn create_part_drawing<'a>(
     name: &'a str,
     part: &'a BodyPart,
-) -> impl Iterator<Item = Command> + 'a {
+) -> Box<dyn Iterator<Item = Command> + 'a> {
     let name = part_drawing_name(&name, &part);
-    once(create_billboard(name.clone())).chain(update_billboard_texture(name, &part.texture))
+    if let Some(ColorMask { mask, .. }) = &part.mask {
+        Box::new(create_masked_billboard_part_drawing(
+            name,
+            &part.texture,
+            mask,
+        ))
+    } else {
+        Box::new(create_billboard_part_drawing(name, &part.texture))
+    }
+}
+
+fn create_masked_billboard_part_drawing<'a>(
+    name: String,
+    texture: &'a str,
+    mask: &'a str,
+) -> impl Iterator<Item = Command> + 'a {
+    once(create_masked_billboard(name.clone()))
+        .chain(update_masked_billboard_texture(name.clone(), &texture))
+        .chain(update_masked_billboard_mask(name, &mask))
+}
+
+fn create_billboard_part_drawing<'a>(
+    name: String,
+    texture: &'a str,
+) -> impl Iterator<Item = Command> + 'a {
+    once(create_billboard(name.clone())).chain(update_billboard_texture(name, &texture))
 }
 
 fn resource_texture(resource: Resource) -> Option<&'static str> {
@@ -451,4 +495,22 @@ struct BodyPart {
     texture: String,
     texture_width: usize,
     texture_height: usize,
+    mask: Option<ColorMask>,
+}
+
+struct ColorMask {
+    color: AvatarColor,
+    mask: String,
+}
+
+enum AvatarColor {
+    Base,
+}
+
+impl AvatarColor {
+    fn get<'a>(&'a self, avatar: &'a Avatar) -> &'a Color {
+        match self {
+            AvatarColor::Base => &avatar.color,
+        }
+    }
 }

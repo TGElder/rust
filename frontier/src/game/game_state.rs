@@ -78,6 +78,7 @@ mod tests {
                     position: v2(1, 1),
                     rotation: Rotation::Down,
                 },
+                color: Color::new(0.2, 0.4, 0.6, 0.8),
                 load: AvatarLoad::Resource(Resource::Gold),
             },
         );
