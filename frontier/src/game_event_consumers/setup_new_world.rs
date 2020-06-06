@@ -4,7 +4,7 @@ use crate::game::{
 };
 use crate::game_event_consumers::VisibilityHandlerMessage;
 use crate::homeland_start::{HomelandStart, HomelandStartGen};
-use crate::nation::Nation;
+use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
 use commons::rand::prelude::*;
@@ -40,7 +40,7 @@ impl SetupNewWorld {
         let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
         let world = &game_state.world;
         let homeland_starts = gen_homeland_starts(world, &mut rng, &params.homeland);
-        let avatars = gen_avatars(&homeland_starts, params.avatar_color);
+        let avatars = gen_avatars(&mut rng, &homeland_starts, params.avatar_color);
         let nations = gen_nations(&mut rng, &params);
         let settlements = gen_settlements(params, &homeland_starts, &nations);
         self.game_tx
@@ -66,7 +66,11 @@ fn get_visited_positions(homeland_starts: &[HomelandStart]) -> HashSet<V2<usize>
     homeland_starts[0].voyage.iter().cloned().collect()
 }
 
-fn gen_avatars(homeland_starts: &[HomelandStart], color: Color) -> HashMap<String, Avatar> {
+fn gen_avatars<R: Rng>(
+    rng: &mut R,
+    homeland_starts: &[HomelandStart],
+    color: Color,
+) -> HashMap<String, Avatar> {
     let mut avatars = HashMap::new();
     avatars.insert(
         AVATAR_NAME.to_string(),
@@ -77,10 +81,15 @@ fn gen_avatars(homeland_starts: &[HomelandStart], color: Color) -> HashMap<Strin
                 rotation: Rotation::Up,
             },
             color,
+            skin_color: avatar_skin_color(rng),
             load: AvatarLoad::None,
         },
     );
     avatars
+}
+
+fn avatar_skin_color<R: Rng>(rng: &mut R) -> Color {
+    *skin_colors().choose(rng).unwrap()
 }
 
 fn gen_nations<R: Rng>(rng: &mut R, params: &GameParams) -> HashMap<String, Nation> {

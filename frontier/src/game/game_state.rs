@@ -78,8 +78,9 @@ mod tests {
                     position: v2(1, 1),
                     rotation: Rotation::Down,
                 },
-                color: Color::new(0.2, 0.4, 0.6, 0.8),
                 load: AvatarLoad::Resource(Resource::Gold),
+                color: Color::new(0.2, 0.4, 0.6, 0.8),
+                skin_color: Color::new(0.3, 0.5, 0.7, 0.9),
             },
         );
         let mut nations = HashMap::new();
@@ -88,6 +89,7 @@ mod tests {
             Nation::from_description(&NationDescription {
                 name: "China".to_string(),
                 color: Color::new(1.0, 0.0, 0.0, 1.0),
+                skin_color: Color::new(0.0, 0.0, 1.0, 1.0),
                 town_name_file: "china".to_string(),
             }),
         );

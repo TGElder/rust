@@ -22,6 +22,7 @@ pub struct Avatar {
     pub state: AvatarState,
     pub load: AvatarLoad,
     pub color: Color,
+    pub skin_color: Color,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

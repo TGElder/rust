@@ -67,7 +67,10 @@ impl AvatarArtist {
                     texture: "resources/textures/head.png".to_string(),
                     texture_width: 96,
                     texture_height: 96,
-                    mask: None,
+                    mask: Some(ColorMask {
+                        mask: "resources/textures/head.png".to_string(),
+                        color: AvatarColor::Skin,
+                    }),
                 },
                 BodyPart {
                     offset: v3(48.0, 24.0, 192.0),
@@ -91,7 +94,10 @@ impl AvatarArtist {
                     texture: "resources/textures/hand.png".to_string(),
                     texture_width: 32,
                     texture_height: 32,
-                    mask: None,
+                    mask: Some(ColorMask {
+                        mask: "resources/textures/hand.png".to_string(),
+                        color: AvatarColor::Skin,
+                    }),
                 },
                 BodyPart {
                     offset: v3(48.0, -50.0, 96.0),
@@ -99,7 +105,10 @@ impl AvatarArtist {
                     texture: "resources/textures/hand.png".to_string(),
                     texture_width: 32,
                     texture_height: 32,
-                    mask: None,
+                    mask: Some(ColorMask {
+                        mask: "resources/textures/hand.png".to_string(),
+                        color: AvatarColor::Skin,
+                    }),
                 },
             ],
             last_draw_state: HashMap::new(),
@@ -505,12 +514,14 @@ struct ColorMask {
 
 enum AvatarColor {
     Base,
+    Skin,
 }
 
 impl AvatarColor {
     fn get<'a>(&'a self, avatar: &'a Avatar) -> &'a Color {
         match self {
             AvatarColor::Base => &avatar.color,
+            AvatarColor::Skin => &avatar.skin_color,
         }
     }
 }
