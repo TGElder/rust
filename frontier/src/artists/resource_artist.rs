@@ -81,6 +81,7 @@ impl ResourceArtist {
 fn texture(resource: Resource) -> Option<&'static str> {
     match resource {
         Resource::Bananas => Some("resources/textures/bananas.png"),
+        Resource::Bison => Some("resources/textures/bison.png"),
         Resource::Coal => Some("resources/textures/coal.png"),
         Resource::Crabs => Some("resources/textures/crabs.png"),
         Resource::Deer => Some("resources/textures/deer.png"),

@@ -183,6 +183,11 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                 !self.is_sea(position)
                     && self.has_vegetation_type_adjacent(position, VegetationType::PalmTree)
             }
+            Resource::Bison => {
+                !self.is_sea(position)
+                    && self.is_flat(position)
+                    && self.among_vegetation_type(position, VegetationType::EvergreenTree)
+            }
             Resource::Coal => !self.is_sea(position) && self.is_cliff(position),
             Resource::Crabs => self.in_shallow_sea(position),
             Resource::Deer => {
@@ -378,6 +383,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
 fn count(resource: Resource) -> Option<usize> {
     match resource {
         Resource::Bananas => Some(16),
+        Resource::Bison => Some(16),
         Resource::Coal => Some(16),
         Resource::Crabs => Some(16),
         Resource::Deer => Some(16),
@@ -395,17 +401,18 @@ fn count(resource: Resource) -> Option<usize> {
 
 fn spread(resource: Resource) -> usize {
     match resource {
-        Resource::Bananas => 32,
+        Resource::Bananas => 64,
+        Resource::Bison => 64,
         Resource::Coal => 16,
-        Resource::Crabs => 32,
-        Resource::Deer => 32,
-        Resource::Fur => 32,
+        Resource::Crabs => 64,
+        Resource::Deer => 64,
+        Resource::Fur => 64,
         Resource::Gems => 8,
         Resource::Gold => 8,
         Resource::Iron => 16,
-        Resource::Ivory => 32,
-        Resource::Spice => 32,
-        Resource::Truffles => 32,
+        Resource::Ivory => 64,
+        Resource::Spice => 64,
+        Resource::Truffles => 64,
         Resource::Whales => 128,
         _ => 1,
     }

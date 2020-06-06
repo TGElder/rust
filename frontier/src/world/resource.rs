@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-pub const RESOURCES: [Resource; 15] = [
+pub const RESOURCES: [Resource; 16] = [
     Resource::Bananas,
+    Resource::Bison,
     Resource::Coal,
     Resource::Crabs,
     Resource::Deer,
@@ -22,6 +23,7 @@ pub const RESOURCES: [Resource; 15] = [
 pub enum Resource {
     None,
     Bananas,
+    Bison,
     Coal,
     Crabs,
     Deer,
@@ -43,6 +45,7 @@ impl Resource {
         match self {
             Resource::None => "none",
             Resource::Bananas => "bananas",
+            Resource::Bison => "bison",
             Resource::Coal => "coal",
             Resource::Crabs => "crabs",
             Resource::Deer => "deer",

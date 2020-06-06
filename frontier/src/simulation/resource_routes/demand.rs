@@ -1,7 +1,8 @@
 use super::*;
 
-const HOMELAND_DEMAND: [Resource; 9] = [
+const HOMELAND_DEMAND: [Resource; 10] = [
     Resource::Bananas,
+    Resource::Bison,
     Resource::Deer,
     Resource::Fur,
     Resource::Gems,
@@ -46,6 +47,7 @@ fn get_demand(settlement: &Settlement, resource: Resource) -> Demand {
 fn get_sources(population: f64, resource: Resource) -> usize {
     let sources = match resource {
         Resource::Bananas => population / 32.0,
+        Resource::Bison => population / 32.0,
         Resource::Crabs => population / 32.0,
         Resource::Coal => population / 16.0,
         Resource::Deer => population / 32.0,
