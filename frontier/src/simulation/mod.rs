@@ -17,7 +17,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 mod farm;
-mod first_visited;
 mod homeland_population;
 mod natural_road;
 mod natural_town;
@@ -29,7 +28,6 @@ mod town_population;
 mod utils;
 
 pub use farm::*;
-pub use first_visited::*;
 pub use homeland_population::*;
 pub use natural_road::*;
 pub use natural_town::*;

@@ -43,6 +43,8 @@ impl ResourceRouteSim {
             routes.extend(self.step_settlement(&settlement).await);
         }
         println!("{} routes", routes.len());
+        let game_micros = self.get_game_micros().await;
+        self.update_routes_start_micros(&mut routes, game_micros);
         self.update_routes(routes).await;
     }
 
@@ -101,15 +103,25 @@ impl ResourceRouteSim {
             .await
     }
 
+    async fn get_game_micros(&mut self) -> u128 {
+        self.game_tx.update(|game| get_game_micros(game)).await
+    }
+
+    fn update_routes_start_micros(
+        &mut self,
+        routes: &mut HashMap<String, Route>,
+        start_micros: u128,
+    ) {
+        for route in routes.values_mut() {
+            route.start_micros = start_micros;
+        }
+    }
+
     async fn update_routes(&mut self, routes: HashMap<String, Route>) {
         self.game_tx
             .update(|game| update_routes(game, routes))
             .await;
     }
-}
-
-fn update_routes(game: &mut Game, routes: HashMap<String, Route>) {
-    game.mut_state().routes = routes
 }
 
 fn get_settlements(game: &mut Game) -> Vec<Settlement> {
@@ -128,6 +140,7 @@ fn get_closest_targets(
         .collect();
     pathfinder.closest_targets(&corners, &target_set, sources)
 }
+
 fn create_route(
     resource: Resource,
     settlement: V2<usize>,
@@ -143,6 +156,7 @@ fn create_route(
                 settlement,
                 path,
                 duration,
+                start_micros: 0,
                 traffic,
             },
         ))
@@ -153,4 +167,12 @@ fn create_route(
 
 fn route_name(resource: Resource, from: &V2<usize>, to: &V2<usize>) -> String {
     format!("{}-{:?}-{:?}", resource.name(), from, to)
+}
+
+fn get_game_micros(game: &mut Game) -> u128 {
+    game.game_state().game_micros
+}
+
+fn update_routes(game: &mut Game, routes: HashMap<String, Route>) {
+    game.mut_state().routes = routes
 }

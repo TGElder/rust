@@ -56,7 +56,9 @@ impl NaturalTownSim {
     }
 
     async fn step_async(&mut self) {
-        let mut visitors = self.compute_visitors().await;
+        let routes = self.get_routes().await;
+        self.update_first_visited(&routes).await;
+        let mut visitors = self.compute_visitors(&routes).await;
         visitors = self.filter_over_threshold(visitors);
         while let Some(town) = self.find_town_candidate(&visitors) {
             if self.build_town(town).await {
@@ -67,19 +69,30 @@ impl NaturalTownSim {
         }
     }
 
-    async fn compute_visitors(&mut self) -> HashMap<V2<usize>, usize> {
+    async fn get_routes(&mut self) -> Vec<String> {
+        self.game_tx.update(|game| get_routes(game)).await
+    }
+
+    async fn update_first_visited(&mut self, routes: &[String]) {
+        for batch in routes.chunks(ROUTE_BATCH_SIZE) {
+            self.update_first_visited_for_routes(batch.to_vec()).await;
+        }
+    }
+
+    async fn update_first_visited_for_routes(&mut self, routes: Vec<String>) {
+        self.game_tx
+            .update(move |game| update_first_visit_for_routes(game, routes))
+            .await;
+    }
+
+    async fn compute_visitors(&mut self, routes: &[String]) -> HashMap<V2<usize>, usize> {
         let mut out = HashMap::new();
-        let routes = self.get_routes().await;
         for batch in routes.chunks(ROUTE_BATCH_SIZE) {
             for (position, visitors) in self.compute_visitors_for_routes(batch.to_vec()).await {
                 *out.entry(position).or_insert(0) += visitors;
             }
         }
         out
-    }
-
-    async fn get_routes(&mut self) -> Vec<String> {
-        self.game_tx.update(|game| get_routes(game)).await
     }
 
     async fn compute_visitors_for_routes(
@@ -137,6 +150,38 @@ impl NaturalTownSim {
 
 fn get_routes(game: &Game) -> Vec<String> {
     game.game_state().routes.keys().cloned().collect()
+}
+
+fn update_first_visit_for_routes(game: &mut Game, routes: Vec<String>) {
+    for route in routes {
+        update_first_visit_for_route(game, route);
+    }
+}
+
+fn update_first_visit_for_route(game: &mut Game, route: String) {
+    let route = unwrap_or!(game.game_state().routes.get(&route), return);
+    let first_visit = FirstVisit {
+        when: route.start_micros + route.duration.as_micros(),
+        who: route.settlement,
+    };
+    let to_update: Vec<V2<usize>> = get_economic_activity_traffic(game, &route)
+        .map(|Traffic { position, .. }| position)
+        .collect();
+    for position in to_update {
+        update_first_visit_if_required(game, &position, first_visit);
+    }
+}
+
+fn update_first_visit_if_required(game: &mut Game, position: &V2<usize>, first_visit: FirstVisit) {
+    let maybe_first_visit = ok_or!(game.mut_state().first_visits.get_mut(position), return);
+    match maybe_first_visit {
+        None => *maybe_first_visit = Some(first_visit),
+        Some(FirstVisit {
+            when: current_first_visit,
+            ..
+        }) if first_visit.when < *current_first_visit => *maybe_first_visit = Some(first_visit),
+        _ => (),
+    };
 }
 
 fn compute_visitors_for_routes(game: &Game, routes: Vec<String>) -> HashMap<V2<usize>, usize> {

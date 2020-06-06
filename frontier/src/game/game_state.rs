@@ -112,6 +112,7 @@ mod tests {
                 settlement: v2(4, 1),
                 path: vec![v2(1, 0), v2(2, 0)],
                 traffic: 2,
+                start_micros: 1232,
                 duration: Duration::from_secs(3),
             },
         );
