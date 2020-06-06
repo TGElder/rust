@@ -25,7 +25,7 @@ impl AvatarArtistParams {
         AvatarArtistParams {
             pixels_per_cell: 1280.0,
             boat_params: DrawBoatParams {
-                width: 0.12,
+                width: 0.13,
                 side_height: 0.04,
                 bow_length: 0.06,
                 mast_height: 0.4,
@@ -55,7 +55,7 @@ impl AvatarArtist {
                     handle: "body".to_string(),
                     texture: "resources/textures/body.png".to_string(),
                     texture_width: 128,
-                    texture_height: 198,
+                    texture_height: 192,
                     mask: Some(ColorMask {
                         mask: "resources/textures/body.png".to_string(),
                         color: AvatarColor::Base,
