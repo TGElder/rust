@@ -111,7 +111,8 @@ impl PrimeMover {
         self.state.visible_routes.insert(name.to_string());
         let (color, skin_color) = unwrap_or!(avatar_colors(game_state, route), return);
         let mut positions = route.path.clone();
-        if !self.outbound(name) {
+        let outbound = self.outbound(name);
+        if !outbound {
             positions.reverse();
         }
         self.walk_positions(
@@ -120,7 +121,11 @@ impl PrimeMover {
             start_at,
             color,
             skin_color,
-            AvatarLoad::None,
+            if outbound {
+                AvatarLoad::None
+            } else {
+                AvatarLoad::Resource(route.resource)
+            },
         );
     }
 
