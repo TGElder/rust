@@ -5,5 +5,5 @@ use serde::{Deserialize, Serialize};
 pub enum WorldObject {
     None,
     Vegetation(VegetationType),
-    Farm { rotated: bool },
+    Crop { rotated: bool },
 }

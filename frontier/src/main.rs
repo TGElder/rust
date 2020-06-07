@@ -217,7 +217,7 @@ fn create_simulation(
 
     let territory_sim = TerritorySim::new(game_tx, pathfinder_tx, params.town_travel_duration);
     let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
-    let farm_sim = FarmSim::new(seed, game_tx);
+    let crop_sim = CropSim::new(seed, game_tx);
     let natural_town_sim = NaturalTownSim::new(game_tx, territory_sim.clone());
     let town_population_sim = TownPopulationSim::new(params.sim.town_population, game_tx);
     let natural_road_sim = NaturalRoadSim::new(
@@ -233,7 +233,7 @@ fn create_simulation(
         vec![
             Box::new(territory_sim),
             Box::new(resource_routes_sim),
-            Box::new(farm_sim),
+            Box::new(crop_sim),
             Box::new(natural_town_sim),
             Box::new(town_population_sim),
             Box::new(natural_road_sim),

@@ -1,4 +1,4 @@
-use super::farm_artist::*;
+use super::crop_artist::*;
 use super::resource_artist::*;
 use super::vegetation_artist::*;
 use super::*;
@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 pub struct WorldColoring<'a> {
     pub terrain: Box<dyn TerrainColoring<WorldCell> + 'a>,
-    pub farms: Box<dyn TerrainColoring<WorldCell> + 'a>,
+    pub crops: Box<dyn TerrainColoring<WorldCell> + 'a>,
 }
 
 #[derive(Hash, PartialEq, Eq, Debug)]
@@ -59,7 +59,7 @@ pub struct WorldArtist {
     drawing: TerrainDrawing,
     vegetation_artist: VegetationArtist,
     resource_artist: ResourceArtist,
-    farm_artist: FarmArtist,
+    crop_artist: CropArtist,
     params: WorldArtistParameters,
 }
 
@@ -79,7 +79,7 @@ impl WorldArtist {
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, params.slab_size),
             vegetation_artist: VegetationArtist::new(params.vegetation),
             resource_artist: ResourceArtist::new(params.resource),
-            farm_artist: FarmArtist::new(),
+            crop_artist: CropArtist::new(),
             params,
         }
     }
@@ -95,7 +95,7 @@ impl WorldArtist {
         let from = slab.from;
         let to = slab.to();
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
-        out.append(&mut self.draw_slab_farms(world, coloring, &from, &to));
+        out.append(&mut self.draw_slab_crops(world, coloring, &from, &to));
         out.append(&mut self.draw_slab_vegetation(world, &from, &to));
         out.append(&mut self.draw_slab_resources(world, &from, &to));
 
@@ -224,15 +224,15 @@ impl WorldArtist {
         out
     }
 
-    fn draw_slab_farms(
+    fn draw_slab_crops(
         &mut self,
         world: &World,
         coloring: &WorldColoring,
         from: &V2<usize>,
         to: &V2<usize>,
     ) -> Vec<Command> {
-        self.farm_artist
-            .draw(world, coloring.farms.as_ref(), from, to)
+        self.crop_artist
+            .draw(world, coloring.crops.as_ref(), from, to)
     }
 
     fn draw_slab_vegetation(

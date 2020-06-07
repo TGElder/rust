@@ -3,13 +3,13 @@ use super::*;
 use isometric::drawing::{textured_tiles, TerrainColoring, TexturedTile};
 use std::f32::consts::PI;
 
-const TEXTURE: &str = "resources/textures/farm.png";
+const TEXTURE: &str = "resources/textures/crop.png";
 
-pub struct FarmArtist {}
+pub struct CropArtist {}
 
-impl FarmArtist {
-    pub fn new() -> FarmArtist {
-        FarmArtist {}
+impl CropArtist {
+    pub fn new() -> CropArtist {
+        CropArtist {}
     }
 
     pub fn draw(
@@ -24,7 +24,7 @@ impl FarmArtist {
             for y in from.y..to.y {
                 let tile = v2(x, y);
                 if let Some(WorldCell {
-                    object: WorldObject::Farm { rotated },
+                    object: WorldObject::Crop { rotated },
                     ..
                 }) = world.get_cell(&tile)
                 {
@@ -45,5 +45,5 @@ impl FarmArtist {
 }
 
 fn name(from: &V2<usize>) -> String {
-    format!("{:?}-farms", from)
+    format!("{:?}-crop", from)
 }

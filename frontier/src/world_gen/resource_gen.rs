@@ -12,15 +12,15 @@ use std::default::Default;
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct FarmlandConstraints {
     pub min_groundwater: f32,
-    pub max_slope: f32,
+    pub max_arable_slope: f32,
     pub min_temperature: f32,
 }
 
 impl Default for FarmlandConstraints {
     fn default() -> FarmlandConstraints {
         FarmlandConstraints {
-            min_groundwater: 0.1,
-            max_slope: 0.2,
+            min_groundwater: 0.2,
+            max_arable_slope: 0.2,
             min_temperature: 0.0,
         }
     }
@@ -156,9 +156,14 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         if *resources.get_cell_unsafe(position) != Resource::None {
             return;
         }
-        let resource = [Resource::Farmland, Resource::Stone, Resource::Wood]
-            .iter()
-            .find(|&resource| self.is_candidate(*resource, position));
+        let resource = [
+            Resource::Crops,
+            Resource::Pasture,
+            Resource::Stone,
+            Resource::Wood,
+        ]
+        .iter()
+        .find(|&resource| self.is_candidate(*resource, position));
         if let Some(resource) = resource {
             *resources.mut_cell_unsafe(position) = *resource;
         }
@@ -190,12 +195,18 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             }
             Resource::Coal => !self.is_sea(position) && self.is_cliff(position),
             Resource::Crabs => self.in_shallow_sea(position),
+            Resource::Crops => {
+                !self.is_sea(position)
+                    && !self.has_object(position)
+                    && self.by_river(position)
+                    && self.is_arable_gradient(position)
+                    && self.is_farmable_climate(position)
+            }
             Resource::Deer => {
                 !self.is_sea(position)
                     && self.is_flat(position)
                     && self.among_vegetation_type(position, VegetationType::DeciduousTree)
             }
-            Resource::Farmland => !self.is_sea(position) && self.is_farmland_candidate(position),
             Resource::Fur => {
                 !self.is_sea(position)
                     && self.has_vegetation_type_adjacent(position, VegetationType::EvergreenTree)
@@ -207,6 +218,12 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                 !self.is_sea(position)
                     && self.is_flat(position)
                     && self.among_vegetation_type(position, VegetationType::PalmTree)
+            }
+            Resource::Pasture => {
+                !self.is_sea(position)
+                    && !self.has_object(position)
+                    && !self.is_cliff(position)
+                    && self.is_farmable_climate(position)
             }
             Resource::Spice => {
                 !self.is_sea(position)
@@ -356,13 +373,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         }
     }
 
-    fn is_farmland_candidate(&self, position: &V2<usize>) -> bool {
-        if self.is_sea(position)
-            || self.has_object(position)
-            || self.world.get_max_abs_rise(position) > self.params.resources.farmland.max_slope
-        {
-            return false;
-        }
+    fn is_farmable_climate(&self, position: &V2<usize>) -> bool {
         match self.world.get_cell(position) {
             Some(WorldCell { climate, .. })
                 if climate.temperature >= self.params.resources.farmland.min_temperature
@@ -374,9 +385,20 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         }
     }
 
+    fn is_arable_gradient(&self, position: &V2<usize>) -> bool {
+        self.world.get_max_abs_rise(position) <= self.params.resources.farmland.max_arable_slope
+    }
+
     fn in_river(&self, position: &V2<usize>) -> bool {
         let cell = unwrap_or!(self.world.get_cell(position), return false);
         cell.river.here()
+    }
+
+    fn by_river(&self, position: &V2<usize>) -> bool {
+        self.world
+            .get_corners_in_bounds(position)
+            .iter()
+            .any(|corner| self.world.get_cell_unsafe(corner).river.here())
     }
 }
 

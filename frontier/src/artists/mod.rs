@@ -1,5 +1,5 @@
 mod avatar_artist;
-mod farm_artist;
+mod crop_artist;
 mod resource_artist;
 mod vegetation_artist;
 mod world_artist;

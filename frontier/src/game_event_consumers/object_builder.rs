@@ -14,7 +14,7 @@ pub struct ObjectBuilder {
 }
 
 struct ObjectBuilderBindings {
-    build_farm: Button,
+    build_crop: Button,
     demolish: Button,
 }
 
@@ -24,7 +24,7 @@ impl ObjectBuilder {
             game_tx: game_tx.clone_with_handle(HANDLE),
             rng: SeedableRng::seed_from_u64(seed),
             bindings: ObjectBuilderBindings {
-                build_farm: Button::Key(VirtualKeyCode::F),
+                build_crop: Button::Key(VirtualKeyCode::F),
                 demolish: Button::Key(VirtualKeyCode::U),
             },
             world_coord: None,
@@ -75,9 +75,9 @@ impl GameEventConsumer for ObjectBuilder {
             ..
         } = *event
         {
-            if button == &self.bindings.build_farm {
+            if button == &self.bindings.build_crop {
                 let rotated = self.rng.gen();
-                self.build_object_at_cursor(WorldObject::Farm { rotated });
+                self.build_object_at_cursor(WorldObject::Crop { rotated });
             } else if button == &self.bindings.demolish {
                 self.clear_object_at_cursor();
             }

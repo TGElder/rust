@@ -16,7 +16,7 @@ pub struct WorldColoringParameters {
 pub fn world_coloring(game_state: &GameState, territory_layer: bool) -> WorldColoring {
     WorldColoring {
         terrain: terrain(game_state, territory_layer),
-        farms: farms(game_state, territory_layer),
+        crops: crops(game_state, territory_layer),
     }
 }
 
@@ -43,7 +43,7 @@ fn terrain<'a>(
     ))
 }
 
-fn farms<'a>(
+fn crops<'a>(
     game_state: &'a GameState,
     territory_layer: bool,
 ) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
@@ -134,7 +134,7 @@ impl<'a> TerrainColoring<WorldCell> for BaseColoring<'a> {
         tile: &V2<usize>,
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        if let WorldObject::Farm { .. } = self.game_state.world.get_cell_unsafe(tile).object {
+        if let WorldObject::Crop { .. } = self.game_state.world.get_cell_unsafe(tile).object {
             [None, None, None]
         } else {
             let color = Some(self.get_color(&self.game_state.world, tile));
