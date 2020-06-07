@@ -12,7 +12,7 @@ use std::default::Default;
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct FarmlandConstraints {
     pub min_groundwater: f32,
-    pub max_arable_slope: f32,
+    pub max_crops_slope: f32,
     pub min_temperature: f32,
 }
 
@@ -20,7 +20,7 @@ impl Default for FarmlandConstraints {
     fn default() -> FarmlandConstraints {
         FarmlandConstraints {
             min_groundwater: 0.2,
-            max_arable_slope: 0.2,
+            max_crops_slope: 0.2,
             min_temperature: 0.0,
         }
     }
@@ -196,11 +196,11 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             Resource::Coal => !self.is_sea(position) && self.is_cliff(position),
             Resource::Crabs => self.in_shallow_sea(position),
             Resource::Crops => {
-                !self.is_sea(position)
-                    && !self.has_object(position)
-                    && self.by_river(position)
-                    && self.is_arable_gradient(position)
-                    && self.is_farmable_climate(position)
+                !self.tile_is_beach(position)
+                    && !self.tile_has_object(position)
+                    && self.tile_by_river(position)
+                    && self.tile_is_arable_gradient(position)
+                    && self.tile_is_farmable_climate(position)
             }
             Resource::Deer => {
                 !self.is_sea(position)
@@ -220,10 +220,10 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                     && self.among_vegetation_type(position, VegetationType::PalmTree)
             }
             Resource::Pasture => {
-                !self.is_sea(position)
-                    && !self.has_object(position)
-                    && !self.is_cliff(position)
-                    && self.is_farmable_climate(position)
+                !self.tile_is_beach(position)
+                    && !self.tile_has_object(position)
+                    && !self.tile_is_cliff(position)
+                    && self.tile_is_farmable_climate(position)
             }
             Resource::Spice => {
                 !self.is_sea(position)
@@ -267,21 +267,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         self.world
             .get_adjacent_tiles_in_bounds(position)
             .iter()
-            .any(|position| self.has_vegetation_type_on_tile(position, vegetation_type))
-    }
-
-    fn has_vegetation_type_on_tile(
-        &self,
-        position: &V2<usize>,
-        vegetation_type: VegetationType,
-    ) -> bool {
-        match self.world.get_cell(position) {
-            Some(WorldCell {
-                object: WorldObject::Vegetation(actual),
-                ..
-            }) if *actual == vegetation_type => true,
-            _ => false,
-        }
+            .any(|position| self.tile_has_vegetation_type(position, vegetation_type))
     }
 
     fn among_vegetation_type(&self, position: &V2<usize>, vegetation_type: VegetationType) -> bool {
@@ -289,7 +275,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             .world
             .get_adjacent_tiles_in_bounds(position)
             .iter()
-            .any(|tile| self.has_object(tile))
+            .any(|tile| self.tile_has_object(tile))
         {
             return false;
         }
@@ -301,18 +287,6 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                 true
             }
             _ => false,
-        }
-    }
-
-    fn has_object(&self, position: &V2<usize>) -> bool {
-        if let Some(WorldCell {
-            object: WorldObject::None,
-            ..
-        }) = self.world.get_cell(position)
-        {
-            false
-        } else {
-            true
         }
     }
 
@@ -373,7 +347,42 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         }
     }
 
-    fn is_farmable_climate(&self, position: &V2<usize>) -> bool {
+    fn in_river(&self, position: &V2<usize>) -> bool {
+        let cell = unwrap_or!(self.world.get_cell(position), return false);
+        cell.river.here()
+    }
+
+    fn tile_has_vegetation_type(
+        &self,
+        position: &V2<usize>,
+        vegetation_type: VegetationType,
+    ) -> bool {
+        match self.world.get_cell(position) {
+            Some(WorldCell {
+                object: WorldObject::Vegetation(actual),
+                ..
+            }) if *actual == vegetation_type => true,
+            _ => false,
+        }
+    }
+
+    fn tile_has_object(&self, position: &V2<usize>) -> bool {
+        if let Some(WorldCell {
+            object: WorldObject::None,
+            ..
+        }) = self.world.get_cell(position)
+        {
+            false
+        } else {
+            true
+        }
+    }
+
+    fn tile_is_beach(&self, position: &V2<usize>) -> bool {
+        self.world.get_lowest_corner(position) <= self.params.beach_level
+    }
+
+    fn tile_is_farmable_climate(&self, position: &V2<usize>) -> bool {
         match self.world.get_cell(position) {
             Some(WorldCell { climate, .. })
                 if climate.temperature >= self.params.resources.farmland.min_temperature
@@ -385,16 +394,15 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         }
     }
 
-    fn is_arable_gradient(&self, position: &V2<usize>) -> bool {
-        self.world.get_max_abs_rise(position) <= self.params.resources.farmland.max_arable_slope
+    fn tile_is_cliff(&self, position: &V2<usize>) -> bool {
+        self.world.get_max_abs_rise(position) <= self.params.cliff_gradient
     }
 
-    fn in_river(&self, position: &V2<usize>) -> bool {
-        let cell = unwrap_or!(self.world.get_cell(position), return false);
-        cell.river.here()
+    fn tile_is_arable_gradient(&self, position: &V2<usize>) -> bool {
+        self.world.get_max_abs_rise(position) <= self.params.resources.farmland.max_crops_slope
     }
 
-    fn by_river(&self, position: &V2<usize>) -> bool {
+    fn tile_by_river(&self, position: &V2<usize>) -> bool {
         self.world
             .get_corners_in_bounds(position)
             .iter()
