@@ -69,21 +69,13 @@ impl ResourceRouteSim {
         let targets = self
             .get_closest_targets(settlement.position, demand.resource, demand.sources)
             .await;
-        if targets.is_empty() {
-            return out;
-        }
-        let mut traffic: Vec<usize> = vec![0; targets.len()];
-        for i in 0..demand.sources {
-            traffic[i % targets.len()] += 1
-        }
-        for i in 0..targets.len() {
-            let target = &targets[i % targets.len()];
+        for target in targets {
             out.extend(create_route(
                 demand.resource,
                 settlement.position,
                 target.path.clone(),
                 target.duration,
-                traffic[i],
+                demand.quantity,
             ));
         }
         out
