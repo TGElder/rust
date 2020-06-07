@@ -64,7 +64,7 @@ pub fn nation_descriptions() -> Vec<NationDescription> {
     vec![
         NationDescription {
             name: "China".to_string(),
-            color: Color::new(1.0, 0.87, 0.0, 1.0),
+            color: Color::new(1.0, 0.7, 0.0, 1.0),
             skin_color: medium_light_skin(),
             town_name_file: "resources/names/towns/china".to_string(),
         },
@@ -82,7 +82,7 @@ pub fn nation_descriptions() -> Vec<NationDescription> {
         },
         NationDescription {
             name: "India".to_string(),
-            color: Color::new(1.0, 0.6, 0.2, 1.0),
+            color: Color::new(1.0, 0.4, 0.0, 1.0),
             skin_color: medium_dark_skin(),
             town_name_file: "resources/names/towns/india".to_string(),
         },
@@ -112,7 +112,7 @@ pub fn nation_descriptions() -> Vec<NationDescription> {
         },
         NationDescription {
             name: "Nigeria".to_string(),
-            color: Color::new(0.0, 0.5, 0.0, 1.0),
+            color: Color::new(0.5, 1.0, 0.5, 1.0),
             skin_color: dark_skin(),
             town_name_file: "resources/names/towns/nigeria".to_string(),
         },
@@ -130,7 +130,7 @@ pub fn nation_descriptions() -> Vec<NationDescription> {
         },
         NationDescription {
             name: "Thailand".to_string(),
-            color: Color::new(0.8, 0.53, 0.87, 1.0),
+            color: Color::new(0.5, 0.0, 0.5, 1.0),
             skin_color: medium_skin(),
             town_name_file: "resources/names/towns/thailand".to_string(),
         },
@@ -142,7 +142,7 @@ pub fn nation_descriptions() -> Vec<NationDescription> {
         },
         NationDescription {
             name: "United Kingdom".to_string(),
-            color: Color::new(1.0, 0.6, 1.0, 1.0),
+            color: Color::new(1.0, 0.0, 1.0, 1.0),
             skin_color: light_skin(),
             town_name_file: "resources/names/towns/united_kingdom".to_string(),
         },
