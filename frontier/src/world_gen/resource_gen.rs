@@ -395,7 +395,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn tile_is_cliff(&self, position: &V2<usize>) -> bool {
-        self.world.get_max_abs_rise(position) <= self.params.cliff_gradient
+        self.world.get_max_abs_rise(position) > self.params.cliff_gradient
     }
 
     fn tile_is_arable_gradient(&self, position: &V2<usize>) -> bool {
