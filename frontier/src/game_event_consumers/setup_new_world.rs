@@ -3,10 +3,11 @@ use crate::game::{
     CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
 };
 use crate::game_event_consumers::VisibilityHandlerMessage;
-use crate::homeland_start::{HomelandStart, HomelandStartGen};
+use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
+use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;
 use commons::V2;
@@ -58,8 +59,35 @@ fn gen_homeland_starts<R: Rng>(
     rng: &mut R,
     params: &HomelandParams,
 ) -> Vec<HomelandStart> {
-    let mut gen = HomelandStartGen::new(world, rng, &params.edges, params.min_distance_between);
+    let min_distance_between_homelands =
+        min_distance_between_homelands(world, params.count, &params.edges);
+    let mut gen = HomelandStartGen::new(
+        world,
+        rng,
+        &params.edges,
+        Some(min_distance_between_homelands),
+    );
     (0..params.count).map(|_| gen.random_start()).collect()
+}
+
+fn min_distance_between_homelands(
+    world: &World,
+    homelands: usize,
+    edges: &[HomelandEdge],
+) -> usize {
+    (total_edge_positions(world, edges) as f32 / (homelands as f32 * 2.0)).ceil() as usize
+}
+
+fn total_edge_positions(world: &World, edges: &[HomelandEdge]) -> usize {
+    edges
+        .iter()
+        .map(|edge| match edge {
+            HomelandEdge::North => world.width(),
+            HomelandEdge::East => world.height(),
+            HomelandEdge::South => world.width(),
+            HomelandEdge::West => world.height(),
+        })
+        .sum()
 }
 
 fn get_visited_positions(homeland_starts: &[HomelandStart]) -> HashSet<V2<usize>> {
@@ -156,5 +184,25 @@ impl GameEventConsumer for SetupNewWorld {
 
     fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
         CaptureEvent::No
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use commons::M;
+
+    #[test]
+    fn test_min_distance_between_homelands() {
+        let world = World::new(M::zeros(1024, 512), 0.5);
+        let edges = vec![HomelandEdge::East, HomelandEdge::West];
+        assert_eq!(min_distance_between_homelands(&world, 8, &edges), 64);
+    }
+
+    #[test]
+    fn test_min_distance_between_homelands_rounds_up() {
+        let world = World::new(M::zeros(1024, 512), 0.5);
+        let edges = vec![HomelandEdge::East, HomelandEdge::West];
+        assert_eq!(min_distance_between_homelands(&world, 9, &edges), 57);
     }
 }

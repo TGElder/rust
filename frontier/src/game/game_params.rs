@@ -61,7 +61,6 @@ impl Default for GameParams {
 pub struct HomelandParams {
     pub count: usize,
     pub edges: Vec<HomelandEdge>,
-    pub min_distance_between: Option<usize>,
 }
 
 impl Default for HomelandParams {
@@ -69,7 +68,6 @@ impl Default for HomelandParams {
         HomelandParams {
             count: 8,
             edges: vec![HomelandEdge::East, HomelandEdge::West],
-            min_distance_between: Some(32),
         }
     }
 }
