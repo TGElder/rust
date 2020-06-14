@@ -59,8 +59,12 @@ impl VisibilityHandler {
     }
 
     fn tick(&mut self, game_state: &GameState) {
-        self.read_messages();
-        self.do_one_check(game_state);
+        if self.state.active {
+            self.read_messages();
+            self.do_one_check(game_state);
+        } else {
+            self.drain_messages();
+        }
     }
 
     fn read_messages(&mut self) {
@@ -132,10 +136,6 @@ impl GameEventConsumer for VisibilityHandler {
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        if !self.state.active {
-            self.drain_messages();
-            return CaptureEvent::No;
-        }
         match event {
             GameEvent::NewGame => self.new_game(game_state),
             GameEvent::Tick { .. } => self.tick(game_state),
