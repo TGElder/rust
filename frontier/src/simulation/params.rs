@@ -7,7 +7,7 @@ use std::default::Default;
 pub struct SimParams {
     pub start_year: u128,
     pub natural_road: NaturalRoadSimParams,
-    pub town_population: TownPopulationSimParams,
+    pub town_traffic: TownTrafficSimParams,
 }
 
 impl Default for SimParams {
@@ -15,7 +15,7 @@ impl Default for SimParams {
         SimParams {
             start_year: 0,
             natural_road: NaturalRoadSimParams::default(),
-            town_population: TownPopulationSimParams::default(),
+            town_traffic: TownTrafficSimParams::default(),
         }
     }
 }

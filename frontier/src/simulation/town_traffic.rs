@@ -8,28 +8,30 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::default::Default;
 
-const HANDLE: &str = "town_population_sim";
+const HANDLE: &str = "town_traffic_sim";
 const BATCH_SIZE: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TownPopulationSimParams {
+pub struct TownTrafficSimParams {
     population_per_traffic: f64,
+    nation_switch_pc_threshold: f32,
 }
 
-impl Default for TownPopulationSimParams {
-    fn default() -> TownPopulationSimParams {
-        TownPopulationSimParams {
+impl Default for TownTrafficSimParams {
+    fn default() -> TownTrafficSimParams {
+        TownTrafficSimParams {
             population_per_traffic: 0.5,
+            nation_switch_pc_threshold: 0.5,
         }
     }
 }
 
-pub struct TownPopulationSim {
-    params: TownPopulationSimParams,
+pub struct TownTrafficSim {
+    params: TownTrafficSimParams,
     game_tx: UpdateSender<Game>,
 }
 
-impl Step for TownPopulationSim {
+impl Step for TownTrafficSim {
     fn name(&self) -> &'static str {
         HANDLE
     }
@@ -41,9 +43,9 @@ impl Step for TownPopulationSim {
     }
 }
 
-impl TownPopulationSim {
-    pub fn new(params: TownPopulationSimParams, game_tx: &UpdateSender<Game>) -> TownPopulationSim {
-        TownPopulationSim {
+impl TownTrafficSim {
+    pub fn new(params: TownTrafficSimParams, game_tx: &UpdateSender<Game>) -> TownTrafficSim {
+        TownTrafficSim {
             params,
             game_tx: game_tx.clone_with_handle(HANDLE),
         }
@@ -86,6 +88,7 @@ impl TownPopulationSim {
         route_summaries: Vec<ControllerSummary>,
     ) -> HashMap<V2<usize>, SettlementUpdate> {
         let mut out = HashMap::new();
+        let mut position_to_traffic = HashMap::new();
         for summary in route_summaries {
             let activity = summary.get_activity();
             let activity_count = activity.len();
@@ -95,16 +98,52 @@ impl TownPopulationSim {
                     / activity_count as f64;
                 update.total_duration += summary.duration * summary.traffic.try_into().unwrap();
                 update.traffic += summary.traffic;
+
+                let nation_to_traffic = position_to_traffic
+                    .entry(position)
+                    .or_insert_with(HashMap::new);
+                *nation_to_traffic.entry(summary.nation.clone()).or_insert(0) += summary.traffic;
             }
         }
+
+        self.set_parent_updates(position_to_traffic, &mut out);
+
         out
     }
 
-    async fn update_settlements(&mut self, updates: HashMap<V2<usize>, SettlementUpdate>) {
+    fn set_parent_updates(
+        &self,
+        mut position_to_traffic: HashMap<V2<usize>, HashMap<String, usize>>,
+        updates: &mut HashMap<V2<usize>, SettlementUpdate>,
+    ) {
+        for (position, traffic) in position_to_traffic.drain() {
+            let update = updates
+                .entry(position)
+                .or_insert_with(SettlementUpdate::new);
+            self.set_parent_update(traffic, update);
+        }
+    }
+
+    fn set_parent_update(
+        &self,
+        mut nation_to_traffic: HashMap<String, usize>,
+        update: &mut SettlementUpdate,
+    ) {
+        let total: usize = nation_to_traffic.values().sum();
+        let (nation, max) = nation_to_traffic
+            .drain()
+            .max_by(|a, b| a.1.cmp(&b.1))
+            .unwrap();
+        if max as f32 / total as f32 >= self.params.nation_switch_pc_threshold {
+            update.nation = Some(nation);
+        }
+    }
+
+    async fn update_settlements(&mut self, mut updates: HashMap<V2<usize>, SettlementUpdate>) {
         for town in self.get_towns().await {
             self.update_settlement(
                 town,
-                *updates.get(&town).unwrap_or(&SettlementUpdate::new()),
+                updates.remove(&town).unwrap_or_else(SettlementUpdate::new),
             )
             .await
         }
@@ -166,7 +205,7 @@ fn update_settlement(game: &mut Game, settlement: V2<usize>, update: SettlementU
         target_population: update.population,
         gap_half_life: update.avg_duration().map(|duration| duration * 2),
         name: settlement.name.clone(),
-        nation: settlement.nation.clone(),
+        nation: update.nation.unwrap_or_else(|| settlement.nation.clone()),
         ..*settlement
     };
     game.update_settlement(updated_settlement);
@@ -174,6 +213,7 @@ fn update_settlement(game: &mut Game, settlement: V2<usize>, update: SettlementU
 #[derive(Debug)]
 pub struct ControllerSummary {
     origin: V2<usize>,
+    nation: String,
     destination: Option<V2<usize>>,
     ports: HashSet<V2<usize>>,
     traffic: usize,
@@ -210,6 +250,7 @@ impl ControllerSummary {
 
 pub struct PositionSummary {
     origin: V2<usize>,
+    nation: String,
     destination: V2<usize>,
     ports: Vec<V2<usize>>,
     traffic: usize,
@@ -232,6 +273,7 @@ impl PositionSummary {
         if let Some(&destination) = route.path.last() {
             Some(PositionSummary {
                 origin: route.settlement,
+                nation: settlement.nation.clone(),
                 destination,
                 ports: get_port_positions(game, &route.path).collect(),
                 traffic: route.traffic,
@@ -245,6 +287,7 @@ impl PositionSummary {
     fn to_controller_summary(&self, territory: &Territory) -> ControllerSummary {
         ControllerSummary {
             origin: self.origin,
+            nation: self.nation.clone(),
             destination: get_controller(territory, &self.destination),
             ports: self.get_port_controllers(territory),
             traffic: self.traffic,
@@ -274,11 +317,12 @@ fn get_controller(territory: &Territory, position: &V2<usize>) -> Option<V2<usiz
         .map(|claim| claim.controller)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct SettlementUpdate {
     population: f64,
     total_duration: Duration,
     traffic: usize,
+    nation: Option<String>,
 }
 
 impl SettlementUpdate {
@@ -287,6 +331,7 @@ impl SettlementUpdate {
             population: 0.0,
             total_duration: Duration::from_secs(0),
             traffic: 0,
+            nation: None,
         }
     }
 

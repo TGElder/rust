@@ -24,7 +24,7 @@ mod params;
 mod population_change;
 mod resource_routes;
 mod territory;
-mod town_population;
+mod town_traffic;
 mod utils;
 
 pub use crops::*;
@@ -35,7 +35,7 @@ pub use params::*;
 pub use population_change::*;
 pub use resource_routes::*;
 pub use territory::*;
-pub use town_population::*;
+pub use town_traffic::*;
 use utils::*;
 
 const STEP_CHECK_DELAY: Duration = Duration::from_millis(100);

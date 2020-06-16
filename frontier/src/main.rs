@@ -219,7 +219,7 @@ fn create_simulation(
     let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
     let crop_sim = CropSim::new(seed, game_tx);
     let natural_town_sim = NaturalTownSim::new(game_tx, territory_sim.clone());
-    let town_population_sim = TownPopulationSim::new(params.sim.town_population, game_tx);
+    let town_traffic_sim = TownTrafficSim::new(params.sim.town_traffic, game_tx);
     let natural_road_sim = NaturalRoadSim::new(
         params.sim.natural_road,
         AutoRoadTravelDuration::from_params(&params.auto_road_travel),
@@ -235,7 +235,7 @@ fn create_simulation(
             Box::new(resource_routes_sim),
             Box::new(crop_sim),
             Box::new(natural_town_sim),
-            Box::new(town_population_sim),
+            Box::new(town_traffic_sim),
             Box::new(natural_road_sim),
             Box::new(homeland_population_sim),
             Box::new(growth_sim),
