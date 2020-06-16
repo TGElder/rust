@@ -233,12 +233,12 @@ fn create_simulation(
         vec![
             Box::new(territory_sim),
             Box::new(resource_routes_sim),
-            Box::new(crop_sim),
+            Box::new(homeland_population_sim),
             Box::new(natural_town_sim),
             Box::new(town_traffic_sim),
-            Box::new(natural_road_sim),
-            Box::new(homeland_population_sim),
             Box::new(growth_sim),
+            Box::new(natural_road_sim),
+            Box::new(crop_sim),
         ],
     )
 }
