@@ -16,12 +16,12 @@ pub struct Simulation {
 
 impl Simulation {
     pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> Simulation {
-        let (update_tx, update_rx) = update_channel(UPDATE_CHANNEL_BOUND);
+        let (tx, rx) = update_channel(UPDATE_CHANNEL_BOUND);
 
         Simulation {
             processors,
-            tx: update_tx,
-            rx: update_rx,
+            tx,
+            rx,
             run: true,
             state: Some(State::default()),
         }

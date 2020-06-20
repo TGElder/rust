@@ -87,8 +87,8 @@ pub struct Game {
     previous_instant: Instant,
     consumers: Vec<Box<dyn GameEventConsumer>>,
     engine_tx: Sender<Vec<Command>>,
-    update_tx: UpdateSender<Game>,
-    update_rx: UpdateReceiver<Game>,
+    tx: UpdateSender<Game>,
+    rx: UpdateReceiver<Game>,
     avatar_travel_duration: AvatarTravelDuration,
     run: bool,
 }
@@ -99,13 +99,11 @@ impl Game {
         engine: &mut IsometricEngine,
         mut init_events: Vec<GameEvent>,
     ) -> Game {
-        let (update_tx, update_rx) = update_channel(UPDATE_CHANNEL_BOUND);
+        let (tx, rx) = update_channel(UPDATE_CHANNEL_BOUND);
 
-        engine.add_event_consumer(EventForwarder::new(
-            update_tx.clone_with_handle("event_forwarder"),
-        ));
+        engine.add_event_consumer(EventForwarder::new(tx.clone_with_handle("event_forwarder")));
 
-        update_tx.update(move |game| {
+        tx.update(move |game| {
             init_events
                 .drain(..)
                 .for_each(|event| game.consume_event(event))
@@ -119,8 +117,8 @@ impl Game {
             game_state,
             consumers: vec![],
             engine_tx: engine.command_tx(),
-            update_tx,
-            update_rx,
+            tx,
+            rx,
             run: true,
         }
     }
@@ -133,8 +131,8 @@ impl Game {
         &mut self.game_state
     }
 
-    pub fn update_tx(&self) -> &UpdateSender<Game> {
-        &self.update_tx
+    pub fn tx(&self) -> &UpdateSender<Game> {
+        &self.tx
     }
 
     pub fn add_consumer<T>(&mut self, consumer: T)
@@ -377,7 +375,7 @@ impl Game {
     pub fn run(&mut self) {
         while self.run {
             self.on_tick();
-            for update in self.update_rx.get_updates() {
+            for update in self.rx.get_updates() {
                 self.handle_update(update);
             }
         }

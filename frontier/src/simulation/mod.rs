@@ -54,8 +54,8 @@ pub struct SimulationState {
 
 pub struct Simulation {
     steps: Vec<Box<dyn Step + Send>>,
-    update_tx: UpdateSender<Simulation>,
-    update_rx: UpdateReceiver<Simulation>,
+    tx: UpdateSender<Simulation>,
+    rx: UpdateReceiver<Simulation>,
     state: SimulationState,
     run: bool,
     step: bool,
@@ -63,20 +63,20 @@ pub struct Simulation {
 
 impl Simulation {
     pub fn new(start_year: u128, steps: Vec<Box<dyn Step + Send>>) -> Simulation {
-        let (update_tx, update_rx) = update_channel(UPDATE_CHANNEL_BOUND);
+        let (tx, rx) = update_channel(UPDATE_CHANNEL_BOUND);
 
         Simulation {
             steps,
-            update_tx,
-            update_rx,
+            tx,
+            rx,
             state: SimulationState { year: start_year },
             run: true,
             step: true,
         }
     }
 
-    pub fn update_tx(&self) -> &UpdateSender<Simulation> {
-        &self.update_tx
+    pub fn tx(&self) -> &UpdateSender<Simulation> {
+        &self.tx
     }
 
     fn init(&mut self) {
@@ -93,7 +93,7 @@ impl Simulation {
     }
 
     fn step(&mut self) {
-        let updates = self.update_rx.get_updates();
+        let updates = self.rx.get_updates();
         process_updates(updates, self);
         if self.run && self.step {
             let year = &mut self.state.year;

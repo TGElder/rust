@@ -64,71 +64,62 @@ fn main() {
     )));
 
     let mut sim = Simulation::new(vec![
-        Box::new(TownsSim::new(game.update_tx())),
-        Box::new(TownSim::new(game.update_tx())),
+        Box::new(TownsSim::new(game.tx())),
+        Box::new(TownSim::new(game.tx())),
     ]);
 
-    game.add_consumer(EventHandlerAdapter::new(
-        ZoomHandler::default(),
-        game.update_tx(),
-    ));
+    game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
     // Controls
-    game.add_consumer(LabelEditorHandler::new(game.update_tx()));
-    game.add_consumer(RotateHandler::new(game.update_tx()));
-    game.add_consumer(BasicAvatarControls::new(game.update_tx()));
+    game.add_consumer(LabelEditorHandler::new(game.tx()));
+    game.add_consumer(RotateHandler::new(game.tx()));
+    game.add_consumer(BasicAvatarControls::new(game.tx()));
     game.add_consumer(PathfindingAvatarControls::new(
-        game.update_tx(),
+        game.tx(),
         &avatar_pathfinder,
         thread_pool.clone(),
     ));
-    game.add_consumer(BasicRoadBuilder::new(game.update_tx()));
+    game.add_consumer(BasicRoadBuilder::new(game.tx()));
     game.add_consumer(PathfindingRoadBuilder::new(
-        game.update_tx(),
+        game.tx(),
         &road_pathfinder,
         thread_pool.clone(),
     ));
-    game.add_consumer(ObjectBuilder::new(
-        game.game_state().params.seed,
-        game.update_tx(),
-    ));
-    game.add_consumer(TownBuilder::new(game.update_tx()));
-    game.add_consumer(Cheats::new(game.update_tx()));
-    game.add_consumer(Save::new(game.update_tx(), sim.tx()));
-    game.add_consumer(SelectAvatar::new(game.update_tx()));
-    game.add_consumer(SpeedControl::new(game.update_tx()));
+    game.add_consumer(ObjectBuilder::new(game.game_state().params.seed, game.tx()));
+    game.add_consumer(TownBuilder::new(game.tx()));
+    game.add_consumer(Cheats::new(game.tx()));
+    game.add_consumer(Save::new(game.tx(), sim.tx()));
+    game.add_consumer(SelectAvatar::new(game.tx()));
+    game.add_consumer(SpeedControl::new(game.tx()));
 
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
-    game.add_consumer(TownHouses::new(game.update_tx()));
-    game.add_consumer(TownLabels::new(game.update_tx()));
+    game.add_consumer(TownHouses::new(game.tx()));
+    game.add_consumer(TownLabels::new(game.tx()));
 
     // Visibility
-    let handler = VisibilityHandler::new(game.update_tx());
+    let handler = VisibilityHandler::new(game.tx());
     let from_avatar = VisibilityFromAvatar::new(handler.tx());
     let from_towns = VisibilityFromTowns::new(handler.tx());
     let from_roads = VisibilityFromRoads::new(handler.tx());
-    let setup_new_world = SetupNewWorld::new(game.update_tx(), handler.tx());
+    let setup_new_world = SetupNewWorld::new(game.tx(), handler.tx());
     game.add_consumer(from_avatar);
     game.add_consumer(from_towns);
     game.add_consumer(from_roads);
     game.add_consumer(handler);
     game.add_consumer(setup_new_world);
 
-    game.add_consumer(FollowAvatar::new(engine.command_tx(), game.update_tx()));
+    game.add_consumer(FollowAvatar::new(engine.command_tx(), game.tx()));
 
-    game.add_consumer(PrimeMover::new(
-        game.game_state().params.seed,
-        game.update_tx(),
-    ));
-    game.add_consumer(Voyager::new(game.update_tx()));
+    game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
+    game.add_consumer(Voyager::new(game.tx()));
     game.add_consumer(PathfinderUpdater::new(&avatar_pathfinder));
     game.add_consumer(PathfinderUpdater::new(&road_pathfinder));
     game.add_consumer(SimulationStateLoader::new(sim.tx()));
 
     game.add_consumer(ShutdownHandler::new(
-        game.update_tx(),
+        game.tx(),
         sim.tx(),
         thread_pool,
     ));
