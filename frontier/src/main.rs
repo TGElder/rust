@@ -15,7 +15,7 @@ mod pathfinder;
 mod road_builder;
 mod route;
 mod settlement;
-mod simulation;
+mod simulation_2;
 mod territory;
 mod travel_duration;
 mod visibility_computer;
@@ -30,11 +30,10 @@ use crate::territory::*;
 use crate::world_gen::*;
 use commons::futures::executor::ThreadPool;
 use commons::index2d::Vec2D;
-use commons::update::*;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
-use simulation::*;
+use simulation_2::{Simulation, SimulationStateLoader, TownSim, TownsSim};
 use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, RwLock};
@@ -64,11 +63,10 @@ fn main() {
         AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
     )));
 
-    let mut sim = create_simulation(
-        &game.game_state().params,
-        game.update_tx(),
-        &avatar_pathfinder,
-    );
+    let mut sim = Simulation::new(vec![
+        Box::new(TownsSim::new(game.update_tx())),
+        Box::new(TownSim::new(game.update_tx())),
+    ]);
 
     game.add_consumer(EventHandlerAdapter::new(
         ZoomHandler::default(),
@@ -96,7 +94,7 @@ fn main() {
     ));
     game.add_consumer(TownBuilder::new(game.update_tx()));
     game.add_consumer(Cheats::new(game.update_tx()));
-    game.add_consumer(Save::new(game.update_tx(), sim.update_tx()));
+    game.add_consumer(Save::new(game.update_tx(), sim.tx()));
     game.add_consumer(SelectAvatar::new(game.update_tx()));
     game.add_consumer(SpeedControl::new(game.update_tx()));
 
@@ -127,11 +125,11 @@ fn main() {
     game.add_consumer(Voyager::new(game.update_tx()));
     game.add_consumer(PathfinderUpdater::new(&avatar_pathfinder));
     game.add_consumer(PathfinderUpdater::new(&road_pathfinder));
-    game.add_consumer(ResourceRouteTargets::new(&avatar_pathfinder));
-    game.add_consumer(SimulationManager::new(sim.update_tx()));
+    game.add_consumer(SimulationStateLoader::new(sim.tx()));
+
     game.add_consumer(ShutdownHandler::new(
         game.update_tx(),
-        sim.update_tx(),
+        sim.tx(),
         thread_pool,
     ));
 
@@ -196,39 +194,4 @@ fn parse_args(args: Vec<String>) -> (GameState, Vec<GameEvent>) {
     } else {
         panic!("Invalid command line arguments");
     }
-}
-
-fn create_simulation(
-    params: &GameParams,
-    game_tx: &UpdateSender<Game>,
-    pathfinder: &Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
-) -> Simulation {
-    let seed = params.seed;
-
-    let territory_sim = TerritorySim::new(game_tx, pathfinder, params.town_travel_duration);
-    let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder);
-    let crop_sim = CropSim::new(seed, game_tx);
-    let natural_town_sim = NaturalTownSim::new(game_tx, territory_sim.clone());
-    let town_traffic_sim = TownTrafficSim::new(params.sim.town_traffic, game_tx);
-    let natural_road_sim = NaturalRoadSim::new(
-        params.sim.natural_road,
-        AutoRoadTravelDuration::from_params(&params.auto_road_travel),
-        game_tx,
-    );
-    let homeland_population_sim = HomelandPopulationSim::new(game_tx);
-    let growth_sim = PopulationChangeSim::new(game_tx);
-
-    Simulation::new(
-        params.sim.start_year,
-        vec![
-            Box::new(territory_sim),
-            Box::new(resource_routes_sim),
-            Box::new(homeland_population_sim),
-            Box::new(natural_town_sim),
-            Box::new(town_traffic_sim),
-            Box::new(growth_sim),
-            Box::new(natural_road_sim),
-            Box::new(crop_sim),
-        ],
-    )
 }

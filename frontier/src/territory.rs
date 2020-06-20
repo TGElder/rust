@@ -107,6 +107,7 @@ impl Territory {
             .min_by(|a, b| a.cmp(&b))
     }
 
+    #[allow(dead_code)] // TODO
     pub fn anyone_controls_tile(&self, position: &V2<usize>) -> bool {
         self.claims
             .get_corners_in_bounds(position)
@@ -122,6 +123,7 @@ impl Territory {
             .and_then(|map| map.values().min_by(|a, b| a.cmp(&b)))
     }
 
+    #[allow(dead_code)] // TODO
     pub fn controllers(&self) -> HashSet<V2<usize>> {
         self.territory.keys().cloned().collect()
     }

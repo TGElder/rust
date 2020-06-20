@@ -1,5 +1,6 @@
-use commons::V2;
+use commons::{v2, V2};
 use serde::{Deserialize, Serialize};
+use std::default::Default;
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -13,8 +14,28 @@ pub struct Settlement {
     pub gap_half_life: Option<Duration>,
 }
 
+impl Default for Settlement {
+    fn default() -> Settlement {
+        Settlement {
+            class: SettlementClass::default(),
+            position: v2(0, 0),
+            name: String::default(),
+            nation: String::default(),
+            current_population: 0.0,
+            target_population: 0.0,
+            gap_half_life: None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub enum SettlementClass {
     Town,
     Homeland,
+}
+
+impl Default for SettlementClass {
+    fn default() -> SettlementClass {
+        SettlementClass::Town
+    }
 }

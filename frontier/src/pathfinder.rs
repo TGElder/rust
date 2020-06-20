@@ -37,6 +37,7 @@ where
         }
     }
 
+    #[allow(dead_code)] // TODO
     pub fn in_bounds(&self, position: &V2<usize>) -> bool {
         self.index.get_index(position).is_ok()
     }
@@ -59,6 +60,7 @@ where
         self.index.get_position(network_index)
     }
 
+    #[allow(dead_code)] // TODO
     fn get_positions_from_network_indices(&self, network_indices: &[usize]) -> Vec<V2<usize>> {
         network_indices
             .iter()
@@ -170,6 +172,7 @@ where
         }
     }
 
+    #[allow(dead_code)] // TODO
     pub fn positions_within(
         &self,
         positions: &[V2<usize>],
@@ -193,15 +196,18 @@ where
             .collect()
     }
 
+    #[allow(dead_code)] // TODO
     pub fn init_targets(&mut self, name: String) {
         self.network.init_targets(name);
     }
 
+    #[allow(dead_code)] // TODO
     pub fn load_target(&mut self, name: &str, position: &V2<usize>, target: bool) {
         self.network
             .load_target(name, self.get_network_index(position), target)
     }
 
+    #[allow(dead_code)] // TODO
     fn as_closest_target_result(&self, result: NetworkClosestTargetResult) -> ClosestTargetResult {
         ClosestTargetResult {
             position: self.get_position_from_network_index(result.node).unwrap(),
@@ -210,6 +216,7 @@ where
         }
     }
 
+    #[allow(dead_code)] // TODO
     pub fn closest_targets(
         &self,
         positions: &[V2<usize>],

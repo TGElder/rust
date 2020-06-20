@@ -3,4 +3,5 @@
 frontier/save
 frontier/save.*
 frontier/test_save
+frontier/test_save.sim
 .vscode

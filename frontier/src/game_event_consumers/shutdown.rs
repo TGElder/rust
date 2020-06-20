@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::simulation::*;
+use crate::simulation_2::*;
 
 const HANDLE: &str = "shutdown_handler";
 

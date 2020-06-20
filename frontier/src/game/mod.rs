@@ -1,5 +1,6 @@
 mod game_params;
 mod game_state;
+pub mod traits;
 
 pub use game_params::*;
 pub use game_state::*;
@@ -302,6 +303,7 @@ impl Game {
         true
     }
 
+    #[allow(dead_code)] // TODO
     pub fn update_settlement(&mut self, settlement: Settlement) {
         self.game_state
             .settlements

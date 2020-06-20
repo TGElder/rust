@@ -3,7 +3,6 @@ use crate::game_event_consumers::{TownArtistParameters, WorldColoringParameters}
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
 use crate::road_builder::*;
-use crate::simulation::*;
 use crate::world_gen::*;
 use commons::*;
 use isometric::Color;
@@ -24,7 +23,6 @@ pub struct GameParams {
     pub town_travel_duration: Duration,
     pub avatars: usize,
     pub homeland: HomelandParams,
-    pub sim: SimParams,
     pub avatar_color: Color,
     pub town_artist: TownArtistParameters,
     pub homeland_distance: Duration,
@@ -46,7 +44,6 @@ impl Default for GameParams {
             town_travel_duration: Duration::from_secs(60 * 60 * 6),
             avatars: 4096,
             homeland: HomelandParams::default(),
-            sim: SimParams::default(),
             avatar_color: Color::new(0.5, 0.5, 0.5, 1.0),
             town_artist: TownArtistParameters::default(),
             homeland_distance: Duration::from_secs(0),

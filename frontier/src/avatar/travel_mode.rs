@@ -105,6 +105,7 @@ impl TravelModeFn {
         !from_classes.intersection(&to_classes).any(|_| true)
     }
 
+    #[allow(dead_code)] // TODO
     pub fn check_for_port(
         &self,
         world: &World,
