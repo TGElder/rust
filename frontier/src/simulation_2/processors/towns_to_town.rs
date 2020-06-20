@@ -1,16 +1,16 @@
 use super::*;
 use crate::game::traits::Settlements;
 
-const HANDLE: &str = "sim_town";
+const HANDLE: &str = "towns_to_town";
 
-pub struct TownSim<T>
+pub struct TownsToTown<T>
 where
     T: Settlements,
 {
     tx: UpdateSender<T>,
 }
 
-impl<T> Processor for TownSim<T>
+impl<T> Processor for TownsToTown<T>
 where
     T: Settlements,
 {
@@ -19,12 +19,12 @@ where
     }
 }
 
-impl<T> TownSim<T>
+impl<T> TownsToTown<T>
 where
     T: Settlements,
 {
-    pub fn new(tx: &UpdateSender<T>) -> TownSim<T> {
-        TownSim {
+    pub fn new(tx: &UpdateSender<T>) -> TownsToTown<T> {
+        TownsToTown {
             tx: tx.clone_with_handle(HANDLE),
         }
     }

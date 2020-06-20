@@ -2,16 +2,16 @@ use super::*;
 use crate::game::traits::Settlements;
 use crate::settlement::{Settlement, SettlementClass};
 
-const HANDLE: &str = "sim_step";
+const HANDLE: &str = "step_to_towns";
 
-pub struct TownsSim<T>
+pub struct StepToTowns<T>
 where
     T: Settlements,
 {
     tx: UpdateSender<T>,
 }
 
-impl<T> Processor for TownsSim<T>
+impl<T> Processor for StepToTowns<T>
 where
     T: Settlements,
 {
@@ -20,12 +20,12 @@ where
     }
 }
 
-impl<T> TownsSim<T>
+impl<T> StepToTowns<T>
 where
     T: Settlements,
 {
-    pub fn new(tx: &UpdateSender<T>) -> TownsSim<T> {
-        TownsSim {
+    pub fn new(tx: &UpdateSender<T>) -> StepToTowns<T> {
+        StepToTowns {
             tx: tx.clone_with_handle(HANDLE),
         }
     }
@@ -99,7 +99,7 @@ mod tests {
             }
         });
 
-        let mut sim = TownsSim::new(&tx);
+        let mut sim = StepToTowns::new(&tx);
         let state = block_on(async { sim.process(State::default(), &Instruction::Step).await });
         same_elements(
             &state.instructions,
@@ -125,7 +125,7 @@ mod tests {
             }
         });
 
-        let mut sim = TownsSim::new(&tx);
+        let mut sim = StepToTowns::new(&tx);
         let state = block_on(async { sim.process(State::default(), &Instruction::Step).await });
         assert!(state.instructions.is_empty());
         handle.join().unwrap();
