@@ -118,11 +118,7 @@ fn main() {
     game.add_consumer(PathfinderUpdater::new(&road_pathfinder));
     game.add_consumer(SimulationStateLoader::new(sim.tx()));
 
-    game.add_consumer(ShutdownHandler::new(
-        game.tx(),
-        sim.tx(),
-        thread_pool,
-    ));
+    game.add_consumer(ShutdownHandler::new(game.tx(), sim.tx(), thread_pool));
 
     let game_handle = thread::spawn(move || game.run());
     let sim_handle = thread::spawn(move || sim.run());
