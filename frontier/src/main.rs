@@ -35,7 +35,7 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation_2::processors::{
-    SettlementRefToSettlement, SettlementToDemands, StepToSettlementRefs,
+    InstructionLogger, SettlementRefToSettlement, SettlementToDemands, StepToSettlementRefs,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
@@ -72,6 +72,7 @@ fn main() {
         Box::new(SettlementRefToSettlement::new(game.tx())),
         Box::new(SettlementToDemands::new(town_demand_fn)),
         Box::new(SettlementToDemands::new(homeland_demand_fn)),
+        Box::new(InstructionLogger::new()),
     ]);
 
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
