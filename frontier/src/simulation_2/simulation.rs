@@ -130,7 +130,7 @@ mod tests {
     impl Processor for InstructionIntroducer {
         fn process(&mut self, mut state: State, _: &Instruction) -> State {
             if !self.introduced {
-                state.instructions = vec![Instruction::Town(v2(1, 1))];
+                state.instructions = vec![Instruction::SettlementRef(v2(1, 1))];
                 self.introduced = true;
             }
             state
@@ -189,7 +189,7 @@ mod tests {
         while !instructions
             .lock()
             .unwrap()
-            .contains(&Instruction::Town(v2(1, 1)))
+            .contains(&Instruction::SettlementRef(v2(1, 1)))
         {
             if start.elapsed().as_secs() > 10 {
                 panic!("No town instruction received after 10 seconds");
@@ -240,9 +240,9 @@ mod tests {
         let mut runner_1 = Simulation::new(vec![]);
         runner_1.state = Some(State {
             instructions: vec![
-                Instruction::Town(v2(1, 1)),
-                Instruction::Town(v2(2, 2)),
-                Instruction::Town(v2(3, 3)),
+                Instruction::SettlementRef(v2(1, 1)),
+                Instruction::SettlementRef(v2(2, 2)),
+                Instruction::SettlementRef(v2(3, 3)),
             ],
         });
         runner_1.save("test_save");
@@ -257,7 +257,7 @@ mod tests {
     fn should_not_step_after_loading_instructions() {
         let mut runner_1 = Simulation::new(vec![]);
         runner_1.state = Some(State {
-            instructions: vec![Instruction::Town(v2(1, 1))],
+            instructions: vec![Instruction::SettlementRef(v2(1, 1))],
         });
         runner_1.save("test_save");
 
@@ -273,7 +273,7 @@ mod tests {
         while !instructions
             .lock()
             .unwrap()
-            .contains(&Instruction::Town(v2(1, 1)))
+            .contains(&Instruction::SettlementRef(v2(1, 1)))
         {
             if start.elapsed().as_secs() > 10 {
                 panic!("No town instruction received after 10 seconds");
@@ -282,6 +282,9 @@ mod tests {
         block_on(async { tx.update(|sim| sim.shutdown()).await });
         handle.join().unwrap();
 
-        assert_eq!(instructions.lock().unwrap()[0], Instruction::Town(v2(1, 1)));
+        assert_eq!(
+            instructions.lock().unwrap()[0],
+            Instruction::SettlementRef(v2(1, 1))
+        );
     }
 }

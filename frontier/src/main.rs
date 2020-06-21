@@ -33,7 +33,10 @@ use commons::index2d::Vec2D;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
-use simulation_2::processors::{StepToTowns, TownsToTown};
+use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
+use simulation_2::processors::{
+    SettlementRefToSettlement, SettlementToDemands, StepToSettlementRefs,
+};
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
 use std::env;
@@ -65,8 +68,10 @@ fn main() {
     )));
 
     let mut sim = Simulation::new(vec![
-        Box::new(StepToTowns::new(game.tx())),
-        Box::new(TownsToTown::new(game.tx())),
+        Box::new(StepToSettlementRefs::new(game.tx())),
+        Box::new(SettlementRefToSettlement::new(game.tx())),
+        Box::new(SettlementToDemands::new(town_demand_fn)),
+        Box::new(SettlementToDemands::new(homeland_demand_fn)),
     ]);
 
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));

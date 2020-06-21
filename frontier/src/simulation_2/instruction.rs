@@ -1,7 +1,10 @@
 use super::*;
+use crate::settlement::Settlement;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
     Step,
-    Town(V2<usize>),
+    SettlementRef(V2<usize>),
+    Settlement(Settlement),
+    Demand(Demand),
 }
