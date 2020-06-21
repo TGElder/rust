@@ -40,6 +40,7 @@ impl Simulation {
             }
 
             self.process_instructions();
+            self.step();
         }
     }
 
@@ -50,13 +51,20 @@ impl Simulation {
 
     fn process_instructions(&mut self) {
         let mut state = self.state.take().expect("Simulation has lost state!");
-        state.instructions.push(Instruction::Step);
         while let Some(instruction) = state.instructions.pop() {
             for processor in self.processors.iter_mut() {
                 state = processor.process(state, &instruction);
             }
         }
         self.state = Some(state);
+    }
+
+    fn step(&mut self) {
+        self.state
+            .as_mut()
+            .expect("Simulation has lost state!")
+            .instructions
+            .push(Instruction::Step);
     }
 
     pub fn shutdown(&mut self) {
@@ -243,5 +251,37 @@ mod tests {
         runner_2.load("test_save");
 
         assert_eq!(runner_1.state, runner_2.state);
+    }
+
+    #[test]
+    fn should_not_step_after_loading_instructions() {
+        let mut runner_1 = Simulation::new(vec![]);
+        runner_1.state = Some(State {
+            instructions: vec![Instruction::Town(v2(1, 1))],
+        });
+        runner_1.save("test_save");
+
+        let receiver = InstructionRetriever::new();
+        let instructions = receiver.instructions.clone();
+
+        let mut runner_2 = Simulation::new(vec![Box::new(receiver)]);
+        runner_2.load("test_save");
+        let tx = runner_2.tx().clone();
+
+        let handle = thread::spawn(move || runner_2.run());
+        let start = Instant::now();
+        while !instructions
+            .lock()
+            .unwrap()
+            .contains(&Instruction::Town(v2(1, 1)))
+        {
+            if start.elapsed().as_secs() > 10 {
+                panic!("No town instruction received after 10 seconds");
+            }
+        }
+        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        handle.join().unwrap();
+
+        assert_eq!(instructions.lock().unwrap()[0], Instruction::Town(v2(1, 1)));
     }
 }
