@@ -1,10 +1,8 @@
 mod game_params;
 mod game_state;
-mod pathfinder_service;
 
 pub use game_params::*;
 pub use game_state::*;
-pub use pathfinder_service::*;
 
 use crate::avatar::*;
 use crate::road_builder::*;

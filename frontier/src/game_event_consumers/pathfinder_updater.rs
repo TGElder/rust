@@ -1,26 +1,27 @@
 use super::*;
 use crate::pathfinder::*;
 use crate::travel_duration::*;
-use commons::Arm;
-use std::sync::MutexGuard;
+use std::sync::{Arc, RwLock, RwLockWriteGuard};
 
 pub struct PathfinderUpdater<T>
 where
     T: TravelDuration,
 {
-    pathfinder: Arm<Pathfinder<T>>,
+    pathfinder: Arc<RwLock<Pathfinder<T>>>,
 }
 
 impl<T> PathfinderUpdater<T>
 where
     T: TravelDuration + Sync + 'static,
 {
-    pub fn new(pathfinder: Arm<Pathfinder<T>>) -> PathfinderUpdater<T> {
-        PathfinderUpdater { pathfinder }
+    pub fn new(pathfinder: &Arc<RwLock<Pathfinder<T>>>) -> PathfinderUpdater<T> {
+        PathfinderUpdater {
+            pathfinder: pathfinder.clone(),
+        }
     }
 
-    fn pathfinder(&mut self) -> MutexGuard<Pathfinder<T>> {
-        self.pathfinder.lock().unwrap()
+    fn pathfinder(&mut self) -> RwLockWriteGuard<Pathfinder<T>> {
+        self.pathfinder.write().unwrap()
     }
 
     fn reset_pathfinder(&mut self, game_state: &GameState) {

@@ -1,7 +1,9 @@
 use super::*;
+use crate::pathfinder::Pathfinder;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, MouseButton, VirtualKeyCode};
 use std::default::Default;
+use std::sync::RwLock;
 
 const HANDLE: &str = "pathfinder_avatar_controls";
 
@@ -21,7 +23,7 @@ impl Default for PathfinderAvatarBindings {
 
 pub struct PathfindingAvatarControls {
     game_tx: UpdateSender<Game>,
-    pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
+    pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pool: ThreadPool,
     world_coord: Option<WorldCoord>,
     bindings: PathfinderAvatarBindings,
@@ -30,12 +32,12 @@ pub struct PathfindingAvatarControls {
 impl PathfindingAvatarControls {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
+        pathfinder: &Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
         pool: ThreadPool,
     ) -> PathfindingAvatarControls {
         PathfindingAvatarControls {
             game_tx: game_tx.clone_with_handle(HANDLE),
-            pathfinder_tx: pathfinder_tx.clone_with_handle(HANDLE),
+            pathfinder: pathfinder.clone(),
             pool,
             bindings: PathfinderAvatarBindings::default(),
             world_coord: None,
@@ -45,14 +47,15 @@ impl PathfindingAvatarControls {
     fn walk_to(&mut self) {
         let to = unwrap_or!(self.world_coord, return).to_v2_round();
         let game_tx = self.game_tx.clone();
-        let pathfinder_tx = self.pathfinder_tx.clone();
+        let pathfinder = self.pathfinder.clone();
         self.pool.spawn_ok(async move {
             if let Some((name, stop_position, stop_micros)) =
                 game_tx.update(move |game| stop_selected_avatar(game)).await
             {
-                let positions = pathfinder_tx
-                    .update(move |service| service.pathfinder().find_path(&[stop_position], &[to]))
-                    .await;
+                let positions = pathfinder
+                    .read()
+                    .unwrap()
+                    .find_path(&[stop_position], &[to]);
                 if let Some(positions) = positions {
                     game_tx.update(move |game| {
                         game.walk_positions(name, positions, stop_micros, None, None);

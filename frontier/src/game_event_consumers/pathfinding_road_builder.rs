@@ -1,12 +1,14 @@
 use super::*;
+use crate::pathfinder::Pathfinder;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
+use std::sync::RwLock;
 
 const HANDLE: &str = "pathfinding_road_builder";
 
 pub struct PathfindingRoadBuilder {
     game_tx: UpdateSender<Game>,
-    pathfinder_tx: UpdateSender<PathfinderService<AutoRoadTravelDuration>>,
+    pathfinder: Arc<RwLock<Pathfinder<AutoRoadTravelDuration>>>,
     pool: ThreadPool,
     world_coord: Option<WorldCoord>,
     binding: Button,
@@ -15,12 +17,12 @@ pub struct PathfindingRoadBuilder {
 impl PathfindingRoadBuilder {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        pathfinder_tx: &UpdateSender<PathfinderService<AutoRoadTravelDuration>>,
+        pathfinder: &Arc<RwLock<Pathfinder<AutoRoadTravelDuration>>>,
         pool: ThreadPool,
     ) -> PathfindingRoadBuilder {
         PathfindingRoadBuilder {
             game_tx: game_tx.clone_with_handle(HANDLE),
-            pathfinder_tx: pathfinder_tx.clone_with_handle(HANDLE),
+            pathfinder: pathfinder.clone(),
             pool,
             world_coord: None,
             binding: Button::Key(VirtualKeyCode::X),
@@ -36,12 +38,10 @@ impl PathfindingRoadBuilder {
             _ => return,
         };
         let to = unwrap_or!(self.world_coord, return).to_v2_round();
-        let pathfinder_tx = self.pathfinder_tx.clone();
+        let pathfinder = self.pathfinder.clone();
         let game_tx = self.game_tx.clone();
         self.pool.spawn_ok(async move {
-            let result = pathfinder_tx
-                .update(move |service| auto_build_road(from, to, &service.pathfinder()))
-                .await;
+            let result = auto_build_road(from, to, &pathfinder.read().unwrap());
             if let Some(result) = result {
                 game_tx.update(move |game| game.update_roads(result));
             }

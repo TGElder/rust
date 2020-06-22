@@ -37,7 +37,7 @@ use isometric::{IsometricEngine, IsometricEngineParameters};
 use simulation::*;
 use std::collections::HashMap;
 use std::env;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
@@ -55,21 +55,19 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let avatar_pathfinder = Arc::new(Mutex::new(Pathfinder::new(
+    let avatar_pathfinder = Arc::new(RwLock::new(Pathfinder::new(
         &game.game_state().world,
         AvatarTravelDuration::from_params(&game.game_state().params.avatar_travel),
     )));
-    let mut avatar_pathfinder_service = PathfinderService::new(avatar_pathfinder.clone());
-    let road_pathfinder = Arc::new(Mutex::new(Pathfinder::new(
+    let road_pathfinder = Arc::new(RwLock::new(Pathfinder::new(
         &game.game_state().world,
         AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
     )));
-    let mut road_pathfinder_service = PathfinderService::new(road_pathfinder.clone());
 
     let mut sim = create_simulation(
         &game.game_state().params,
         game.update_tx(),
-        avatar_pathfinder_service.update_tx(),
+        &avatar_pathfinder,
     );
 
     game.add_consumer(EventHandlerAdapter::new(
@@ -83,13 +81,13 @@ fn main() {
     game.add_consumer(BasicAvatarControls::new(game.update_tx()));
     game.add_consumer(PathfindingAvatarControls::new(
         game.update_tx(),
-        avatar_pathfinder_service.update_tx(),
+        &avatar_pathfinder,
         thread_pool.clone(),
     ));
     game.add_consumer(BasicRoadBuilder::new(game.update_tx()));
     game.add_consumer(PathfindingRoadBuilder::new(
         game.update_tx(),
-        road_pathfinder_service.update_tx(),
+        &road_pathfinder,
         thread_pool.clone(),
     ));
     game.add_consumer(ObjectBuilder::new(
@@ -127,22 +125,16 @@ fn main() {
         game.update_tx(),
     ));
     game.add_consumer(Voyager::new(game.update_tx()));
-    game.add_consumer(PathfinderUpdater::new(avatar_pathfinder));
-    game.add_consumer(PathfinderUpdater::new(road_pathfinder));
-    game.add_consumer(ResourceRouteTargets::new(
-        avatar_pathfinder_service.update_tx(),
-    ));
+    game.add_consumer(PathfinderUpdater::new(&avatar_pathfinder));
+    game.add_consumer(PathfinderUpdater::new(&road_pathfinder));
+    game.add_consumer(ResourceRouteTargets::new(&avatar_pathfinder));
     game.add_consumer(SimulationManager::new(sim.update_tx()));
     game.add_consumer(ShutdownHandler::new(
-        avatar_pathfinder_service.update_tx(),
-        road_pathfinder_service.update_tx(),
         game.update_tx(),
         sim.update_tx(),
         thread_pool,
     ));
 
-    let avatar_pathfinder_handle = thread::spawn(move || avatar_pathfinder_service.run());
-    let road_pathfinder_handle = thread::spawn(move || road_pathfinder_service.run());
     let game_handle = thread::spawn(move || game.run());
     let sim_handle = thread::spawn(move || sim.run());
 
@@ -150,8 +142,6 @@ fn main() {
 
     sim_handle.join().unwrap();
     game_handle.join().unwrap();
-    road_pathfinder_handle.join().unwrap();
-    avatar_pathfinder_handle.join().unwrap();
 }
 
 fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) {
@@ -211,12 +201,12 @@ fn parse_args(args: Vec<String>) -> (GameState, Vec<GameEvent>) {
 fn create_simulation(
     params: &GameParams,
     game_tx: &UpdateSender<Game>,
-    pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
+    pathfinder: &Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 ) -> Simulation {
     let seed = params.seed;
 
-    let territory_sim = TerritorySim::new(game_tx, pathfinder_tx, params.town_travel_duration);
-    let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder_tx);
+    let territory_sim = TerritorySim::new(game_tx, pathfinder, params.town_travel_duration);
+    let resource_routes_sim = ResourceRouteSim::new(game_tx, pathfinder);
     let crop_sim = CropSim::new(seed, game_tx);
     let natural_town_sim = NaturalTownSim::new(game_tx, territory_sim.clone());
     let town_traffic_sim = TownTrafficSim::new(params.sim.town_traffic, game_tx);

@@ -5,12 +5,13 @@ use super::*;
 use crate::route::*;
 use commons::grid::get_corners;
 use std::collections::HashMap;
+use std::sync::RwLock;
 
 const HANDLE: &str = "resource_route_sim";
 
 pub struct ResourceRouteSim {
     game_tx: UpdateSender<Game>,
-    pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
+    pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 }
 
 impl Step for ResourceRouteSim {
@@ -28,11 +29,11 @@ impl Step for ResourceRouteSim {
 impl ResourceRouteSim {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
+        pathfinder: &Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     ) -> ResourceRouteSim {
         ResourceRouteSim {
             game_tx: game_tx.clone_with_handle(HANDLE),
-            pathfinder_tx: pathfinder_tx.clone_with_handle(HANDLE),
+            pathfinder: pathfinder.clone(),
         }
     }
 
@@ -40,7 +41,7 @@ impl ResourceRouteSim {
         let mut routes = HashMap::new();
         let settlements = self.get_settlements().await;
         for settlement in settlements {
-            routes.extend(self.step_settlement(&settlement).await);
+            routes.extend(self.step_settlement(&settlement));
         }
         println!("{} routes", routes.len());
         let game_micros = self.get_game_micros().await;
@@ -52,23 +53,22 @@ impl ResourceRouteSim {
         self.game_tx.update(|game| get_settlements(game)).await
     }
 
-    async fn step_settlement(&mut self, settlement: &Settlement) -> HashMap<String, Route> {
+    fn step_settlement(&mut self, settlement: &Settlement) -> HashMap<String, Route> {
         let mut out = HashMap::new();
         for demand in get_demands(&settlement) {
-            out.extend(self.create_routes_from_demand(settlement, demand).await)
+            out.extend(self.create_routes_from_demand(settlement, demand))
         }
         out
     }
 
-    async fn create_routes_from_demand(
+    fn create_routes_from_demand(
         &mut self,
         settlement: &Settlement,
         demand: Demand,
     ) -> HashMap<String, Route> {
         let mut out = HashMap::new();
-        let targets = self
-            .get_closest_targets(settlement.position, demand.resource, demand.sources)
-            .await;
+        let targets =
+            self.get_closest_targets(settlement.position, demand.resource, demand.sources);
         for target in targets {
             out.extend(create_route(
                 demand.resource,
@@ -81,18 +81,19 @@ impl ResourceRouteSim {
         out
     }
 
-    async fn get_closest_targets(
+    fn get_closest_targets(
         &mut self,
         settlement: V2<usize>,
         resource: Resource,
         sources: usize,
     ) -> Vec<ClosestTargetResult> {
         let target_set = target_set(resource);
-        self.pathfinder_tx
-            .update(move |service| {
-                get_closest_targets(&mut service.pathfinder(), settlement, target_set, sources)
-            })
-            .await
+        let pathfinder = self.pathfinder.read().unwrap();
+        let corners: Vec<V2<usize>> = get_corners(&settlement)
+            .drain(..)
+            .filter(|corner| pathfinder.in_bounds(corner))
+            .collect();
+        pathfinder.closest_targets(&corners, &target_set, sources)
     }
 
     async fn get_game_micros(&mut self) -> u128 {
@@ -118,19 +119,6 @@ impl ResourceRouteSim {
 
 fn get_settlements(game: &mut Game) -> Vec<Settlement> {
     game.game_state().settlements.values().cloned().collect()
-}
-
-fn get_closest_targets(
-    pathfinder: &mut Pathfinder<AvatarTravelDuration>,
-    settlement: V2<usize>,
-    target_set: String,
-    sources: usize,
-) -> Vec<ClosestTargetResult> {
-    let corners: Vec<V2<usize>> = get_corners(&settlement)
-        .drain(..)
-        .filter(|corner| pathfinder.in_bounds(corner))
-        .collect();
-    pathfinder.closest_targets(&corners, &target_set, sources)
 }
 
 fn create_route(

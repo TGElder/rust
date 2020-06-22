@@ -2,19 +2,18 @@ use super::*;
 
 use commons::grid::Grid;
 use std::collections::HashSet;
+use std::sync::RwLock;
 
 const HANDLE: &str = "resource_route_targets";
 
 pub struct ResourceRouteTargets {
-    pathfinder_tx: UpdateSender<PathfinderService<AvatarTravelDuration>>,
+    pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 }
 
 impl ResourceRouteTargets {
-    pub fn new(
-        pathfinder_tx: &UpdateSender<PathfinderService<AvatarTravelDuration>>,
-    ) -> ResourceRouteTargets {
+    pub fn new(pathfinder: &Arc<RwLock<Pathfinder<AvatarTravelDuration>>>) -> ResourceRouteTargets {
         ResourceRouteTargets {
-            pathfinder_tx: pathfinder_tx.clone_with_handle(HANDLE),
+            pathfinder: pathfinder.clone(),
         }
     }
 
@@ -26,12 +25,15 @@ impl ResourceRouteTargets {
 
     fn init_resource(&mut self, game_state: &GameState, resource: Resource) {
         let targets = get_targets(game_state, resource);
-        block_on(self.load_targets(target_set(resource), targets));
+        self.load_targets(target_set(resource), targets);
     }
 
-    async fn load_targets(&mut self, target_set: String, targets: HashSet<V2<usize>>) {
-        self.pathfinder_tx
-            .update(move |service| load_targets(&mut service.pathfinder(), target_set, targets));
+    fn load_targets(&self, target_set: String, targets: HashSet<V2<usize>>) {
+        let mut pathfinder = self.pathfinder.write().unwrap();
+        pathfinder.init_targets(target_set.clone());
+        for target in targets {
+            pathfinder.load_target(&target_set, &target, true)
+        }
     }
 }
 
@@ -57,17 +59,6 @@ fn resource_at(game_state: &GameState, resource: Resource, position: &V2<usize>)
 
 pub fn target_set(resource: Resource) -> String {
     format!("resource-{}", resource.name())
-}
-
-fn load_targets(
-    pathfinder: &mut Pathfinder<AvatarTravelDuration>,
-    target_set: String,
-    targets: HashSet<V2<usize>>,
-) {
-    pathfinder.init_targets(target_set.clone());
-    for target in targets {
-        pathfinder.load_target(&target_set, &target, true)
-    }
 }
 
 impl GameEventConsumer for ResourceRouteTargets {
