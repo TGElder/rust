@@ -34,6 +34,7 @@ use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
+use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
     InstructionLogger, SettlementRefToSettlement, SettlementToDemands, StepToSettlementRefs,
 };
@@ -98,6 +99,7 @@ fn main() {
     game.add_consumer(Save::new(game.tx(), sim.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
+    game.add_consumer(ResourceTargets::new(game.tx(), &avatar_pathfinder));
 
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));

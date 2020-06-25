@@ -1,3 +1,4 @@
+use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets};
 use crate::travel_duration::*;
 use crate::world::*;
 use commons::index2d::*;
@@ -16,13 +17,6 @@ where
     index: Index2D,
     travel_duration: T,
     network: Network,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ClosestTargetResult {
-    pub position: V2<usize>,
-    pub path: Vec<V2<usize>>,
-    pub duration: Duration,
 }
 
 impl<T> Pathfinder<T>
@@ -196,18 +190,6 @@ where
             .collect()
     }
 
-    #[allow(dead_code)] // TODO
-    pub fn init_targets(&mut self, name: String) {
-        self.network.init_targets(name);
-    }
-
-    #[allow(dead_code)] // TODO
-    pub fn load_target(&mut self, name: &str, position: &V2<usize>, target: bool) {
-        self.network
-            .load_target(name, self.get_network_index(position), target)
-    }
-
-    #[allow(dead_code)] // TODO
     fn as_closest_target_result(&self, result: NetworkClosestTargetResult) -> ClosestTargetResult {
         ClosestTargetResult {
             position: self.get_position_from_network_index(result.node).unwrap(),
@@ -215,9 +197,22 @@ where
             duration: self.travel_duration.get_duration_from_cost(result.cost),
         }
     }
+}
 
-    #[allow(dead_code)] // TODO
-    pub fn closest_targets(
+impl<T> ClosestTargets for Pathfinder<T>
+where
+    T: TravelDuration,
+{
+    fn init_targets(&mut self, name: String) {
+        self.network.init_targets(name);
+    }
+
+    fn load_target(&mut self, name: &str, position: &V2<usize>, target: bool) {
+        self.network
+            .load_target(name, self.get_network_index(position), target)
+    }
+
+    fn closest_targets(
         &self,
         positions: &[V2<usize>],
         targets: &str,

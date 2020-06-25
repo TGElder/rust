@@ -11,6 +11,7 @@ use commons::index2d::Vec2D;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::default::Default;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
@@ -28,6 +29,26 @@ pub struct GameState {
     pub territory: Territory,
     pub first_visits: Vec2D<Option<FirstVisit>>,
     pub speed: f32,
+}
+
+impl Default for GameState {
+    fn default() -> GameState {
+        let world = World::new(M::zeros(1, 1), 0.0);
+        GameState {
+            game_micros: 0,
+            params: GameParams::default(),
+            avatars: HashMap::new(),
+            nations: HashMap::new(),
+            settlements: HashMap::new(),
+            selected_avatar: None,
+            follow_avatar: false,
+            routes: HashMap::new(),
+            territory: Territory::new(&world),
+            first_visits: Vec2D::same_size_as(&world, None),
+            speed: 0.0,
+            world,
+        }
+    }
 }
 
 #[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]

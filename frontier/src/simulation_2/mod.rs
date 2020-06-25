@@ -1,4 +1,5 @@
 mod demand;
+pub mod game_event_consumers;
 mod instruction;
 mod processor;
 pub mod processors;
@@ -18,3 +19,4 @@ use commons::futures::executor::block_on;
 use commons::update::UpdateSender;
 use commons::V2;
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, RwLock};
