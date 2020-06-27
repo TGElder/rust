@@ -77,8 +77,8 @@ mod tests {
         assert_eq!(
             state.instructions,
             vec![
-                Instruction::Demand(expected[0].clone()),
-                Instruction::Demand(expected[1].clone()),
+                Instruction::Demand(expected[0]),
+                Instruction::Demand(expected[1]),
             ]
         );
     }

@@ -4,7 +4,7 @@ use crate::world::Resource;
 use commons::v2;
 use std::default::Default;
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Demand {
     pub position: V2<usize>,
     pub resource: Resource,

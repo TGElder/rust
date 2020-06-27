@@ -36,7 +36,8 @@ use isometric::{IsometricEngine, IsometricEngineParameters};
 use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
-    InstructionLogger, SettlementRefToSettlement, SettlementToDemands, StepToSettlementRefs,
+    DemandToRoutes, InstructionLogger, SettlementRefToSettlement, SettlementToDemands,
+    StepToSettlementRefs,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
@@ -73,6 +74,7 @@ fn main() {
         Box::new(SettlementRefToSettlement::new(game.tx())),
         Box::new(SettlementToDemands::new(town_demand_fn)),
         Box::new(SettlementToDemands::new(homeland_demand_fn)),
+        Box::new(DemandToRoutes::new(&avatar_pathfinder)),
         Box::new(InstructionLogger::new()),
     ]);
 
@@ -99,7 +101,7 @@ fn main() {
     game.add_consumer(Save::new(game.tx(), sim.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
-    game.add_consumer(ResourceTargets::new(game.tx(), &avatar_pathfinder));
+    game.add_consumer(ResourceTargets::new(&avatar_pathfinder));
 
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));

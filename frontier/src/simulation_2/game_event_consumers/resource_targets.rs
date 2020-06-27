@@ -1,6 +1,5 @@
 use super::*;
 
-use crate::game::traits::HasWorld;
 use crate::game::{CaptureEvent, GameEvent, GameEventConsumer, GameState};
 use crate::pathfinder::traits::ClosestTargets;
 use crate::world::{Resource, World, RESOURCES};
@@ -11,35 +10,31 @@ use std::collections::HashSet;
 
 const HANDLE: &str = "resource_route_targets";
 
-pub struct ResourceTargets<G, P>
+pub struct ResourceTargets<P>
 where
     P: ClosestTargets + Send + Sync,
-    G: HasWorld,
 {
-    game: UpdateSender<G>,
     pathfinder: Arc<RwLock<P>>,
 }
 
-impl<G, P> ResourceTargets<G, P>
+impl<P> ResourceTargets<P>
 where
     P: ClosestTargets + Send + Sync,
-    G: HasWorld,
 {
-    pub fn new(game: &UpdateSender<G>, pathfinder: &Arc<RwLock<P>>) -> ResourceTargets<G, P> {
+    pub fn new(pathfinder: &Arc<RwLock<P>>) -> ResourceTargets<P> {
         ResourceTargets {
-            game: game.clone(),
             pathfinder: pathfinder.clone(),
         }
     }
 
-    fn init(&mut self) {
+    fn init(&mut self, game_state: &GameState) {
         for resource in RESOURCES.iter() {
-            self.init_resource(*resource);
+            self.init_resource(game_state, *resource);
         }
     }
 
-    fn init_resource(&mut self, resource: Resource) {
-        let targets = self.get_targets(resource);
+    fn init_resource(&mut self, game_state: &GameState, resource: Resource) {
+        let targets = get_targets(game_state, resource);
         self.load_targets(target_set(resource), targets);
     }
 
@@ -50,19 +45,11 @@ where
             pathfinder.load_target(&target_set, &target, true)
         }
     }
-
-    fn get_targets(&mut self, resource: Resource) -> HashSet<V2<usize>> {
-        block_on(async {
-            self.game
-                .update(move |game| get_targets(game, resource))
-                .await
-        })
-    }
 }
 
-fn get_targets(game: &dyn HasWorld, resource: Resource) -> HashSet<V2<usize>> {
+fn get_targets(game_state: &GameState, resource: Resource) -> HashSet<V2<usize>> {
     let mut out = HashSet::new();
-    let world = game.world();
+    let world = &game_state.world;
     for x in 0..world.width() {
         for y in 0..world.height() {
             let position = &v2(x, y);
@@ -85,18 +72,17 @@ pub fn target_set(resource: Resource) -> String {
     format!("resource-{}", resource.name())
 }
 
-impl<G, P> GameEventConsumer for ResourceTargets<G, P>
+impl<P> GameEventConsumer for ResourceTargets<P>
 where
     P: ClosestTargets + Send + Sync,
-    G: HasWorld,
 {
     fn name(&self) -> &'static str {
         HANDLE
     }
 
-    fn consume_game_event(&mut self, _: &GameState, event: &GameEvent) -> CaptureEvent {
+    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         if let GameEvent::Init = event {
-            self.init();
+            self.init(game_state);
         }
         CaptureEvent::No
     }
@@ -111,22 +97,11 @@ mod tests {
     use super::*;
 
     use crate::pathfinder::traits::ClosestTargetResult;
-    use commons::update::{process_updates, update_channel};
     use commons::{v2, M};
     use std::collections::HashMap;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::thread;
 
     fn world() -> World {
         World::new(M::zeros(3, 3), 0.5)
-    }
-
-    fn game_state() -> GameState {
-        let world = world();
-        GameState {
-            world,
-            ..GameState::default()
-        }
     }
 
     struct MockPathfinder {
@@ -154,29 +129,23 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn test() {
-        let (game, mut rx) = update_channel(100);
-        let running = Arc::new(AtomicBool::new(true));
-        let running_2 = running.clone();
-        let handle = thread::spawn(move || {
-            let mut world = world();
-            world.mut_cell_unsafe(&v2(1, 0)).resource = Resource::Coal;
-            world.mut_cell_unsafe(&v2(2, 1)).resource = Resource::Coal;
-            world.mut_cell_unsafe(&v2(0, 2)).resource = Resource::Coal;
-            while running_2.load(Ordering::Relaxed) {
-                let updates = rx.get_updates();
-                process_updates(updates, &mut world);
-            }
-        });
+
+        let mut world = world();
+        world.mut_cell_unsafe(&v2(1, 0)).resource = Resource::Coal;
+        world.mut_cell_unsafe(&v2(2, 1)).resource = Resource::Coal;
+        world.mut_cell_unsafe(&v2(0, 2)).resource = Resource::Coal;
+         
+        let game_state = GameState{
+            world,
+            ..GameState::default()
+        };
 
         let pathfinder = Arc::new(RwLock::new(MockPathfinder {
             targets: HashMap::new(),
         }));
 
-        let mut consumer = ResourceTargets::new(&game, &pathfinder);
-        consumer.consume_game_event(&game_state(), &GameEvent::Init);
-        running.store(false, Ordering::Relaxed);
-
-        handle.join().unwrap();
+        let mut consumer = ResourceTargets::new(&pathfinder);
+        consumer.consume_game_event(&game_state, &GameEvent::Init);
 
         assert_eq!(
             *pathfinder

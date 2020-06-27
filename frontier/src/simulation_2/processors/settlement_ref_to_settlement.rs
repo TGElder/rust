@@ -4,29 +4,29 @@ use crate::settlement::Settlement;
 
 const HANDLE: &str = "settlement_ref_to_settlement";
 
-pub struct SettlementRefToSettlement<T>
+pub struct SettlementRefToSettlement<G>
 where
-    T: Settlements,
+    G: Settlements,
 {
-    tx: UpdateSender<T>,
+    game: UpdateSender<G>,
 }
 
-impl<T> Processor for SettlementRefToSettlement<T>
+impl<G> Processor for SettlementRefToSettlement<G>
 where
-    T: Settlements,
+    G: Settlements,
 {
     fn process(&mut self, state: State, instruction: &Instruction) -> State {
         block_on(self.process(state, instruction))
     }
 }
 
-impl<T> SettlementRefToSettlement<T>
+impl<G> SettlementRefToSettlement<G>
 where
-    T: Settlements,
+    G: Settlements,
 {
-    pub fn new(tx: &UpdateSender<T>) -> SettlementRefToSettlement<T> {
+    pub fn new(game: &UpdateSender<G>) -> SettlementRefToSettlement<G> {
         SettlementRefToSettlement {
-            tx: tx.clone_with_handle(HANDLE),
+            game: game.clone_with_handle(HANDLE),
         }
     }
 
@@ -43,7 +43,7 @@ where
     }
 
     async fn get_settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
-        self.tx
+        self.game
             .update(move |settlements| get_settlement(settlements, position))
             .await
     }
@@ -64,7 +64,7 @@ mod tests {
 
     #[test]
     fn should_add_settlement_instruction_if_position_is_valid() {
-        let (tx, mut rx) = update_channel(100);
+        let (game, mut rx) = update_channel(100);
 
         let handle = thread::spawn(move || {
             let mut settlements = HashMap::new();
@@ -78,7 +78,7 @@ mod tests {
             }
         });
 
-        let mut processor = SettlementRefToSettlement::new(&tx);
+        let mut processor = SettlementRefToSettlement::new(&game);
         let state = block_on(async {
             processor
                 .process(State::default(), &Instruction::SettlementRef(v2(1, 1)))
@@ -93,7 +93,7 @@ mod tests {
 
     #[test]
     fn should_add_no_instruction_if_position_is_invalid() {
-        let (tx, mut rx) = update_channel(100);
+        let (game, mut rx) = update_channel(100);
 
         let handle = thread::spawn(move || {
             let mut settlements = HashMap::new();
@@ -106,7 +106,7 @@ mod tests {
             }
         });
 
-        let mut processor = SettlementRefToSettlement::new(&tx);
+        let mut processor = SettlementRefToSettlement::new(&game);
         let state = block_on(async {
             processor
                 .process(State::default(), &Instruction::SettlementRef(v2(1, 1)))

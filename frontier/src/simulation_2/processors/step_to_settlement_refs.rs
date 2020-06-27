@@ -4,29 +4,29 @@ use crate::settlement::Settlement;
 
 const HANDLE: &str = "step_to_settlement_refs";
 
-pub struct StepToSettlementRefs<T>
+pub struct StepToSettlementRefs<G>
 where
-    T: Settlements,
+    G: Settlements,
 {
-    tx: UpdateSender<T>,
+    game: UpdateSender<G>,
 }
 
-impl<T> Processor for StepToSettlementRefs<T>
+impl<G> Processor for StepToSettlementRefs<G>
 where
-    T: Settlements,
+    G: Settlements,
 {
     fn process(&mut self, state: State, instruction: &Instruction) -> State {
         block_on(self.process(state, instruction))
     }
 }
 
-impl<T> StepToSettlementRefs<T>
+impl<G> StepToSettlementRefs<G>
 where
-    T: Settlements,
+    G: Settlements,
 {
-    pub fn new(tx: &UpdateSender<T>) -> StepToSettlementRefs<T> {
+    pub fn new(game: &UpdateSender<G>) -> StepToSettlementRefs<G> {
         StepToSettlementRefs {
-            tx: tx.clone_with_handle(HANDLE),
+            game: game.clone_with_handle(HANDLE),
         }
     }
 
@@ -44,7 +44,7 @@ where
     }
 
     async fn get_settlement_positions(&mut self) -> Vec<V2<usize>> {
-        self.tx
+        self.game
             .update(|settlements| get_settlement_positions(settlements))
             .await
     }
@@ -76,7 +76,7 @@ mod tests {
 
     #[test]
     fn should_add_instruction_for_each_settlement() {
-        let (tx, mut rx) = update_channel(100);
+        let (game, mut rx) = update_channel(100);
 
         let handle = thread::spawn(move || {
             let mut settlements = HashMap::new();
@@ -91,7 +91,7 @@ mod tests {
             }
         });
 
-        let mut processor = StepToSettlementRefs::new(&tx);
+        let mut processor = StepToSettlementRefs::new(&game);
         let state = block_on(async {
             processor
                 .process(State::default(), &Instruction::Step)
