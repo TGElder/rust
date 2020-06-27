@@ -9,4 +9,5 @@ pub enum Instruction {
     Settlement(Settlement),
     Demand(Demand),
     Route(Route),
+    NewRoute(Route),
 }
