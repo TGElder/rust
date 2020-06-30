@@ -1,5 +1,5 @@
 use super::*;
-use crate::route::Route;
+use crate::route::{Route, RouteKey};
 use crate::settlement::Settlement;
 use std::collections::hash_set::HashSet;
 
@@ -9,9 +9,12 @@ pub enum Instruction {
     SettlementRef(V2<usize>),
     Settlement(Settlement),
     Demand(Demand),
-    Route(Route),
+    Route {
+        key: RouteKey,
+        route: Route,
+    },
     RouteChanged {
-        new_route: Route,
+        key: RouteKey,
         positions_added: HashSet<V2<usize>>,
         positions_removed: HashSet<V2<usize>>,
     },

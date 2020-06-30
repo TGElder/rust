@@ -1,6 +1,6 @@
 use super::*;
 use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets};
-use crate::route::Route;
+use crate::route::{Route, RouteKey};
 use crate::simulation_2::game_event_consumers::target_set;
 
 pub struct DemandToRoutes<P>
@@ -19,8 +19,8 @@ where
             Instruction::Demand(demand) => *demand,
             _ => return state,
         };
-        for route in routes(&demand, self.closest_targets(&demand)) {
-            state.instructions.push(Instruction::Route(route));
+        for (key, route) in routes(&demand, self.closest_targets(&demand)) {
+            state.instructions.push(Instruction::Route { key, route });
         }
         state
     }
@@ -50,21 +50,26 @@ where
 fn routes<'a>(
     demand: &'a Demand,
     closest_targets: Vec<ClosestTargetResult>,
-) -> impl Iterator<Item = Route> + 'a {
+) -> impl Iterator<Item = (RouteKey, Route)> + 'a {
     closest_targets
         .into_iter()
         .map(move |target| route(demand, target))
 }
 
-fn route(demand: &Demand, target: ClosestTargetResult) -> Route {
-    Route {
-        resource: demand.resource,
-        settlement: demand.position,
-        path: target.path,
-        start_micros: 0,
-        duration: target.duration,
-        traffic: demand.quantity,
-    }
+fn route(demand: &Demand, target: ClosestTargetResult) -> (RouteKey, Route) {
+    (
+        RouteKey {
+            settlement: demand.position,
+            resource: demand.resource,
+            destination: target.position,
+        },
+        Route {
+            path: target.path,
+            start_micros: 0,
+            duration: target.duration,
+            traffic: demand.quantity,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -122,22 +127,32 @@ mod tests {
         assert_eq!(
             state.instructions,
             vec![
-                Instruction::Route(Route {
-                    resource: Resource::Coal,
-                    settlement: v2(1, 3),
-                    path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
-                    start_micros: 0,
-                    duration: Duration::from_secs(2),
-                    traffic: 3,
-                }),
-                Instruction::Route(Route {
-                    resource: Resource::Coal,
-                    settlement: v2(1, 3),
-                    path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
-                    start_micros: 0,
-                    duration: Duration::from_secs(4),
-                    traffic: 3,
-                }),
+                Instruction::Route {
+                    key: RouteKey {
+                        settlement: v2(1, 3),
+                        resource: Resource::Coal,
+                        destination: v2(1, 5),
+                    },
+                    route: Route {
+                        path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                        start_micros: 0,
+                        duration: Duration::from_secs(2),
+                        traffic: 3,
+                    }
+                },
+                Instruction::Route {
+                    key: RouteKey {
+                        settlement: v2(1, 3),
+                        resource: Resource::Coal,
+                        destination: v2(5, 3),
+                    },
+                    route: Route {
+                        path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
+                        start_micros: 0,
+                        duration: Duration::from_secs(4),
+                        traffic: 3,
+                    }
+                },
             ]
         );
     }

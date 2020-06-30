@@ -25,7 +25,7 @@ pub struct GameState {
     pub settlements: HashMap<V2<usize>, Settlement>,
     pub selected_avatar: Option<String>,
     pub follow_avatar: bool,
-    pub routes: HashMap<String, Route>,
+    pub routes: HashMap<RouteKey, Route>,
     pub territory: Territory,
     pub first_visits: Vec2D<Option<FirstVisit>>,
     pub speed: f32,
@@ -129,10 +129,12 @@ mod tests {
         );
         let mut routes = HashMap::new();
         routes.insert(
-            "route".to_string(),
-            Route {
-                resource: Resource::Bananas,
+            RouteKey {
                 settlement: v2(4, 1),
+                resource: Resource::Bananas,
+                destination: v2(2, 0),
+            },
+            Route {
                 path: vec![v2(1, 0), v2(2, 0)],
                 traffic: 2,
                 start_micros: 1232,

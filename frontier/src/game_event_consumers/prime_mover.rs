@@ -34,9 +34,9 @@ impl Default for PrimeMoverParams {
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PrimeMoverState {
-    visible_routes: HashSet<String>,
-    last_outbound: HashMap<String, bool>,
-    frozen_until: HashMap<String, u128>,
+    visible_routes: HashSet<RouteKey>,
+    last_outbound: HashMap<RouteKey, bool>,
+    frozen_until: HashMap<RouteKey, u128>,
 }
 
 pub struct PrimeMover {
@@ -76,13 +76,13 @@ impl PrimeMover {
         }
     }
 
-    fn get_candidates<'a>(&self, game_state: &'a GameState) -> Vec<(&'a String, &'a Route)> {
+    fn get_candidates<'a>(&self, game_state: &'a GameState) -> Vec<(&'a RouteKey, &'a Route)> {
         game_state
             .routes
             .iter()
             .filter(|(_, route)| route.path.len() > 1)
-            .filter(|(name, _)| !is_visible(game_state, &name))
-            .filter(|(name, _)| !self.is_frozen(&name))
+            .filter(|(key, _)| !is_visible(game_state, &key))
+            .filter(|(key, _)| !self.is_frozen(&key))
             .collect()
     }
 
@@ -92,9 +92,9 @@ impl PrimeMover {
 
     fn choose_multiple_weighted<'a>(
         &mut self,
-        mut candidates: Vec<(&'a String, &'a Route)>,
+        mut candidates: Vec<(&'a RouteKey, &'a Route)>,
         amount: usize,
-    ) -> Vec<(&'a String, &'a Route)> {
+    ) -> Vec<(&'a RouteKey, &'a Route)> {
         let mut out = vec![];
         while out.len() < amount && !candidates.is_empty() {
             let choice = *candidates
@@ -106,17 +106,17 @@ impl PrimeMover {
         out
     }
 
-    fn show_route(&mut self, game_state: &GameState, name: &str, route: &Route) {
+    fn show_route(&mut self, game_state: &GameState, key: &RouteKey, route: &Route) {
         let start_at = game_state.game_micros;
-        self.state.visible_routes.insert(name.to_string());
-        let (color, skin_color) = unwrap_or!(avatar_colors(game_state, route), return);
+        self.state.visible_routes.insert(*key);
+        let (color, skin_color) = unwrap_or!(avatar_colors(game_state, key), return);
         let mut positions = route.path.clone();
-        let outbound = self.outbound(name);
+        let outbound = self.outbound(key);
         if !outbound {
             positions.reverse();
         }
         self.walk_positions(
-            name.to_string(),
+            *key,
             positions,
             start_at,
             color,
@@ -124,26 +124,26 @@ impl PrimeMover {
             if outbound {
                 AvatarLoad::None
             } else {
-                AvatarLoad::Resource(route.resource)
+                AvatarLoad::Resource(key.resource)
             },
         );
     }
 
-    fn outbound(&mut self, name: &str) -> bool {
+    fn outbound(&mut self, key: &RouteKey) -> bool {
         let last_outbound = &mut self.state.last_outbound;
-        if let Some(outbound) = last_outbound.get_mut(name) {
+        if let Some(outbound) = last_outbound.get_mut(key) {
             *outbound = !*outbound;
             *outbound
         } else {
             let outbound = true;
-            last_outbound.insert(name.to_string(), outbound);
+            last_outbound.insert(*key, outbound);
             outbound
         }
     }
 
     fn walk_positions(
         &mut self,
-        name: String,
+        key: RouteKey,
         positions: Vec<V2<usize>>,
         start_at: u128,
         color: Color,
@@ -154,10 +154,10 @@ impl PrimeMover {
         let pause_at_end = self.params.pause_at_end_of_journey;
         let first = *unwrap_or!(positions.first(), return);
         self.game_tx.update(move |game| {
-            add_avatar(game, name.clone(), first, color, skin_color, load);
+            add_avatar(game, key.to_string(), first, color, skin_color, load);
             walk_positions(
                 game,
-                name,
+                key.to_string(),
                 positions,
                 start_at,
                 pause_at_start,
@@ -183,8 +183,8 @@ impl PrimeMover {
         }
     }
 
-    fn is_frozen(&self, name: &str) -> bool {
-        self.state.frozen_until.contains_key(name)
+    fn is_frozen(&self, key: &RouteKey) -> bool {
+        self.state.frozen_until.contains_key(key)
     }
 
     fn prune_frozen(&mut self, game_state: &GameState) {
@@ -213,8 +213,8 @@ impl PrimeMover {
     }
 }
 
-fn avatar_colors(game_state: &GameState, route: &Route) -> Option<(Color, Color)> {
-    let settlement = unwrap_or!(game_state.settlements.get(&route.settlement), return None);
+fn avatar_colors(game_state: &GameState, key: &RouteKey) -> Option<(Color, Color)> {
+    let settlement = unwrap_or!(game_state.settlements.get(&key.settlement), return None);
     let nation = game_state
         .nations
         .get(&settlement.nation)
@@ -222,8 +222,8 @@ fn avatar_colors(game_state: &GameState, route: &Route) -> Option<(Color, Color)
     Some((*nation.color(), *nation.skin_color()))
 }
 
-fn is_visible(game_state: &GameState, name: &str) -> bool {
-    game_state.avatars.get(name).is_some()
+fn is_visible(game_state: &GameState, key: &RouteKey) -> bool {
+    game_state.avatars.get(&key.to_string()).is_some()
 }
 
 fn walk_positions(
