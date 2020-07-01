@@ -1,8 +1,11 @@
 use crate::world::Resource;
 use commons::V2;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result};
 use std::time::Duration;
+
+pub type RouteSet = HashMap<RouteKey, Route>;
 
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RouteKey {

@@ -2,7 +2,7 @@ use super::*;
 use crate::game::traits::Routes;
 use crate::route::{Route, RouteKey};
 use std::collections::hash_map::Entry;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 const HANDLE: &str = "new_route_to_route";
 
@@ -56,7 +56,11 @@ where
 }
 
 fn set_route(routes: &mut dyn Routes, key: RouteKey, route: Route) -> SetRouteResult {
-    match routes.routes_mut().entry(key) {
+    let route_set = routes
+        .routes_mut()
+        .entry(key.settlement)
+        .or_insert_with(HashMap::new);
+    match route_set.entry(key) {
         Entry::Occupied(mut entry) if *entry.get() != route => {
             SetRouteResult::Replace(entry.insert(route))
         }
@@ -174,7 +178,12 @@ mod tests {
             }
         );
         let routes = handle.join().unwrap();
-        assert_eq!(routes, vec![(key, route)].into_iter().collect())
+        assert_eq!(
+            routes,
+            vec![(v2(1, 3), vec![(key, route)].into_iter().collect())]
+                .into_iter()
+                .collect()
+        )
     }
 
     #[test]
@@ -182,8 +191,8 @@ mod tests {
         let (game, mut rx) = update_channel(100);
 
         let handle = thread::spawn(move || {
-            let mut routes = HashMap::new();
-            routes.insert(
+            let mut route_set = HashMap::new();
+            route_set.insert(
                 RouteKey {
                     settlement: v2(1, 3),
                     resource: Resource::Coal,
@@ -196,6 +205,8 @@ mod tests {
                     traffic: 3,
                 },
             );
+            let mut routes = HashMap::new();
+            routes.insert(v2(1, 3), route_set);
             loop {
                 let updates = rx.get_updates();
                 if !updates.is_empty() {
@@ -238,7 +249,12 @@ mod tests {
             }
         );
         let routes = handle.join().unwrap();
-        assert_eq!(routes, vec![(key, route)].into_iter().collect())
+        assert_eq!(
+            routes,
+            vec![(v2(1, 3), vec![(key, route)].into_iter().collect())]
+                .into_iter()
+                .collect()
+        )
     }
 
     #[test]
@@ -259,8 +275,10 @@ mod tests {
         let route_2 = route.clone();
 
         let handle = thread::spawn(move || {
+            let mut route_set = HashMap::new();
+            route_set.insert(key, route_2);
             let mut routes = HashMap::new();
-            routes.insert(key, route_2);
+            routes.insert(v2(1, 3), route_set);
             loop {
                 let updates = rx.get_updates();
                 if !updates.is_empty() {
@@ -286,6 +304,11 @@ mod tests {
 
         assert_eq!(state.instructions, vec![],);
         let routes = handle.join().unwrap();
-        assert_eq!(routes, vec![(key, route)].into_iter().collect())
+        assert_eq!(
+            routes,
+            vec![(v2(1, 3), vec![(key, route)].into_iter().collect())]
+                .into_iter()
+                .collect()
+        )
     }
 }

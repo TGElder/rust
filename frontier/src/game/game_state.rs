@@ -25,7 +25,7 @@ pub struct GameState {
     pub settlements: HashMap<V2<usize>, Settlement>,
     pub selected_avatar: Option<String>,
     pub follow_avatar: bool,
-    pub routes: HashMap<RouteKey, Route>,
+    pub routes: HashMap<V2<usize>, RouteSet>,
     pub territory: Territory,
     pub first_visits: Vec2D<Option<FirstVisit>>,
     pub speed: f32,
@@ -127,8 +127,8 @@ mod tests {
                 gap_half_life: Some(Duration::from_secs(3)),
             },
         );
-        let mut routes = HashMap::new();
-        routes.insert(
+        let mut route_set = HashMap::new();
+        route_set.insert(
             RouteKey {
                 settlement: v2(4, 1),
                 resource: Resource::Bananas,
@@ -141,6 +141,8 @@ mod tests {
                 duration: Duration::from_secs(3),
             },
         );
+        let mut routes = HashMap::new();
+        routes.insert(v2(4, 1), route_set);
         let game_state = GameState {
             territory: Territory::new(&world),
             first_visits: Vec2D::same_size_as(&world, None),

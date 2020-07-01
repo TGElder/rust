@@ -79,7 +79,8 @@ impl PrimeMover {
     fn get_candidates<'a>(&self, game_state: &'a GameState) -> Vec<(&'a RouteKey, &'a Route)> {
         game_state
             .routes
-            .iter()
+            .values()
+            .flat_map(|route_set| route_set.iter())
             .filter(|(_, route)| route.path.len() > 1)
             .filter(|(key, _)| !is_visible(game_state, &key))
             .filter(|(key, _)| !self.is_frozen(&key))
