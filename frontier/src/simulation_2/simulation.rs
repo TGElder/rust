@@ -23,12 +23,16 @@ impl Simulation {
             tx,
             rx,
             run: true,
-            state: Some(State::default()),
+            state: None,
         }
     }
 
     pub fn tx(&self) -> &UpdateSender<Simulation> {
         &self.tx
+    }
+
+    pub fn set_state(&mut self, state: State) {
+        self.state = Some(state);
     }
 
     pub fn run(&mut self) {
@@ -50,7 +54,7 @@ impl Simulation {
     }
 
     fn process_instructions(&mut self) {
-        let mut state = self.state.take().expect("Simulation has lost state!");
+        let mut state = unwrap_or!(self.state.take(), return);
         while let Some(instruction) = state.instructions.pop() {
             for processor in self.processors.iter_mut() {
                 state = processor.process(state, &instruction);
@@ -60,11 +64,8 @@ impl Simulation {
     }
 
     fn step(&mut self) {
-        self.state
-            .as_mut()
-            .expect("Simulation has lost state!")
-            .instructions
-            .push(Instruction::Step);
+        let state = unwrap_or!(self.state.as_mut(), return);
+        state.instructions.push(Instruction::Step);
     }
 
     pub fn shutdown(&mut self) {
@@ -92,6 +93,9 @@ impl Simulation {
 mod tests {
     use super::*;
 
+    use crate::route::RouteKey;
+    use crate::world::Resource;
+    use commons::index2d::Vec2D;
     use commons::v2;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
@@ -142,9 +146,10 @@ mod tests {
         let done = Arc::new(AtomicBool::new(false));
         let done_2 = done.clone();
         thread::spawn(move || {
-            let mut runner = Simulation::new(vec![]);
-            let tx = runner.tx().clone();
-            let handle = thread::spawn(move || runner.run());
+            let mut sim = Simulation::new(vec![]);
+            sim.set_state(State::default());
+            let tx = sim.tx().clone();
+            let handle = thread::spawn(move || sim.run());
             block_on(async { tx.update(|sim| sim.shutdown()).await });
             handle.join().unwrap();
             done_2.store(true, Ordering::Relaxed);
@@ -153,7 +158,7 @@ mod tests {
         let start = Instant::now();
         while !done.load(Ordering::Relaxed) {
             if start.elapsed().as_secs() > 10 {
-                panic!("Simulation runner has not shutdown after 10 seconds");
+                panic!("Simulation has not shutdown after 10 seconds");
             }
         }
     }
@@ -162,10 +167,11 @@ mod tests {
     fn should_add_step_to_instructions() {
         let processor = InstructionRetriever::new();
         let instructions = processor.instructions.clone();
-        let mut runner = Simulation::new(vec![Box::new(processor)]);
-        let tx = runner.tx().clone();
+        let mut sim = Simulation::new(vec![Box::new(processor)]);
+        sim.set_state(State::default());
+        let tx = sim.tx().clone();
 
-        let handle = thread::spawn(move || runner.run());
+        let handle = thread::spawn(move || sim.run());
         let start = Instant::now();
         while !instructions.lock().unwrap().contains(&Instruction::Step) {
             if start.elapsed().as_secs() > 10 {
@@ -181,10 +187,11 @@ mod tests {
         let introducer = InstructionIntroducer::new();
         let receiver = InstructionRetriever::new();
         let instructions = receiver.instructions.clone();
-        let mut runner = Simulation::new(vec![Box::new(introducer), Box::new(receiver)]);
-        let tx = runner.tx().clone();
+        let mut sim = Simulation::new(vec![Box::new(introducer), Box::new(receiver)]);
+        sim.set_state(State::default());
+        let tx = sim.tx().clone();
 
-        let handle = thread::spawn(move || runner.run());
+        let handle = thread::spawn(move || sim.run());
         let start = Instant::now();
         while !instructions
             .lock()
@@ -205,10 +212,11 @@ mod tests {
         let instructions_1 = processor_1.instructions.clone();
         let processor_2 = InstructionRetriever::new();
         let instructions_2 = processor_2.instructions.clone();
-        let mut runner = Simulation::new(vec![Box::new(processor_1), Box::new(processor_2)]);
-        let tx = runner.tx().clone();
+        let mut sim = Simulation::new(vec![Box::new(processor_1), Box::new(processor_2)]);
+        sim.set_state(State::default());
+        let tx = sim.tx().clone();
 
-        let handle = thread::spawn(move || runner.run());
+        let handle = thread::spawn(move || sim.run());
         let start = Instant::now();
         while start.elapsed().as_secs() < 10
             && (instructions_1.lock().unwrap().is_empty()
@@ -225,11 +233,12 @@ mod tests {
     fn should_process_updates_before_instructions() {
         let processor = InstructionRetriever::new();
         let instructions = processor.instructions.clone();
-        let mut runner = Simulation::new(vec![Box::new(processor)]);
-        let tx = runner.tx().clone();
+        let mut sim = Simulation::new(vec![Box::new(processor)]);
+        sim.set_state(State::default());
+        let tx = sim.tx().clone();
 
         tx.update(|sim| sim.shutdown());
-        let handle = thread::spawn(move || runner.run());
+        let handle = thread::spawn(move || sim.run());
         handle.join().unwrap();
 
         assert!(instructions.lock().unwrap().is_empty());
@@ -237,38 +246,45 @@ mod tests {
 
     #[test]
     fn save_load_round_trip() {
-        let mut runner_1 = Simulation::new(vec![]);
-        runner_1.state = Some(State {
+        let mut sim_1 = Simulation::new(vec![]);
+        let route_key = RouteKey {
+            settlement: v2(1, 2),
+            resource: Resource::Crabs,
+            destination: v2(3, 4),
+        };
+        sim_1.set_state(State {
             instructions: vec![
                 Instruction::SettlementRef(v2(1, 1)),
                 Instruction::SettlementRef(v2(2, 2)),
                 Instruction::SettlementRef(v2(3, 3)),
             ],
+            traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
         });
-        runner_1.save("test_save");
+        sim_1.save("test_save");
 
-        let mut runner_2 = Simulation::new(vec![]);
-        runner_2.load("test_save");
+        let mut sim_2 = Simulation::new(vec![]);
+        sim_2.load("test_save");
 
-        assert_eq!(runner_1.state, runner_2.state);
+        assert_eq!(sim_1.state, sim_2.state);
     }
 
     #[test]
     fn should_not_step_after_loading_instructions() {
-        let mut runner_1 = Simulation::new(vec![]);
-        runner_1.state = Some(State {
+        let mut sim_1 = Simulation::new(vec![]);
+        sim_1.set_state(State {
             instructions: vec![Instruction::SettlementRef(v2(1, 1))],
+            ..State::default()
         });
-        runner_1.save("test_save");
+        sim_1.save("test_save");
 
         let receiver = InstructionRetriever::new();
         let instructions = receiver.instructions.clone();
 
-        let mut runner_2 = Simulation::new(vec![Box::new(receiver)]);
-        runner_2.load("test_save");
-        let tx = runner_2.tx().clone();
+        let mut sim_2 = Simulation::new(vec![Box::new(receiver)]);
+        sim_2.load("test_save");
+        let tx = sim_2.tx().clone();
 
-        let handle = thread::spawn(move || runner_2.run());
+        let handle = thread::spawn(move || sim_2.run());
         let start = Instant::now();
         while !instructions
             .lock()

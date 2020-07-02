@@ -1,16 +1,20 @@
 use super::*;
 
+use commons::index2d::Vec2D;
+use std::collections::HashSet;
 use std::default::Default;
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct State {
     pub instructions: Vec<Instruction>,
+    pub traffic: Traffic,
 }
 
 impl Default for State {
     fn default() -> State {
         State {
             instructions: vec![],
+            traffic: Vec2D::new(1, 1, HashSet::new()),
         }
     }
 }
