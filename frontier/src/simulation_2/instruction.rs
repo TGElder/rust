@@ -1,7 +1,6 @@
 use super::*;
-use crate::route::{Route, RouteKey};
+use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::settlement::Settlement;
-use std::collections::hash_set::HashSet;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
@@ -9,13 +8,26 @@ pub enum Instruction {
     SettlementRef(V2<usize>),
     Settlement(Settlement),
     Demand(Demand),
-    Route {
+    RouteSet {
+        key: RouteSetKey,
+        route_set: RouteSet,
+    },
+    RouteChanged(RouteChange),
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub enum RouteChange {
+    New {
         key: RouteKey,
         route: Route,
     },
-    RouteChanged {
+    Updated {
         key: RouteKey,
-        positions_added: HashSet<V2<usize>>,
-        positions_removed: HashSet<V2<usize>>,
+        old: Route,
+        new: Route,
+    },
+    Removed {
+        key: RouteKey,
+        route: Route,
     },
 }

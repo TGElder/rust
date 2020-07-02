@@ -5,7 +5,13 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result};
 use std::time::Duration;
 
-pub type RouteSet = HashMap<RouteKey, Route>;
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Route {
+    pub path: Vec<V2<usize>>,
+    pub start_micros: u128,
+    pub duration: Duration,
+    pub traffic: usize,
+}
 
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RouteKey {
@@ -28,10 +34,10 @@ impl Display for RouteKey {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Route {
-    pub path: Vec<V2<usize>>,
-    pub start_micros: u128,
-    pub duration: Duration,
-    pub traffic: usize,
+pub type RouteSet = HashMap<RouteKey, Route>;
+
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct RouteSetKey {
+    pub settlement: V2<usize>,
+    pub resource: Resource,
 }

@@ -40,7 +40,7 @@ where
                 .instructions
                 .push(Instruction::SettlementRef(position));
         }
-        State { ..state }
+        state
     }
 
     async fn get_settlement_positions(&mut self) -> Vec<V2<usize>> {

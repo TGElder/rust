@@ -36,7 +36,7 @@ use isometric::{IsometricEngine, IsometricEngineParameters};
 use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
-    DemandToRoutes, InstructionLogger, RouteToRouteChanged, SettlementRefToSettlement,
+    DemandToRouteSet, InstructionLogger, RouteSetToRouteChanged, SettlementRefToSettlement,
     SettlementToDemands, StepToSettlementRefs,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
@@ -74,8 +74,8 @@ fn main() {
         Box::new(SettlementRefToSettlement::new(game.tx())),
         Box::new(SettlementToDemands::new(town_demand_fn)),
         Box::new(SettlementToDemands::new(homeland_demand_fn)),
-        Box::new(DemandToRoutes::new(&avatar_pathfinder)),
-        Box::new(RouteToRouteChanged::new(game.tx())),
+        Box::new(DemandToRouteSet::new(&avatar_pathfinder)),
+        Box::new(RouteSetToRouteChanged::new(game.tx())),
         // Box::new(InstructionLogger::new()),
     ]);
 

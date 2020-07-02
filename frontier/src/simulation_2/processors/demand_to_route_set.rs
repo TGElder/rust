@@ -1,16 +1,16 @@
 use super::*;
 use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets};
-use crate::route::{Route, RouteKey};
+use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation_2::game_event_consumers::target_set;
 
-pub struct DemandToRoutes<P>
+pub struct DemandToRouteSet<P>
 where
     P: ClosestTargets,
 {
     pathfinder: Arc<RwLock<P>>,
 }
 
-impl<P> Processor for DemandToRoutes<P>
+impl<P> Processor for DemandToRouteSet<P>
 where
     P: ClosestTargets,
 {
@@ -19,19 +19,26 @@ where
             Instruction::Demand(demand) => *demand,
             _ => return state,
         };
-        for (key, route) in routes(&demand, self.closest_targets(&demand)) {
-            state.instructions.push(Instruction::Route { key, route });
+        let route_set: RouteSet = routes(&demand, self.closest_targets(&demand)).collect();
+        if !route_set.is_empty() {
+            state.instructions.push(Instruction::RouteSet {
+                key: RouteSetKey {
+                    settlement: demand.position,
+                    resource: demand.resource,
+                },
+                route_set,
+            });
         }
         state
     }
 }
 
-impl<P> DemandToRoutes<P>
+impl<P> DemandToRouteSet<P>
 where
     P: ClosestTargets,
 {
-    pub fn new(pathfinder: &Arc<RwLock<P>>) -> DemandToRoutes<P> {
-        DemandToRoutes {
+    pub fn new(pathfinder: &Arc<RwLock<P>>) -> DemandToRouteSet<P> {
+        DemandToRouteSet {
             pathfinder: pathfinder.clone(),
         }
     }
@@ -78,6 +85,7 @@ mod tests {
 
     use crate::world::Resource;
     use commons::v2;
+    use std::collections::HashMap;
     use std::time::Duration;
 
     #[test]
@@ -114,7 +122,7 @@ mod tests {
         }
 
         let pathfinder = Arc::new(RwLock::new(MockPathfinder {}));
-        let mut processor = DemandToRoutes::new(&pathfinder);
+        let mut processor = DemandToRouteSet::new(&pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -124,36 +132,43 @@ mod tests {
 
         let state = processor.process(State::default(), &Instruction::Demand(demand));
 
+        let mut route_set = HashMap::new();
+        route_set.insert(
+            RouteKey {
+                settlement: v2(1, 3),
+                resource: Resource::Coal,
+                destination: v2(1, 5),
+            },
+            Route {
+                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                start_micros: 0,
+                duration: Duration::from_secs(2),
+                traffic: 3,
+            },
+        );
+        route_set.insert(
+            RouteKey {
+                settlement: v2(1, 3),
+                resource: Resource::Coal,
+                destination: v2(5, 3),
+            },
+            Route {
+                path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
+                start_micros: 0,
+                duration: Duration::from_secs(4),
+                traffic: 3,
+            },
+        );
+
         assert_eq!(
             state.instructions,
-            vec![
-                Instruction::Route {
-                    key: RouteKey {
-                        settlement: v2(1, 3),
-                        resource: Resource::Coal,
-                        destination: v2(1, 5),
-                    },
-                    route: Route {
-                        path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
-                        start_micros: 0,
-                        duration: Duration::from_secs(2),
-                        traffic: 3,
-                    }
+            vec![Instruction::RouteSet {
+                key: RouteSetKey {
+                    settlement: v2(1, 3),
+                    resource: Resource::Coal
                 },
-                Instruction::Route {
-                    key: RouteKey {
-                        settlement: v2(1, 3),
-                        resource: Resource::Coal,
-                        destination: v2(5, 3),
-                    },
-                    route: Route {
-                        path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
-                        start_micros: 0,
-                        duration: Duration::from_secs(4),
-                        traffic: 3,
-                    }
-                },
-            ]
+                route_set
+            }]
         );
     }
 
@@ -180,7 +195,7 @@ mod tests {
         }
 
         let pathfinder = Arc::new(RwLock::new(MockPathfinder {}));
-        let mut processor = DemandToRoutes::new(&pathfinder);
+        let mut processor = DemandToRouteSet::new(&pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,

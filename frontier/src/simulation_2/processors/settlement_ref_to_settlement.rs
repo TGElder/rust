@@ -39,7 +39,7 @@ where
         if let Some(settlement) = settlement {
             state.instructions.push(Instruction::Settlement(settlement));
         }
-        State { ..state }
+        state
     }
 
     async fn get_settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
