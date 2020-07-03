@@ -13,6 +13,7 @@ pub enum Instruction {
         route_set: RouteSet,
     },
     RouteChange(RouteChange),
+    TrafficChange(V2<usize>),
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
