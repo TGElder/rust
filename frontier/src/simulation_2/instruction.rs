@@ -12,7 +12,7 @@ pub enum Instruction {
         key: RouteSetKey,
         route_set: RouteSet,
     },
-    RouteChanged(RouteChange),
+    RouteChange(RouteChange),
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
