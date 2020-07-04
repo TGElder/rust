@@ -56,6 +56,7 @@ mod tests {
 
     use commons::futures::executor::block_on;
     use commons::v2;
+    use std::fs::remove_file;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc::{channel, Sender};
     use std::sync::Mutex;
@@ -99,13 +100,15 @@ mod tests {
     #[test]
     fn load_event_should_restore_build_queue() {
         // Given
+        let file_name = "test_save.build_loader";
+
         let (game, _, _) = game(1000);
         let mut build_service_1 = BuildService::new(&game, vec![]);
         build_service_1.queue(BuildInstruction {
             what: Build::Road(v2(1, 2)),
             when: 200,
         });
-        build_service_1.save("test_save");
+        build_service_1.save(file_name);
 
         let (build_tx, build_rx) = channel();
         let retriever = BuildRetriever::new(build_tx);
@@ -117,7 +120,7 @@ mod tests {
         let handle = thread::spawn(move || build_service_2.run());
         consumer.consume_game_event(
             &GameState::default(),
-            &GameEvent::Load("test_save".to_string()),
+            &GameEvent::Load(file_name.to_string()),
         );
         let built = build_rx
             .recv_timeout(Duration::from_secs(10))
@@ -127,5 +130,8 @@ mod tests {
 
         // Then
         assert_eq!(built, Build::Road(v2(1, 2)));
+
+        // Finally
+        remove_file(format!("{}.build_service", file_name)).unwrap();
     }
 }

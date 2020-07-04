@@ -60,6 +60,7 @@ mod tests {
     use crate::world::{Resource, World};
     use commons::{v2, M};
     use std::collections::HashSet;
+    use std::fs::remove_file;
     use std::sync::mpsc::{channel, Sender};
     use std::thread;
     use std::time::Duration;
@@ -117,6 +118,8 @@ mod tests {
     #[test]
     fn load_event_should_restore_sim_state() {
         // Given
+        let file_name = "test_save.state_loader";
+
         let mut sim_1 = Simulation::new(vec![]);
         let route_key = RouteKey {
             settlement: v2(1, 2),
@@ -132,7 +135,7 @@ mod tests {
             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
         };
         sim_1.set_state(state.clone());
-        sim_1.save("test_save");
+        sim_1.save(file_name);
 
         let (state_tx, state_rx) = channel();
         let retriever = StateRetriever::new(state_tx);
@@ -144,7 +147,7 @@ mod tests {
         let handle = thread::spawn(move || sim_2.run());
         consumer.consume_game_event(
             &GameState::default(),
-            &GameEvent::Load("test_save".to_string()),
+            &GameEvent::Load(file_name.to_string()),
         );
         let retrieved = state_rx
             .recv_timeout(Duration::from_secs(10))
@@ -154,5 +157,8 @@ mod tests {
 
         // Then
         assert_eq!(retrieved, state);
+
+        // Finally
+        remove_file(format!("{}.sim", file_name)).unwrap();
     }
 }

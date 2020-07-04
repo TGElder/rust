@@ -115,6 +115,7 @@ mod tests {
 
     use commons::update::{process_updates, update_channel};
     use commons::v2;
+    use std::fs::remove_file;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::thread;
@@ -287,6 +288,8 @@ mod tests {
     #[test]
     fn save_load_round_trip() {
         // Given
+        let file_name = "test_save.build_service";
+
         let (game, game_handle, game_run) = game(1000);
         let mut build_service_1 = BuildService::new(&game, vec![]);
         build_service_1.queue(BuildInstruction {
@@ -297,12 +300,12 @@ mod tests {
             what: Build::Road(v2(3, 4)),
             when: 100,
         });
-        build_service_1.save("test_save");
+        build_service_1.save(file_name);
 
         let mut build_service_2 = BuildService::new(&game, vec![]);
 
         // When
-        build_service_2.load("test_save");
+        build_service_2.load(file_name);
 
         // Then
         let queue_1: Vec<BuildInstruction> = build_service_1.queue.drain().collect();
@@ -311,5 +314,8 @@ mod tests {
 
         game_run.lock().unwrap().store(false, Ordering::Relaxed);
         game_handle.join().unwrap();
+
+        // Finally
+        remove_file(format!("{}.build_service", file_name)).unwrap();
     }
 }

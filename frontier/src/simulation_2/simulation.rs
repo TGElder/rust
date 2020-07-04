@@ -99,6 +99,7 @@ mod tests {
     use crate::world::Resource;
     use commons::index2d::Vec2D;
     use commons::v2;
+    use std::fs::remove_file;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::thread;
@@ -248,6 +249,9 @@ mod tests {
 
     #[test]
     fn save_load_round_trip() {
+        // Given
+        let file_name = "test_save.simulation.round_trip";
+
         let mut sim_1 = Simulation::new(vec![]);
         let route_key = RouteKey {
             settlement: v2(1, 2),
@@ -262,28 +266,37 @@ mod tests {
             ],
             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
         });
-        sim_1.save("test_save");
+        sim_1.save(file_name);
 
+        // When
         let mut sim_2 = Simulation::new(vec![]);
-        sim_2.load("test_save");
+        sim_2.load(file_name);
 
+        // Then
         assert_eq!(sim_1.state, sim_2.state);
+
+        // Finally
+        remove_file(format!("{}.sim", file_name)).unwrap();
     }
 
     #[test]
     fn should_not_step_after_loading_instructions() {
+        // Given
+        let file_name = "test_save.simulation.should_not_step";
+
         let mut sim_1 = Simulation::new(vec![]);
         sim_1.set_state(State {
             instructions: vec![Instruction::SettlementRef(v2(1, 1))],
             ..State::default()
         });
-        sim_1.save("test_save");
+        sim_1.save(file_name);
 
         let receiver = InstructionRetriever::new();
         let instructions = receiver.instructions.clone();
 
+        // When
         let mut sim_2 = Simulation::new(vec![Box::new(receiver)]);
-        sim_2.load("test_save");
+        sim_2.load(file_name);
         let tx = sim_2.tx().clone();
 
         let handle = thread::spawn(move || sim_2.run());
@@ -300,10 +313,14 @@ mod tests {
         block_on(async { tx.update(|sim| sim.shutdown()).await });
         handle.join().unwrap();
 
+        // Then
         assert_eq!(
             instructions.lock().unwrap()[0],
             Instruction::SettlementRef(v2(1, 1))
         );
+
+        // Finally
+        remove_file(format!("{}.sim", file_name)).unwrap();
     }
 
     struct InstructionRepeater {}
