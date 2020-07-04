@@ -43,8 +43,8 @@ impl Simulation {
                 return;
             }
 
-            self.process_instructions();
-            self.step();
+            self.process_instruction();
+            self.try_step();
         }
     }
 
@@ -53,9 +53,9 @@ impl Simulation {
         process_updates(updates, self);
     }
 
-    fn process_instructions(&mut self) {
+    fn process_instruction(&mut self) {
         let mut state = unwrap_or!(self.state.take(), return);
-        while let Some(instruction) = state.instructions.pop() {
+        if let Some(instruction) = state.instructions.pop() {
             for processor in self.processors.iter_mut() {
                 state = processor.process(state, &instruction);
             }
@@ -63,9 +63,11 @@ impl Simulation {
         self.state = Some(state);
     }
 
-    fn step(&mut self) {
+    fn try_step(&mut self) {
         let state = unwrap_or!(self.state.as_mut(), return);
-        state.instructions.push(Instruction::Step);
+        if state.instructions.is_empty() {
+            state.instructions.push(Instruction::Step);
+        }
     }
 
     pub fn shutdown(&mut self) {
@@ -100,7 +102,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::thread;
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
 
     struct InstructionRetriever {
         instructions: Arc<Mutex<Vec<Instruction>>>,
@@ -117,26 +119,6 @@ mod tests {
     impl Processor for InstructionRetriever {
         fn process(&mut self, state: State, instruction: &Instruction) -> State {
             self.instructions.lock().unwrap().push(instruction.clone());
-            state
-        }
-    }
-
-    struct InstructionIntroducer {
-        introduced: bool,
-    }
-
-    impl InstructionIntroducer {
-        fn new() -> InstructionIntroducer {
-            InstructionIntroducer { introduced: false }
-        }
-    }
-
-    impl Processor for InstructionIntroducer {
-        fn process(&mut self, mut state: State, _: &Instruction) -> State {
-            if !self.introduced {
-                state.instructions = vec![Instruction::SettlementRef(v2(1, 1))];
-                self.introduced = true;
-            }
             state
         }
     }
@@ -180,6 +162,26 @@ mod tests {
         }
         block_on(async { tx.update(|sim| sim.shutdown()).await });
         handle.join().unwrap();
+    }
+
+    struct InstructionIntroducer {
+        introduced: bool,
+    }
+
+    impl InstructionIntroducer {
+        fn new() -> InstructionIntroducer {
+            InstructionIntroducer { introduced: false }
+        }
+    }
+
+    impl Processor for InstructionIntroducer {
+        fn process(&mut self, mut state: State, _: &Instruction) -> State {
+            if !self.introduced {
+                state.instructions = vec![Instruction::SettlementRef(v2(1, 1))];
+                self.introduced = true;
+            }
+            state
+        }
     }
 
     #[test]
@@ -302,5 +304,54 @@ mod tests {
             instructions.lock().unwrap()[0],
             Instruction::SettlementRef(v2(1, 1))
         );
+    }
+
+    struct InstructionRepeater {}
+
+    impl InstructionRepeater {
+        fn new() -> InstructionRepeater {
+            InstructionRepeater {}
+        }
+    }
+
+    impl Processor for InstructionRepeater {
+        fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+            thread::sleep(Duration::from_millis(10));
+            state.instructions.push(instruction.clone());
+            state
+        }
+    }
+
+    #[test]
+    fn should_shutdown_without_processing_pending_instructions() {
+        let done = Arc::new(AtomicBool::new(false));
+        let done_2 = done.clone();
+        thread::spawn(move || {
+            let repeater = InstructionRepeater::new();
+            let receiver = InstructionRetriever::new();
+            let instructions = receiver.instructions.clone();
+            let mut sim = Simulation::new(vec![Box::new(repeater), Box::new(receiver)]);
+            sim.set_state(State::default());
+
+            let tx = sim.tx().clone();
+            let start = Instant::now();
+            let handle = thread::spawn(move || sim.run());
+            while instructions.lock().unwrap().is_empty() {
+                if start.elapsed().as_secs() > 10 {
+                    panic!("Instruction not received after 10 seconds");
+                }
+            }
+
+            block_on(async { tx.update(|sim| sim.shutdown()).await });
+            handle.join().unwrap();
+            done_2.store(true, Ordering::Relaxed);
+        });
+
+        let start = Instant::now();
+        while !done.load(Ordering::Relaxed) {
+            if start.elapsed().as_secs() > 10 {
+                panic!("Simulation has not shutdown after 10 seconds");
+            }
+        }
     }
 }
