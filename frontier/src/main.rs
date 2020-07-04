@@ -29,7 +29,7 @@ use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::territory::*;
 use crate::world_gen::*;
-use build_service::BuildService;
+use build_service::{BuildQueueLoader, BuildService};
 use commons::futures::executor::ThreadPool;
 use commons::index2d::Vec2D;
 use game_event_consumers::*;
@@ -133,6 +133,7 @@ fn main() {
     game.add_consumer(Voyager::new(game.tx()));
     game.add_consumer(PathfinderUpdater::new(&avatar_pathfinder));
     game.add_consumer(PathfinderUpdater::new(&road_pathfinder));
+    game.add_consumer(BuildQueueLoader::new(builder.tx()));
     game.add_consumer(SimulationStateLoader::new(sim.tx()));
 
     game.add_consumer(ShutdownHandler::new(

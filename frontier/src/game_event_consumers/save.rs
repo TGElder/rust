@@ -41,7 +41,7 @@ impl Save {
                 println!("Saving...");
                 sim.save(&path_for_sim);
                 builder_tx
-                    .update(|build| build.save(path_for_builder))
+                    .update(move |build| build.save(&path_for_builder))
                     .await;
                 game_tx.update(|game| game.save(path_for_game)).await;
                 println!("Saved");

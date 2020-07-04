@@ -96,7 +96,7 @@ where
         format!("{}.build_service", path)
     }
 
-    pub fn save(&mut self, path: String) {
+    pub fn save(&mut self, path: &str) {
         let path = Self::get_path(&path);
         let mut file = BufWriter::new(File::create(path).unwrap());
         bincode::serialize_into(&mut file, &self.queue).unwrap();
@@ -297,7 +297,7 @@ mod tests {
             what: Build::Road(v2(3, 4)),
             when: 100,
         });
-        build_service_1.save("test_save".to_string());
+        build_service_1.save("test_save");
 
         let mut build_service_2 = BuildService::new(&game, vec![]);
 
