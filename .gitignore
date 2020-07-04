@@ -2,6 +2,5 @@
 **/*.rs.bk
 frontier/save
 frontier/save.*
-frontier/test_save
-frontier/test_save.sim
+frontier/test_save*
 .vscode

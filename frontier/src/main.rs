@@ -5,6 +5,7 @@ extern crate commons;
 
 mod artists;
 mod avatar;
+mod build_service;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -28,6 +29,7 @@ use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::territory::*;
 use crate::world_gen::*;
+use build_service::BuildService;
 use commons::futures::executor::ThreadPool;
 use commons::index2d::Vec2D;
 use game_event_consumers::*;
@@ -69,6 +71,8 @@ fn main() {
         AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
     )));
 
+    let mut builder = BuildService::new(game.tx(), vec![]);
+
     let mut sim = Simulation::new(vec![
         Box::new(StepToSettlementRefs::new(game.tx())),
         Box::new(SettlementRefToSettlement::new(game.tx())),
@@ -100,7 +104,7 @@ fn main() {
     game.add_consumer(ObjectBuilder::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(TownBuilder::new(game.tx()));
     game.add_consumer(Cheats::new(game.tx()));
-    game.add_consumer(Save::new(game.tx(), sim.tx()));
+    game.add_consumer(Save::new(game.tx(), builder.tx(), sim.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(&avatar_pathfinder));
@@ -131,14 +135,24 @@ fn main() {
     game.add_consumer(PathfinderUpdater::new(&road_pathfinder));
     game.add_consumer(SimulationStateLoader::new(sim.tx()));
 
-    game.add_consumer(ShutdownHandler::new(game.tx(), sim.tx(), thread_pool));
+    game.add_consumer(ShutdownHandler::new(
+        game.tx(),
+        builder.tx(),
+        sim.tx(),
+        thread_pool,
+    ));
 
     let game_handle = thread::spawn(move || game.run());
+    let builder_handle = thread::spawn(move || builder.run());
     let sim_handle = thread::spawn(move || sim.run());
 
     engine.run();
 
+    println!("Joining sim");
     sim_handle.join().unwrap();
+    println!("Joining builder");
+    builder_handle.join().unwrap();
+    println!("Joining game");
     game_handle.join().unwrap();
 }
 
