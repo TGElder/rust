@@ -19,6 +19,7 @@ mod settlement;
 mod simulation_2;
 mod territory;
 mod travel_duration;
+mod update_territory;
 mod visibility_computer;
 mod world;
 mod world_gen;
@@ -28,6 +29,7 @@ use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::territory::*;
+use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
 use build_service::builders::SettlementBuilder;
 use build_service::{BuildQueueLoader, BuildService};
@@ -72,8 +74,19 @@ fn main() {
         AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
     )));
 
-    let mut builder =
-        BuildService::new(game.tx(), vec![Box::new(SettlementBuilder::new(game.tx()))]);
+    let territory_updater = TerritoryUpdater::new(
+        &game.tx(),
+        &avatar_pathfinder,
+        game.game_state().params.town_travel_duration,
+    );
+
+    let mut builder = BuildService::new(
+        game.tx(),
+        vec![Box::new(SettlementBuilder::new(
+            game.tx(),
+            &territory_updater,
+        ))],
+    );
 
     let mut sim = Simulation::new(vec![
         Box::new(StepToSettlementRefs::new(game.tx())),

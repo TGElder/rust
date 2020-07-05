@@ -28,6 +28,7 @@ pub enum CellSelection {
     Some(Vec<V2<usize>>),
 }
 
+#[derive(Debug, PartialEq)]
 pub struct TerritoryState {
     pub controller: V2<usize>,
     pub durations: HashMap<V2<usize>, Duration>,

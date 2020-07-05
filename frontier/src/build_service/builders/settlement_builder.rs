@@ -2,20 +2,24 @@ use super::*;
 
 use crate::game::traits::{AddSettlement, WhoControlsTile};
 use crate::settlement::Settlement;
+use crate::update_territory::UpdateTerritory;
 use commons::V2;
 
 const HANDLE: &str = "settlemen_builder";
 
-pub struct SettlementBuilder<G>
+pub struct SettlementBuilder<G, T>
 where
     G: AddSettlement + WhoControlsTile,
+    T: UpdateTerritory,
 {
     game: UpdateSender<G>,
+    territory: T,
 }
 
-impl<G> Builder for SettlementBuilder<G>
+impl<G, T> Builder for SettlementBuilder<G, T>
 where
     G: AddSettlement + WhoControlsTile,
+    T: UpdateTerritory,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Settlement { .. } = build {
@@ -32,23 +36,28 @@ where
         } = build
         {
             for position in candidate_positions {
-                if !self.is_controlled(position) {
-                    settlement.position = position;
-                    self.add_settlement(settlement);
-                    return;
+                if self.is_controlled(position) {
+                    continue;
                 }
+                settlement.position = position;
+                if self.add_settlement(settlement) {
+                    self.territory.update_territory(position);
+                }
+                return;
             }
         }
     }
 }
 
-impl<G> SettlementBuilder<G>
+impl<G, T> SettlementBuilder<G, T>
 where
     G: AddSettlement + WhoControlsTile,
+    T: UpdateTerritory,
 {
-    pub fn new(game: &UpdateSender<G>) -> SettlementBuilder<G> {
+    pub fn new(game: &UpdateSender<G>, territory: &T) -> SettlementBuilder<G, T> {
         SettlementBuilder {
             game: game.clone_with_handle(HANDLE),
+            territory: territory.clone(),
         }
     }
 
@@ -60,7 +69,7 @@ where
         })
     }
 
-    fn add_settlement(&mut self, settlement: Settlement) {
+    fn add_settlement(&mut self, settlement: Settlement) -> bool {
         block_on(async {
             self.game
                 .update(move |game| game.add_settlement(settlement))
@@ -76,16 +85,19 @@ mod tests {
     use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
     struct Game {
         settlements: HashMap<V2<usize>, Settlement>,
+        add_settlement_return: bool,
         control: HashMap<V2<usize>, V2<usize>>,
     }
 
     impl AddSettlement for Game {
-        fn add_settlement(&mut self, settlement: Settlement) {
+        fn add_settlement(&mut self, settlement: Settlement) -> bool {
             self.settlements.insert(settlement.position, settlement);
+            self.add_settlement_return
         }
     }
 
@@ -95,11 +107,21 @@ mod tests {
         }
     }
 
+    impl UpdateTerritory for Arc<Mutex<Vec<V2<usize>>>> {
+        fn update_territory(&mut self, controller: V2<usize>) {
+            self.lock().unwrap().push(controller);
+        }
+    }
+
+    fn update_territory() -> Arc<Mutex<Vec<V2<usize>>>> {
+        Arc::new(Mutex::new(vec![]))
+    }
+
     #[test]
     fn can_build_settlement() {
         // Given
         let game = UpdateProcess::new(Game::default());
-        let builder = SettlementBuilder::new(&game.tx());
+        let builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
         let can_build = builder.can_build(&Build::Settlement {
@@ -130,7 +152,7 @@ mod tests {
             ..Game::default()
         };
         let game = UpdateProcess::new(game);
-        let mut builder = SettlementBuilder::new(&game.tx());
+        let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
         builder.build(Build::Settlement {
@@ -161,7 +183,7 @@ mod tests {
             ..Game::default()
         };
         let game = UpdateProcess::new(game);
-        let mut builder = SettlementBuilder::new(&game.tx());
+        let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
         builder.build(Build::Settlement {
@@ -190,7 +212,7 @@ mod tests {
             ..Game::default()
         };
         let game = UpdateProcess::new(game);
-        let mut builder = SettlementBuilder::new(&game.tx());
+        let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
         builder.build(Build::Settlement {
@@ -212,5 +234,57 @@ mod tests {
             .into_iter()
             .collect()
         );
+    }
+
+    #[test]
+    fn should_update_territory_if_settlement_built() {
+        // Given
+        let settlement = Settlement {
+            position: v2(1, 2),
+            ..Settlement::default()
+        };
+        let game = Game {
+            add_settlement_return: true,
+            ..Game::default()
+        };
+        let game = UpdateProcess::new(game);
+        let update_territory = update_territory();
+        let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
+
+        // When
+        builder.build(Build::Settlement {
+            candidate_positions: vec![settlement.position],
+            settlement,
+        });
+        game.shutdown();
+
+        // Then
+        assert_eq!(*update_territory.lock().unwrap(), vec![v2(1, 2)]);
+    }
+
+    #[test]
+    fn should_not_update_territory_if_settlement_not_built() {
+        // Given
+        let settlement = Settlement {
+            position: v2(1, 2),
+            ..Settlement::default()
+        };
+        let game = Game {
+            add_settlement_return: false,
+            ..Game::default()
+        };
+        let game = UpdateProcess::new(game);
+        let update_territory = update_territory();
+        let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
+
+        // When
+        builder.build(Build::Settlement {
+            candidate_positions: vec![settlement.position],
+            settlement,
+        });
+        game.shutdown();
+
+        // Then
+        assert_eq!(*update_territory.lock().unwrap(), vec![]);
     }
 }
