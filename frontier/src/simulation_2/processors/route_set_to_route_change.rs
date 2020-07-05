@@ -158,27 +158,14 @@ mod tests {
     use super::*;
 
     use crate::world::Resource;
-    use commons::update::{process_updates, update_channel};
+    use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashMap;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::thread;
     use std::time::Duration;
 
     #[test]
     fn should_add_route_and_new_route_instruction_if_route_is_new() {
-        let (game, mut rx) = update_channel(100);
-        let run = Arc::new(AtomicBool::new(true));
-        let run_2 = run.clone();
-        let handle = thread::spawn(move || {
-            let mut routes = HashMap::new();
-            while run_2.load(Ordering::Relaxed) {
-                let updates = rx.get_updates();
-                process_updates(updates, &mut routes);
-            }
-            routes
-        });
-
+        // Given
         let set_key = RouteSetKey {
             settlement: v2(1, 3),
             resource: Resource::Coal,
@@ -197,7 +184,10 @@ mod tests {
         let mut route_set = HashMap::new();
         route_set.insert(key, route.clone());
 
-        let mut processor = RouteSetToRouteChange::new(&game);
+        let game = UpdateProcess::new(HashMap::new());
+        let mut processor = RouteSetToRouteChange::new(&game.tx());
+
+        // When
         let state = block_on(async {
             processor
                 .process(
@@ -209,7 +199,9 @@ mod tests {
                 )
                 .await
         });
+        let routes = game.shutdown();
 
+        // Then
         assert_eq!(
             state.instructions[0],
             Instruction::RouteChange(RouteChange::New {
@@ -217,9 +209,6 @@ mod tests {
                 route: route.clone()
             })
         );
-
-        run.store(false, Ordering::Relaxed);
-        let routes = handle.join().unwrap();
         assert_eq!(
             routes,
             vec![(set_key, vec![(key, route)].into_iter().collect())]
@@ -230,6 +219,7 @@ mod tests {
 
     #[test]
     fn should_add_route_and_updated_route_instruction_if_route_has_changed() {
+        // Given
         let set_key = RouteSetKey {
             settlement: v2(1, 3),
             resource: Resource::Coal,
@@ -252,27 +242,17 @@ mod tests {
             traffic: 3,
         };
         let mut route_set = HashMap::new();
+        route_set.insert(key, old.clone());
+        let mut routes = HashMap::new();
+        routes.insert(set_key, route_set);
+        let game = UpdateProcess::new(routes);
+
+        let mut route_set = HashMap::new();
         route_set.insert(key, new.clone());
 
-        let old_2 = old.clone();
-        let (game, mut rx) = update_channel(100);
-        let run = Arc::new(AtomicBool::new(true));
-        let run_2 = run.clone();
-        let handle = thread::spawn(move || {
-            let mut route_set = HashMap::new();
-            route_set.insert(key, old_2);
-            let mut routes = HashMap::new();
-            routes.insert(set_key, route_set);
-            while run_2.load(Ordering::Relaxed) {
-                let updates = rx.get_updates();
-                if !updates.is_empty() {
-                    process_updates(updates, &mut routes);
-                }
-            }
-            routes
-        });
+        let mut processor = RouteSetToRouteChange::new(&game.tx());
 
-        let mut processor = RouteSetToRouteChange::new(&game);
+        // When
         let state = block_on(async {
             processor
                 .process(
@@ -284,7 +264,9 @@ mod tests {
                 )
                 .await
         });
+        let routes = game.shutdown();
 
+        // Then
         assert_eq!(
             state.instructions[0],
             Instruction::RouteChange(RouteChange::Updated {
@@ -293,9 +275,6 @@ mod tests {
                 old
             })
         );
-
-        run.store(false, Ordering::Relaxed);
-        let routes = handle.join().unwrap();
         assert_eq!(
             routes,
             vec![(set_key, vec![(key, new)].into_iter().collect())]
@@ -306,6 +285,7 @@ mod tests {
 
     #[test]
     fn should_not_add_route_nor_instruction_if_route_is_unchanged() {
+        //Given
         let set_key = RouteSetKey {
             settlement: v2(1, 3),
             resource: Resource::Coal,
@@ -321,28 +301,19 @@ mod tests {
             duration: Duration::from_secs(2),
             traffic: 3,
         };
+
+        let mut route_set = HashMap::new();
+        route_set.insert(key, route.clone());
+        let mut routes = HashMap::new();
+        routes.insert(set_key, route_set);
+        let game = UpdateProcess::new(routes);
+
         let mut route_set = HashMap::new();
         route_set.insert(key, route.clone());
 
-        let route_2 = route.clone();
-        let (game, mut rx) = update_channel(100);
-        let run = Arc::new(AtomicBool::new(true));
-        let run_2 = run.clone();
-        let handle = thread::spawn(move || {
-            let mut route_set = HashMap::new();
-            route_set.insert(key, route_2);
-            let mut routes = HashMap::new();
-            routes.insert(set_key, route_set);
-            while run_2.load(Ordering::Relaxed) {
-                let updates = rx.get_updates();
-                if !updates.is_empty() {
-                    process_updates(updates, &mut routes);
-                }
-            }
-            routes
-        });
+        let mut processor = RouteSetToRouteChange::new(&game.tx());
 
-        let mut processor = RouteSetToRouteChange::new(&game);
+        // When
         let state = block_on(async {
             processor
                 .process(
@@ -354,11 +325,10 @@ mod tests {
                 )
                 .await
         });
+        let routes = game.shutdown();
 
+        // Then
         assert_eq!(state.instructions, vec![],);
-
-        run.store(false, Ordering::Relaxed);
-        let routes = handle.join().unwrap();
         assert_eq!(
             routes,
             vec![(set_key, vec![(key, route)].into_iter().collect())]
@@ -369,6 +339,7 @@ mod tests {
 
     #[test]
     fn should_remove_route_and_add_removed_route_instruction_if_route_is_removed() {
+        // Given
         let set_key = RouteSetKey {
             settlement: v2(1, 3),
             resource: Resource::Coal,
@@ -384,27 +355,19 @@ mod tests {
             duration: Duration::from_secs(2),
             traffic: 3,
         };
+
+        let mut route_set = HashMap::new();
+        route_set.insert(key, route.clone());
+        let mut routes = HashMap::new();
+        routes.insert(set_key, route_set);
+
+        let game = UpdateProcess::new(routes);
+
         let route_set = HashMap::new();
 
-        let route_2 = route.clone();
-        let (game, mut rx) = update_channel(100);
-        let run = Arc::new(AtomicBool::new(true));
-        let run_2 = run.clone();
-        let handle = thread::spawn(move || {
-            let mut route_set = HashMap::new();
-            route_set.insert(key, route_2);
-            let mut routes = HashMap::new();
-            routes.insert(set_key, route_set);
-            while run_2.load(Ordering::Relaxed) {
-                let updates = rx.get_updates();
-                if !updates.is_empty() {
-                    process_updates(updates, &mut routes);
-                }
-            }
-            routes
-        });
+        let mut processor = RouteSetToRouteChange::new(&game.tx());
 
-        let mut processor = RouteSetToRouteChange::new(&game);
+        // When
         let state = block_on(async {
             processor
                 .process(
@@ -416,14 +379,13 @@ mod tests {
                 )
                 .await
         });
+        let routes = game.shutdown();
 
+        // Then
         assert_eq!(
             state.instructions[0],
             Instruction::RouteChange(RouteChange::Removed { key, route })
         );
-
-        run.store(false, Ordering::Relaxed);
-        let routes = handle.join().unwrap();
         assert_eq!(
             routes,
             vec![(set_key, HashMap::new())].into_iter().collect()

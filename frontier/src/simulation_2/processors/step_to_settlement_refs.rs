@@ -62,10 +62,9 @@ fn get_settlement_positions(settlements: &dyn Settlements) -> Vec<V2<usize>> {
 mod tests {
     use super::*;
 
-    use commons::update::{process_updates, update_channel};
+    use commons::update::UpdateProcess;
     use commons::{same_elements, v2};
     use std::collections::HashMap;
-    use std::thread;
 
     fn settlement(position: V2<usize>) -> Settlement {
         Settlement {
@@ -76,27 +75,22 @@ mod tests {
 
     #[test]
     fn should_add_instruction_for_each_settlement() {
-        let (game, mut rx) = update_channel(100);
+        // Given
+        let mut settlements = HashMap::new();
+        settlements.insert(v2(1, 1), settlement(v2(1, 1)));
+        settlements.insert(v2(2, 2), settlement(v2(2, 2)));
+        let game = UpdateProcess::new(settlements);
 
-        let handle = thread::spawn(move || {
-            let mut settlements = HashMap::new();
-            settlements.insert(v2(1, 1), settlement(v2(1, 1)));
-            settlements.insert(v2(2, 2), settlement(v2(2, 2)));
-            loop {
-                let updates = rx.get_updates();
-                if !updates.is_empty() {
-                    process_updates(updates, &mut settlements);
-                    return;
-                }
-            }
-        });
+        let mut processor = StepToSettlementRefs::new(&game.tx());
 
-        let mut processor = StepToSettlementRefs::new(&game);
+        // When
         let state = block_on(async {
             processor
                 .process(State::default(), &Instruction::Step)
                 .await
         });
+
+        // Then
         same_elements(
             &state.instructions,
             &[
@@ -104,6 +98,8 @@ mod tests {
                 Instruction::SettlementRef(v2(2, 2)),
             ],
         );
-        handle.join().unwrap();
+
+        // Finally
+        game.shutdown();
     }
 }

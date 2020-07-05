@@ -57,62 +57,53 @@ fn get_settlement(settlements: &dyn Settlements, position: V2<usize>) -> Option<
 mod tests {
     use super::*;
 
-    use commons::update::{process_updates, update_channel};
+    use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashMap;
-    use std::thread;
 
     #[test]
     fn should_add_settlement_instruction_if_position_is_valid() {
-        let (game, mut rx) = update_channel(100);
+        // Given
+        let mut settlements = HashMap::new();
+        settlements.insert(v2(1, 1), Settlement::default());
+        let game = UpdateProcess::new(settlements);
+        let mut processor = SettlementRefToSettlement::new(&game.tx());
 
-        let handle = thread::spawn(move || {
-            let mut settlements = HashMap::new();
-            settlements.insert(v2(1, 1), Settlement::default());
-            loop {
-                let updates = rx.get_updates();
-                if !updates.is_empty() {
-                    process_updates(updates, &mut settlements);
-                    return;
-                }
-            }
-        });
-
-        let mut processor = SettlementRefToSettlement::new(&game);
+        // When
         let state = block_on(async {
             processor
                 .process(State::default(), &Instruction::SettlementRef(v2(1, 1)))
                 .await
         });
+
+        // Then
         assert_eq!(
             state.instructions[0],
             Instruction::Settlement(Settlement::default()),
         );
-        handle.join().unwrap();
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
     fn should_add_no_instruction_if_position_is_invalid() {
-        let (game, mut rx) = update_channel(100);
+        // Given
+        let settlements = HashMap::new();
+        let game = UpdateProcess::new(settlements);
+        let mut processor = SettlementRefToSettlement::new(&game.tx());
 
-        let handle = thread::spawn(move || {
-            let mut settlements = HashMap::new();
-            loop {
-                let updates = rx.get_updates();
-                if !updates.is_empty() {
-                    process_updates(updates, &mut settlements);
-                    return;
-                }
-            }
-        });
-
-        let mut processor = SettlementRefToSettlement::new(&game);
+        // When
         let state = block_on(async {
             processor
                 .process(State::default(), &Instruction::SettlementRef(v2(1, 1)))
                 .await
         });
+
+        // Then
         assert!(state.instructions.is_empty());
-        handle.join().unwrap();
+
+        // Finally
+        game.shutdown();
     }
 }
