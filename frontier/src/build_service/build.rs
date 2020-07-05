@@ -6,5 +6,8 @@ use commons::V2;
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub enum Build {
     Road(V2<usize>),
-    Settlement(Settlement),
+    Settlement {
+        candidate_positions: Vec<V2<usize>>,
+        settlement: Settlement,
+    },
 }

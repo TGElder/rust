@@ -1,8 +1,6 @@
 use super::*;
 
 use crate::game::traits::Micros;
-use commons::futures::executor::block_on;
-use commons::update::*;
 use std::collections::BinaryHeap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -113,13 +111,12 @@ where
 mod tests {
     use super::*;
 
-    use commons::update::{process_updates, update_channel};
+    use commons::update::UpdateProcess;
     use commons::v2;
     use std::fs::remove_file;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::thread;
-    use std::thread::JoinHandle;
     use std::time::Instant;
 
     struct BuildRetriever {
@@ -144,28 +141,15 @@ mod tests {
         }
     }
 
-    fn game(mut micros: u128) -> (UpdateSender<u128>, JoinHandle<()>, Arc<Mutex<AtomicBool>>) {
-        let (game, mut rx) = update_channel(100);
-        let run = Arc::new(Mutex::new(AtomicBool::new(true)));
-        let run_2 = run.clone();
-        let game_handle = thread::spawn(move || {
-            while run_2.lock().unwrap().load(Ordering::Relaxed) {
-                let updates = rx.get_updates();
-                process_updates(updates, &mut micros);
-            }
-        });
-        (game, game_handle, run)
-    }
-
     #[test]
     fn should_hand_build_to_builder_if_when_elapsed() {
         // Given
-        let (game, game_handle, game_run) = game(1000);
+        let game = UpdateProcess::new(1000);
 
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
 
-        let mut build_service = BuildService::new(&game, vec![Box::new(retriever)]);
+        let mut build_service = BuildService::new(&game.tx(), vec![Box::new(retriever)]);
         build_service.queue(BuildInstruction {
             what: Build::Road(v2(1, 2)),
             when: 100,
@@ -179,8 +163,7 @@ mod tests {
 
         block_on(async { tx.update(|sim| sim.shutdown()).await });
         build_service_handle.join().unwrap();
-        game_run.lock().unwrap().store(false, Ordering::Relaxed);
-        game_handle.join().unwrap();
+        game.shutdown();
 
         // Then
         assert_eq!(*builds.lock().unwrap(), vec![Build::Road(v2(1, 2))]);
@@ -189,12 +172,12 @@ mod tests {
     #[test]
     fn should_not_hand_build_to_builder_if_when_not_elapsed() {
         // Given
-        let (game, game_handle, game_run) = game(1000);
+        let game = UpdateProcess::new(1000);
 
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
 
-        let mut build_service = BuildService::new(&game, vec![Box::new(retriever)]);
+        let mut build_service = BuildService::new(&game.tx(), vec![Box::new(retriever)]);
         build_service.queue(BuildInstruction {
             what: Build::Road(v2(1, 2)),
             when: 100,
@@ -212,8 +195,7 @@ mod tests {
 
         block_on(async { tx.update(|sim| sim.shutdown()).await });
         build_service_handle.join().unwrap();
-        game_run.lock().unwrap().store(false, Ordering::Relaxed);
-        game_handle.join().unwrap();
+        game.shutdown();
 
         // Then
         assert_eq!(*builds.lock().unwrap(), vec![Build::Road(v2(1, 2))]);
@@ -222,12 +204,12 @@ mod tests {
     #[test]
     fn should_order_builds_by_when() {
         // Given
-        let (game, game_handle, game_run) = game(1000);
+        let game = UpdateProcess::new(1000);
 
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
 
-        let mut build_service = BuildService::new(&game, vec![Box::new(retriever)]);
+        let mut build_service = BuildService::new(&game.tx(), vec![Box::new(retriever)]);
         build_service.queue(BuildInstruction {
             what: Build::Road(v2(1, 2)),
             when: 200,
@@ -245,8 +227,7 @@ mod tests {
 
         block_on(async { tx.update(|sim| sim.shutdown()).await });
         build_service_handle.join().unwrap();
-        game_run.lock().unwrap().store(false, Ordering::Relaxed);
-        game_handle.join().unwrap();
+        game.shutdown();
 
         // Then
         assert_eq!(
@@ -258,8 +239,8 @@ mod tests {
     #[test]
     fn should_shutdown() {
         // Given
-        let (game, game_handle, game_run) = game(1000);
-        let mut build_service = BuildService::new(&game, vec![]);
+        let game = UpdateProcess::new(1000);
+        let mut build_service = BuildService::new(&game.tx(), vec![]);
 
         // When
         let done = Arc::new(AtomicBool::new(false));
@@ -281,8 +262,7 @@ mod tests {
         }
 
         // Finally
-        game_run.lock().unwrap().store(false, Ordering::Relaxed);
-        game_handle.join().unwrap();
+        game.shutdown();
     }
 
     #[test]
@@ -290,8 +270,8 @@ mod tests {
         // Given
         let file_name = "test_save.build_service";
 
-        let (game, game_handle, game_run) = game(1000);
-        let mut build_service_1 = BuildService::new(&game, vec![]);
+        let game = UpdateProcess::new(1000);
+        let mut build_service_1 = BuildService::new(&game.tx(), vec![]);
         build_service_1.queue(BuildInstruction {
             what: Build::Road(v2(1, 2)),
             when: 200,
@@ -302,7 +282,7 @@ mod tests {
         });
         build_service_1.save(file_name);
 
-        let mut build_service_2 = BuildService::new(&game, vec![]);
+        let mut build_service_2 = BuildService::new(&game.tx(), vec![]);
 
         // When
         build_service_2.load(file_name);
@@ -312,8 +292,7 @@ mod tests {
         let queue_2: Vec<BuildInstruction> = build_service_2.queue.drain().collect();
         assert_eq!(queue_1, queue_2);
 
-        game_run.lock().unwrap().store(false, Ordering::Relaxed);
-        game_handle.join().unwrap();
+        game.shutdown();
 
         // Finally
         remove_file(format!("{}.build_service", file_name)).unwrap();

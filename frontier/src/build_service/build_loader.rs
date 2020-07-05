@@ -2,7 +2,6 @@ use super::*;
 
 use crate::game::traits::Micros;
 use crate::game::*;
-use commons::update::*;
 use isometric::Event;
 use std::sync::Arc;
 
@@ -55,13 +54,11 @@ mod tests {
     use super::*;
 
     use commons::futures::executor::block_on;
+    use commons::update::UpdateProcess;
     use commons::v2;
     use std::fs::remove_file;
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc::{channel, Sender};
-    use std::sync::Mutex;
     use std::thread;
-    use std::thread::JoinHandle;
     use std::time::Duration;
 
     struct BuildRetriever {
@@ -84,26 +81,13 @@ mod tests {
         }
     }
 
-    fn game(mut micros: u128) -> (UpdateSender<u128>, JoinHandle<()>, Arc<Mutex<AtomicBool>>) {
-        let (game, mut rx) = update_channel(100);
-        let run = Arc::new(Mutex::new(AtomicBool::new(true)));
-        let run_2 = run.clone();
-        let game_handle = thread::spawn(move || {
-            while run_2.lock().unwrap().load(Ordering::Relaxed) {
-                let updates = rx.get_updates();
-                process_updates(updates, &mut micros);
-            }
-        });
-        (game, game_handle, run)
-    }
-
     #[test]
     fn load_event_should_restore_build_queue() {
         // Given
         let file_name = "test_save.build_loader";
 
-        let (game, _, _) = game(1000);
-        let mut build_service_1 = BuildService::new(&game, vec![]);
+        let game = UpdateProcess::new(1000);
+        let mut build_service_1 = BuildService::new(&game.tx(), vec![]);
         build_service_1.queue(BuildInstruction {
             what: Build::Road(v2(1, 2)),
             when: 200,
@@ -112,7 +96,7 @@ mod tests {
 
         let (build_tx, build_rx) = channel();
         let retriever = BuildRetriever::new(build_tx);
-        let mut build_service_2 = BuildService::new(&game, vec![Box::new(retriever)]);
+        let mut build_service_2 = BuildService::new(&game.tx(), vec![Box::new(retriever)]);
         let mut consumer = BuildQueueLoader::new(&build_service_2.tx());
 
         // When
@@ -132,6 +116,7 @@ mod tests {
         assert_eq!(built, Build::Road(v2(1, 2)));
 
         // Finally
+        game.shutdown();
         remove_file(format!("{}.build_service", file_name)).unwrap();
     }
 }

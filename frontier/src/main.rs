@@ -29,6 +29,7 @@ use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::territory::*;
 use crate::world_gen::*;
+use build_service::builders::SettlementBuilder;
 use build_service::{BuildQueueLoader, BuildService};
 use commons::futures::executor::ThreadPool;
 use commons::index2d::Vec2D;
@@ -71,7 +72,8 @@ fn main() {
         AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
     )));
 
-    let mut builder = BuildService::new(game.tx(), vec![]);
+    let mut builder =
+        BuildService::new(game.tx(), vec![Box::new(SettlementBuilder::new(game.tx()))]);
 
     let mut sim = Simulation::new(vec![
         Box::new(StepToSettlementRefs::new(game.tx())),

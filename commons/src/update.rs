@@ -1,10 +1,13 @@
 use crate::Arm;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, SyncSender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
+use std::thread;
+use std::thread::JoinHandle;
 
 pub type UpdateFn<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
 
@@ -128,4 +131,38 @@ pub fn process_update<I>(update: Arm<Update<I>>, input: &mut I) {
 pub fn update_channel<I>(bound: usize) -> (UpdateSender<I>, UpdateReceiver<I>) {
     let (tx, rx) = mpsc::sync_channel(bound);
     (UpdateSender { tx, handle: "root" }, UpdateReceiver { rx })
+}
+
+pub struct UpdateProcess<I> {
+    tx: UpdateSender<I>,
+    handle: JoinHandle<I>,
+    run: Arc<Mutex<AtomicBool>>,
+}
+
+impl<I> UpdateProcess<I>
+where
+    I: Send + 'static,
+{
+    pub fn new(mut t: I) -> UpdateProcess<I> {
+        let (tx, mut rx) = update_channel(100);
+        let run = Arc::new(Mutex::new(AtomicBool::new(true)));
+        let run_2 = run.clone();
+        let handle = thread::spawn(move || {
+            while run_2.lock().unwrap().load(Ordering::Relaxed) {
+                let updates = rx.get_updates();
+                process_updates(updates, &mut t);
+            }
+            t
+        });
+        UpdateProcess { tx, handle, run }
+    }
+
+    pub fn tx(&self) -> &UpdateSender<I> {
+        &self.tx
+    }
+
+    pub fn shutdown(self) -> I {
+        self.run.lock().unwrap().store(false, Ordering::Relaxed);
+        self.handle.join().unwrap()
+    }
 }
