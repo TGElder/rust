@@ -42,7 +42,7 @@ use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
     DemandToRouteSet, InstructionLogger, RouteChangeToTrafficChange, RouteSetToRouteChange,
-    SettlementRefToSettlement, SettlementToDemands, StepToSettlementRefs,
+    SettlementRefToSettlement, SettlementToDemands, StepToSettlementRefs, TrafficChangeToTraffic,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
@@ -96,6 +96,7 @@ fn main() {
         Box::new(DemandToRouteSet::new(&avatar_pathfinder)),
         Box::new(RouteSetToRouteChange::new(game.tx())),
         Box::new(RouteChangeToTrafficChange::new()),
+        Box::new(TrafficChangeToTraffic::new(game.tx())),
         // Box::new(InstructionLogger::new()),
     ]);
 

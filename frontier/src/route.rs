@@ -41,3 +41,12 @@ pub struct RouteSetKey {
     pub settlement: V2<usize>,
     pub resource: Resource,
 }
+
+impl From<&RouteKey> for RouteSetKey {
+    fn from(route_key: &RouteKey) -> RouteSetKey {
+        RouteSetKey {
+            settlement: route_key.settlement,
+            resource: route_key.resource,
+        }
+    }
+}

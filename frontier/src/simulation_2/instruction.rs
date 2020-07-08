@@ -14,6 +14,12 @@ pub enum Instruction {
     },
     RouteChange(RouteChange),
     TrafficChange(V2<usize>),
+    Traffic {
+        position: V2<usize>,
+        controller: Option<V2<usize>>,
+        routes: Vec<RouteSummary>,
+        adjacent: Vec<Tile>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -31,4 +37,21 @@ pub enum RouteChange {
         key: RouteKey,
         route: Route,
     },
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct Tile {
+    pub position: V2<usize>,
+    pub settlement: Option<Settlement>,
+    pub sea: bool,
+    pub visible: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct RouteSummary {
+    pub traffic: usize,
+    pub origin: V2<usize>,
+    pub destination: V2<usize>,
+    pub nation: String,
+    pub first_visit: u128,
 }

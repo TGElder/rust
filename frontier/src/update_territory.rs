@@ -110,7 +110,7 @@ mod tests {
             positions: &[V2<usize>],
             duration: Duration,
         ) -> HashMap<V2<usize>, Duration> {
-            same_elements(positions, &get_corners(&v2(1, 2)));
+            assert!(same_elements(positions, &get_corners(&v2(1, 2))));
             assert_eq!(duration, Duration::from_secs(5));
             Self::durations()
         }

@@ -91,13 +91,13 @@ mod tests {
         });
 
         // Then
-        same_elements(
+        assert!(same_elements(
             &state.instructions,
             &[
                 Instruction::SettlementRef(v2(1, 1)),
                 Instruction::SettlementRef(v2(2, 2)),
             ],
-        );
+        ));
 
         // Finally
         game.shutdown();

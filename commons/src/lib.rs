@@ -1,6 +1,7 @@
 pub extern crate float_cmp;
 pub extern crate futures;
 pub extern crate image;
+extern crate maplit;
 pub extern crate nalgebra as na;
 extern crate noise;
 pub extern crate num;
@@ -27,6 +28,7 @@ pub type V2<T> = na::Vector2<T>;
 pub type V3<T> = na::Vector3<T>;
 
 pub use grid::*;
+pub use maplit::{btreemap, btreeset, hashmap, hashset};
 
 use crate::scale::*;
 use num::Float;
