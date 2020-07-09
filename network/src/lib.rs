@@ -127,11 +127,8 @@ impl Network {
     }
 
     pub fn add_edge(&mut self, edge: &Edge) {
-        self.edges_out
-            .get_mut(edge.from)
-            .unwrap()
-            .push(edge.clone());
-        self.edges_in.get_mut(edge.to).unwrap().push(edge.clone());
+        self.edges_out.get_mut(edge.from).unwrap().push(*edge);
+        self.edges_in.get_mut(edge.to).unwrap().push(*edge);
     }
 
     pub fn remove_edges(&mut self, from: usize, to: usize) {
@@ -341,32 +338,32 @@ impl Network {
         n_closest: usize,
     ) -> Vec<ClosestTargetResult> {
         #[derive(Eq)]
-        struct Node {
+        struct CTNode {
             index: usize,
             cost: u128,
             entry: Option<Edge>,
         }
 
-        impl Node {
-            fn new(index: usize, cost: u128, entry: Option<Edge>) -> Node {
-                Node { index, cost, entry }
+        impl CTNode {
+            fn new(index: usize, cost: u128, entry: Option<Edge>) -> CTNode {
+                CTNode { index, cost, entry }
             }
         }
 
-        impl Ord for Node {
-            fn cmp(&self, other: &Node) -> Ordering {
+        impl Ord for CTNode {
+            fn cmp(&self, other: &CTNode) -> Ordering {
                 self.cost.cmp(&other.cost).reverse()
             }
         }
 
-        impl PartialOrd for Node {
-            fn partial_cmp(&self, other: &Node) -> Option<Ordering> {
+        impl PartialOrd for CTNode {
+            fn partial_cmp(&self, other: &CTNode) -> Option<Ordering> {
                 Some(self.cmp(other))
             }
         }
 
-        impl PartialEq for Node {
-            fn eq(&self, other: &Node) -> bool {
+        impl PartialEq for CTNode {
+            fn eq(&self, other: &CTNode) -> bool {
                 self.cost == other.cost
             }
         }
@@ -386,10 +383,10 @@ impl Network {
         let mut last_cost = None;
 
         for node in start_nodes {
-            heap.push(Node::new(*node, 0, None))
+            heap.push(CTNode::new(*node, 0, None))
         }
 
-        while let Some(Node { index, cost, entry }) = heap.pop() {
+        while let Some(CTNode { index, cost, entry }) = heap.pop() {
             if closed[index] {
                 continue;
             }
@@ -417,7 +414,7 @@ impl Network {
                 if closed[neighbour] {
                     continue;
                 }
-                heap.push(Node {
+                heap.push(CTNode {
                     index: neighbour,
                     cost: cost + u128::from(edge.cost),
                     entry: Some(*edge),
@@ -444,7 +441,7 @@ fn get_path(from: &[usize], to: usize, edges: &[Option<Edge>]) -> Vec<Edge> {
     while !from.contains(&current) {
         if let Some(Some(edge)) = edges.get(current) {
             current = edge.from;
-            out.push(edge.clone());
+            out.push(*edge);
         } else {
             panic!("When building path after pathfinding, did not have an edge from {}. This is never expected to happen.", current);
         }

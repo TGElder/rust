@@ -149,7 +149,7 @@ where
             floats,
         },
         Command::UpdateTexture {
-            name: name,
+            name,
             texture: Some(texture),
         },
     ]

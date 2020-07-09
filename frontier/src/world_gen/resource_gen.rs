@@ -106,9 +106,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                         count(*resource).is_some() && self.is_candidate(*resource, &position)
                     })
                     .for_each(|resource| {
-                        out.entry(*resource)
-                            .or_insert_with(|| vec![])
-                            .push(position)
+                        out.entry(*resource).or_insert_with(Vec::new).push(position)
                     });
             }
         }
