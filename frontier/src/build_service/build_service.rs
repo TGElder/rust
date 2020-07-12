@@ -41,10 +41,6 @@ where
         &self.tx
     }
 
-    pub fn queue(&mut self, build_instruction: BuildInstruction) {
-        self.queue.push(build_instruction);
-    }
-
     pub fn run(&mut self) {
         while self.run {
             self.process_updates();
@@ -104,6 +100,15 @@ where
         let path = Self::get_path(path);
         let file = BufReader::new(File::open(path).unwrap());
         self.queue = bincode::deserialize_from(file).unwrap();
+    }
+}
+
+impl<G> BuildQueue for BuildService<G>
+where
+    G: Micros,
+{
+    fn queue(&mut self, build_instruction: BuildInstruction) {
+        self.queue.push(build_instruction);
     }
 }
 

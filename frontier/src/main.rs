@@ -43,6 +43,7 @@ use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
     DemandToRouteSet, InstructionLogger, RouteChangeToTrafficChange, RouteSetToRouteChange,
     SettlementRefToSettlement, SettlementToDemands, StepToSettlementRefs, TrafficChangeToTraffic,
+    TrafficToDestinationTown,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
@@ -97,6 +98,7 @@ fn main() {
         Box::new(RouteSetToRouteChange::new(game.tx())),
         Box::new(RouteChangeToTrafficChange::new()),
         Box::new(TrafficChangeToTraffic::new(game.tx())),
+        Box::new(TrafficToDestinationTown::new(game.tx(), builder.tx())),
         // Box::new(InstructionLogger::new()),
     ]);
 

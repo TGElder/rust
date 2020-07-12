@@ -1,7 +1,7 @@
 use super::*;
 use std::cmp::Ordering;
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct BuildInstruction {
     pub what: Build,
     pub when: u128,

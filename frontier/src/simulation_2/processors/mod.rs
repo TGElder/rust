@@ -8,6 +8,7 @@ mod settlement_ref_to_settlement;
 mod settlement_to_demands;
 mod step_to_settlement_refs;
 mod traffic_change_to_traffic;
+mod traffic_to_destination_town;
 
 pub use demand_to_route_set::DemandToRouteSet;
 pub use instruction_logger::InstructionLogger;
@@ -17,3 +18,4 @@ pub use settlement_ref_to_settlement::SettlementRefToSettlement;
 pub use settlement_to_demands::SettlementToDemands;
 pub use step_to_settlement_refs::StepToSettlementRefs;
 pub use traffic_change_to_traffic::TrafficChangeToTraffic;
+pub use traffic_to_destination_town::TrafficToDestinationTown;
