@@ -1,6 +1,7 @@
 use super::*;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::settlement::Settlement;
+use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
@@ -54,4 +55,5 @@ pub struct RouteSummary {
     pub destination: V2<usize>,
     pub nation: String,
     pub first_visit: u128,
+    pub duration: Duration,
 }

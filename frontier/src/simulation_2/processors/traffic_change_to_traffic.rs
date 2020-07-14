@@ -88,6 +88,7 @@ where
     let nation = origin_settlement.nation.clone();
     let micros = game.micros();
     let first_visit = micros + route.duration.as_micros();
+    let duration = route.duration;
 
     let route_summary = RouteSummary {
         traffic,
@@ -95,6 +96,7 @@ where
         destination,
         nation,
         first_visit,
+        duration,
     };
 
     Some(route_summary)
@@ -340,6 +342,7 @@ mod tests {
                     destination: v2(1, 2),
                     nation: "Scotland".to_string(),
                     first_visit: 1101,
+                    duration: Duration::from_micros(101),
                 }],
             ));
         } else {
@@ -411,6 +414,7 @@ mod tests {
                         destination: v2(1, 2),
                         nation: "Scotland".to_string(),
                         first_visit: 1101,
+                        duration: Duration::from_micros(101),
                     },
                     RouteSummary {
                         traffic: 22,
@@ -418,6 +422,7 @@ mod tests {
                         destination: v2(2, 2),
                         nation: "Wales".to_string(),
                         first_visit: 1202,
+                        duration: Duration::from_micros(202),
                     },
                 ],
             ));

@@ -4,6 +4,8 @@ use crate::build_service::{Build, BuildInstruction, BuildQueue};
 use crate::game::traits::Nations;
 use crate::settlement::{Settlement, SettlementClass::Town};
 use commons::v2;
+use std::convert::TryInto;
+use std::time::Duration;
 
 const HANDLE: &str = "traffic_to_destination_town";
 const TRAFFIC_TO_POPULATION: f64 = 0.5;
@@ -123,7 +125,7 @@ where
         nation: first_visit_route.nation.clone(),
         current_population: 0.0,
         target_population: get_target_population(&routes),
-        gap_half_life: None,
+        gap_half_life: Some(get_gap_half_life(&routes)),
     }
 }
 
@@ -137,6 +139,12 @@ fn get_traffic(routes: &[RouteSummary]) -> usize {
 
 fn get_target_population(routes: &[RouteSummary]) -> f64 {
     get_traffic(routes) as f64 * TRAFFIC_TO_POPULATION
+}
+
+fn get_gap_half_life(routes: &[RouteSummary]) -> Duration {
+    let total: Duration = routes.iter().map(|route| route.duration).sum();
+    let count: u32 = routes.iter().count().try_into().unwrap();
+    total / count
 }
 
 fn get_when(routes: &[RouteSummary]) -> u128 {
@@ -153,6 +161,7 @@ mod tests {
     use commons::update::UpdateProcess;
     use isometric::Color;
     use std::collections::HashMap;
+    use std::time::Duration;
 
     fn scotland() -> Nation {
         Nation::from_description(&NationDescription {
@@ -202,6 +211,7 @@ mod tests {
                 destination: v2(1, 2),
                 nation: "Scotland".to_string(),
                 first_visit: 101,
+                duration: Duration::from_micros(101),
             }],
             adjacent: vec![
                 Tile {
@@ -269,6 +279,7 @@ mod tests {
                     destination: v2(1, 2),
                     nation: "Scotland".to_string(),
                     first_visit: 202,
+                    duration: Duration::from_micros(202),
                 },
                 RouteSummary {
                     traffic: 3,
@@ -276,6 +287,7 @@ mod tests {
                     destination: v2(1, 2),
                     nation: "Wales".to_string(),
                     first_visit: 101,
+                    duration: Duration::from_micros(101),
                 },
             ],
             adjacent: vec![
@@ -311,6 +323,8 @@ mod tests {
             assert!(settlement
                 .target_population
                 .almost(&(9.0 * TRAFFIC_TO_POPULATION)));
+            // Gap half life is average duration of routes to position
+            assert_eq!(settlement.gap_half_life, Some(Duration::from_nanos(151500)))
         } else {
             panic!("No settlement build instruction!");
         }
@@ -347,6 +361,7 @@ mod tests {
                 destination: v2(2, 2),
                 nation: "Scotland".to_string(),
                 first_visit: 101,
+                duration: Duration::from_micros(101),
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
@@ -368,6 +383,7 @@ mod tests {
                 destination: v2(1, 2),
                 nation: "Scotland".to_string(),
                 first_visit: 101,
+                duration: Duration::from_micros(101),
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
@@ -389,6 +405,7 @@ mod tests {
                 destination: v2(1, 2),
                 nation: "Scotland".to_string(),
                 first_visit: 101,
+                duration: Duration::from_micros(101),
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
@@ -410,6 +427,7 @@ mod tests {
                 destination: v2(1, 2),
                 nation: "Scotland".to_string(),
                 first_visit: 101,
+                duration: Duration::from_micros(101),
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
