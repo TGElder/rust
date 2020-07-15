@@ -124,7 +124,8 @@ mod tests {
                 name: "name".to_string(),
                 current_population: 71.4,
                 target_population: 41.1,
-                gap_half_life: Some(Duration::from_secs(3)),
+                gap_half_life: Duration::from_secs(3),
+                last_population_update_micros: 81,
             },
         );
         let mut route_set = HashMap::new();

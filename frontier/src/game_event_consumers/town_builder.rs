@@ -3,6 +3,7 @@ use crate::nation::Nation;
 use crate::settlement::*;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
+use std::time::Duration;
 
 const HANDLE: &str = "town_builder";
 
@@ -61,7 +62,8 @@ fn add_settlement(game: &mut Game, position: V2<usize>) {
         nation,
         current_population: 0.0,
         target_population: 0.0,
-        gap_half_life: None,
+        gap_half_life: Duration::from_secs(0),
+        last_population_update_micros: game.game_state().game_micros,
     };
 
     game.add_settlement(settlement);

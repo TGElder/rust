@@ -125,7 +125,8 @@ where
         nation: first_visit_route.nation.clone(),
         current_population: 0.0,
         target_population: get_target_population(&routes),
-        gap_half_life: Some(get_gap_half_life(&routes)),
+        gap_half_life: get_gap_half_life(&routes),
+        last_population_update_micros: get_when(&routes),
     }
 }
 
@@ -144,7 +145,7 @@ fn get_target_population(routes: &[RouteSummary]) -> f64 {
 fn get_gap_half_life(routes: &[RouteSummary]) -> Duration {
     let total: Duration = routes.iter().map(|route| route.duration).sum();
     let count: u32 = routes.iter().count().try_into().unwrap();
-    total / count
+    (total / count) * 2
 }
 
 fn get_when(routes: &[RouteSummary]) -> u128 {
@@ -253,6 +254,10 @@ mod tests {
             assert!(settlement
                 .target_population
                 .almost(&(3.0 * TRAFFIC_TO_POPULATION)));
+            // Gap half life is average round-trip duration of routes to position
+            assert_eq!(settlement.gap_half_life, Duration::from_micros(202));
+            // Last population update is same as when (build time)
+            assert_eq!(settlement.last_population_update_micros, 101);
         } else {
             panic!("No settlement build instruction!");
         }
@@ -323,8 +328,10 @@ mod tests {
             assert!(settlement
                 .target_population
                 .almost(&(9.0 * TRAFFIC_TO_POPULATION)));
-            // Gap half life is average duration of routes to position
-            assert_eq!(settlement.gap_half_life, Some(Duration::from_nanos(151500)))
+            // Gap half life is average round-trip duration of routes to position
+            assert_eq!(settlement.gap_half_life, Duration::from_micros(303));
+            // Last population update is same as when (build time)
+            assert_eq!(settlement.last_population_update_micros, 101);
         } else {
             panic!("No settlement build instruction!");
         }

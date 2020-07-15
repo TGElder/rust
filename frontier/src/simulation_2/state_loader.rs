@@ -110,7 +110,7 @@ mod tests {
             state,
             State {
                 instructions: vec![Instruction::Step],
-                traffic: Vec2D::new(3, 7, HashSet::new())
+                traffic: Vec2D::new(3, 7, HashSet::new()),
             }
         )
     }

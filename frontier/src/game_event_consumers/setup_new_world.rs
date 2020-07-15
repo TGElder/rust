@@ -151,9 +151,10 @@ fn get_settlement(
         position: homeland_start.homeland,
         name: nation.clone(),
         nation,
-        current_population: 512.0 * 512.0,
-        target_population: 0.0,
-        gap_half_life: Some(params.homeland_distance),
+        current_population: 0.0,
+        target_population: 1024.0,
+        gap_half_life: params.homeland_distance,
+        last_population_update_micros: 0,
     }
 }
 
