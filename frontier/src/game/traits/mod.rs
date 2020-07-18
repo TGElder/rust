@@ -1,4 +1,5 @@
 mod add_settlement;
+mod controlled;
 mod micros;
 mod nations;
 mod routes;
@@ -9,6 +10,7 @@ mod who_controls_tile;
 mod world;
 
 pub use add_settlement::*;
+pub use controlled::*;
 pub use micros::*;
 pub use nations::*;
 pub use routes::*;
