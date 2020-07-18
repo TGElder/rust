@@ -123,9 +123,29 @@ impl Territory {
             .and_then(|map| map.values().min_by(|a, b| a.cmp(&b)))
     }
 
+    pub fn is_controlled_by(&self, position: &V2<usize>, controller: &V2<usize>) -> bool {
+        match self.who_controls(position) {
+            Some(Claim {
+                controller: controlled_by,
+                ..
+            }) if controlled_by == controller => true,
+            _ => false,
+        }
+    }
+
     #[allow(dead_code)] // TODO
     pub fn controllers(&self) -> HashSet<V2<usize>> {
         self.territory.keys().cloned().collect()
+    }
+
+    pub fn controlled(&self, controller: &V2<usize>) -> HashSet<V2<usize>> {
+        let claims: &HashSet<V2<usize>> =
+            unwrap_or!(self.territory.get(controller), return HashSet::new());
+        claims
+            .iter()
+            .cloned()
+            .filter(|position| self.is_controlled_by(position, controller))
+            .collect()
     }
 
     fn update_claims(
@@ -687,6 +707,25 @@ mod tests {
     }
 
     #[test]
+    fn is_controlled_by_returns_true_when_controlled() {
+        let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.set_durations(
+            v2(1, 1),
+            &hashmap! {v2(0, 0) => Duration::from_millis(2)},
+            &0,
+        );
+        assert!(territory.is_controlled_by(&v2(0, 0), &v2(1, 1)));
+    }
+
+    #[test]
+    fn is_controlled_by_returns_false_when_not_controlled() {
+        let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        assert!(!territory.is_controlled_by(&v2(0, 0), &v2(1, 1)));
+    }
+
+    #[test]
     fn controllers() {
         let mut territory = territory();
         territory.add_controller(v2(1, 1));
@@ -700,5 +739,40 @@ mod tests {
     #[test]
     fn controllers_no_controllers() {
         assert_eq!(territory().controllers(), HashSet::new());
+    }
+
+    #[test]
+    fn controlled_no_claims() {
+        assert_eq!(territory().controlled(&v2(1, 1)), hashset! {});
+    }
+
+    #[test]
+    fn controlled_includes_controlled() {
+        let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.set_durations(
+            v2(1, 1),
+            &hashmap! {v2(0, 0) => Duration::from_millis(2)},
+            &0,
+        );
+        assert_eq!(territory.controlled(&v2(1, 1)), hashset! {v2(0, 0)},);
+    }
+
+    #[test]
+    fn controlled_does_not_includes_claimed_but_not_controlled() {
+        let mut territory = territory();
+        territory.add_controller(v2(1, 1));
+        territory.set_durations(
+            v2(1, 1),
+            &hashmap! {v2(0, 0) => Duration::from_millis(2)},
+            &0,
+        );
+        territory.add_controller(v2(2, 2));
+        territory.set_durations(
+            v2(2, 2),
+            &hashmap! {v2(0, 0) => Duration::from_millis(1)},
+            &0,
+        );
+        assert_eq!(territory.controlled(&v2(1, 1)), hashset! {});
     }
 }
