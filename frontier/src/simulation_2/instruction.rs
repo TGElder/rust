@@ -9,7 +9,7 @@ pub enum Instruction {
     Step,
     SettlementRef(V2<usize>),
     Territory {
-        settlement: V2<usize>,
+        settlement: Settlement,
         territory: HashSet<V2<usize>>,
     },
     Settlement(Settlement),
