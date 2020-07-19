@@ -43,7 +43,8 @@ use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
     DemandToRouteSet, InstructionLogger, RouteChangeToTrafficChange, RouteSetToRouteChange,
     SettlementRefToPopulationUpdate, SettlementRefToSettlement, SettlementRefToTerritory,
-    SettlementToDemands, StepToSettlementRefs, TrafficChangeToTraffic, TrafficToDestinationTown,
+    SettlementToDemands, StepToSettlementRefs, TerritoryToUpdateTown, TrafficChangeToTraffic,
+    TrafficToDestinationTown,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
@@ -92,6 +93,7 @@ fn main() {
     let mut sim = Simulation::new(vec![
         Box::new(StepToSettlementRefs::new(game.tx())),
         Box::new(SettlementRefToTerritory::new(game.tx(), &territory_updater)),
+        Box::new(TerritoryToUpdateTown::new(game.tx())),
         Box::new(SettlementRefToPopulationUpdate::new(game.tx())),
         Box::new(SettlementRefToSettlement::new(game.tx())),
         Box::new(SettlementToDemands::new(town_demand_fn)),

@@ -20,24 +20,7 @@ where
     G: Controlled + Settlements,
     T: UpdateTerritory,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        self.process(state, instruction)
-    }
-}
-
-impl<G, T> SettlementRefToTerritory<G, T>
-where
-    G: Controlled + Settlements,
-    T: UpdateTerritory,
-{
-    pub fn new(game: &UpdateSender<G>, territory: &T) -> SettlementRefToTerritory<G, T> {
-        SettlementRefToTerritory {
-            game: game.clone_with_handle(HANDLE),
-            territory: territory.clone(),
-        }
-    }
-
-    pub fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let settlement = match instruction {
             Instruction::SettlementRef(settlement) => *settlement,
             _ => return state,
@@ -57,6 +40,19 @@ where
         });
 
         state
+    }
+}
+
+impl<G, T> SettlementRefToTerritory<G, T>
+where
+    G: Controlled + Settlements,
+    T: UpdateTerritory,
+{
+    pub fn new(game: &UpdateSender<G>, territory: &T) -> SettlementRefToTerritory<G, T> {
+        SettlementRefToTerritory {
+            game: game.clone_with_handle(HANDLE),
+            territory: territory.clone(),
+        }
     }
 
     fn settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
@@ -106,7 +102,7 @@ mod tests {
     }
 
     impl Controlled for MockGame {
-        fn controlled(&self, position: &V2<usize>) -> HashSet<V2<usize>> {
+        fn controlled(&self, _: &V2<usize>) -> HashSet<V2<usize>> {
             self.territory.clone()
         }
     }

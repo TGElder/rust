@@ -16,7 +16,12 @@ where
     G: Micros + Settlements + UpdateSettlement,
 {
     fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        self.process(state, instruction)
+        let position = match instruction {
+            Instruction::SettlementRef(position) => *position,
+            _ => return state,
+        };
+        self.try_update_settlement(position);
+        state
     }
 }
 
@@ -28,15 +33,6 @@ where
         SettlementRefToPopulationUpdate {
             game: game.clone_with_handle(HANDLE),
         }
-    }
-
-    pub fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let position = match instruction {
-            Instruction::SettlementRef(position) => *position,
-            _ => return state,
-        };
-        self.try_update_settlement(position);
-        state
     }
 
     fn try_update_settlement(&mut self, position: V2<usize>) {

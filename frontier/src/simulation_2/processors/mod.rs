@@ -9,6 +9,7 @@ mod settlement_ref_to_settlement;
 mod settlement_ref_to_territory;
 mod settlement_to_demands;
 mod step_to_settlement_refs;
+mod territory_to_update_town;
 mod traffic_change_to_traffic;
 mod traffic_to_destination_town;
 
@@ -21,5 +22,6 @@ pub use settlement_ref_to_settlement::SettlementRefToSettlement;
 pub use settlement_ref_to_territory::SettlementRefToTerritory;
 pub use settlement_to_demands::SettlementToDemands;
 pub use step_to_settlement_refs::StepToSettlementRefs;
+pub use territory_to_update_town::TerritoryToUpdateTown;
 pub use traffic_change_to_traffic::TrafficChangeToTraffic;
 pub use traffic_to_destination_town::TrafficToDestinationTown;
