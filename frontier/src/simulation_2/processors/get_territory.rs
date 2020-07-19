@@ -4,9 +4,9 @@ use crate::settlement::{Settlement, SettlementClass::Town};
 use crate::update_territory::UpdateTerritory;
 use std::collections::HashSet;
 
-const HANDLE: &str = "settlement_ref_to_territory";
+const HANDLE: &str = "get_territory";
 
-pub struct SettlementRefToTerritory<G, T>
+pub struct GetTerritory<G, T>
 where
     G: Controlled + Settlements,
     T: UpdateTerritory,
@@ -15,14 +15,14 @@ where
     territory: T,
 }
 
-impl<G, T> Processor for SettlementRefToTerritory<G, T>
+impl<G, T> Processor for GetTerritory<G, T>
 where
     G: Controlled + Settlements,
     T: UpdateTerritory,
 {
     fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let settlement = match instruction {
-            Instruction::SettlementRef(settlement) => *settlement,
+            Instruction::GetTerritory(settlement) => *settlement,
             _ => return state,
         };
 
@@ -34,7 +34,7 @@ where
         self.territory.update_territory(settlement.position);
         let territory = self.territory(settlement.position);
 
-        state.instructions.push(Instruction::Territory {
+        state.instructions.push(Instruction::UpdateTown {
             settlement,
             territory,
         });
@@ -43,13 +43,13 @@ where
     }
 }
 
-impl<G, T> SettlementRefToTerritory<G, T>
+impl<G, T> GetTerritory<G, T>
 where
     G: Controlled + Settlements,
     T: UpdateTerritory,
 {
-    pub fn new(game: &UpdateSender<G>, territory: &T) -> SettlementRefToTerritory<G, T> {
-        SettlementRefToTerritory {
+    pub fn new(game: &UpdateSender<G>, territory: &T) -> GetTerritory<G, T> {
+        GetTerritory {
             game: game.clone_with_handle(HANDLE),
             territory: territory.clone(),
         }
@@ -131,10 +131,10 @@ mod tests {
 
         let updated_territory = Arc::new(Mutex::new(vec![]));
 
-        let mut processor = SettlementRefToTerritory::new(&game.tx(), &updated_territory);
+        let mut processor = GetTerritory::new(&game.tx(), &updated_territory);
 
         // Given
-        let instruction = Instruction::SettlementRef(settlement.position);
+        let instruction = Instruction::GetTerritory(settlement.position);
         let state = processor.process(State::default(), &instruction);
 
         // Then
@@ -144,7 +144,7 @@ mod tests {
         );
         assert_eq!(
             state.instructions[0],
-            Instruction::Territory {
+            Instruction::UpdateTown {
                 settlement,
                 territory
             }
@@ -171,10 +171,10 @@ mod tests {
 
         let updated_territory = Arc::new(Mutex::new(vec![]));
 
-        let mut processor = SettlementRefToTerritory::new(&game.tx(), &updated_territory);
+        let mut processor = GetTerritory::new(&game.tx(), &updated_territory);
 
         // Given
-        let instruction = Instruction::SettlementRef(settlement.position);
+        let instruction = Instruction::GetTerritory(settlement.position);
         let state = processor.process(State::default(), &instruction);
 
         // Then
@@ -197,10 +197,10 @@ mod tests {
 
         let updated_territory = Arc::new(Mutex::new(vec![]));
 
-        let mut processor = SettlementRefToTerritory::new(&game.tx(), &updated_territory);
+        let mut processor = GetTerritory::new(&game.tx(), &updated_territory);
 
         // Given
-        let instruction = Instruction::SettlementRef(v2(5, 6));
+        let instruction = Instruction::GetTerritory(v2(5, 6));
         let state = processor.process(State::default(), &instruction);
 
         // Then

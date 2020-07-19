@@ -178,7 +178,7 @@ mod tests {
     impl Processor for InstructionIntroducer {
         fn process(&mut self, mut state: State, _: &Instruction) -> State {
             if !self.introduced {
-                state.instructions = vec![Instruction::SettlementRef(v2(1, 1))];
+                state.instructions = vec![Instruction::GetTerritory(v2(1, 1))];
                 self.introduced = true;
             }
             state
@@ -199,7 +199,7 @@ mod tests {
         while !instructions
             .lock()
             .unwrap()
-            .contains(&Instruction::SettlementRef(v2(1, 1)))
+            .contains(&Instruction::GetTerritory(v2(1, 1)))
         {
             if start.elapsed().as_secs() > 10 {
                 panic!("No town instruction received after 10 seconds");
@@ -260,9 +260,9 @@ mod tests {
         };
         sim_1.set_state(State {
             instructions: vec![
-                Instruction::SettlementRef(v2(1, 1)),
-                Instruction::SettlementRef(v2(2, 2)),
-                Instruction::SettlementRef(v2(3, 3)),
+                Instruction::GetTerritory(v2(1, 1)),
+                Instruction::GetTerritory(v2(2, 2)),
+                Instruction::GetTerritory(v2(3, 3)),
             ],
             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
         });
@@ -286,7 +286,7 @@ mod tests {
 
         let mut sim_1 = Simulation::new(vec![]);
         sim_1.set_state(State {
-            instructions: vec![Instruction::SettlementRef(v2(1, 1))],
+            instructions: vec![Instruction::GetTerritory(v2(1, 1))],
             ..State::default()
         });
         sim_1.save(file_name);
@@ -304,7 +304,7 @@ mod tests {
         while !instructions
             .lock()
             .unwrap()
-            .contains(&Instruction::SettlementRef(v2(1, 1)))
+            .contains(&Instruction::GetTerritory(v2(1, 1)))
         {
             if start.elapsed().as_secs() > 10 {
                 panic!("No town instruction received after 10 seconds");
@@ -316,7 +316,7 @@ mod tests {
         // Then
         assert_eq!(
             instructions.lock().unwrap()[0],
-            Instruction::SettlementRef(v2(1, 1))
+            Instruction::GetTerritory(v2(1, 1))
         );
 
         // Finally

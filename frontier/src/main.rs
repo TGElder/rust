@@ -41,10 +41,9 @@ use isometric::{IsometricEngine, IsometricEngineParameters};
 use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
-    DemandToRouteSet, InstructionLogger, RouteChangeToTrafficChange, RouteSetToRouteChange,
-    SettlementRefToPopulationUpdate, SettlementRefToSettlement, SettlementRefToTerritory,
-    SettlementToDemands, StepToSettlementRefs, TerritoryToUpdateTown, TrafficChangeToTraffic,
-    TrafficToDestinationTown,
+    BuildDestinationTown, GetDemand, GetRouteChanges, GetRoutes, GetTerritory, GetTraffic,
+    GetTrafficChanges, InstructionLogger, StepHomeland, StepTown, UpdateCurrentPopulation,
+    UpdateTown,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
@@ -91,18 +90,18 @@ fn main() {
     );
 
     let mut sim = Simulation::new(vec![
-        Box::new(StepToSettlementRefs::new(game.tx())),
-        Box::new(SettlementRefToTerritory::new(game.tx(), &territory_updater)),
-        Box::new(TerritoryToUpdateTown::new(game.tx())),
-        Box::new(SettlementRefToPopulationUpdate::new(game.tx())),
-        Box::new(SettlementRefToSettlement::new(game.tx())),
-        Box::new(SettlementToDemands::new(town_demand_fn)),
-        Box::new(SettlementToDemands::new(homeland_demand_fn)),
-        Box::new(DemandToRouteSet::new(&avatar_pathfinder)),
-        Box::new(RouteSetToRouteChange::new(game.tx())),
-        Box::new(RouteChangeToTrafficChange::new()),
-        Box::new(TrafficChangeToTraffic::new(game.tx())),
-        Box::new(TrafficToDestinationTown::new(game.tx(), builder.tx())),
+        Box::new(StepHomeland::new(game.tx())),
+        Box::new(StepTown::new(game.tx())),
+        Box::new(GetTerritory::new(game.tx(), &territory_updater)),
+        Box::new(UpdateTown::new(game.tx())),
+        Box::new(UpdateCurrentPopulation::new(game.tx())),
+        Box::new(GetDemand::new(town_demand_fn)),
+        Box::new(GetDemand::new(homeland_demand_fn)),
+        Box::new(GetRoutes::new(&avatar_pathfinder)),
+        Box::new(GetRouteChanges::new(game.tx())),
+        Box::new(GetTrafficChanges::new()),
+        Box::new(GetTraffic::new(game.tx())),
+        Box::new(BuildDestinationTown::new(game.tx(), builder.tx())),
         // Box::new(InstructionLogger::new()),
     ]);
 

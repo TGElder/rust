@@ -4,16 +4,16 @@ use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 
-const HANDLE: &str = "route_set_to_route_change";
+const HANDLE: &str = "get_route_changes";
 
-pub struct RouteSetToRouteChange<G>
+pub struct GetRouteChanges<G>
 where
     G: Routes,
 {
     game: UpdateSender<G>,
 }
 
-impl<G> Processor for RouteSetToRouteChange<G>
+impl<G> Processor for GetRouteChanges<G>
 where
     G: Routes,
 {
@@ -22,19 +22,19 @@ where
     }
 }
 
-impl<G> RouteSetToRouteChange<G>
+impl<G> GetRouteChanges<G>
 where
     G: Routes,
 {
-    pub fn new(game: &UpdateSender<G>) -> RouteSetToRouteChange<G> {
-        RouteSetToRouteChange {
+    pub fn new(game: &UpdateSender<G>) -> GetRouteChanges<G> {
+        GetRouteChanges {
             game: game.clone_with_handle(HANDLE),
         }
     }
 
     pub async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let (key, route_set) = match instruction {
-            Instruction::RouteSet { key, route_set } => (key, route_set),
+            Instruction::GetRouteChanges { key, route_set } => (key, route_set),
             _ => return state,
         };
         let state = self.process_new_and_changed(state, key, route_set).await;
@@ -52,7 +52,7 @@ where
                 log_change(&route_change);
                 state
                     .instructions
-                    .push(Instruction::RouteChange(route_change));
+                    .push(Instruction::GetTrafficChanges(route_change));
             }
         }
         state
@@ -72,7 +72,7 @@ where
             log_change(&route_change);
             state
                 .instructions
-                .push(Instruction::RouteChange(route_change))
+                .push(Instruction::GetTrafficChanges(route_change))
         }
         state
     }
@@ -185,14 +185,14 @@ mod tests {
         route_set.insert(key, route.clone());
 
         let game = UpdateProcess::new(HashMap::new());
-        let mut processor = RouteSetToRouteChange::new(&game.tx());
+        let mut processor = GetRouteChanges::new(&game.tx());
 
         // When
         let state = block_on(async {
             processor
                 .process(
                     State::default(),
-                    &Instruction::RouteSet {
+                    &Instruction::GetRouteChanges {
                         key: set_key,
                         route_set,
                     },
@@ -204,7 +204,7 @@ mod tests {
         // Then
         assert_eq!(
             state.instructions[0],
-            Instruction::RouteChange(RouteChange::New {
+            Instruction::GetTrafficChanges(RouteChange::New {
                 key,
                 route: route.clone()
             })
@@ -218,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn should_add_route_and_updated_route_instruction_if_route_has_changed() {
+    fn should_add_route_and_route_changed_instruction_if_route_has_changed() {
         // Given
         let set_key = RouteSetKey {
             settlement: v2(1, 3),
@@ -250,14 +250,14 @@ mod tests {
         let mut route_set = HashMap::new();
         route_set.insert(key, new.clone());
 
-        let mut processor = RouteSetToRouteChange::new(&game.tx());
+        let mut processor = GetRouteChanges::new(&game.tx());
 
         // When
         let state = block_on(async {
             processor
                 .process(
                     State::default(),
-                    &Instruction::RouteSet {
+                    &Instruction::GetRouteChanges {
                         key: set_key,
                         route_set,
                     },
@@ -269,7 +269,7 @@ mod tests {
         // Then
         assert_eq!(
             state.instructions[0],
-            Instruction::RouteChange(RouteChange::Updated {
+            Instruction::GetTrafficChanges(RouteChange::Updated {
                 key,
                 new: new.clone(),
                 old
@@ -311,14 +311,14 @@ mod tests {
         let mut route_set = HashMap::new();
         route_set.insert(key, route.clone());
 
-        let mut processor = RouteSetToRouteChange::new(&game.tx());
+        let mut processor = GetRouteChanges::new(&game.tx());
 
         // When
         let state = block_on(async {
             processor
                 .process(
                     State::default(),
-                    &Instruction::RouteSet {
+                    &Instruction::GetRouteChanges {
                         key: set_key,
                         route_set,
                     },
@@ -365,14 +365,14 @@ mod tests {
 
         let route_set = HashMap::new();
 
-        let mut processor = RouteSetToRouteChange::new(&game.tx());
+        let mut processor = GetRouteChanges::new(&game.tx());
 
         // When
         let state = block_on(async {
             processor
                 .process(
                     State::default(),
-                    &Instruction::RouteSet {
+                    &Instruction::GetRouteChanges {
                         key: set_key,
                         route_set,
                     },
@@ -384,7 +384,7 @@ mod tests {
         // Then
         assert_eq!(
             state.instructions[0],
-            Instruction::RouteChange(RouteChange::Removed { key, route })
+            Instruction::GetTrafficChanges(RouteChange::Removed { key, route })
         );
         assert_eq!(
             routes,

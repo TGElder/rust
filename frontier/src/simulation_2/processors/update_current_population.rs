@@ -2,40 +2,44 @@ use super::*;
 use crate::game::traits::{Micros, Settlements, UpdateSettlement};
 use crate::settlement::Settlement;
 
-const HANDLE: &str = "settlement_ref_to_settlement";
+const HANDLE: &str = "update_current_population";
 
-pub struct SettlementRefToPopulationUpdate<G>
+pub struct UpdateCurrentPopulation<G>
 where
     G: Micros + Settlements + UpdateSettlement,
 {
     game: UpdateSender<G>,
 }
 
-impl<G> Processor for SettlementRefToPopulationUpdate<G>
+impl<G> Processor for UpdateCurrentPopulation<G>
 where
     G: Micros + Settlements + UpdateSettlement,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let position = match instruction {
-            Instruction::SettlementRef(position) => *position,
+            Instruction::UpdateCurrentPopulation(position) => *position,
             _ => return state,
         };
-        self.try_update_settlement(position);
+
+        if let Some(settlement) = self.try_update_settlement(position) {
+            state.instructions.push(Instruction::GetDemand(settlement))
+        }
+
         state
     }
 }
 
-impl<G> SettlementRefToPopulationUpdate<G>
+impl<G> UpdateCurrentPopulation<G>
 where
     G: Micros + Settlements + UpdateSettlement,
 {
-    pub fn new(game: &UpdateSender<G>) -> SettlementRefToPopulationUpdate<G> {
-        SettlementRefToPopulationUpdate {
+    pub fn new(game: &UpdateSender<G>) -> UpdateCurrentPopulation<G> {
+        UpdateCurrentPopulation {
             game: game.clone_with_handle(HANDLE),
         }
     }
 
-    fn try_update_settlement(&mut self, position: V2<usize>) {
+    fn try_update_settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
         block_on(async {
             self.game
                 .update(move |game| try_update_settlement(game, position))
@@ -44,15 +48,15 @@ where
     }
 }
 
-fn try_update_settlement<G>(game: &mut G, position: V2<usize>)
+fn try_update_settlement<G>(game: &mut G, position: V2<usize>) -> Option<Settlement>
 where
     G: Micros + Settlements + UpdateSettlement,
 {
     let game_micros = *game.micros();
-    let settlement = unwrap_or!(game.get_settlement(&position), return);
+    let settlement = unwrap_or!(game.get_settlement(&position), return None);
 
     if settlement.last_population_update_micros >= game_micros {
-        return;
+        return Some(settlement.clone());
     }
 
     let new_population = get_new_population(settlement, &game_micros);
@@ -64,7 +68,8 @@ where
         nation: settlement.nation.clone(),
         ..*settlement
     };
-    game.update_settlement(new_settlement);
+    game.update_settlement(new_settlement.clone());
+    Some(new_settlement)
 }
 
 fn get_new_population(settlement: &Settlement, game_micros: &u128) -> f64 {
@@ -134,10 +139,13 @@ mod tests {
             settlements,
         };
         let game = UpdateProcess::new(game);
-        let mut processor = SettlementRefToPopulationUpdate::new(&game.tx());
+        let mut processor = UpdateCurrentPopulation::new(&game.tx());
 
         // When
-        processor.process(State::default(), &Instruction::SettlementRef(v2(1, 2)));
+        let state = processor.process(
+            State::default(),
+            &Instruction::UpdateCurrentPopulation(v2(1, 2)),
+        );
 
         // Then
         let game = game.shutdown();
@@ -145,6 +153,10 @@ mod tests {
 
         assert!(settlement.current_population.almost(&22.54612644157907));
         assert_eq!(settlement.last_population_update_micros, 33);
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::GetDemand(settlement.clone())]
+        );
     }
 
     #[test]
@@ -167,10 +179,13 @@ mod tests {
             settlements,
         };
         let game = UpdateProcess::new(game);
-        let mut processor = SettlementRefToPopulationUpdate::new(&game.tx());
+        let mut processor = UpdateCurrentPopulation::new(&game.tx());
 
         // When
-        processor.process(State::default(), &Instruction::SettlementRef(v2(1, 2)));
+        let state = processor.process(
+            State::default(),
+            &Instruction::UpdateCurrentPopulation(v2(1, 2)),
+        );
 
         // Then
         let game = game.shutdown();
@@ -178,6 +193,10 @@ mod tests {
 
         assert!(settlement.current_population.almost(&78.45387355842092));
         assert_eq!(settlement.last_population_update_micros, 33);
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::GetDemand(settlement.clone())]
+        );
     }
 
     #[test]
@@ -200,10 +219,13 @@ mod tests {
             settlements,
         };
         let game = UpdateProcess::new(game);
-        let mut processor = SettlementRefToPopulationUpdate::new(&game.tx());
+        let mut processor = UpdateCurrentPopulation::new(&game.tx());
 
         // When
-        processor.process(State::default(), &Instruction::SettlementRef(v2(1, 2)));
+        let state = processor.process(
+            State::default(),
+            &Instruction::UpdateCurrentPopulation(v2(1, 2)),
+        );
 
         // Then
         let game = game.shutdown();
@@ -213,6 +235,10 @@ mod tests {
             .current_population
             .almost(&settlement.target_population));
         assert_eq!(settlement.last_population_update_micros, 33);
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::GetDemand(settlement.clone())]
+        );
     }
 
     #[test]
@@ -224,19 +250,23 @@ mod tests {
             settlements: hashmap! {},
         };
         let game = UpdateProcess::new(game);
-        let mut processor = SettlementRefToPopulationUpdate::new(&game.tx());
+        let mut processor = UpdateCurrentPopulation::new(&game.tx());
 
         // When
-        processor.process(State::default(), &Instruction::SettlementRef(v2(1, 2)));
+        let state = processor.process(
+            State::default(),
+            &Instruction::UpdateCurrentPopulation(v2(1, 2)),
+        );
 
-        // Then No Error
+        // Then
+        assert_eq!(state.instructions, vec![]);
 
         // Finally
         game.shutdown();
     }
 
     #[test]
-    fn should_do_nothing_if_last_population_update_after_game_micros() {
+    fn should_not_change_settlement_if_last_population_update_after_game_micros() {
         // Given
         let settlement = Settlement {
             position: v2(1, 2),
@@ -255,10 +285,13 @@ mod tests {
             settlements,
         };
         let game = UpdateProcess::new(game);
-        let mut processor = SettlementRefToPopulationUpdate::new(&game.tx());
+        let mut processor = UpdateCurrentPopulation::new(&game.tx());
 
         // When
-        processor.process(State::default(), &Instruction::SettlementRef(v2(1, 2)));
+        let state = processor.process(
+            State::default(),
+            &Instruction::UpdateCurrentPopulation(v2(1, 2)),
+        );
 
         // Then
         let game = game.shutdown();
@@ -266,5 +299,9 @@ mod tests {
 
         assert!(settlement.current_population.almost(&100.0));
         assert_eq!(settlement.last_population_update_micros, 33);
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::GetDemand(settlement.clone())]
+        );
     }
 }

@@ -128,9 +128,9 @@ mod tests {
         };
         let state = State {
             instructions: vec![
-                Instruction::SettlementRef(v2(1, 1)),
-                Instruction::SettlementRef(v2(2, 2)),
-                Instruction::SettlementRef(v2(3, 3)),
+                Instruction::GetTerritory(v2(1, 1)),
+                Instruction::GetTerritory(v2(2, 2)),
+                Instruction::GetTerritory(v2(3, 3)),
             ],
             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
         };

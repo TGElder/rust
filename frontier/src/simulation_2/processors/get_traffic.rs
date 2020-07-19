@@ -5,22 +5,22 @@ use crate::game::traits::{HasWorld, Micros, Routes, Settlements, WhoControlsTile
 use crate::route::RouteKey;
 use std::collections::HashSet;
 
-const HANDLE: &str = "traffic_change_to_traffic";
+const HANDLE: &str = "get_traffic";
 
-pub struct TrafficChangeToTraffic<G>
+pub struct GetTraffic<G>
 where
     G: HasWorld + Micros + Routes + Settlements + WhoControlsTile,
 {
     game: UpdateSender<G>,
 }
 
-impl<G> Processor for TrafficChangeToTraffic<G>
+impl<G> Processor for GetTraffic<G>
 where
     G: HasWorld + Micros + Routes + Settlements + WhoControlsTile,
 {
     fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let position = match instruction {
-            Instruction::TrafficChange(position) => *position,
+            Instruction::GetTraffic(position) => *position,
             _ => return state,
         };
         let route_keys = get_route_keys(&state, &position);
@@ -31,12 +31,12 @@ where
     }
 }
 
-impl<G> TrafficChangeToTraffic<G>
+impl<G> GetTraffic<G>
 where
     G: HasWorld + Micros + Routes + Settlements + WhoControlsTile,
 {
-    pub fn new(game: &UpdateSender<G>) -> TrafficChangeToTraffic<G> {
-        TrafficChangeToTraffic {
+    pub fn new(game: &UpdateSender<G>) -> GetTraffic<G> {
+        GetTraffic {
             game: game.clone_with_handle(HANDLE),
         }
     }
@@ -250,10 +250,10 @@ mod tests {
         let position = v2(1, 2);
         let game = MockGame::default();
         let game = UpdateProcess::new(game);
-        let mut processor = TrafficChangeToTraffic::new(&game.tx());
+        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::TrafficChange(position));
+        let state = processor.process(state(), &Instruction::GetTraffic(position));
 
         // Then
         if let Some(Instruction::Traffic {
@@ -279,10 +279,10 @@ mod tests {
             ..MockGame::default()
         };
         let game = UpdateProcess::new(game);
-        let mut processor = TrafficChangeToTraffic::new(&game.tx());
+        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::TrafficChange(position));
+        let state = processor.process(state(), &Instruction::GetTraffic(position));
 
         // Then
         if let Some(Instruction::Traffic {
@@ -327,10 +327,10 @@ mod tests {
             ..MockGame::default()
         };
         let game = UpdateProcess::new(game);
-        let mut processor = TrafficChangeToTraffic::new(&game.tx());
+        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state, &Instruction::TrafficChange(position));
+        let state = processor.process(state, &Instruction::GetTraffic(position));
 
         // Then
         if let Some(Instruction::Traffic { routes, .. }) = state.instructions.get(0) {
@@ -398,10 +398,10 @@ mod tests {
             ..MockGame::default()
         };
         let game = UpdateProcess::new(game);
-        let mut processor = TrafficChangeToTraffic::new(&game.tx());
+        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state, &Instruction::TrafficChange(position));
+        let state = processor.process(state, &Instruction::GetTraffic(position));
 
         // Then
         if let Some(Instruction::Traffic { routes, .. }) = state.instructions.get(0) {
@@ -454,10 +454,10 @@ mod tests {
             ..MockGame::default()
         };
         let game = UpdateProcess::new(game);
-        let mut processor = TrafficChangeToTraffic::new(&game.tx());
+        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state, &Instruction::TrafficChange(position));
+        let state = processor.process(state, &Instruction::GetTraffic(position));
 
         // Then
         if let Some(Instruction::Traffic { routes, .. }) = state.instructions.get(0) {
@@ -495,10 +495,10 @@ mod tests {
             ..MockGame::default()
         };
         let game = UpdateProcess::new(game);
-        let mut processor = TrafficChangeToTraffic::new(&game.tx());
+        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::TrafficChange(position));
+        let state = processor.process(state(), &Instruction::GetTraffic(position));
 
         // Then
         if let Some(Instruction::Traffic { routes, .. }) = state.instructions.get(0) {
@@ -534,10 +534,10 @@ mod tests {
             ..MockGame::default()
         };
         let game = UpdateProcess::new(game);
-        let mut processor = TrafficChangeToTraffic::new(&game.tx());
+        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::TrafficChange(position));
+        let state = processor.process(state(), &Instruction::GetTraffic(position));
 
         // Then
         let expected: Vec<Tile> = settlements
@@ -580,10 +580,10 @@ mod tests {
             ..MockGame::default()
         };
         let game = UpdateProcess::new(game);
-        let mut processor = TrafficChangeToTraffic::new(&game.tx());
+        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::TrafficChange(position));
+        let state = processor.process(state(), &Instruction::GetTraffic(position));
 
         // Then
         let expected: Vec<Tile> = vec![v2(1, 2), v2(0, 2), v2(1, 1), v2(0, 1)]
@@ -623,12 +623,12 @@ mod tests {
             ..MockGame::default()
         };
         let game = UpdateProcess::new(game);
-        let mut processor = TrafficChangeToTraffic::new(&game.tx());
+        let mut processor = GetTraffic::new(&game.tx());
 
         let state = state();
 
         // When
-        let state = processor.process(state, &Instruction::TrafficChange(position));
+        let state = processor.process(state, &Instruction::GetTraffic(position));
 
         // Then
         let expected: Vec<Tile> = vec![v2(1, 2), v2(0, 2), v2(1, 1), v2(0, 1)]

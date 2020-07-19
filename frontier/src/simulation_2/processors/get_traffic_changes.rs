@@ -4,12 +4,12 @@ use crate::route::{Route, RouteKey};
 use commons::grid::Grid;
 use std::collections::HashSet;
 
-pub struct RouteChangeToTrafficChange {}
+pub struct GetTrafficChanges {}
 
-impl Processor for RouteChangeToTrafficChange {
+impl Processor for GetTrafficChanges {
     fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let route_change = match instruction {
-            Instruction::RouteChange(route_change) => route_change,
+            Instruction::GetTrafficChanges(route_change) => route_change,
             _ => return state,
         };
         match route_change {
@@ -20,18 +20,16 @@ impl Processor for RouteChangeToTrafficChange {
     }
 }
 
-impl RouteChangeToTrafficChange {
-    pub fn new() -> RouteChangeToTrafficChange {
-        RouteChangeToTrafficChange {}
+impl GetTrafficChanges {
+    pub fn new() -> GetTrafficChanges {
+        GetTrafficChanges {}
     }
 }
 
 fn new(mut state: State, key: &RouteKey, route: &Route) -> State {
     for position in route.path.iter() {
         state.traffic.mut_cell_unsafe(&position).insert(*key);
-        state
-            .instructions
-            .push(Instruction::TrafficChange(*position));
+        state.instructions.push(Instruction::GetTraffic(*position));
     }
     state
 }
@@ -45,16 +43,12 @@ fn updated(mut state: State, key: &RouteKey, old: &Route, new: &Route) -> State 
 
     for position in added {
         state.traffic.mut_cell_unsafe(&position).insert(*key);
-        state
-            .instructions
-            .push(Instruction::TrafficChange(*position));
+        state.instructions.push(Instruction::GetTraffic(*position));
     }
 
     for position in removed {
         state.traffic.mut_cell_unsafe(&position).remove(key);
-        state
-            .instructions
-            .push(Instruction::TrafficChange(*position));
+        state.instructions.push(Instruction::GetTraffic(*position));
     }
 
     state
@@ -63,9 +57,7 @@ fn updated(mut state: State, key: &RouteKey, old: &Route, new: &Route) -> State 
 fn removed(mut state: State, key: &RouteKey, route: &Route) -> State {
     for position in route.path.iter() {
         state.traffic.mut_cell_unsafe(&position).remove(key);
-        state
-            .instructions
-            .push(Instruction::TrafficChange(*position));
+        state.instructions.push(Instruction::GetTraffic(*position));
     }
     state
 }
@@ -119,7 +111,7 @@ mod tests {
     }
 
     #[test]
-    fn new_route_should_append_traffic_change_for_all_positions_in_route() {
+    fn new_route_should_append_get_traffic_instruction_for_all_positions_in_route() {
         // Given
         let change = RouteChange::New {
             key: key(),
@@ -127,18 +119,17 @@ mod tests {
         };
 
         // When
-        let state =
-            RouteChangeToTrafficChange {}.process(state(), &Instruction::RouteChange(change));
+        let state = GetTrafficChanges {}.process(state(), &Instruction::GetTrafficChanges(change));
 
         // Then
         assert_eq!(
             state.instructions,
             vec![
-                Instruction::TrafficChange(v2(1, 3)),
-                Instruction::TrafficChange(v2(2, 3)),
-                Instruction::TrafficChange(v2(2, 4)),
-                Instruction::TrafficChange(v2(2, 5)),
-                Instruction::TrafficChange(v2(1, 5)),
+                Instruction::GetTraffic(v2(1, 3)),
+                Instruction::GetTraffic(v2(2, 3)),
+                Instruction::GetTraffic(v2(2, 4)),
+                Instruction::GetTraffic(v2(2, 5)),
+                Instruction::GetTraffic(v2(1, 5)),
             ]
         );
     }
@@ -152,8 +143,7 @@ mod tests {
         };
 
         // When
-        let actual =
-            RouteChangeToTrafficChange {}.process(state(), &Instruction::RouteChange(change));
+        let actual = GetTrafficChanges {}.process(state(), &Instruction::GetTrafficChanges(change));
 
         // Then
         let mut expected = traffic();
@@ -164,7 +154,7 @@ mod tests {
     }
 
     #[test]
-    fn updated_route_should_append_traffic_change_for_difference() {
+    fn updated_route_should_append_get_traffic_instruction_for_difference() {
         // Given
         let change = RouteChange::Updated {
             key: key(),
@@ -173,17 +163,16 @@ mod tests {
         };
 
         // When
-        let state =
-            RouteChangeToTrafficChange {}.process(state(), &Instruction::RouteChange(change));
+        let state = GetTrafficChanges {}.process(state(), &Instruction::GetTrafficChanges(change));
 
         // Then
         assert!(same_elements(
             &state.instructions,
             &[
-                Instruction::TrafficChange(v2(1, 4)),
-                Instruction::TrafficChange(v2(2, 3)),
-                Instruction::TrafficChange(v2(2, 4)),
-                Instruction::TrafficChange(v2(2, 5)),
+                Instruction::GetTraffic(v2(1, 4)),
+                Instruction::GetTraffic(v2(2, 3)),
+                Instruction::GetTraffic(v2(2, 4)),
+                Instruction::GetTraffic(v2(2, 5)),
             ]
         ));
     }
@@ -202,8 +191,7 @@ mod tests {
         }
 
         // When
-        let actual =
-            RouteChangeToTrafficChange {}.process(state, &Instruction::RouteChange(change));
+        let actual = GetTrafficChanges {}.process(state, &Instruction::GetTrafficChanges(change));
 
         // Then
         let mut expected = traffic();
@@ -227,8 +215,7 @@ mod tests {
         }
 
         // When
-        let actual =
-            RouteChangeToTrafficChange {}.process(state, &Instruction::RouteChange(change));
+        let actual = GetTrafficChanges {}.process(state, &Instruction::GetTrafficChanges(change));
 
         // Then
         let mut expected = traffic();
@@ -239,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn removed_route_should_append_traffic_change_for_all_positions_in_route() {
+    fn removed_route_should_append_get_traffic_instruction_for_all_positions_in_route() {
         // Given
         let change = RouteChange::Removed {
             key: key(),
@@ -247,18 +234,17 @@ mod tests {
         };
 
         // When
-        let state =
-            RouteChangeToTrafficChange {}.process(state(), &Instruction::RouteChange(change));
+        let state = GetTrafficChanges {}.process(state(), &Instruction::GetTrafficChanges(change));
 
         // Then
         assert_eq!(
             state.instructions,
             vec![
-                Instruction::TrafficChange(v2(1, 3)),
-                Instruction::TrafficChange(v2(2, 3)),
-                Instruction::TrafficChange(v2(2, 4)),
-                Instruction::TrafficChange(v2(2, 5)),
-                Instruction::TrafficChange(v2(1, 5)),
+                Instruction::GetTraffic(v2(1, 3)),
+                Instruction::GetTraffic(v2(2, 3)),
+                Instruction::GetTraffic(v2(2, 4)),
+                Instruction::GetTraffic(v2(2, 5)),
+                Instruction::GetTraffic(v2(1, 5)),
             ]
         );
     }
@@ -276,8 +262,7 @@ mod tests {
         }
 
         // When
-        let actual =
-            RouteChangeToTrafficChange {}.process(state, &Instruction::RouteChange(change));
+        let actual = GetTrafficChanges {}.process(state, &Instruction::GetTrafficChanges(change));
 
         // Then
         let expected = traffic();
@@ -303,8 +288,7 @@ mod tests {
         }
 
         // When
-        let actual =
-            RouteChangeToTrafficChange {}.process(state, &Instruction::RouteChange(change));
+        let actual = GetTrafficChanges {}.process(state, &Instruction::GetTrafficChanges(change));
 
         // Then
         let mut expected = traffic();

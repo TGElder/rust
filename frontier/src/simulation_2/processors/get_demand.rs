@@ -1,35 +1,35 @@
 use super::*;
 use crate::settlement::Settlement;
 
-pub struct SettlementToDemands<F>
+pub struct GetDemand<F>
 where
     F: Fn(&Settlement) -> Vec<Demand>,
 {
     demand_fn: F,
 }
 
-impl<F> Processor for SettlementToDemands<F>
+impl<F> Processor for GetDemand<F>
 where
     F: Fn(&Settlement) -> Vec<Demand>,
 {
     fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let settlement = match instruction {
-            Instruction::Settlement(settlement) => settlement,
+            Instruction::GetDemand(settlement) => settlement,
             _ => return state,
         };
         for demand in self.demand(settlement) {
-            state.instructions.push(Instruction::Demand(demand))
+            state.instructions.push(Instruction::GetRoutes(demand))
         }
         state
     }
 }
 
-impl<F> SettlementToDemands<F>
+impl<F> GetDemand<F>
 where
     F: Fn(&Settlement) -> Vec<Demand>,
 {
-    pub fn new(demand_fn: F) -> SettlementToDemands<F> {
-        SettlementToDemands { demand_fn }
+    pub fn new(demand_fn: F) -> GetDemand<F> {
+        GetDemand { demand_fn }
     }
 
     fn demand(&self, settlement: &Settlement) -> impl Iterator<Item = Demand> {
@@ -67,24 +67,24 @@ mod tests {
 
         let demand_fn = |_: &Settlement| demand();
 
-        let mut processor = SettlementToDemands::new(demand_fn);
+        let mut processor = GetDemand::new(demand_fn);
         let state = processor.process(
             State::default(),
-            &Instruction::Settlement(Settlement::default()),
+            &Instruction::GetDemand(Settlement::default()),
         );
 
         let expected = demand();
         assert_eq!(
             state.instructions,
             vec![
-                Instruction::Demand(expected[0]),
-                Instruction::Demand(expected[1]),
+                Instruction::GetRoutes(expected[0]),
+                Instruction::GetRoutes(expected[1]),
             ]
         );
     }
 
     #[test]
-    fn should_not_add_demand_with_zero_quantity() {
+    fn should_not_add_instruction_for_demand_with_zero_quantity() {
         let demand_fn = |_: &Settlement| {
             vec![Demand {
                 resource: Resource::Crops,
@@ -94,17 +94,17 @@ mod tests {
             }]
         };
 
-        let mut processor = SettlementToDemands::new(demand_fn);
+        let mut processor = GetDemand::new(demand_fn);
         let state = processor.process(
             State::default(),
-            &Instruction::Settlement(Settlement::default()),
+            &Instruction::GetDemand(Settlement::default()),
         );
 
         assert_eq!(state.instructions, vec![]);
     }
 
     #[test]
-    fn should_not_add_demand_with_zero_sources() {
+    fn should_not_add_instruction_for_demand_with_zero_sources() {
         let demand_fn = |_: &Settlement| {
             vec![Demand {
                 resource: Resource::Crops,
@@ -114,10 +114,10 @@ mod tests {
             }]
         };
 
-        let mut processor = SettlementToDemands::new(demand_fn);
+        let mut processor = GetDemand::new(demand_fn);
         let state = processor.process(
             State::default(),
-            &Instruction::Settlement(Settlement::default()),
+            &Instruction::GetDemand(Settlement::default()),
         );
 
         assert_eq!(state.instructions, vec![]);

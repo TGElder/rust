@@ -7,10 +7,10 @@ use commons::v2;
 use std::convert::TryInto;
 use std::time::Duration;
 
-const HANDLE: &str = "traffic_to_destination_town";
+const HANDLE: &str = "build_destination_town";
 const TRAFFIC_TO_POPULATION: f64 = 0.5;
 
-pub struct TrafficToDestinationTown<G, B>
+pub struct BuildDestinationTown<G, B>
 where
     G: Nations,
     B: BuildQueue,
@@ -19,7 +19,7 @@ where
     builder: UpdateSender<B>,
 }
 
-impl<G, B> Processor for TrafficToDestinationTown<G, B>
+impl<G, B> Processor for BuildDestinationTown<G, B>
 where
     G: Nations,
     B: BuildQueue,
@@ -30,16 +30,13 @@ where
     }
 }
 
-impl<G, B> TrafficToDestinationTown<G, B>
+impl<G, B> BuildDestinationTown<G, B>
 where
     G: Nations,
     B: BuildQueue,
 {
-    pub fn new(
-        game: &UpdateSender<G>,
-        builder: &UpdateSender<B>,
-    ) -> TrafficToDestinationTown<G, B> {
-        TrafficToDestinationTown {
+    pub fn new(game: &UpdateSender<G>, builder: &UpdateSender<B>) -> BuildDestinationTown<G, B> {
+        BuildDestinationTown {
             game: game.clone_with_handle(HANDLE),
             builder: builder.clone_with_handle(HANDLE),
         }
@@ -200,7 +197,7 @@ mod tests {
         // Given
         let game = UpdateProcess::new(nations());
         let build_queue = UpdateProcess::new(vec![]);
-        let mut processor = TrafficToDestinationTown::new(&game.tx(), &build_queue.tx());
+        let mut processor = BuildDestinationTown::new(&game.tx(), &build_queue.tx());
 
         // When
         let instruction = Instruction::Traffic {
@@ -271,7 +268,7 @@ mod tests {
         // Given
         let game = UpdateProcess::new(nations());
         let build_queue = UpdateProcess::new(vec![]);
-        let mut processor = TrafficToDestinationTown::new(&game.tx(), &build_queue.tx());
+        let mut processor = BuildDestinationTown::new(&game.tx(), &build_queue.tx());
 
         // When
         let instruction = Instruction::Traffic {
@@ -344,7 +341,7 @@ mod tests {
         // Given
         let game = UpdateProcess::new(nations());
         let build_queue = UpdateProcess::new(vec![]);
-        let mut processor = TrafficToDestinationTown::new(&game.tx(), &build_queue.tx());
+        let mut processor = BuildDestinationTown::new(&game.tx(), &build_queue.tx());
 
         // When
         processor.process(State::default(), &instruction);

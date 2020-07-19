@@ -4,23 +4,23 @@ use crate::route::RouteKey;
 use crate::settlement::Settlement;
 use std::collections::HashSet;
 
-const HANDLE: &str = "territory_to_settlement";
+const HANDLE: &str = "update_town";
 const TRAFFIC_TO_POPULATION: f64 = 0.5;
 
-pub struct TerritoryToUpdateTown<G>
+pub struct UpdateTown<G>
 where
     G: Routes + UpdateSettlement,
 {
     game: UpdateSender<G>,
 }
 
-impl<G> Processor for TerritoryToUpdateTown<G>
+impl<G> Processor for UpdateTown<G>
 where
     G: Routes + UpdateSettlement,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, territory) = match instruction {
-            Instruction::Territory {
+            Instruction::UpdateTown {
                 settlement,
                 territory,
             } => (settlement, territory),
@@ -35,15 +35,19 @@ where
         self.update_settlement(settlement.clone(), route_keys);
 
         state
+            .instructions
+            .push(Instruction::UpdateCurrentPopulation(settlement.position));
+
+        state
     }
 }
 
-impl<G> TerritoryToUpdateTown<G>
+impl<G> UpdateTown<G>
 where
     G: Routes + UpdateSettlement,
 {
-    pub fn new(game: &UpdateSender<G>) -> TerritoryToUpdateTown<G> {
-        TerritoryToUpdateTown {
+    pub fn new(game: &UpdateSender<G>) -> UpdateTown<G> {
+        UpdateTown {
             game: game.clone_with_handle(HANDLE),
         }
     }
@@ -193,19 +197,19 @@ mod tests {
         );
 
         let game = UpdateProcess::new(game);
-        let mut processor = TerritoryToUpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(&game.tx());
 
         let state = State {
             traffic,
             ..State::default()
         };
-        let instruction = Instruction::Territory {
+        let instruction = Instruction::UpdateTown {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        processor.process(state, &instruction);
+        let state = processor.process(state, &instruction);
 
         // Then
         let game = game.shutdown();
@@ -214,6 +218,10 @@ mod tests {
             ..settlement
         };
         assert_eq!(game.updated_settlements, vec![expected]);
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::UpdateCurrentPopulation(settlement.position)]
+        );
     }
 
     #[test]
@@ -252,23 +260,24 @@ mod tests {
         );
 
         let game = UpdateProcess::new(game);
-        let mut processor = TerritoryToUpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(&game.tx());
 
         let state = State {
             traffic,
             ..State::default()
         };
-        let instruction = Instruction::Territory {
+        let instruction = Instruction::UpdateTown {
             settlement,
             territory,
         };
 
         // When
-        processor.process(state, &instruction);
+        let state = processor.process(state, &instruction);
 
         // Then
         let game = game.shutdown();
         assert_eq!(game.updated_settlements, vec![]);
+        assert_eq!(state.instructions, vec![]);
     }
 
     #[test]
@@ -299,22 +308,23 @@ mod tests {
         );
 
         let game = UpdateProcess::new(game);
-        let mut processor = TerritoryToUpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(&game.tx());
 
         let state = State {
             traffic,
             ..State::default()
         };
-        let instruction = Instruction::Territory {
+        let instruction = Instruction::UpdateTown {
             settlement,
             territory,
         };
 
         // When
-        processor.process(state, &instruction);
+        let state = processor.process(state, &instruction);
 
         // Then
         let game = game.shutdown();
         assert_eq!(game.updated_settlements, vec![]);
+        assert_eq!(state.instructions, vec![]);
     }
 }

@@ -3,25 +3,25 @@ use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets};
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation_2::game_event_consumers::target_set;
 
-pub struct DemandToRouteSet<P>
+pub struct GetRoutes<P>
 where
     P: ClosestTargets,
 {
     pathfinder: Arc<RwLock<P>>,
 }
 
-impl<P> Processor for DemandToRouteSet<P>
+impl<P> Processor for GetRoutes<P>
 where
     P: ClosestTargets,
 {
     fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let demand = match instruction {
-            Instruction::Demand(demand) => *demand,
+            Instruction::GetRoutes(demand) => *demand,
             _ => return state,
         };
         let route_set: RouteSet = routes(&demand, self.closest_targets(&demand)).collect();
         if !route_set.is_empty() {
-            state.instructions.push(Instruction::RouteSet {
+            state.instructions.push(Instruction::GetRouteChanges {
                 key: RouteSetKey {
                     settlement: demand.position,
                     resource: demand.resource,
@@ -33,12 +33,12 @@ where
     }
 }
 
-impl<P> DemandToRouteSet<P>
+impl<P> GetRoutes<P>
 where
     P: ClosestTargets,
 {
-    pub fn new(pathfinder: &Arc<RwLock<P>>) -> DemandToRouteSet<P> {
-        DemandToRouteSet {
+    pub fn new(pathfinder: &Arc<RwLock<P>>) -> GetRoutes<P> {
+        GetRoutes {
             pathfinder: pathfinder.clone(),
         }
     }
@@ -122,7 +122,7 @@ mod tests {
         }
 
         let pathfinder = Arc::new(RwLock::new(MockPathfinder {}));
-        let mut processor = DemandToRouteSet::new(&pathfinder);
+        let mut processor = GetRoutes::new(&pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -130,7 +130,7 @@ mod tests {
             quantity: 3,
         };
 
-        let state = processor.process(State::default(), &Instruction::Demand(demand));
+        let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
 
         let mut route_set = HashMap::new();
         route_set.insert(
@@ -162,7 +162,7 @@ mod tests {
 
         assert_eq!(
             state.instructions,
-            vec![Instruction::RouteSet {
+            vec![Instruction::GetRouteChanges {
                 key: RouteSetKey {
                     settlement: v2(1, 3),
                     resource: Resource::Coal
@@ -195,7 +195,7 @@ mod tests {
         }
 
         let pathfinder = Arc::new(RwLock::new(MockPathfinder {}));
-        let mut processor = DemandToRouteSet::new(&pathfinder);
+        let mut processor = GetRoutes::new(&pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -203,7 +203,7 @@ mod tests {
             quantity: 3,
         };
 
-        let state = processor.process(State::default(), &Instruction::Demand(demand));
+        let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
 
         assert_eq!(state.instructions, vec![]);
     }

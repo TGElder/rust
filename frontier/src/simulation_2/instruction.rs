@@ -7,19 +7,20 @@ use std::time::Duration;
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
     Step,
-    SettlementRef(V2<usize>),
-    Territory {
+    GetTerritory(V2<usize>),
+    UpdateTown {
         settlement: Settlement,
         territory: HashSet<V2<usize>>,
     },
-    Settlement(Settlement),
-    Demand(Demand),
-    RouteSet {
+    UpdateCurrentPopulation(V2<usize>),
+    GetDemand(Settlement),
+    GetRoutes(Demand),
+    GetRouteChanges {
         key: RouteSetKey,
         route_set: RouteSet,
     },
-    RouteChange(RouteChange),
-    TrafficChange(V2<usize>),
+    GetTrafficChanges(RouteChange),
+    GetTraffic(V2<usize>),
     Traffic {
         position: V2<usize>,
         controller: Option<V2<usize>>,
