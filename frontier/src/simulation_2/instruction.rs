@@ -1,12 +1,17 @@
 use super::*;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::settlement::Settlement;
+use std::collections::HashSet;
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
     Step,
     SettlementRef(V2<usize>),
+    Territory {
+        settlement: V2<usize>,
+        territory: HashSet<V2<usize>>,
+    },
     Settlement(Settlement),
     Demand(Demand),
     RouteSet {

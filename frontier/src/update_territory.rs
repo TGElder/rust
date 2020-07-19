@@ -101,6 +101,13 @@ mod tests {
     use commons::same_elements;
     use commons::update::UpdateProcess;
     use commons::v2;
+    use std::sync::Mutex;
+
+    impl UpdateTerritory for Arc<Mutex<Vec<V2<usize>>>> {
+        fn update_territory(&mut self, controller: V2<usize>) {
+            self.lock().unwrap().push(controller);
+        }
+    }
 
     struct MockPathfinder {}
 

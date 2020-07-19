@@ -107,12 +107,6 @@ mod tests {
         }
     }
 
-    impl UpdateTerritory for Arc<Mutex<Vec<V2<usize>>>> {
-        fn update_territory(&mut self, controller: V2<usize>) {
-            self.lock().unwrap().push(controller);
-        }
-    }
-
     fn update_territory() -> Arc<Mutex<Vec<V2<usize>>>> {
         Arc::new(Mutex::new(vec![]))
     }
