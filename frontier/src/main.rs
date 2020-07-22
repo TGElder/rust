@@ -43,7 +43,7 @@ use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
     BuildDestinationTown, GetDemand, GetRouteChanges, GetRoutes, GetTerritory, GetTraffic,
     GetTrafficChanges, InstructionLogger, StepHomeland, StepTown, UpdateCurrentPopulation,
-    UpdateTown,
+    UpdateTown, VisibilitySim, VisibilitySimConsumer,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
@@ -89,6 +89,9 @@ fn main() {
         ))],
     );
 
+    let visibility_sim = VisibilitySim::new();
+    let visibility_sim_consumer = visibility_sim.consumer();
+
     let mut sim = Simulation::new(vec![
         Box::new(StepHomeland::new(game.tx())),
         Box::new(StepTown::new(game.tx())),
@@ -102,6 +105,7 @@ fn main() {
         Box::new(GetTrafficChanges::new()),
         Box::new(GetTraffic::new(game.tx())),
         Box::new(BuildDestinationTown::new(game.tx(), builder.tx())),
+        Box::new(visibility_sim),
         // Box::new(InstructionLogger::new()),
     ]);
 
@@ -146,6 +150,7 @@ fn main() {
     game.add_consumer(from_towns);
     game.add_consumer(from_roads);
     game.add_consumer(handler);
+    game.add_consumer(visibility_sim_consumer);
     game.add_consumer(setup_new_world);
 
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.tx()));

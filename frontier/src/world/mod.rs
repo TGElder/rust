@@ -233,21 +233,6 @@ impl World {
             .unwrap()
     }
 
-    pub fn expand_position(&self, position: &V2<usize>) -> Vec<V2<usize>> {
-        let mut out = vec![];
-        let fx = if position.x == 0 { 0 } else { position.x - 1 };
-        let fy = if position.y == 0 { 0 } else { position.y - 1 };
-        for x in fx..position.x + 2 {
-            for y in fy..position.y + 2 {
-                let position = v2(x, y);
-                if self.in_bounds(&position) {
-                    out.push(position);
-                }
-            }
-        }
-        out
-    }
-
     pub fn tile_average(
         &self,
         position: &V2<usize>,
@@ -538,41 +523,6 @@ mod tests {
     #[test]
     fn test_get_max_abs_rise() {
         assert!(world().get_max_abs_rise(&v2(0, 0)).almost(&1.0));
-    }
-
-    #[test]
-    fn test_expand() {
-        let actual = world().expand_position(&v2(1, 1));
-        assert_eq!(actual.len(), 9);
-        assert!(actual.contains(&v2(0, 0)));
-        assert!(actual.contains(&v2(1, 0)));
-        assert!(actual.contains(&v2(2, 0)));
-        assert!(actual.contains(&v2(0, 1)));
-        assert!(actual.contains(&v2(1, 1)));
-        assert!(actual.contains(&v2(1, 1)));
-        assert!(actual.contains(&v2(0, 2)));
-        assert!(actual.contains(&v2(1, 2)));
-        assert!(actual.contains(&v2(2, 2)));
-    }
-
-    #[test]
-    fn test_expand_top_left_corner() {
-        let actual = world().expand_position(&v2(0, 0));
-        assert_eq!(actual.len(), 4);
-        assert!(actual.contains(&v2(0, 0)));
-        assert!(actual.contains(&v2(1, 0)));
-        assert!(actual.contains(&v2(0, 1)));
-        assert!(actual.contains(&v2(1, 1)));
-    }
-
-    #[test]
-    fn test_expand_bottom_right_corner() {
-        let actual = world().expand_position(&v2(2, 2));
-        assert_eq!(actual.len(), 4);
-        assert!(actual.contains(&v2(2, 2)));
-        assert!(actual.contains(&v2(2, 1)));
-        assert!(actual.contains(&v2(1, 2)));
-        assert!(actual.contains(&v2(1, 1)));
     }
 
     #[test]

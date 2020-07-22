@@ -93,6 +93,21 @@ pub trait Grid<T> {
             .flat_map(|delta| self.offset(position, *delta))
             .collect()
     }
+
+    fn expand_position(&self, position: &V2<usize>) -> Vec<V2<usize>> {
+        let mut out = vec![];
+        let fx = if position.x == 0 { 0 } else { position.x - 1 };
+        let fy = if position.y == 0 { 0 } else { position.y - 1 };
+        for x in fx..position.x + 2 {
+            for y in fy..position.y + 2 {
+                let position = v2(x, y);
+                if self.in_bounds(&position) {
+                    out.push(position);
+                }
+            }
+        }
+        out
+    }
 }
 
 pub fn extract_matrix<T, O>(grid: &dyn Grid<T>, function: &dyn Fn(&T) -> O) -> M<O>
@@ -291,5 +306,43 @@ mod tests {
             &matrix.get_adjacent_tiles_in_bounds(&v2(0, 0)),
             &[v2(0, 0)]
         ));
+    }
+
+    #[test]
+    fn test_expand() {
+        let matrix: M<usize> = M::zeros(3, 3);
+        let actual = matrix.expand_position(&v2(1, 1));
+        assert_eq!(actual.len(), 9);
+        assert!(actual.contains(&v2(0, 0)));
+        assert!(actual.contains(&v2(1, 0)));
+        assert!(actual.contains(&v2(2, 0)));
+        assert!(actual.contains(&v2(0, 1)));
+        assert!(actual.contains(&v2(1, 1)));
+        assert!(actual.contains(&v2(1, 1)));
+        assert!(actual.contains(&v2(0, 2)));
+        assert!(actual.contains(&v2(1, 2)));
+        assert!(actual.contains(&v2(2, 2)));
+    }
+
+    #[test]
+    fn test_expand_top_left_corner() {
+        let matrix: M<usize> = M::zeros(3, 3);
+        let actual = matrix.expand_position(&v2(0, 0));
+        assert_eq!(actual.len(), 4);
+        assert!(actual.contains(&v2(0, 0)));
+        assert!(actual.contains(&v2(1, 0)));
+        assert!(actual.contains(&v2(0, 1)));
+        assert!(actual.contains(&v2(1, 1)));
+    }
+
+    #[test]
+    fn test_expand_bottom_right_corner() {
+        let matrix: M<usize> = M::zeros(3, 3);
+        let actual = matrix.expand_position(&v2(2, 2));
+        assert_eq!(actual.len(), 4);
+        assert!(actual.contains(&v2(2, 2)));
+        assert!(actual.contains(&v2(2, 1)));
+        assert!(actual.contains(&v2(1, 2)));
+        assert!(actual.contains(&v2(1, 1)));
     }
 }
