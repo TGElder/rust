@@ -98,7 +98,7 @@ mod tests {
         }
     }
 
-    fn test(test_fn: &dyn Fn(&mut LabelVisibilityCheck, &mut LabelVisibilityChecker) -> ()) {
+    fn test(test_fn: &dyn Fn(&mut LabelVisibilityCheck, &mut LabelVisibilityChecker)) {
         let mut check = LabelVisibilityCheck {
             world_coord: WorldCoord::new(1.0, 2.0, 3.0),
             ui_offsets: Rectangle {

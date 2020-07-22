@@ -106,7 +106,7 @@ impl Transform {
     pub fn transform_maintaining_center(
         &mut self,
         center: GLCoord4D,
-        mut transformation: Box<dyn FnMut(&mut Self) -> ()>,
+        mut transformation: Box<dyn FnMut(&mut Self)>,
     ) {
         let old_x = center.x;
         let old_y = center.y;
