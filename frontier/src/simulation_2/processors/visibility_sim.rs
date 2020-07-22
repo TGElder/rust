@@ -1,4 +1,5 @@
 use super::*;
+use crate::game::traits::VisiblePositions;
 use crate::game::{CaptureEvent, CellSelection, GameEvent, GameEventConsumer, GameState};
 use commons::grid::Grid;
 use isometric::Event;
@@ -9,18 +10,30 @@ pub struct VisibilityMessage {
     position: V2<usize>,
 }
 
-pub struct VisibilitySim {
+pub struct VisibilitySim<G>
+where
+    G: VisiblePositions,
+{
     tx: Sender<VisibilityMessage>,
     rx: Receiver<VisibilityMessage>,
+    game: UpdateSender<G>,
 }
 
-impl Processor for VisibilitySim {
+impl<G> Processor for VisibilitySim<G>
+where
+    G: VisiblePositions,
+{
     fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::Step => (),
             _ => return state,
         };
         let messages = self.get_messages();
+        if !messages.is_empty() {
+            state.instructions.push(Instruction::TotalVisiblePositions(
+                self.total_visible_positions(),
+            ));
+        }
         for position in get_traffic_positions(&state, &messages) {
             state.instructions.push(Instruction::GetTraffic(position));
         }
@@ -28,10 +41,17 @@ impl Processor for VisibilitySim {
     }
 }
 
-impl VisibilitySim {
-    pub fn new() -> VisibilitySim {
+impl<G> VisibilitySim<G>
+where
+    G: VisiblePositions,
+{
+    pub fn new(game: &UpdateSender<G>) -> VisibilitySim<G> {
         let (tx, rx) = channel();
-        VisibilitySim { tx, rx }
+        VisibilitySim {
+            tx,
+            rx,
+            game: game.clone_with_handle(HANDLE),
+        }
     }
 
     pub fn consumer(&self) -> VisibilitySimConsumer {
@@ -45,6 +65,17 @@ impl VisibilitySim {
         }
         out
     }
+
+    fn total_visible_positions(&mut self) -> usize {
+        block_on(async { self.game.update(|game| total_visible_positions(game)).await })
+    }
+}
+
+fn total_visible_positions<G>(game: &mut G) -> usize
+where
+    G: VisiblePositions,
+{
+    game.total_visible_positions()
 }
 
 fn get_traffic_positions(state: &State, messages: &[VisibilityMessage]) -> HashSet<V2<usize>> {
@@ -111,6 +142,7 @@ mod tests {
     use crate::world::Resource;
     use commons::grid::Grid;
     use commons::same_elements;
+    use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashSet;
 
@@ -118,7 +150,8 @@ mod tests {
     fn should_append_get_traffic_instruction_for_positions_surrounding_revealed_cell_with_traffic()
     {
         // Given
-        let mut processor = VisibilitySim::new();
+        let game = UpdateProcess::new(0);
+        let mut processor = VisibilitySim::new(&game.tx());
         let mut consumer = processor.consumer();
 
         let mut traffic = Traffic::new(4, 4, HashSet::with_capacity(0));
@@ -155,6 +188,7 @@ mod tests {
         assert!(same_elements(
             &state.instructions,
             &[
+                Instruction::TotalVisiblePositions(0),
                 Instruction::GetTraffic(v2(0, 1)),
                 Instruction::GetTraffic(v2(1, 1)),
                 Instruction::GetTraffic(v2(2, 1)),
@@ -166,13 +200,17 @@ mod tests {
                 Instruction::GetTraffic(v2(2, 3)),
             ]
         ));
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
     fn should_not_append_get_traffic_instruction_for_positions_surrounding_revealed_cell_without_traffic(
     ) {
         // Given
-        let mut processor = VisibilitySim::new();
+        let game = UpdateProcess::new(0);
+        let mut processor = VisibilitySim::new(&game.tx());
         let mut consumer = processor.consumer();
 
         let state = State {
@@ -191,13 +229,20 @@ mod tests {
         let state = processor.process(state, &Instruction::Step);
 
         // Then
-        assert_eq!(state.instructions, vec![]);
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::TotalVisiblePositions(0)]
+        );
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
     fn should_not_append_duplicate_instructions() {
         // Given
-        let mut processor = VisibilitySim::new();
+        let game = UpdateProcess::new(0);
+        let mut processor = VisibilitySim::new(&game.tx());
         let mut consumer = processor.consumer();
 
         let mut traffic = Traffic::new(4, 4, HashSet::with_capacity(0));
@@ -223,6 +268,59 @@ mod tests {
         let state = processor.process(state, &Instruction::Step);
 
         // Then
-        assert_eq!(state.instructions, vec![Instruction::GetTraffic(v2(2, 2))]);
+        assert_eq!(
+            state.instructions,
+            vec![
+                Instruction::TotalVisiblePositions(0),
+                Instruction::GetTraffic(v2(2, 2))
+            ]
+        );
+
+        // Finally
+        game.shutdown();
+    }
+
+    #[test]
+    fn should_append_total_visible_population_instruction_for_some_cell_selection() {
+        // Given
+        let total_visible_positions = 404;
+        let game = UpdateProcess::new(total_visible_positions);
+        let mut processor = VisibilitySim::new(&game.tx());
+        let mut consumer = processor.consumer();
+
+        // When
+        consumer.consume_game_event(
+            &GameState::default(),
+            &GameEvent::CellsRevealed {
+                selection: CellSelection::Some(vec![v2(1, 2), v2(3, 2)]),
+                by: "",
+            },
+        );
+        let state = processor.process(State::default(), &Instruction::Step);
+
+        // Then
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::TotalVisiblePositions(total_visible_positions)]
+        );
+
+        // Finally
+        game.shutdown();
+    }
+
+    #[test]
+    fn should_do_nothing_if_no_messages() {
+        // Given
+        let game = UpdateProcess::new(0);
+        let mut processor = VisibilitySim::new(&game.tx());
+
+        // When
+        let state = processor.process(State::default(), &Instruction::Step);
+
+        // Then
+        assert_eq!(state.instructions, vec![]);
+
+        // Finally
+        game.shutdown();
     }
 }

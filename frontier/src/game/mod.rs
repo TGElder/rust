@@ -234,7 +234,9 @@ impl Game {
     }
 
     pub fn reveal_all_cells(&mut self, revealed_by: &'static str) {
-        self.game_state.world.reveal_all();
+        let world = &mut self.game_state.world;
+        world.reveal_all();
+        self.game_state.total_visible_positions = world.width() * world.height();
         self.consume_event(GameEvent::CellsRevealed {
             selection: CellSelection::All,
             by: revealed_by,
@@ -242,20 +244,21 @@ impl Game {
     }
 
     pub fn reveal_cells(&mut self, cells: Vec<V2<usize>>, revealed_by: &'static str) {
-        let mut send = vec![];
+        let mut newly_visible = vec![];
         for position in cells {
             if let Some(world_cell) = self.game_state.world.mut_cell(&position) {
                 if !world_cell.visible {
                     world_cell.visible = true;
-                    send.push(position);
+                    newly_visible.push(position);
                 }
             }
         }
-        if send.is_empty() {
+        if newly_visible.is_empty() {
             return;
         }
+        self.game_state.total_visible_positions += newly_visible.len();
         self.consume_event(GameEvent::CellsRevealed {
-            selection: CellSelection::Some(send),
+            selection: CellSelection::Some(newly_visible),
             by: revealed_by,
         });
     }

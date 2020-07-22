@@ -34,6 +34,7 @@ use crate::world_gen::*;
 use build_service::builders::SettlementBuilder;
 use build_service::{BuildQueueLoader, BuildService};
 use commons::futures::executor::ThreadPool;
+use commons::grid::Grid;
 use commons::index2d::Vec2D;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
@@ -89,7 +90,7 @@ fn main() {
         ))],
     );
 
-    let visibility_sim = VisibilitySim::new();
+    let visibility_sim = VisibilitySim::new(game.tx());
     let visibility_sim_consumer = visibility_sim.consumer();
 
     let mut sim = Simulation::new(vec![
@@ -199,6 +200,11 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
             by: "init",
         });
     }
+    let total_visible_positions = if reveal_all {
+        world.width() * world.height()
+    } else {
+        0
+    };
     let game_state = GameState {
         territory: Territory::new(&world),
         first_visits: Vec2D::same_size_as(&world, None),
@@ -212,6 +218,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         follow_avatar: true,
         routes: HashMap::new(),
         speed: 1.0,
+        total_visible_positions,
     };
 
     (game_state, init_events)
