@@ -82,7 +82,7 @@ fn get_new_population(settlement: &Settlement, game_micros: &u128) -> f64 {
         let exponent = elapsed / half_life;
         let decay = 0.5f64.powf(exponent);
         let gap = settlement.target_population - settlement.current_population;
-        settlement.current_population + gap * decay
+        settlement.target_population - gap * decay
     }
 }
 
@@ -151,7 +151,7 @@ mod tests {
         let game = game.shutdown();
         let settlement = game.get_settlement(&v2(1, 2)).unwrap();
 
-        assert!(settlement.current_population.almost(&22.54612644157907));
+        assert!(settlement.current_population.almost(&78.45387355842092));
         assert_eq!(settlement.last_population_update_micros, 33);
         assert_eq!(
             state.instructions,
@@ -191,7 +191,7 @@ mod tests {
         let game = game.shutdown();
         let settlement = game.get_settlement(&v2(1, 2)).unwrap();
 
-        assert!(settlement.current_population.almost(&78.45387355842092));
+        assert!(settlement.current_population.almost(&22.54612644157907));
         assert_eq!(settlement.last_population_update_micros, 33);
         assert_eq!(
             state.instructions,

@@ -6,8 +6,9 @@ use isometric::Event;
 use std::collections::HashSet;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
-pub struct VisibilityMessage {
-    position: V2<usize>,
+pub enum VisibilityMessage {
+    Position(V2<usize>),
+    All,
 }
 
 pub struct VisibilitySim<G>
@@ -81,10 +82,17 @@ where
 fn get_traffic_positions(state: &State, messages: &[VisibilityMessage]) -> HashSet<V2<usize>> {
     messages
         .iter()
-        .map(|VisibilityMessage { position, .. }| position)
+        .flat_map(|message| get_position(message))
         .flat_map(|position| state.traffic.expand_position(position))
         .filter(|position| should_get_traffic(state, position))
         .collect()
+}
+
+fn get_position(message: &VisibilityMessage) -> Option<&V2<usize>> {
+    match message {
+        VisibilityMessage::Position(position) => Some(position),
+        VisibilityMessage::All => None,
+    }
 }
 
 fn should_get_traffic(state: &State, position: &V2<usize>) -> bool {
@@ -102,14 +110,18 @@ impl VisibilitySimConsumer {
         VisibilitySimConsumer { tx: tx.clone() }
     }
 
-    fn send_messages(&mut self, cells: &[V2<usize>]) {
+    fn send_messages_for_cells(&mut self, cells: &[V2<usize>]) {
         for cell in cells {
-            self.send_message(*cell);
+            self.send_message_for_cell(*cell);
         }
     }
 
-    fn send_message(&mut self, cell: V2<usize>) {
-        self.tx.send(VisibilityMessage { position: cell }).unwrap();
+    fn send_message_for_cell(&mut self, cell: V2<usize>) {
+        self.tx.send(VisibilityMessage::Position(cell)).unwrap();
+    }
+
+    fn send_message_for_all(&mut self) {
+        self.tx.send(VisibilityMessage::All).unwrap();
     }
 }
 
@@ -119,12 +131,11 @@ impl GameEventConsumer for VisibilitySimConsumer {
     }
 
     fn consume_game_event(&mut self, _: &GameState, event: &GameEvent) -> CaptureEvent {
-        if let GameEvent::CellsRevealed {
-            selection: CellSelection::Some(cells),
-            ..
-        } = event
-        {
-            self.send_messages(cells)
+        if let GameEvent::CellsRevealed { selection, .. } = event {
+            match selection {
+                CellSelection::Some(cells) => self.send_messages_for_cells(cells),
+                CellSelection::All => self.send_message_for_all(),
+            }
         }
         CaptureEvent::No
     }
@@ -293,6 +304,34 @@ mod tests {
             &GameState::default(),
             &GameEvent::CellsRevealed {
                 selection: CellSelection::Some(vec![v2(1, 2), v2(3, 2)]),
+                by: "",
+            },
+        );
+        let state = processor.process(State::default(), &Instruction::Step);
+
+        // Then
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::TotalVisiblePositions(total_visible_positions)]
+        );
+
+        // Finally
+        game.shutdown();
+    }
+
+    #[test]
+    fn should_append_total_visible_population_instruction_for_all_cell_selection() {
+        // Given
+        let total_visible_positions = 404;
+        let game = UpdateProcess::new(total_visible_positions);
+        let mut processor = VisibilitySim::new(&game.tx());
+        let mut consumer = processor.consumer();
+
+        // When
+        consumer.consume_game_event(
+            &GameState::default(),
+            &GameEvent::CellsRevealed {
+                selection: CellSelection::All,
                 by: "",
             },
         );
