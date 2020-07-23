@@ -97,6 +97,7 @@ mod tests {
 
     use crate::route::RouteKey;
     use crate::world::Resource;
+    use commons::edge::Edge;
     use commons::index2d::Vec2D;
     use commons::v2;
     use std::fs::remove_file;
@@ -265,6 +266,7 @@ mod tests {
                 Instruction::GetTerritory(v2(3, 3)),
             ],
             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
+            edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => 66 },
         });
         sim_1.save(file_name);
 

@@ -2,6 +2,7 @@ use super::*;
 
 mod build_destination_town;
 mod get_demand;
+mod get_edge_traffic_changes;
 mod get_route_changes;
 mod get_routes;
 mod get_territory;
@@ -17,6 +18,7 @@ mod visibility_sim;
 
 pub use build_destination_town::BuildDestinationTown;
 pub use get_demand::GetDemand;
+pub use get_edge_traffic_changes::GetEdgeTrafficChanges;
 pub use get_route_changes::GetRouteChanges;
 pub use get_routes::GetRoutes;
 pub use get_territory::GetTerritory;

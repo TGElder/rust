@@ -270,7 +270,36 @@ mod tests {
     }
 
     #[test]
-    fn should_not_interfere_with_traffic_for_other_routes() {
+    fn should_retain_traffic_added_by_other_route_when_adding_route() {
+        // Given
+        let change = RouteChange::New {
+            key: key(),
+            route: route_1(),
+        };
+        let key_2 = RouteKey {
+            settlement: v2(1, 4),
+            resource: Resource::Coal,
+            destination: v2(1, 5),
+        };
+        let mut state = state();
+        for position in route_1().path.iter() {
+            state.traffic.mut_cell_unsafe(position).insert(key_2);
+        }
+
+        // When
+        let actual = GetTrafficChanges {}.process(state, &Instruction::GetTrafficChanges(change));
+
+        // Then
+        let mut expected = traffic();
+        for position in route_1().path.iter() {
+            expected.mut_cell_unsafe(position).insert(key());
+            expected.mut_cell_unsafe(position).insert(key_2);
+        }
+        assert_eq!(actual.traffic, expected);
+    }
+
+    #[test]
+    fn should_retain_traffic_added_by_other_route_when_removing_route() {
         // Given
         let change = RouteChange::Removed {
             key: key(),

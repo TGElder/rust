@@ -1,6 +1,7 @@
 use super::*;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::settlement::Settlement;
+use commons::edge::Edge;
 use std::collections::HashSet;
 use std::time::Duration;
 
@@ -27,6 +28,7 @@ pub enum Instruction {
         routes: Vec<RouteSummary>,
         adjacent: Vec<Tile>,
     },
+    GetEdgeTraffic(Edge),
     VisibleLandPositions(usize),
 }
 

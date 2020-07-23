@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::game::*;
+use commons::edge::Edge;
 use commons::index2d::Vec2D;
 use commons::update::*;
 use isometric::Event;
@@ -24,6 +25,7 @@ impl SimulationStateLoader {
         let state = State {
             instructions: vec![],
             traffic: Vec2D::same_size_as(&game_state.world, HashSet::with_capacity(0)),
+            edge_traffic: hashmap! {},
         };
         self.sim_tx.update(move |sim| sim.set_state(state));
     }
@@ -111,6 +113,7 @@ mod tests {
             State {
                 instructions: vec![Instruction::Step],
                 traffic: Vec2D::new(3, 7, HashSet::new()),
+                edge_traffic: hashmap! {},
             }
         )
     }
@@ -133,6 +136,7 @@ mod tests {
                 Instruction::GetTerritory(v2(3, 3)),
             ],
             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
+            edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => 66 },
         };
         sim_1.set_state(state.clone());
         sim_1.save(file_name);

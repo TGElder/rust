@@ -8,6 +8,7 @@ use std::default::Default;
 pub struct State {
     pub instructions: Vec<Instruction>,
     pub traffic: Traffic,
+    pub edge_traffic: EdgeTraffic,
 }
 
 impl Default for State {
@@ -15,6 +16,7 @@ impl Default for State {
         State {
             instructions: vec![],
             traffic: Vec2D::new(1, 1, HashSet::new()),
+            edge_traffic: hashmap! {},
         }
     }
 }
