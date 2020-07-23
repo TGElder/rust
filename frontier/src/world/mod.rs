@@ -81,7 +81,7 @@ impl World {
         self.mut_cell_unsafe(&cell.position()).river = cell.junction();
     }
 
-    fn set_road(&mut self, road: &Edge, state: bool) {
+    pub fn set_road(&mut self, road: &Edge, state: bool) {
         let set_width = |junction_1d: &mut Junction1D| {
             junction_1d.width = if junction_1d.from || junction_1d.to {
                 ROAD_WIDTH

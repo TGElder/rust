@@ -116,6 +116,7 @@ where
 mod tests {
     use super::*;
 
+    use commons::edge::Edge;
     use commons::update::UpdateProcess;
     use commons::v2;
     use std::fs::remove_file;
@@ -156,71 +157,7 @@ mod tests {
 
         let mut build_service = BuildService::new(&game.tx(), vec![Box::new(retriever)]);
         build_service.queue(BuildInstruction {
-            what: Build::Road(v2(1, 2)),
-            when: 100,
-        });
-        let tx = build_service.tx().clone();
-
-        // When
-        let build_service_handle = thread::spawn(move || build_service.run());
-        let start = Instant::now();
-        while builds.lock().unwrap().is_empty() && start.elapsed().as_secs() < 10 {}
-
-        block_on(async { tx.update(|sim| sim.shutdown()).await });
-        build_service_handle.join().unwrap();
-        game.shutdown();
-
-        // Then
-        assert_eq!(*builds.lock().unwrap(), vec![Build::Road(v2(1, 2))]);
-    }
-
-    #[test]
-    fn should_not_hand_build_to_builder_if_when_not_elapsed() {
-        // Given
-        let game = UpdateProcess::new(1000);
-
-        let retriever = BuildRetriever::new();
-        let builds = retriever.builds.clone();
-
-        let mut build_service = BuildService::new(&game.tx(), vec![Box::new(retriever)]);
-        build_service.queue(BuildInstruction {
-            what: Build::Road(v2(1, 2)),
-            when: 100,
-        });
-        build_service.queue(BuildInstruction {
-            what: Build::Road(v2(3, 4)),
-            when: 2000,
-        });
-        let tx = build_service.tx().clone();
-
-        // When
-        let build_service_handle = thread::spawn(move || build_service.run());
-        let start = Instant::now();
-        while builds.lock().unwrap().is_empty() && start.elapsed().as_secs() < 10 {}
-
-        block_on(async { tx.update(|sim| sim.shutdown()).await });
-        build_service_handle.join().unwrap();
-        game.shutdown();
-
-        // Then
-        assert_eq!(*builds.lock().unwrap(), vec![Build::Road(v2(1, 2))]);
-    }
-
-    #[test]
-    fn should_order_builds_by_when() {
-        // Given
-        let game = UpdateProcess::new(1000);
-
-        let retriever = BuildRetriever::new();
-        let builds = retriever.builds.clone();
-
-        let mut build_service = BuildService::new(&game.tx(), vec![Box::new(retriever)]);
-        build_service.queue(BuildInstruction {
-            what: Build::Road(v2(1, 2)),
-            when: 200,
-        });
-        build_service.queue(BuildInstruction {
-            what: Build::Road(v2(3, 4)),
+            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
             when: 100,
         });
         let tx = build_service.tx().clone();
@@ -237,7 +174,80 @@ mod tests {
         // Then
         assert_eq!(
             *builds.lock().unwrap(),
-            vec![Build::Road(v2(3, 4)), Build::Road(v2(1, 2))]
+            vec![Build::Road(Edge::new(v2(1, 2), v2(1, 3)))]
+        );
+    }
+
+    #[test]
+    fn should_not_hand_build_to_builder_if_when_not_elapsed() {
+        // Given
+        let game = UpdateProcess::new(1000);
+
+        let retriever = BuildRetriever::new();
+        let builds = retriever.builds.clone();
+
+        let mut build_service = BuildService::new(&game.tx(), vec![Box::new(retriever)]);
+        build_service.queue(BuildInstruction {
+            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
+            when: 100,
+        });
+        build_service.queue(BuildInstruction {
+            what: Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
+            when: 2000,
+        });
+        let tx = build_service.tx().clone();
+
+        // When
+        let build_service_handle = thread::spawn(move || build_service.run());
+        let start = Instant::now();
+        while builds.lock().unwrap().is_empty() && start.elapsed().as_secs() < 10 {}
+
+        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        build_service_handle.join().unwrap();
+        game.shutdown();
+
+        // Then
+        assert_eq!(
+            *builds.lock().unwrap(),
+            vec![Build::Road(Edge::new(v2(1, 2), v2(1, 3)))]
+        );
+    }
+
+    #[test]
+    fn should_order_builds_by_when() {
+        // Given
+        let game = UpdateProcess::new(1000);
+
+        let retriever = BuildRetriever::new();
+        let builds = retriever.builds.clone();
+
+        let mut build_service = BuildService::new(&game.tx(), vec![Box::new(retriever)]);
+        build_service.queue(BuildInstruction {
+            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
+            when: 200,
+        });
+        build_service.queue(BuildInstruction {
+            what: Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
+            when: 100,
+        });
+        let tx = build_service.tx().clone();
+
+        // When
+        let build_service_handle = thread::spawn(move || build_service.run());
+        let start = Instant::now();
+        while builds.lock().unwrap().is_empty() && start.elapsed().as_secs() < 10 {}
+
+        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        build_service_handle.join().unwrap();
+        game.shutdown();
+
+        // Then
+        assert_eq!(
+            *builds.lock().unwrap(),
+            vec![
+                Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
+                Build::Road(Edge::new(v2(1, 2), v2(1, 3)))
+            ]
         );
     }
 
@@ -278,11 +288,11 @@ mod tests {
         let game = UpdateProcess::new(1000);
         let mut build_service_1 = BuildService::new(&game.tx(), vec![]);
         build_service_1.queue(BuildInstruction {
-            what: Build::Road(v2(1, 2)),
+            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
             when: 200,
         });
         build_service_1.queue(BuildInstruction {
-            what: Build::Road(v2(3, 4)),
+            what: Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
             when: 100,
         });
         build_service_1.save(file_name);

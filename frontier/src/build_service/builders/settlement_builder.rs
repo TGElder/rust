@@ -5,7 +5,7 @@ use crate::settlement::Settlement;
 use crate::update_territory::UpdateTerritory;
 use commons::V2;
 
-const HANDLE: &str = "settlemen_builder";
+const HANDLE: &str = "settlement_builder";
 
 pub struct SettlementBuilder<G, T>
 where

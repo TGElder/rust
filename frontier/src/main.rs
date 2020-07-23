@@ -31,7 +31,7 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use build_service::builders::SettlementBuilder;
+use build_service::builders::{RoadBuilder, SettlementBuilder};
 use build_service::{BuildQueueLoader, BuildService};
 use commons::futures::executor::ThreadPool;
 use commons::grid::Grid;
@@ -84,10 +84,10 @@ fn main() {
 
     let mut builder = BuildService::new(
         game.tx(),
-        vec![Box::new(SettlementBuilder::new(
-            game.tx(),
-            &territory_updater,
-        ))],
+        vec![
+            Box::new(SettlementBuilder::new(game.tx(), &territory_updater)),
+            Box::new(RoadBuilder::new(game.tx())),
+        ],
     );
 
     let visibility_sim = VisibilitySim::new(game.tx());

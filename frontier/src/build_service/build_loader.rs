@@ -53,6 +53,7 @@ where
 mod tests {
     use super::*;
 
+    use commons::edge::Edge;
     use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
@@ -89,7 +90,7 @@ mod tests {
         let game = UpdateProcess::new(1000);
         let mut build_service_1 = BuildService::new(&game.tx(), vec![]);
         build_service_1.queue(BuildInstruction {
-            what: Build::Road(v2(1, 2)),
+            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
             when: 200,
         });
         build_service_1.save(file_name);
@@ -113,7 +114,7 @@ mod tests {
         handle.join().unwrap();
 
         // Then
-        assert_eq!(built, Build::Road(v2(1, 2)));
+        assert_eq!(built, Build::Road(Edge::new(v2(1, 2), v2(1, 3))));
 
         // Finally
         game.shutdown();
