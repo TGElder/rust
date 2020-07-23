@@ -236,7 +236,7 @@ impl Game {
     pub fn reveal_all_cells(&mut self, revealed_by: &'static str) {
         let world = &mut self.game_state.world;
         world.reveal_all();
-        self.game_state.total_visible_positions = world.width() * world.height();
+        self.game_state.visible_land_positions = world.width() * world.height();
         self.consume_event(GameEvent::CellsRevealed {
             selection: CellSelection::All,
             by: revealed_by,
@@ -256,11 +256,19 @@ impl Game {
         if newly_visible.is_empty() {
             return;
         }
-        self.game_state.total_visible_positions += newly_visible.len();
+        self.update_visible_land_positions(&newly_visible);
         self.consume_event(GameEvent::CellsRevealed {
             selection: CellSelection::Some(newly_visible),
             by: revealed_by,
         });
+    }
+
+    fn update_visible_land_positions(&mut self, newly_visible: &[V2<usize>]) {
+        let newly_visible_land = newly_visible
+            .iter()
+            .filter(|position| !self.game_state.world.is_sea(position))
+            .count();
+        self.game_state.visible_land_positions += newly_visible_land;
     }
 
     pub fn update_roads(&mut self, result: RoadBuilderResult) {

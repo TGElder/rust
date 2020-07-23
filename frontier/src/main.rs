@@ -201,7 +201,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
             by: "init",
         });
     }
-    let total_visible_positions = if reveal_all {
+    let visible_land_positions = if reveal_all {
         world.width() * world.height()
     } else {
         0
@@ -219,7 +219,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         follow_avatar: true,
         routes: HashMap::new(),
         speed: 1.0,
-        total_visible_positions,
+        visible_land_positions,
     };
 
     (game_state, init_events)

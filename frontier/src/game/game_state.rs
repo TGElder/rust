@@ -29,7 +29,7 @@ pub struct GameState {
     pub territory: Territory,
     pub first_visits: Vec2D<Option<FirstVisit>>, //TODO remove
     pub speed: f32,
-    pub total_visible_positions: usize,
+    pub visible_land_positions: usize,
 }
 
 impl Default for GameState {
@@ -48,7 +48,7 @@ impl Default for GameState {
             first_visits: Vec2D::same_size_as(&world, None),
             speed: 0.0,
             world,
-            total_visible_positions: 0,
+            visible_land_positions: 0,
         }
     }
 }
@@ -165,7 +165,7 @@ mod tests {
             follow_avatar: false,
             routes,
             speed: 1.0,
-            total_visible_positions: 2020,
+            visible_land_positions: 2020,
         };
         game_state.to_file("test_save");
         let loaded = GameState::from_file("test_save");

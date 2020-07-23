@@ -27,7 +27,7 @@ pub enum Instruction {
         routes: Vec<RouteSummary>,
         adjacent: Vec<Tile>,
     },
-    TotalVisiblePositions(usize),
+    VisibleLandPositions(usize),
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

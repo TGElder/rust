@@ -16,11 +16,11 @@ where
     G: Settlements + UpdateSettlement,
 {
     fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let visible_positions = match instruction {
-            Instruction::TotalVisiblePositions(visible_positions) => visible_positions,
+        let visible_land = match instruction {
+            Instruction::VisibleLandPositions(visible_land) => visible_land,
             _ => return state,
         };
-        self.update_homelands(*visible_positions as f64);
+        self.update_homelands(*visible_land as f64);
         state
     }
 }
@@ -85,7 +85,7 @@ mod tests {
     use commons::v2;
 
     #[test]
-    fn each_homeland_population_should_be_equal_share_of_visible_positions() {
+    fn each_homeland_population_should_be_equal_share_of_visible_land() {
         // Given
         let settlements = hashmap! {
             v2(0, 1) => Settlement{
@@ -103,7 +103,7 @@ mod tests {
         let mut processor = HomelandTargetPopulation::new(&game.tx());
 
         // When
-        processor.process(State::default(), &Instruction::TotalVisiblePositions(202));
+        processor.process(State::default(), &Instruction::VisibleLandPositions(202));
 
         // Then
         let actual = game.shutdown();

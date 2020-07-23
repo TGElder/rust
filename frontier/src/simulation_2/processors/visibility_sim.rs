@@ -31,8 +31,8 @@ where
         };
         let messages = self.get_messages();
         if !messages.is_empty() {
-            state.instructions.push(Instruction::TotalVisiblePositions(
-                self.total_visible_positions(),
+            state.instructions.push(Instruction::VisibleLandPositions(
+                self.visible_land_positions(),
             ));
         }
         for position in get_traffic_positions(&state, &messages) {
@@ -67,16 +67,16 @@ where
         out
     }
 
-    fn total_visible_positions(&mut self) -> usize {
-        block_on(async { self.game.update(|game| total_visible_positions(game)).await })
+    fn visible_land_positions(&mut self) -> usize {
+        block_on(async { self.game.update(|game| visible_land_positions(game)).await })
     }
 }
 
-fn total_visible_positions<G>(game: &mut G) -> usize
+fn visible_land_positions<G>(game: &mut G) -> usize
 where
     G: VisiblePositions,
 {
-    game.total_visible_positions()
+    game.visible_land_positions()
 }
 
 fn get_traffic_positions(state: &State, messages: &[VisibilityMessage]) -> HashSet<V2<usize>> {
@@ -199,7 +199,7 @@ mod tests {
         assert!(same_elements(
             &state.instructions,
             &[
-                Instruction::TotalVisiblePositions(0),
+                Instruction::VisibleLandPositions(0),
                 Instruction::GetTraffic(v2(0, 1)),
                 Instruction::GetTraffic(v2(1, 1)),
                 Instruction::GetTraffic(v2(2, 1)),
@@ -242,7 +242,7 @@ mod tests {
         // Then
         assert_eq!(
             state.instructions,
-            vec![Instruction::TotalVisiblePositions(0)]
+            vec![Instruction::VisibleLandPositions(0)]
         );
 
         // Finally
@@ -282,7 +282,7 @@ mod tests {
         assert_eq!(
             state.instructions,
             vec![
-                Instruction::TotalVisiblePositions(0),
+                Instruction::VisibleLandPositions(0),
                 Instruction::GetTraffic(v2(2, 2))
             ]
         );
@@ -292,10 +292,10 @@ mod tests {
     }
 
     #[test]
-    fn should_append_total_visible_population_instruction_for_some_cell_selection() {
+    fn should_append_visible_land_positions_instruction_for_some_cell_selection() {
         // Given
-        let total_visible_positions = 404;
-        let game = UpdateProcess::new(total_visible_positions);
+        let visible_land_positions = 404;
+        let game = UpdateProcess::new(visible_land_positions);
         let mut processor = VisibilitySim::new(&game.tx());
         let mut consumer = processor.consumer();
 
@@ -312,7 +312,7 @@ mod tests {
         // Then
         assert_eq!(
             state.instructions,
-            vec![Instruction::TotalVisiblePositions(total_visible_positions)]
+            vec![Instruction::VisibleLandPositions(visible_land_positions)]
         );
 
         // Finally
@@ -320,10 +320,10 @@ mod tests {
     }
 
     #[test]
-    fn should_append_total_visible_population_instruction_for_all_cell_selection() {
+    fn should_append_visible_land_positions_instruction_for_all_cell_selection() {
         // Given
-        let total_visible_positions = 404;
-        let game = UpdateProcess::new(total_visible_positions);
+        let visible_land_positions = 404;
+        let game = UpdateProcess::new(visible_land_positions);
         let mut processor = VisibilitySim::new(&game.tx());
         let mut consumer = processor.consumer();
 
@@ -340,7 +340,7 @@ mod tests {
         // Then
         assert_eq!(
             state.instructions,
-            vec![Instruction::TotalVisiblePositions(total_visible_positions)]
+            vec![Instruction::VisibleLandPositions(visible_land_positions)]
         );
 
         // Finally
