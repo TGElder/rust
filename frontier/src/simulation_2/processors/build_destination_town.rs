@@ -186,12 +186,6 @@ mod tests {
         }
     }
 
-    impl BuildQueue for Vec<BuildInstruction> {
-        fn queue(&mut self, build_instruction: BuildInstruction) {
-            self.push(build_instruction)
-        }
-    }
-
     #[test]
     fn should_build_town_if_single_route_ends_at_position() {
         // Given

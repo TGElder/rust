@@ -1,7 +1,6 @@
 use super::*;
 
 use crate::game::*;
-use commons::edge::Edge;
 use commons::index2d::Vec2D;
 use commons::update::*;
 use isometric::Event;
@@ -60,6 +59,7 @@ mod tests {
 
     use crate::route::RouteKey;
     use crate::world::{Resource, World};
+    use commons::edge::Edge;
     use commons::{v2, M};
     use std::collections::HashSet;
     use std::fs::remove_file;

@@ -125,6 +125,12 @@ mod tests {
     use std::thread;
     use std::time::Instant;
 
+    impl BuildQueue for Vec<BuildInstruction> {
+        fn queue(&mut self, build_instruction: BuildInstruction) {
+            self.push(build_instruction)
+        }
+    }
+
     struct BuildRetriever {
         builds: Arc<Mutex<Vec<Build>>>,
     }

@@ -42,9 +42,10 @@ use isometric::{IsometricEngine, IsometricEngineParameters};
 use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
-    BuildDestinationTown, GetDemand, GetEdgeTraffic, GetEdgeTrafficChanges, GetRouteChanges,
-    GetRoutes, GetTerritory, GetTraffic, GetTrafficChanges, HomelandTargetPopulation,
-    InstructionLogger, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateTown, VisibilitySim,
+    BuildDestinationTown, BuildRoad, GetDemand, GetEdgeTraffic, GetEdgeTrafficChanges,
+    GetRouteChanges, GetRoutes, GetTerritory, GetTraffic, GetTrafficChanges,
+    HomelandTargetPopulation, InstructionLogger, StepHomeland, StepTown, UpdateCurrentPopulation,
+    UpdateTown, VisibilitySim,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
@@ -112,6 +113,7 @@ fn main() {
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
         )),
         Box::new(BuildDestinationTown::new(game.tx(), builder.tx())),
+        Box::new(BuildRoad::new(builder.tx())),
         Box::new(visibility_sim),
         // Box::new(InstructionLogger::new()),
     ]);

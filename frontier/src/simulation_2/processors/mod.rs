@@ -1,6 +1,7 @@
 use super::*;
 
 mod build_destination_town;
+mod build_road;
 mod get_demand;
 mod get_edge_traffic;
 mod get_edge_traffic_changes;
@@ -18,6 +19,7 @@ mod update_town;
 mod visibility_sim;
 
 pub use build_destination_town::BuildDestinationTown;
+pub use build_road::BuildRoad;
 pub use get_demand::GetDemand;
 pub use get_edge_traffic::GetEdgeTraffic;
 pub use get_edge_traffic_changes::GetEdgeTrafficChanges;
