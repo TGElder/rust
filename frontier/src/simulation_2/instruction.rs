@@ -29,6 +29,11 @@ pub enum Instruction {
         adjacent: Vec<Tile>,
     },
     GetEdgeTraffic(Edge),
+    EdgeTraffic {
+        edge: Edge,
+        road_status: RoadStatus,
+        routes: Vec<EdgeRouteSummary>,
+    },
     VisibleLandPositions(usize),
 }
 
@@ -65,4 +70,17 @@ pub struct RouteSummary {
     pub nation: String,
     pub first_visit: u128,
     pub duration: Duration,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub enum RoadStatus {
+    Built,
+    Suitable,
+    Unsuitable,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct EdgeRouteSummary {
+    pub traffic: usize,
+    pub first_visit: u128,
 }
