@@ -173,7 +173,7 @@ mod tests {
         world.add_river(river_2);
         world.add_river(river_3);
         
-        world.toggle_road(&Edge::new(v2(0, 3), v2(1, 3)));
+        world.set_road(&Edge::new(v2(0, 3), v2(1, 3)), true);
         world
     }
 
@@ -350,7 +350,7 @@ mod tests {
     fn travel_mode_bridge() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
-        world.toggle_road(&Edge::new(v2(1, 0), v2(1, 1)));
+        world.set_road(&Edge::new(v2(1, 0), v2(1, 1)), true);
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(1, 0), &v2(1, 1)),
             Some(TravelMode::Road)
@@ -391,7 +391,7 @@ mod tests {
     fn travel_mode_here_bridge() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
-        world.toggle_road(&Edge::new(v2(1, 0), v2(1, 1)));
+        world.set_road(&Edge::new(v2(1, 0), v2(1, 1)), true);
         assert!(same_elements(
             &travel_mode_fn.travel_modes_here(&world, &v2(1, 1)),
             &[TravelMode::Road, TravelMode::River]
@@ -457,9 +457,9 @@ mod tests {
             0.5,
         );
 
-        world.toggle_road(&Edge::new(v2(0, 0), v2(1, 0)));
-        world.toggle_road(&Edge::new(v2(1, 0), v2(1, 1)));
-        world.toggle_road(&Edge::new(v2(1, 1), v2(0, 1)));
+        world.set_road(&Edge::new(v2(0, 0), v2(1, 0)), true);
+        world.set_road(&Edge::new(v2(1, 0), v2(1, 1)), true);
+        world.set_road(&Edge::new(v2(1, 1), v2(0, 1)), true);
 
         assert_eq!(
             travel_mode_fn().travel_mode_between(&world, &v2(0, 0), &v2(0, 1)),
@@ -469,10 +469,10 @@ mod tests {
 
     fn world_with_bridge() -> World {
         let mut world = world();
-        world.toggle_road(&Edge::new(v2(1, 0), v2(2, 0)));
-        world.toggle_road(&Edge::new(v2(1, 0), v2(1, 1)));
-        world.toggle_road(&Edge::new(v2(1, 1), v2(1, 2)));
-        world.toggle_road(&Edge::new(v2(1, 2), v2(1, 3)));
+        world.set_road(&Edge::new(v2(1, 0), v2(2, 0)), true);
+        world.set_road(&Edge::new(v2(1, 0), v2(1, 1)), true);
+        world.set_road(&Edge::new(v2(1, 1), v2(1, 2)), true);
+        world.set_road(&Edge::new(v2(1, 2), v2(1, 3)), true);
         world
     }
 
@@ -545,7 +545,7 @@ mod tests {
     #[test]
     fn travel_mode_change_and_port_road_to_stream() {
         let mut world = world_with_bridge();
-        world.toggle_road(&Edge::new(v2(0, 0), v2(1, 0)));
+        world.set_road(&Edge::new(v2(0, 0), v2(1, 0)), true);
         test_travel_mode_change_and_port(world, v2(0, 0), v2(0, 1), false, None);
     }
 
@@ -628,16 +628,16 @@ mod tests {
     #[test]
     fn travel_mode_change_and_port_sea_to_bridge() {
         let mut world = world();
-        world.toggle_road(&Edge::new(v2(2, 0), v2(2, 1)));
-        world.toggle_road(&Edge::new(v2(2, 1), v2(1, 2)));
+        world.set_road(&Edge::new(v2(2, 0), v2(2, 1)), true);
+        world.set_road(&Edge::new(v2(2, 1), v2(1, 2)), true);
         test_travel_mode_change_and_port(world, v2(3, 1), v2(2, 1), false, None);
     }
 
     #[test]
     fn travel_mode_change_and_port_bridge_to_bridge() {
         let mut world = world_with_bridge();
-        world.toggle_road(&Edge::new(v2(2, 0), v2(2, 1)));
-        world.toggle_road(&Edge::new(v2(2, 1), v2(1, 2)));
+        world.set_road(&Edge::new(v2(2, 0), v2(2, 1)), true);
+        world.set_road(&Edge::new(v2(2, 1), v2(1, 2)), true);
         test_travel_mode_change_and_port(world, v2(1, 1), v2(2, 1), false, None);
     }
 }

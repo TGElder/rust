@@ -3,7 +3,6 @@ use crate::game::*;
 use crate::road_builder::*;
 use crate::territory::*;
 use crate::world::*;
-use commons::edge::*;
 use commons::futures::executor::ThreadPool;
 use commons::grid::Grid;
 use commons::update::*;

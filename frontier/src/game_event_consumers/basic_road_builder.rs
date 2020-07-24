@@ -1,5 +1,6 @@
 use super::*;
 use crate::travel_duration::TravelDuration;
+use commons::edge::Edge;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
 const HANDLE: &str = "basic_road_builder";
@@ -34,8 +35,12 @@ impl BasicRoadBuilder {
                         .is_some()
                     {
                         let edge = Edge::new(path[0], path[1]);
-                        let toggle = game_state.world.is_road(&edge);
-                        let result = RoadBuilderResult::new(vec![path[0], path[1]], toggle);
+                        let mode = if game_state.world.is_road(&edge) {
+                            RoadBuildMode::Demolish
+                        } else {
+                            RoadBuildMode::Build
+                        };
+                        let result = RoadBuilderResult::new(vec![path[0], path[1]], mode);
                         let start_at = game_state.game_micros;
                         let name = name.clone();
                         self.game_tx.update(move |game| {

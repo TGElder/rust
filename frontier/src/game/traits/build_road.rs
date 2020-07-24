@@ -1,5 +1,5 @@
 use crate::game::Game;
-use crate::road_builder::RoadBuilderResult;
+use crate::road_builder::{RoadBuildMode, RoadBuilderResult};
 use commons::edge::Edge;
 use std::collections::HashSet;
 
@@ -11,12 +11,14 @@ pub trait BuildRoad {
 
 impl BuildRoad for Game {
     fn add_road(&mut self, edge: &Edge) {
-        let result = RoadBuilderResult::new(vec![*edge.from(), *edge.to()], false);
+        let result = RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Build);
         self.update_roads(result);
     }
 
     fn remove_road(&mut self, edge: &Edge) {
-        self.game_state.world.set_road(edge, false)
+        let result =
+            RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Demolish);
+        self.update_roads(result);
     }
 }
 

@@ -10,12 +10,18 @@ pub use travel_duration::*;
 #[derive(Debug, PartialEq)]
 pub struct RoadBuilderResult {
     path: Vec<V2<usize>>,
-    toggle: bool,
+    mode: RoadBuildMode,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum RoadBuildMode {
+    Build,
+    Demolish,
 }
 
 impl RoadBuilderResult {
-    pub fn new(path: Vec<V2<usize>>, toggle: bool) -> RoadBuilderResult {
-        RoadBuilderResult { path, toggle }
+    pub fn new(path: Vec<V2<usize>>, mode: RoadBuildMode) -> RoadBuilderResult {
+        RoadBuilderResult { path, mode }
     }
 
     pub fn path(&self) -> &Vec<V2<usize>> {
@@ -28,25 +34,12 @@ impl RoadBuilderResult {
             .collect()
     }
 
-    fn toggle_roads(&self, world: &mut World) {
-        for edge in self.edges() {
-            world.toggle_road(&edge);
-        }
-    }
-
-    fn set_roads(&self, world: &mut World) {
-        for edge in self.edges() {
-            if !world.is_river_or_road(&edge) {
-                world.toggle_road(&edge);
-            }
-        }
-    }
-
     pub fn update_roads(&self, world: &mut World) {
-        if self.toggle {
-            self.toggle_roads(world);
-        } else {
-            self.set_roads(world);
+        for edge in self.edges() {
+            match self.mode {
+                RoadBuildMode::Build => build_road(&edge, world),
+                RoadBuildMode::Demolish => demolish_road(&edge, world),
+            }
         }
     }
 
@@ -61,6 +54,16 @@ impl RoadBuilderResult {
     }
 }
 
+fn build_road(edge: &Edge, world: &mut World) {
+    if !world.is_river_or_road(edge) {
+        world.set_road(edge, true);
+    }
+}
+
+fn demolish_road(edge: &Edge, world: &mut World) {
+    world.set_road(edge, false);
+}
+
 pub fn auto_build_road<T>(
     from: V2<usize>,
     to: V2<usize>,
@@ -72,7 +75,7 @@ where
     if let Some(path) = pathfinder.find_path(&[from], &[to]) {
         return Some(RoadBuilderResult {
             path,
-            toggle: false,
+            mode: RoadBuildMode::Build,
         });
     }
     None
@@ -132,8 +135,8 @@ mod tests {
     #[test]
     fn test_result_edges() {
         let result = RoadBuilderResult {
-            toggle: true,
             path: vec![v2(0, 0), v2(1, 0), v2(1, 1)],
+            mode: RoadBuildMode::Build,
         };
         assert_eq!(
             result.edges(),
@@ -142,33 +145,30 @@ mod tests {
     }
 
     #[test]
-    fn test_result_toggle_roads() {
+    fn test_result_mode_build() {
         let edge = Edge::new(v2(0, 0), v2(1, 0));
         let mut world = world();
         let result = RoadBuilderResult {
-            toggle: true,
             path: vec![*edge.from(), *edge.to()],
+            mode: RoadBuildMode::Build,
         };
         assert!(!world.is_road(&edge));
         result.update_roads(&mut world);
         assert!(world.is_road(&edge));
-        result.update_roads(&mut world);
-        assert!(!world.is_road(&edge));
     }
 
     #[test]
-    fn test_result_set_roads() {
+    fn test_result_mode_demolish() {
         let edge = Edge::new(v2(0, 0), v2(1, 0));
         let mut world = world();
+        world.set_road(&edge, true);
         let result = RoadBuilderResult {
-            toggle: false,
             path: vec![*edge.from(), *edge.to()],
+            mode: RoadBuildMode::Demolish,
         };
+        assert!(world.is_road(&edge));
+        result.update_roads(&mut world);
         assert!(!world.is_road(&edge));
-        result.update_roads(&mut world);
-        assert!(world.is_road(&edge));
-        result.update_roads(&mut world);
-        assert!(world.is_road(&edge));
     }
 
     #[test]
@@ -176,8 +176,8 @@ mod tests {
         let mut world = world();
         let mut pathfinder = pathfinder();
         let result = RoadBuilderResult {
-            toggle: true,
             path: vec![v2(0, 0), v2(1, 0)],
+            mode: RoadBuildMode::Build,
         };
         assert_eq!(pathfinder.find_path(&[v2(1, 0)], &[v2(0, 0)]), None);
         result.update_roads(&mut world);
@@ -198,8 +198,8 @@ mod tests {
         assert_eq!(
             result,
             RoadBuilderResult {
-                toggle: false,
-                path: vec![v2(0, 0), v2(1, 0)]
+                path: vec![v2(0, 0), v2(1, 0)],
+                mode: RoadBuildMode::Build,
             }
         );
         result.update_roads(&mut world);

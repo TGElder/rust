@@ -519,7 +519,7 @@ mod tests {
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
             Some(NetworkEdge::new(1, 0, 255))
         );
-        world.toggle_road(&Edge::new(v2(1, 0), v2(0, 0)));
+        world.set_road(&Edge::new(v2(1, 0), v2(0, 0)), true);
         pathfinder.update_edge(&world, &v2(1, 0), &v2(0, 0));
         assert_eq!(
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
@@ -563,10 +563,10 @@ mod tests {
             pathfinder.get_network_edge(&world, &v2(1, 2), &v2(1, 1)),
             Some(NetworkEdge::new(7, 4, 191))
         );
-        world.toggle_road(&Edge::new(v2(1, 1), v2(1, 0)));
-        world.toggle_road(&Edge::new(v2(1, 1), v2(0, 1)));
-        world.toggle_road(&Edge::new(v2(1, 1), v2(2, 1)));
-        world.toggle_road(&Edge::new(v2(1, 1), v2(1, 2)));
+        world.set_road(&Edge::new(v2(1, 1), v2(1, 0)), true);
+        world.set_road(&Edge::new(v2(1, 1), v2(0, 1)), true);
+        world.set_road(&Edge::new(v2(1, 1), v2(2, 1)), true);
+        world.set_road(&Edge::new(v2(1, 1), v2(1, 2)), true);
         pathfinder.update_node(&world, &v2(1, 1));
         assert_eq!(
             pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 0)),
@@ -610,7 +610,7 @@ mod tests {
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(2, 0)),
             None
         );
-        world.toggle_road(&Edge::new(v2(1, 0), v2(2, 0)));
+        world.set_road(&Edge::new(v2(1, 0), v2(2, 0)), true);
         pathfinder.update_edge(&world, &v2(1, 0), &v2(2, 0));
         assert_eq!(
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(2, 0)),

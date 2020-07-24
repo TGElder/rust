@@ -99,10 +99,6 @@ impl World {
         set_width(to_junction_1d);
     }
 
-    pub fn toggle_road(&mut self, road: &Edge) {
-        self.set_road(road, !self.is_road(road));
-    }
-
     pub fn is_sea(&self, position: &V2<usize>) -> bool {
         self.get_cell(position)
             .map(|cell| cell.elevation())
@@ -354,65 +350,6 @@ mod tests {
         );
     }
 
-    #[rustfmt::skip]
-    #[test]
-    fn test_toggle_road() {
-        let mut world = world();
-
-        let before_widths = M::from_vec(3, 3, vec![
-            0.0, 0.1, 0.0,
-            0.0, 0.2, 0.0,
-            0.0, 0.3, 0.0,
-        ]);
-        let before_heights = M::from_vec(3, 3, vec![
-            0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0,
-            0.0, 0.3, 0.4,
-        ]);
-       
-        for x in 0..3 {
-            for y in 0..3 {
-                let cell = world.get_cell(&v2(x, y)).unwrap();
-                assert!(cell.junction().width().almost(&before_widths[(x, y)]));
-                assert!(cell.junction().height().almost(&before_heights[(x, y)]));
-            }
-        }
-
-        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
-        world.toggle_road(&Edge::new(v2(0, 1), v2(1, 1)));
-
-        let after_widths = M::from_vec(3, 3, vec![
-            ROAD_WIDTH, 0.1, 0.0,
-            ROAD_WIDTH, 0.2, 0.0,
-            0.0, 0.3, 0.0,
-        ]);
-        let after_heights = M::from_vec(3, 3, vec![
-            0.0, 0.0, 0.0,
-            ROAD_WIDTH, ROAD_WIDTH, 0.0,
-            0.0, 0.3, 0.4,
-        ]);
-
-        for x in 0..3 {
-            for y in 0..3 {
-                let cell = world.get_cell(&v2(x, y)).unwrap();
-                println!("Checking {:?}", cell);
-                assert!(cell.junction().width().almost(&after_widths[(x, y)]));
-                assert!(cell.junction().height().almost(&after_heights[(x, y)]));
-            }
-        }
-
-        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
-        world.toggle_road(&Edge::new(v2(0, 1), v2(1, 1)));
-
-        for x in 0..3 {
-            for y in 0..3 {
-                let cell = world.get_cell(&v2(x, y)).unwrap();
-                assert!(cell.junction().width().almost(&before_widths[(x, y)]));
-                assert!(cell.junction().height().almost(&before_heights[(x, y)]));
-            }
-        }
-    }
-
     #[test]
     fn test_snap() {
         assert_eq!(
@@ -477,7 +414,7 @@ mod tests {
     #[test]
     fn test_is_road() {
         let mut world = world();
-        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
+        world.set_road(&Edge::new(v2(0, 0), v2(0, 1)), true);
         assert!(world.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
         assert!(!world.is_road(&Edge::new(v2(1, 0), v2(1, 1))));
         assert!(!world.is_road(&Edge::new(v2(0, 1), v2(0, 2))));
@@ -486,7 +423,7 @@ mod tests {
     #[test]
     fn test_is_river() {
         let mut world = world();
-        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
+        world.set_road(&Edge::new(v2(0, 0), v2(0, 1)), true);
         assert!(world.is_river(&Edge::new(v2(1, 0), v2(1, 1))));
         assert!(!world.is_river(&Edge::new(v2(0, 1), v2(0, 2))));
     }
@@ -494,7 +431,7 @@ mod tests {
     #[test]
     fn test_is_river_or_road() {
         let mut world = world();
-        world.toggle_road(&Edge::new(v2(0, 0), v2(0, 1)));
+        world.set_road(&Edge::new(v2(0, 0), v2(0, 1)), true);
         assert!(world.is_river_or_road(&Edge::new(v2(0, 0), v2(0, 1))));
         assert!(world.is_river_or_road(&Edge::new(v2(1, 0), v2(1, 1))));
         assert!(!world.is_river_or_road(&Edge::new(v2(0, 1), v2(0, 2))));
