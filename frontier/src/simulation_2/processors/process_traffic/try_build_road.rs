@@ -1,7 +1,5 @@
 use super::*;
 
-use crate::build_service::{Build, BuildInstruction};
-
 const ROAD_THRESHOLD: usize = 8;
 
 pub fn try_build_road(traffic: &EdgeTrafficSummary) -> Option<BuildInstruction> {

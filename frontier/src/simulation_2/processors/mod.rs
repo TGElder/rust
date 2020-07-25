@@ -1,5 +1,6 @@
 use super::*;
 
+mod build_sim;
 mod get_demand;
 mod get_routes;
 mod get_territory;
@@ -12,6 +13,7 @@ mod update_current_population;
 mod update_town;
 mod visibility_sim;
 
+pub use build_sim::BuildSim;
 pub use get_demand::GetDemand;
 pub use get_routes::GetRoutes;
 pub use get_territory::GetTerritory;

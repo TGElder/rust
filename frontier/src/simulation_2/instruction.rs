@@ -20,6 +20,7 @@ pub enum Instruction {
         key: RouteSetKey,
         route_set: RouteSet,
     },
+    Build,
     VisibleLandPositions(usize),
 }
 

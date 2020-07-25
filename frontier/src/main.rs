@@ -5,7 +5,6 @@ extern crate commons;
 
 mod artists;
 mod avatar;
-mod build_service;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -31,18 +30,17 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use build_service::builders::{RoadBuilder, SettlementBuilder};
-use build_service::{BuildQueueLoader, BuildService};
 use commons::futures::executor::ThreadPool;
 use commons::grid::Grid;
 use commons::index2d::Vec2D;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
+use simulation_2::builders::{RoadBuilder, SettlementBuilder};
 use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
-    GetDemand, GetRoutes, GetTerritory, HomelandTargetPopulation, InstructionLogger,
+    BuildSim, GetDemand, GetRoutes, GetTerritory, HomelandTargetPopulation, InstructionLogger,
     ProcessTraffic, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateTown, VisibilitySim,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
@@ -81,7 +79,7 @@ fn main() {
         game.game_state().params.town_travel_duration,
     );
 
-    let mut builder = BuildService::new(
+    let builder = BuildSim::new(
         game.tx(),
         vec![
             Box::new(SettlementBuilder::new(game.tx(), &territory_updater)),
@@ -94,6 +92,7 @@ fn main() {
 
     let mut sim = Simulation::new(vec![
         Box::new(InstructionLogger::new()),
+        Box::new(builder),
         Box::new(StepHomeland::new(game.tx())),
         Box::new(StepTown::new(game.tx())),
         Box::new(GetTerritory::new(game.tx(), &territory_updater)),
@@ -106,7 +105,6 @@ fn main() {
         Box::new(ProcessTraffic::new(
             &game.tx(),
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
-            &builder.tx(),
         )),
         Box::new(visibility_sim),
     ]);
@@ -131,7 +129,7 @@ fn main() {
     game.add_consumer(ObjectBuilder::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(TownBuilder::new(game.tx()));
     game.add_consumer(Cheats::new(game.tx()));
-    game.add_consumer(Save::new(game.tx(), builder.tx(), sim.tx()));
+    game.add_consumer(Save::new(game.tx(), sim.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(&avatar_pathfinder));
@@ -161,26 +159,17 @@ fn main() {
     game.add_consumer(Voyager::new(game.tx()));
     game.add_consumer(PathfinderUpdater::new(&avatar_pathfinder));
     game.add_consumer(PathfinderUpdater::new(&road_pathfinder));
-    game.add_consumer(BuildQueueLoader::new(builder.tx()));
     game.add_consumer(SimulationStateLoader::new(sim.tx()));
 
-    game.add_consumer(ShutdownHandler::new(
-        game.tx(),
-        builder.tx(),
-        sim.tx(),
-        thread_pool,
-    ));
+    game.add_consumer(ShutdownHandler::new(game.tx(), sim.tx(), thread_pool));
 
     let game_handle = thread::spawn(move || game.run());
-    let builder_handle = thread::spawn(move || builder.run());
     let sim_handle = thread::spawn(move || sim.run());
 
     engine.run();
 
     println!("Joining sim");
     sim_handle.join().unwrap();
-    println!("Joining builder");
-    builder_handle.join().unwrap();
     println!("Joining game");
     game_handle.join().unwrap();
 }

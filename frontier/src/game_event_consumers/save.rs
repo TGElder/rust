@@ -1,5 +1,4 @@
 use super::*;
-use crate::build_service::BuildService;
 use crate::simulation_2::Simulation;
 use commons::futures::executor::block_on;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
@@ -8,21 +7,15 @@ const HANDLE: &str = "save";
 
 pub struct Save {
     game_tx: UpdateSender<Game>,
-    builder_tx: UpdateSender<BuildService<Game>>,
     sim_tx: UpdateSender<Simulation>,
     binding: Button,
     path: String,
 }
 
 impl Save {
-    pub fn new(
-        game_tx: &UpdateSender<Game>,
-        builder_tx: &UpdateSender<BuildService<Game>>,
-        sim_tx: &UpdateSender<Simulation>,
-    ) -> Save {
+    pub fn new(game_tx: &UpdateSender<Game>, sim_tx: &UpdateSender<Simulation>) -> Save {
         Save {
             game_tx: game_tx.clone_with_handle(HANDLE),
-            builder_tx: builder_tx.clone_with_handle(HANDLE),
             sim_tx: sim_tx.clone_with_handle(HANDLE),
             binding: Button::Key(VirtualKeyCode::P),
             path: "save".to_string(),
@@ -31,18 +24,13 @@ impl Save {
 
     fn save(&mut self) {
         let path_for_sim = self.path.clone();
-        let path_for_builder = self.path.clone();
         let path_for_game = self.path.clone();
-        let builder_tx = self.builder_tx.clone();
         let game_tx = self.game_tx.clone();
         println!("Will save between simulation steps");
         self.sim_tx.update(move |sim| {
             block_on(async {
                 println!("Saving...");
                 sim.save(&path_for_sim);
-                builder_tx
-                    .update(move |build| build.save(&path_for_builder))
-                    .await;
                 game_tx.update(|game| game.save(path_for_game)).await;
                 println!("Saved");
             })
