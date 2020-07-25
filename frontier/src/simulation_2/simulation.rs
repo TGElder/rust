@@ -267,6 +267,10 @@ mod tests {
             ],
             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
             edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
+            build_queue: vec![BuildInstruction {
+                when: 808,
+                what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
+            }],
         });
         sim_1.save(file_name);
 

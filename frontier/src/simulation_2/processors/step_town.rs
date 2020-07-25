@@ -36,6 +36,7 @@ where
             _ => return state,
         };
         for position in self.get_town_positions().await {
+            state.instructions.push(Instruction::Build);
             state.instructions.push(Instruction::GetTerritory(position));
         }
         state
@@ -75,7 +76,7 @@ mod tests {
     }
 
     #[test]
-    fn should_add_get_territory_instruction_for_each_town() {
+    fn should_add_instructions_for_each_town() {
         // Given
         let mut settlements = HashMap::new();
         settlements.insert(v2(1, 1), settlement(Town, v2(1, 1)));
@@ -95,7 +96,9 @@ mod tests {
         assert!(same_elements(
             &state.instructions,
             &[
+                Instruction::Build,
                 Instruction::GetTerritory(v2(1, 1)),
+                Instruction::Build,
                 Instruction::GetTerritory(v2(2, 2)),
             ],
         ));
@@ -122,10 +125,10 @@ mod tests {
         });
 
         // Then
-        assert!(same_elements(
-            &state.instructions,
-            &[Instruction::GetTerritory(v2(2, 2)),],
-        ));
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::Build, Instruction::GetTerritory(v2(2, 2)),]
+        );
 
         // Finally
         game.shutdown();
