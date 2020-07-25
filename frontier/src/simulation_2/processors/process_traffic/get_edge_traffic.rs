@@ -6,55 +6,18 @@ use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
 use std::collections::HashSet;
 
-const HANDLE: &str = "get_edge_traffic";
-
-pub struct GetEdgeTraffic<G, T>
+pub fn get_edge_traffic<G, T>(
+    game: &G,
+    travel_duration: &T,
+    state: &State,
+    edge: &Edge,
+) -> EdgeTrafficSummary
 where
     G: HasWorld + Micros + Routes,
     T: TravelDuration + 'static,
 {
-    game: UpdateSender<G>,
-    travel_duration: Arc<T>,
-}
-
-impl<G, T> Processor for GetEdgeTraffic<G, T>
-where
-    G: HasWorld + Micros + Routes,
-    T: TravelDuration + 'static,
-{
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let edge = match instruction {
-            Instruction::GetEdgeTraffic(edge) => *edge,
-            _ => return state,
-        };
-        let route_keys = get_route_keys(&state, &edge);
-        state
-            .instructions
-            .push(self.get_edge_traffic(edge, route_keys));
-        state
-    }
-}
-
-impl<G, T> GetEdgeTraffic<G, T>
-where
-    G: HasWorld + Micros + Routes,
-    T: TravelDuration + 'static,
-{
-    pub fn new(game: &UpdateSender<G>, travel_duration: T) -> GetEdgeTraffic<G, T> {
-        GetEdgeTraffic {
-            game: game.clone_with_handle(HANDLE),
-            travel_duration: Arc::new(travel_duration),
-        }
-    }
-
-    fn get_edge_traffic(&mut self, edge: Edge, route_keys: HashSet<RouteKey>) -> Instruction {
-        let travel_duration = self.travel_duration.clone();
-        block_on(async {
-            self.game
-                .update(move |game| get_edge_traffic(game, travel_duration, edge, route_keys))
-                .await
-        })
-    }
+    let route_keys = get_route_keys(&state, &edge);
+    get_edge_traffic_with_route_keys(game, travel_duration, &edge, &route_keys)
 }
 
 fn get_route_keys(state: &State, edge: &Edge) -> HashSet<RouteKey> {
@@ -65,30 +28,30 @@ fn get_route_keys(state: &State, edge: &Edge) -> HashSet<RouteKey> {
         .unwrap_or_else(HashSet::new)
 }
 
-fn get_edge_traffic<G, T>(
+fn get_edge_traffic_with_route_keys<G, T>(
     game: &G,
-    travel_duration: Arc<T>,
-    edge: Edge,
-    route_keys: HashSet<RouteKey>,
-) -> Instruction
+    travel_duration: &T,
+    edge: &Edge,
+    route_keys: &HashSet<RouteKey>,
+) -> EdgeTrafficSummary
 where
     G: HasWorld + Micros + Routes,
     T: TravelDuration + 'static,
 {
-    Instruction::EdgeTraffic {
-        edge,
+    EdgeTrafficSummary {
+        edge: *edge,
         road_status: get_road_status(game, travel_duration, edge),
         routes: get_routes(game, route_keys),
     }
 }
 
-fn get_road_status<G, T>(game: &G, travel_duration: Arc<T>, edge: Edge) -> RoadStatus
+fn get_road_status<G, T>(game: &G, travel_duration: &T, edge: &Edge) -> RoadStatus
 where
     G: HasWorld,
     T: TravelDuration + 'static,
 {
     let world = game.world();
-    if world.is_road(&edge) {
+    if world.is_road(edge) {
         RoadStatus::Built
     } else if travel_duration
         .get_duration(world, edge.from(), edge.to())
@@ -100,17 +63,17 @@ where
     }
 }
 
-fn get_routes<G>(game: &G, route_keys: HashSet<RouteKey>) -> Vec<EdgeRouteSummary>
+fn get_routes<G>(game: &G, route_keys: &HashSet<RouteKey>) -> Vec<EdgeRouteSummary>
 where
     G: Micros + Routes,
 {
     route_keys
-        .into_iter()
+        .iter()
         .flat_map(|route_key| get_route(game, route_key))
         .collect()
 }
 
-fn get_route<G>(game: &G, route_key: RouteKey) -> Option<EdgeRouteSummary>
+fn get_route<G>(game: &G, route_key: &RouteKey) -> Option<EdgeRouteSummary>
 where
     G: Micros + Routes,
 {
@@ -129,7 +92,6 @@ mod tests {
     use crate::travel_duration::ConstantTravelDuration;
     use crate::world::{Resource, World};
     use commons::same_elements;
-    use commons::update::UpdateProcess;
     use commons::{v2, M};
     use std::collections::HashMap;
     use std::time::Duration;
@@ -205,21 +167,12 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let game = MockGame::default();
-        let game = UpdateProcess::new(game);
-        let mut processor = GetEdgeTraffic::new(&game.tx(), NullTravelDuration {});
 
         // When
-        let state = processor.process(State::default(), &Instruction::GetEdgeTraffic(edge));
+        let traffic = get_edge_traffic(&game, &NullTravelDuration {}, &State::default(), &edge);
 
         // Then
-        if let Some(Instruction::EdgeTraffic { edge: actual, .. }) = state.instructions.get(0) {
-            assert_eq!(*actual, edge);
-        } else {
-            panic!("No edge traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.edge, edge);
     }
 
     #[test]
@@ -233,25 +186,12 @@ mod tests {
             world,
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetEdgeTraffic::new(&game.tx(), NullTravelDuration {});
 
         // When
-        let state = processor.process(State::default(), &Instruction::GetEdgeTraffic(edge));
+        let traffic = get_edge_traffic(&game, &NullTravelDuration {}, &State::default(), &edge);
 
         // Then
-        if let Some(Instruction::EdgeTraffic {
-            road_status: actual,
-            ..
-        }) = state.instructions.get(0)
-        {
-            assert_eq!(*actual, RoadStatus::Built);
-        } else {
-            panic!("No edge traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.road_status, RoadStatus::Built);
     }
 
     #[test]
@@ -259,25 +199,12 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let game = MockGame::default();
-        let game = UpdateProcess::new(game);
-        let mut processor = GetEdgeTraffic::new(&game.tx(), NullTravelDuration {});
 
         // When
-        let state = processor.process(State::default(), &Instruction::GetEdgeTraffic(edge));
+        let traffic = get_edge_traffic(&game, &NullTravelDuration {}, &State::default(), &edge);
 
         // Then
-        if let Some(Instruction::EdgeTraffic {
-            road_status: actual,
-            ..
-        }) = state.instructions.get(0)
-        {
-            assert_eq!(*actual, RoadStatus::Unsuitable);
-        } else {
-            panic!("No edge traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.road_status, RoadStatus::Unsuitable);
     }
 
     #[test]
@@ -285,28 +212,17 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let game = MockGame::default();
-        let game = UpdateProcess::new(game);
-        let mut processor = GetEdgeTraffic::new(
-            &game.tx(),
-            ConstantTravelDuration::new(Duration::from_secs(0)),
-        );
 
         // When
-        let state = processor.process(State::default(), &Instruction::GetEdgeTraffic(edge));
+        let traffic = get_edge_traffic(
+            &game,
+            &ConstantTravelDuration::new(Duration::from_secs(0)),
+            &State::default(),
+            &edge,
+        );
 
         // Then
-        if let Some(Instruction::EdgeTraffic {
-            road_status: actual,
-            ..
-        }) = state.instructions.get(0)
-        {
-            assert_eq!(*actual, RoadStatus::Suitable);
-        } else {
-            panic!("No edge traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.road_status, RoadStatus::Suitable);
     }
 
     #[test]
@@ -354,33 +270,24 @@ mod tests {
             routes,
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetEdgeTraffic::new(&game.tx(), NullTravelDuration {});
 
         // When
-        let state = processor.process(state, &Instruction::GetEdgeTraffic(edge));
+        let traffic = get_edge_traffic(&game, &NullTravelDuration {}, &state, &edge);
 
         // Then
-        if let Some(Instruction::EdgeTraffic { routes: actual, .. }) = state.instructions.get(0) {
-            assert!(same_elements(
-                actual,
-                &[
-                    EdgeRouteSummary {
-                        traffic: 11,
-                        first_visit: 1101,
-                    },
-                    EdgeRouteSummary {
-                        traffic: 22,
-                        first_visit: 1202,
-                    },
-                ]
-            ));
-        } else {
-            panic!("No edge traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert!(same_elements(
+            &traffic.routes,
+            &[
+                EdgeRouteSummary {
+                    traffic: 11,
+                    first_visit: 1101,
+                },
+                EdgeRouteSummary {
+                    traffic: 22,
+                    first_visit: 1202,
+                },
+            ]
+        ));
     }
 
     #[test]
@@ -388,21 +295,12 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let game = MockGame::default();
-        let game = UpdateProcess::new(game);
-        let mut processor = GetEdgeTraffic::new(&game.tx(), NullTravelDuration {});
 
         // When
-        let state = processor.process(State::default(), &Instruction::GetEdgeTraffic(edge));
+        let traffic = get_edge_traffic(&game, &NullTravelDuration {}, &State::default(), &edge);
 
         // Then
-        if let Some(Instruction::EdgeTraffic { routes: actual, .. }) = state.instructions.get(0) {
-            assert_eq!(*actual, vec![]);
-        } else {
-            panic!("No edge traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.routes, vec![]);
     }
 
     #[test]
@@ -422,20 +320,11 @@ mod tests {
         };
 
         let game = MockGame::default();
-        let game = UpdateProcess::new(game);
-        let mut processor = GetEdgeTraffic::new(&game.tx(), NullTravelDuration {});
 
         // When
-        let state = processor.process(state, &Instruction::GetEdgeTraffic(edge));
+        let traffic = get_edge_traffic(&game, &NullTravelDuration {}, &state, &edge);
 
         // Then
-        if let Some(Instruction::EdgeTraffic { routes: actual, .. }) = state.instructions.get(0) {
-            assert_eq!(*actual, vec![]);
-        } else {
-            panic!("No edge traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.routes, vec![]);
     }
 }

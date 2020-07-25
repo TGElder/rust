@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
 const HANDLE: &str = "build_service";
-const UPDATE_CHANNEL_BOUND: usize = 100;
+const UPDATE_CHANNEL_BOUND: usize = 1000000;
 
 pub struct BuildService<G>
 where

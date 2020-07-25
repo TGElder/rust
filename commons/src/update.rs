@@ -88,7 +88,9 @@ impl<I> UpdateSender<I> {
         };
         let update = Arc::new(Mutex::new(update));
 
-        self.tx.try_send(update.clone()).unwrap();
+        self.tx
+            .try_send(update.clone())
+            .unwrap_or_else(|err| panic!("{} could not send message: {}", self.handle, err));
 
         UpdateFuture { update, output }
     }

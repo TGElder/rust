@@ -20,20 +20,6 @@ pub enum Instruction {
         key: RouteSetKey,
         route_set: RouteSet,
     },
-    GetTrafficChanges(RouteChange),
-    GetTraffic(V2<usize>),
-    Traffic {
-        position: V2<usize>,
-        controller: Option<V2<usize>>,
-        routes: Vec<RouteSummary>,
-        adjacent: Vec<Tile>,
-    },
-    GetEdgeTraffic(Edge),
-    EdgeTraffic {
-        edge: Edge,
-        road_status: RoadStatus,
-        routes: Vec<EdgeRouteSummary>,
-    },
     VisibleLandPositions(usize),
 }
 
@@ -55,6 +41,14 @@ pub enum RouteChange {
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct TrafficSummary {
+    pub position: V2<usize>,
+    pub controller: Option<V2<usize>>,
+    pub routes: Vec<RouteSummary>,
+    pub adjacent: Vec<Tile>,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Tile {
     pub position: V2<usize>,
     pub settlement: Option<Settlement>,
@@ -70,6 +64,14 @@ pub struct RouteSummary {
     pub nation: String,
     pub first_visit: u128,
     pub duration: Duration,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+
+pub struct EdgeTrafficSummary {
+    pub edge: Edge,
+    pub road_status: RoadStatus,
+    pub routes: Vec<EdgeRouteSummary>,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

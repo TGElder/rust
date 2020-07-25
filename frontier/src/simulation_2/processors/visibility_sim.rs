@@ -35,8 +35,8 @@ where
                 self.visible_land_positions(),
             ));
         }
-        for position in get_traffic_positions(&state, &messages) {
-            state.instructions.push(Instruction::GetTraffic(position));
+        for _position in get_traffic_positions(&state, &messages) {
+            // state.instructions.push(Instruction::GetTraffic(position)); //TODO fix
         }
         state
     }
@@ -200,15 +200,15 @@ mod tests {
             &state.instructions,
             &[
                 Instruction::VisibleLandPositions(0),
-                Instruction::GetTraffic(v2(0, 1)),
-                Instruction::GetTraffic(v2(1, 1)),
-                Instruction::GetTraffic(v2(2, 1)),
-                Instruction::GetTraffic(v2(0, 2)),
-                Instruction::GetTraffic(v2(1, 2)),
-                Instruction::GetTraffic(v2(2, 2)),
-                Instruction::GetTraffic(v2(0, 3)),
-                Instruction::GetTraffic(v2(1, 3)),
-                Instruction::GetTraffic(v2(2, 3)),
+                // Instruction::GetTraffic(v2(0, 1)),
+                // Instruction::GetTraffic(v2(1, 1)),
+                // Instruction::GetTraffic(v2(2, 1)),
+                // Instruction::GetTraffic(v2(0, 2)),
+                // Instruction::GetTraffic(v2(1, 2)),
+                // Instruction::GetTraffic(v2(2, 2)),
+                // Instruction::GetTraffic(v2(0, 3)),
+                // Instruction::GetTraffic(v2(1, 3)),
+                // Instruction::GetTraffic(v2(2, 3)),
             ]
         ));
 
@@ -283,7 +283,7 @@ mod tests {
             state.instructions,
             vec![
                 Instruction::VisibleLandPositions(0),
-                Instruction::GetTraffic(v2(2, 2))
+                // Instruction::GetTraffic(v2(2, 2))
             ]
         );
 

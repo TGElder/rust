@@ -1,91 +1,38 @@
 use super::*;
 
-use crate::build_service::{Build, BuildInstruction, BuildQueue};
+use crate::build_service::{Build, BuildInstruction};
 use crate::game::traits::Nations;
 use crate::settlement::{Settlement, SettlementClass::Town};
 use commons::v2;
 use std::convert::TryInto;
 use std::time::Duration;
 
-const HANDLE: &str = "build_destination_town";
 const TRAFFIC_TO_POPULATION: f64 = 0.5;
 
-pub struct BuildDestinationTown<G, B>
+pub fn try_build_destination_town<G>(
+    game: &mut G,
+    traffic: &TrafficSummary,
+) -> Option<BuildInstruction>
 where
     G: Nations,
-    B: BuildQueue,
 {
-    game: UpdateSender<G>,
-    builder: UpdateSender<B>,
-}
-
-impl<G, B> Processor for BuildDestinationTown<G, B>
-where
-    G: Nations,
-    B: BuildQueue,
-{
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        self.try_build(instruction);
-        state
-    }
-}
-
-impl<G, B> BuildDestinationTown<G, B>
-where
-    G: Nations,
-    B: BuildQueue,
-{
-    pub fn new(game: &UpdateSender<G>, builder: &UpdateSender<B>) -> BuildDestinationTown<G, B> {
-        BuildDestinationTown {
-            game: game.clone_with_handle(HANDLE),
-            builder: builder.clone_with_handle(HANDLE),
-        }
+    if !should_build(&traffic.position, &traffic.controller, &traffic.routes) {
+        return None;
     }
 
-    fn try_build(&mut self, instruction: &Instruction) {
-        let (position, controller, routes, adjacent) = match instruction {
-            Instruction::Traffic {
-                position,
-                controller,
-                routes,
-                adjacent,
-            } => (position, controller, routes, adjacent),
-            _ => return,
-        };
-        if !should_build(&position, &controller, &routes) {
-            return;
-        }
-
-        let candidate_positions = get_candidate_positions(&adjacent);
-        if candidate_positions.is_empty() {
-            return;
-        }
-
-        let instruction = BuildInstruction {
-            when: get_when(routes),
-            what: Build::Settlement {
-                candidate_positions,
-                settlement: self.get_settlement(routes.clone()),
-            },
-        };
-        self.build(instruction);
+    let candidate_positions = get_candidate_positions(&traffic.adjacent);
+    if candidate_positions.is_empty() {
+        return None;
     }
 
-    fn get_settlement(&mut self, routes: Vec<RouteSummary>) -> Settlement {
-        block_on(async {
-            self.game
-                .update(move |game| get_settlement(game, routes))
-                .await
-        })
-    }
-
-    fn build(&mut self, instruction: BuildInstruction) {
-        block_on(async {
-            self.builder
-                .update(|builder| builder.queue(instruction))
-                .await
-        });
-    }
+    let instruction = BuildInstruction {
+        when: get_when(&traffic.routes),
+        what: Build::Settlement {
+            candidate_positions,
+            settlement: get_settlement(game, &traffic.routes),
+        },
+    };
+    Some(instruction)
 }
 
 fn should_build(
@@ -108,11 +55,11 @@ fn get_candidate_positions(tiles: &[Tile]) -> Vec<V2<usize>> {
         .collect()
 }
 
-fn get_settlement<G>(game: &mut G, routes: Vec<RouteSummary>) -> Settlement
+fn get_settlement<G>(game: &mut G, routes: &[RouteSummary]) -> Settlement
 where
     G: Nations,
 {
-    let first_visit_route = get_first_visit_route(&routes);
+    let first_visit_route = get_first_visit_route(routes);
     let nation = game.mut_nation_unsafe(&first_visit_route.nation);
 
     Settlement {
@@ -121,9 +68,9 @@ where
         name: nation.get_town_name(),
         nation: first_visit_route.nation.clone(),
         current_population: 0.0,
-        target_population: get_target_population(&routes),
-        gap_half_life: get_gap_half_life(&routes),
-        last_population_update_micros: get_when(&routes),
+        target_population: get_target_population(routes),
+        gap_half_life: get_gap_half_life(routes),
+        last_population_update_micros: get_when(routes),
     }
 }
 
@@ -156,7 +103,6 @@ mod tests {
     use crate::nation::{Nation, NationDescription};
     use commons::almost::Almost;
     use commons::same_elements;
-    use commons::update::UpdateProcess;
     use isometric::Color;
     use std::collections::HashMap;
     use std::time::Duration;
@@ -189,12 +135,10 @@ mod tests {
     #[test]
     fn should_build_town_if_single_route_ends_at_position() {
         // Given
-        let game = UpdateProcess::new(nations());
-        let build_queue = UpdateProcess::new(vec![]);
-        let mut processor = BuildDestinationTown::new(&game.tx(), &build_queue.tx());
+        let mut game = nations();
 
         // When
-        let instruction = Instruction::Traffic {
+        let traffic = TrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -220,8 +164,8 @@ mod tests {
                 },
             ],
         };
-        processor.process(State::default(), &instruction);
-        let build_queue = build_queue.shutdown();
+
+        let instruction = try_build_destination_town(&mut game, &traffic);
 
         // Then
         if let Some(BuildInstruction {
@@ -231,10 +175,10 @@ mod tests {
                     candidate_positions,
                     settlement,
                 },
-        }) = build_queue.get(0)
+        }) = instruction
         {
             // When is first visit
-            assert_eq!(*when, 101);
+            assert_eq!(when, 101);
             // Each adjacent tile is candidate position
             assert!(same_elements(&candidate_positions, &[v2(0, 2), v2(1, 1)]));
             assert_eq!(settlement.class, Town);
@@ -252,20 +196,15 @@ mod tests {
         } else {
             panic!("No settlement build instruction!");
         }
-
-        // Finally
-        game.shutdown();
     }
 
     #[test]
     fn should_build_town_if_multiple_routes_end_at_position() {
         // Given
-        let game = UpdateProcess::new(nations());
-        let build_queue = UpdateProcess::new(vec![]);
-        let mut processor = BuildDestinationTown::new(&game.tx(), &build_queue.tx());
+        let mut game = nations();
 
         // When
-        let instruction = Instruction::Traffic {
+        let traffic = TrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![
@@ -301,17 +240,17 @@ mod tests {
                 },
             ],
         };
-        processor.process(State::default(), &instruction);
-        let build_queue = build_queue.shutdown();
+
+        let instruction = try_build_destination_town(&mut game, &traffic);
 
         // Then
         if let Some(BuildInstruction {
             when,
             what: Build::Settlement { settlement, .. },
-        }) = build_queue.get(0)
+        }) = instruction
         {
             // When is first visit in any route
-            assert_eq!(*when, 101);
+            assert_eq!(when, 101);
             // Settlement nation is nation with lowest first visit
             assert_eq!(settlement.nation, "Wales".to_string());
             assert_eq!(settlement.name, "Swansea".to_string());
@@ -326,31 +265,22 @@ mod tests {
         } else {
             panic!("No settlement build instruction!");
         }
-
-        // Finally
-        game.shutdown();
     }
 
-    fn should_not_build_town(instruction: Instruction) {
+    fn should_not_build_town(traffic: TrafficSummary) {
         // Given
-        let game = UpdateProcess::new(nations());
-        let build_queue = UpdateProcess::new(vec![]);
-        let mut processor = BuildDestinationTown::new(&game.tx(), &build_queue.tx());
+        let mut game = nations();
 
         // When
-        processor.process(State::default(), &instruction);
-        let build_queue = build_queue.shutdown();
+        let instruction = try_build_destination_town(&mut game, &traffic);
 
         // Then
-        assert_eq!(build_queue, vec![]);
-
-        // Finally
-        game.shutdown();
+        assert_eq!(instruction, None);
     }
 
     #[test]
     fn should_not_build_town_if_no_route_ends_at_position() {
-        should_not_build_town(Instruction::Traffic {
+        should_not_build_town(TrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -372,7 +302,7 @@ mod tests {
 
     #[test]
     fn should_not_build_town_if_position_already_controlled() {
-        should_not_build_town(Instruction::Traffic {
+        should_not_build_town(TrafficSummary {
             position: v2(1, 2),
             controller: Some(v2(1, 1)),
             routes: vec![RouteSummary {
@@ -394,7 +324,7 @@ mod tests {
 
     #[test]
     fn should_not_build_town_in_sea() {
-        should_not_build_town(Instruction::Traffic {
+        should_not_build_town(TrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -416,7 +346,7 @@ mod tests {
 
     #[test]
     fn should_not_build_town_on_invisible_tile() {
-        should_not_build_town(Instruction::Traffic {
+        should_not_build_town(TrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {

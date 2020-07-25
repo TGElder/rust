@@ -5,78 +5,45 @@ use crate::game::traits::{HasWorld, Micros, Routes, Settlements, WhoControlsTile
 use crate::route::RouteKey;
 use std::collections::HashSet;
 
-const HANDLE: &str = "get_traffic";
-
-pub struct GetTraffic<G>
+pub fn get_traffic<G>(game: &G, state: &mut State, position: &V2<usize>) -> TrafficSummary
 where
     G: HasWorld + Micros + Routes + Settlements + WhoControlsTile,
 {
-    game: UpdateSender<G>,
-}
-
-impl<G> Processor for GetTraffic<G>
-where
-    G: HasWorld + Micros + Routes + Settlements + WhoControlsTile,
-{
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let position = match instruction {
-            Instruction::GetTraffic(position) => *position,
-            _ => return state,
-        };
-        let route_keys = get_route_keys(&state, &position);
-        state
-            .instructions
-            .push(self.get_traffic(position, route_keys));
-        state
-    }
-}
-
-impl<G> GetTraffic<G>
-where
-    G: HasWorld + Micros + Routes + Settlements + WhoControlsTile,
-{
-    pub fn new(game: &UpdateSender<G>) -> GetTraffic<G> {
-        GetTraffic {
-            game: game.clone_with_handle(HANDLE),
-        }
-    }
-
-    fn get_traffic(&mut self, position: V2<usize>, route_keys: HashSet<RouteKey>) -> Instruction {
-        block_on(async {
-            self.game
-                .update(move |game| get_traffic(game, position, route_keys))
-                .await
-        })
-    }
+    let route_keys = get_route_keys(&state, position);
+    get_traffic_with_route_keys(game, &position, &route_keys)
 }
 
 fn get_route_keys(state: &State, position: &V2<usize>) -> HashSet<RouteKey> {
     state.traffic.get(position).unwrap().clone()
 }
 
-fn get_traffic<G>(game: &G, position: V2<usize>, route_keys: HashSet<RouteKey>) -> Instruction
+fn get_traffic_with_route_keys<G>(
+    game: &G,
+    position: &V2<usize>,
+    route_keys: &HashSet<RouteKey>,
+) -> TrafficSummary
 where
     G: HasWorld + Micros + Routes + Settlements + WhoControlsTile,
 {
-    Instruction::Traffic {
-        position,
+    TrafficSummary {
+        position: *position,
         controller: game.who_controls_tile(&position).cloned(),
         routes: get_routes(game, route_keys),
         adjacent: get_adjacent(game, position),
     }
 }
 
-fn get_routes<G>(game: &G, route_keys: HashSet<RouteKey>) -> Vec<RouteSummary>
+fn get_routes<G>(game: &G, route_keys: &HashSet<RouteKey>) -> Vec<RouteSummary>
 where
     G: Micros + Routes + Settlements,
 {
     route_keys
-        .into_iter()
+        .iter()
         .flat_map(|route_key| get_route(game, route_key))
         .collect()
 }
 
-fn get_route<G>(game: &G, route_key: RouteKey) -> Option<RouteSummary>
+fn get_route<G>(game: &G, route_key: &RouteKey) -> Option<RouteSummary>
 where
     G: Micros + Routes + Settlements,
 {
@@ -102,7 +69,7 @@ where
     Some(route_summary)
 }
 
-fn get_adjacent<G>(game: &G, position: V2<usize>) -> Vec<Tile>
+fn get_adjacent<G>(game: &G, position: &V2<usize>) -> Vec<Tile>
 where
     G: HasWorld + Settlements,
 {
@@ -142,7 +109,6 @@ mod tests {
     use crate::settlement::Settlement;
     use crate::world::{Resource, World};
     use commons::same_elements;
-    use commons::update::UpdateProcess;
     use commons::{v2, M};
     use std::collections::HashMap;
     use std::time::Duration;
@@ -249,24 +215,12 @@ mod tests {
         // Given
         let position = v2(1, 2);
         let game = MockGame::default();
-        let game = UpdateProcess::new(game);
-        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::GetTraffic(position));
+        let traffic = get_traffic(&game, &mut state(), &position);
 
         // Then
-        if let Some(Instruction::Traffic {
-            position: actual, ..
-        }) = state.instructions.get(0)
-        {
-            assert_eq!(*actual, position);
-        } else {
-            panic!("No traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.position, position);
     }
 
     #[test]
@@ -278,24 +232,12 @@ mod tests {
             controller,
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::GetTraffic(position));
+        let traffic = get_traffic(&game, &mut state(), &position);
 
         // Then
-        if let Some(Instruction::Traffic {
-            controller: actual, ..
-        }) = state.instructions.get(0)
-        {
-            assert_eq!(*actual, controller);
-        } else {
-            panic!("No traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.controller, controller);
     }
 
     #[test]
@@ -326,31 +268,22 @@ mod tests {
             settlements: route_settlements(),
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state, &Instruction::GetTraffic(position));
+        let traffic = get_traffic(&game, &mut state, &position);
 
         // Then
-        if let Some(Instruction::Traffic { routes, .. }) = state.instructions.get(0) {
-            assert!(same_elements(
-                routes,
-                &[RouteSummary {
-                    traffic: 11,
-                    origin: v2(0, 1),
-                    destination: v2(1, 2),
-                    nation: "Scotland".to_string(),
-                    first_visit: 1101,
-                    duration: Duration::from_micros(101),
-                }],
-            ));
-        } else {
-            panic!("No traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert!(same_elements(
+            &traffic.routes,
+            &[RouteSummary {
+                traffic: 11,
+                origin: v2(0, 1),
+                destination: v2(1, 2),
+                nation: "Scotland".to_string(),
+                first_visit: 1101,
+                duration: Duration::from_micros(101),
+            }],
+        ));
     }
 
     #[test]
@@ -397,41 +330,32 @@ mod tests {
             settlements: route_settlements(),
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state, &Instruction::GetTraffic(position));
+        let traffic = get_traffic(&game, &mut state, &position);
 
         // Then
-        if let Some(Instruction::Traffic { routes, .. }) = state.instructions.get(0) {
-            assert!(same_elements(
-                routes,
-                &[
-                    RouteSummary {
-                        traffic: 11,
-                        origin: v2(0, 1),
-                        destination: v2(1, 2),
-                        nation: "Scotland".to_string(),
-                        first_visit: 1101,
-                        duration: Duration::from_micros(101),
-                    },
-                    RouteSummary {
-                        traffic: 22,
-                        origin: v2(0, 2),
-                        destination: v2(2, 2),
-                        nation: "Wales".to_string(),
-                        first_visit: 1202,
-                        duration: Duration::from_micros(202),
-                    },
-                ],
-            ));
-        } else {
-            panic!("No traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert!(same_elements(
+            &traffic.routes,
+            &[
+                RouteSummary {
+                    traffic: 11,
+                    origin: v2(0, 1),
+                    destination: v2(1, 2),
+                    nation: "Scotland".to_string(),
+                    first_visit: 1101,
+                    duration: Duration::from_micros(101),
+                },
+                RouteSummary {
+                    traffic: 22,
+                    origin: v2(0, 2),
+                    destination: v2(2, 2),
+                    nation: "Wales".to_string(),
+                    first_visit: 1202,
+                    duration: Duration::from_micros(202),
+                },
+            ],
+        ));
     }
 
     #[test]
@@ -453,21 +377,12 @@ mod tests {
             settlements: route_settlements(),
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state, &Instruction::GetTraffic(position));
+        let traffic = get_traffic(&game, &mut state, &position);
 
         // Then
-        if let Some(Instruction::Traffic { routes, .. }) = state.instructions.get(0) {
-            assert_eq!(*routes, vec![]);
-        } else {
-            panic!("No traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.routes, vec![]);
     }
 
     #[test]
@@ -494,21 +409,12 @@ mod tests {
             routes,
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::GetTraffic(position));
+        let traffic = get_traffic(&game, &mut state(), &position);
 
         // Then
-        if let Some(Instruction::Traffic { routes, .. }) = state.instructions.get(0) {
-            assert_eq!(*routes, vec![]);
-        } else {
-            panic!("No traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert_eq!(traffic.routes, vec![]);
     }
 
     #[test]
@@ -533,11 +439,9 @@ mod tests {
             settlements: settlements.clone(),
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::GetTraffic(position));
+        let traffic = get_traffic(&game, &mut state(), &position);
 
         // Then
         let expected: Vec<Tile> = settlements
@@ -549,17 +453,8 @@ mod tests {
                 visible: false,
             })
             .collect();
-        if let Some(Instruction::Traffic {
-            adjacent: actual, ..
-        }) = state.instructions.get(0)
-        {
-            assert!(same_elements(&actual, &expected));
-        } else {
-            panic!("No traffic instruction!");
-        }
 
-        // Finally
-        game.shutdown();
+        assert!(same_elements(&traffic.adjacent, &expected));
     }
 
     #[rustfmt::skip]
@@ -579,11 +474,9 @@ mod tests {
             world,
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetTraffic::new(&game.tx());
 
         // When
-        let state = processor.process(state(), &Instruction::GetTraffic(position));
+        let traffic = get_traffic(&game, &mut state(), &position);
 
         // Then
         let expected: Vec<Tile> = vec![v2(1, 2), v2(0, 2), v2(1, 1), v2(0, 1)]
@@ -595,17 +488,8 @@ mod tests {
                 visible: false,
             })
             .collect();
-        if let Some(Instruction::Traffic {
-            adjacent: actual, ..
-        }) = state.instructions.get(0)
-        {
-            assert!(same_elements(&actual, &expected));
-        } else {
-            panic!("No traffic instruction!");
-        }
+            assert!(same_elements(&traffic.adjacent, &expected));
 
-        // Finally
-        game.shutdown();
     }
 
     #[test]
@@ -622,13 +506,11 @@ mod tests {
             world,
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
-        let mut processor = GetTraffic::new(&game.tx());
 
-        let state = state();
+        let mut state = state();
 
         // When
-        let state = processor.process(state, &Instruction::GetTraffic(position));
+        let traffic = get_traffic(&game, &mut state, &position);
 
         // Then
         let expected: Vec<Tile> = vec![v2(1, 2), v2(0, 2), v2(1, 1), v2(0, 1)]
@@ -640,16 +522,6 @@ mod tests {
                 visible: position == v2(0, 1) || position == v2(0, 2),
             })
             .collect();
-        if let Some(Instruction::Traffic {
-            adjacent: actual, ..
-        }) = state.instructions.get(0)
-        {
-            assert!(same_elements(&actual, &expected));
-        } else {
-            panic!("No traffic instruction!");
-        }
-
-        // Finally
-        game.shutdown();
+        assert!(same_elements(&traffic.adjacent, &expected));
     }
 }
