@@ -25,7 +25,7 @@ where
         let (to_build, to_retain) = state
             .build_queue
             .into_iter()
-            .partition(|BuildInstruction { when, .. }| *when < micros);
+            .partition(|BuildInstruction { when, .. }| *when <= micros);
         self.build_all(to_build);
         state.build_queue = to_retain;
         state
