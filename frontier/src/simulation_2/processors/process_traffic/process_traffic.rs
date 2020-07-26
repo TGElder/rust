@@ -5,6 +5,7 @@ use crate::route::{RouteSet, RouteSetKey};
 use crate::travel_duration::TravelDuration;
 
 const HANDLE: &str = "update_traffic";
+const BATCH_SIZE: usize = 16;
 
 pub struct ProcessTraffic<G, T>
 where
@@ -20,12 +21,16 @@ where
     G: HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
     T: TravelDuration + 'static,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (key, route_set) = match instruction {
             Instruction::GetRouteChanges { key, route_set } => (key, route_set),
             _ => return state,
         };
-        self.process_traffic(state, *key, route_set.clone())
+        let route_changes = self.update_routes_and_get_changes(*key, route_set.clone());
+        for batch in route_changes.chunks(BATCH_SIZE) {
+            state = self.process_route_changes(state, batch.to_vec());
+        }
+        state
     }
 }
 
@@ -41,28 +46,40 @@ where
         }
     }
 
-    fn process_traffic(&mut self, state: State, key: RouteSetKey, route_set: RouteSet) -> State {
+    fn update_routes_and_get_changes(
+        &mut self,
+        key: RouteSetKey,
+        route_set: RouteSet,
+    ) -> Vec<RouteChange> {
+        block_on(async {
+            self.game
+                .update(move |game| update_routes_and_get_changes(game, &key, &route_set))
+                .await
+        })
+    }
+
+    fn process_route_changes(&mut self, state: State, route_changes: Vec<RouteChange>) -> State {
         let travel_duration = self.travel_duration.clone();
         block_on(async {
             self.game
-                .update(move |game| process_traffic(game, travel_duration, state, key, route_set))
+                .update(move |game| {
+                    process_route_changes(game, travel_duration, state, route_changes)
+                })
                 .await
         })
     }
 }
 
-fn process_traffic<G, T>(
+fn process_route_changes<G, T>(
     game: &mut G,
     travel_duration: Arc<T>,
     mut state: State,
-    key: RouteSetKey,
-    route_set: RouteSet,
+    route_changes: Vec<RouteChange>,
 ) -> State
 where
     G: HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
     T: TravelDuration + 'static,
 {
-    let route_changes = update_routes_and_get_changes(game, &key, &route_set);
     for route_change in route_changes {
         for position in update_traffic_and_get_changes(&mut state, &route_change) {
             let traffic = get_traffic(game, &mut state, &position);
