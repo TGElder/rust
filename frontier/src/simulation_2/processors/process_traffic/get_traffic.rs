@@ -5,7 +5,7 @@ use crate::game::traits::{HasWorld, Micros, Routes, Settlements, WhoControlsTile
 use crate::route::RouteKey;
 use std::collections::HashSet;
 
-pub fn get_traffic<G>(game: &G, state: &mut State, position: &V2<usize>) -> TrafficSummary
+pub fn get_traffic<G>(game: &G, state: &State, position: &V2<usize>) -> TrafficSummary
 where
     G: HasWorld + Micros + Routes + Settlements + WhoControlsTile,
 {
