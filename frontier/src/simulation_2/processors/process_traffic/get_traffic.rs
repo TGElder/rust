@@ -105,9 +105,10 @@ where
 mod tests {
     use super::*;
 
+    use crate::resource::Resource;
     use crate::route::{Route, RouteSet, RouteSetKey};
     use crate::settlement::Settlement;
-    use crate::world::{Resource, World};
+    use crate::world::World;
     use commons::same_elements;
     use commons::{v2, M};
     use std::collections::HashMap;

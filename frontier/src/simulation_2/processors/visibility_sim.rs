@@ -149,8 +149,8 @@ impl GameEventConsumer for VisibilitySimConsumer {
 mod tests {
     use super::*;
 
+    use crate::resource::Resource;
     use crate::route::RouteKey;
-    use crate::world::Resource;
     use commons::grid::Grid;
     use commons::same_elements;
     use commons::update::UpdateProcess;

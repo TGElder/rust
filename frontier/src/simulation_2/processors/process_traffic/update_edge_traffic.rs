@@ -80,7 +80,7 @@ fn remove_zero_traffic_entries(state: &mut State) {
 mod tests {
     use super::*;
 
-    use crate::world::Resource;
+    use crate::resource::Resource;
     use commons::index2d::Vec2D;
     use commons::same_elements;
     use commons::v2;

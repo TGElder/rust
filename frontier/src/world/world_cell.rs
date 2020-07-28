@@ -1,6 +1,6 @@
 use super::climate::*;
-use super::resource::*;
 use super::world_object::*;
+use crate::resource::Resource;
 use commons::junction::*;
 use commons::*;
 use isometric::cell_traits::*;

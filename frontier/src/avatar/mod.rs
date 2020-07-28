@@ -6,8 +6,9 @@ use path::*;
 pub use travel_duration::*;
 pub use travel_mode::*;
 
+use crate::resource::Resource;
 use crate::travel_duration::*;
-use crate::world::{Resource, World};
+use crate::world::World;
 use commons::{v2, V2};
 use isometric::coords::*;
 use isometric::Color;

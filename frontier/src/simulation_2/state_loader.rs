@@ -58,8 +58,9 @@ impl GameEventConsumer for SimulationStateLoader {
 mod tests {
     use super::*;
 
+    use crate::resource::Resource;
     use crate::route::RouteKey;
-    use crate::world::{Resource, World};
+    use crate::world::World;
     use commons::edge::Edge;
     use commons::{v2, M};
     use std::collections::HashSet;

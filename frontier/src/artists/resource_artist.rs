@@ -1,3 +1,4 @@
+use crate::resource::Resource;
 use crate::world::*;
 use commons::*;
 use isometric::cell_traits::*;

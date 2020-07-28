@@ -83,6 +83,7 @@ mod tests {
 
     use super::*;
     use crate::nation::NationDescription;
+    use crate::resource::Resource;
     use commons::*;
     use isometric::Color;
 

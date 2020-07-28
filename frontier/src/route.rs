@@ -1,4 +1,4 @@
-use crate::world::Resource;
+use crate::resource::Resource;
 use commons::V2;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

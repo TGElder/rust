@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::world::RESOURCES;
+use crate::resource::RESOURCES;
 
 pub fn town_demand_fn(settlement: &Settlement) -> Vec<Demand> {
     if settlement.class != SettlementClass::Town {

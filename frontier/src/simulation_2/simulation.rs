@@ -95,8 +95,8 @@ impl Simulation {
 mod tests {
     use super::*;
 
+    use crate::resource::Resource;
     use crate::route::RouteKey;
-    use crate::world::Resource;
     use commons::edge::Edge;
     use commons::index2d::Vec2D;
     use commons::v2;

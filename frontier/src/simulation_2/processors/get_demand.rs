@@ -44,7 +44,7 @@ where
 mod tests {
     use super::*;
 
-    use crate::world::Resource;
+    use crate::resource::Resource;
 
     #[test]
     fn should_add_instruction_for_each_demand() {

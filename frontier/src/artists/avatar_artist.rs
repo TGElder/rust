@@ -1,5 +1,6 @@
 use super::*;
 use crate::avatar::*;
+use crate::resource::Resource;
 use crate::world::World;
 use commons::{na, v3, V3};
 use isometric::coords::*;

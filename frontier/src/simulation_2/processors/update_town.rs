@@ -99,8 +99,8 @@ where
 mod tests {
     use super::*;
 
+    use crate::resource::Resource;
     use crate::route::{Route, RouteSet, RouteSetKey};
-    use crate::world::Resource;
     use commons::grid::Grid;
     use commons::update::UpdateProcess;
     use commons::v2;

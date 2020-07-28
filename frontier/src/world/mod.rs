@@ -1,11 +1,9 @@
 mod climate;
-mod resource;
 mod vegetation;
 mod world_cell;
 mod world_object;
 
 pub use climate::*;
-pub use resource::*;
 pub use vegetation::*;
 pub use world_cell::*;
 pub use world_object::*;

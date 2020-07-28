@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::world::Resource;
+use crate::resource::Resource;
 use commons::v2;
 use std::default::Default;
 

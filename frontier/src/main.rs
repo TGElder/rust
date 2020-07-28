@@ -12,6 +12,7 @@ mod label_editor;
 mod names;
 mod nation;
 mod pathfinder;
+mod resource;
 mod road_builder;
 mod route;
 mod settlement;

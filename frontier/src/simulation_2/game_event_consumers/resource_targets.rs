@@ -2,7 +2,8 @@ use super::*;
 
 use crate::game::{CaptureEvent, GameEvent, GameEventConsumer, GameState};
 use crate::pathfinder::traits::ClosestTargets;
-use crate::world::{Resource, World, RESOURCES};
+use crate::resource::{Resource, RESOURCES};
+use crate::world::World;
 use commons::grid::Grid;
 use commons::v2;
 use isometric::Event;

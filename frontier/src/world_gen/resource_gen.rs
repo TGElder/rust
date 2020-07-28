@@ -1,4 +1,5 @@
 use super::*;
+use crate::resource::{Resource, RESOURCES};
 use crate::world::*;
 use commons::edge::Edge;
 use commons::equalize::{equalize_with_filter, PositionValue};

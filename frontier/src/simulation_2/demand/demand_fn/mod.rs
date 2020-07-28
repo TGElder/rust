@@ -6,8 +6,8 @@ mod town;
 pub use homeland::*;
 pub use town::*;
 
+use crate::resource::Resource;
 use crate::settlement::{Settlement, SettlementClass};
-use crate::world::Resource;
 
 fn get_demand(settlement: &Settlement, resource: Resource) -> Demand {
     Demand {
