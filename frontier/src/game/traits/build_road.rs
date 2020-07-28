@@ -11,11 +11,17 @@ pub trait BuildRoad {
 
 impl BuildRoad for Game {
     fn add_road(&mut self, edge: &Edge) {
+        if self.game_state.world.is_road(edge) {
+            return;
+        }
         let result = RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Build);
         self.update_roads(result);
     }
 
     fn remove_road(&mut self, edge: &Edge) {
+        if !self.game_state.world.is_road(edge) {
+            return;
+        }
         let result =
             RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Demolish);
         self.update_roads(result);

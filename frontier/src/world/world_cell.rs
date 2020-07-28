@@ -13,9 +13,16 @@ pub struct WorldCell {
     pub visible: bool,
     pub river: Junction,
     pub road: Junction,
+    pub planned_road: Option<PlannedRoad>,
     pub climate: Climate,
     pub object: WorldObject,
     pub resource: Resource,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+pub struct PlannedRoad {
+    pub when: u128,
+    pub junction: Junction,
 }
 
 impl WorldCell {
@@ -26,6 +33,7 @@ impl WorldCell {
             visible: false,
             river: Junction::default(),
             road: Junction::default(),
+            planned_road: None,
             climate: Climate::default(),
             object: WorldObject::None,
             resource: Resource::None,

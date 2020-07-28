@@ -144,7 +144,7 @@ where
 {
     for edge in traffic_changes {
         let edge_traffic = get_edge_traffic(game, travel_duration.as_ref(), &state, &edge);
-        if let Some(instruction) = try_build_road(&edge_traffic) {
+        if let Some(instruction) = try_build_road(game, &edge_traffic) {
             state.build_queue.push(instruction);
         }
     }

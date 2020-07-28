@@ -78,6 +78,7 @@ pub struct EdgeTrafficSummary {
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum RoadStatus {
     Built,
+    Planned(u128),
     Suitable,
     Unsuitable,
 }

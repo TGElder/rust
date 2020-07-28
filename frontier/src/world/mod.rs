@@ -99,6 +99,26 @@ impl World {
         set_width(to_junction_1d);
     }
 
+    pub fn plan_road(&mut self, road: &Edge, state: bool, when: u128) {
+        let from = self.mut_cell_unsafe(road.from());
+        let mut from_junction = Junction::default();
+        let from_junction_1d = from_junction.junction_1d(road.horizontal());
+        from_junction_1d.from = state;
+        from.planned_road = Some(PlannedRoad {
+            junction: from_junction,
+            when,
+        });
+
+        let to = self.mut_cell_unsafe(road.to());
+        let mut to_junction = Junction::default();
+        let to_junction_1d = to_junction.junction_1d(road.horizontal());
+        to_junction_1d.to = state;
+        to.planned_road = Some(PlannedRoad {
+            junction: to_junction,
+            when,
+        });
+    }
+
     pub fn is_sea(&self, position: &V2<usize>) -> bool {
         self.get_cell(position)
             .map(|cell| cell.elevation())
@@ -121,6 +141,18 @@ impl World {
 
     pub fn is_road(&self, edge: &Edge) -> bool {
         self.is(edge, &|cell| cell.road)
+    }
+
+    pub fn road_planned(&self, edge: &Edge) -> Option<u128> {
+        let cell = unwrap_or!(self.get_cell(&edge.from()), return None);
+        if let Some(PlannedRoad { junction, when }) = cell.planned_road {
+            if edge.horizontal() && junction.horizontal.from
+                || !edge.horizontal() && junction.vertical.from
+            {
+                return Some(when);
+            }
+        }
+        None
     }
 
     pub fn is_river(&self, edge: &Edge) -> bool {
@@ -412,12 +444,55 @@ mod tests {
     }
 
     #[test]
-    fn test_is_road() {
+    fn test_is_road_horizontal() {
         let mut world = world();
         world.set_road(&Edge::new(v2(0, 0), v2(0, 1)), true);
         assert!(world.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
+        assert!(world.is_road(&Edge::new(v2(0, 1), v2(0, 0))));
         assert!(!world.is_road(&Edge::new(v2(1, 0), v2(1, 1))));
         assert!(!world.is_road(&Edge::new(v2(0, 1), v2(0, 2))));
+    }
+
+    #[test]
+    fn test_is_road_vertical() {
+        let mut world = world();
+        world.set_road(&Edge::new(v2(0, 0), v2(1, 0)), true);
+        assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
+        assert!(world.is_road(&Edge::new(v2(1, 0), v2(0, 0))));
+        assert!(!world.is_road(&Edge::new(v2(1, 0), v2(2, 0))));
+        assert!(!world.is_road(&Edge::new(v2(0, 1), v2(1, 1))));
+    }
+
+    #[test]
+    fn test_road_planned_horizontal() {
+        let mut world = world();
+        assert_eq!(world.road_planned(&Edge::new(v2(0, 0), v2(0, 1))), None);
+        assert_eq!(world.road_planned(&Edge::new(v2(0, 1), v2(0, 0))), None);
+        world.plan_road(&Edge::new(v2(0, 0), v2(0, 1)), true, 123);
+        assert_eq!(
+            world.road_planned(&Edge::new(v2(0, 0), v2(0, 1))),
+            Some(123)
+        );
+        assert_eq!(
+            world.road_planned(&Edge::new(v2(0, 1), v2(0, 0))),
+            Some(123)
+        );
+    }
+
+    #[test]
+    fn test_road_planned_vertical() {
+        let mut world = world();
+        assert_eq!(world.road_planned(&Edge::new(v2(0, 0), v2(1, 0))), None);
+        assert_eq!(world.road_planned(&Edge::new(v2(1, 0), v2(0, 0))), None);
+        world.plan_road(&Edge::new(v2(0, 0), v2(1, 0)), true, 123);
+        assert_eq!(
+            world.road_planned(&Edge::new(v2(0, 0), v2(1, 0))),
+            Some(123)
+        );
+        assert_eq!(
+            world.road_planned(&Edge::new(v2(1, 0), v2(0, 0))),
+            Some(123)
+        );
     }
 
     #[test]

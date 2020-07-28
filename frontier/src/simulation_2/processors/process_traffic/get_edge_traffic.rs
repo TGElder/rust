@@ -53,6 +53,8 @@ where
     let world = game.world();
     if world.is_road(edge) {
         RoadStatus::Built
+    } else if let Some(when) = world.road_planned(edge) {
+        RoadStatus::Planned(when)
     } else if travel_duration
         .get_duration(world, edge.from(), edge.to())
         .is_some()
@@ -119,6 +121,10 @@ mod tests {
     impl HasWorld for MockGame {
         fn world(&self) -> &World {
             &self.world
+        }
+
+        fn world_mut(&mut self) -> &mut World {
+            &mut self.world
         }
     }
 
@@ -192,6 +198,25 @@ mod tests {
 
         // Then
         assert_eq!(traffic.road_status, RoadStatus::Built);
+    }
+
+    #[test]
+    fn road_status_planned() {
+        // Given
+        let edge = Edge::new(v2(1, 2), v2(1, 3));
+
+        let mut world = world();
+        world.plan_road(&edge, true, 404);
+        let game = MockGame {
+            world,
+            ..MockGame::default()
+        };
+
+        // When
+        let traffic = get_edge_traffic(&game, &NullTravelDuration {}, &State::default(), &edge);
+
+        // Then
+        assert_eq!(traffic.road_status, RoadStatus::Planned(404));
     }
 
     #[test]

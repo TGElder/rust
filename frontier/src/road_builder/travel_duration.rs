@@ -68,9 +68,10 @@ impl TravelDuration for AutoRoadTravelDuration {
             return None;
         }
         if let (Some(from), Some(to)) = (world.get_cell(from), world.get_cell(to)) {
+            let edge = Edge::new(from.position(), to.position());
             if from.river.corner() || to.river.corner() || (from.river.here() && to.river.here()) {
                 None
-            } else if world.is_road(&Edge::new(from.position(), to.position())) {
+            } else if world.is_road(&edge) || world.road_planned(&edge).is_some() {
                 self.road
                     .get_duration(world, &from.position(), &to.position())
             } else {
@@ -241,7 +242,7 @@ mod tests {
 
     #[rustfmt::skip]
     #[test]
-    fn uses_different_travel_duration_for_existing_roads() {
+    fn uses_road_travel_duration_for_existing_roads() {
         let mut world = World::new(
             M::from_vec(3, 3, vec![
                 1.0, 1.0, 1.0,
@@ -254,6 +255,25 @@ mod tests {
         world.reveal_all();
 
         world.set_road(&Edge::new(v2(0, 0), v2(0, 1)), true);
+
+        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(0, 1)), Some(road_travel_duration().max_duration()));
+    }
+
+    #[rustfmt::skip]
+    #[test]
+    fn uses_road_travel_duration_for_planned_roads() {
+        let mut world = World::new(
+            M::from_vec(3, 3, vec![
+                1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0,
+            ]),
+            0.5,
+        );
+
+        world.reveal_all();
+
+        world.plan_road(&Edge::new(v2(0, 0), v2(0, 1)), true, 404);
 
         assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(0, 1)), Some(road_travel_duration().max_duration()));
     }

@@ -176,6 +176,10 @@ mod tests {
         fn world(&self) -> &World {
             &self.world
         }
+
+        fn world_mut(&mut self) -> &mut World {
+            &mut self.world
+        }
     }
 
     impl Micros for MockGame {
