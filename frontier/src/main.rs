@@ -106,6 +106,7 @@ fn main() {
         Box::new(ProcessTraffic::new(
             &game.tx(),
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
+            &avatar_pathfinder,
         )),
         Box::new(visibility_sim),
     ]);

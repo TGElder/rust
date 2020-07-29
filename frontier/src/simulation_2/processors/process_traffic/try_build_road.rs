@@ -1,11 +1,13 @@
 use super::*;
+use crate::pathfinder::traits::UpdateEdge;
 
 use crate::game::traits::HasWorld;
 
 const ROAD_THRESHOLD: usize = 8;
 
-pub fn try_build_road(
+pub fn try_build_road<P: UpdateEdge>(
     world: &mut dyn HasWorld,
+    pathfinder: &Arc<RwLock<P>>,
     traffic: &EdgeTrafficSummary,
 ) -> Option<BuildInstruction> {
     if get_traffic(&traffic.routes) < ROAD_THRESHOLD {
@@ -18,6 +20,10 @@ pub fn try_build_road(
         _ => return None,
     }
     world.world_mut().plan_road(&traffic.edge, true, when);
+    pathfinder
+        .write()
+        .unwrap()
+        .update_edge(&world.world(), &traffic.edge);
     let instruction = BuildInstruction {
         when,
         what: Build::Road(traffic.edge),
@@ -61,10 +67,12 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let mut world = world();
+        let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
         let instruction = try_build_road(
             &mut world,
+            &pathfinder,
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Suitable,
@@ -86,17 +94,20 @@ mod tests {
         } else {
             panic!("No build instruction!");
         }
+        assert_eq!(*pathfinder.read().unwrap(), vec![edge]);
     }
 
     #[test]
-    fn should_not_build_road_if_traffic_doesnt_exceed_threshold() {
+    fn should_not_build_road_if_traffic_does_not_exceed_threshold() {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let mut world = world();
+        let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
         let instruction = try_build_road(
             &mut world,
+            &pathfinder,
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Suitable,
@@ -110,6 +121,7 @@ mod tests {
         // Then
         assert!(world.road_planned(&edge).is_none());
         assert_eq!(instruction, None);
+        assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
 
     #[test]
@@ -117,10 +129,12 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let mut world = world();
+        let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
         let instruction = try_build_road(
             &mut world,
+            &pathfinder,
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Built,
@@ -134,6 +148,7 @@ mod tests {
         // Then
         assert!(world.road_planned(&edge).is_none());
         assert_eq!(instruction, None);
+        assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
 
     #[test]
@@ -141,10 +156,12 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let mut world = world();
+        let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
         let instruction = try_build_road(
             &mut world,
+            &pathfinder,
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Planned(0),
@@ -158,6 +175,7 @@ mod tests {
         // Then
         assert!(world.road_planned(&edge).is_none());
         assert_eq!(instruction, None);
+        assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
 
     #[test]
@@ -165,10 +183,12 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let mut world = world();
+        let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
         let instruction = try_build_road(
             &mut world,
+            &pathfinder,
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Planned(100),
@@ -190,6 +210,7 @@ mod tests {
         } else {
             panic!("No build instruction!");
         }
+        assert_eq!(*pathfinder.read().unwrap(), vec![edge]);
     }
 
     #[test]
@@ -197,10 +218,12 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let mut world = world();
+        let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
         let instruction = try_build_road(
             &mut world,
+            &pathfinder,
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Unsuitable,
@@ -214,6 +237,7 @@ mod tests {
         // Then
         assert!(world.road_planned(&edge).is_none());
         assert_eq!(instruction, None);
+        assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
 
     #[test]
@@ -221,6 +245,7 @@ mod tests {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
         let mut world = world();
+        let pathfinder = Arc::new(RwLock::new(vec![]));
 
         let routes = (1..=ROAD_THRESHOLD)
             .map(|i| EdgeRouteSummary {
@@ -232,6 +257,7 @@ mod tests {
         // When
         let instruction = try_build_road(
             &mut world,
+            &pathfinder,
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Suitable,

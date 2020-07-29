@@ -63,7 +63,9 @@ impl TravelModeFn {
         if world.in_bounds(from) && world.in_bounds(to) {
             if world.is_sea(from) && world.is_sea(to) {
                 Some(TravelMode::Sea)
-            } else if world.is_road(&Edge::new(*from, *to)) {
+            } else if world.is_road(&Edge::new(*from, *to))
+                || world.road_planned(&Edge::new(*from, *to)).is_some()
+            {
                 Some(TravelMode::Road)
             } else if self.is_navigable_river(world, from, to) {
                 Some(TravelMode::River)
@@ -83,7 +85,7 @@ impl TravelModeFn {
             if world.is_sea(position) {
                 out.push(TravelMode::Sea);
             } else {
-                if cell.road.here() {
+                if cell.road.here() || cell.planned_road.is_some() {
                     out.push(TravelMode::Road);
                 }
                 if self.is_navigable_river_here(world, position) {
@@ -315,9 +317,43 @@ mod tests {
     }
 
     #[test]
+    fn travel_mode_on_planned_road() {
+        let mut world = world();
+        let travel_mode_fn = travel_mode_fn();
+        let edge = Edge::new(v2(0, 3), v2(1, 3));
+        world.set_road(&edge, false);
+        world.plan_road(&edge, true, 0);
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(0, 3), &v2(1, 3)),
+            Some(TravelMode::Road)
+        );
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(1, 3), &v2(0, 3)),
+            Some(TravelMode::Road)
+        );
+    }
+
+    #[test]
     fn travel_mode_onto_road() {
         let world = world();
         let travel_mode_fn = travel_mode_fn();
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(0, 2), &v2(0, 3)),
+            Some(TravelMode::Walk)
+        );
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(0, 3), &v2(0, 2)),
+            Some(TravelMode::Walk)
+        );
+    }
+
+    #[test]
+    fn travel_mode_onto_planned_road() {
+        let mut world = world();
+        let travel_mode_fn = travel_mode_fn();
+        let edge = Edge::new(v2(0, 3), v2(1, 3));
+        world.set_road(&edge, false);
+        world.plan_road(&edge, true, 0);
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(0, 2), &v2(0, 3)),
             Some(TravelMode::Walk)
@@ -362,6 +398,21 @@ mod tests {
     }
 
     #[test]
+    fn travel_mode_planned_bridge() {
+        let mut world = world();
+        let travel_mode_fn = travel_mode_fn();
+        world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), true, 0);
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(1, 0), &v2(1, 1)),
+            Some(TravelMode::Road)
+        );
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(1, 1), &v2(1, 0)),
+            Some(TravelMode::Road)
+        );
+    }
+
+    #[test]
     fn travel_mode_here() {
         let world = world();
         let travel_mode_fn = travel_mode_fn();
@@ -388,10 +439,34 @@ mod tests {
     }
 
     #[test]
+    fn travel_mode_here_planned_road() {
+        let mut world = world();
+        let travel_mode_fn = travel_mode_fn();
+        let edge = Edge::new(v2(0, 3), v2(1, 3));
+        world.set_road(&edge, false);
+        world.plan_road(&edge, true, 0);
+        assert_eq!(
+            travel_mode_fn.travel_modes_here(&world, &v2(0, 3)),
+            vec![TravelMode::Road]
+        );
+    }
+
+    #[test]
     fn travel_mode_here_bridge() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
         world.set_road(&Edge::new(v2(1, 0), v2(1, 1)), true);
+        assert!(same_elements(
+            &travel_mode_fn.travel_modes_here(&world, &v2(1, 1)),
+            &[TravelMode::Road, TravelMode::River]
+        ))
+    }
+
+    #[test]
+    fn travel_mode_here_planned_bridge() {
+        let mut world = world();
+        let travel_mode_fn = travel_mode_fn();
+        world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), true, 0);
         assert!(same_elements(
             &travel_mode_fn.travel_modes_here(&world, &v2(1, 1)),
             &[TravelMode::Road, TravelMode::River]

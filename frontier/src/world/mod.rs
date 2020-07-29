@@ -447,6 +447,8 @@ mod tests {
         world.set_road(&Edge::new(v2(0, 0), v2(0, 1)), true);
         assert!(world.is_road(&Edge::new(v2(0, 0), v2(0, 1))));
         assert!(world.is_road(&Edge::new(v2(0, 1), v2(0, 0))));
+        assert!(world.get_cell_unsafe(&v2(0, 0)).road.here());
+        assert!(world.get_cell_unsafe(&v2(0, 1)).road.here());
         assert!(!world.is_road(&Edge::new(v2(1, 0), v2(1, 1))));
         assert!(!world.is_road(&Edge::new(v2(0, 1), v2(0, 2))));
     }
@@ -457,6 +459,8 @@ mod tests {
         world.set_road(&Edge::new(v2(0, 0), v2(1, 0)), true);
         assert!(world.is_road(&Edge::new(v2(0, 0), v2(1, 0))));
         assert!(world.is_road(&Edge::new(v2(1, 0), v2(0, 0))));
+        assert!(world.get_cell_unsafe(&v2(0, 0)).road.here());
+        assert!(world.get_cell_unsafe(&v2(1, 0)).road.here());
         assert!(!world.is_road(&Edge::new(v2(1, 0), v2(2, 0))));
         assert!(!world.is_road(&Edge::new(v2(0, 1), v2(1, 1))));
     }

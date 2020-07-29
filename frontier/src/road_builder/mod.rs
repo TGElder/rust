@@ -48,8 +48,8 @@ impl RoadBuilderResult {
         T: TravelDuration,
     {
         self.edges().iter().for_each(|edge| {
-            pathfinder.update_edge(world, &edge.from(), &edge.to());
-            pathfinder.update_edge(world, &edge.to(), &edge.from());
+            pathfinder.update_from_to(world, &edge.from(), &edge.to());
+            pathfinder.update_from_to(world, &edge.to(), &edge.from());
         });
     }
 }

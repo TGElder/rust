@@ -1,6 +1,7 @@
-use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, PositionsWithin};
+use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, PositionsWithin, UpdateEdge};
 use crate::travel_duration::*;
 use crate::world::*;
+use commons::edge::Edge;
 use commons::index2d::*;
 use commons::manhattan::ManhattanDistance;
 use commons::*;
@@ -149,7 +150,7 @@ where
         }
     }
 
-    pub fn update_edge(&mut self, world: &World, from: &V2<usize>, to: &V2<usize>) {
+    pub fn update_from_to(&mut self, world: &World, from: &V2<usize>, to: &V2<usize>) {
         self.network
             .remove_edges(self.get_network_index(from), self.get_network_index(to));
         if let Some(network_edge) = self.get_network_edge(&world, from, to) {
@@ -160,8 +161,8 @@ where
     pub fn update_node(&mut self, world: &World, position: &V2<usize>) {
         for other in world.expand_position(position) {
             if other.x == position.x || other.y == position.y {
-                self.update_edge(world, position, &other);
-                self.update_edge(world, &other, position);
+                self.update_from_to(world, position, &other);
+                self.update_from_to(world, &other, position);
             }
         }
     }
@@ -231,11 +232,20 @@ where
     }
 }
 
+impl<T> UpdateEdge for Pathfinder<T>
+where
+    T: TravelDuration,
+{
+    fn update_edge(&mut self, world: &World, edge: &Edge) {
+        self.update_from_to(world, edge.from(), edge.to());
+        self.update_from_to(world, edge.to(), edge.from());
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use commons::edge::*;
     use commons::M;
     use isometric::cell_traits::*;
     use std::time::Duration;
@@ -512,7 +522,7 @@ mod tests {
     }
 
     #[test]
-    fn test_update_edge() {
+    fn test_update_from_to() {
         let mut pathfinder = pathfinder();
         let mut world = world();
         assert_eq!(
@@ -520,7 +530,7 @@ mod tests {
             Some(NetworkEdge::new(1, 0, 255))
         );
         world.set_road(&Edge::new(v2(1, 0), v2(0, 0)), true);
-        pathfinder.update_edge(&world, &v2(1, 0), &v2(0, 0));
+        pathfinder.update_from_to(&world, &v2(1, 0), &v2(0, 0));
         assert_eq!(
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
             Some(NetworkEdge::new(1, 0, 64))
@@ -611,7 +621,7 @@ mod tests {
             None
         );
         world.set_road(&Edge::new(v2(1, 0), v2(2, 0)), true);
-        pathfinder.update_edge(&world, &v2(1, 0), &v2(2, 0));
+        pathfinder.update_from_to(&world, &v2(1, 0), &v2(2, 0));
         assert_eq!(
             pathfinder.get_network_edge(&world, &v2(1, 0), &v2(2, 0)),
             Some(NetworkEdge::new(1, 2, 64))
@@ -676,6 +686,26 @@ mod tests {
         assert_eq!(
             manhattan_distance(pathfinder.get_network_index(&v2(1, 2))),
             0
+        );
+    }
+
+    #[test]
+    fn test_update_edge() {
+        let mut pathfinder = pathfinder();
+        let mut world = world();
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
+            Some(NetworkEdge::new(1, 0, 255))
+        );
+        world.set_road(&Edge::new(v2(1, 0), v2(0, 0)), true);
+        pathfinder.update_edge(&world, &Edge::new(v2(1, 0), v2(0, 0)));
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
+            Some(NetworkEdge::new(1, 0, 64))
+        );
+        assert_eq!(
+            pathfinder.get_network_edge(&world, &v2(0, 0), &v2(1, 0)),
+            Some(NetworkEdge::new(0, 1, 64))
         );
     }
 }
