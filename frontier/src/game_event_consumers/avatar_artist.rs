@@ -6,7 +6,7 @@ const HANDLE: &str = "avatar_artist_handler";
 pub struct AvatarArtistHandler {
     command_tx: Sender<Vec<Command>>,
     avatar_artist: Option<AvatarArtist>,
-    travel_mode_fn: Option<TravelModeFn>,
+    travel_mode_fn: Option<AvatarTravelModeFn>,
 }
 
 impl AvatarArtistHandler {
@@ -20,7 +20,7 @@ impl AvatarArtistHandler {
 
     fn init(&mut self, game_state: &GameState) {
         self.init_avatar_artist(game_state);
-        self.travel_mode_fn = Some(TravelModeFn::new(
+        self.travel_mode_fn = Some(AvatarTravelModeFn::new(
             game_state.params.avatar_travel.min_navigable_river_width,
         ));
     }

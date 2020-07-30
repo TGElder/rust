@@ -130,7 +130,7 @@ impl AvatarArtist {
         avatars: &HashMap<String, Avatar>,
         world: &World,
         instant: &u128,
-        travel_mode_fn: &TravelModeFn,
+        travel_mode_fn: &AvatarTravelModeFn,
     ) -> Vec<Command> {
         let mut out = vec![];
         out.append(&mut self.draw_avatars(avatars, world, instant, travel_mode_fn));
@@ -143,7 +143,7 @@ impl AvatarArtist {
         avatars: &HashMap<String, Avatar>,
         world: &World,
         instant: &u128,
-        travel_mode_fn: &TravelModeFn,
+        travel_mode_fn: &AvatarTravelModeFn,
     ) -> Vec<Command> {
         avatars
             .values()
@@ -156,7 +156,7 @@ impl AvatarArtist {
         avatar: &Avatar,
         world: &World,
         instant: &u128,
-        travel_mode_fn: &TravelModeFn,
+        travel_mode_fn: &AvatarTravelModeFn,
     ) -> Vec<Command> {
         let mut out = vec![];
         let name = &avatar.name;
@@ -276,7 +276,7 @@ impl AvatarArtist {
         world: &World,
         world_coord: WorldCoord,
         instant: &u128,
-        travel_mode_fn: &TravelModeFn,
+        travel_mode_fn: &AvatarTravelModeFn,
     ) -> Vec<Command> {
         if self.should_draw_boat(state, world, world_coord, travel_mode_fn) {
             self.draw_boat(name, state, world_coord, instant)
@@ -290,7 +290,7 @@ impl AvatarArtist {
         state: &AvatarState,
         world: &World,
         world_coord: WorldCoord,
-        travel_mode_fn: &TravelModeFn,
+        travel_mode_fn: &AvatarTravelModeFn,
     ) -> bool {
         let travel_modes = match state {
             AvatarState::Walking { .. } => {

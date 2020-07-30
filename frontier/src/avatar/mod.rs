@@ -1,10 +1,16 @@
+mod avatar_travel_mode_fn;
 mod path;
 mod travel_duration;
 mod travel_mode;
+mod travel_mode_change;
+mod travel_mode_fn;
 
+pub use avatar_travel_mode_fn::*;
 use path::*;
 pub use travel_duration::*;
 pub use travel_mode::*;
+pub use travel_mode_change::*;
+pub use travel_mode_fn::*;
 
 use crate::resource::Resource;
 use crate::travel_duration::*;

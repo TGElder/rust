@@ -1,4 +1,5 @@
-use super::travel_mode::*;
+use super::*;
+
 use crate::travel_duration::*;
 use crate::world::{World, WorldCell};
 use commons::scale::*;
@@ -37,7 +38,7 @@ impl Default for AvatarTravelParams {
 }
 
 pub struct AvatarTravelDuration {
-    travel_mode_fn: TravelModeFn,
+    travel_mode_fn: AvatarTravelModeFn,
     walk: Box<dyn TravelDuration>,
     road: Box<dyn TravelDuration>,
     stream: Box<dyn TravelDuration>,
@@ -48,7 +49,7 @@ pub struct AvatarTravelDuration {
 
 impl AvatarTravelDuration {
     fn new(
-        travel_mode_fn: TravelModeFn,
+        travel_mode_fn: AvatarTravelModeFn,
         walk: Box<dyn TravelDuration>,
         road: Box<dyn TravelDuration>,
         stream: Box<dyn TravelDuration>,
@@ -100,7 +101,7 @@ impl AvatarTravelDuration {
         let sea =
             ConstantTravelDuration::boxed(Duration::from_millis(p.sea_1_cell_duration_millis));
         AvatarTravelDuration::new(
-            TravelModeFn::new(p.min_navigable_river_width),
+            AvatarTravelModeFn::new(p.min_navigable_river_width),
             walk,
             road,
             stream,
@@ -183,7 +184,7 @@ mod tests {
 
     fn avatar_travel_duration() -> AvatarTravelDuration {
         AvatarTravelDuration::new(
-            TravelModeFn::new(0.5),
+            AvatarTravelModeFn::new(0.5),
             test_travel_duration(),
             test_travel_duration(),
             test_travel_duration(),
