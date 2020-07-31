@@ -2,16 +2,22 @@ use super::*;
 
 use commons::grid::*;
 
-pub struct NoRiverCornersTravelDuration {
-    base: Box<dyn TravelDuration>,
+pub struct NoRiverCornersTravelDuration<T>
+where
+    T: TravelDuration,
+{
+    base: Box<T>,
 }
 
-impl NoRiverCornersTravelDuration {
-    pub fn new(base: Box<dyn TravelDuration>) -> NoRiverCornersTravelDuration {
+impl<T> NoRiverCornersTravelDuration<T>
+where
+    T: TravelDuration,
+{
+    pub fn new(base: Box<T>) -> NoRiverCornersTravelDuration<T> {
         NoRiverCornersTravelDuration { base }
     }
 
-    pub fn boxed(base: Box<dyn TravelDuration>) -> Box<dyn TravelDuration> {
+    pub fn boxed(base: Box<T>) -> Box<NoRiverCornersTravelDuration<T>> {
         Box::new(Self::new(base))
     }
 }
@@ -21,7 +27,10 @@ fn river_corner(world: &World, position: &V2<usize>) -> bool {
     cell.river.corner()
 }
 
-impl TravelDuration for NoRiverCornersTravelDuration {
+impl<T> TravelDuration for NoRiverCornersTravelDuration<T>
+where
+    T: TravelDuration,
+{
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
         if river_corner(world, from) || river_corner(world, to) {
             return None;
@@ -46,7 +55,7 @@ mod tests {
     use commons::junction::*;
     use commons::{v2, M};
 
-    fn travel_duration() -> NoRiverCornersTravelDuration {
+    fn travel_duration() -> NoRiverCornersTravelDuration<ConstantTravelDuration> {
         NoRiverCornersTravelDuration::new(ConstantTravelDuration::boxed(Duration::from_millis(0)))
     }
 

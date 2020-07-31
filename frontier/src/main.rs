@@ -67,7 +67,7 @@ fn main() {
 
     let avatar_pathfinder = Arc::new(RwLock::new(Pathfinder::new(
         &game.game_state().world,
-        AvatarTravelDuration::from_params(&game.game_state().params.avatar_travel),
+        AvatarTravelDuration::with_planned_roads_as_roads(&game.game_state().params.avatar_travel),
     )));
     let road_pathfinder = Arc::new(RwLock::new(Pathfinder::new(
         &game.game_state().world,

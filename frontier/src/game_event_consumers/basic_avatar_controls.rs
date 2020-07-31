@@ -37,7 +37,7 @@ impl BasicAvatarControls {
     }
 
     fn init(&mut self, game_state: &GameState) {
-        self.travel_duration = Some(AvatarTravelDuration::from_params(
+        self.travel_duration = Some(AvatarTravelDuration::with_planned_roads_ignored(
             &game_state.params.avatar_travel,
         ));
     }

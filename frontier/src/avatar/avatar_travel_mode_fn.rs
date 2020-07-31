@@ -19,10 +19,10 @@ impl TravelModeFn for AvatarTravelModeFn {
         if world.in_bounds(from) && world.in_bounds(to) {
             if world.is_sea(from) && world.is_sea(to) {
                 Some(TravelMode::Sea)
-            } else if world.is_road(&Edge::new(*from, *to))
-                || world.road_planned(&Edge::new(*from, *to)).is_some()
-            {
+            } else if world.is_road(&Edge::new(*from, *to)) {
                 Some(TravelMode::Road)
+            } else if world.road_planned(&Edge::new(*from, *to)).is_some() {
+                Some(TravelMode::PlannedRoad)
             } else if self.is_navigable_river(world, from, to) {
                 Some(TravelMode::River)
             } else if world.is_river(&Edge::new(*from, *to)) {
@@ -41,8 +41,10 @@ impl TravelModeFn for AvatarTravelModeFn {
             if world.is_sea(position) {
                 out.push(TravelMode::Sea);
             } else {
-                if cell.road.here() || cell.planned_road.is_some() {
+                if cell.road.here() {
                     out.push(TravelMode::Road);
+                } else if cell.planned_road.is_some() {
+                    out.push(TravelMode::PlannedRoad);
                 }
                 if self.is_navigable_river_here(world, position) {
                     out.push(TravelMode::River);
@@ -240,11 +242,11 @@ mod tests {
         world.plan_road(&edge, true, 0);
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(0, 3), &v2(1, 3)),
-            Some(TravelMode::Road)
+            Some(TravelMode::PlannedRoad)
         );
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(1, 3), &v2(0, 3)),
-            Some(TravelMode::Road)
+            Some(TravelMode::PlannedRoad)
         );
     }
 
@@ -319,11 +321,11 @@ mod tests {
         world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), true, 0);
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(1, 0), &v2(1, 1)),
-            Some(TravelMode::Road)
+            Some(TravelMode::PlannedRoad)
         );
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(1, 1), &v2(1, 0)),
-            Some(TravelMode::Road)
+            Some(TravelMode::PlannedRoad)
         );
     }
 
@@ -362,7 +364,7 @@ mod tests {
         world.plan_road(&edge, true, 0);
         assert_eq!(
             travel_mode_fn.travel_modes_here(&world, &v2(0, 3)),
-            vec![TravelMode::Road]
+            vec![TravelMode::PlannedRoad]
         );
     }
 
@@ -384,7 +386,7 @@ mod tests {
         world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), true, 0);
         assert!(same_elements(
             &travel_mode_fn.travel_modes_here(&world, &v2(1, 1)),
-            &[TravelMode::Road, TravelMode::River]
+            &[TravelMode::PlannedRoad, TravelMode::River]
         ))
     }
 

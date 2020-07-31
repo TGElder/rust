@@ -1,6 +1,6 @@
 use num::Float;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Scale<T: Float> {
     in_range: (T, T),
     out_range: (T, T),

@@ -112,7 +112,7 @@ impl Game {
 
         Game {
             previous_instant: Instant::now(),
-            avatar_travel_duration: AvatarTravelDuration::from_params(
+            avatar_travel_duration: AvatarTravelDuration::with_planned_roads_ignored(
                 &game_state.params.avatar_travel,
             ),
             game_state,

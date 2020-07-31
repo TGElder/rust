@@ -2,6 +2,7 @@
 pub enum TravelMode {
     Walk,
     Road,
+    PlannedRoad,
     Stream,
     River,
     Sea,
@@ -18,6 +19,7 @@ impl TravelMode {
         match self {
             TravelMode::Walk => TravelModeClass::Land,
             TravelMode::Road => TravelModeClass::Land,
+            TravelMode::PlannedRoad => TravelModeClass::Land,
             TravelMode::Stream => TravelModeClass::Land,
             TravelMode::River => TravelModeClass::Water,
             TravelMode::Sea => TravelModeClass::Water,

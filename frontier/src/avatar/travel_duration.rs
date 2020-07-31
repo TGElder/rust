@@ -41,6 +41,7 @@ pub struct AvatarTravelDuration {
     travel_mode_fn: AvatarTravelModeFn,
     walk: Box<dyn TravelDuration>,
     road: Box<dyn TravelDuration>,
+    planned_road: Box<dyn TravelDuration>,
     stream: Box<dyn TravelDuration>,
     river: Box<dyn TravelDuration>,
     sea: Box<dyn TravelDuration>,
@@ -48,42 +49,54 @@ pub struct AvatarTravelDuration {
 }
 
 impl AvatarTravelDuration {
-    fn new(
-        travel_mode_fn: AvatarTravelModeFn,
-        walk: Box<dyn TravelDuration>,
-        road: Box<dyn TravelDuration>,
-        stream: Box<dyn TravelDuration>,
-        river: Box<dyn TravelDuration>,
-        sea: Box<dyn TravelDuration>,
-        travel_mode_change_penalty_millis: u64,
-    ) -> AvatarTravelDuration {
+    pub fn with_planned_roads_as_roads(p: &AvatarTravelParams) -> AvatarTravelDuration {
         AvatarTravelDuration {
-            travel_mode_fn,
-            walk,
-            road,
-            stream,
-            river,
-            sea,
-            travel_mode_change_penalty_millis,
+            travel_mode_fn: AvatarTravelModeFn::new(p.min_navigable_river_width),
+            walk: Self::walk(p),
+            road: Self::road(p),
+            planned_road: Self::road(p),
+            stream: Self::stream(p),
+            river: Self::river(p),
+            sea: Self::sea(p),
+            travel_mode_change_penalty_millis: p.travel_mode_change_penalty_millis,
         }
     }
 
-    pub fn from_params(p: &AvatarTravelParams) -> AvatarTravelDuration {
-        let walk = NoRiverCornersTravelDuration::boxed(GradientTravelDuration::boxed(
+    pub fn with_planned_roads_ignored(p: &AvatarTravelParams) -> AvatarTravelDuration {
+        AvatarTravelDuration {
+            travel_mode_fn: AvatarTravelModeFn::new(p.min_navigable_river_width),
+            walk: Self::walk(p),
+            road: Self::road(p),
+            planned_road: Self::walk(p),
+            stream: Self::stream(p),
+            river: Self::river(p),
+            sea: Self::sea(p),
+            travel_mode_change_penalty_millis: p.travel_mode_change_penalty_millis,
+        }
+    }
+
+    fn walk(p: &AvatarTravelParams) -> Box<dyn TravelDuration> {
+        NoRiverCornersTravelDuration::boxed(GradientTravelDuration::boxed(
             Scale::new(
                 (0.0, p.max_walk_gradient),
                 p.walk_1_cell_duration_millis_range,
             ),
             true,
-        ));
-        let stream = GradientTravelDuration::boxed(
+        ))
+    }
+
+    fn stream(p: &AvatarTravelParams) -> Box<dyn TravelDuration> {
+        GradientTravelDuration::boxed(
             Scale::new(
                 (0.0, p.max_walk_gradient),
                 p.stream_1_cell_duration_millis_range,
             ),
             true,
-        );
-        let river = GradientTravelDuration::boxed(
+        )
+    }
+
+    fn river(p: &AvatarTravelParams) -> Box<dyn TravelDuration> {
+        GradientTravelDuration::boxed(
             Scale::new(
                 (
                     -p.max_navigable_river_gradient,
@@ -95,20 +108,15 @@ impl AvatarTravelDuration {
                 ),
             ),
             false,
-        );
-        let road =
-            ConstantTravelDuration::boxed(Duration::from_millis(p.road_1_cell_duration_millis));
-        let sea =
-            ConstantTravelDuration::boxed(Duration::from_millis(p.sea_1_cell_duration_millis));
-        AvatarTravelDuration::new(
-            AvatarTravelModeFn::new(p.min_navigable_river_width),
-            walk,
-            road,
-            stream,
-            river,
-            sea,
-            p.travel_mode_change_penalty_millis,
         )
+    }
+
+    fn road(p: &AvatarTravelParams) -> Box<dyn TravelDuration> {
+        ConstantTravelDuration::boxed(Duration::from_millis(p.road_1_cell_duration_millis))
+    }
+
+    fn sea(p: &AvatarTravelParams) -> Box<dyn TravelDuration> {
+        ConstantTravelDuration::boxed(Duration::from_millis(p.sea_1_cell_duration_millis))
     }
 }
 
@@ -124,6 +132,7 @@ impl AvatarTravelDuration {
             .map(|travel_mode| match travel_mode {
                 TravelMode::Walk => self.walk.as_ref(),
                 TravelMode::Road => self.road.as_ref(),
+                TravelMode::PlannedRoad => self.planned_road.as_ref(),
                 TravelMode::Stream => self.stream.as_ref(),
                 TravelMode::River => self.river.as_ref(),
                 TravelMode::Sea => self.sea.as_ref(),
@@ -183,15 +192,16 @@ mod tests {
     use super::*;
 
     fn avatar_travel_duration() -> AvatarTravelDuration {
-        AvatarTravelDuration::new(
-            AvatarTravelModeFn::new(0.5),
-            test_travel_duration(),
-            test_travel_duration(),
-            test_travel_duration(),
-            test_travel_duration(),
-            test_travel_duration(),
-            100,
-        )
+        AvatarTravelDuration {
+            travel_mode_fn: AvatarTravelModeFn::new(0.5),
+            walk: test_travel_duration(),
+            road: test_travel_duration(),
+            planned_road: test_travel_duration(),
+            stream: test_travel_duration(),
+            river: test_travel_duration(),
+            sea: test_travel_duration(),
+            travel_mode_change_penalty_millis: 100,
+        }
     }
 
     fn test_travel_duration() -> Box<dyn TravelDuration> {
