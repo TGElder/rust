@@ -145,6 +145,9 @@ where
         if let Some(instruction) = try_build_destination_town(game, &traffic) {
             state.build_queue.push(instruction);
         }
+        if let Some(instruction) = try_build_crops(game, &traffic) {
+            state.build_queue.push(instruction);
+        }
     }
     state
 }

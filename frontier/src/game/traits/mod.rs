@@ -1,4 +1,5 @@
 mod add_settlement;
+mod build_crops;
 mod build_road;
 mod controlled;
 mod micros;
@@ -12,6 +13,7 @@ mod who_controls_tile;
 mod world;
 
 pub use add_settlement::*;
+pub use build_crops::*;
 pub use build_road::*;
 pub use controlled::*;
 pub use micros::*;

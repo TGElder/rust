@@ -100,6 +100,7 @@ mod tests {
     use super::*;
 
     use crate::nation::{Nation, NationDescription};
+    use crate::resource::Resource;
     use commons::almost::Almost;
     use commons::same_elements;
     use isometric::Color;
@@ -147,6 +148,7 @@ mod tests {
                 nation: "Scotland".to_string(),
                 first_visit: 101,
                 duration: Duration::from_micros(101),
+                resource: Resource::Pasture,
             }],
             adjacent: vec![
                 Tile {
@@ -214,6 +216,7 @@ mod tests {
                     nation: "Scotland".to_string(),
                     first_visit: 202,
                     duration: Duration::from_micros(202),
+                    resource: Resource::Pasture,
                 },
                 RouteSummary {
                     traffic: 3,
@@ -222,6 +225,7 @@ mod tests {
                     nation: "Wales".to_string(),
                     first_visit: 101,
                     duration: Duration::from_micros(101),
+                    resource: Resource::Pasture,
                 },
             ],
             adjacent: vec![
@@ -289,6 +293,7 @@ mod tests {
                 nation: "Scotland".to_string(),
                 first_visit: 101,
                 duration: Duration::from_micros(101),
+                resource: Resource::Pasture,
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
@@ -311,6 +316,7 @@ mod tests {
                 nation: "Scotland".to_string(),
                 first_visit: 101,
                 duration: Duration::from_micros(101),
+                resource: Resource::Pasture,
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
@@ -333,6 +339,7 @@ mod tests {
                 nation: "Scotland".to_string(),
                 first_visit: 101,
                 duration: Duration::from_micros(101),
+                resource: Resource::Pasture,
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
@@ -355,6 +362,7 @@ mod tests {
                 nation: "Scotland".to_string(),
                 first_visit: 101,
                 duration: Duration::from_micros(101),
+                resource: Resource::Pasture,
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),

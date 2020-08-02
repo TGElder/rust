@@ -56,6 +56,7 @@ where
     let micros = game.micros();
     let first_visit = micros + route.duration.as_micros();
     let duration = route.duration;
+    let resource = route_key.resource;
 
     let route_summary = RouteSummary {
         traffic,
@@ -64,6 +65,7 @@ where
         nation,
         first_visit,
         duration,
+        resource,
     };
 
     Some(route_summary)
@@ -287,6 +289,7 @@ mod tests {
                 nation: "Scotland".to_string(),
                 first_visit: 1101,
                 duration: Duration::from_micros(101),
+                resource: Resource::Wood,
             }],
         ));
     }
@@ -310,7 +313,7 @@ mod tests {
         let (route_set_key_1, route_set_1) = route_set(route_key_1, route_1);
         let route_key_2 = RouteKey {
             settlement: v2(0, 2),
-            resource: Resource::Wood,
+            resource: Resource::Spice,
             destination: v2(2, 2),
         };
         let route_2 = Route {
@@ -350,6 +353,7 @@ mod tests {
                     nation: "Scotland".to_string(),
                     first_visit: 1101,
                     duration: Duration::from_micros(101),
+                    resource: Resource::Wood,
                 },
                 RouteSummary {
                     traffic: 22,
@@ -358,6 +362,7 @@ mod tests {
                     nation: "Wales".to_string(),
                     first_visit: 1202,
                     duration: Duration::from_micros(202),
+                    resource: Resource::Spice,
                 },
             ],
         ));

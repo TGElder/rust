@@ -1,4 +1,5 @@
 use super::*;
+use crate::resource::Resource;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::settlement::Settlement;
 use commons::edge::Edge;
@@ -65,6 +66,7 @@ pub struct RouteSummary {
     pub nation: String,
     pub first_visit: u128,
     pub duration: Duration,
+    pub resource: Resource,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

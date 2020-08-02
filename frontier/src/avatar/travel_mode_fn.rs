@@ -73,7 +73,10 @@ mod tests {
 
     #[test]
     fn test_travel_mode_classes_here_planned_road() {
-        test_travel_mode_classes_here(vec![TravelMode::PlannedRoad], hashset! {TravelModeClass::Land});
+        test_travel_mode_classes_here(
+            vec![TravelMode::PlannedRoad],
+            hashset! {TravelModeClass::Land},
+        );
     }
 
     #[test]

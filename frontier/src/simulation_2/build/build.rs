@@ -11,4 +11,8 @@ pub enum Build {
         candidate_positions: Vec<V2<usize>>,
         settlement: Settlement,
     },
+    Crops {
+        position: V2<usize>,
+        rotated: bool,
+    },
 }

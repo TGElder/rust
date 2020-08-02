@@ -37,7 +37,7 @@ use commons::index2d::Vec2D;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
-use simulation_2::builders::{RoadBuilder, SettlementBuilder};
+use simulation_2::builders::{CropsBuilder, RoadBuilder, SettlementBuilder};
 use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
@@ -85,6 +85,7 @@ fn main() {
         vec![
             Box::new(SettlementBuilder::new(game.tx(), &territory_updater)),
             Box::new(RoadBuilder::new(game.tx())),
+            Box::new(CropsBuilder::new(game.tx())),
         ],
     );
 
