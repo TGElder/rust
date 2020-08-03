@@ -66,6 +66,7 @@ pub struct RouteSummary {
     pub first_visit: u128,
     pub duration: Duration,
     pub resource: Resource,
+    pub ports: HashSet<V2<usize>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

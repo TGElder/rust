@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::avatar::CheckForPort;
 use crate::game::traits::{HasWorld, Micros, Nations, Routes, Settlements, WhoControlsTile};
 use crate::pathfinder::traits::UpdateEdge;
 use crate::route::{RouteSet, RouteSetKey};
@@ -12,7 +13,7 @@ const BATCH_SIZE: usize = 128;
 
 pub struct ProcessTraffic<G, T, P>
 where
-    G: HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
+    G: CheckForPort + HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -23,7 +24,7 @@ where
 
 impl<G, T, P> Processor for ProcessTraffic<G, T, P>
 where
-    G: HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
+    G: CheckForPort + HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -41,7 +42,7 @@ where
 
 impl<G, T, P> ProcessTraffic<G, T, P>
 where
-    G: HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
+    G: CheckForPort + HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -138,7 +139,14 @@ fn process_traffic_position_changes<G>(
     traffic_changes: Vec<V2<usize>>,
 ) -> State
 where
-    G: HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
+    G: CheckForPort
+        + CheckForPort
+        + HasWorld
+        + Micros
+        + Nations
+        + Routes
+        + Settlements
+        + WhoControlsTile,
 {
     for position in traffic_changes {
         let traffic = get_traffic(game, &state, &position);
@@ -160,9 +168,9 @@ fn process_traffic_edge_changes<G, T, P>(
     traffic_changes: Vec<Edge>,
 ) -> State
 where
-    G: HasWorld + Micros + Routes,
+    G: CheckForPort + HasWorld + Micros + Routes,
     T: TravelDuration + 'static,
-    P: UpdateEdge + Send + Sync + 'static,
+    P: UpdateEdge + 'static,
 {
     for edge in traffic_changes {
         let edge_traffic = get_edge_traffic(game, travel_duration.as_ref(), &state, &edge);

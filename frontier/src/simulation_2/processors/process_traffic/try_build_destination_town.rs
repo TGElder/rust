@@ -149,6 +149,7 @@ mod tests {
                 first_visit: 101,
                 duration: Duration::from_micros(101),
                 resource: Resource::Pasture,
+                ports: hashset! {},
             }],
             adjacent: vec![
                 Tile {
@@ -215,6 +216,7 @@ mod tests {
                     first_visit: 202,
                     duration: Duration::from_micros(202),
                     resource: Resource::Pasture,
+                    ports: hashset! {},
                 },
                 RouteSummary {
                     traffic: 3,
@@ -224,6 +226,7 @@ mod tests {
                     first_visit: 101,
                     duration: Duration::from_micros(101),
                     resource: Resource::Pasture,
+                    ports: hashset! {},
                 },
             ],
             adjacent: vec![
@@ -290,6 +293,7 @@ mod tests {
                 first_visit: 101,
                 duration: Duration::from_micros(101),
                 resource: Resource::Pasture,
+                ports: hashset! {},
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
@@ -312,6 +316,7 @@ mod tests {
                 first_visit: 101,
                 duration: Duration::from_micros(101),
                 resource: Resource::Pasture,
+                ports: hashset! {},
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
@@ -334,6 +339,7 @@ mod tests {
                 first_visit: 101,
                 duration: Duration::from_micros(101),
                 resource: Resource::Pasture,
+                ports: hashset! {},
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
@@ -356,6 +362,7 @@ mod tests {
                 first_visit: 101,
                 duration: Duration::from_micros(101),
                 resource: Resource::Pasture,
+                ports: hashset! {},
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),

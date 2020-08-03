@@ -76,6 +76,7 @@ mod tests {
                 first_visit: 0,
                 duration: Duration::default(),
                 resource: Resource::Crops,
+                ports: hashset! {},
             }],
             adjacent: vec![],
         };
@@ -109,6 +110,7 @@ mod tests {
                     first_visit: 200,
                     duration: Duration::default(),
                     resource: Resource::Crops,
+                    ports: hashset! {},
                 },
                 RouteSummary {
                     traffic: 1,
@@ -118,6 +120,7 @@ mod tests {
                     first_visit: 100,
                     duration: Duration::default(),
                     resource: Resource::Crops,
+                    ports: hashset! {},
                 },
                 RouteSummary {
                     traffic: 1,
@@ -127,6 +130,7 @@ mod tests {
                     first_visit: 0,
                     duration: Duration::default(),
                     resource: Resource::Pasture,
+                    ports: hashset! {},
                 },
             ],
             adjacent: vec![],
@@ -154,6 +158,7 @@ mod tests {
                 first_visit: 0,
                 duration: Duration::default(),
                 resource: Resource::Crops,
+                ports: hashset! {},
             }],
             adjacent: vec![],
         };
@@ -179,6 +184,7 @@ mod tests {
                 first_visit: 0,
                 duration: Duration::default(),
                 resource: Resource::Pasture,
+                ports: hashset! {},
             }],
             adjacent: vec![],
         };
@@ -207,6 +213,7 @@ mod tests {
                 first_visit: 0,
                 duration: Duration::default(),
                 resource: Resource::Crops,
+                ports: hashset! {},
             }],
             adjacent: vec![],
         };
