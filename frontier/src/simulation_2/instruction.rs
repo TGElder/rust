@@ -53,7 +53,6 @@ pub struct TrafficSummary {
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Tile {
     pub position: V2<usize>,
-    pub settlement: Option<Settlement>,
     pub sea: bool,
     pub visible: bool,
 }

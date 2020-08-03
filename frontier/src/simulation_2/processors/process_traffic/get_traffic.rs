@@ -87,7 +87,6 @@ fn get_tile<G>(game: &G, tile: V2<usize>) -> Tile
 where
     G: HasWorld + Settlements,
 {
-    let settlement = game.get_settlement(&tile).cloned();
     let world = game.world();
     let corners = world.get_corners_in_bounds(&tile);
     let sea = corners.iter().any(|corner| world.is_sea(corner));
@@ -97,7 +96,6 @@ where
 
     Tile {
         position: tile,
-        settlement,
         sea,
         visible,
     }
@@ -427,46 +425,6 @@ mod tests {
         assert_eq!(traffic.routes, vec![]);
     }
 
-    #[test]
-    fn settlement() {
-        // Given
-        let position = v2(1, 2);
-        let settlements: HashMap<V2<usize>, Settlement> =
-            vec![v2(1, 2), v2(0, 2), v2(1, 1), v2(0, 1)]
-                .into_iter()
-                .map(|position| {
-                    (
-                        position,
-                        Settlement {
-                            position,
-                            ..Settlement::default()
-                        },
-                    )
-                })
-                .collect();
-
-        let game = MockGame {
-            settlements: settlements.clone(),
-            ..MockGame::default()
-        };
-
-        // When
-        let traffic = get_traffic(&game, &state(), &position);
-
-        // Then
-        let expected: Vec<Tile> = settlements
-            .into_iter()
-            .map(|(_, settlement)| Tile {
-                position: settlement.position,
-                settlement: Some(settlement),
-                sea: false,
-                visible: false,
-            })
-            .collect();
-
-        assert!(same_elements(&traffic.adjacent, &expected));
-    }
-
     #[rustfmt::skip]
     #[test]
     fn sea() {
@@ -493,7 +451,6 @@ mod tests {
             .into_iter()
             .map(|position| Tile {
                 position,
-                settlement: None,
                 sea: position == v2(0, 1),
                 visible: false,
             })
@@ -527,7 +484,6 @@ mod tests {
             .into_iter()
             .map(|position| Tile {
                 position,
-                settlement: None,
                 sea: false,
                 visible: position == v2(0, 1) || position == v2(0, 2),
             })

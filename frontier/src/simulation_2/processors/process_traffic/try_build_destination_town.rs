@@ -153,13 +153,11 @@ mod tests {
             adjacent: vec![
                 Tile {
                     position: v2(0, 2),
-                    settlement: None,
                     sea: false,
                     visible: true,
                 },
                 Tile {
                     position: v2(1, 1),
-                    settlement: None,
                     sea: false,
                     visible: true,
                 },
@@ -231,13 +229,11 @@ mod tests {
             adjacent: vec![
                 Tile {
                     position: v2(0, 2),
-                    settlement: None,
                     sea: false,
                     visible: true,
                 },
                 Tile {
                     position: v2(1, 1),
-                    settlement: None,
                     sea: false,
                     visible: true,
                 },
@@ -297,7 +293,6 @@ mod tests {
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
-                settlement: None,
                 sea: false,
                 visible: true,
             }],
@@ -320,7 +315,6 @@ mod tests {
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
-                settlement: None,
                 sea: false,
                 visible: true,
             }],
@@ -343,7 +337,6 @@ mod tests {
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
-                settlement: None,
                 sea: true,
                 visible: true,
             }],
@@ -366,7 +359,6 @@ mod tests {
             }],
             adjacent: vec![Tile {
                 position: v2(0, 2),
-                settlement: None,
                 sea: false,
                 visible: false,
             }],
