@@ -150,7 +150,7 @@ where
 {
     for position in traffic_changes {
         let traffic = get_traffic(game, &state, &position);
-        if let Some(instruction) = try_build_destination_town(game, &traffic) {
+        if let Some(instruction) = try_build_town(game, &traffic) {
             state.build_queue.push(instruction);
         }
         if let Some(instruction) = try_build_crops(game, &traffic) {

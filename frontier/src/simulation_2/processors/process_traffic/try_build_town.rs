@@ -8,10 +8,7 @@ use std::time::Duration;
 
 const TRAFFIC_TO_POPULATION: f64 = 0.5;
 
-pub fn try_build_destination_town<G>(
-    game: &mut G,
-    traffic: &TrafficSummary,
-) -> Option<BuildInstruction>
+pub fn try_build_town<G>(game: &mut G, traffic: &TrafficSummary) -> Option<BuildInstruction>
 where
     G: Nations,
 {
@@ -43,6 +40,7 @@ fn should_build(
         return false;
     }
     routes.iter().any(|route| route.destination == *position)
+        || routes.iter().any(|route| route.ports.contains(position))
 }
 
 fn get_candidate_positions(tiles: &[Tile]) -> Vec<V2<usize>> {
@@ -165,7 +163,7 @@ mod tests {
             ],
         };
 
-        let instruction = try_build_destination_town(&mut game, &traffic);
+        let instruction = try_build_town(&mut game, &traffic);
 
         // Then
         if let Some(BuildInstruction {
@@ -243,7 +241,7 @@ mod tests {
             ],
         };
 
-        let instruction = try_build_destination_town(&mut game, &traffic);
+        let instruction = try_build_town(&mut game, &traffic);
 
         // Then
         if let Some(BuildInstruction {
@@ -269,12 +267,49 @@ mod tests {
         }
     }
 
+    #[test]
+    fn should_build_town_if_any_route_uses_position_as_port() {
+        // Given
+        let mut game = nations();
+
+        // When
+        let traffic = TrafficSummary {
+            position: v2(1, 2),
+            controller: None,
+            routes: vec![RouteSummary {
+                traffic: 3,
+                origin: v2(0, 0),
+                destination: v2(2, 2),
+                nation: "Scotland".to_string(),
+                first_visit: 101,
+                duration: Duration::from_micros(101),
+                resource: Resource::Pasture,
+                ports: hashset! {v2(1, 2)},
+            }],
+            adjacent: vec![Tile {
+                position: v2(0, 2),
+                sea: false,
+                visible: true,
+            }],
+        };
+
+        let instruction = try_build_town(&mut game, &traffic);
+
+        match instruction {
+            Some(BuildInstruction {
+                what: Build::Settlement { .. },
+                ..
+            }) => (),
+            _ => panic!("No settlement build instruction!"),
+        }
+    }
+
     fn should_not_build_town(traffic: TrafficSummary) {
         // Given
         let mut game = nations();
 
         // When
-        let instruction = try_build_destination_town(&mut game, &traffic);
+        let instruction = try_build_town(&mut game, &traffic);
 
         // Then
         assert_eq!(instruction, None);
