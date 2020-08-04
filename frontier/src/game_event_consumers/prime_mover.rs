@@ -215,7 +215,7 @@ impl PrimeMover {
 }
 
 fn avatar_colors(game_state: &GameState, key: &RouteKey) -> Option<(Color, Color)> {
-    let settlement = unwrap_or!(game_state.settlements.get(&key.settlement), return None);
+    let settlement = game_state.settlements.get(&key.settlement)?;
     let nation = game_state
         .nations
         .get(&settlement.nation)

@@ -142,7 +142,7 @@ impl World {
     }
 
     pub fn road_planned(&self, edge: &Edge) -> Option<u128> {
-        let cell = unwrap_or!(self.get_cell(&edge.from()), return None);
+        let cell = self.get_cell(&edge.from())?;
         if let Some(PlannedRoad { junction, when }) = cell.planned_road {
             if edge.horizontal() && junction.horizontal.from
                 || !edge.horizontal() && junction.vertical.from

@@ -53,7 +53,7 @@ where
     G: Micros + Settlements + UpdateSettlement,
 {
     let game_micros = *game.micros();
-    let settlement = unwrap_or!(game.get_settlement(&position), return None);
+    let settlement = game.get_settlement(&position)?;
 
     if settlement.last_population_update_micros >= game_micros {
         return Some(settlement.clone());

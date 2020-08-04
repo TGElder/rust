@@ -266,10 +266,7 @@ impl PositionSummary {
     }
 
     fn from_route(game: &Game, route: &Route) -> Option<PositionSummary> {
-        let settlement = unwrap_or!(
-            game.game_state().settlements.get(&route.settlement),
-            return None
-        );
+        let settlement = game.game_state().settlements.get(&route.settlement)?;
         if let Some(&destination) = route.path.last() {
             Some(PositionSummary {
                 origin: route.settlement,

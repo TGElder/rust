@@ -179,7 +179,7 @@ impl<'a> TerritoryColoring<'a> {
             ..
         }) = game_state.territory.who_controls_tile(tile)
         {
-            let settlement = unwrap_or!(game_state.settlements.get(&controller), return None);
+            let settlement = game_state.settlements.get(&controller)?;
             let nation = self.nation(&settlement);
             let mut color = *nation.color();
             color.a = if *duration <= game_state.params.town_travel_duration {

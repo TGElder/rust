@@ -79,7 +79,7 @@ fn get_route<G>(game: &G, route_key: &RouteKey) -> Option<EdgeRouteSummary>
 where
     G: Micros + Routes,
 {
-    let route = unwrap_or!(game.get_route(&route_key), return None);
+    let route = game.get_route(&route_key)?;
     Some(EdgeRouteSummary {
         traffic: route.traffic,
         first_visit: game.micros() + route.duration.as_micros(),

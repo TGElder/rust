@@ -277,12 +277,9 @@ fn get_nation<'a>(game: &'a mut Game, name: &'a str) -> &'a mut Nation {
 }
 
 fn get_first_visit_nation(game: &Game, position: V2<usize>) -> Option<String> {
-    let maybe_first_visit = unwrap_or!(
-        game.game_state().first_visits.get_cell(&position),
-        return None
-    );
-    let maybe_parent_position = unwrap_or!(maybe_first_visit, return None).who;
-    let parent_position = unwrap_or!(maybe_parent_position, return None);
+    let maybe_first_visit = game.game_state().first_visits.get_cell(&position)?;
+    let maybe_parent_position = maybe_first_visit?.who;
+    let parent_position = maybe_parent_position?;
     game.game_state()
         .settlements
         .get(&parent_position)

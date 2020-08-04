@@ -49,10 +49,10 @@ fn get_route<G>(game: &G, route_key: &RouteKey) -> Option<RouteSummary>
 where
     G: CheckForPort + HasWorld + Micros + Routes + Settlements,
 {
-    let route = unwrap_or!(game.get_route(&route_key), return None);
+    let route = game.get_route(&route_key)?;
     let traffic = route.traffic;
     let origin = route_key.settlement;
-    let origin_settlement = unwrap_or!(game.get_settlement(&origin), return None);
+    let origin_settlement = game.get_settlement(&origin)?;
     let destination = route_key.destination;
     let nation = origin_settlement.nation.clone();
     let micros = game.micros();
