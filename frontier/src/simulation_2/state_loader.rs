@@ -25,6 +25,7 @@ impl SimulationStateLoader {
             instructions: vec![],
             traffic: Vec2D::same_size_as(&game_state.world, HashSet::with_capacity(0)),
             edge_traffic: hashmap! {},
+            route_to_ports: hashmap! {},
             build_queue: vec![],
         };
         self.sim_tx.update(move |sim| sim.set_state(state));
@@ -116,6 +117,7 @@ mod tests {
                 instructions: vec![Instruction::Step],
                 traffic: Vec2D::new(3, 7, HashSet::new()),
                 edge_traffic: hashmap! {},
+                route_to_ports: hashmap! {},
                 build_queue: vec![],
             }
         )
@@ -140,6 +142,7 @@ mod tests {
             ],
             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
             edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
+            route_to_ports: hashmap! { route_key => hashset!{ v2(1, 2), v2(3, 4) } },
             build_queue: vec![BuildInstruction {
                 when: 808,
                 what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),

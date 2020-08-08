@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::game::traits::{HasWorld, Micros, Routes};
+use crate::game::traits::{GetRoute, HasWorld, Micros};
 use crate::route::RouteKey;
 use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
@@ -13,7 +13,7 @@ pub fn get_edge_traffic<G, T>(
     edge: &Edge,
 ) -> EdgeTrafficSummary
 where
-    G: HasWorld + Micros + Routes,
+    G: HasWorld + Micros + GetRoute,
     T: TravelDuration + 'static,
 {
     let route_keys = get_route_keys(&state, &edge);
@@ -35,7 +35,7 @@ fn get_edge_traffic_with_route_keys<G, T>(
     route_keys: &HashSet<RouteKey>,
 ) -> EdgeTrafficSummary
 where
-    G: HasWorld + Micros + Routes,
+    G: HasWorld + Micros + GetRoute,
     T: TravelDuration + 'static,
 {
     EdgeTrafficSummary {
@@ -67,7 +67,7 @@ where
 
 fn get_routes<G>(game: &G, route_keys: &HashSet<RouteKey>) -> Vec<EdgeRouteSummary>
 where
-    G: Micros + Routes,
+    G: Micros + GetRoute,
 {
     route_keys
         .iter()
@@ -77,7 +77,7 @@ where
 
 fn get_route<G>(game: &G, route_key: &RouteKey) -> Option<EdgeRouteSummary>
 where
-    G: Micros + Routes,
+    G: Micros + GetRoute,
 {
     let route = game.get_route(&route_key)?;
     Some(EdgeRouteSummary {
@@ -91,7 +91,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use crate::route::{Route, RouteSet, RouteSetKey};
+    use crate::route::Route;
     use crate::travel_duration::ConstantTravelDuration;
     use crate::world::World;
     use commons::same_elements;
@@ -106,7 +106,7 @@ mod tests {
     struct MockGame {
         micros: u128,
         world: World,
-        routes: HashMap<RouteSetKey, RouteSet>,
+        routes: HashMap<RouteKey, Route>,
     }
 
     impl Default for MockGame {
@@ -135,13 +135,9 @@ mod tests {
         }
     }
 
-    impl Routes for MockGame {
-        fn routes(&self) -> &HashMap<RouteSetKey, RouteSet> {
-            &self.routes
-        }
-
-        fn routes_mut(&mut self) -> &mut HashMap<RouteSetKey, RouteSet> {
-            &mut self.routes
+    impl GetRoute for MockGame {
+        fn get_route(&self, route_key: &RouteKey) -> Option<&Route> {
+            self.routes.get(route_key)
         }
     }
 
@@ -159,14 +155,6 @@ mod tests {
         fn max_duration(&self) -> Duration {
             Duration::from_secs(0)
         }
-    }
-
-    fn route_set(route_key: RouteKey, route: Route) -> (RouteSetKey, RouteSet) {
-        let route_set_key = (&route_key).into();
-        let route_set = hashmap! {
-            route_key => route
-        };
-        (route_set_key, route_set)
     }
 
     #[test]
@@ -267,7 +255,6 @@ mod tests {
             duration: Duration::from_micros(101),
             traffic: 11,
         };
-        let (route_set_key_1, route_set_1) = route_set(route_key_1, route_1);
         let route_key_2 = RouteKey {
             settlement: v2(1, 3),
             resource: Resource::Wood,
@@ -279,10 +266,9 @@ mod tests {
             duration: Duration::from_micros(202),
             traffic: 22,
         };
-        let (route_set_key_2, route_set_2) = route_set(route_key_2, route_2);
         let routes = hashmap! {
-            route_set_key_1 => route_set_1,
-            route_set_key_2 => route_set_2
+            route_key_1 => route_1,
+            route_key_2 => route_2
         };
         let state = State {
             edge_traffic: hashmap! {

@@ -34,6 +34,7 @@ where
             _ => return state,
         };
         let route_changes = self.update_routes_and_get_changes(*key, route_set.clone());
+        state = self.update_all_ports(state, route_changes.clone());
         state = self.update_position_traffic_and_process_position_changes(state, &route_changes);
         state = self.update_edge_traffic_and_process_edge_changes(state, &route_changes);
         state
@@ -66,6 +67,14 @@ where
         block_on(async {
             self.game
                 .update(move |game| update_routes_and_get_changes(game, &key, &route_set))
+                .await
+        })
+    }
+
+    fn update_all_ports(&mut self, state: State, route_changes: Vec<RouteChange>) -> State {
+        block_on(async {
+            self.game
+                .update(move |game| update_all_ports(game, state, route_changes))
                 .await
         })
     }
@@ -131,6 +140,16 @@ where
                 .await
         })
     }
+}
+
+fn update_all_ports<G>(game: &G, mut state: State, route_changes: Vec<RouteChange>) -> State
+where
+    G: CheckForPort + HasWorld,
+{
+    for route_change in route_changes {
+        update_ports(game, &mut state, &route_change)
+    }
+    state
 }
 
 fn process_traffic_position_changes<G>(

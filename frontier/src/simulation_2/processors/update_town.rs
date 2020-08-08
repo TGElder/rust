@@ -1,9 +1,7 @@
 use super::*;
-use crate::avatar::CheckForPort;
-use crate::game::traits::{HasWorld, Routes, UpdateSettlement};
+use crate::game::traits::{GetRoute, HasWorld, UpdateSettlement};
 use crate::route::RouteKey;
 use crate::settlement::Settlement;
-use commons::edge::Edges;
 use std::collections::HashSet;
 
 const HANDLE: &str = "update_town";
@@ -11,16 +9,16 @@ const TRAFFIC_TO_POPULATION: f64 = 0.5;
 
 pub struct UpdateTown<G>
 where
-    G: CheckForPort + HasWorld + Routes + UpdateSettlement,
+    G: HasWorld + GetRoute + UpdateSettlement,
 {
     game: UpdateSender<G>,
 }
 
 impl<G> Processor for UpdateTown<G>
 where
-    G: CheckForPort + HasWorld + Routes + UpdateSettlement,
+    G: HasWorld + GetRoute + UpdateSettlement,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let (settlement, territory) = match instruction {
             Instruction::UpdateTown {
                 settlement,
@@ -31,7 +29,8 @@ where
 
         let route_keys = get_route_keys(territory, &state);
 
-        self.try_update_settlement(settlement.clone(), route_keys, territory.clone());
+        let mut state =
+            self.try_update_settlement(state, settlement.clone(), route_keys, territory.clone());
 
         state
             .instructions
@@ -43,7 +42,7 @@ where
 
 impl<G> UpdateTown<G>
 where
-    G: CheckForPort + HasWorld + Routes + UpdateSettlement,
+    G: HasWorld + GetRoute + UpdateSettlement,
 {
     pub fn new(game: &UpdateSender<G>) -> UpdateTown<G> {
         UpdateTown {
@@ -53,13 +52,16 @@ where
 
     fn try_update_settlement(
         &mut self,
+        state: State,
         settlement: Settlement,
         route_keys: HashSet<RouteKey>,
         territory: HashSet<V2<usize>>,
-    ) {
+    ) -> State {
         block_on(async {
             self.game
-                .update(move |game| try_update_settlement(game, settlement, route_keys, territory))
+                .update(move |game| {
+                    try_update_settlement(game, state, settlement, route_keys, territory)
+                })
                 .await
         })
     }
@@ -76,47 +78,56 @@ fn get_route_keys(territory: &HashSet<V2<usize>>, state: &State) -> HashSet<Rout
 
 fn try_update_settlement<G>(
     game: &mut G,
+    state: State,
     settlement: Settlement,
     route_keys: HashSet<RouteKey>,
     territory: HashSet<V2<usize>>,
-) where
-    G: CheckForPort + HasWorld + Routes + UpdateSettlement,
+) -> State
+where
+    G: HasWorld + GetRoute + UpdateSettlement,
 {
-    let traffic_share = get_traffic_share(game, route_keys, territory);
+    let traffic_share = get_traffic_share(game, &state, route_keys, territory);
     let settlement = Settlement {
         target_population: traffic_share * TRAFFIC_TO_POPULATION,
         ..settlement
     };
     game.update_settlement(settlement);
+    state
 }
 
 fn get_traffic_share<G>(
     game: &mut G,
+    state: &State,
     route_keys: HashSet<RouteKey>,
     territory: HashSet<V2<usize>>,
 ) -> f64
 where
-    G: CheckForPort + HasWorld + Routes,
+    G: HasWorld + GetRoute,
 {
     route_keys
         .into_iter()
-        .flat_map(|route_key| get_traffic_share_for_route(game, route_key, &territory))
+        .flat_map(|route_key| get_traffic_share_for_route(game, state, route_key, &territory))
         .sum()
 }
 
 fn get_traffic_share_for_route<G>(
     game: &mut G,
+    state: &State,
     route_key: RouteKey,
     territory: &HashSet<V2<usize>>,
 ) -> Option<f64>
 where
-    G: CheckForPort + HasWorld + Routes,
+    G: HasWorld + GetRoute,
 {
     if territory.contains(&route_key.settlement) {
         return None;
     }
     let route = game.get_route(&route_key)?;
-    let ports = get_ports(game, &route.path);
+    let ports = state
+        .route_to_ports
+        .get(&route_key)
+        .cloned()
+        .unwrap_or_default();
     let (ports_in_territory, ports_outside_territory): (Vec<V2<usize>>, Vec<V2<usize>>) =
         ports.into_iter().partition(|port| territory.contains(port));
     let denominator = (ports_in_territory.len() + ports_outside_territory.len() + 1) as f64;
@@ -126,22 +137,12 @@ where
     Some(numerator / denominator)
 }
 
-fn get_ports<G>(game: &G, path: &[V2<usize>]) -> HashSet<V2<usize>>
-where
-    G: CheckForPort + HasWorld,
-{
-    let world = game.world();
-    path.edges()
-        .flat_map(|edge| game.check_for_port(world, edge.from(), edge.to()))
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use crate::route::{Route, RouteSet, RouteSetKey};
+    use crate::route::Route;
     use crate::world::World;
     use commons::grid::Grid;
     use commons::update::UpdateProcess;
@@ -152,9 +153,8 @@ mod tests {
     use std::time::Duration;
 
     struct MockGame {
-        routes: HashMap<RouteSetKey, RouteSet>,
+        routes: HashMap<RouteKey, Route>,
         updated_settlements: Vec<Settlement>,
-        ports: HashSet<V2<usize>>,
         world: World,
     }
 
@@ -163,18 +163,7 @@ mod tests {
             MockGame {
                 routes: hashmap! {},
                 updated_settlements: vec![],
-                ports: hashset! {},
                 world: World::new(M::zeros(4, 4), -0.5),
-            }
-        }
-    }
-
-    impl CheckForPort for MockGame {
-        fn check_for_port(&self, _: &World, from: &V2<usize>, _: &V2<usize>) -> Option<V2<usize>> {
-            if self.ports.contains(from) {
-                Some(*from)
-            } else {
-                None
             }
         }
     }
@@ -189,13 +178,9 @@ mod tests {
         }
     }
 
-    impl Routes for MockGame {
-        fn routes(&self) -> &HashMap<RouteSetKey, RouteSet> {
-            &self.routes
-        }
-
-        fn routes_mut(&mut self) -> &mut HashMap<RouteSetKey, RouteSet> {
-            &mut self.routes
+    impl GetRoute for MockGame {
+        fn get_route(&self, route_key: &RouteKey) -> Option<&Route> {
+            self.routes.get(route_key)
         }
     }
 
@@ -208,17 +193,14 @@ mod tests {
     fn add_route(
         route_key: RouteKey,
         route: Route,
-        routes: &mut HashMap<RouteSetKey, RouteSet>,
+        routes: &mut HashMap<RouteKey, Route>,
         traffic: &mut Traffic,
     ) {
         for position in route.path.iter() {
             traffic.mut_cell_unsafe(position).insert(route_key);
         }
 
-        let route_set = routes
-            .entry((&route_key).into())
-            .or_insert_with(HashMap::new);
-        route_set.insert(route_key, route);
+        routes.insert(route_key, route);
     }
 
     #[test]
@@ -231,47 +213,42 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let mut game = MockGame {
-            ports: hashset! { v2(0, 0), v2(1, 0) }, // No ports in territory
-            ..MockGame::default()
-        };
+        let mut game = MockGame::default();
 
-        add_route(
-            RouteKey {
-                settlement: v2(0, 0),
-                resource: Resource::Gems,
-                destination: v2(2, 1),
-            },
-            Route {
-                path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
-                traffic: 39,
-                start_micros: 0,
-                duration: Duration::default(),
-            },
-            game.routes_mut(),
-            &mut traffic,
-        );
-        add_route(
-            RouteKey {
-                settlement: v2(3, 3),
-                resource: Resource::Gems,
-                destination: v2(2, 2),
-            },
-            Route {
-                path: vec![v2(3, 3), v2(3, 2), v2(2, 2)],
-                traffic: 17,
-                start_micros: 0,
-                duration: Duration::default(),
-            },
-            game.routes_mut(),
-            &mut traffic,
-        );
+        let route_key_1 = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Gems,
+            destination: v2(2, 1),
+        };
+        let route_1 = Route {
+            path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
+            traffic: 39,
+            start_micros: 0,
+            duration: Duration::default(),
+        };
+        add_route(route_key_1, route_1, &mut game.routes, &mut traffic);
+
+        let route_key_2 = RouteKey {
+            settlement: v2(3, 3),
+            resource: Resource::Gems,
+            destination: v2(2, 2),
+        };
+        let route_2 = Route {
+            path: vec![v2(3, 3), v2(3, 2), v2(2, 2)],
+            traffic: 17,
+            start_micros: 0,
+            duration: Duration::default(),
+        };
+        add_route(route_key_2, route_2, &mut game.routes, &mut traffic);
 
         let game = UpdateProcess::new(game);
         let mut processor = UpdateTown::new(&game.tx());
 
         let state = State {
             traffic,
+            route_to_ports: hashmap! {
+                route_key_1 => hashset!{ v2(0, 0), v2(1, 0) },
+            },
             ..State::default()
         };
         let instruction = Instruction::UpdateTown {
@@ -305,32 +282,29 @@ mod tests {
         let territory = hashset! { v2(2, 0), v2(2, 1), v2(2, 2), v2(2, 3) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let mut game = MockGame {
-            ports: hashset! { v2(0, 1), v2(2, 1) },
-            ..MockGame::default()
-        };
+        let mut game = MockGame::default();
 
-        add_route(
-            RouteKey {
-                settlement: v2(0, 0),
-                resource: Resource::Gems,
-                destination: v2(3, 1),
-            },
-            Route {
-                path: vec![v2(0, 1), v2(1, 1), v2(2, 1), v2(3, 1)],
-                traffic: 33,
-                start_micros: 0,
-                duration: Duration::default(),
-            },
-            game.routes_mut(),
-            &mut traffic,
-        );
+        let route_key = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Gems,
+            destination: v2(3, 1),
+        };
+        let route = Route {
+            path: vec![v2(0, 1), v2(1, 1), v2(2, 1), v2(3, 1)],
+            traffic: 33,
+            start_micros: 0,
+            duration: Duration::default(),
+        };
+        add_route(route_key, route, &mut game.routes, &mut traffic);
 
         let game = UpdateProcess::new(game);
         let mut processor = UpdateTown::new(&game.tx());
 
         let state = State {
             traffic,
+            route_to_ports: hashmap! {
+                route_key => hashset!{v2(0, 1), v2(2, 1)}
+            },
             ..State::default()
         };
         let instruction = Instruction::UpdateTown {
@@ -364,47 +338,43 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let mut game = MockGame {
-            ports: hashset! { v2(0, 0), v2(3, 2) },
-            ..MockGame::default()
-        };
+        let mut game = MockGame::default();
 
-        add_route(
-            RouteKey {
-                settlement: v2(0, 0),
-                resource: Resource::Gems,
-                destination: v2(2, 1),
-            },
-            Route {
-                path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
-                traffic: 38,
-                start_micros: 0,
-                duration: Duration::default(),
-            },
-            game.routes_mut(),
-            &mut traffic,
-        );
-        add_route(
-            RouteKey {
-                settlement: v2(3, 3),
-                resource: Resource::Gems,
-                destination: v2(2, 2),
-            },
-            Route {
-                path: vec![v2(3, 3), v2(3, 2), v2(2, 2)],
-                traffic: 14,
-                start_micros: 0,
-                duration: Duration::default(),
-            },
-            game.routes_mut(),
-            &mut traffic,
-        );
+        let route_key_1 = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Gems,
+            destination: v2(2, 1),
+        };
+        let route_1 = Route {
+            path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
+            traffic: 38,
+            start_micros: 0,
+            duration: Duration::default(),
+        };
+        add_route(route_key_1, route_1, &mut game.routes, &mut traffic);
+
+        let route_key_2 = RouteKey {
+            settlement: v2(3, 3),
+            resource: Resource::Gems,
+            destination: v2(2, 2),
+        };
+        let route_2 = Route {
+            path: vec![v2(3, 3), v2(3, 2), v2(2, 2)],
+            traffic: 14,
+            start_micros: 0,
+            duration: Duration::default(),
+        };
+        add_route(route_key_2, route_2, &mut game.routes, &mut traffic);
 
         let game = UpdateProcess::new(game);
         let mut processor = UpdateTown::new(&game.tx());
 
         let state = State {
             traffic,
+            route_to_ports: hashmap! {
+                route_key_1 => hashset!{ v2(0, 0) },
+                route_key_2 => hashset!{ v2(3, 2) },
+            },
             ..State::default()
         };
         let instruction = Instruction::UpdateTown {
@@ -440,29 +410,26 @@ mod tests {
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let mut game = MockGame::default();
-        add_route(
-            RouteKey {
-                settlement: v2(0, 0),
-                resource: Resource::Gems,
-                destination: v2(3, 3),
-            },
-            Route {
-                path: vec![
-                    v2(0, 0),
-                    v2(1, 0),
-                    v2(2, 0),
-                    v2(3, 0),
-                    v2(3, 1),
-                    v2(3, 2),
-                    v2(3, 3),
-                ],
-                traffic: 13,
-                start_micros: 0,
-                duration: Duration::default(),
-            },
-            game.routes_mut(),
-            &mut traffic,
-        );
+        let route_key = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Gems,
+            destination: v2(3, 3),
+        };
+        let route = Route {
+            path: vec![
+                v2(0, 0),
+                v2(1, 0),
+                v2(2, 0),
+                v2(3, 0),
+                v2(3, 1),
+                v2(3, 2),
+                v2(3, 3),
+            ],
+            traffic: 13,
+            start_micros: 0,
+            duration: Duration::default(),
+        };
+        add_route(route_key, route, &mut game.routes, &mut traffic);
 
         let game = UpdateProcess::new(game);
         let mut processor = UpdateTown::new(&game.tx());
@@ -504,21 +471,18 @@ mod tests {
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let mut game = MockGame::default();
-        add_route(
-            RouteKey {
-                settlement: v2(2, 1),
-                resource: Resource::Gems,
-                destination: v2(3, 2),
-            },
-            Route {
-                path: vec![v2(2, 1), v2(3, 1), v2(3, 2)],
-                traffic: 13,
-                start_micros: 0,
-                duration: Duration::default(),
-            },
-            game.routes_mut(),
-            &mut traffic,
-        );
+        let route_key = RouteKey {
+            settlement: v2(2, 1),
+            resource: Resource::Gems,
+            destination: v2(3, 2),
+        };
+        let route = Route {
+            path: vec![v2(2, 1), v2(3, 1), v2(3, 2)],
+            traffic: 13,
+            start_micros: 0,
+            duration: Duration::default(),
+        };
+        add_route(route_key, route, &mut game.routes, &mut traffic);
 
         let game = UpdateProcess::new(game);
         let mut processor = UpdateTown::new(&game.tx());
@@ -559,32 +523,29 @@ mod tests {
         let territory = hashset! { v2(2, 0), v2(2, 1), v2(2, 2), v2(2, 3) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let mut game = MockGame {
-            ports: hashset! { v2(0, 1) },
-            ..MockGame::default()
-        };
+        let mut game = MockGame::default();
 
-        add_route(
-            RouteKey {
-                settlement: v2(0, 1),
-                resource: Resource::Gems,
-                destination: v2(3, 1),
-            },
-            Route {
-                path: vec![v2(0, 1), v2(1, 1), v2(2, 1), v2(3, 1)],
-                traffic: 32,
-                start_micros: 0,
-                duration: Duration::default(),
-            },
-            game.routes_mut(),
-            &mut traffic,
-        );
+        let route_key = RouteKey {
+            settlement: v2(0, 1),
+            resource: Resource::Gems,
+            destination: v2(3, 1),
+        };
+        let route = Route {
+            path: vec![v2(0, 1), v2(1, 1), v2(2, 1), v2(3, 1)],
+            traffic: 32,
+            start_micros: 0,
+            duration: Duration::default(),
+        };
+        add_route(route_key, route, &mut game.routes, &mut traffic);
 
         let game = UpdateProcess::new(game);
         let mut processor = UpdateTown::new(&game.tx());
 
         let state = State {
             traffic,
+            route_to_ports: hashmap! {
+                route_key => hashset! { v2(0, 1) }
+            },
             ..State::default()
         };
         let instruction = Instruction::UpdateTown {
@@ -654,26 +615,20 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let mut game = MockGame {
-            ports: hashset! {},
-            ..MockGame::default()
-        };
+        let mut game = MockGame::default();
 
-        add_route(
-            RouteKey {
-                settlement: v2(0, 0),
-                resource: Resource::Gems,
-                destination: v2(2, 1),
-            },
-            Route {
-                path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
-                traffic: 39,
-                start_micros: 0,
-                duration: Duration::default(),
-            },
-            game.routes_mut(),
-            &mut traffic,
-        );
+        let route_key = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Gems,
+            destination: v2(2, 1),
+        };
+        let route = Route {
+            path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
+            traffic: 39,
+            start_micros: 0,
+            duration: Duration::default(),
+        };
+        add_route(route_key, route, &mut game.routes, &mut traffic);
         game.routes = hashmap! {}; // Removing route to create invalid state
 
         let game = UpdateProcess::new(game);

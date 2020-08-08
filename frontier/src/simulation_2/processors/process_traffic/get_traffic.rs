@@ -1,18 +1,16 @@
 use super::*;
 
-use crate::avatar::CheckForPort;
-use crate::game::traits::{HasWorld, Micros, Routes, Settlements, WhoControlsTile};
+use crate::game::traits::{GetRoute, HasWorld, Micros, Settlements, WhoControlsTile};
 use crate::route::RouteKey;
-use commons::edge::Edges;
 use commons::Grid;
 use std::collections::HashSet;
 
 pub fn get_traffic<G>(game: &G, state: &State, position: &V2<usize>) -> TrafficSummary
 where
-    G: CheckForPort + HasWorld + Micros + Routes + Settlements + WhoControlsTile,
+    G: HasWorld + Micros + GetRoute + Settlements + WhoControlsTile,
 {
     let route_keys = get_route_keys(&state, position);
-    get_traffic_with_route_keys(game, &position, &route_keys)
+    get_traffic_with_route_keys(game, state, &position, &route_keys)
 }
 
 fn get_route_keys(state: &State, position: &V2<usize>) -> HashSet<RouteKey> {
@@ -21,33 +19,34 @@ fn get_route_keys(state: &State, position: &V2<usize>) -> HashSet<RouteKey> {
 
 fn get_traffic_with_route_keys<G>(
     game: &G,
+    state: &State,
     position: &V2<usize>,
     route_keys: &HashSet<RouteKey>,
 ) -> TrafficSummary
 where
-    G: CheckForPort + HasWorld + Micros + Routes + Settlements + WhoControlsTile,
+    G: HasWorld + Micros + GetRoute + Settlements + WhoControlsTile,
 {
     TrafficSummary {
         position: *position,
         controller: game.who_controls_tile(&position).cloned(),
-        routes: get_routes(game, route_keys),
+        routes: get_routes(game, state, route_keys),
         adjacent: get_adjacent(game, position),
     }
 }
 
-fn get_routes<G>(game: &G, route_keys: &HashSet<RouteKey>) -> Vec<RouteSummary>
+fn get_routes<G>(game: &G, state: &State, route_keys: &HashSet<RouteKey>) -> Vec<RouteSummary>
 where
-    G: CheckForPort + HasWorld + Micros + Routes + Settlements,
+    G: HasWorld + Micros + GetRoute + Settlements,
 {
     route_keys
         .iter()
-        .flat_map(|route_key| get_route(game, route_key))
+        .flat_map(|route_key| get_route(game, state, route_key))
         .collect()
 }
 
-fn get_route<G>(game: &G, route_key: &RouteKey) -> Option<RouteSummary>
+fn get_route<G>(game: &G, state: &State, route_key: &RouteKey) -> Option<RouteSummary>
 where
-    G: CheckForPort + HasWorld + Micros + Routes + Settlements,
+    G: HasWorld + Micros + GetRoute + Settlements,
 {
     let route = game.get_route(&route_key)?;
     let traffic = route.traffic;
@@ -59,7 +58,11 @@ where
     let first_visit = micros + route.duration.as_micros();
     let duration = route.duration;
     let resource = route_key.resource;
-    let ports = get_ports(game, &route.path);
+    let ports = state
+        .route_to_ports
+        .get(route_key)
+        .cloned()
+        .unwrap_or_default();
 
     let route_summary = RouteSummary {
         traffic,
@@ -73,16 +76,6 @@ where
     };
 
     Some(route_summary)
-}
-
-fn get_ports<G>(game: &G, path: &[V2<usize>]) -> HashSet<V2<usize>>
-where
-    G: CheckForPort + HasWorld,
-{
-    let world = game.world();
-    path.edges()
-        .flat_map(|edge| game.check_for_port(world, edge.from(), edge.to()))
-        .collect()
 }
 
 fn get_adjacent<G>(game: &G, position: &V2<usize>) -> Vec<Tile>
@@ -120,7 +113,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use crate::route::{Route, RouteSet, RouteSetKey};
+    use crate::route::Route;
     use crate::settlement::Settlement;
     use crate::world::World;
     use commons::same_elements;
@@ -152,14 +145,6 @@ mod tests {
         }
     }
 
-    fn route_set(route_key: RouteKey, route: Route) -> (RouteSetKey, RouteSet) {
-        let route_set_key = (&route_key).into();
-        let route_set = hashmap! {
-            route_key => route
-        };
-        (route_set_key, route_set)
-    }
-
     fn state() -> State {
         State {
             traffic: Traffic::same_size_as(&world(), HashSet::with_capacity(0)),
@@ -170,10 +155,9 @@ mod tests {
     struct MockGame {
         micros: u128,
         world: World,
-        routes: HashMap<RouteSetKey, RouteSet>,
+        routes: HashMap<RouteKey, Route>,
         settlements: HashMap<V2<usize>, Settlement>,
         controller: Option<V2<usize>>,
-        ports: HashSet<V2<usize>>,
     }
 
     impl Default for MockGame {
@@ -184,17 +168,6 @@ mod tests {
                 routes: HashMap::new(),
                 settlements: HashMap::new(),
                 controller: None,
-                ports: hashset! {},
-            }
-        }
-    }
-
-    impl CheckForPort for MockGame {
-        fn check_for_port(&self, _: &World, from: &V2<usize>, _: &V2<usize>) -> Option<V2<usize>> {
-            if self.ports.contains(from) {
-                Some(*from)
-            } else {
-                None
             }
         }
     }
@@ -215,13 +188,9 @@ mod tests {
         }
     }
 
-    impl Routes for MockGame {
-        fn routes(&self) -> &HashMap<RouteSetKey, RouteSet> {
-            &self.routes
-        }
-
-        fn routes_mut(&mut self) -> &mut HashMap<RouteSetKey, RouteSet> {
-            &mut self.routes
+    impl GetRoute for MockGame {
+        fn get_route(&self, route_key: &RouteKey) -> Option<&Route> {
+            self.routes.get(route_key)
         }
     }
 
@@ -287,8 +256,7 @@ mod tests {
             duration: Duration::from_micros(101),
             traffic: 11,
         };
-        let (route_set_key, route_set) = route_set(route_key, route);
-        let routes = hashmap! {route_set_key => route_set};
+        let routes = hashmap! {route_key => route};
 
         let mut state = state();
         state.traffic.mut_cell_unsafe(&v2(1, 2)).insert(route_key);
@@ -335,7 +303,6 @@ mod tests {
             duration: Duration::from_micros(101),
             traffic: 11,
         };
-        let (route_set_key_1, route_set_1) = route_set(route_key_1, route_1);
         let route_key_2 = RouteKey {
             settlement: v2(0, 2),
             resource: Resource::Spice,
@@ -347,10 +314,9 @@ mod tests {
             duration: Duration::from_micros(202),
             traffic: 22,
         };
-        let (route_set_key_2, route_set_2) = route_set(route_key_2, route_2);
         let routes = hashmap! {
-            route_set_key_1 => route_set_1,
-            route_set_key_2 => route_set_2
+            route_key_1 => route_1,
+            route_key_2 => route_2
         };
 
         let mut state = state();
@@ -411,19 +377,18 @@ mod tests {
             duration: Duration::from_micros(101),
             traffic: 11,
         };
-        let (route_set_key, route_set) = route_set(route_key, route);
-        let routes = hashmap! {route_set_key => route_set};
+        let routes = hashmap! {route_key => route};
 
         let mut state = state();
         state.traffic.mut_cell_unsafe(&v2(1, 2)).insert(route_key);
-
-        let ports = hashset! {v2(0, 1), v2(0, 2)};
+        state
+            .route_to_ports
+            .insert(route_key, hashset! {v2(0, 1), v2(0, 2)});
 
         let game = MockGame {
             micros: 1000,
             routes,
             settlements: route_settlements(),
-            ports,
             ..MockGame::default()
         };
 
@@ -477,8 +442,7 @@ mod tests {
             duration: Duration::from_micros(101),
             traffic: 11,
         };
-        let (route_set_key, route_set) = route_set(route_key, route);
-        let routes = hashmap! {route_set_key => route_set};
+        let routes = hashmap! {route_key => route};
 
         let game = MockGame {
             micros: 1000,
