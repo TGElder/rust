@@ -11,6 +11,7 @@ pub struct Simulation {
     state: Option<State>,
     tx: UpdateSender<Simulation>,
     rx: UpdateReceiver<Simulation>,
+    process_instructions: bool,
     run: bool,
 }
 
@@ -22,6 +23,7 @@ impl Simulation {
             processors,
             tx,
             rx,
+            process_instructions: false,
             run: true,
             state: None,
         }
@@ -35,6 +37,10 @@ impl Simulation {
         self.state = Some(state);
     }
 
+    pub fn start_processing_instructions(&mut self) {
+        self.process_instructions = true;
+    }
+
     pub fn run(&mut self) {
         while self.run {
             self.process_updates();
@@ -43,8 +49,10 @@ impl Simulation {
                 return;
             }
 
-            self.process_instruction();
-            self.try_step();
+            if self.process_instructions {
+                self.process_instruction();
+                self.try_step();
+            }
         }
     }
 
@@ -131,6 +139,7 @@ mod tests {
         let done_2 = done.clone();
         thread::spawn(move || {
             let mut sim = Simulation::new(vec![]);
+            sim.start_processing_instructions();
             sim.set_state(State::default());
             let tx = sim.tx().clone();
             let handle = thread::spawn(move || sim.run());
@@ -152,6 +161,7 @@ mod tests {
         let processor = InstructionRetriever::new();
         let instructions = processor.instructions.clone();
         let mut sim = Simulation::new(vec![Box::new(processor)]);
+        sim.start_processing_instructions();
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
@@ -192,6 +202,7 @@ mod tests {
         let receiver = InstructionRetriever::new();
         let instructions = receiver.instructions.clone();
         let mut sim = Simulation::new(vec![Box::new(introducer), Box::new(receiver)]);
+        sim.start_processing_instructions();
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
@@ -217,6 +228,7 @@ mod tests {
         let processor_2 = InstructionRetriever::new();
         let instructions_2 = processor_2.instructions.clone();
         let mut sim = Simulation::new(vec![Box::new(processor_1), Box::new(processor_2)]);
+        sim.start_processing_instructions();
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
@@ -238,6 +250,7 @@ mod tests {
         let processor = InstructionRetriever::new();
         let instructions = processor.instructions.clone();
         let mut sim = Simulation::new(vec![Box::new(processor)]);
+        sim.start_processing_instructions();
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
@@ -303,6 +316,7 @@ mod tests {
 
         // When
         let mut sim_2 = Simulation::new(vec![Box::new(receiver)]);
+        sim_2.start_processing_instructions();
         sim_2.load(file_name);
         let tx = sim_2.tx().clone();
 
@@ -355,6 +369,7 @@ mod tests {
             let receiver = InstructionRetriever::new();
             let instructions = receiver.instructions.clone();
             let mut sim = Simulation::new(vec![Box::new(repeater), Box::new(receiver)]);
+            sim.start_processing_instructions();
             sim.set_state(State::default());
 
             let tx = sim.tx().clone();
@@ -377,5 +392,31 @@ mod tests {
                 panic!("Simulation has not shutdown after 10 seconds");
             }
         }
+    }
+
+    #[test]
+    fn should_not_process_instruction_if_start_processing_instructions_is_not_called() {
+        // Given
+        let mut sim = Simulation::new(vec![]);
+        sim.set_state(State {
+            instructions: vec![Instruction::GetTerritory(v2(1, 1))],
+            ..State::default()
+        });
+        let tx = sim.tx().clone();
+        let handle = thread::spawn(move || {
+            sim.run();
+            sim
+        });
+
+        // When
+        block_on(async { tx.update(|_| {}).await });
+        block_on(async { tx.update(|sim| sim.shutdown()).await });
+
+        // Then
+        let sim = handle.join().unwrap();
+        assert_eq!(
+            sim.state.unwrap().instructions,
+            vec![Instruction::GetTerritory(v2(1, 1))]
+        );
     }
 }

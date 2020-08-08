@@ -34,6 +34,11 @@ impl SimulationStateLoader {
     fn load(&mut self, path: String) {
         self.sim_tx.update(move |sim| sim.load(&path));
     }
+
+    fn init(&mut self) {
+        self.sim_tx
+            .update(move |sim| sim.start_processing_instructions());
+    }
 }
 
 impl GameEventConsumer for SimulationStateLoader {
@@ -45,6 +50,7 @@ impl GameEventConsumer for SimulationStateLoader {
         match event {
             GameEvent::NewGame => self.new_game(game_state),
             GameEvent::Load(path) => self.load(path.clone()),
+            GameEvent::Init => self.init(),
             _ => (),
         }
         CaptureEvent::No
@@ -89,7 +95,7 @@ mod tests {
     }
 
     #[test]
-    fn init_event_should_set_sim_state() {
+    fn new_game_event_should_set_sim_state() {
         // Given
         let (state_tx, state_rx) = channel();
         let retriever = StateRetriever::new(state_tx);
@@ -104,6 +110,7 @@ mod tests {
         let sim_tx = sim.tx().clone();
         let handle = thread::spawn(move || sim.run());
         consumer.consume_game_event(&game_state, &GameEvent::NewGame);
+        consumer.consume_game_event(&game_state, &GameEvent::Init);
         let state = state_rx
             .recv_timeout(Duration::from_secs(10))
             .unwrap_or_else(|_| panic!("State not retrieved after 10 seconds"));
@@ -159,10 +166,9 @@ mod tests {
         // When
         let sim_tx = sim_2.tx().clone();
         let handle = thread::spawn(move || sim_2.run());
-        consumer.consume_game_event(
-            &GameState::default(),
-            &GameEvent::Load(file_name.to_string()),
-        );
+        let game_state = GameState::default();
+        consumer.consume_game_event(&game_state, &GameEvent::Load(file_name.to_string()));
+        consumer.consume_game_event(&game_state, &GameEvent::Init);
         let retrieved = state_rx
             .recv_timeout(Duration::from_secs(10))
             .unwrap_or_else(|_| panic!("State not retrieved after 10 seconds"));
