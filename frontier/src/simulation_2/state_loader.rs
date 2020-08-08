@@ -20,7 +20,7 @@ impl SimulationStateLoader {
         }
     }
 
-    fn init(&mut self, game_state: &GameState) {
+    fn new_game(&mut self, game_state: &GameState) {
         let state = State {
             instructions: vec![],
             traffic: Vec2D::same_size_as(&game_state.world, HashSet::with_capacity(0)),
@@ -43,7 +43,7 @@ impl GameEventConsumer for SimulationStateLoader {
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
-            GameEvent::Init => self.init(game_state),
+            GameEvent::NewGame => self.new_game(game_state),
             GameEvent::Load(path) => self.load(path.clone()),
             _ => (),
         }
@@ -103,7 +103,7 @@ mod tests {
         // When
         let sim_tx = sim.tx().clone();
         let handle = thread::spawn(move || sim.run());
-        consumer.consume_game_event(&game_state, &GameEvent::Init);
+        consumer.consume_game_event(&game_state, &GameEvent::NewGame);
         let state = state_rx
             .recv_timeout(Duration::from_secs(10))
             .unwrap_or_else(|_| panic!("State not retrieved after 10 seconds"));
