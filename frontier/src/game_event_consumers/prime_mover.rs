@@ -82,7 +82,7 @@ impl PrimeMover {
             .values()
             .flat_map(|route_set| route_set.iter())
             .filter(|(_, route)| route.path.len() > 1)
-            .filter(|(key, _)| !is_visible(game_state, &key))
+            .filter(|(key, _)| !self.is_visible(&key))
             .filter(|(key, _)| !self.is_frozen(&key))
             .collect()
     }
@@ -172,7 +172,7 @@ impl PrimeMover {
             .state
             .visible_routes
             .drain()
-            .partition(|name| is_visible(game_state, name));
+            .partition(|name| has_avatar(game_state, name));
         self.state.visible_routes = visible;
         if let Some(delay) = self.params.freeze_duration {
             let delay = delay.as_micros();
@@ -182,6 +182,10 @@ impl PrimeMover {
                     .insert(name, game_state.game_micros + delay);
             });
         }
+    }
+
+    fn is_visible(&self, key: &RouteKey) -> bool {
+        self.state.visible_routes.contains(key)
     }
 
     fn is_frozen(&self, key: &RouteKey) -> bool {
@@ -223,7 +227,7 @@ fn avatar_colors(game_state: &GameState, key: &RouteKey) -> Option<(Color, Color
     Some((*nation.color(), *nation.skin_color()))
 }
 
-fn is_visible(game_state: &GameState, key: &RouteKey) -> bool {
+fn has_avatar(game_state: &GameState, key: &RouteKey) -> bool {
     game_state.avatars.get(&key.to_string()).is_some()
 }
 
