@@ -5,7 +5,6 @@ use crate::settlement::Settlement;
 use std::collections::HashSet;
 
 const HANDLE: &str = "update_town";
-const TRAFFIC_TO_POPULATION: f64 = 0.5;
 
 pub struct UpdateTown<G>
 where
@@ -88,7 +87,7 @@ where
 {
     let traffic_share = get_traffic_share(game, &state, route_keys, territory);
     let settlement = Settlement {
-        target_population: traffic_share * TRAFFIC_TO_POPULATION,
+        target_population: traffic_share * state.params.traffic_to_population,
         ..settlement
     };
     game.update_settlement(settlement);
@@ -244,7 +243,11 @@ mod tests {
         let game = UpdateProcess::new(game);
         let mut processor = UpdateTown::new(&game.tx());
 
+        let traffic_to_population = 0.5;
         let state = State {
+            params: SimulationParams {
+                traffic_to_population,
+            },
             traffic,
             route_to_ports: hashmap! {
                 route_key_1 => hashset!{ v2(0, 0), v2(1, 0) },
@@ -262,7 +265,7 @@ mod tests {
         // Then
         let game = game.shutdown();
         let expected = Settlement {
-            target_population: 30.0 * TRAFFIC_TO_POPULATION, // sum( traffic / ( total ports on route + 1 ) )
+            target_population: 30.0 * traffic_to_population, // sum( traffic / ( total ports on route + 1 ) )
             ..settlement
         };
         assert_eq!(game.updated_settlements, vec![expected]);
@@ -300,7 +303,11 @@ mod tests {
         let game = UpdateProcess::new(game);
         let mut processor = UpdateTown::new(&game.tx());
 
+        let traffic_to_population = 0.5;
         let state = State {
+            params: SimulationParams {
+                traffic_to_population,
+            },
             traffic,
             route_to_ports: hashmap! {
                 route_key => hashset!{v2(0, 1), v2(2, 1)}
@@ -318,7 +325,7 @@ mod tests {
         // Then
         let game = game.shutdown();
         let expected = Settlement {
-            target_population: 11.0 * TRAFFIC_TO_POPULATION, // sum( traffic / ( total ports on route + 1 ) )
+            target_population: 11.0 * traffic_to_population, // sum( traffic / ( total ports on route + 1 ) )
             ..settlement
         };
         assert_eq!(game.updated_settlements, vec![expected]);
@@ -369,7 +376,11 @@ mod tests {
         let game = UpdateProcess::new(game);
         let mut processor = UpdateTown::new(&game.tx());
 
+        let traffic_to_population = 0.5;
         let state = State {
+            params: SimulationParams {
+                traffic_to_population,
+            },
             traffic,
             route_to_ports: hashmap! {
                 route_key_1 => hashset!{ v2(0, 0) },
@@ -388,7 +399,7 @@ mod tests {
         // Then
         let game = game.shutdown();
         let expected = Settlement {
-            target_population: 33.0 * TRAFFIC_TO_POPULATION, // sum( traffic / ( total ports on route + 1 ) )
+            target_population: 33.0 * traffic_to_population, // sum( traffic / ( total ports on route + 1 ) )
             ..settlement
         };
         assert_eq!(game.updated_settlements, vec![expected]);

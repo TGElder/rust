@@ -273,6 +273,9 @@ mod tests {
             destination: v2(3, 4),
         };
         sim_1.set_state(State {
+            params: SimulationParams{
+              traffic_to_population: 0.123,  
+            },
             instructions: vec![
                 Instruction::GetTerritory(v2(1, 1)),
                 Instruction::GetTerritory(v2(2, 2)),

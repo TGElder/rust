@@ -7,6 +7,7 @@ use std::default::Default;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct State {
+    pub params: SimulationParams,
     pub instructions: Vec<Instruction>,
     pub traffic: Traffic,
     pub edge_traffic: EdgeTraffic,
@@ -17,6 +18,7 @@ pub struct State {
 impl Default for State {
     fn default() -> State {
         State {
+            params: SimulationParams::default(),
             instructions: vec![],
             traffic: Vec2D::new(1, 1, HashSet::new()),
             edge_traffic: hashmap! {},

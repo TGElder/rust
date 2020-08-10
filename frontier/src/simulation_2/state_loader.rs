@@ -22,6 +22,7 @@ impl SimulationStateLoader {
 
     fn new_game(&mut self, game_state: &GameState) {
         let state = State {
+            params: SimulationParams::default(),
             instructions: vec![],
             traffic: Vec2D::same_size_as(&game_state.world, HashSet::with_capacity(0)),
             edge_traffic: hashmap! {},
@@ -121,6 +122,7 @@ mod tests {
         assert_eq!(
             state,
             State {
+                params: SimulationParams::default(),
                 instructions: vec![Instruction::Step],
                 traffic: Vec2D::new(3, 7, HashSet::new()),
                 edge_traffic: hashmap! {},
@@ -142,6 +144,9 @@ mod tests {
             destination: v2(3, 4),
         };
         let state = State {
+            params: SimulationParams {
+                traffic_to_population: 0.123,
+            },
             instructions: vec![
                 Instruction::GetTerritory(v2(1, 1)),
                 Instruction::GetTerritory(v2(2, 2)),

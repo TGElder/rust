@@ -6,8 +6,6 @@ use commons::v2;
 use std::convert::TryInto;
 use std::time::Duration;
 
-const TRAFFIC_TO_POPULATION: f64 = 0.5;
-
 pub fn try_build_town<G>(game: &mut G, traffic: &TrafficSummary) -> Option<BuildInstruction>
 where
     G: Nations,
@@ -65,7 +63,7 @@ where
         name: nation.get_town_name(),
         nation: first_visit_route.nation.clone(),
         current_population: 0.0,
-        target_population: get_target_population(routes),
+        target_population: 0.0,
         gap_half_life: get_gap_half_life(routes),
         last_population_update_micros: get_when(routes),
     }
@@ -73,14 +71,6 @@ where
 
 fn get_first_visit_route(routes: &[RouteSummary]) -> &RouteSummary {
     routes.iter().min_by_key(|route| route.first_visit).unwrap()
-}
-
-fn get_traffic(routes: &[RouteSummary]) -> usize {
-    routes.iter().map(|route| route.traffic).sum()
-}
-
-fn get_target_population(routes: &[RouteSummary]) -> f64 {
-    get_traffic(routes) as f64 * TRAFFIC_TO_POPULATION
 }
 
 fn get_gap_half_life(routes: &[RouteSummary]) -> Duration {
@@ -183,10 +173,7 @@ mod tests {
             assert_eq!(settlement.nation, "Scotland".to_string());
             assert_eq!(settlement.name, "Edinburgh".to_string());
             assert!(settlement.current_population.almost(&0.0));
-            // Settlement target population is traffic * TRAFFIC_TO_POPULATION
-            assert!(settlement
-                .target_population
-                .almost(&(3.0 * TRAFFIC_TO_POPULATION)));
+            assert!(settlement.target_population.almost(&0.0));
             // Gap half life is average round-trip duration of routes to position
             assert_eq!(settlement.gap_half_life, Duration::from_micros(202));
             // Last population update is same as when (build time)
@@ -254,10 +241,6 @@ mod tests {
             // Settlement nation is nation with lowest first visit
             assert_eq!(settlement.nation, "Wales".to_string());
             assert_eq!(settlement.name, "Swansea".to_string());
-            // Settlement target population is traffic for all routes * TRAFFIC_TO_POPULATION
-            assert!(settlement
-                .target_population
-                .almost(&(9.0 * TRAFFIC_TO_POPULATION)));
             // Gap half life is average round-trip duration of routes to position
             assert_eq!(settlement.gap_half_life, Duration::from_micros(303));
             // Last population update is same as when (build time)
