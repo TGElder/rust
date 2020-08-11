@@ -21,6 +21,7 @@ pub enum Instruction {
         key: RouteSetKey,
         route_set: RouteSet,
     },
+    ProcessRouteChanges(Vec<RouteChange>),
     Build,
     VisibleLandPositions(usize),
 }

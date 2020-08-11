@@ -1,9 +1,8 @@
 use super::*;
 
 use crate::avatar::CheckForPort;
-use crate::game::traits::{HasWorld, Micros, Nations, Routes, Settlements, WhoControlsTile};
+use crate::game::traits::{GetRoute, HasWorld, Micros, Nations, Settlements, WhoControlsTile};
 use crate::pathfinder::traits::UpdateEdge;
-use crate::route::{RouteSet, RouteSetKey};
 use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
 use std::collections::HashSet;
@@ -13,7 +12,7 @@ const BATCH_SIZE: usize = 128;
 
 pub struct ProcessTraffic<G, T, P>
 where
-    G: CheckForPort + HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
+    G: CheckForPort + GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -24,16 +23,15 @@ where
 
 impl<G, T, P> Processor for ProcessTraffic<G, T, P>
 where
-    G: CheckForPort + HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
+    G: CheckForPort + GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let (key, route_set) = match instruction {
-            Instruction::GetRouteChanges { key, route_set } => (key, route_set),
+        let route_changes = match instruction {
+            Instruction::ProcessRouteChanges(route_changes) => route_changes.clone(),
             _ => return state,
         };
-        let route_changes = self.update_routes_and_get_changes(*key, route_set.clone());
         state = self.update_all_ports(state, route_changes.clone());
         state = self.update_position_traffic_and_process_position_changes(state, &route_changes);
         state = self.update_edge_traffic_and_process_edge_changes(state, &route_changes);
@@ -43,7 +41,7 @@ where
 
 impl<G, T, P> ProcessTraffic<G, T, P>
 where
-    G: CheckForPort + HasWorld + Micros + Nations + Routes + Settlements + WhoControlsTile,
+    G: CheckForPort + GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -57,18 +55,6 @@ where
             travel_duration: Arc::new(travel_duration),
             pathfinder: pathfinder.clone(),
         }
-    }
-
-    fn update_routes_and_get_changes(
-        &mut self,
-        key: RouteSetKey,
-        route_set: RouteSet,
-    ) -> Vec<RouteChange> {
-        block_on(async {
-            self.game
-                .update(move |game| update_routes_and_get_changes(game, &key, &route_set))
-                .await
-        })
     }
 
     fn update_all_ports(&mut self, state: State, route_changes: Vec<RouteChange>) -> State {
@@ -160,10 +146,10 @@ fn process_traffic_position_changes<G>(
 where
     G: CheckForPort
         + CheckForPort
+        + GetRoute
         + HasWorld
         + Micros
         + Nations
-        + Routes
         + Settlements
         + WhoControlsTile,
 {
@@ -187,7 +173,7 @@ fn process_traffic_edge_changes<G, T, P>(
     traffic_changes: Vec<Edge>,
 ) -> State
 where
-    G: CheckForPort + HasWorld + Micros + Routes,
+    G: CheckForPort + GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
     P: UpdateEdge + 'static,
 {

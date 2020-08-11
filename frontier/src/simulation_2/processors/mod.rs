@@ -2,6 +2,7 @@ use super::*;
 
 mod build_sim;
 mod get_demand;
+mod get_route_changes;
 mod get_routes;
 mod get_territory;
 mod homeland_target_population;
@@ -15,6 +16,7 @@ mod visibility_sim;
 
 pub use build_sim::BuildSim;
 pub use get_demand::GetDemand;
+pub use get_route_changes::GetRouteChanges;
 pub use get_routes::GetRoutes;
 pub use get_territory::GetTerritory;
 pub use homeland_target_population::HomelandTargetPopulation;

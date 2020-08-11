@@ -41,8 +41,9 @@ use simulation_2::builders::{CropsBuilder, RoadBuilder, SettlementBuilder};
 use simulation_2::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation_2::game_event_consumers::ResourceTargets;
 use simulation_2::processors::{
-    BuildSim, GetDemand, GetRoutes, GetTerritory, HomelandTargetPopulation, InstructionLogger,
-    ProcessTraffic, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateTown, VisibilitySim,
+    BuildSim, GetDemand, GetRouteChanges, GetRoutes, GetTerritory, HomelandTargetPopulation,
+    InstructionLogger, ProcessTraffic, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateTown,
+    VisibilitySim,
 };
 use simulation_2::{Simulation, SimulationStateLoader};
 use std::collections::HashMap;
@@ -104,6 +105,7 @@ fn main() {
         Box::new(GetDemand::new(town_demand_fn)),
         Box::new(GetDemand::new(homeland_demand_fn)),
         Box::new(GetRoutes::new(&avatar_pathfinder)),
+        Box::new(GetRouteChanges::new(game.tx())),
         Box::new(ProcessTraffic::new(
             &game.tx(),
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
