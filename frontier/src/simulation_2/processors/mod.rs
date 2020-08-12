@@ -11,6 +11,7 @@ mod process_traffic;
 mod step_homeland;
 mod step_town;
 mod update_current_population;
+mod update_route_to_ports;
 mod update_town;
 mod visibility_sim;
 
@@ -25,5 +26,6 @@ pub use process_traffic::ProcessTraffic;
 pub use step_homeland::StepHomeland;
 pub use step_town::StepTown;
 pub use update_current_population::UpdateCurrentPopulation;
+pub use update_route_to_ports::UpdateRouteToPorts;
 pub use update_town::UpdateTown;
 pub use visibility_sim::{VisibilitySim, VisibilitySimConsumer};

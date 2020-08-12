@@ -6,7 +6,66 @@ use crate::route::{Route, RouteKey};
 use commons::edge::Edges;
 use std::collections::HashSet;
 
-pub fn update_ports<G>(game: &G, state: &mut State, route_change: &RouteChange)
+const HANDLE: &str = "update_route_to_ports";
+
+pub struct UpdateRouteToPorts<G>
+where
+    G: CheckForPort + HasWorld,
+{
+    game: UpdateSender<G>,
+}
+
+impl<G> Processor for UpdateRouteToPorts<G>
+where
+    G: CheckForPort + HasWorld,
+{
+    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+        let route_changes = match instruction {
+            Instruction::ProcessRouteChanges(route_changes) => (route_changes.clone()),
+            _ => return state,
+        };
+        self.update_many_route_to_ports(state, route_changes)
+    }
+}
+
+impl<G> UpdateRouteToPorts<G>
+where
+    G: CheckForPort + HasWorld,
+{
+    pub fn new(game: &UpdateSender<G>) -> UpdateRouteToPorts<G> {
+        UpdateRouteToPorts {
+            game: game.clone_with_handle(HANDLE),
+        }
+    }
+
+    fn update_many_route_to_ports(
+        &mut self,
+        state: State,
+        route_changes: Vec<RouteChange>,
+    ) -> State {
+        block_on(async {
+            self.game
+                .update(move |game| update_many_route_to_ports(game, state, route_changes))
+                .await
+        })
+    }
+}
+
+pub fn update_many_route_to_ports<G>(
+    game: &mut G,
+    mut state: State,
+    route_changes: Vec<RouteChange>,
+) -> State
+where
+    G: CheckForPort + HasWorld,
+{
+    for route_change in route_changes {
+        update_route_to_ports(game, &mut state, &route_change);
+    }
+    state
+}
+
+pub fn update_route_to_ports<G>(game: &G, state: &mut State, route_change: &RouteChange)
 where
     G: CheckForPort + HasWorld,
 {
@@ -49,6 +108,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::Route;
     use crate::world::World;
+    use commons::update::UpdateProcess;
     use commons::{v2, M};
     use std::time::Duration;
 
@@ -97,6 +157,7 @@ mod tests {
             ports: hashset! {v2(0, 1), v2(1, 2)},
             ..MockGame::default()
         };
+        let game = UpdateProcess::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -110,22 +171,30 @@ mod tests {
             traffic: 0,
         };
 
-        let mut state = State::default();
+        let state = State::default();
+
+        let mut processor = UpdateRouteToPorts::new(&game.tx());
 
         // When
-        update_ports(&game, &mut state, &RouteChange::New { key, route });
+        let route_change = RouteChange::New { key, route };
+        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
+        let state = processor.process(state, &instruction);
 
         // Then
         assert_eq!(
             state.route_to_ports,
             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
         );
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
     fn should_do_nothing_for_new_route_with_no_ports() {
         // Given
         let game = MockGame::default();
+        let game = UpdateProcess::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -139,13 +208,20 @@ mod tests {
             traffic: 0,
         };
 
-        let mut state = State::default();
+        let state = State::default();
+
+        let mut processor = UpdateRouteToPorts::new(&game.tx());
 
         // When
-        update_ports(&game, &mut state, &RouteChange::New { key, route });
+        let route_change = RouteChange::New { key, route };
+        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
+        let state = processor.process(state, &instruction);
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
@@ -155,6 +231,7 @@ mod tests {
             ports: hashset! {v2(0, 1), v2(1, 0), v2(1, 2)},
             ..MockGame::default()
         };
+        let game = UpdateProcess::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -174,19 +251,26 @@ mod tests {
             traffic: 0,
         };
 
-        let mut state = State {
+        let state = State {
             route_to_ports: hashmap! { key => hashset!{ v2(1, 0) } },
             ..State::default()
         };
 
+        let mut processor = UpdateRouteToPorts::new(&game.tx());
+
         // When
-        update_ports(&game, &mut state, &RouteChange::Updated { key, old, new });
+        let route_change = RouteChange::Updated { key, old, new };
+        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
+        let state = processor.process(state, &instruction);
 
         // Then
         assert_eq!(
             state.route_to_ports,
             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
         );
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
@@ -196,6 +280,7 @@ mod tests {
             ports: hashset! {v2(1, 0)},
             ..MockGame::default()
         };
+        let game = UpdateProcess::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -215,22 +300,30 @@ mod tests {
             traffic: 0,
         };
 
-        let mut state = State {
+        let state = State {
             route_to_ports: hashmap! { key => hashset!{ v2(1, 0) } },
             ..State::default()
         };
 
+        let mut processor = UpdateRouteToPorts::new(&game.tx());
+
         // When
-        update_ports(&game, &mut state, &RouteChange::Updated { key, old, new });
+        let route_change = RouteChange::Updated { key, old, new };
+        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
+        let state = processor.process(state, &instruction);
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
     fn should_remove_entry_for_removed_route() {
         // Given
         let game = MockGame::default();
+        let game = UpdateProcess::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -244,15 +337,85 @@ mod tests {
             traffic: 0,
         };
 
-        let mut state = State {
+        let state = State {
             route_to_ports: hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } },
             ..State::default()
         };
 
+        let mut processor = UpdateRouteToPorts::new(&game.tx());
+
         // When
-        update_ports(&game, &mut state, &RouteChange::Removed { key, route });
+        let route_change = RouteChange::Removed { key, route };
+        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
+        let state = processor.process(state, &instruction);
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
+
+        // Finally
+        game.shutdown();
+    }
+
+    #[test]
+    fn multiple_changes() {
+        // Given
+        let game = MockGame {
+            ports: hashset! {v2(0, 1), v2(1, 2)},
+            ..MockGame::default()
+        };
+        let game = UpdateProcess::new(game);
+
+        let key_new = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Truffles,
+            destination: v2(2, 2),
+        };
+        let route_new = Route {
+            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+            start_micros: 0,
+            duration: Duration::from_secs(0),
+            traffic: 0,
+        };
+        let key_removed = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Truffles,
+            destination: v2(1, 1),
+        };
+        let route_removed = Route {
+            path: vec![v2(0, 0), v2(0, 1), v2(1, 1)],
+            start_micros: 0,
+            duration: Duration::from_secs(0),
+            traffic: 0,
+        };
+
+        let state = State {
+            route_to_ports: hashmap! { key_removed => hashset!{ v2(0, 1) } },
+            ..State::default()
+        };
+
+        let mut processor = UpdateRouteToPorts::new(&game.tx());
+
+        // When
+        let route_changes = vec![
+            RouteChange::New {
+                key: key_new,
+                route: route_new,
+            },
+            RouteChange::Removed {
+                key: key_removed,
+                route: route_removed,
+            },
+        ];
+        let instruction = Instruction::ProcessRouteChanges(route_changes);
+        let state = processor.process(state, &instruction);
+
+        // Then
+        assert_eq!(
+            state.route_to_ports,
+            hashmap! { key_new => hashset!{ v2(0, 1), v2(1, 2) } }
+        );
+
+        // Finally
+        game.shutdown();
     }
 }

@@ -13,7 +13,7 @@ pub fn get_edge_traffic<G, T>(
     edge: &Edge,
 ) -> EdgeTrafficSummary
 where
-    G: HasWorld + Micros + GetRoute,
+    G: GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
 {
     let route_keys = get_route_keys(&state, &edge);
@@ -35,7 +35,7 @@ fn get_edge_traffic_with_route_keys<G, T>(
     route_keys: &HashSet<RouteKey>,
 ) -> EdgeTrafficSummary
 where
-    G: HasWorld + Micros + GetRoute,
+    G: GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
 {
     EdgeTrafficSummary {
