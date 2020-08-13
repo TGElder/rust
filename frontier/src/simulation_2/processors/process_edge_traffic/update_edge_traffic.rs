@@ -4,10 +4,17 @@ use crate::route::{Route, RouteKey};
 use commons::edge::{Edge, Edges};
 use std::collections::HashSet;
 
-pub fn update_edge_traffic_and_get_changes(
+pub fn update_all_edge_traffic_and_get_changes(
     state: &mut State,
-    route_change: &RouteChange,
-) -> Vec<Edge> {
+    route_changes: &[RouteChange],
+) -> HashSet<Edge> {
+    route_changes
+        .iter()
+        .flat_map(|route_change| update_edge_traffic_and_get_changes(state, route_change))
+        .collect()
+}
+
+fn update_edge_traffic_and_get_changes(state: &mut State, route_change: &RouteChange) -> Vec<Edge> {
     let out = match route_change {
         RouteChange::New { key, route } => new(state, &key, &route),
         RouteChange::Updated { key, old, new } => updated(state, &key, &old, &new),
@@ -82,7 +89,6 @@ mod tests {
 
     use crate::resource::Resource;
     use commons::index2d::Vec2D;
-    use commons::same_elements;
     use commons::v2;
     use std::collections::HashSet;
     use std::time::Duration;
@@ -133,17 +139,17 @@ mod tests {
         };
 
         // When
-        let edges = update_edge_traffic_and_get_changes(&mut state(), &change);
+        let edges = update_all_edge_traffic_and_get_changes(&mut state(), &[change]);
 
         // Then
         assert_eq!(
             edges,
-            vec![
+            hashset! {
                 Edge::new(v2(1, 3), v2(2, 3)),
                 Edge::new(v2(2, 3), v2(2, 4)),
                 Edge::new(v2(2, 4), v2(2, 5)),
                 Edge::new(v2(2, 5), v2(1, 5)),
-            ]
+            }
         );
     }
 
@@ -157,7 +163,7 @@ mod tests {
         let mut state = state();
 
         // When
-        update_edge_traffic_and_get_changes(&mut state, &change);
+        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = hashmap! {};
@@ -181,18 +187,18 @@ mod tests {
         }
 
         // When
-        let edges = update_edge_traffic_and_get_changes(&mut state, &change);
+        let edges = update_all_edge_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
-        assert!(same_elements(
+        assert_eq!(
             &edges,
-            &[
+            &hashset! {
                 Edge::new(v2(1, 3), v2(2, 3)),
                 Edge::new(v2(2, 3), v2(2, 4)),
                 Edge::new(v2(1, 3), v2(1, 4)),
                 Edge::new(v2(1, 4), v2(2, 4)),
-            ]
-        ));
+            }
+        );
     }
 
     #[test]
@@ -209,7 +215,7 @@ mod tests {
         }
 
         // When
-        update_edge_traffic_and_get_changes(&mut state, &change);
+        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = hashmap! {};
@@ -233,7 +239,7 @@ mod tests {
         }
 
         // When
-        update_edge_traffic_and_get_changes(&mut state, &change);
+        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = hashmap! {};
@@ -256,17 +262,17 @@ mod tests {
         }
 
         // When
-        let edges = update_edge_traffic_and_get_changes(&mut state, &change);
+        let edges = update_all_edge_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         assert_eq!(
             edges,
-            vec![
+            hashset! {
                 Edge::new(v2(1, 3), v2(2, 3)),
                 Edge::new(v2(2, 3), v2(2, 4)),
                 Edge::new(v2(2, 4), v2(2, 5)),
                 Edge::new(v2(2, 5), v2(1, 5)),
-            ]
+            }
         );
     }
 
@@ -283,7 +289,7 @@ mod tests {
         }
 
         // When
-        update_edge_traffic_and_get_changes(&mut state, &change);
+        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let expected = hashmap! {};
@@ -308,7 +314,7 @@ mod tests {
         }
 
         // When
-        update_edge_traffic_and_get_changes(&mut state, &change);
+        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = hashmap! {};
@@ -336,7 +342,7 @@ mod tests {
         }
 
         // When
-        update_edge_traffic_and_get_changes(&mut state, &change);
+        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = hashmap! {};
@@ -344,5 +350,38 @@ mod tests {
             expected.insert(edge, hashset! {key_2});
         }
         assert_eq!(state.edge_traffic, expected);
+    }
+
+    #[test]
+    fn multiple_changes() {
+        // Given
+        let change_1 = RouteChange::New {
+            key: key(),
+            route: route_1(),
+        };
+        let change_2 = RouteChange::New {
+            key: RouteKey {
+                settlement: v2(1, 3),
+                resource: Resource::Coal,
+                destination: v2(1, 5),
+            },
+            route: route_2(),
+        };
+
+        // When
+        let edges = update_all_edge_traffic_and_get_changes(&mut state(), &[change_1, change_2]);
+
+        // Then
+        assert_eq!(
+            edges,
+            hashset! {
+                Edge::new(v2(1, 3), v2(2, 3)),
+                Edge::new(v2(2, 3), v2(2, 4)),
+                Edge::new(v2(2, 4), v2(2, 5)),
+                Edge::new(v2(2, 5), v2(1, 5)),
+                Edge::new(v2(1, 3), v2(1, 4)),
+                Edge::new(v2(1, 4), v2(2, 4)),
+            }
+        );
     }
 }

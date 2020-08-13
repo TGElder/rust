@@ -102,7 +102,8 @@ fn main() {
         Box::new(GetDemand::new(homeland_demand_fn)),
         Box::new(GetRoutes::new(&avatar_pathfinder)),
         Box::new(GetRouteChanges::new(game.tx())),
-        Box::new(ProcessTraffic::new(
+        Box::new(ProcessPositionTraffic::new(&game.tx())),
+        Box::new(ProcessEdgeTraffic::new(
             &game.tx(),
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
             &avatar_pathfinder,

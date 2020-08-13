@@ -5,7 +5,7 @@ use crate::route::RouteKey;
 use commons::Grid;
 use std::collections::HashSet;
 
-pub fn get_traffic<G>(game: &G, state: &State, position: &V2<usize>) -> TrafficSummary
+pub fn get_position_traffic<G>(game: &G, state: &State, position: &V2<usize>) -> TrafficSummary
 where
     G: HasWorld + Micros + GetRoute + Settlements + WhoControlsTile,
 {
@@ -217,7 +217,7 @@ mod tests {
         let game = MockGame::default();
 
         // When
-        let traffic = get_traffic(&game, &state(), &position);
+        let traffic = get_position_traffic(&game, &state(), &position);
 
         // Then
         assert_eq!(traffic.position, position);
@@ -234,7 +234,7 @@ mod tests {
         };
 
         // When
-        let traffic = get_traffic(&game, &state(), &position);
+        let traffic = get_position_traffic(&game, &state(), &position);
 
         // Then
         assert_eq!(traffic.controller, controller);
@@ -269,7 +269,7 @@ mod tests {
         };
 
         // When
-        let traffic = get_traffic(&game, &state, &position);
+        let traffic = get_position_traffic(&game, &state, &position);
 
         // Then
         assert!(same_elements(
@@ -331,7 +331,7 @@ mod tests {
         };
 
         // When
-        let traffic = get_traffic(&game, &state, &position);
+        let traffic = get_position_traffic(&game, &state, &position);
 
         // Then
         assert!(same_elements(
@@ -393,7 +393,7 @@ mod tests {
         };
 
         // When
-        let traffic = get_traffic(&game, &state, &position);
+        let traffic = get_position_traffic(&game, &state, &position);
 
         // Then
         assert_eq!(traffic.routes[0].ports, hashset! {v2(0, 1), v2(0, 2)});
@@ -420,7 +420,7 @@ mod tests {
         };
 
         // When
-        let traffic = get_traffic(&game, &state, &position);
+        let traffic = get_position_traffic(&game, &state, &position);
 
         // Then
         assert_eq!(traffic.routes, vec![]);
@@ -451,7 +451,7 @@ mod tests {
         };
 
         // When
-        let traffic = get_traffic(&game, &state(), &position);
+        let traffic = get_position_traffic(&game, &state(), &position);
 
         // Then
         assert_eq!(traffic.routes, vec![]);
@@ -476,7 +476,7 @@ mod tests {
         };
 
         // When
-        let traffic = get_traffic(&game, &state(), &position);
+        let traffic = get_position_traffic(&game, &state(), &position);
 
         // Then
         let expected: Vec<Tile> = vec![v2(1, 2), v2(0, 2), v2(1, 1), v2(0, 1)]
@@ -509,7 +509,7 @@ mod tests {
         let state = state();
 
         // When
-        let traffic = get_traffic(&game, &state, &position);
+        let traffic = get_position_traffic(&game, &state, &position);
 
         // Then
         let expected: Vec<Tile> = vec![v2(1, 2), v2(0, 2), v2(1, 1), v2(0, 1)]

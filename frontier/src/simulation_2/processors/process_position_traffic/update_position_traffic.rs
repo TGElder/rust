@@ -4,7 +4,17 @@ use crate::route::{Route, RouteKey};
 use commons::grid::Grid;
 use std::collections::HashSet;
 
-pub fn update_traffic_and_get_changes(
+pub fn update_all_position_traffic_and_get_changes(
+    state: &mut State,
+    route_changes: &[RouteChange],
+) -> HashSet<V2<usize>> {
+    route_changes
+        .iter()
+        .flat_map(|route_change| update_position_traffic_and_get_changes(state, route_change))
+        .collect()
+}
+
+fn update_position_traffic_and_get_changes(
     state: &mut State,
     route_change: &RouteChange,
 ) -> Vec<V2<usize>> {
@@ -61,7 +71,6 @@ mod tests {
 
     use crate::resource::Resource;
     use commons::index2d::Vec2D;
-    use commons::same_elements;
     use commons::v2;
     use std::collections::HashSet;
     use std::time::Duration;
@@ -112,12 +121,12 @@ mod tests {
         };
 
         // When
-        let positions = update_traffic_and_get_changes(&mut state(), &change);
+        let positions = update_all_position_traffic_and_get_changes(&mut state(), &[change]);
 
         // Then
         assert_eq!(
             positions,
-            vec![v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5),]
+            hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
         );
     }
 
@@ -131,7 +140,7 @@ mod tests {
         let mut state = state();
 
         // When
-        update_traffic_and_get_changes(&mut state, &change);
+        update_all_position_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = traffic();
@@ -151,13 +160,10 @@ mod tests {
         };
 
         // When
-        let positions = update_traffic_and_get_changes(&mut state(), &change);
+        let positions = update_all_position_traffic_and_get_changes(&mut state(), &[change]);
 
         // Then
-        assert!(same_elements(
-            &positions,
-            &[v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5),]
-        ));
+        assert_eq!(positions, hashset! {v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5)});
     }
 
     #[test]
@@ -174,7 +180,7 @@ mod tests {
         }
 
         // When
-        update_traffic_and_get_changes(&mut state, &change);
+        update_all_position_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = traffic();
@@ -198,7 +204,7 @@ mod tests {
         }
 
         // When
-        update_traffic_and_get_changes(&mut state, &change);
+        update_all_position_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = traffic();
@@ -217,12 +223,12 @@ mod tests {
         };
 
         // When
-        let positions = update_traffic_and_get_changes(&mut state(), &change);
+        let positions = update_all_position_traffic_and_get_changes(&mut state(), &[change]);
 
         // Then
         assert_eq!(
             positions,
-            vec![v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5),]
+            hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5),}
         );
     }
 
@@ -239,7 +245,7 @@ mod tests {
         }
 
         // When
-        update_traffic_and_get_changes(&mut state, &change);
+        update_all_position_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let expected = traffic();
@@ -264,7 +270,7 @@ mod tests {
         }
 
         // When
-        update_traffic_and_get_changes(&mut state, &change);
+        update_all_position_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = traffic();
@@ -294,7 +300,7 @@ mod tests {
         }
 
         // When
-        update_traffic_and_get_changes(&mut state, &change);
+        update_all_position_traffic_and_get_changes(&mut state, &[change]);
 
         // Then
         let mut expected = traffic();
@@ -302,5 +308,32 @@ mod tests {
             expected.mut_cell_unsafe(position).insert(key_2);
         }
         assert_eq!(state.traffic, expected);
+    }
+
+    #[test]
+    fn multiple_changes() {
+        // Given
+        let change_1 = RouteChange::New {
+            key: key(),
+            route: route_1(),
+        };
+        let change_2 = RouteChange::New {
+            key: RouteKey {
+                settlement: v2(1, 3),
+                resource: Resource::Coal,
+                destination: v2(1, 5),
+            },
+            route: route_2(),
+        };
+
+        // When
+        let positions =
+            update_all_position_traffic_and_get_changes(&mut state(), &[change_1, change_2]);
+
+        // Then
+        assert_eq!(
+            positions,
+            hashset! {v2(1, 3), v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
+        );
     }
 }
