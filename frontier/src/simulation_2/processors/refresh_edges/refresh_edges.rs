@@ -6,10 +6,10 @@ use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
 use std::collections::HashSet;
 
-const HANDLE: &str = "process_edge_traffic";
+const HANDLE: &str = "refresh_edges";
 const BATCH_SIZE: usize = 128;
 
-pub struct ProcessEdgeTraffic<G, T, P>
+pub struct RefreshEdges<G, T, P>
 where
     G: GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
@@ -20,7 +20,7 @@ where
     pathfinder: Arc<RwLock<P>>,
 }
 
-impl<G, T, P> Processor for ProcessEdgeTraffic<G, T, P>
+impl<G, T, P> Processor for RefreshEdges<G, T, P>
 where
     G: GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
@@ -31,12 +31,12 @@ where
             Instruction::ProcessRouteChanges(route_changes) => route_changes.clone(),
             _ => return state,
         };
-        let edge_changes = update_all_edge_traffic_and_get_changes(&mut state, &route_changes);
-        self.process_edge_changes_in_batches(state, edge_changes)
+        let changed_edges = update_all_edge_traffic_and_get_changes(&mut state, &route_changes);
+        self.refresh_edges_in_batches(state, changed_edges)
     }
 }
 
-impl<G, T, P> ProcessEdgeTraffic<G, T, P>
+impl<G, T, P> RefreshEdges<G, T, P>
 where
     G: GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
@@ -46,75 +46,69 @@ where
         game: &UpdateSender<G>,
         travel_duration: T,
         pathfinder: &Arc<RwLock<P>>,
-    ) -> ProcessEdgeTraffic<G, T, P> {
-        ProcessEdgeTraffic {
+    ) -> RefreshEdges<G, T, P> {
+        RefreshEdges {
             game: game.clone_with_handle(HANDLE),
             travel_duration: Arc::new(travel_duration),
             pathfinder: pathfinder.clone(),
         }
     }
 
-    fn process_edge_changes_in_batches(
-        &mut self,
-        mut state: State,
-        edge_changes: HashSet<Edge>,
-    ) -> State {
-        let edge_changes: Vec<Edge> = edge_changes.into_iter().collect();
-        for batch in edge_changes.chunks(BATCH_SIZE) {
-            state = self.process_edge_changes(state, batch.to_vec());
+    fn refresh_edges_in_batches(&mut self, mut state: State, edges: HashSet<Edge>) -> State {
+        let edges: Vec<Edge> = edges.into_iter().collect();
+        for batch in edges.chunks(BATCH_SIZE) {
+            state = self.refresh_edges(state, batch.to_vec());
         }
         state
     }
 
-    fn process_edge_changes(&mut self, state: State, edge_changes: Vec<Edge>) -> State {
+    fn refresh_edges(&mut self, state: State, edges: Vec<Edge>) -> State {
         let travel_duration = self.travel_duration.clone();
         let pathfinder = self.pathfinder.clone();
         block_on(async {
             self.game
-                .update(move |game| {
-                    process_edge_changes(game, travel_duration, pathfinder, state, edge_changes)
-                })
+                .update(move |game| refresh_edges(game, travel_duration, pathfinder, state, edges))
                 .await
         })
     }
 }
 
-fn process_edge_changes<G, T, P>(
+fn refresh_edges<G, T, P>(
     game: &mut G,
     travel_duration: Arc<T>,
     pathfinder: Arc<RwLock<P>>,
     mut state: State,
-    edge_changes: Vec<Edge>,
+    edges: Vec<Edge>,
 ) -> State
 where
     G: GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
     P: UpdateEdge + 'static,
 {
-    for edge_change in edge_changes {
-        process_edge_change(
+    for edge in edges {
+        refresh_edge(
             game,
             travel_duration.as_ref(),
             &pathfinder,
             &mut state,
-            edge_change,
+            edge,
         );
     }
     state
 }
 
-fn process_edge_change<G, T, P>(
+fn refresh_edge<G, T, P>(
     game: &mut G,
     travel_duration: &T,
     pathfinder: &Arc<RwLock<P>>,
     state: &mut State,
-    edge_change: Edge,
+    edge: Edge,
 ) where
     G: GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
     P: UpdateEdge + 'static,
 {
-    let edge_traffic = get_edge_traffic(game, travel_duration, &state, &edge_change);
+    let edge_traffic = get_edge_traffic(game, travel_duration, &state, &edge);
     if let Some(instruction) = try_build_road(game, pathfinder, &edge_traffic) {
         state.build_queue.push(instruction);
     }

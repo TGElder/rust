@@ -3,17 +3,17 @@ use super::*;
 use crate::game::traits::{GetRoute, HasWorld, Micros, Nations, Settlements, WhoControlsTile};
 use std::collections::HashSet;
 
-const HANDLE: &str = "process_position_traffic";
+const HANDLE: &str = "refresh_positions";
 const BATCH_SIZE: usize = 128;
 
-pub struct ProcessPositionTraffic<G>
+pub struct RefreshPositions<G>
 where
     G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
 {
     game: UpdateSender<G>,
 }
 
-impl<G> Processor for ProcessPositionTraffic<G>
+impl<G> Processor for RefreshPositions<G>
 where
     G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
 {
@@ -22,66 +22,58 @@ where
             Instruction::ProcessRouteChanges(route_changes) => route_changes.clone(),
             _ => return state,
         };
-        let position_changes =
+        let changed_positions =
             update_all_position_traffic_and_get_changes(&mut state, &route_changes);
-        self.process_position_changes_in_batches(state, position_changes)
+        self.refresh_positions_in_batches(state, changed_positions)
     }
 }
 
-impl<G> ProcessPositionTraffic<G>
+impl<G> RefreshPositions<G>
 where
     G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
 {
-    pub fn new(game: &UpdateSender<G>) -> ProcessPositionTraffic<G> {
-        ProcessPositionTraffic {
+    pub fn new(game: &UpdateSender<G>) -> RefreshPositions<G> {
+        RefreshPositions {
             game: game.clone_with_handle(HANDLE),
         }
     }
 
-    fn process_position_changes_in_batches(
+    fn refresh_positions_in_batches(
         &mut self,
         mut state: State,
-        position_changes: HashSet<V2<usize>>,
+        positions: HashSet<V2<usize>>,
     ) -> State {
-        let position_changes: Vec<V2<usize>> = position_changes.into_iter().collect();
-        for batch in position_changes.chunks(BATCH_SIZE) {
-            state = self.process_position_changes(state, batch.to_vec());
+        let positions: Vec<V2<usize>> = positions.into_iter().collect();
+        for batch in positions.chunks(BATCH_SIZE) {
+            state = self.refresh_positions(state, batch.to_vec());
         }
         state
     }
 
-    fn process_position_changes(
-        &mut self,
-        state: State,
-        position_changes: Vec<V2<usize>>,
-    ) -> State {
+    fn refresh_positions(&mut self, state: State, positions: Vec<V2<usize>>) -> State {
         block_on(async {
             self.game
-                .update(move |game| process_position_changes(game, state, position_changes))
+                .update(move |game| refresh_positions(game, state, positions))
                 .await
         })
     }
 }
 
-fn process_position_changes<G>(
-    game: &mut G,
-    mut state: State,
-    position_changes: Vec<V2<usize>>,
-) -> State
+fn refresh_positions<G>(game: &mut G, mut state: State, positions: Vec<V2<usize>>) -> State
 where
     G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
 {
-    for position_change in position_changes {
-        process_position_change(game, &mut state, position_change);
+    for position in positions {
+        refresh_position(game, &mut state, position);
     }
     state
 }
 
-fn process_position_change<G>(game: &mut G, state: &mut State, position_change: V2<usize>)
+fn refresh_position<G>(game: &mut G, state: &mut State, position: V2<usize>)
 where
     G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
 {
-    let traffic = get_position_traffic(game, &state, &position_change);
+    let traffic = get_position_traffic(game, &state, &position);
     if let Some(instruction) = try_build_town(game, &traffic) {
         state.build_queue.push(instruction);
     }
