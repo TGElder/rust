@@ -275,6 +275,7 @@ mod tests {
         sim_1.set_state(State {
             params: SimulationParams {
                 traffic_to_population: 0.123,
+                nation_flip_traffic_pc: 0.456,
             },
             instructions: vec![
                 Instruction::GetTerritory(v2(1, 1)),
