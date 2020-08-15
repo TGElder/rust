@@ -35,8 +35,11 @@ where
                 self.visible_land_positions(),
             ));
         }
-        for _position in get_traffic_positions(&state, &messages) {
-            // state.instructions.push(Instruction::GetTraffic(position)); //TODO fix
+        let positions_to_refresh = get_traffic_positions(&state, &messages);
+        if !positions_to_refresh.is_empty() {
+            state
+                .instructions
+                .push(Instruction::RefreshPositions(positions_to_refresh));
         }
         state
     }
@@ -158,8 +161,7 @@ mod tests {
     use std::collections::HashSet;
 
     #[test]
-    fn should_append_get_traffic_instruction_for_positions_surrounding_revealed_cell_with_traffic()
-    {
+    fn should_refresh_positions_surrounding_revealed_cell_with_traffic() {
         // Given
         let game = UpdateProcess::new(0);
         let mut processor = VisibilitySim::new(&game.tx());
@@ -200,15 +202,17 @@ mod tests {
             &state.instructions,
             &[
                 Instruction::VisibleLandPositions(0),
-                // Instruction::GetTraffic(v2(0, 1)),
-                // Instruction::GetTraffic(v2(1, 1)),
-                // Instruction::GetTraffic(v2(2, 1)),
-                // Instruction::GetTraffic(v2(0, 2)),
-                // Instruction::GetTraffic(v2(1, 2)),
-                // Instruction::GetTraffic(v2(2, 2)),
-                // Instruction::GetTraffic(v2(0, 3)),
-                // Instruction::GetTraffic(v2(1, 3)),
-                // Instruction::GetTraffic(v2(2, 3)),
+                Instruction::RefreshPositions(hashset! {
+                    v2(0, 1),
+                    v2(1, 1),
+                    v2(2, 1),
+                    v2(0, 2),
+                    v2(1, 2),
+                    v2(2, 2),
+                    v2(0, 3),
+                    v2(1, 3),
+                    v2(2, 3)
+                })
             ]
         ));
 
@@ -217,8 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn should_not_append_get_traffic_instruction_for_positions_surrounding_revealed_cell_without_traffic(
-    ) {
+    fn should_not_refresh_positions_surrounding_revealed_cell_without_traffic() {
         // Given
         let game = UpdateProcess::new(0);
         let mut processor = VisibilitySim::new(&game.tx());
@@ -243,48 +246,6 @@ mod tests {
         assert_eq!(
             state.instructions,
             vec![Instruction::VisibleLandPositions(0)]
-        );
-
-        // Finally
-        game.shutdown();
-    }
-
-    #[test]
-    fn should_not_append_duplicate_instructions() {
-        // Given
-        let game = UpdateProcess::new(0);
-        let mut processor = VisibilitySim::new(&game.tx());
-        let mut consumer = processor.consumer();
-
-        let mut traffic = Traffic::new(4, 4, HashSet::with_capacity(0));
-        let route_key = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Stone,
-            destination: v2(2, 2),
-        };
-        traffic.mut_cell_unsafe(&v2(2, 2)).insert(route_key);
-        let state = State {
-            traffic,
-            ..State::default()
-        };
-
-        // When
-        consumer.consume_game_event(
-            &GameState::default(),
-            &GameEvent::CellsRevealed {
-                selection: CellSelection::Some(vec![v2(1, 2), v2(3, 2)]),
-                by: "",
-            },
-        );
-        let state = processor.process(state, &Instruction::Step);
-
-        // Then
-        assert_eq!(
-            state.instructions,
-            vec![
-                Instruction::VisibleLandPositions(0),
-                // Instruction::GetTraffic(v2(2, 2))
-            ]
         );
 
         // Finally
