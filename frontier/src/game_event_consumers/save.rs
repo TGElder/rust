@@ -1,5 +1,5 @@
 use super::*;
-use crate::simulation_2::Simulation;
+use crate::simulation::Simulation;
 use commons::futures::executor::block_on;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 

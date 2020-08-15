@@ -1,21 +1,19 @@
-use super::*;
-
-use serde::{Deserialize, Serialize};
 use std::default::Default;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct SimParams {
-    pub start_year: u128,
-    pub natural_road: NaturalRoadSimParams,
-    pub town_traffic: TownTrafficSimParams,
+use super::*;
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+
+pub struct SimulationParams {
+    pub traffic_to_population: f64,
+    pub nation_flip_traffic_pc: f64,
 }
 
-impl Default for SimParams {
-    fn default() -> SimParams {
-        SimParams {
-            start_year: 0,
-            natural_road: NaturalRoadSimParams::default(),
-            town_traffic: TownTrafficSimParams::default(),
+impl Default for SimulationParams {
+    fn default() -> SimulationParams {
+        SimulationParams {
+            traffic_to_population: 0.5,
+            nation_flip_traffic_pc: 0.67,
         }
     }
 }

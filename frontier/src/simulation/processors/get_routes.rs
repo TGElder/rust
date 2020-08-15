@@ -1,7 +1,7 @@
 use super::*;
 use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, InBounds};
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
-use crate::simulation_2::game_event_consumers::target_set;
+use crate::simulation::game_event_consumers::target_set;
 use commons::get_corners;
 
 pub struct GetRoutes<P>
