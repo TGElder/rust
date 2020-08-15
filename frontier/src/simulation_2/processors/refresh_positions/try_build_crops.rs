@@ -2,8 +2,11 @@ use super::*;
 
 use crate::game::traits::HasWorld;
 use crate::resource::Resource;
-use crate::world::WorldObject;
+use crate::world::{World, WorldObject};
 use commons::grid::Grid;
+use commons::rand::prelude::*;
+use commons::rand::rngs::SmallRng;
+use commons::rand::SeedableRng;
 
 const FARM_RESOURCE: Resource = Resource::Crops;
 
@@ -21,7 +24,7 @@ pub fn try_build_crops(game: &dyn HasWorld, traffic: &TrafficSummary) -> Option<
         when: get_when(&crop_routes),
         what: Build::Crops {
             position: traffic.position,
-            rotated: true,
+            rotated: get_rotation(&game.world(), &traffic.position),
         },
     };
     Some(instruction)
@@ -46,6 +49,12 @@ fn get_when(routes: &[&RouteSummary]) -> u128 {
 
 fn get_first_visit_route<'a>(routes: &[&'a RouteSummary]) -> &'a RouteSummary {
     routes.iter().min_by_key(|route| route.first_visit).unwrap()
+}
+
+fn get_rotation(world: &World, position: &V2<usize>) -> bool {
+    let seed = position.y * world.width() + position.x;
+    let mut rng: SmallRng = SeedableRng::seed_from_u64(seed as u64);
+    rng.gen()
 }
 
 #[cfg(test)]
@@ -90,7 +99,7 @@ mod tests {
             instruction.what,
             Build::Crops {
                 position: v2(1, 2),
-                rotated: true,
+                rotated: get_rotation(&world(), &v2(1, 2)),
             }
         );
     }
