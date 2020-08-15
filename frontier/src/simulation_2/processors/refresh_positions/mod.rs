@@ -5,10 +5,8 @@ mod get_position_traffic;
 mod refresh_positions;
 mod try_build_crops;
 mod try_build_town;
-mod update_position_traffic;
 
 use get_position_traffic::get_position_traffic;
 pub use refresh_positions::RefreshPositions;
 use try_build_crops::try_build_crops;
 use try_build_town::try_build_town;
-use update_position_traffic::update_all_position_traffic_and_get_changes;

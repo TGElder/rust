@@ -17,14 +17,12 @@ impl<G> Processor for RefreshPositions<G>
 where
     G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let route_changes = match instruction {
-            Instruction::ProcessRouteChanges(route_changes) => route_changes.clone(),
+    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+        let positions = match instruction {
+            Instruction::RefreshPositions(positions) => positions.clone(),
             _ => return state,
         };
-        let changed_positions =
-            update_all_position_traffic_and_get_changes(&mut state, &route_changes);
-        self.refresh_positions_in_batches(state, changed_positions)
+        self.refresh_positions_in_batches(state, positions)
     }
 }
 

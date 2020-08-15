@@ -26,13 +26,12 @@ where
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let route_changes = match instruction {
-            Instruction::ProcessRouteChanges(route_changes) => route_changes.clone(),
+    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+        let edges = match instruction {
+            Instruction::RefreshEdges(edges) => edges.clone(),
             _ => return state,
         };
-        let changed_edges = update_all_edge_traffic_and_get_changes(&mut state, &route_changes);
-        self.refresh_edges_in_batches(state, changed_edges)
+        self.refresh_edges_in_batches(state, edges)
     }
 }
 

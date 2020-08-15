@@ -102,6 +102,8 @@ fn main() {
         Box::new(GetDemand::new(homeland_demand_fn)),
         Box::new(GetRoutes::new(&avatar_pathfinder)),
         Box::new(GetRouteChanges::new(game.tx())),
+        Box::new(UpdatePositionTraffic::new()),
+        Box::new(UpdateEdgeTraffic::new()),
         Box::new(RefreshPositions::new(&game.tx())),
         Box::new(RefreshEdges::new(
             &game.tx(),

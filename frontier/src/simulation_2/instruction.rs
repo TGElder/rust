@@ -22,6 +22,8 @@ pub enum Instruction {
         route_set: RouteSet,
     },
     ProcessRouteChanges(Vec<RouteChange>),
+    RefreshPositions(HashSet<V2<usize>>),
+    RefreshEdges(HashSet<Edge>),
     Build,
     VisibleLandPositions(usize),
 }

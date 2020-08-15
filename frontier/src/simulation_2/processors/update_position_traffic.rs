@@ -4,7 +4,30 @@ use crate::route::{Route, RouteKey};
 use commons::grid::Grid;
 use std::collections::HashSet;
 
-pub fn update_all_position_traffic_and_get_changes(
+pub struct UpdatePositionTraffic {}
+
+impl Processor for UpdatePositionTraffic {
+    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+        let route_changes = match instruction {
+            Instruction::ProcessRouteChanges(route_changes) => route_changes,
+            _ => return state,
+        };
+        let changed_positions =
+            update_all_position_traffic_and_get_changes(&mut state, route_changes);
+        state
+            .instructions
+            .push(Instruction::RefreshPositions(changed_positions));
+        state
+    }
+}
+
+impl UpdatePositionTraffic {
+    pub fn new() -> UpdatePositionTraffic {
+        UpdatePositionTraffic {}
+    }
+}
+
+fn update_all_position_traffic_and_get_changes(
     state: &mut State,
     route_changes: &[RouteChange],
 ) -> HashSet<V2<usize>> {
@@ -113,7 +136,7 @@ mod tests {
     }
 
     #[test]
-    fn new_route_should_return_all_positions_in_route() {
+    fn new_route_should_refresh_all_positions_in_route() {
         // Given
         let change = RouteChange::New {
             key: key(),
@@ -121,12 +144,15 @@ mod tests {
         };
 
         // When
-        let positions = update_all_position_traffic_and_get_changes(&mut state(), &[change]);
+        let state = UpdatePositionTraffic::new()
+            .process(state(), &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         assert_eq!(
-            positions,
-            hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
+            state.instructions,
+            vec![Instruction::RefreshPositions(
+                hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
+            )]
         );
     }
 
@@ -137,10 +163,11 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut state = state();
+        let state = state();
 
         // When
-        update_all_position_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdatePositionTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = traffic();
@@ -151,7 +178,7 @@ mod tests {
     }
 
     #[test]
-    fn updated_route_return_diferent_positions() {
+    fn updated_route_should_refresh_diferent_positions() {
         // Given
         let change = RouteChange::Updated {
             key: key(),
@@ -160,10 +187,16 @@ mod tests {
         };
 
         // When
-        let positions = update_all_position_traffic_and_get_changes(&mut state(), &[change]);
+        let state = UpdatePositionTraffic::new()
+            .process(state(), &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
-        assert_eq!(positions, hashset! {v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5)});
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::RefreshPositions(
+                hashset! {v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5)}
+            )]
+        );
     }
 
     #[test]
@@ -180,7 +213,8 @@ mod tests {
         }
 
         // When
-        update_all_position_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdatePositionTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = traffic();
@@ -204,7 +238,8 @@ mod tests {
         }
 
         // When
-        update_all_position_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdatePositionTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = traffic();
@@ -215,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn removed_route_should_return_all_positions_in_route() {
+    fn removed_route_should_refresh_all_positions_in_route() {
         // Given
         let change = RouteChange::Removed {
             key: key(),
@@ -223,12 +258,15 @@ mod tests {
         };
 
         // When
-        let positions = update_all_position_traffic_and_get_changes(&mut state(), &[change]);
+        let state = UpdatePositionTraffic::new()
+            .process(state(), &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         assert_eq!(
-            positions,
-            hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5),}
+            state.instructions,
+            vec![Instruction::RefreshPositions(
+                hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
+            )]
         );
     }
 
@@ -245,7 +283,8 @@ mod tests {
         }
 
         // When
-        update_all_position_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdatePositionTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let expected = traffic();
@@ -270,7 +309,8 @@ mod tests {
         }
 
         // When
-        update_all_position_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdatePositionTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = traffic();
@@ -300,7 +340,8 @@ mod tests {
         }
 
         // When
-        update_all_position_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdatePositionTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = traffic();
@@ -327,13 +368,17 @@ mod tests {
         };
 
         // When
-        let positions =
-            update_all_position_traffic_and_get_changes(&mut state(), &[change_1, change_2]);
+        let state = UpdatePositionTraffic::new().process(
+            state(),
+            &Instruction::ProcessRouteChanges(vec![change_1, change_2]),
+        );
 
         // Then
         assert_eq!(
-            positions,
-            hashset! {v2(1, 3), v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
+            state.instructions,
+            vec![Instruction::RefreshPositions(
+                hashset! {v2(1, 3), v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
+            )]
         );
     }
 }

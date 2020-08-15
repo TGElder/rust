@@ -4,6 +4,28 @@ use crate::route::{Route, RouteKey};
 use commons::edge::{Edge, Edges};
 use std::collections::HashSet;
 
+pub struct UpdateEdgeTraffic {}
+
+impl Processor for UpdateEdgeTraffic {
+    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+        let route_changes = match instruction {
+            Instruction::ProcessRouteChanges(route_changes) => route_changes,
+            _ => return state,
+        };
+        let changed_edges = update_all_edge_traffic_and_get_changes(&mut state, route_changes);
+        state
+            .instructions
+            .push(Instruction::RefreshEdges(changed_edges));
+        state
+    }
+}
+
+impl UpdateEdgeTraffic {
+    pub fn new() -> UpdateEdgeTraffic {
+        UpdateEdgeTraffic {}
+    }
+}
+
 pub fn update_all_edge_traffic_and_get_changes(
     state: &mut State,
     route_changes: &[RouteChange],
@@ -131,7 +153,7 @@ mod tests {
     }
 
     #[test]
-    fn new_route_should_return_all_edges_in_route() {
+    fn new_route_should_refresh_all_edges_in_route() {
         // Given
         let change = RouteChange::New {
             key: key(),
@@ -139,17 +161,18 @@ mod tests {
         };
 
         // When
-        let edges = update_all_edge_traffic_and_get_changes(&mut state(), &[change]);
+        let state = UpdateEdgeTraffic::new()
+            .process(state(), &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         assert_eq!(
-            edges,
-            hashset! {
+            state.instructions,
+            vec![Instruction::RefreshEdges(hashset! {
                 Edge::new(v2(1, 3), v2(2, 3)),
                 Edge::new(v2(2, 3), v2(2, 4)),
                 Edge::new(v2(2, 4), v2(2, 5)),
                 Edge::new(v2(2, 5), v2(1, 5)),
-            }
+            })]
         );
     }
 
@@ -160,10 +183,11 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut state = state();
+        let state = state();
 
         // When
-        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -174,7 +198,7 @@ mod tests {
     }
 
     #[test]
-    fn updated_route_should_return_different_edges() {
+    fn updated_route_should_refresh_different_edges() {
         // Given
         let change = RouteChange::Updated {
             key: key(),
@@ -187,17 +211,18 @@ mod tests {
         }
 
         // When
-        let edges = update_all_edge_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         assert_eq!(
-            &edges,
-            &hashset! {
-                Edge::new(v2(1, 3), v2(2, 3)),
-                Edge::new(v2(2, 3), v2(2, 4)),
-                Edge::new(v2(1, 3), v2(1, 4)),
-                Edge::new(v2(1, 4), v2(2, 4)),
-            }
+            state.instructions,
+            vec![Instruction::RefreshEdges(hashset! {
+             Edge::new(v2(1, 3), v2(2, 3)),
+             Edge::new(v2(2, 3), v2(2, 4)),
+             Edge::new(v2(1, 3), v2(1, 4)),
+             Edge::new(v2(1, 4), v2(2, 4)),
+            })]
         );
     }
 
@@ -215,7 +240,8 @@ mod tests {
         }
 
         // When
-        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -239,7 +265,8 @@ mod tests {
         }
 
         // When
-        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -250,7 +277,7 @@ mod tests {
     }
 
     #[test]
-    fn removed_route_should_return_all_edges_in_route() {
+    fn removed_route_should_refresh_all_edges_in_route() {
         // Given
         let change = RouteChange::Removed {
             key: key(),
@@ -262,17 +289,18 @@ mod tests {
         }
 
         // When
-        let edges = update_all_edge_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         assert_eq!(
-            edges,
-            hashset! {
-                Edge::new(v2(1, 3), v2(2, 3)),
-                Edge::new(v2(2, 3), v2(2, 4)),
-                Edge::new(v2(2, 4), v2(2, 5)),
-                Edge::new(v2(2, 5), v2(1, 5)),
-            }
+            state.instructions,
+            vec![Instruction::RefreshEdges(hashset! {
+             Edge::new(v2(1, 3), v2(2, 3)),
+             Edge::new(v2(2, 3), v2(2, 4)),
+             Edge::new(v2(2, 4), v2(2, 5)),
+             Edge::new(v2(2, 5), v2(1, 5)),
+            })]
         );
     }
 
@@ -289,7 +317,8 @@ mod tests {
         }
 
         // When
-        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let expected = hashmap! {};
@@ -314,7 +343,8 @@ mod tests {
         }
 
         // When
-        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -342,7 +372,8 @@ mod tests {
         }
 
         // When
-        update_all_edge_traffic_and_get_changes(&mut state, &[change]);
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -369,19 +400,22 @@ mod tests {
         };
 
         // When
-        let edges = update_all_edge_traffic_and_get_changes(&mut state(), &[change_1, change_2]);
+        let state = UpdateEdgeTraffic::new().process(
+            state(),
+            &Instruction::ProcessRouteChanges(vec![change_1, change_2]),
+        );
 
         // Then
         assert_eq!(
-            edges,
-            hashset! {
-                Edge::new(v2(1, 3), v2(2, 3)),
-                Edge::new(v2(2, 3), v2(2, 4)),
-                Edge::new(v2(2, 4), v2(2, 5)),
-                Edge::new(v2(2, 5), v2(1, 5)),
-                Edge::new(v2(1, 3), v2(1, 4)),
-                Edge::new(v2(1, 4), v2(2, 4)),
-            }
+            state.instructions,
+            vec![Instruction::RefreshEdges(hashset! {
+               Edge::new(v2(1, 3), v2(2, 3)),
+               Edge::new(v2(2, 3), v2(2, 4)),
+               Edge::new(v2(2, 4), v2(2, 5)),
+               Edge::new(v2(2, 5), v2(1, 5)),
+               Edge::new(v2(1, 3), v2(1, 4)),
+               Edge::new(v2(1, 4), v2(2, 4)),
+            })]
         );
     }
 }
