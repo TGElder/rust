@@ -1,4 +1,6 @@
-use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, PositionsWithin, UpdateEdge};
+use crate::pathfinder::traits::{
+    ClosestTargetResult, ClosestTargets, InBounds, PositionsWithin, UpdateEdge,
+};
 use crate::travel_duration::*;
 use crate::world::*;
 use commons::edge::Edge;
@@ -30,11 +32,6 @@ where
             travel_duration,
             network: Network::new(world.width() * world.height(), &[]),
         }
-    }
-
-    #[allow(dead_code)] // TODO
-    pub fn in_bounds(&self, position: &V2<usize>) -> bool {
-        self.index.get_index(position).is_ok()
     }
 
     fn get_network_index(&self, position: &V2<usize>) -> usize {
@@ -242,6 +239,15 @@ where
     }
 }
 
+impl<T> InBounds for Pathfinder<T>
+where
+    T: TravelDuration,
+{
+    fn in_bounds(&self, position: &V2<usize>) -> bool {
+        self.index.get_index(position).is_ok()
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -308,16 +314,6 @@ mod tests {
         let mut out = Pathfinder::new(world, travel_duration());
         out.reset_edges(world);
         out
-    }
-
-    #[test]
-    fn test_in_bounds() {
-        assert!(pathfinder().in_bounds(&v2(1, 1)));
-    }
-
-    #[test]
-    fn test_out_of_bounds() {
-        assert!(!pathfinder().in_bounds(&v2(3, 1)));
     }
 
     #[test]
@@ -707,5 +703,26 @@ mod tests {
             pathfinder.get_network_edge(&world, &v2(0, 0), &v2(1, 0)),
             Some(NetworkEdge::new(0, 1, 64))
         );
+    }
+
+    #[test]
+    fn test_in_bounds() {
+        let pathfinder = pathfinder();
+        assert!(pathfinder.in_bounds(&v2(0, 0)));
+        assert!(pathfinder.in_bounds(&v2(1, 0)));
+        assert!(pathfinder.in_bounds(&v2(2, 0)));
+        assert!(!pathfinder.in_bounds(&v2(3, 0)));
+        assert!(pathfinder.in_bounds(&v2(0, 1)));
+        assert!(pathfinder.in_bounds(&v2(1, 1)));
+        assert!(pathfinder.in_bounds(&v2(2, 1)));
+        assert!(!pathfinder.in_bounds(&v2(3, 1)));
+        assert!(pathfinder.in_bounds(&v2(0, 2)));
+        assert!(pathfinder.in_bounds(&v2(1, 2)));
+        assert!(pathfinder.in_bounds(&v2(2, 2)));
+        assert!(!pathfinder.in_bounds(&v2(3, 2)));
+        assert!(!pathfinder.in_bounds(&v2(0, 3)));
+        assert!(!pathfinder.in_bounds(&v2(1, 3)));
+        assert!(!pathfinder.in_bounds(&v2(2, 3)));
+        assert!(!pathfinder.in_bounds(&v2(3, 3)));
     }
 }

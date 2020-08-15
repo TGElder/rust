@@ -1,18 +1,19 @@
 use super::*;
-use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets};
+use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, InBounds};
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation_2::game_event_consumers::target_set;
+use commons::get_corners;
 
 pub struct GetRoutes<P>
 where
-    P: ClosestTargets,
+    P: ClosestTargets + InBounds,
 {
     pathfinder: Arc<RwLock<P>>,
 }
 
 impl<P> Processor for GetRoutes<P>
 where
-    P: ClosestTargets,
+    P: ClosestTargets + InBounds,
 {
     fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let demand = match instruction {
@@ -35,7 +36,7 @@ where
 
 impl<P> GetRoutes<P>
 where
-    P: ClosestTargets,
+    P: ClosestTargets + InBounds,
 {
     pub fn new(pathfinder: &Arc<RwLock<P>>) -> GetRoutes<P> {
         GetRoutes {
@@ -44,13 +45,14 @@ where
     }
 
     fn closest_targets(&self, demand: &Demand) -> Vec<ClosestTargetResult> {
-        let positions = [demand.position];
         let target_set = target_set(demand.resource);
         let sources = demand.sources;
-        self.pathfinder
-            .read()
-            .unwrap()
-            .closest_targets(&positions, &target_set, sources)
+        let pathfinder = self.pathfinder.read().unwrap();
+        let corners: Vec<V2<usize>> = get_corners(&demand.position)
+            .into_iter()
+            .filter(|corner| pathfinder.in_bounds(corner))
+            .collect();
+        pathfinder.closest_targets(&corners, &target_set, sources)
     }
 }
 
@@ -84,7 +86,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use commons::v2;
+    use commons::{same_elements, v2};
     use std::collections::HashMap;
     use std::time::Duration;
 
@@ -99,11 +101,11 @@ mod tests {
 
             fn closest_targets(
                 &self,
-                position: &[V2<usize>],
+                positions: &[V2<usize>],
                 target_set: &str,
                 n_closest: usize,
             ) -> Vec<ClosestTargetResult> {
-                assert_eq!(position, &[v2(1, 3)]);
+                assert!(same_elements(positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
                 assert_eq!(target_set, "resource-coal");
                 assert_eq!(n_closest, 2);
                 vec![
@@ -118,6 +120,12 @@ mod tests {
                         duration: Duration::from_secs(4),
                     },
                 ]
+            }
+        }
+
+        impl InBounds for MockPathfinder {
+            fn in_bounds(&self, position: &V2<usize>) -> bool {
+                *position != v2(2, 4)
             }
         }
 
@@ -183,14 +191,20 @@ mod tests {
 
             fn closest_targets(
                 &self,
-                position: &[V2<usize>],
+                positions: &[V2<usize>],
                 target_set: &str,
                 n_closest: usize,
             ) -> Vec<ClosestTargetResult> {
-                assert_eq!(position, &[v2(1, 3)]);
+                assert!(same_elements(positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
                 assert_eq!(target_set, "resource-coal");
                 assert_eq!(n_closest, 2);
                 vec![]
+            }
+        }
+
+        impl InBounds for MockPathfinder {
+            fn in_bounds(&self, position: &V2<usize>) -> bool {
+                *position != v2(2, 4)
             }
         }
 
