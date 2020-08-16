@@ -45,6 +45,7 @@ fn update_position_traffic_and_get_changes(
         RouteChange::New { key, route } => new(state, &key, &route),
         RouteChange::Updated { key, old, new } => updated(state, &key, &old, &new),
         RouteChange::Removed { key, route } => removed(state, &key, &route),
+        RouteChange::NoChange { route, .. } => no_change(&route),
     }
 }
 
@@ -65,14 +66,17 @@ fn updated(state: &mut State, key: &RouteKey, old: &Route, new: &Route) -> Vec<V
 
     let added = new.difference(&old).cloned();
     let removed = old.difference(&new).cloned();
+    let union = new.union(&old).cloned();
 
     for position in added {
         state.traffic.mut_cell_unsafe(&position).insert(*key);
-        out.push(*position);
     }
 
     for position in removed {
         state.traffic.mut_cell_unsafe(&position).remove(key);
+    }
+
+    for position in union {
         out.push(*position);
     }
 
@@ -86,6 +90,10 @@ fn removed(state: &mut State, key: &RouteKey, route: &Route) -> Vec<V2<usize>> {
         out.push(*position);
     }
     out
+}
+
+fn no_change(route: &Route) -> Vec<V2<usize>> {
+    route.path.clone()
 }
 
 #[cfg(test)]
@@ -178,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn updated_route_should_refresh_diferent_positions() {
+    fn updated_route_should_refresh_positions_from_old_and_new_route() {
         // Given
         let change = RouteChange::Updated {
             key: key(),
@@ -194,7 +202,7 @@ mod tests {
         assert_eq!(
             state.instructions,
             vec![Instruction::RefreshPositions(
-                hashset! {v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5)}
+                hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5), v2(1, 4)}
             )]
         );
     }
@@ -289,6 +297,44 @@ mod tests {
         // Then
         let expected = traffic();
         assert_eq!(state.traffic, expected);
+    }
+
+    #[test]
+    fn no_change_route_should_refresh_all_positions_in_route() {
+        // Given
+        let change = RouteChange::NoChange {
+            key: key(),
+            route: route_1(),
+        };
+
+        // When
+        let state = UpdatePositionTraffic::new()
+            .process(state(), &Instruction::ProcessRouteChanges(vec![change]));
+
+        // Then
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::RefreshPositions(
+                hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
+            )]
+        );
+    }
+
+    #[test]
+    fn no_change_route_should_not_change_traffic() {
+        // Given
+        let change = RouteChange::NoChange {
+            key: key(),
+            route: route_1(),
+        };
+        let state = state();
+
+        // When
+        let state = UpdatePositionTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+
+        // Then
+        assert_eq!(state.traffic, traffic(),);
     }
 
     #[test]

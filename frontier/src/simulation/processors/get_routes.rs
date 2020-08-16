@@ -245,7 +245,7 @@ mod tests {
     }
 
     impl InBounds for PanicPathfinder {
-        fn in_bounds(&self, position: &V2<usize>) -> bool {
+        fn in_bounds(&self, _: &V2<usize>) -> bool {
             panic!("in_bounds was called!");
         }
     }

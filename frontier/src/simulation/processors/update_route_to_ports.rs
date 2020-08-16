@@ -73,6 +73,7 @@ where
         RouteChange::New { key, route } => update(game, state, key, route),
         RouteChange::Updated { key, new, .. } => update(game, state, key, new),
         RouteChange::Removed { key, .. } => remove(state, key),
+        _ => (),
     }
 }
 

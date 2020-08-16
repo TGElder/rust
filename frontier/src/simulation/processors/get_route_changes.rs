@@ -92,19 +92,22 @@ fn add_and_get_change(
         .entry(set_key)
         .or_insert_with(HashMap::new);
     match route_set.entry(key) {
-        Entry::Occupied(mut entry) if *entry.get() != route => {
-            let old = entry.insert(route.clone());
-            Some(RouteChange::Updated {
-                key,
-                old,
-                new: route,
-            })
+        Entry::Occupied(mut entry) => {
+            if *entry.get() == route {
+                Some(RouteChange::NoChange { key, route })
+            } else {
+                let old = entry.insert(route.clone());
+                Some(RouteChange::Updated {
+                    key,
+                    old,
+                    new: route,
+                })
+            }
         }
         Entry::Vacant(entry) => {
             entry.insert(route.clone());
             Some(RouteChange::New { key, route })
         }
-        _ => None,
     }
 }
 
@@ -260,7 +263,7 @@ mod tests {
     }
 
     #[test]
-    fn should_not_add_route_nor_instruction_if_route_is_unchanged() {
+    fn should_add_no_change_instruction_if_route_is_unchanged() {
         //Given
         let set_key = RouteSetKey {
             settlement: v2(1, 3),
@@ -279,7 +282,7 @@ mod tests {
         };
 
         let route_set = hashmap! {
-            key => route
+            key => route.clone()
         };
 
         let routes = hashmap! {
@@ -297,7 +300,12 @@ mod tests {
         let state = processor.process(State::default(), &instruction);
 
         // Then
-        assert_eq!(state.instructions, vec![],);
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::ProcessRouteChanges(vec![
+                RouteChange::NoChange { key, route }
+            ])],
+        );
         let routes = game.shutdown();
         assert_eq!(
             routes,

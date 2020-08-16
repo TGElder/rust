@@ -41,6 +41,7 @@ fn update_edge_traffic_and_get_changes(state: &mut State, route_change: &RouteCh
         RouteChange::New { key, route } => new(state, &key, &route),
         RouteChange::Updated { key, old, new } => updated(state, &key, &old, &new),
         RouteChange::Removed { key, route } => removed(state, &key, &route),
+        RouteChange::NoChange { route, .. } => no_change(&route),
     };
     remove_zero_traffic_entries(state);
     out
@@ -66,6 +67,7 @@ fn updated(state: &mut State, key: &RouteKey, old: &Route, new: &Route) -> Vec<E
 
     let added = new_edges.difference(&old_edges).cloned();
     let removed = old_edges.difference(&new_edges).cloned();
+    let union = new_edges.union(&old_edges).cloned();
 
     for edge in added {
         state
@@ -73,7 +75,6 @@ fn updated(state: &mut State, key: &RouteKey, old: &Route, new: &Route) -> Vec<E
             .entry(edge)
             .or_insert_with(HashSet::new)
             .insert(*key);
-        out.push(edge);
     }
 
     for edge in removed {
@@ -82,6 +83,9 @@ fn updated(state: &mut State, key: &RouteKey, old: &Route, new: &Route) -> Vec<E
             .entry(edge)
             .or_insert_with(HashSet::new)
             .remove(key);
+    }
+
+    for edge in union {
         out.push(edge);
     }
 
@@ -99,6 +103,10 @@ fn removed(state: &mut State, key: &RouteKey, route: &Route) -> Vec<Edge> {
         out.push(edge);
     }
     out
+}
+
+fn no_change(route: &Route) -> Vec<Edge> {
+    route.path.edges().collect()
 }
 
 fn remove_zero_traffic_entries(state: &mut State) {
@@ -198,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn updated_route_should_refresh_different_edges() {
+    fn updated_route_should_refresh_edges_in_old_and_new() {
         // Given
         let change = RouteChange::Updated {
             key: key(),
@@ -220,6 +228,8 @@ mod tests {
             vec![Instruction::RefreshEdges(hashset! {
              Edge::new(v2(1, 3), v2(2, 3)),
              Edge::new(v2(2, 3), v2(2, 4)),
+             Edge::new(v2(2, 4), v2(2, 5)),
+             Edge::new(v2(2, 5), v2(1, 5)),
              Edge::new(v2(1, 3), v2(1, 4)),
              Edge::new(v2(1, 4), v2(2, 4)),
             })]
@@ -323,6 +333,48 @@ mod tests {
         // Then
         let expected = hashmap! {};
         assert_eq!(state.edge_traffic, expected);
+    }
+
+    #[test]
+    fn no_change_route_should_refresh_all_edges_in_route() {
+        // Given
+        let change = RouteChange::NoChange {
+            key: key(),
+            route: route_1(),
+        };
+        let state = state();
+
+        // When
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+
+        // Then
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::RefreshEdges(hashset! {
+             Edge::new(v2(1, 3), v2(2, 3)),
+             Edge::new(v2(2, 3), v2(2, 4)),
+             Edge::new(v2(2, 4), v2(2, 5)),
+             Edge::new(v2(2, 5), v2(1, 5)),
+            })]
+        );
+    }
+
+    #[test]
+    fn no_change_route_should_not_change_edge_traffic() {
+        // Given
+        let change = RouteChange::NoChange {
+            key: key(),
+            route: route_1(),
+        };
+        let state = state();
+
+        // When
+        let state = UpdateEdgeTraffic::new()
+            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+
+        // Then
+        assert_eq!(state.edge_traffic, hashmap! {},);
     }
 
     #[test]

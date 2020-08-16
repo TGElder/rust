@@ -51,4 +51,8 @@ pub enum RouteChange {
         key: RouteKey,
         route: Route,
     },
+    NoChange {
+        key: RouteKey,
+        route: Route,
+    },
 }
