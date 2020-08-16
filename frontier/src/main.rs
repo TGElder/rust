@@ -62,18 +62,18 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let avatar_pathfinder = Arc::new(RwLock::new(Pathfinder::new(
+    let pathfinder_with_planned_roads = Arc::new(RwLock::new(Pathfinder::new(
         &game.game_state().world,
         AvatarTravelDuration::with_planned_roads_as_roads(&game.game_state().params.avatar_travel),
     )));
-    let road_pathfinder = Arc::new(RwLock::new(Pathfinder::new(
+    let pathfinder_without_planned_roads = Arc::new(RwLock::new(Pathfinder::new(
         &game.game_state().world,
-        AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
+        AvatarTravelDuration::with_planned_roads_ignored(&game.game_state().params.avatar_travel),
     )));
 
     let territory_updater = TerritoryUpdater::new(
         &game.tx(),
-        &avatar_pathfinder,
+        &pathfinder_without_planned_roads,
         game.game_state().params.town_travel_duration,
     );
 
@@ -100,7 +100,7 @@ fn main() {
         Box::new(UpdateCurrentPopulation::new(game.tx())),
         Box::new(GetDemand::new(town_demand_fn)),
         Box::new(GetDemand::new(homeland_demand_fn)),
-        Box::new(GetRoutes::new(&avatar_pathfinder)),
+        Box::new(GetRoutes::new(&pathfinder_with_planned_roads)),
         Box::new(GetRouteChanges::new(game.tx())),
         Box::new(UpdatePositionTraffic::new()),
         Box::new(UpdateEdgeTraffic::new()),
@@ -108,7 +108,7 @@ fn main() {
         Box::new(RefreshEdges::new(
             &game.tx(),
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
-            &avatar_pathfinder,
+            &pathfinder_with_planned_roads,
         )),
         Box::new(UpdateRouteToPorts::new(game.tx())),
         Box::new(visibility_sim),
@@ -122,22 +122,17 @@ fn main() {
     game.add_consumer(BasicAvatarControls::new(game.tx()));
     game.add_consumer(PathfindingAvatarControls::new(
         game.tx(),
-        &avatar_pathfinder,
+        &pathfinder_without_planned_roads,
         thread_pool.clone(),
     ));
     game.add_consumer(BasicRoadBuilder::new(game.tx()));
-    game.add_consumer(PathfindingRoadBuilder::new(
-        game.tx(),
-        &road_pathfinder,
-        thread_pool.clone(),
-    ));
     game.add_consumer(ObjectBuilder::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(TownBuilder::new(game.tx()));
     game.add_consumer(Cheats::new(game.tx()));
     game.add_consumer(Save::new(game.tx(), sim.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
-    game.add_consumer(ResourceTargets::new(&avatar_pathfinder));
+    game.add_consumer(ResourceTargets::new(&pathfinder_with_planned_roads));
 
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
@@ -162,8 +157,8 @@ fn main() {
 
     game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(Voyager::new(game.tx()));
-    game.add_consumer(PathfinderUpdater::new(&avatar_pathfinder));
-    game.add_consumer(PathfinderUpdater::new(&road_pathfinder));
+    game.add_consumer(PathfinderUpdater::new(&pathfinder_with_planned_roads));
+    game.add_consumer(PathfinderUpdater::new(&pathfinder_without_planned_roads));
     game.add_consumer(SimulationStateLoader::new(sim.tx()));
 
     game.add_consumer(ShutdownHandler::new(game.tx(), sim.tx(), thread_pool));
