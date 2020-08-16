@@ -17,7 +17,7 @@ where
             Instruction::GetDemand(settlement) => settlement,
             _ => return state,
         };
-        for demand in self.demand(settlement) {
+        for demand in (self.demand_fn)(settlement) {
             state.instructions.push(Instruction::GetRoutes(demand))
         }
         state
@@ -30,13 +30,6 @@ where
 {
     pub fn new(demand_fn: F) -> GetDemand<F> {
         GetDemand { demand_fn }
-    }
-
-    fn demand(&self, settlement: &Settlement) -> impl Iterator<Item = Demand> {
-        (self.demand_fn)(settlement)
-            .into_iter()
-            .filter(|demand| demand.quantity > 0)
-            .filter(|demand| demand.sources > 0)
     }
 }
 
@@ -84,15 +77,14 @@ mod tests {
     }
 
     #[test]
-    fn should_not_add_instruction_for_demand_with_zero_quantity() {
-        let demand_fn = |_: &Settlement| {
-            vec![Demand {
-                resource: Resource::Crops,
-                quantity: 0,
-                sources: 1,
-                ..Demand::default()
-            }]
+    fn should_add_instruction_for_demand_with_zero_quantity() {
+        let demand = Demand {
+            resource: Resource::Crops,
+            quantity: 0,
+            sources: 1,
+            ..Demand::default()
         };
+        let demand_fn = |_: &Settlement| vec![demand];
 
         let mut processor = GetDemand::new(demand_fn);
         let state = processor.process(
@@ -100,19 +92,18 @@ mod tests {
             &Instruction::GetDemand(Settlement::default()),
         );
 
-        assert_eq!(state.instructions, vec![]);
+        assert_eq!(state.instructions, vec![Instruction::GetRoutes(demand)]);
     }
 
     #[test]
-    fn should_not_add_instruction_for_demand_with_zero_sources() {
-        let demand_fn = |_: &Settlement| {
-            vec![Demand {
-                resource: Resource::Crops,
-                quantity: 1,
-                sources: 0,
-                ..Demand::default()
-            }]
+    fn should_add_instruction_for_demand_with_zero_sources() {
+        let demand = Demand {
+            resource: Resource::Crops,
+            quantity: 1,
+            sources: 0,
+            ..Demand::default()
         };
+        let demand_fn = |_: &Settlement| vec![demand];
 
         let mut processor = GetDemand::new(demand_fn);
         let state = processor.process(
@@ -120,6 +111,6 @@ mod tests {
             &Instruction::GetDemand(Settlement::default()),
         );
 
-        assert_eq!(state.instructions, vec![]);
+        assert_eq!(state.instructions, vec![Instruction::GetRoutes(demand)]);
     }
 }

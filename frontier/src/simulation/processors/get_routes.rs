@@ -21,15 +21,13 @@ where
             _ => return state,
         };
         let route_set: RouteSet = routes(&demand, self.closest_targets(&demand)).collect();
-        if !route_set.is_empty() {
-            state.instructions.push(Instruction::GetRouteChanges {
-                key: RouteSetKey {
-                    settlement: demand.position,
-                    resource: demand.resource,
-                },
-                route_set,
-            });
-        }
+        state.instructions.push(Instruction::GetRouteChanges {
+            key: RouteSetKey {
+                settlement: demand.position,
+                resource: demand.resource,
+            },
+            route_set,
+        });
         state
     }
 }
@@ -45,6 +43,9 @@ where
     }
 
     fn closest_targets(&self, demand: &Demand) -> Vec<ClosestTargetResult> {
+        if demand.sources == 0 || demand.quantity == 0 {
+            return vec![];
+        }
         let target_set = target_set(demand.resource);
         let sources = demand.sources;
         let pathfinder = self.pathfinder.read().unwrap();
@@ -219,6 +220,83 @@ mod tests {
 
         let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
 
-        assert_eq!(state.instructions, vec![]);
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::GetRouteChanges {
+                key: RouteSetKey {
+                    settlement: v2(1, 3),
+                    resource: Resource::Coal
+                },
+                route_set: hashmap! {}
+            }]
+        );
+    }
+
+    struct PanicPathfinder {}
+
+    impl ClosestTargets for PanicPathfinder {
+        fn init_targets(&mut self, _: String) {}
+
+        fn load_target(&mut self, _: &str, _: &V2<usize>, _: bool) {}
+
+        fn closest_targets(&self, _: &[V2<usize>], _: &str, _: usize) -> Vec<ClosestTargetResult> {
+            panic!("closest_targets was called!");
+        }
+    }
+
+    impl InBounds for PanicPathfinder {
+        fn in_bounds(&self, position: &V2<usize>) -> bool {
+            panic!("in_bounds was called!");
+        }
+    }
+
+    #[test]
+    fn zero_source_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
+        let pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
+        let mut processor = GetRoutes::new(&pathfinder);
+        let demand = Demand {
+            position: v2(1, 3),
+            resource: Resource::Coal,
+            sources: 0,
+            quantity: 1,
+        };
+
+        let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
+
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::GetRouteChanges {
+                key: RouteSetKey {
+                    settlement: v2(1, 3),
+                    resource: Resource::Coal
+                },
+                route_set: hashmap! {}
+            }]
+        );
+    }
+
+    #[test]
+    fn zero_quantity_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
+        let pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
+        let mut processor = GetRoutes::new(&pathfinder);
+        let demand = Demand {
+            position: v2(1, 3),
+            resource: Resource::Coal,
+            sources: 1,
+            quantity: 0,
+        };
+
+        let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
+
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::GetRouteChanges {
+                key: RouteSetKey {
+                    settlement: v2(1, 3),
+                    resource: Resource::Coal
+                },
+                route_set: hashmap! {}
+            }]
+        );
     }
 }
