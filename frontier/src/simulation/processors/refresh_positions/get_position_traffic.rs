@@ -1,11 +1,44 @@
 use super::*;
 
 use crate::game::traits::{GetRoute, HasWorld, Micros, Settlements, WhoControlsTile};
+use crate::resource::Resource;
 use crate::route::RouteKey;
 use commons::Grid;
 use std::collections::HashSet;
+use std::time::Duration;
 
-pub fn get_position_traffic<G>(game: &G, state: &State, position: &V2<usize>) -> TrafficSummary
+#[derive(Clone, Debug, PartialEq)]
+pub struct PositionTrafficSummary {
+    pub position: V2<usize>,
+    pub controller: Option<V2<usize>>,
+    pub routes: Vec<RouteSummary>,
+    pub adjacent: Vec<Tile>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tile {
+    pub position: V2<usize>,
+    pub sea: bool,
+    pub visible: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RouteSummary {
+    pub traffic: usize,
+    pub origin: V2<usize>,
+    pub destination: V2<usize>,
+    pub nation: String,
+    pub first_visit: u128,
+    pub duration: Duration,
+    pub resource: Resource,
+    pub ports: HashSet<V2<usize>>,
+}
+
+pub fn get_position_traffic<G>(
+    game: &G,
+    state: &State,
+    position: &V2<usize>,
+) -> PositionTrafficSummary
 where
     G: HasWorld + Micros + GetRoute + Settlements + WhoControlsTile,
 {
@@ -22,11 +55,11 @@ fn get_traffic_with_route_keys<G>(
     state: &State,
     position: &V2<usize>,
     route_keys: &HashSet<RouteKey>,
-) -> TrafficSummary
+) -> PositionTrafficSummary
 where
     G: HasWorld + Micros + GetRoute + Settlements + WhoControlsTile,
 {
-    TrafficSummary {
+    PositionTrafficSummary {
         position: *position,
         controller: game.who_controls_tile(&position).cloned(),
         routes: get_routes(game, state, route_keys),

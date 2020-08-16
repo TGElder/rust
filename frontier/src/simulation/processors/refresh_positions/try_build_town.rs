@@ -6,7 +6,7 @@ use commons::v2;
 use std::convert::TryInto;
 use std::time::Duration;
 
-pub fn try_build_town<G>(game: &mut G, traffic: &TrafficSummary) -> Option<BuildInstruction>
+pub fn try_build_town<G>(game: &mut G, traffic: &PositionTrafficSummary) -> Option<BuildInstruction>
 where
     G: Nations,
 {
@@ -126,7 +126,7 @@ mod tests {
         let mut game = nations();
 
         // When
-        let traffic = TrafficSummary {
+        let traffic = PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -189,7 +189,7 @@ mod tests {
         let mut game = nations();
 
         // When
-        let traffic = TrafficSummary {
+        let traffic = PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![
@@ -256,7 +256,7 @@ mod tests {
         let mut game = nations();
 
         // When
-        let traffic = TrafficSummary {
+        let traffic = PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -287,7 +287,7 @@ mod tests {
         }
     }
 
-    fn should_not_build_town(traffic: TrafficSummary) {
+    fn should_not_build_town(traffic: PositionTrafficSummary) {
         // Given
         let mut game = nations();
 
@@ -300,7 +300,7 @@ mod tests {
 
     #[test]
     fn should_not_build_town_if_no_route_ends_at_position() {
-        should_not_build_town(TrafficSummary {
+        should_not_build_town(PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     fn should_not_build_town_if_position_already_controlled() {
-        should_not_build_town(TrafficSummary {
+        should_not_build_town(PositionTrafficSummary {
             position: v2(1, 2),
             controller: Some(v2(1, 1)),
             routes: vec![RouteSummary {
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn should_not_build_town_in_sea() {
-        should_not_build_town(TrafficSummary {
+        should_not_build_town(PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn should_not_build_town_on_invisible_tile() {
-        should_not_build_town(TrafficSummary {
+        should_not_build_town(PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {

@@ -6,6 +6,28 @@ use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
 use std::collections::HashSet;
 
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+
+pub struct EdgeTrafficSummary {
+    pub edge: Edge,
+    pub road_status: RoadStatus,
+    pub routes: Vec<EdgeRouteSummary>,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub enum RoadStatus {
+    Built,
+    Planned(u128),
+    Suitable,
+    Unsuitable,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct EdgeRouteSummary {
+    pub traffic: usize,
+    pub first_visit: u128,
+}
+
 pub fn get_edge_traffic<G, T>(
     game: &G,
     travel_duration: &T,

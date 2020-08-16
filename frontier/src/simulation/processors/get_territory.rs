@@ -34,7 +34,7 @@ where
         self.territory.update_territory(settlement.position);
         let territory = self.territory(settlement.position);
 
-        state.instructions.push(Instruction::UpdateTown {
+        state.instructions.push(Instruction::GetTownTraffic {
             settlement,
             territory,
         });
@@ -144,7 +144,7 @@ mod tests {
         );
         assert_eq!(
             state.instructions[0],
-            Instruction::UpdateTown {
+            Instruction::GetTownTraffic {
                 settlement,
                 territory
             }

@@ -10,7 +10,10 @@ use commons::rand::SeedableRng;
 
 const FARM_RESOURCE: Resource = Resource::Crops;
 
-pub fn try_build_crops(game: &dyn HasWorld, traffic: &TrafficSummary) -> Option<BuildInstruction> {
+pub fn try_build_crops(
+    game: &dyn HasWorld,
+    traffic: &PositionTrafficSummary,
+) -> Option<BuildInstruction> {
     let crop_routes = get_crop_routes(&traffic);
     if crop_routes.is_empty() {
         return None;
@@ -30,7 +33,7 @@ pub fn try_build_crops(game: &dyn HasWorld, traffic: &TrafficSummary) -> Option<
     Some(instruction)
 }
 
-fn get_crop_routes(traffic: &TrafficSummary) -> Vec<&RouteSummary> {
+fn get_crop_routes(traffic: &PositionTrafficSummary) -> Vec<&RouteSummary> {
     traffic
         .routes
         .iter()
@@ -74,7 +77,7 @@ mod tests {
     #[test]
     fn should_build_crops_if_route_for_crops_end_here() {
         // Given
-        let traffic = TrafficSummary {
+        let traffic = PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -107,7 +110,7 @@ mod tests {
     #[test]
     fn when_should_be_first_crops_route_to_reach_cell() {
         // Given
-        let traffic = TrafficSummary {
+        let traffic = PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![
@@ -156,7 +159,7 @@ mod tests {
     #[test]
     fn should_not_build_crops_if_route_for_crops_does_not_end_here() {
         // Given
-        let traffic = TrafficSummary {
+        let traffic = PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -182,7 +185,7 @@ mod tests {
     #[test]
     fn should_not_build_crops_if_route_not_for_crops_ends_here() {
         // Given
-        let traffic = TrafficSummary {
+        let traffic = PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {
@@ -211,7 +214,7 @@ mod tests {
         let mut world = world();
         world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
 
-        let traffic = TrafficSummary {
+        let traffic = PositionTrafficSummary {
             position: v2(1, 2),
             controller: None,
             routes: vec![RouteSummary {

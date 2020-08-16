@@ -2,16 +2,16 @@ use super::*;
 use crate::game::traits::{Settlements, UpdateSettlement};
 use crate::settlement::{Settlement, SettlementClass::Homeland};
 
-const HANDLE: &str = "homeland_target_population";
+const HANDLE: &str = "update_homeland_population";
 
-pub struct HomelandTargetPopulation<G>
+pub struct UpdateHomelandPopulation<G>
 where
     G: Settlements + UpdateSettlement,
 {
     game: UpdateSender<G>,
 }
 
-impl<G> Processor for HomelandTargetPopulation<G>
+impl<G> Processor for UpdateHomelandPopulation<G>
 where
     G: Settlements + UpdateSettlement,
 {
@@ -25,12 +25,12 @@ where
     }
 }
 
-impl<G> HomelandTargetPopulation<G>
+impl<G> UpdateHomelandPopulation<G>
 where
     G: Settlements + UpdateSettlement,
 {
-    pub fn new(game: &UpdateSender<G>) -> HomelandTargetPopulation<G> {
-        HomelandTargetPopulation {
+    pub fn new(game: &UpdateSender<G>) -> UpdateHomelandPopulation<G> {
+        UpdateHomelandPopulation {
             game: game.clone_with_handle(HANDLE),
         }
     }
@@ -100,7 +100,7 @@ mod tests {
             },
         };
         let game = UpdateProcess::new(settlements);
-        let mut processor = HomelandTargetPopulation::new(&game.tx());
+        let mut processor = UpdateHomelandPopulation::new(&game.tx());
 
         // When
         processor.process(State::default(), &Instruction::VisibleLandPositions(202));

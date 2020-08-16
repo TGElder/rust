@@ -5,6 +5,6 @@ mod get_edge_traffic;
 mod refresh_edges;
 mod try_build_road;
 
-use get_edge_traffic::get_edge_traffic;
+use get_edge_traffic::{get_edge_traffic, EdgeRouteSummary, EdgeTrafficSummary, RoadStatus};
 pub use refresh_edges::RefreshEdges;
 use try_build_road::try_build_road;

@@ -1,18 +1,20 @@
 use super::*;
-use crate::resource::Resource;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::settlement::Settlement;
 use commons::edge::Edge;
 use std::collections::HashSet;
-use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
     Step,
     GetTerritory(V2<usize>),
-    UpdateTown {
+    GetTownTraffic {
         settlement: Settlement,
         territory: HashSet<V2<usize>>,
+    },
+    UpdateTown {
+        settlement: Settlement,
+        traffic: Vec<TownTrafficSummary>,
     },
     UpdateCurrentPopulation(V2<usize>),
     GetDemand(Settlement),
@@ -26,6 +28,12 @@ pub enum Instruction {
     RefreshEdges(HashSet<Edge>),
     Build,
     VisibleLandPositions(usize),
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct TownTrafficSummary {
+    pub nation: String,
+    pub traffic_share: f64,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -43,53 +51,4 @@ pub enum RouteChange {
         key: RouteKey,
         route: Route,
     },
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct TrafficSummary {
-    pub position: V2<usize>,
-    pub controller: Option<V2<usize>>,
-    pub routes: Vec<RouteSummary>,
-    pub adjacent: Vec<Tile>,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct Tile {
-    pub position: V2<usize>,
-    pub sea: bool,
-    pub visible: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct RouteSummary {
-    pub traffic: usize,
-    pub origin: V2<usize>,
-    pub destination: V2<usize>,
-    pub nation: String,
-    pub first_visit: u128,
-    pub duration: Duration,
-    pub resource: Resource,
-    pub ports: HashSet<V2<usize>>,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-
-pub struct EdgeTrafficSummary {
-    pub edge: Edge,
-    pub road_status: RoadStatus,
-    pub routes: Vec<EdgeRouteSummary>,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub enum RoadStatus {
-    Built,
-    Planned(u128),
-    Suitable,
-    Unsuitable,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct EdgeRouteSummary {
-    pub traffic: usize,
-    pub first_visit: u128,
 }
