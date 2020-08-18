@@ -43,7 +43,7 @@ impl TravelModeFn for AvatarTravelModeFn {
             } else {
                 if cell.road.here() {
                     out.push(TravelMode::Road);
-                } else if cell.planned_road.is_some() {
+                } else if cell.planned_road.here() {
                     out.push(TravelMode::PlannedRoad);
                 }
                 if self.is_navigable_river_here(world, position) {

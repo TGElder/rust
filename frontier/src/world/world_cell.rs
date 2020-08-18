@@ -1,4 +1,5 @@
 use super::climate::*;
+use super::planned_road::*;
 use super::world_object::*;
 use crate::resource::Resource;
 use commons::junction::*;
@@ -13,16 +14,10 @@ pub struct WorldCell {
     pub visible: bool,
     pub river: Junction,
     pub road: Junction,
-    pub planned_road: Option<PlannedRoad>,
+    pub planned_road: PlannedRoad,
     pub climate: Climate,
     pub object: WorldObject,
     pub resource: Resource,
-}
-
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
-pub struct PlannedRoad {
-    pub when: u128,
-    pub junction: Junction,
 }
 
 impl WorldCell {
@@ -33,7 +28,7 @@ impl WorldCell {
             visible: false,
             river: Junction::default(),
             road: Junction::default(),
-            planned_road: None,
+            planned_road: PlannedRoad::default(),
             climate: Climate::default(),
             object: WorldObject::None,
             resource: Resource::None,
