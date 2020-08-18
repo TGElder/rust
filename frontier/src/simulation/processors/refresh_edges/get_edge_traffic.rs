@@ -217,7 +217,7 @@ mod tests {
         let edge = Edge::new(v2(1, 2), v2(1, 3));
 
         let mut world = world();
-        world.plan_road(&edge, true, 404);
+        world.plan_road(&edge, Some(404));
         let game = MockGame {
             world,
             ..MockGame::default()

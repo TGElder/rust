@@ -273,7 +273,7 @@ mod tests {
 
         world.reveal_all();
 
-        world.plan_road(&Edge::new(v2(0, 0), v2(0, 1)), true, 404);
+        world.plan_road(&Edge::new(v2(0, 0), v2(0, 1)), Some(404));
 
         assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(0, 1)), Some(road_travel_duration().max_duration()));
     }

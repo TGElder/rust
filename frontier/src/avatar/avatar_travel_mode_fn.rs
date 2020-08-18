@@ -239,7 +239,7 @@ mod tests {
         let travel_mode_fn = travel_mode_fn();
         let edge = Edge::new(v2(0, 3), v2(1, 3));
         world.set_road(&edge, false);
-        world.plan_road(&edge, true, 0);
+        world.plan_road(&edge, Some(0));
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(0, 3), &v2(1, 3)),
             Some(TravelMode::PlannedRoad)
@@ -270,7 +270,7 @@ mod tests {
         let travel_mode_fn = travel_mode_fn();
         let edge = Edge::new(v2(0, 3), v2(1, 3));
         world.set_road(&edge, false);
-        world.plan_road(&edge, true, 0);
+        world.plan_road(&edge, Some(0));
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(0, 2), &v2(0, 3)),
             Some(TravelMode::Walk)
@@ -318,7 +318,7 @@ mod tests {
     fn travel_mode_planned_bridge() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
-        world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), true, 0);
+        world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), Some(0));
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(1, 0), &v2(1, 1)),
             Some(TravelMode::PlannedRoad)
@@ -361,7 +361,7 @@ mod tests {
         let travel_mode_fn = travel_mode_fn();
         let edge = Edge::new(v2(0, 3), v2(1, 3));
         world.set_road(&edge, false);
-        world.plan_road(&edge, true, 0);
+        world.plan_road(&edge, Some(0));
         assert_eq!(
             travel_mode_fn.travel_modes_here(&world, &v2(0, 3)),
             vec![TravelMode::PlannedRoad]
@@ -383,7 +383,7 @@ mod tests {
     fn travel_mode_here_planned_bridge() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
-        world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), true, 0);
+        world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), Some(0));
         assert!(same_elements(
             &travel_mode_fn.travel_modes_here(&world, &v2(1, 1)),
             &[TravelMode::PlannedRoad, TravelMode::River]

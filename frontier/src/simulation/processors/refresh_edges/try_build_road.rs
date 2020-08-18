@@ -19,7 +19,7 @@ pub fn try_build_road<P: UpdateEdge>(
         RoadStatus::Planned(at) if at > when => (),
         _ => return None,
     }
-    world.world_mut().plan_road(&traffic.edge, true, when);
+    world.world_mut().plan_road(&traffic.edge, Some(when));
     pathfinder
         .write()
         .unwrap()

@@ -99,12 +99,12 @@ impl World {
         set_width(to_junction_1d);
     }
 
-    pub fn plan_road(&mut self, road: &Edge, state: bool, when: u128) {
+    pub fn plan_road(&mut self, road: &Edge, when: Option<u128>) {
         let from = self.mut_cell_unsafe(road.from());
-        from.planned_road.get_mut(road.horizontal()).from = Some(when);
+        from.planned_road.get_mut(road.horizontal()).from = when;
 
         let to = self.mut_cell_unsafe(road.to());
-        to.planned_road.get_mut(road.horizontal()).to = Some(when);
+        to.planned_road.get_mut(road.horizontal()).to = when;
     }
 
     pub fn is_sea(&self, position: &V2<usize>) -> bool {
@@ -453,7 +453,7 @@ mod tests {
         let mut world = world();
         assert_eq!(world.road_planned(&Edge::new(v2(0, 0), v2(0, 1))), None);
         assert_eq!(world.road_planned(&Edge::new(v2(0, 1), v2(0, 0))), None);
-        world.plan_road(&Edge::new(v2(0, 0), v2(0, 1)), true, 123);
+        world.plan_road(&Edge::new(v2(0, 0), v2(0, 1)), Some(123));
         assert_eq!(
             world.road_planned(&Edge::new(v2(0, 0), v2(0, 1))),
             Some(123)
@@ -469,7 +469,7 @@ mod tests {
         let mut world = world();
         assert_eq!(world.road_planned(&Edge::new(v2(0, 0), v2(1, 0))), None);
         assert_eq!(world.road_planned(&Edge::new(v2(1, 0), v2(0, 0))), None);
-        world.plan_road(&Edge::new(v2(0, 0), v2(1, 0)), true, 123);
+        world.plan_road(&Edge::new(v2(0, 0), v2(1, 0)), Some(123));
         assert_eq!(
             world.road_planned(&Edge::new(v2(0, 0), v2(1, 0))),
             Some(123)
@@ -487,8 +487,8 @@ mod tests {
         assert_eq!(world.road_planned(&Edge::new(v2(1, 0), v2(0, 0))), None);
         assert_eq!(world.road_planned(&Edge::new(v2(0, 0), v2(0, 1))), None);
         assert_eq!(world.road_planned(&Edge::new(v2(0, 1), v2(0, 0))), None);
-        world.plan_road(&Edge::new(v2(0, 0), v2(1, 0)), true, 123);
-        world.plan_road(&Edge::new(v2(0, 0), v2(0, 1)), true, 123);
+        world.plan_road(&Edge::new(v2(0, 0), v2(1, 0)), Some(123));
+        world.plan_road(&Edge::new(v2(0, 0), v2(0, 1)), Some(123));
         assert_eq!(
             world.road_planned(&Edge::new(v2(0, 0), v2(1, 0))),
             Some(123)
