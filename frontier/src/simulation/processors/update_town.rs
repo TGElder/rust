@@ -25,10 +25,6 @@ where
             _ => return state,
         };
 
-        if traffic.is_empty() {
-            return state;
-        }
-
         self.update_settlement(Settlement {
             target_population: get_target_population(traffic, state.params.traffic_to_population),
             nation: get_nation(
@@ -86,6 +82,9 @@ fn get_nation(
         .iter()
         .map(|traffic_summary| traffic_summary.traffic_share)
         .sum();
+    if total_traffic_share == 0.0 {
+        return original_nation.to_string();
+    }
     let traffic_summary = traffic_summaries
         .iter()
         .max_by(|a, b| unsafe_ordering(&a.traffic_share, &b.traffic_share))
@@ -108,7 +107,7 @@ mod tests {
     use std::default::Default;
 
     #[test]
-    fn should_update_town_target_population_based_on_total_traffic_share() {
+    fn should_update_target_population_based_on_total_traffic_share() {
         // Given
         let settlement = Settlement::default();
         let game = UpdateProcess::new(hashmap! {});
@@ -142,6 +141,30 @@ mod tests {
         assert!(updated_settlements[&v2(0, 0)]
             .target_population
             .almost(&28.0));
+    }
+
+    #[test]
+    fn should_update_target_population_to_zero_for_town_with_no_traffic() {
+        // Given
+        let settlement = Settlement {
+            target_population: 0.5,
+            ..Settlement::default()
+        };
+        let game = UpdateProcess::new(hashmap! {});
+        let mut processor = UpdateTown::new(&game.tx());
+
+        // When
+        let instruction = Instruction::UpdateTown {
+            settlement,
+            traffic: vec![],
+        };
+        processor.process(State::default(), &instruction);
+
+        // Then
+        let updated_settlements = game.shutdown();
+        assert!(updated_settlements[&v2(0, 0)]
+            .target_population
+            .almost(&0.0));
     }
 
     #[test]
@@ -245,25 +268,5 @@ mod tests {
 
         // Finally
         game.shutdown();
-    }
-
-    #[test]
-    fn should_ignore_town_with_no_traffic() {
-        // Given
-        let settlement = Settlement::default();
-        let game = UpdateProcess::new(hashmap! {});
-        let mut processor = UpdateTown::new(&game.tx());
-
-        // When
-        let instruction = Instruction::UpdateTown {
-            settlement,
-            traffic: vec![],
-        };
-        let state = processor.process(State::default(), &instruction);
-
-        // Then
-        let updated_settlements = game.shutdown();
-        assert!(updated_settlements.is_empty());
-        assert!(state.instructions.is_empty());
     }
 }

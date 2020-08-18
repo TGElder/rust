@@ -6,7 +6,11 @@ use commons::v2;
 use std::convert::TryInto;
 use std::time::Duration;
 
-pub fn try_build_town<G>(game: &mut G, traffic: &PositionTrafficSummary) -> Option<BuildInstruction>
+pub fn try_build_town<G>(
+    game: &mut G,
+    traffic: &PositionTrafficSummary,
+    initial_population: &f64,
+) -> Option<BuildInstruction>
 where
     G: Nations,
 {
@@ -23,7 +27,7 @@ where
         when: get_when(&traffic.routes),
         what: Build::Settlement {
             candidate_positions,
-            settlement: get_settlement(game, &traffic.routes),
+            settlement: get_settlement(game, &traffic.routes, *initial_population),
         },
     };
     Some(instruction)
@@ -50,7 +54,7 @@ fn get_candidate_positions(tiles: &[Tile]) -> Vec<V2<usize>> {
         .collect()
 }
 
-fn get_settlement<G>(game: &mut G, routes: &[RouteSummary]) -> Settlement
+fn get_settlement<G>(game: &mut G, routes: &[RouteSummary], initial_population: f64) -> Settlement
 where
     G: Nations,
 {
@@ -62,7 +66,7 @@ where
         position: v2(0, 0),
         name: nation.get_town_name(),
         nation: first_visit_route.nation.clone(),
-        current_population: 0.0,
+        current_population: initial_population,
         target_population: 0.0,
         gap_half_life: get_gap_half_life(routes),
         last_population_update_micros: get_when(routes),
@@ -153,7 +157,7 @@ mod tests {
             ],
         };
 
-        let instruction = try_build_town(&mut game, &traffic);
+        let instruction = try_build_town(&mut game, &traffic, &0.5);
 
         // Then
         if let Some(BuildInstruction {
@@ -172,7 +176,7 @@ mod tests {
             assert_eq!(settlement.class, Town);
             assert_eq!(settlement.nation, "Scotland".to_string());
             assert_eq!(settlement.name, "Edinburgh".to_string());
-            assert!(settlement.current_population.almost(&0.0));
+            assert!(settlement.current_population.almost(&0.5));
             assert!(settlement.target_population.almost(&0.0));
             // Gap half life is average round-trip duration of routes to position
             assert_eq!(settlement.gap_half_life, Duration::from_micros(202));
@@ -228,7 +232,7 @@ mod tests {
             ],
         };
 
-        let instruction = try_build_town(&mut game, &traffic);
+        let instruction = try_build_town(&mut game, &traffic, &0.5);
 
         // Then
         if let Some(BuildInstruction {
@@ -276,7 +280,7 @@ mod tests {
             }],
         };
 
-        let instruction = try_build_town(&mut game, &traffic);
+        let instruction = try_build_town(&mut game, &traffic, &0.5);
 
         match instruction {
             Some(BuildInstruction {
@@ -292,7 +296,7 @@ mod tests {
         let mut game = nations();
 
         // When
-        let instruction = try_build_town(&mut game, &traffic);
+        let instruction = try_build_town(&mut game, &traffic, &0.5);
 
         // Then
         assert_eq!(instruction, None);

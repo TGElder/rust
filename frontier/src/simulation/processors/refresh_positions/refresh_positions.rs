@@ -49,30 +49,42 @@ where
     }
 
     fn refresh_positions(&mut self, state: State, positions: Vec<V2<usize>>) -> State {
+        let initial_town_population = state.params.initial_town_population;
         block_on(async {
             self.game
-                .update(move |game| refresh_positions(game, state, positions))
+                .update(move |game| {
+                    refresh_positions(game, state, positions, initial_town_population)
+                })
                 .await
         })
     }
 }
 
-fn refresh_positions<G>(game: &mut G, mut state: State, positions: Vec<V2<usize>>) -> State
+fn refresh_positions<G>(
+    game: &mut G,
+    mut state: State,
+    positions: Vec<V2<usize>>,
+    initial_town_population: f64,
+) -> State
 where
     G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
 {
     for position in positions {
-        refresh_position(game, &mut state, position);
+        refresh_position(game, &mut state, position, &initial_town_population);
     }
     state
 }
 
-fn refresh_position<G>(game: &mut G, state: &mut State, position: V2<usize>)
-where
+fn refresh_position<G>(
+    game: &mut G,
+    state: &mut State,
+    position: V2<usize>,
+    initial_town_population: &f64,
+) where
     G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
 {
     let traffic = get_position_traffic(game, &state, &position);
-    if let Some(instruction) = try_build_town(game, &traffic) {
+    if let Some(instruction) = try_build_town(game, &traffic, &initial_town_population) {
         state.build_queue.push(instruction);
     }
     if let Some(instruction) = try_build_crops(game, &traffic) {

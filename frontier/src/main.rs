@@ -97,6 +97,7 @@ fn main() {
         Box::new(GetTerritory::new(game.tx(), &territory_updater)),
         Box::new(GetTownTraffic::new(game.tx())),
         Box::new(UpdateTown::new(game.tx())),
+        Box::new(RemoveTown::new(game.tx())),
         Box::new(UpdateHomelandPopulation::new(game.tx())),
         Box::new(UpdateCurrentPopulation::new(game.tx())),
         Box::new(GetDemand::new(town_demand_fn)),

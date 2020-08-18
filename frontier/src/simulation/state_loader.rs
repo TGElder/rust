@@ -147,6 +147,8 @@ mod tests {
             params: SimulationParams {
                 traffic_to_population: 0.123,
                 nation_flip_traffic_pc: 0.456,
+                initial_town_population: 0.234,
+                town_removal_population: 0.789,
             },
             instructions: vec![
                 Instruction::GetTerritory(v2(1, 1)),
