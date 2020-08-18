@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::game::traits::{GetRoute, HasWorld, Micros};
+use crate::game::traits::{BuildRoad, GetRoute, HasWorld, Micros};
 use crate::pathfinder::traits::UpdateEdge;
 use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
@@ -11,7 +11,7 @@ const BATCH_SIZE: usize = 128;
 
 pub struct RefreshEdges<G, T, P>
 where
-    G: GetRoute + HasWorld + Micros,
+    G: BuildRoad + GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -22,7 +22,7 @@ where
 
 impl<G, T, P> Processor for RefreshEdges<G, T, P>
 where
-    G: GetRoute + HasWorld + Micros,
+    G: BuildRoad + GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -37,7 +37,7 @@ where
 
 impl<G, T, P> RefreshEdges<G, T, P>
 where
-    G: GetRoute + HasWorld + Micros,
+    G: BuildRoad + GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -80,7 +80,7 @@ fn refresh_edges<G, T, P>(
     edges: Vec<Edge>,
 ) -> State
 where
-    G: GetRoute + HasWorld + Micros,
+    G: BuildRoad + GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
     P: UpdateEdge + 'static,
 {
@@ -103,7 +103,7 @@ fn refresh_edge<G, T, P>(
     state: &mut State,
     edge: Edge,
 ) where
-    G: GetRoute + HasWorld + Micros,
+    G: BuildRoad + GetRoute + HasWorld + Micros,
     T: TravelDuration + 'static,
     P: UpdateEdge + 'static,
 {
@@ -111,4 +111,5 @@ fn refresh_edge<G, T, P>(
     if let Some(instruction) = try_build_road(game, pathfinder, &edge_traffic) {
         state.build_queue.push(instruction);
     }
+    try_remove_road(game, pathfinder, &edge_traffic);
 }
