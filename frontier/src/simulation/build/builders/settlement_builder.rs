@@ -3,7 +3,6 @@ use super::*;
 use crate::game::traits::{AddSettlement, WhoControlsTile};
 use crate::settlement::Settlement;
 use crate::update_territory::UpdateTerritory;
-use commons::V2;
 
 const HANDLE: &str = "settlement_builder";
 
@@ -30,20 +29,10 @@ where
     }
 
     fn build(&mut self, build: Build) {
-        if let Build::Settlement {
-            candidate_positions,
-            mut settlement,
-        } = build
-        {
-            for position in candidate_positions {
-                if self.is_controlled(position) {
-                    continue;
-                }
-                settlement.position = position;
-                if self.add_settlement(settlement) {
-                    self.territory.update_territory(position);
-                }
-                return;
+        if let Build::Settlement(settlement) = build {
+            let position = settlement.position;
+            if self.try_add_settlement(settlement) {
+                self.territory.update_territory(position);
             }
         }
     }
@@ -61,21 +50,23 @@ where
         }
     }
 
-    fn is_controlled(&mut self, position: V2<usize>) -> bool {
+    fn try_add_settlement(&mut self, settlement: Settlement) -> bool {
         block_on(async {
             self.game
-                .update(move |game| game.who_controls_tile(&position).is_some())
+                .update(move |game| try_add_settlement(game, settlement))
                 .await
         })
     }
+}
 
-    fn add_settlement(&mut self, settlement: Settlement) -> bool {
-        block_on(async {
-            self.game
-                .update(move |game| game.add_settlement(settlement))
-                .await
-        })
-    }
+fn try_add_settlement<G>(game: &mut G, settlement: Settlement) -> bool
+where
+    G: AddSettlement + WhoControlsTile,
+{
+    if game.who_controls_tile(&settlement.position).is_some() {
+        return false;
+    };
+    game.add_settlement(settlement)
 }
 
 #[cfg(test)]
@@ -83,7 +74,7 @@ mod tests {
     use super::*;
 
     use commons::update::UpdateProcess;
-    use commons::v2;
+    use commons::{v2, V2};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
@@ -118,10 +109,7 @@ mod tests {
         let builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
-        let can_build = builder.can_build(&Build::Settlement {
-            candidate_positions: vec![],
-            settlement: Settlement::default(),
-        });
+        let can_build = builder.can_build(&Build::Settlement(Settlement::default()));
 
         // Then
         assert!(can_build);
@@ -131,103 +119,48 @@ mod tests {
     }
 
     #[test]
-    fn should_build_at_first_position_not_controlled() {
-        // Given
-        let candidate_positions = vec![v2(1, 1), v2(1, 2), v2(2, 1)];
-        let settlement = Settlement {
-            position: candidate_positions[1],
-            ..Settlement::default()
-        };
-        let control = vec![(candidate_positions[0], v2(0, 0))]
-            .into_iter()
-            .collect();
-        let game = Game {
-            control,
-            ..Game::default()
-        };
-        let game = UpdateProcess::new(game);
-        let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
-
-        // When
-        builder.build(Build::Settlement {
-            candidate_positions: candidate_positions.clone(),
-            settlement: settlement.clone(),
-        });
-        let game = game.shutdown();
-
-        // Then
-        assert_eq!(
-            game.settlements,
-            vec![(candidate_positions[1], settlement)]
-                .into_iter()
-                .collect()
-        );
-    }
-
-    #[test]
-    fn should_not_build_if_all_candidates_controlled() {
+    fn should_build_if_position_not_controlled() {
         // Given
         let settlement = Settlement {
             position: v2(1, 2),
             ..Settlement::default()
         };
-        let control = vec![(settlement.position, v2(0, 0))].into_iter().collect();
-        let game = Game {
-            control,
-            ..Game::default()
-        };
+        let game = Game::default();
         let game = UpdateProcess::new(game);
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
-        builder.build(Build::Settlement {
-            candidate_positions: vec![settlement.position],
-            settlement,
-        });
-        let game = game.shutdown();
-
-        // Then
-        assert_eq!(game.settlements, HashMap::new());
-    }
-
-    #[test]
-    fn should_change_settlement_position_if_not_built_on_original_tile() {
-        // Given
-        let candidate_positions = vec![v2(1, 1), v2(1, 2)];
-        let settlement = Settlement {
-            position: candidate_positions[0],
-            ..Settlement::default()
-        };
-        let control = vec![(candidate_positions[0], v2(0, 0))]
-            .into_iter()
-            .collect();
-        let game = Game {
-            control,
-            ..Game::default()
-        };
-        let game = UpdateProcess::new(game);
-        let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
-
-        // When
-        builder.build(Build::Settlement {
-            candidate_positions: candidate_positions.clone(),
-            settlement: settlement.clone(),
-        });
+        builder.build(Build::Settlement(settlement.clone()));
         let game = game.shutdown();
 
         // Then
         assert_eq!(
             game.settlements,
-            vec![(
-                candidate_positions[1],
-                Settlement {
-                    position: candidate_positions[1],
-                    ..settlement
-                }
-            )]
-            .into_iter()
-            .collect()
+            hashmap! {settlement.position => settlement},
         );
+    }
+
+    #[test]
+    fn should_not_build_if_position_controlled() {
+        // Given
+        let settlement = Settlement {
+            position: v2(1, 2),
+            ..Settlement::default()
+        };
+        let control = hashmap! { v2(1, 2) => v2(0, 0) };
+        let game = Game {
+            control,
+            ..Game::default()
+        };
+        let game = UpdateProcess::new(game);
+        let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
+
+        // When
+        builder.build(Build::Settlement(settlement));
+        let game = game.shutdown();
+
+        // Then
+        assert_eq!(game.settlements, hashmap! {},);
     }
 
     #[test]
@@ -246,14 +179,13 @@ mod tests {
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
 
         // When
-        builder.build(Build::Settlement {
-            candidate_positions: vec![settlement.position],
-            settlement,
-        });
-        game.shutdown();
+        builder.build(Build::Settlement(settlement));
 
         // Then
         assert_eq!(*update_territory.lock().unwrap(), vec![v2(1, 2)]);
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
@@ -272,13 +204,38 @@ mod tests {
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
 
         // When
-        builder.build(Build::Settlement {
-            candidate_positions: vec![settlement.position],
-            settlement,
-        });
-        game.shutdown();
+        builder.build(Build::Settlement(settlement));
 
         // Then
         assert_eq!(*update_territory.lock().unwrap(), vec![]);
+
+        // Finally
+        game.shutdown();
+    }
+
+    #[test]
+    fn should_not_update_territory_if_position_controlled() {
+        // Given
+        let settlement = Settlement {
+            position: v2(1, 2),
+            ..Settlement::default()
+        };
+        let control = hashmap! { v2(1, 2) => v2(0, 0) };
+        let game = Game {
+            control,
+            ..Game::default()
+        };
+        let game = UpdateProcess::new(game);
+        let update_territory = update_territory();
+        let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
+
+        // When
+        builder.build(Build::Settlement(settlement));
+
+        // Then
+        assert_eq!(*update_territory.lock().unwrap(), vec![]);
+
+        // Finally
+        game.shutdown();
     }
 }

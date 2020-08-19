@@ -7,12 +7,6 @@ use commons::V2;
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Build {
     Road(Edge),
-    Settlement {
-        candidate_positions: Vec<V2<usize>>,
-        settlement: Settlement,
-    },
-    Crops {
-        position: V2<usize>,
-        rotated: bool,
-    },
+    Settlement(Settlement),
+    Crops { position: V2<usize>, rotated: bool },
 }

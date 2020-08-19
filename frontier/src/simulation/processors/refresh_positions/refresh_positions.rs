@@ -84,7 +84,7 @@ fn refresh_position<G>(
     G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
 {
     let traffic = get_position_traffic(game, &state, &position);
-    if let Some(instruction) = try_build_town(game, &traffic, &initial_town_population) {
+    for instruction in try_build_town(game, &traffic, &initial_town_population) {
         state.build_queue.push(instruction);
     }
     if let Some(instruction) = try_build_crops(game, &traffic) {

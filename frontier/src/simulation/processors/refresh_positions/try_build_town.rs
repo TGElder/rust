@@ -10,27 +10,30 @@ pub fn try_build_town<G>(
     game: &mut G,
     traffic: &PositionTrafficSummary,
     initial_population: &f64,
-) -> Option<BuildInstruction>
+) -> Vec<BuildInstruction>
 where
     G: Nations,
 {
     if !should_build(&traffic.position, &traffic.controller, &traffic.routes) {
-        return None;
+        return vec![];
     }
 
     let candidate_positions = get_candidate_positions(&traffic.adjacent);
     if candidate_positions.is_empty() {
-        return None;
+        return vec![];
     }
 
-    let instruction = BuildInstruction {
-        when: get_when(&traffic.routes),
-        what: Build::Settlement {
-            candidate_positions,
-            settlement: get_settlement(game, &traffic.routes, *initial_population),
-        },
-    };
-    Some(instruction)
+    let settlement = get_settlement(game, &traffic.routes, *initial_population);
+    let when = get_when(&traffic.routes);
+    candidate_positions
+        .into_iter()
+        .map(|position| Settlement {
+            position,
+            ..settlement.clone()
+        })
+        .map(Build::Settlement)
+        .map(|what| BuildInstruction { what, when })
+        .collect()
 }
 
 fn should_build(
@@ -94,9 +97,8 @@ mod tests {
     use crate::nation::{Nation, NationDescription};
     use crate::resource::Resource;
     use commons::almost::Almost;
-    use commons::same_elements;
     use isometric::Color;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::time::Duration;
 
     fn scotland() -> Nation {
@@ -143,36 +145,23 @@ mod tests {
                 resource: Resource::Pasture,
                 ports: hashset! {},
             }],
-            adjacent: vec![
-                Tile {
-                    position: v2(0, 2),
-                    sea: false,
-                    visible: true,
-                },
-                Tile {
-                    position: v2(1, 1),
-                    sea: false,
-                    visible: true,
-                },
-            ],
+            adjacent: vec![Tile {
+                position: v2(0, 2),
+                sea: false,
+                visible: true,
+            }],
         };
 
-        let instruction = try_build_town(&mut game, &traffic, &0.5);
+        let instructions = try_build_town(&mut game, &traffic, &0.5);
 
         // Then
         if let Some(BuildInstruction {
             when,
-            what:
-                Build::Settlement {
-                    candidate_positions,
-                    settlement,
-                },
-        }) = instruction
+            what: Build::Settlement(settlement),
+        }) = instructions.get(0)
         {
             // When is first visit
-            assert_eq!(when, 101);
-            // Each adjacent tile is candidate position
-            assert!(same_elements(&candidate_positions, &[v2(0, 2), v2(1, 1)]));
+            assert_eq!(*when, 101);
             assert_eq!(settlement.class, Town);
             assert_eq!(settlement.nation, "Scotland".to_string());
             assert_eq!(settlement.name, "Edinburgh".to_string());
@@ -232,16 +221,16 @@ mod tests {
             ],
         };
 
-        let instruction = try_build_town(&mut game, &traffic, &0.5);
+        let instructions = try_build_town(&mut game, &traffic, &0.5);
 
         // Then
         if let Some(BuildInstruction {
             when,
-            what: Build::Settlement { settlement, .. },
-        }) = instruction
+            what: Build::Settlement(settlement),
+        }) = instructions.get(0)
         {
             // When is first visit in any route
-            assert_eq!(when, 101);
+            assert_eq!(*when, 101);
             // Settlement nation is nation with lowest first visit
             assert_eq!(settlement.nation, "Wales".to_string());
             assert_eq!(settlement.name, "Swansea".to_string());
@@ -280,9 +269,9 @@ mod tests {
             }],
         };
 
-        let instruction = try_build_town(&mut game, &traffic, &0.5);
+        let instructions = try_build_town(&mut game, &traffic, &0.5);
 
-        match instruction {
+        match instructions.get(0) {
             Some(BuildInstruction {
                 what: Build::Settlement { .. },
                 ..
@@ -291,15 +280,64 @@ mod tests {
         }
     }
 
+    #[test]
+    fn should_return_instruction_for_each_valid_adjacent_tile() {
+        // Given
+        let mut game = nations();
+
+        // When
+        let traffic = PositionTrafficSummary {
+            position: v2(1, 2),
+            controller: None,
+            routes: vec![RouteSummary {
+                traffic: 3,
+                origin: v2(0, 0),
+                destination: v2(1, 2),
+                nation: "Scotland".to_string(),
+                first_visit: 101,
+                duration: Duration::from_micros(101),
+                resource: Resource::Pasture,
+                ports: hashset! {},
+            }],
+            adjacent: vec![
+                Tile {
+                    position: v2(1, 2),
+                    sea: false,
+                    visible: true,
+                },
+                Tile {
+                    position: v2(3, 4),
+                    sea: false,
+                    visible: true,
+                },
+            ],
+        };
+
+        let instructions = try_build_town(&mut game, &traffic, &0.5);
+
+        let actual: HashSet<V2<usize>> = instructions
+            .into_iter()
+            .flat_map(|instruction| match instruction {
+                BuildInstruction {
+                    what: Build::Settlement(Settlement { position, .. }),
+                    ..
+                } => Some(position),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(actual, hashset! {v2(1, 2), v2(3, 4)});
+    }
+
     fn should_not_build_town(traffic: PositionTrafficSummary) {
         // Given
         let mut game = nations();
 
         // When
-        let instruction = try_build_town(&mut game, &traffic, &0.5);
+        let instructions = try_build_town(&mut game, &traffic, &0.5);
 
         // Then
-        assert_eq!(instruction, None);
+        assert_eq!(instructions, vec![]);
     }
 
     #[test]
