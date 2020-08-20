@@ -272,6 +272,11 @@ mod tests {
             resource: Resource::Crabs,
             destination: v2(3, 4),
         };
+        let mut build_queue = BuildQueue::default();
+        build_queue.insert(BuildInstruction {
+            when: 808,
+            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
+        });
         sim_1.set_state(State {
             params: SimulationParams {
                 traffic_to_population: 0.123,
@@ -287,10 +292,7 @@ mod tests {
             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
             edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
             route_to_ports: hashmap! { route_key => hashset!{ v2(1, 2), v2(3, 4) } },
-            build_queue: vec![BuildInstruction {
-                when: 808,
-                what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
-            }],
+            build_queue,
         });
         sim_1.save(file_name);
 
