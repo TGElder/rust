@@ -22,12 +22,7 @@ where
             _ => return state,
         };
         let micros = self.micros();
-        let (to_build, to_retain) = state
-            .build_queue
-            .into_iter()
-            .partition(|BuildInstruction { when, .. }| *when <= micros);
-        self.build_all(to_build);
-        state.build_queue = to_retain;
+        self.build_all(state.build_queue.take_instructions_before(micros));
         state
     }
 }
@@ -103,14 +98,11 @@ mod tests {
         let builds = retriever.builds.clone();
 
         let mut processor = BuildSim::new(&game.tx(), vec![Box::new(retriever)]);
-        let build_queue = vec![BuildInstruction {
+        let mut state = State::default();
+        state.build_queue.insert(BuildInstruction {
             what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
             when: 100,
-        }];
-        let state = State {
-            build_queue,
-            ..State::default()
-        };
+        });
 
         // When
         let state = processor.process(state, &Instruction::Build);
@@ -120,7 +112,7 @@ mod tests {
             *builds.lock().unwrap(),
             vec![Build::Road(Edge::new(v2(1, 2), v2(1, 3)))]
         );
-        assert_eq!(state.build_queue, vec![]);
+        assert_eq!(state.build_queue, BuildQueue::default());
     }
 
     #[test]
@@ -140,11 +132,9 @@ mod tests {
             what: Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
             when: 2000,
         };
-        let build_queue = vec![instruction_1, instruction_2.clone()];
-        let state = State {
-            build_queue,
-            ..State::default()
-        };
+        let mut state = State::default();
+        state.build_queue.insert(instruction_1);
+        state.build_queue.insert(instruction_2.clone());
 
         // When
         let state = processor.process(state, &Instruction::Build);
@@ -154,7 +144,9 @@ mod tests {
             *builds.lock().unwrap(),
             vec![Build::Road(Edge::new(v2(1, 2), v2(1, 3)))]
         );
-        assert_eq!(state.build_queue, vec![instruction_2]);
+        let mut expected = BuildQueue::default();
+        expected.insert(instruction_2);
+        assert_eq!(state.build_queue, expected);
     }
 
     #[test]
@@ -165,20 +157,15 @@ mod tests {
         let builds = retriever.builds.clone();
 
         let mut processor = BuildSim::new(&game.tx(), vec![Box::new(retriever)]);
-        let build_queue = vec![
-            BuildInstruction {
-                what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
-                when: 200,
-            },
-            BuildInstruction {
-                what: Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
-                when: 100,
-            },
-        ];
-        let state = State {
-            build_queue,
-            ..State::default()
-        };
+        let mut state = State::default();
+        state.build_queue.insert(BuildInstruction {
+            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
+            when: 200,
+        });
+        state.build_queue.insert(BuildInstruction {
+            what: Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
+            when: 100,
+        });
 
         // When
         processor.process(state, &Instruction::Build);

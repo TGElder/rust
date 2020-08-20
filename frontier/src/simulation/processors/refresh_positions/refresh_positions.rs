@@ -85,9 +85,9 @@ fn refresh_position<G>(
 {
     let traffic = get_position_traffic(game, &state, &position);
     for instruction in try_build_town(game, &traffic, &initial_town_population) {
-        state.build_queue.push(instruction);
+        state.build_queue.insert(instruction);
     }
     if let Some(instruction) = try_build_crops(game, &traffic) {
-        state.build_queue.push(instruction);
+        state.build_queue.insert(instruction);
     }
 }
