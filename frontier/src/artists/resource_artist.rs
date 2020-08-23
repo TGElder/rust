@@ -81,19 +81,19 @@ impl ResourceArtist {
 
 fn texture(resource: Resource) -> Option<&'static str> {
     match resource {
-        Resource::Bananas => Some("resources/textures/bananas.png"),
-        Resource::Bison => Some("resources/textures/bison.png"),
-        Resource::Coal => Some("resources/textures/coal.png"),
-        Resource::Crabs => Some("resources/textures/crabs.png"),
-        Resource::Deer => Some("resources/textures/deer.png"),
-        Resource::Fur => Some("resources/textures/fur.png"),
-        Resource::Gems => Some("resources/textures/gems.png"),
-        Resource::Gold => Some("resources/textures/gold.png"),
-        Resource::Iron => Some("resources/textures/iron.png"),
-        Resource::Ivory => Some("resources/textures/ivory.png"),
-        Resource::Spice => Some("resources/textures/spice.png"),
-        Resource::Truffles => Some("resources/textures/truffles.png"),
-        Resource::Whales => Some("resources/textures/whales.png"),
+        Resource::Bananas => Some("resources/textures/twemoji/bananas.png"),
+        Resource::Bison => Some("resources/textures/twemoji/bison.png"),
+        Resource::Coal => Some("resources/textures/twemoji/derivative/coal.png"),
+        Resource::Crabs => Some("resources/textures/twemoji/crabs.png"),
+        Resource::Deer => Some("resources/textures/twemoji/deer.png"),
+        Resource::Fur => Some("resources/textures/twemoji/fur.png"),
+        Resource::Gems => Some("resources/textures/twemoji/gems.png"),
+        Resource::Gold => Some("resources/textures/twemoji/gold.png"),
+        Resource::Iron => Some("resources/textures/twemoji/derivative/iron.png"),
+        Resource::Ivory => Some("resources/textures/twemoji/ivory.png"),
+        Resource::Spice => Some("resources/textures/twemoji/spice.png"),
+        Resource::Truffles => Some("resources/textures/twemoji/truffles.png"),
+        Resource::Whales => Some("resources/textures/twemoji/whales.png"),
         _ => None,
     }
 }
