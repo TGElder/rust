@@ -1,14 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-pub const VEGETATION_TYPES: [VegetationType; 4] = [
+pub const VEGETATION_TYPES: [VegetationType; 5] = [
     VegetationType::PalmTree,
     VegetationType::DeciduousTree,
     VegetationType::EvergreenTree,
+    VegetationType::SnowTree,
     VegetationType::Cactus,
 ];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum VegetationType {
+    SnowTree,
     EvergreenTree,
     DeciduousTree,
     PalmTree,
@@ -18,6 +20,7 @@ pub enum VegetationType {
 impl VegetationType {
     pub fn name(self) -> &'static str {
         match self {
+            VegetationType::SnowTree => "snow",
             VegetationType::EvergreenTree => "evergreen",
             VegetationType::DeciduousTree => "deciduous",
             VegetationType::PalmTree => "palm",
@@ -30,6 +33,7 @@ impl VegetationType {
             VegetationType::PalmTree => 0.01,
             VegetationType::DeciduousTree => 0.01,
             VegetationType::EvergreenTree => 0.01,
+            VegetationType::SnowTree => 0.01,
             VegetationType::Cactus => 0.004,
         }
     }
@@ -39,6 +43,7 @@ impl VegetationType {
             VegetationType::PalmTree => temperature >= 20.0,
             VegetationType::DeciduousTree => temperature >= 10.0 && temperature <= 20.0,
             VegetationType::EvergreenTree => temperature >= 0.0 && temperature <= 10.0,
+            VegetationType::SnowTree => temperature >= -5.0 && temperature < 0.0,
             VegetationType::Cactus => temperature >= 10.0,
         }
     }
@@ -48,6 +53,7 @@ impl VegetationType {
             VegetationType::PalmTree => groundwater >= 0.1,
             VegetationType::DeciduousTree => groundwater >= 0.1,
             VegetationType::EvergreenTree => groundwater >= 0.1,
+            VegetationType::SnowTree => groundwater >= 0.1,
             VegetationType::Cactus => groundwater <= 0.1,
         }
     }
@@ -57,6 +63,7 @@ impl VegetationType {
             VegetationType::Cactus => 5,
             VegetationType::DeciduousTree => 1,
             VegetationType::EvergreenTree => 1,
+            VegetationType::SnowTree => 1,
             VegetationType::PalmTree => 1,
         }
     }
@@ -66,6 +73,7 @@ impl VegetationType {
             VegetationType::Cactus => 0.25,
             VegetationType::DeciduousTree => 0.33,
             VegetationType::EvergreenTree => 0.5,
+            VegetationType::SnowTree => 0.5,
             VegetationType::PalmTree => 0.75,
         }
     }

@@ -94,15 +94,7 @@ impl<'a> BaseColoring<'a> {
     }
 
     fn get_groundwater(world: &World, position: &V2<usize>) -> f32 {
-        world
-            .tile_average(&position, &|cell| {
-                if !world.is_sea(&cell.position) {
-                    Some(cell.climate.groundwater)
-                } else {
-                    None
-                }
-            })
-            .unwrap()
+        world.tile_avg_groundwater(position).unwrap()
     }
 
     fn get_color(&self, world: &World, position: &V2<usize>) -> Color {
@@ -111,10 +103,13 @@ impl<'a> BaseColoring<'a> {
         let snow_temperature = self.game_state.params.snow_temperature;
         let max_gradient = world.get_max_abs_rise(&position);
         let min_elevation = world.get_lowest_corner(&position);
-        let cell = world.get_cell_unsafe(position);
         if max_gradient > cliff_gradient {
             self.params.cliff
-        } else if cell.climate.temperature < snow_temperature {
+        } else if world
+            .tile_avg_temperature(position)
+            .map(|temperature| temperature < snow_temperature)
+            .unwrap_or_default()
+        {
             self.params.snow
         } else if min_elevation <= beach_level {
             self.params.beach
