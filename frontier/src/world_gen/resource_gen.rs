@@ -208,7 +208,8 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             }
             Resource::Fur => {
                 !self.is_sea(position)
-                    && self.has_vegetation_type_adjacent(position, VegetationType::EvergreenTree)
+                    && (self.has_vegetation_type_adjacent(position, VegetationType::EvergreenTree)
+                        || self.has_vegetation_type_adjacent(position, VegetationType::SnowTree))
             }
             Resource::Gems => !self.is_sea(position),
             Resource::Gold => !self.is_sea(position) && self.in_river(position),
@@ -278,15 +279,10 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         {
             return false;
         }
-        match self.world.get_cell(&position) {
-            Some(WorldCell { climate, .. })
-                if vegetation_type.in_range_temperature(climate.temperature)
-                    && vegetation_type.in_range_groundwater(climate.groundwater) =>
-            {
-                true
-            }
-            _ => false,
-        }
+        let temperature = unwrap_or!(self.world.tile_avg_temperature(position), return false);
+        let groundwater = unwrap_or!(self.world.tile_avg_groundwater(position), return false);
+        vegetation_type.in_range_temperature(temperature)
+            && vegetation_type.in_range_groundwater(groundwater)
     }
 
     fn is_cliff(&self, position: &V2<usize>) -> bool {
@@ -382,15 +378,10 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn tile_is_farmable_climate(&self, position: &V2<usize>) -> bool {
-        match self.world.get_cell(position) {
-            Some(WorldCell { climate, .. })
-                if climate.temperature >= self.params.resources.farmland.min_temperature
-                    && climate.groundwater >= self.params.resources.farmland.min_groundwater =>
-            {
-                true
-            }
-            _ => false,
-        }
+        let temperature = unwrap_or!(self.world.tile_avg_temperature(position), return false);
+        let groundwater = unwrap_or!(self.world.tile_avg_groundwater(position), return false);
+        temperature >= self.params.resources.farmland.min_temperature
+            && groundwater >= self.params.resources.farmland.min_groundwater
     }
 
     fn tile_is_cliff(&self, position: &V2<usize>) -> bool {
