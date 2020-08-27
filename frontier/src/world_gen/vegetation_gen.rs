@@ -73,7 +73,11 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
             if *noise.get_cell_unsafe(position) as f32 <= vegetation_type.spread()
                 && self.is_candidate(*vegetation_type, position)
             {
-                candidates.push(WorldObject::Vegetation(*vegetation_type));
+                let offset = v2(self.rng.gen(), self.rng.gen());
+                candidates.push(WorldObject::Vegetation {
+                    vegetation_type: *vegetation_type,
+                    offset,
+                });
             }
         }
 
@@ -160,8 +164,11 @@ fn vegetation_height_at_point(world: &World, position: &V2<usize>) -> f32 {
 }
 
 fn vegetation_height_in_cell(world: &World, position: &V2<usize>) -> f32 {
-    if let WorldObject::Vegetation(vegetation) = world.get_cell_unsafe(position).object {
-        vegetation.height()
+    if let WorldObject::Vegetation {
+        vegetation_type, ..
+    } = world.get_cell_unsafe(position).object
+    {
+        vegetation_type.height()
     } else {
         0.0
     }
@@ -189,7 +196,10 @@ mod tests {
     #[test]
     pub fn test_vegetation_at() {
         let mut world = World::new(M::zeros(3, 3), 0.5);
-        world.mut_cell_unsafe(&v2(0, 0)).object = WorldObject::Vegetation(VegetationType::PalmTree);
+        world.mut_cell_unsafe(&v2(0, 0)).object = WorldObject::Vegetation {
+            vegetation_type: VegetationType::PalmTree,
+            offset: v2(0.0, 0.0),
+        };
         assert!(vegetation_height_at_point(&world, &v2(0, 0))
             .almost(&VegetationType::PalmTree.height()));
         assert!(vegetation_height_at_point(&world, &v2(1, 0))

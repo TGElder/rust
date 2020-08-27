@@ -46,7 +46,10 @@ impl VegetationArtist {
                     continue;
                 }
 
-                if let WorldObject::Vegetation(vegetation_type) = cell.object {
+                if let WorldObject::Vegetation {
+                    vegetation_type, ..
+                } = cell.object
+                {
                     world_coord.z += (vegetation_type.height() * self.params.exaggeration) / 2.0;
 
                     vegetation

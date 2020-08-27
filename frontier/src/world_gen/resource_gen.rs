@@ -354,7 +354,11 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     ) -> bool {
         match self.world.get_cell(position) {
             Some(WorldCell {
-                object: WorldObject::Vegetation(actual),
+                object:
+                    WorldObject::Vegetation {
+                        vegetation_type: actual,
+                        ..
+                    },
                 ..
             }) if *actual == vegetation_type => true,
             _ => false,
