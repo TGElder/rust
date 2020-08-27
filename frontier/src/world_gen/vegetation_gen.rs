@@ -7,11 +7,15 @@ use std::collections::HashMap;
 use std::default::Default;
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub struct VegetationParams {}
+pub struct VegetationParams {
+    offset_range: (f32, f32),
+}
 
 impl Default for VegetationParams {
     fn default() -> VegetationParams {
-        VegetationParams {}
+        VegetationParams {
+            offset_range: (0.25, 0.75),
+        }
     }
 }
 
@@ -73,7 +77,7 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
             if *noise.get_cell_unsafe(position) as f32 <= vegetation_type.spread()
                 && self.is_candidate(*vegetation_type, position)
             {
-                let offset = v2(self.rng.gen(), self.rng.gen());
+                let offset = v2(self.random_offset(), self.random_offset());
                 candidates.push(WorldObject::Vegetation {
                     vegetation_type: *vegetation_type,
                     offset,
@@ -85,6 +89,11 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
             .choose(self.rng)
             .filter(|_| !self.thin(position))
             .copied()
+    }
+
+    fn random_offset(&mut self) -> f32 {
+        let range = self.params.vegetation.offset_range;
+        self.rng.gen_range(range.0, range.1)
     }
 
     fn thin(&mut self, position: &V2<usize>) -> bool {

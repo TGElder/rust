@@ -2,7 +2,7 @@ use super::terrain::TerrainGeometry;
 use super::utils::*;
 use cell_traits::*;
 use color::Color;
-use commons::barycentric::triangle_interpolate;
+use commons::barycentric::triangle_interpolate_any;
 use commons::*;
 use graphics::Drawing;
 use Command;
@@ -105,13 +105,12 @@ where
             x + (offset.x as f32 * 2.0 - 1.0) * width,
             y + (offset.y as f32 * 2.0 - 1.0) * width,
         );
-        interpolate_any(corner2d, &triangles).unwrap_or_else(|| {
-            v3(
-                corner2d.x,
-                corner2d.y,
-                terrain.get_cell_unsafe(&(position + offset)).elevation(),
-            )
-        })
+        v3(
+            corner2d.x,
+            corner2d.y,
+            triangle_interpolate_any(&corner2d, &triangles)
+                .unwrap_or_else(|| terrain.get_cell_unsafe(&(position + offset)).elevation()),
+        )
     };
 
     [
@@ -120,11 +119,4 @@ where
         get_base_corner(v2(1, 1)),
         get_base_corner(v2(0, 1)),
     ]
-}
-
-fn interpolate_any(p: V2<f32>, triangles: &[[V3<f32>; 3]]) -> Option<V3<f32>> {
-    triangles
-        .iter()
-        .flat_map(|triangle| triangle_interpolate(p, triangle))
-        .next()
 }

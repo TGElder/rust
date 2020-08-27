@@ -1,4 +1,5 @@
 use crate::world::*;
+use commons::barycentric::triangle_interpolate_any;
 use commons::*;
 use isometric::cell_traits::*;
 use isometric::coords::*;
@@ -36,21 +37,29 @@ impl VegetationArtist {
         for x in from.x..to.x {
             for y in from.y..to.y {
                 let position = v2(x, y);
-                let mut world_coord =
-                    match world.snap_to_middle(WorldCoord::new(x as f32, y as f32, 0.0)) {
-                        Some(world_coord) => world_coord,
-                        None => continue,
-                    };
+
                 let cell = unwrap_or!(world.get_cell(&position), continue);
                 if !cell.is_visible() {
                     continue;
                 }
 
                 if let WorldObject::Vegetation {
-                    vegetation_type, ..
+                    vegetation_type,
+                    offset,
                 } = cell.object
                 {
-                    world_coord.z += (vegetation_type.height() * self.params.exaggeration) / 2.0;
+                    let geometry = TerrainGeometry::of(world);
+                    let triangles = geometry.get_triangles_for_tile(&position);
+                    let position = v2(position.x as f32 + offset.x, position.y as f32 + offset.y);
+                    let z = triangle_interpolate_any(&position, &triangles)
+                        .or_else(|| world.snap_to_middle(&position));
+                    let z = unwrap_or!(z, continue);
+
+                    let world_coord = WorldCoord::new(
+                        position.x,
+                        position.y,
+                        z + (vegetation_type.height() * self.params.exaggeration) / 2.0,
+                    );
 
                     vegetation
                         .entry(vegetation_type)

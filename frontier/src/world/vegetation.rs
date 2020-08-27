@@ -30,10 +30,10 @@ impl VegetationType {
 
     pub fn height(self) -> f32 {
         match self {
-            VegetationType::SnowTree => 0.01,
-            VegetationType::EvergreenTree => 0.01,
-            VegetationType::DeciduousTree => 0.01,
-            VegetationType::PalmTree => 0.01,
+            VegetationType::SnowTree => 0.0075,
+            VegetationType::EvergreenTree => 0.0075,
+            VegetationType::DeciduousTree => 0.0075,
+            VegetationType::PalmTree => 0.0075,
             VegetationType::Cactus => 0.004,
         }
     }
