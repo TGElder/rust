@@ -14,7 +14,7 @@ pub struct VegetationParams {
 impl Default for VegetationParams {
     fn default() -> VegetationParams {
         VegetationParams {
-            offset_range: (0.25, 0.75),
+            offset_range: (0.2, 0.8),
         }
     }
 }
