@@ -7,11 +7,15 @@ use std::collections::HashMap;
 use std::default::Default;
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub struct VegetationParams {}
+pub struct VegetationParams {
+    offset_range: (f32, f32),
+}
 
 impl Default for VegetationParams {
     fn default() -> VegetationParams {
-        VegetationParams {}
+        VegetationParams {
+            offset_range: (0.2, 0.8),
+        }
     }
 }
 
@@ -73,7 +77,10 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
             if *noise.get_cell_unsafe(position) as f32 <= vegetation_type.spread()
                 && self.is_candidate(*vegetation_type, position)
             {
-                candidates.push(WorldObject::Vegetation(*vegetation_type));
+                candidates.push(WorldObject::Vegetation {
+                    vegetation_type: *vegetation_type,
+                    offset: v2(self.random_offset(), self.random_offset()),
+                });
             }
         }
 
@@ -81,6 +88,11 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
             .choose(self.rng)
             .filter(|_| !self.thin(position))
             .copied()
+    }
+
+    fn random_offset(&mut self) -> f32 {
+        let range = self.params.vegetation.offset_range;
+        self.rng.gen_range(range.0, range.1)
     }
 
     fn thin(&mut self, position: &V2<usize>) -> bool {
@@ -160,8 +172,11 @@ fn vegetation_height_at_point(world: &World, position: &V2<usize>) -> f32 {
 }
 
 fn vegetation_height_in_cell(world: &World, position: &V2<usize>) -> f32 {
-    if let WorldObject::Vegetation(vegetation) = world.get_cell_unsafe(position).object {
-        vegetation.height()
+    if let WorldObject::Vegetation {
+        vegetation_type, ..
+    } = world.get_cell_unsafe(position).object
+    {
+        vegetation_type.height()
     } else {
         0.0
     }
@@ -189,7 +204,10 @@ mod tests {
     #[test]
     pub fn test_vegetation_at() {
         let mut world = World::new(M::zeros(3, 3), 0.5);
-        world.mut_cell_unsafe(&v2(0, 0)).object = WorldObject::Vegetation(VegetationType::PalmTree);
+        world.mut_cell_unsafe(&v2(0, 0)).object = WorldObject::Vegetation {
+            vegetation_type: VegetationType::PalmTree,
+            offset: v2(0.0, 0.0),
+        };
         assert!(vegetation_height_at_point(&world, &v2(0, 0))
             .almost(&VegetationType::PalmTree.height()));
         assert!(vegetation_height_at_point(&world, &v2(1, 0))
