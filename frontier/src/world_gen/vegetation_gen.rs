@@ -77,10 +77,9 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
             if *noise.get_cell_unsafe(position) as f32 <= vegetation_type.spread()
                 && self.is_candidate(*vegetation_type, position)
             {
-                let offset = v2(self.random_offset(), self.random_offset());
                 candidates.push(WorldObject::Vegetation {
                     vegetation_type: *vegetation_type,
-                    offset,
+                    offset: v2(self.random_offset(), self.random_offset()),
                 });
             }
         }
