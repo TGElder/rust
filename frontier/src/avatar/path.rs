@@ -107,7 +107,7 @@ impl Path {
             let to = v2(to.x as f32, to.y as f32);
             let x = from.x + (to.x - from.x) * p;
             let y = from.y + (to.y - from.y) * p;
-            world.snap_to_edge(WorldCoord::new(x, y, 0.0))
+            WorldCoord::new(x, y, world.snap_to_edge(&v2(x, y)))
         })
     }
 

@@ -161,7 +161,10 @@ impl World {
         WorldCoord::new(world_coord.x.round(), world_coord.y.round(), z)
     }
 
-    pub fn snap_to_edge(&self, WorldCoord { x, y, .. }: WorldCoord) -> WorldCoord {
+    #[allow(clippy::many_single_char_names)]
+    pub fn snap_to_edge(&self, position: &V2<f32>) -> f32 {
+        let x = position.x;
+        let y = position.y;
         let (a, b, p) = if x.fract() == 0.0 {
             (
                 v2(x as usize, y.floor() as usize),
@@ -182,19 +185,18 @@ impl World {
         };
         let a = self.get_cell(&a).unwrap().elevation();
         let b = self.get_cell(&b).unwrap().elevation();
-        let z = (b - a) * p + a;
-        WorldCoord::new(x, y, z)
+        (b - a) * p + a
     }
 
-    pub fn snap_to_middle(&self, world_coord: WorldCoord) -> Option<WorldCoord> {
-        let x = world_coord.x.floor();
-        let y = world_coord.y.floor();
+    pub fn snap_to_middle(&self, position: &V2<f32>) -> Option<f32> {
+        let x = position.x.floor();
+        let y = position.y.floor();
         if let (Some(a), Some(b)) = (
             self.get_cell(&v2(x as usize, y as usize)),
             self.get_cell(&v2(x as usize + 1, y as usize + 1)),
         ) {
             let z = (a.elevation + b.elevation) / 2.0;
-            Some(WorldCoord::new(x + 0.5, y + 0.5, z))
+            Some(z)
         } else {
             None
         }
@@ -373,27 +375,18 @@ mod tests {
 
     #[test]
     fn test_snap_to_edge_x() {
-        assert_eq!(
-            world().snap_to_edge(WorldCoord::new(0.3, 1.0, 0.0)),
-            WorldCoord::new(0.3, 1.0, 1.3)
-        );
+        assert!(world().snap_to_edge(&v2(0.3, 1.0)).almost(&1.3));
     }
 
     #[test]
     fn test_snap_to_edge_y() {
-        assert_eq!(
-            world().snap_to_edge(WorldCoord::new(1.0, 1.6, 0.0)),
-            WorldCoord::new(1.0, 1.6, 1.4)
-        );
+        assert!(world().snap_to_edge(&v2(1.0, 1.6)).almost(&1.4));
     }
 
     #[test]
     fn test_snap_to_middle() {
-        assert_eq!(
-            world().snap_to_middle(WorldCoord::new(0.3, 0.7, 1.2)),
-            Some(WorldCoord::new(0.5, 0.5, 1.5))
-        );
-        assert_eq!(world().snap_to_middle(WorldCoord::new(3.3, 1.7, 1.2)), None);
+        assert_eq!(world().snap_to_middle(&v2(0.3, 0.7)), Some(1.5));
+        assert_eq!(world().snap_to_middle(&v2(3.3, 1.7)), None);
     }
 
     #[test]
