@@ -1,6 +1,8 @@
 use super::*;
 
-use crate::game::traits::{GetRoute, HasWorld, Micros, Nations, Settlements, WhoControlsTile};
+use crate::game::traits::{
+    GetRoute, HasWorld, Micros, Nations, RemoveObject, Settlements, WhoControlsTile,
+};
 use std::collections::HashSet;
 
 const HANDLE: &str = "refresh_positions";
@@ -8,14 +10,14 @@ const BATCH_SIZE: usize = 128;
 
 pub struct RefreshPositions<G>
 where
-    G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Micros + Nations + RemoveObject + Settlements + WhoControlsTile,
 {
     game: UpdateSender<G>,
 }
 
 impl<G> Processor for RefreshPositions<G>
 where
-    G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Micros + Nations + RemoveObject + Settlements + WhoControlsTile,
 {
     fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let positions = match instruction {
@@ -28,7 +30,7 @@ where
 
 impl<G> RefreshPositions<G>
 where
-    G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Micros + Nations + RemoveObject + Settlements + WhoControlsTile,
 {
     pub fn new(game: &UpdateSender<G>) -> RefreshPositions<G> {
         RefreshPositions {
@@ -67,7 +69,7 @@ fn refresh_positions<G>(
     initial_town_population: f64,
 ) -> State
 where
-    G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Micros + Nations + RemoveObject + Settlements + WhoControlsTile,
 {
     for position in positions {
         refresh_position(game, &mut state, position, &initial_town_population);
@@ -81,7 +83,7 @@ fn refresh_position<G>(
     position: V2<usize>,
     initial_town_population: &f64,
 ) where
-    G: GetRoute + HasWorld + Micros + Nations + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Micros + Nations + RemoveObject + Settlements + WhoControlsTile,
 {
     let traffic = get_position_traffic(game, &state, &position);
     for instruction in try_build_town(game, &traffic, &initial_town_population) {
@@ -90,4 +92,5 @@ fn refresh_position<G>(
     if let Some(instruction) = try_build_crops(game, &traffic) {
         state.build_queue.insert(instruction);
     }
+    try_remove_crops(state, game, &traffic);
 }
