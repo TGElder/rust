@@ -6,6 +6,7 @@ use crate::game::traits::{BuildRoad, HasWorld};
 const ROAD_THRESHOLD: usize = 0;
 
 pub fn try_remove_road<G, P>(
+    state: &mut State,
     game: &mut G,
     pathfinder: &Arc<RwLock<P>>,
     traffic: &EdgeTrafficSummary,
@@ -21,6 +22,7 @@ pub fn try_remove_road<G, P>(
         RoadStatus::Built => (),
         _ => return,
     };
+    state.build_queue.remove(&BuildKey::Road(traffic.edge));
     game.remove_road(&traffic.edge);
     game.world_mut().plan_road(&traffic.edge, None);
     pathfinder
@@ -82,12 +84,20 @@ mod tests {
     fn should_remove_road_if_status_is_built_and_traffic_under_threshold() {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
+
+        let mut state = State::default();
+        state.build_queue.insert(BuildInstruction {
+            what: Build::Road(edge),
+            when: 10,
+        });
+
         let mut game = MockGame::default();
         game.world.plan_road(&edge, Some(123));
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
         try_remove_road(
+            &mut state,
             &mut game,
             &pathfinder,
             &EdgeTrafficSummary {
@@ -101,6 +111,7 @@ mod tests {
         );
 
         // Then
+        assert_eq!(state.build_queue, BuildQueue::default());
         assert_eq!(game.removed_roads, vec![edge]);
         assert_eq!(game.world().road_planned(&edge), None);
         assert_eq!(*pathfinder.read().unwrap(), vec![edge]);
@@ -110,12 +121,20 @@ mod tests {
     fn should_remove_road_if_status_is_planned_and_traffic_under_threshold() {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
+
+        let mut state = State::default();
+        state.build_queue.insert(BuildInstruction {
+            what: Build::Road(edge),
+            when: 10,
+        });
+
         let mut game = MockGame::default();
         game.world.plan_road(&edge, Some(123));
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
         try_remove_road(
+            &mut state,
             &mut game,
             &pathfinder,
             &EdgeTrafficSummary {
@@ -129,6 +148,7 @@ mod tests {
         );
 
         // Then
+        assert_eq!(state.build_queue, BuildQueue::default());
         assert_eq!(game.removed_roads, vec![edge]);
         assert_eq!(game.world().road_planned(&edge), None);
         assert_eq!(*pathfinder.read().unwrap(), vec![edge]);
@@ -138,12 +158,18 @@ mod tests {
     fn should_not_remove_road_if_traffic_does_not_exceed_threshold() {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
+
+        let mut build_queue = BuildQueue::default();
+        let mut state = State::default();
+        state.build_queue = build_queue.clone();
+
         let mut game = MockGame::default();
         game.world.plan_road(&edge, Some(123));
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
         try_remove_road(
+            &mut state,
             &mut game,
             &pathfinder,
             &EdgeTrafficSummary {
@@ -157,6 +183,7 @@ mod tests {
         );
 
         // Then
+        assert_eq!(state.build_queue, build_queue);
         assert_eq!(game.removed_roads, vec![]);
         assert_eq!(game.world().road_planned(&edge), Some(123));
         assert_eq!(*pathfinder.read().unwrap(), vec![]);
@@ -171,6 +198,7 @@ mod tests {
 
         // When
         try_remove_road(
+            &mut State::default(),
             &mut game,
             &pathfinder,
             &EdgeTrafficSummary {
@@ -197,6 +225,7 @@ mod tests {
 
         // When
         try_remove_road(
+            &mut State::default(),
             &mut game,
             &pathfinder,
             &EdgeTrafficSummary {

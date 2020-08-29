@@ -22,6 +22,10 @@ impl BuildQueue {
         };
     }
 
+    pub fn remove(&mut self, build_key: &BuildKey) {
+        self.queue.remove(build_key);
+    }
+
     pub fn take_instructions_before(&mut self, micros: u128) -> Vec<BuildInstruction> {
         let (to_build, to_retain) = self
             .queue
@@ -96,6 +100,25 @@ mod tests {
                 Build::Road(edge).key() => earlier
             }
         );
+    }
+
+    #[test]
+    fn remove_should_always_remove_instruction() {
+        // Given
+        let edge = Edge::new(v2(1, 2), v2(1, 3));
+        let mut build_queue = BuildQueue::default();
+        let instruction = BuildInstruction {
+            what: Build::Road(edge),
+            when: 0,
+        };
+
+        build_queue.insert(instruction);
+
+        // When
+        build_queue.remove(&BuildKey::Road(edge));
+
+        // Then
+        assert_eq!(build_queue.queue, hashmap! {});
     }
 
     #[test]
