@@ -111,5 +111,5 @@ fn refresh_edge<G, T, P>(
     if let Some(instruction) = try_build_road(game, pathfinder, &edge_traffic) {
         state.build_queue.insert(instruction);
     }
-    try_remove_road(game, pathfinder, &edge_traffic);
+    try_remove_road(state, game, pathfinder, &edge_traffic);
 }
