@@ -155,11 +155,15 @@ mod tests {
     }
 
     #[test]
-    fn should_not_remove_road_if_traffic_does_not_exceed_threshold() {
+    fn should_not_remove_road_if_traffic_exceeds_threshold() {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
 
         let mut build_queue = BuildQueue::default();
+        build_queue.insert(BuildInstruction {
+            what: Build::Road(edge),
+            when: 10,
+        });
         let mut state = State::default();
         state.build_queue = build_queue.clone();
 
