@@ -18,11 +18,9 @@ where
 
     state.build_queue.remove(&BuildKey::Crops(traffic.position));
 
-    if !cell_has_crops(game, &traffic.position) {
-        return;
-    };
-
-    game.remove_object(&traffic.position);
+    if cell_has_crops(game, &traffic.position) {
+        game.remove_object(&traffic.position);
+    }
 }
 
 fn get_crop_routes(traffic: &PositionTrafficSummary) -> Vec<&RouteSummary> {
@@ -62,14 +60,14 @@ mod tests {
 
     struct MockGame {
         world: World,
-        removed: HashSet<V2<usize>>,
+        removed_objects: HashSet<V2<usize>>,
     }
 
     impl Default for MockGame {
         fn default() -> MockGame {
             MockGame {
                 world: world(),
-                removed: hashset! {},
+                removed_objects: hashset! {},
             }
         }
     }
@@ -86,7 +84,7 @@ mod tests {
 
     impl RemoveObject for MockGame {
         fn remove_object(&mut self, position: &V2<usize>) {
-            self.removed.insert(*position);
+            self.removed_objects.insert(*position);
         }
     }
 
@@ -117,7 +115,7 @@ mod tests {
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(game.removed, hashset! {traffic.position});
+        assert_eq!(game.removed_objects, hashset! {traffic.position});
     }
 
     #[test]
@@ -156,7 +154,7 @@ mod tests {
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(game.removed, hashset! {traffic.position});
+        assert_eq!(game.removed_objects, hashset! {traffic.position});
     }
 
     #[test]
@@ -195,7 +193,7 @@ mod tests {
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(game.removed, hashset! {traffic.position});
+        assert_eq!(game.removed_objects, hashset! {traffic.position});
     }
 
     #[test]
@@ -236,11 +234,11 @@ mod tests {
 
         // Then
         assert_eq!(state.build_queue, build_queue);
-        assert_eq!(game.removed, hashset! {});
+        assert_eq!(game.removed_objects, hashset! {});
     }
 
     #[test]
-    fn should_only_remove_build_instruction_if_cell_does_not_have_crops() {
+    fn should_not_remove_crops_if_cell_does_not_have_crops() {
         // Given
         let traffic = PositionTrafficSummary {
             position: v2(1, 2),
@@ -264,7 +262,7 @@ mod tests {
         try_remove_crops(&mut state, &mut game, &traffic);
 
         // Then
-        assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(game.removed, hashset! {});
+        assert_eq!(state.build_queue, BuildQueue::default()); // Should still remove build instruction
+        assert_eq!(game.removed_objects, hashset! {});
     }
 }
