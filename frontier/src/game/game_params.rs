@@ -29,6 +29,7 @@ pub struct GameParams {
     pub log_duration_threshold: Option<Duration>,
     pub label_padding: f32,
     pub nations: Vec<NationDescription>,
+    pub default_speed: f32,
 }
 
 impl Default for GameParams {
@@ -50,6 +51,7 @@ impl Default for GameParams {
             log_duration_threshold: None,
             label_padding: 2.0,
             nations: nation_descriptions(),
+            default_speed: 3600.0,
         }
     }
 }
