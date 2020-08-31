@@ -41,6 +41,10 @@ impl Simulation {
         self.process_instructions = true;
     }
 
+    pub fn stop_processing_instructions(&mut self) {
+        self.process_instructions = false;
+    }
+
     pub fn run(&mut self) {
         while self.run {
             self.process_updates();
@@ -406,6 +410,34 @@ mod tests {
     fn should_not_process_instruction_if_start_processing_instructions_is_not_called() {
         // Given
         let mut sim = Simulation::new(vec![]);
+        sim.set_state(State {
+            instructions: vec![Instruction::GetTerritory(v2(1, 1))],
+            ..State::default()
+        });
+        let tx = sim.tx().clone();
+        let handle = thread::spawn(move || {
+            sim.run();
+            sim
+        });
+
+        // When
+        block_on(async { tx.update(|_| {}).await });
+        block_on(async { tx.update(|sim| sim.shutdown()).await });
+
+        // Then
+        let sim = handle.join().unwrap();
+        assert_eq!(
+            sim.state.unwrap().instructions,
+            vec![Instruction::GetTerritory(v2(1, 1))]
+        );
+    }
+
+    #[test]
+    fn should_not_process_instruction_after_stop_processing_instructions_is_called() {
+        // Given
+        let mut sim = Simulation::new(vec![]);
+        sim.start_processing_instructions();
+        sim.stop_processing_instructions();
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
             ..State::default()

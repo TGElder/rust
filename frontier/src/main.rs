@@ -135,6 +135,7 @@ fn main() {
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(&pathfinder_with_planned_roads));
+    game.add_consumer(Pause::new(game.tx(), sim.tx()));
 
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
@@ -202,6 +203,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         first_visits: Vec2D::same_size_as(&world, None),
         world,
         game_micros: 0,
+        speed: params.default_speed,
         params,
         avatars: HashMap::new(),
         nations: HashMap::new(),
@@ -209,7 +211,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         selected_avatar: None,
         follow_avatar: true,
         routes: HashMap::new(),
-        speed: 1.0,
         visible_land_positions,
     };
 
