@@ -48,23 +48,22 @@ impl VegetationArtist {
                     offset,
                 } = cell.object
                 {
-                    let geometry = TerrainGeometry::of(world);
-                    let triangles = geometry.get_triangles_for_tile(&position);
-                    let position = v2(position.x as f32 + offset.x, position.y as f32 + offset.y);
-                    let z = triangle_interpolate_any(&position, &triangles)
-                        .or_else(|| world.snap_to_middle(&position));
-                    let z = unwrap_or!(z, continue);
-
-                    let world_coord = WorldCoord::new(
-                        position.x,
-                        position.y,
-                        z + (vegetation_type.height() * self.params.exaggeration) / 2.0,
-                    );
-
-                    vegetation
-                        .entry(vegetation_type)
-                        .or_insert_with(Vec::new)
-                        .push(world_coord);
+                    snap_to_terrain(&world, &position, offset)
+                        .or_else(|| snap_to_middle(world, &position))
+                        .map(|WorldCoord { x, y, z }| {
+                            WorldCoord::new(
+                                x,
+                                y,
+                                z + (vegetation_type.height() * self.params.exaggeration) / 2.0,
+                            )
+                        })
+                        .into_iter()
+                        .for_each(|world_coord| {
+                            vegetation
+                                .entry(vegetation_type)
+                                .or_insert_with(Vec::new)
+                                .push(world_coord)
+                        });
                 }
             }
         }
@@ -92,6 +91,21 @@ impl VegetationArtist {
 
         out
     }
+}
+
+fn snap_to_terrain(world: &World, tile: &V2<usize>, offset: V2<f32>) -> Option<WorldCoord> {
+    let geometry = TerrainGeometry::of(world);
+    let triangles = geometry.get_triangles_for_tile(&tile);
+    let position = v2(tile.x as f32 + offset.x, tile.y as f32 + offset.y);
+    triangle_interpolate_any(&position, &triangles)
+        .map(|z| WorldCoord::new(position.x, position.y, z))
+}
+
+fn snap_to_middle(world: &World, tile: &V2<usize>) -> Option<WorldCoord> {
+    let position = v2(tile.x as f32 + 0.5, tile.y as f32 + 0.5);
+    world
+        .snap_to_middle(&position)
+        .map(|z| WorldCoord::new(position.x, position.y, z))
 }
 
 fn texture(vegetation_type: VegetationType) -> &'static str {
