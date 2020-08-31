@@ -1,6 +1,6 @@
 use super::*;
 use crate::game::traits::{Micros, Settlements, UpdateSettlement};
-use crate::settlement::Settlement;
+use crate::settlement::{Settlement, SettlementClass};
 
 const HANDLE: &str = "update_current_population";
 
@@ -61,6 +61,12 @@ where
 
     let new_population = get_new_population(settlement, &game_micros);
 
+    // Clamp change
+    let max_abs_change = max_abs_population_change(settlement);
+    let change = (new_population - settlement.current_population).max(-max_abs_change).min(max_abs_change);
+    println!("{} to {}", new_population - settlement.current_population, change);
+    let new_population = settlement.current_population + change;
+
     let new_settlement = Settlement {
         current_population: new_population,
         last_population_update_micros: game_micros,
@@ -80,9 +86,16 @@ fn get_new_population(settlement: &Settlement, game_micros: &u128) -> f64 {
         let last_update_micros = settlement.last_population_update_micros;
         let elapsed = (game_micros - last_update_micros) as f64;
         let exponent = elapsed / half_life;
-        let decay = 0.5f64.powf(exponent);
+        let decay = 0.875f64.powf(exponent);
         let gap = settlement.target_population - settlement.current_population;
         settlement.target_population - gap * decay
+    }
+}
+
+fn max_abs_population_change(settlement: &Settlement) -> f64 {
+    match settlement.class {
+        SettlementClass::Town => 2.0,
+        SettlementClass::Homeland => 16.0,
     }
 }
 
