@@ -26,7 +26,7 @@ impl Pause {
         let game_tx = self.game_tx.clone();
         self.sim_tx.update(move |sim| {
             block_on(async {
-                sim.stop_processing_instructions();
+                sim.pause();
                 game_tx.update(|game| game.mut_state().speed = 0.0).await;
             })
         });
@@ -36,7 +36,7 @@ impl Pause {
         let game_tx = self.game_tx.clone();
         self.sim_tx.update(move |sim| {
             block_on(async {
-                sim.start_processing_instructions();
+                sim.resume();
                 game_tx
                     .update(move |game| game.mut_state().speed = default_speed)
                     .await;
@@ -50,7 +50,12 @@ impl GameEventConsumer for Pause {
         HANDLE
     }
 
-    fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {
+    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
+        if let GameEvent::Init = event {
+            if game_state.speed == 0.0 {
+                self.pause = false;
+            }
+        }
         CaptureEvent::No
     }
 
