@@ -28,6 +28,7 @@ impl SimulationStateLoader {
             edge_traffic: hashmap! {},
             route_to_ports: hashmap! {},
             build_queue: BuildQueue::default(),
+            paused: false,
         };
         self.sim_tx.update(move |sim| sim.set_state(state));
     }
@@ -128,6 +129,7 @@ mod tests {
                 edge_traffic: hashmap! {},
                 route_to_ports: hashmap! {},
                 build_queue: BuildQueue::default(),
+                paused: false,
             }
         )
     }
@@ -164,6 +166,7 @@ mod tests {
             edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
             route_to_ports: hashmap! { route_key => hashset!{ v2(1, 2), v2(3, 4) } },
             build_queue,
+            paused: true,
         };
         sim_1.set_state(state.clone());
         sim_1.save(file_name);

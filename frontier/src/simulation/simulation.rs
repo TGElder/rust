@@ -41,8 +41,18 @@ impl Simulation {
         self.process_instructions = true;
     }
 
-    pub fn stop_processing_instructions(&mut self) {
-        self.process_instructions = false;
+    pub fn pause(&mut self) {
+        self.set_paused(true);
+    }
+
+    pub fn resume(&mut self) {
+        self.set_paused(false);
+    }
+
+    fn set_paused(&mut self, paused: bool) {
+        self.state
+            .iter_mut()
+            .for_each(|state| state.paused = paused);
     }
 
     pub fn run(&mut self) {
@@ -55,8 +65,9 @@ impl Simulation {
 
             if self.process_instructions {
                 self.process_instruction();
-                self.try_step();
             }
+
+            self.try_step();
         }
     }
 
@@ -67,9 +78,11 @@ impl Simulation {
 
     fn process_instruction(&mut self) {
         let mut state = unwrap_or!(self.state.take(), return);
-        if let Some(instruction) = state.instructions.pop() {
-            for processor in self.processors.iter_mut() {
-                state = processor.process(state, &instruction);
+        if !state.paused {
+            if let Some(instruction) = state.instructions.pop() {
+                for processor in self.processors.iter_mut() {
+                    state = processor.process(state, &instruction);
+                }
             }
         }
         self.state = Some(state);
@@ -218,7 +231,7 @@ mod tests {
             .contains(&Instruction::GetTerritory(v2(1, 1)))
         {
             if start.elapsed().as_secs() > 10 {
-                panic!("No town instruction received after 10 seconds");
+                panic!("No GetTerritory instruction received after 10 seconds");
             }
         }
         block_on(async { tx.update(|sim| sim.shutdown()).await });
@@ -297,6 +310,7 @@ mod tests {
             edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
             route_to_ports: hashmap! { route_key => hashset!{ v2(1, 2), v2(3, 4) } },
             build_queue,
+            paused: true,
         });
         sim_1.save(file_name);
 
@@ -340,7 +354,7 @@ mod tests {
             .contains(&Instruction::GetTerritory(v2(1, 1)))
         {
             if start.elapsed().as_secs() > 10 {
-                panic!("No town instruction received after 10 seconds");
+                panic!("No GetTerritory instruction received after 10 seconds");
             }
         }
         block_on(async { tx.update(|sim| sim.shutdown()).await });
@@ -433,15 +447,15 @@ mod tests {
     }
 
     #[test]
-    fn should_not_process_instruction_after_stop_processing_instructions_is_called() {
+    fn should_not_process_instruction_while_paused() {
         // Given
         let mut sim = Simulation::new(vec![]);
         sim.start_processing_instructions();
-        sim.stop_processing_instructions();
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
             ..State::default()
         });
+        sim.pause();
         let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
             sim.run();
@@ -458,5 +472,39 @@ mod tests {
             sim.state.unwrap().instructions,
             vec![Instruction::GetTerritory(v2(1, 1))]
         );
+    }
+
+    #[test]
+    fn should_process_instruction_when_resumed() {
+        let receiver = InstructionRetriever::new();
+        let instructions = receiver.instructions.clone();
+        let mut sim = Simulation::new(vec![Box::new(receiver)]);
+        sim.start_processing_instructions();
+        sim.set_state(State {
+            instructions: vec![Instruction::GetTerritory(v2(1, 1))],
+            ..State::default()
+        });
+        sim.pause();
+        sim.resume();
+
+        let tx = sim.tx().clone();
+        let handle = thread::spawn(move || {
+            sim.run();
+            sim
+        });
+
+        let start = Instant::now();
+        while !instructions
+            .lock()
+            .unwrap()
+            .contains(&Instruction::GetTerritory(v2(1, 1)))
+        {
+            if start.elapsed().as_secs() > 10 {
+                panic!("No GetTerritory instruction received after 10 seconds");
+            }
+        }
+
+        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        handle.join().unwrap();
     }
 }
