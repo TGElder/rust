@@ -54,7 +54,7 @@ impl PrimeMover {
             params: PrimeMoverParams::default(),
             game_tx: game_tx.clone_with_handle(HANDLE),
             state: PrimeMoverState::default(),
-            active: true,
+            active: false,
             rng: SeedableRng::seed_from_u64(seed),
             binding: Button::Key(VirtualKeyCode::K),
         }
@@ -270,6 +270,7 @@ impl GameEventConsumer for PrimeMover {
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
+            GameEvent::Init => self.active = true,
             GameEvent::Tick { .. } => self.tick(game_state),
             GameEvent::Save(path) => self.save(&path),
             GameEvent::Load(path) => self.load(&path),
