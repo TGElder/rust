@@ -13,6 +13,7 @@ pub struct State {
     pub edge_traffic: EdgeTraffic,
     pub route_to_ports: HashMap<RouteKey, HashSet<V2<usize>>>,
     pub build_queue: BuildQueue,
+    pub paused: bool,
 }
 
 impl Default for State {
@@ -24,6 +25,7 @@ impl Default for State {
             edge_traffic: hashmap! {},
             route_to_ports: hashmap! {},
             build_queue: BuildQueue::default(),
+            paused: false,
         }
     }
 }
