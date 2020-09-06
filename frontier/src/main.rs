@@ -99,7 +99,10 @@ fn main() {
         Box::new(UpdateTown::new(game.tx())),
         Box::new(RemoveTown::new(game.tx())),
         Box::new(UpdateHomelandPopulation::new(game.tx())),
-        Box::new(UpdateCurrentPopulation::new(game.tx())),
+        Box::new(UpdateCurrentPopulation::new(
+            game.tx(),
+            max_abs_population_change,
+        )),
         Box::new(GetDemand::new(town_demand_fn)),
         Box::new(GetDemand::new(homeland_demand_fn)),
         Box::new(GetRoutes::new(&pathfinder_with_planned_roads)),
