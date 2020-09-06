@@ -101,7 +101,7 @@ fn main() {
         Box::new(UpdateHomelandPopulation::new(game.tx())),
         Box::new(UpdateCurrentPopulation::new(
             game.tx(),
-            default_max_abs_population_change,
+            max_abs_population_change,
         )),
         Box::new(GetDemand::new(town_demand_fn)),
         Box::new(GetDemand::new(homeland_demand_fn)),

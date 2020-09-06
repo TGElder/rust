@@ -83,7 +83,7 @@ fn get_first_visit_route(routes: &[RouteSummary]) -> &RouteSummary {
 fn get_gap_half_life(routes: &[RouteSummary]) -> Duration {
     let total: Duration = routes.iter().map(|route| route.duration).sum();
     let count: u32 = routes.iter().count().try_into().unwrap();
-    ((total / count) * 2).mul_f32(5.19) // 5.19 makes half life equivalent to 'eighth life'
+    ((total / count) * 2).mul_f32(5.19) // 5.19 makes half life equivalent to '7/8th life'
 }
 
 fn get_when(routes: &[RouteSummary]) -> u128 {
