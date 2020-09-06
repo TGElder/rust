@@ -153,7 +153,7 @@ fn get_settlement(
         nation,
         current_population: 0.0,
         target_population: 0.0,
-        gap_half_life: params.homeland_distance,
+        gap_half_life: params.homeland_distance.mul_f32(5.19), // 5.19 makes half life equivalent to 'eighth life'
         last_population_update_micros: 0,
     }
 }
