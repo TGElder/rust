@@ -32,7 +32,7 @@ pub use refresh_positions::RefreshPositions;
 pub use remove_town::RemoveTown;
 pub use step_homeland::StepHomeland;
 pub use step_town::StepTown;
-pub use update_current_population::UpdateCurrentPopulation;
+pub use update_current_population::{max_abs_population_change, UpdateCurrentPopulation};
 pub use update_edge_traffic::UpdateEdgeTraffic;
 pub use update_homeland_population::UpdateHomelandPopulation;
 pub use update_position_traffic::UpdatePositionTraffic;
