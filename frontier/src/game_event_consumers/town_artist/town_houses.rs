@@ -51,12 +51,10 @@ impl TownHouses {
             let commands = draw_house(
                 get_name(settlement),
                 &game_state.world,
-                &settlement.position,
+                &position,
                 &draw_house_params,
             );
-            let position = *position;
             self.game_tx.update(move |game| {
-                game.force_object(WorldObject::None, position);
                 game.send_engine_commands(commands);
             });
         }
