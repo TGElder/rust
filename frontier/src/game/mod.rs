@@ -305,6 +305,7 @@ impl Game {
             self.game_state
                 .territory
                 .add_controller(settlement.position);
+            self.force_object(WorldObject::None, settlement.position);
         };
         self.game_state
             .settlements
@@ -313,7 +314,6 @@ impl Game {
         true
     }
 
-    #[allow(dead_code)] // TODO
     pub fn update_settlement(&mut self, settlement: Settlement) {
         self.game_state
             .settlements
