@@ -116,7 +116,7 @@ mod tests {
     }
 
     #[test]
-    fn should_build_crops() {
+    fn should_build_crops_if_no_town_on_tile() {
         // Given
         let game = UpdateProcess::new(MockGame::default());
         let mut builder = CropsBuilder::new(&game.tx());

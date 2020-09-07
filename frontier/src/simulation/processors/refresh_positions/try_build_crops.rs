@@ -248,7 +248,7 @@ mod tests {
     }
 
     #[test]
-    fn should_not_build_crops_if_cell_already_occupied() {
+    fn should_not_build_crops_if_cell_has_object() {
         // Given
         let mut game = MockGame::default();
         game.world_mut().mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
