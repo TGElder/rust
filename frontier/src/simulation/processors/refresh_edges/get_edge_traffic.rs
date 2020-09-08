@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::game::traits::{GetRoute, HasWorld, Micros};
+use crate::game::traits::{GetRoute, HasWorld};
 use crate::route::RouteKey;
 use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
@@ -35,7 +35,7 @@ pub fn get_edge_traffic<G, T>(
     edge: &Edge,
 ) -> EdgeTrafficSummary
 where
-    G: GetRoute + HasWorld + Micros,
+    G: GetRoute + HasWorld,
     T: TravelDuration + 'static,
 {
     let route_keys = get_route_keys(&state, &edge);
@@ -57,7 +57,7 @@ fn get_edge_traffic_with_route_keys<G, T>(
     route_keys: &HashSet<RouteKey>,
 ) -> EdgeTrafficSummary
 where
-    G: GetRoute + HasWorld + Micros,
+    G: GetRoute + HasWorld,
     T: TravelDuration + 'static,
 {
     EdgeTrafficSummary {
@@ -89,7 +89,7 @@ where
 
 fn get_routes<G>(game: &G, route_keys: &HashSet<RouteKey>) -> Vec<EdgeRouteSummary>
 where
-    G: Micros + GetRoute,
+    G: GetRoute,
 {
     route_keys
         .iter()
@@ -99,12 +99,12 @@ where
 
 fn get_route<G>(game: &G, route_key: &RouteKey) -> Option<EdgeRouteSummary>
 where
-    G: Micros + GetRoute,
+    G: GetRoute,
 {
     let route = game.get_route(&route_key)?;
     Some(EdgeRouteSummary {
         traffic: route.traffic,
-        first_visit: game.micros() + route.duration.as_micros(),
+        first_visit: route.start_micros + route.duration.as_micros(),
     })
 }
 
@@ -126,7 +126,6 @@ mod tests {
     }
 
     struct MockGame {
-        micros: u128,
         world: World,
         routes: HashMap<RouteKey, Route>,
     }
@@ -134,7 +133,6 @@ mod tests {
     impl Default for MockGame {
         fn default() -> MockGame {
             MockGame {
-                micros: 0,
                 world: world(),
                 routes: HashMap::new(),
             }
@@ -148,12 +146,6 @@ mod tests {
 
         fn world_mut(&mut self) -> &mut World {
             &mut self.world
-        }
-    }
-
-    impl Micros for MockGame {
-        fn micros(&self) -> &u128 {
-            &self.micros
         }
     }
 
@@ -273,7 +265,7 @@ mod tests {
         };
         let route_1 = Route {
             path: vec![],
-            start_micros: 0,
+            start_micros: 1000,
             duration: Duration::from_micros(101),
             traffic: 11,
         };
@@ -284,7 +276,7 @@ mod tests {
         };
         let route_2 = Route {
             path: vec![],
-            start_micros: 0,
+            start_micros: 2000,
             duration: Duration::from_micros(202),
             traffic: 22,
         };
@@ -300,7 +292,6 @@ mod tests {
         };
 
         let game = MockGame {
-            micros: 1000,
             routes,
             ..MockGame::default()
         };
@@ -318,7 +309,7 @@ mod tests {
                 },
                 EdgeRouteSummary {
                     traffic: 22,
-                    first_visit: 1202,
+                    first_visit: 2202,
                 },
             ]
         ));

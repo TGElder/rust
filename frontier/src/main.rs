@@ -33,7 +33,6 @@ use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
 use commons::futures::executor::ThreadPool;
 use commons::grid::Grid;
-use commons::index2d::Vec2D;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
@@ -105,7 +104,7 @@ fn main() {
         )),
         Box::new(GetDemand::new(town_demand_fn)),
         Box::new(GetDemand::new(homeland_demand_fn)),
-        Box::new(GetRoutes::new(&pathfinder_with_planned_roads)),
+        Box::new(GetRoutes::new(game.tx(), &pathfinder_with_planned_roads)),
         Box::new(GetRouteChanges::new(game.tx())),
         Box::new(UpdatePositionTraffic::new()),
         Box::new(UpdateEdgeTraffic::new()),
@@ -203,7 +202,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
     };
     let game_state = GameState {
         territory: Territory::new(&world),
-        first_visits: Vec2D::same_size_as(&world, None),
         world,
         game_micros: 0,
         speed: params.default_speed,

@@ -71,7 +71,9 @@ where
 {
     match route_change {
         RouteChange::New { key, route } => update(game, state, key, route),
-        RouteChange::Updated { key, new, .. } => update(game, state, key, new),
+        RouteChange::Updated { key, new, old } if new.path != old.path => {
+            update(game, state, key, new)
+        }
         RouteChange::Removed { key, .. } => remove(state, key),
         _ => (),
     }
@@ -226,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn should_update_entry_for_updated_route_with_ports() {
+    fn should_update_entry_for_updated_route_with_updated_path_with_ports() {
         // Given
         let game = MockGame {
             ports: hashset! {v2(0, 1), v2(1, 0), v2(1, 2)},
@@ -303,6 +305,52 @@ mod tests {
 
         let state = State {
             route_to_ports: hashmap! { key => hashset!{ v2(1, 0) } },
+            ..State::default()
+        };
+
+        let mut processor = UpdateRouteToPorts::new(&game.tx());
+
+        // When
+        let route_change = RouteChange::Updated { key, old, new };
+        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
+        let state = processor.process(state, &instruction);
+
+        // Then
+        assert_eq!(state.route_to_ports, hashmap! {});
+
+        // Finally
+        game.shutdown();
+    }
+
+    #[test]
+    fn should_do_nothing_for_updated_route_with_same_path() {
+        // Given
+        let game = MockGame {
+            ports: hashset! {v2(0, 1), v2(1, 0), v2(1, 2)},
+            ..MockGame::default()
+        };
+        let game = UpdateProcess::new(game);
+
+        let key = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Truffles,
+            destination: v2(2, 2),
+        };
+        let old = Route {
+            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+            start_micros: 0,
+            duration: Duration::from_secs(0),
+            traffic: 0,
+        };
+        let new = Route {
+            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+            start_micros: 10,
+            duration: Duration::from_secs(0),
+            traffic: 0,
+        };
+
+        let state = State {
+            route_to_ports: hashmap! {}, // Incorrect so we can check it is not corrected
             ..State::default()
         };
 

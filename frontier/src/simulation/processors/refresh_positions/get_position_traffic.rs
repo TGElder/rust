@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::game::traits::{GetRoute, HasWorld, Micros, Settlements, WhoControlsTile};
+use crate::game::traits::{GetRoute, HasWorld, Settlements, WhoControlsTile};
 use crate::resource::Resource;
 use crate::route::RouteKey;
 use commons::Grid;
@@ -40,7 +40,7 @@ pub fn get_position_traffic<G>(
     position: &V2<usize>,
 ) -> PositionTrafficSummary
 where
-    G: HasWorld + Micros + GetRoute + Settlements + WhoControlsTile,
+    G: HasWorld + GetRoute + Settlements + WhoControlsTile,
 {
     let route_keys = get_route_keys(&state, position);
     get_traffic_with_route_keys(game, state, &position, &route_keys)
@@ -57,7 +57,7 @@ fn get_traffic_with_route_keys<G>(
     route_keys: &HashSet<RouteKey>,
 ) -> PositionTrafficSummary
 where
-    G: HasWorld + Micros + GetRoute + Settlements + WhoControlsTile,
+    G: HasWorld + GetRoute + Settlements + WhoControlsTile,
 {
     PositionTrafficSummary {
         position: *position,
@@ -69,7 +69,7 @@ where
 
 fn get_routes<G>(game: &G, state: &State, route_keys: &HashSet<RouteKey>) -> Vec<RouteSummary>
 where
-    G: HasWorld + Micros + GetRoute + Settlements,
+    G: HasWorld + GetRoute + Settlements,
 {
     route_keys
         .iter()
@@ -79,7 +79,7 @@ where
 
 fn get_route<G>(game: &G, state: &State, route_key: &RouteKey) -> Option<RouteSummary>
 where
-    G: HasWorld + Micros + GetRoute + Settlements,
+    G: HasWorld + GetRoute + Settlements,
 {
     let route = game.get_route(&route_key)?;
     let traffic = route.traffic;
@@ -87,8 +87,7 @@ where
     let origin_settlement = game.get_settlement(&origin)?;
     let destination = route_key.destination;
     let nation = origin_settlement.nation.clone();
-    let micros = game.micros();
-    let first_visit = micros + route.duration.as_micros();
+    let first_visit = route.start_micros + route.duration.as_micros();
     let duration = route.duration;
     let resource = route_key.resource;
     let ports = state
@@ -186,7 +185,6 @@ mod tests {
     }
 
     struct MockGame {
-        micros: u128,
         world: World,
         routes: HashMap<RouteKey, Route>,
         settlements: HashMap<V2<usize>, Settlement>,
@@ -196,7 +194,6 @@ mod tests {
     impl Default for MockGame {
         fn default() -> MockGame {
             MockGame {
-                micros: 0,
                 world: world(),
                 routes: HashMap::new(),
                 settlements: HashMap::new(),
@@ -212,12 +209,6 @@ mod tests {
 
         fn world_mut(&mut self) -> &mut World {
             &mut self.world
-        }
-    }
-
-    impl Micros for MockGame {
-        fn micros(&self) -> &u128 {
-            &self.micros
         }
     }
 
@@ -285,7 +276,7 @@ mod tests {
         };
         let route = Route {
             path: vec![],
-            start_micros: 0,
+            start_micros: 1000,
             duration: Duration::from_micros(101),
             traffic: 11,
         };
@@ -295,7 +286,6 @@ mod tests {
         state.traffic.mut_cell_unsafe(&v2(1, 2)).insert(route_key);
 
         let game = MockGame {
-            micros: 1000,
             routes,
             settlements: route_settlements(),
             ..MockGame::default()
@@ -332,7 +322,7 @@ mod tests {
         };
         let route_1 = Route {
             path: vec![],
-            start_micros: 0,
+            start_micros: 1000,
             duration: Duration::from_micros(101),
             traffic: 11,
         };
@@ -343,7 +333,7 @@ mod tests {
         };
         let route_2 = Route {
             path: vec![],
-            start_micros: 0,
+            start_micros: 2000,
             duration: Duration::from_micros(202),
             traffic: 22,
         };
@@ -357,7 +347,6 @@ mod tests {
         state.traffic.mut_cell_unsafe(&v2(1, 2)).insert(route_key_2);
 
         let game = MockGame {
-            micros: 1000,
             routes,
             settlements: route_settlements(),
             ..MockGame::default()
@@ -385,7 +374,7 @@ mod tests {
                     origin: v2(0, 2),
                     destination: v2(2, 2),
                     nation: "Wales".to_string(),
-                    first_visit: 1202,
+                    first_visit: 2202,
                     duration: Duration::from_micros(202),
                     resource: Resource::Spice,
                     ports: hashset! {},
@@ -419,7 +408,6 @@ mod tests {
             .insert(route_key, hashset! {v2(0, 1), v2(0, 2)});
 
         let game = MockGame {
-            micros: 1000,
             routes,
             settlements: route_settlements(),
             ..MockGame::default()
@@ -447,7 +435,6 @@ mod tests {
         state.traffic.mut_cell_unsafe(&position).insert(route_key);
 
         let game = MockGame {
-            micros: 1000,
             settlements: route_settlements(),
             ..MockGame::default()
         };
@@ -478,7 +465,6 @@ mod tests {
         let routes = hashmap! {route_key => route};
 
         let game = MockGame {
-            micros: 1000,
             routes,
             ..MockGame::default()
         };
