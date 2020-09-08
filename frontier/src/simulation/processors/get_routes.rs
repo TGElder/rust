@@ -1,18 +1,24 @@
 use super::*;
+use crate::game::traits::Micros;
 use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, InBounds};
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::game_event_consumers::target_set;
 use commons::get_corners;
 
-pub struct GetRoutes<P>
+const HANDLE: &str = "get_routes";
+
+pub struct GetRoutes<G, P>
 where
+    G: Micros,
     P: ClosestTargets + InBounds,
 {
+    game: UpdateSender<G>,
     pathfinder: Arc<RwLock<P>>,
 }
 
-impl<P> Processor for GetRoutes<P>
+impl<G, P> Processor for GetRoutes<G, P>
 where
+    G: Micros,
     P: ClosestTargets + InBounds,
 {
     fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
@@ -20,7 +26,8 @@ where
             Instruction::GetRoutes(demand) => *demand,
             _ => return state,
         };
-        let route_set: RouteSet = routes(&demand, self.closest_targets(&demand)).collect();
+        let route_set: RouteSet =
+            routes(self.game_micros(), &demand, self.closest_targets(&demand)).collect();
         state.instructions.push(Instruction::GetRouteChanges {
             key: RouteSetKey {
                 settlement: demand.position,
@@ -32,14 +39,20 @@ where
     }
 }
 
-impl<P> GetRoutes<P>
+impl<G, P> GetRoutes<G, P>
 where
+    G: Micros,
     P: ClosestTargets + InBounds,
 {
-    pub fn new(pathfinder: &Arc<RwLock<P>>) -> GetRoutes<P> {
+    pub fn new(game: &UpdateSender<G>, pathfinder: &Arc<RwLock<P>>) -> GetRoutes<G, P> {
         GetRoutes {
+            game: game.clone_with_handle(HANDLE),
             pathfinder: pathfinder.clone(),
         }
+    }
+
+    fn game_micros(&mut self) -> u128 {
+        block_on(async { self.game.update(|game| *game.micros()).await })
     }
 
     fn closest_targets(&self, demand: &Demand) -> Vec<ClosestTargetResult> {
@@ -58,15 +71,16 @@ where
 }
 
 fn routes<'a>(
+    start_micros: u128,
     demand: &'a Demand,
     closest_targets: Vec<ClosestTargetResult>,
 ) -> impl Iterator<Item = (RouteKey, Route)> + 'a {
     closest_targets
         .into_iter()
-        .map(move |target| route(demand, target))
+        .map(move |target| route(start_micros, demand, target))
 }
 
-fn route(demand: &Demand, target: ClosestTargetResult) -> (RouteKey, Route) {
+fn route(start_micros: u128, demand: &Demand, target: ClosestTargetResult) -> (RouteKey, Route) {
     (
         RouteKey {
             settlement: demand.position,
@@ -75,7 +89,7 @@ fn route(demand: &Demand, target: ClosestTargetResult) -> (RouteKey, Route) {
         },
         Route {
             path: target.path,
-            start_micros: 0,
+            start_micros,
             duration: target.duration,
             traffic: demand.quantity,
         },
@@ -87,6 +101,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use commons::update::UpdateProcess;
     use commons::{same_elements, v2};
     use std::collections::HashMap;
     use std::time::Duration;
@@ -130,8 +145,10 @@ mod tests {
             }
         }
 
+        // Given
+        let game = UpdateProcess::new(101);
         let pathfinder = Arc::new(RwLock::new(MockPathfinder {}));
-        let mut processor = GetRoutes::new(&pathfinder);
+        let mut processor = GetRoutes::new(&game.tx(), &pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -139,8 +156,10 @@ mod tests {
             quantity: 3,
         };
 
+        // When
         let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
 
+        // Then
         let mut route_set = HashMap::new();
         route_set.insert(
             RouteKey {
@@ -150,7 +169,7 @@ mod tests {
             },
             Route {
                 path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
-                start_micros: 0,
+                start_micros: 101,
                 duration: Duration::from_secs(2),
                 traffic: 3,
             },
@@ -163,7 +182,7 @@ mod tests {
             },
             Route {
                 path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
-                start_micros: 0,
+                start_micros: 101,
                 duration: Duration::from_secs(4),
                 traffic: 3,
             },
@@ -179,6 +198,9 @@ mod tests {
                 route_set
             }]
         );
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
@@ -209,8 +231,10 @@ mod tests {
             }
         }
 
+        // Given
+        let game = UpdateProcess::new(101);
         let pathfinder = Arc::new(RwLock::new(MockPathfinder {}));
-        let mut processor = GetRoutes::new(&pathfinder);
+        let mut processor = GetRoutes::new(&game.tx(), &pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -218,8 +242,10 @@ mod tests {
             quantity: 3,
         };
 
+        // When
         let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
 
+        // Then
         assert_eq!(
             state.instructions,
             vec![Instruction::GetRouteChanges {
@@ -230,6 +256,9 @@ mod tests {
                 route_set: hashmap! {}
             }]
         );
+
+        // Finally
+        game.shutdown();
     }
 
     struct PanicPathfinder {}
@@ -252,8 +281,10 @@ mod tests {
 
     #[test]
     fn zero_source_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
+        // Given
+        let game = UpdateProcess::new(101);
         let pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
-        let mut processor = GetRoutes::new(&pathfinder);
+        let mut processor = GetRoutes::new(&game.tx(), &pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -261,8 +292,10 @@ mod tests {
             quantity: 1,
         };
 
+        // When
         let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
 
+        // Then
         assert_eq!(
             state.instructions,
             vec![Instruction::GetRouteChanges {
@@ -273,12 +306,17 @@ mod tests {
                 route_set: hashmap! {}
             }]
         );
+
+        // Finally
+        game.shutdown();
     }
 
     #[test]
     fn zero_quantity_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
+        // Given
+        let game = UpdateProcess::new(101);
         let pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
-        let mut processor = GetRoutes::new(&pathfinder);
+        let mut processor = GetRoutes::new(&game.tx(), &pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -286,8 +324,10 @@ mod tests {
             quantity: 0,
         };
 
+        // When
         let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
 
+        // Then
         assert_eq!(
             state.instructions,
             vec![Instruction::GetRouteChanges {
@@ -298,5 +338,8 @@ mod tests {
                 route_set: hashmap! {}
             }]
         );
+
+        // Finally
+        game.shutdown();
     }
 }
