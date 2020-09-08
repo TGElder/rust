@@ -7,8 +7,6 @@ use crate::settlement::*;
 use crate::territory::*;
 use crate::world::*;
 
-use commons::index2d::Vec2D;
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::default::Default;
@@ -27,7 +25,6 @@ pub struct GameState {
     pub follow_avatar: bool,
     pub routes: HashMap<RouteSetKey, RouteSet>,
     pub territory: Territory,
-    pub first_visits: Vec2D<Option<FirstVisit>>, //TODO remove
     pub speed: f32,
     pub visible_land_positions: usize,
 }
@@ -45,7 +42,6 @@ impl Default for GameState {
             follow_avatar: false,
             routes: HashMap::new(),
             territory: Territory::new(&world),
-            first_visits: Vec2D::same_size_as(&world, None),
             speed: 0.0,
             world,
             visible_land_positions: 0,
@@ -155,7 +151,6 @@ mod tests {
         );
         let game_state = GameState {
             territory: Territory::new(&world),
-            first_visits: Vec2D::same_size_as(&world, None),
             world,
             game_micros: 123,
             params: GameParams::default(),
