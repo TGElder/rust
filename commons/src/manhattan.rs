@@ -1,6 +1,6 @@
+use crate::V2;
 use std::fmt::Debug;
 use std::ops::{Add, Sub};
-use V2;
 
 pub trait ManhattanDistance<T>
 where
@@ -32,7 +32,7 @@ where
 mod tests {
     use super::*;
 
-    use v2;
+    use crate::v2;
 
     #[test]
     fn two_identical_points() {

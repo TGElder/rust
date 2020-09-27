@@ -1,6 +1,6 @@
+use crate::{M, V2, V3};
 use float_cmp::approx_eq;
 use std::fmt::Debug;
-use {M, V2, V3};
 
 pub trait Almost {
     fn almost(&self, other: &Self) -> bool;
@@ -80,7 +80,7 @@ mod tests {
 
     use super::*;
 
-    use {v2, v3};
+    use crate::{v2, v3};
 
     #[test]
     fn test_almost_option_both_some() {
