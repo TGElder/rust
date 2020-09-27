@@ -2,6 +2,7 @@
 name = "commons"
 version = "0.1.0"
 authors = ["Thomas Elder <tgelder@gmail.com>"]
+edition = "2018"
 
 [dependencies]
 float-cmp = "0.5"

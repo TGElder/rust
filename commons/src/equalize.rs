@@ -1,7 +1,7 @@
+use crate::grid::Grid;
+use crate::scale::Scale;
 use crate::{v2, V2};
-use grid::Grid;
 use num::{cast, Float};
-use scale::Scale;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 
@@ -93,8 +93,8 @@ where
 mod tests {
 
     use super::*;
+    use crate::almost::Almost;
     use crate::{same_elements, M};
-    use almost::Almost;
 
     #[test]
     fn test_equalize() {

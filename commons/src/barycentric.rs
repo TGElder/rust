@@ -43,7 +43,7 @@ pub fn triangle_interpolate_any(p: &V2<f32>, triangles: &[[V3<f32>; 3]]) -> Opti
 mod tests {
 
     use super::*;
-    use almost::Almost;
+    use crate::almost::Almost;
 
     fn triangle2() -> [V2<f32>; 3] {
         [v2(0.0, 1.0), v2(2.0, 5.0), v2(4.0, 3.0)]

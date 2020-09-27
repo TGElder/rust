@@ -1,5 +1,5 @@
+use crate::V2;
 use std::fmt::Debug;
-use V2;
 
 #[derive(Debug)]
 pub struct Rectangle<T>
@@ -30,7 +30,7 @@ where
 mod tests {
     use super::*;
 
-    use v2;
+    use crate::v2;
 
     #[test]
     fn rectangles_overlap_a_inside_b() {
