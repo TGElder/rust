@@ -10,7 +10,7 @@ pub type Fn<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
 
 enum Command<I> {
     Act(Box<Fn<I, ()>>),
-    Shutdown(Arm<Option<I>>),
+    Terminate(Arm<Option<I>>),
 }
 
 pub enum Handle {
@@ -45,10 +45,10 @@ impl<I, O> Future for ActorFuture<I, O> {
     type Output = O;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<O> {
-        let mut state = self.shared_state.lock().unwrap();
         if let Some(output) = self.output.lock().unwrap().take() {
             Poll::Ready(output)
         } else {
+            let mut state = self.shared_state.lock().unwrap();
             state.waker = Some(cx.waker().clone());
             Poll::Pending
         }
@@ -57,18 +57,27 @@ impl<I, O> Future for ActorFuture<I, O> {
 
 pub struct Director<I> {
     tx: Sender<Arm<SharedState<I>>>,
-    handle: &'static str,
+    name: &'static str,
 }
 
-impl<T> Director<T> {
-    pub fn handle(&self) -> &'static str {
-        &self.handle
+impl<I> Director<I> {
+    pub fn name(&self) -> &'static str {
+        &self.name
     }
 
-    pub fn clone_with_handle(&self, handle: &'static str) -> Director<T> {
+    pub fn clone_with_name(&self, name: &'static str) -> Director<I> {
         Director {
             tx: self.tx.clone(),
-            handle,
+            name,
+        }
+    }
+}
+
+impl<I> Clone for Director<I> {
+    fn clone(&self) -> Director<I> {
+        Director {
+            tx: self.tx.clone(),
+            name: self.name,
         }
     }
 }
@@ -85,16 +94,17 @@ impl<I> Director<I> {
             let out = function(input);
             *output_in_fn.lock().unwrap() = Some(out);
         };
+
         let shared_state = SharedState {
             waker: None,
             command: Some(Command::Act(Box::new(function))),
-            sender_handle: Handle::Director(self.handle),
+            sender_handle: Handle::Director(self.name),
         };
         let shared_state = Arc::new(Mutex::new(shared_state));
 
         self.tx
             .try_send(shared_state.clone())
-            .unwrap_or_else(|err| panic!("{} could not send message: {}", self.handle, err));
+            .unwrap_or_else(|err| panic!("{} could not send message: {}", self.name, err));
 
         ActorFuture {
             shared_state,
@@ -118,9 +128,10 @@ pub struct Terminator<I> {
 impl<I> Terminator<I> {
     pub fn terminate(self) -> ActorFuture<I, I> {
         let output = Arc::new(Mutex::new(None));
+
         let shared_state = SharedState {
             waker: None,
-            command: Some(Command::Shutdown(output.clone())),
+            command: Some(Command::Terminate(output.clone())),
             sender_handle: Handle::Terminator,
         };
         let shared_state = Arc::new(Mutex::new(shared_state));
@@ -156,23 +167,23 @@ impl<I> Actor<I> {
     pub fn director(&self, handle: &'static str) -> Director<I> {
         Director {
             tx: self.tx.clone(),
-            handle,
+            name: handle,
         }
     }
 
     pub async fn run(mut self) {
         loop {
             let state = self.rx.recv().await.unwrap();
-            let mut update = state.lock().unwrap();
-            if let Some(function) = update.command.take() {
-                match function {
+            let mut state = state.lock().unwrap();
+            if let Some(command) = state.command.take() {
+                match command {
                     Command::Act(function) => {
                         function(&mut self.state);
-                        update.try_wake();
+                        state.try_wake();
                     }
-                    Command::Shutdown(output) => {
+                    Command::Terminate(output) => {
                         *output.lock().unwrap() = Some(self.state);
-                        update.try_wake();
+                        state.try_wake();
                         return;
                     }
                 }
@@ -209,14 +220,13 @@ mod tests {
             .name_prefix("pool")
             .create()
             .unwrap();
-
         for actor in actors {
             pool.spawn_ok(actor.run());
         }
 
         for _ in 0..directions {
             for (_, director) in spawning_directors.iter().enumerate() {
-                let director = director.clone_with_handle("test");
+                let director = director.clone();
                 pool.spawn_ok(async move {
                     director.act(move |value| *value += 1);
                 });
