@@ -13,15 +13,20 @@ enum Command<I> {
     Shutdown(Arm<Option<I>>),
 }
 
+pub enum Handle {
+    Director(&'static str),
+    Terminator,
+}
+
 pub struct SharedState<I> {
     command: Option<Command<I>>,
     waker: Option<Waker>,
-    sender_handle: &'static str,
+    sender_handle: Handle,
 }
 
 impl<I> SharedState<I> {
-    pub fn sender_handle(&self) -> &'static str {
-        self.sender_handle
+    pub fn sender_handle(&self) -> &Handle {
+        &self.sender_handle
     }
 
     pub fn try_wake(&mut self) {
@@ -83,7 +88,7 @@ impl<I> Director<I> {
         let shared_state = SharedState {
             waker: None,
             command: Some(Command::Act(Box::new(function))),
-            sender_handle: self.handle,
+            sender_handle: Handle::Director(self.handle),
         };
         let shared_state = Arc::new(Mutex::new(shared_state));
 
@@ -104,19 +109,25 @@ impl<I> Director<I> {
     {
         block_on(async { self.act(function).await })
     }
+}
 
-    pub fn shutdown(&self) -> ActorFuture<I, I> {
+pub struct Terminator<I> {
+    tx: Sender<Arm<SharedState<I>>>,
+}
+
+impl<I> Terminator<I> {
+    pub fn terminate(self) -> ActorFuture<I, I> {
         let output = Arc::new(Mutex::new(None));
         let shared_state = SharedState {
             waker: None,
             command: Some(Command::Shutdown(output.clone())),
-            sender_handle: self.handle,
+            sender_handle: Handle::Terminator,
         };
         let shared_state = Arc::new(Mutex::new(shared_state));
 
         self.tx
             .try_send(shared_state.clone())
-            .unwrap_or_else(|err| panic!("{} could not send message: {}", self.handle, err));
+            .unwrap_or_else(|err| panic!("Could not terminate: {}", err));
 
         ActorFuture {
             shared_state,
@@ -124,8 +135,8 @@ impl<I> Director<I> {
         }
     }
 
-    pub fn shutdown_sync(&self) -> I {
-        block_on(async { self.shutdown().await })
+    pub fn terminate_and_wait(self) -> I {
+        block_on(async { self.terminate().await })
     }
 }
 
@@ -136,9 +147,10 @@ pub struct Actor<I> {
 }
 
 impl<I> Actor<I> {
-    pub fn new(state: I) -> Actor<I> {
+    pub fn new(state: I) -> (Actor<I>, Terminator<I>) {
         let (tx, rx) = unbounded();
-        Actor { state, tx, rx }
+        let terminator = Terminator { tx: tx.clone() };
+        (Actor { state, tx, rx }, terminator)
     }
 
     pub fn director(&self, handle: &'static str) -> Director<I> {
@@ -175,18 +187,22 @@ mod tests {
     use futures::executor::ThreadPoolBuilder;
     use std::time::{Duration, Instant};
 
-    fn test(actors: usize, pool_size: usize) {
+    fn test(actor_count: usize, pool_size: usize) {
         let max_wait = Duration::from_secs(10);
         let directions = 10;
 
-        let mut actors: Vec<Actor<usize>> =
-            (0..actors).map(|_| Actor::new(0usize)).collect();
+        let mut actors = vec![];
+        let mut terminators = vec![];
+        let mut spawning_directors = vec![];
+        let mut waiting_directors = vec![];
 
-        let directors: Vec<Director<usize>> = actors
-            .iter_mut()
-            .enumerate()
-            .map(|(_, actor)| actor.director("test"))
-            .collect();
+        for _ in 0..actor_count {
+            let (actor, terminator) = Actor::new(0usize);
+            spawning_directors.push(actor.director(""));
+            waiting_directors.push(actor.director(""));
+            actors.push(actor);
+            terminators.push(terminator);
+        }
 
         let pool = ThreadPoolBuilder::new()
             .pool_size(pool_size)
@@ -198,14 +214,8 @@ mod tests {
             pool.spawn_ok(actor.run());
         }
 
-        let mut waiting_directors: Vec<Director<usize>> = directors
-            .iter()
-            .enumerate()
-            .map(|(_, director)| director.clone_with_handle("test"))
-            .collect();
-
         for _ in 0..directions {
-            for (_, director) in directors.iter().enumerate() {
+            for (_, director) in spawning_directors.iter().enumerate() {
                 let director = director.clone_with_handle("test");
                 pool.spawn_ok(async move {
                     director.act(move |value| *value += 1);
@@ -222,13 +232,8 @@ mod tests {
             }
         }
 
-        let values: Vec<usize> = waiting_directors
-            .iter_mut()
-            .map(|director| director.shutdown_sync())
-            .collect();
-
-        for value in values {
-            assert_eq!(value, directions);
+        for terminator in terminators {
+            assert_eq!(terminator.terminate_and_wait(), directions);
         }
     }
 
@@ -241,5 +246,4 @@ mod tests {
     fn test_multi_threaded() {
         test(8, 2);
     }
-
 }

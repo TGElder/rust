@@ -1,6 +1,5 @@
 pub extern crate async_channel;
 pub extern crate float_cmp;
-#[macro_use]
 pub extern crate futures;
 pub use futures::*;
 pub extern crate image;
