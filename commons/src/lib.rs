@@ -10,6 +10,7 @@ pub extern crate num;
 pub extern crate rand;
 extern crate serde;
 
+pub mod actor;
 pub mod almost;
 pub mod barycentric;
 pub mod edge;
@@ -24,7 +25,6 @@ pub mod rectangle;
 pub mod scale;
 pub mod unwrap_or;
 pub mod update;
-pub mod update_async;
 
 pub type M<T> = na::DMatrix<T>;
 pub type V2<T> = na::Vector2<T>;
