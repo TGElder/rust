@@ -1,77 +1,75 @@
 use crate::Arm;
 use async_channel::{unbounded, Receiver, Sender};
+use futures::executor::block_on;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
-pub type UpdateFn<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
+pub type Fn<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
 
-enum UpdateCommand<I> {
-    Fn(Box<UpdateFn<I, ()>>),
+enum Command<I> {
+    Act(Box<Fn<I, ()>>),
     Shutdown(Arm<Option<I>>),
 }
 
-pub struct Update<I> {
+pub struct SharedState<I> {
+    command: Option<Command<I>>,
     waker: Option<Waker>,
-    function: Option<UpdateCommand<I>>,
     sender_handle: &'static str,
 }
 
-impl<I> Update<I> {
+impl<I> SharedState<I> {
     pub fn sender_handle(&self) -> &'static str {
         self.sender_handle
     }
+
+    pub fn try_wake(&mut self) {
+        if let Some(waker) = self.waker.take() {
+            waker.wake()
+        }
+    }
 }
 
-pub struct UpdateFuture<I, O> {
-    update: Arm<Update<I>>,
+pub struct ActorFuture<I, O> {
+    shared_state: Arm<SharedState<I>>,
     output: Arm<Option<O>>,
 }
 
-impl<I, O> Future for UpdateFuture<I, O> {
+impl<I, O> Future for ActorFuture<I, O> {
     type Output = O;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<O> {
-        let mut update = self.update.lock().unwrap();
+        let mut state = self.shared_state.lock().unwrap();
         if let Some(output) = self.output.lock().unwrap().take() {
             Poll::Ready(output)
         } else {
-            update.waker = Some(cx.waker().clone());
+            state.waker = Some(cx.waker().clone());
             Poll::Pending
         }
     }
 }
 
-pub struct UpdateSender<I> {
-    tx: Sender<Arm<Update<I>>>,
+pub struct Director<I> {
+    tx: Sender<Arm<SharedState<I>>>,
     handle: &'static str,
 }
 
-impl<T> Clone for UpdateSender<T> {
-    fn clone(&self) -> UpdateSender<T> {
-        UpdateSender {
-            tx: self.tx.clone(),
-            handle: self.handle,
-        }
-    }
-}
-
-impl<T> UpdateSender<T> {
+impl<T> Director<T> {
     pub fn handle(&self) -> &'static str {
         &self.handle
     }
 
-    pub fn clone_with_handle(&self, handle: &'static str) -> UpdateSender<T> {
-        UpdateSender {
+    pub fn clone_with_handle(&self, handle: &'static str) -> Director<T> {
+        Director {
             tx: self.tx.clone(),
             handle,
         }
     }
 }
 
-impl<I> UpdateSender<I> {
-    pub fn update<O, F>(&self, function: F) -> UpdateFuture<I, O>
+impl<I> Director<I> {
+    pub fn act<O, F>(&self, function: F) -> ActorFuture<I, O>
     where
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
@@ -82,60 +80,87 @@ impl<I> UpdateSender<I> {
             let out = function(input);
             *output_in_fn.lock().unwrap() = Some(out);
         };
-        let update = Update {
+        let shared_state = SharedState {
             waker: None,
-            function: Some(UpdateCommand::Fn(Box::new(function))),
+            command: Some(Command::Act(Box::new(function))),
             sender_handle: self.handle,
         };
-        let update = Arc::new(Mutex::new(update));
+        let shared_state = Arc::new(Mutex::new(shared_state));
 
         self.tx
-            .try_send(update.clone())
+            .try_send(shared_state.clone())
             .unwrap_or_else(|err| panic!("{} could not send message: {}", self.handle, err));
 
-        UpdateFuture { update, output }
+        ActorFuture {
+            shared_state,
+            output,
+        }
     }
 
-    pub fn shutdown(&self) -> UpdateFuture<I, I> {
+    pub fn wait<O, F>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut I) -> O + Send + Sync + 'static,
+    {
+        block_on(async { self.act(function).await })
+    }
+
+    pub fn shutdown(&self) -> ActorFuture<I, I> {
         let output = Arc::new(Mutex::new(None));
-        let update = Update {
+        let shared_state = SharedState {
             waker: None,
-            function: Some(UpdateCommand::Shutdown(output.clone())),
+            command: Some(Command::Shutdown(output.clone())),
             sender_handle: self.handle,
         };
-        let update = Arc::new(Mutex::new(update));
+        let shared_state = Arc::new(Mutex::new(shared_state));
 
         self.tx
-            .try_send(update.clone())
+            .try_send(shared_state.clone())
             .unwrap_or_else(|err| panic!("{} could not send message: {}", self.handle, err));
 
-        UpdateFuture { update, output }
+        ActorFuture {
+            shared_state,
+            output,
+        }
+    }
+
+    pub fn shutdown_sync(&self) -> I {
+        block_on(async { self.shutdown().await })
     }
 }
 
-pub struct UpdateReceiver<I> {
-    t: I,
-    rx: Receiver<Arm<Update<I>>>,
+pub struct Actor<I> {
+    state: I,
+    tx: Sender<Arm<SharedState<I>>>,
+    rx: Receiver<Arm<SharedState<I>>>,
 }
 
-impl<I> UpdateReceiver<I> {
-    pub async fn process_update(mut self) {
+impl<I> Actor<I> {
+    pub fn new(state: I) -> Actor<I> {
+        let (tx, rx) = unbounded();
+        Actor { state, tx, rx }
+    }
+
+    pub fn director(&self, handle: &'static str) -> Director<I> {
+        Director {
+            tx: self.tx.clone(),
+            handle,
+        }
+    }
+
+    pub async fn run(mut self) {
         loop {
-            let update = self.rx.recv().await.unwrap();
-            let mut update = update.lock().unwrap();
-            if let Some(function) = update.function.take() {
+            let state = self.rx.recv().await.unwrap();
+            let mut update = state.lock().unwrap();
+            if let Some(function) = update.command.take() {
                 match function {
-                    UpdateCommand::Fn(function) => {
-                        function(&mut self.t);
-                        if let Some(waker) = update.waker.take() {
-                            waker.wake()
-                        }
+                    Command::Act(function) => {
+                        function(&mut self.state);
+                        update.try_wake();
                     }
-                    UpdateCommand::Shutdown(output) => {
-                        *output.lock().unwrap() = Some(self.t);
-                        if let Some(waker) = update.waker.take() {
-                            waker.wake()
-                        }
+                    Command::Shutdown(output) => {
+                        *output.lock().unwrap() = Some(self.state);
+                        update.try_wake();
                         return;
                     }
                 }
@@ -144,119 +169,77 @@ impl<I> UpdateReceiver<I> {
     }
 }
 
-pub fn update_channel<I>(t: I) -> (UpdateSender<I>, UpdateReceiver<I>) {
-    let (tx, rx) = unbounded();
-    (
-        UpdateSender { tx, handle: "root" },
-        UpdateReceiver { t, rx },
-    )
-}
-
-pub struct UpdateProcess<I> {
-    tx: UpdateSender<I>,
-    rx: UpdateReceiver<I>,
-}
-
-impl<I> UpdateProcess<I>
-where
-    I: Send + 'static,
-{
-    pub fn new(t: I) -> UpdateProcess<I> {
-        let (tx, rx) = update_channel(t);
-        UpdateProcess { tx, rx }
-    }
-
-    pub async fn run(self) {
-        self.rx.process_update().await;
-    }
-
-    pub fn tx(&self) -> &UpdateSender<I> {
-        &self.tx
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::executor::block_on;
     use futures::executor::ThreadPoolBuilder;
-    use std::thread;
-    use std::thread::current;
+    use std::time::{Duration, Instant};
 
-    #[test]
-    fn test_name() {
-        let mut a = UpdateProcess::new(0usize);
-        let mut b = UpdateProcess::new(0usize);
-        let mut c = UpdateProcess::new(0usize);
-        let mut d = UpdateProcess::new(0usize);
+    fn test(actors: usize, pool_size: usize) {
+        let max_wait = Duration::from_secs(10);
+        let directions = 10;
 
-        let mut pool = ThreadPoolBuilder::new()
-            .pool_size(3)
+        let mut actors: Vec<Actor<usize>> =
+            (0..actors).map(|_| Actor::new(0usize)).collect();
+
+        let directors: Vec<Director<usize>> = actors
+            .iter_mut()
+            .enumerate()
+            .map(|(_, actor)| actor.director("test"))
+            .collect();
+
+        let pool = ThreadPoolBuilder::new()
+            .pool_size(pool_size)
             .name_prefix("pool")
             .create()
             .unwrap();
 
-        let a_tx = a.tx().clone();
-        let b_tx = b.tx().clone();
-        let c_tx = c.tx().clone();
-        let d_tx = d.tx().clone();
-        let a_tx_2 = a.tx().clone();
-        let b_tx_2 = b.tx().clone();
-        let c_tx_2 = c.tx().clone();
-        let d_tx_2 = d.tx().clone();
+        for actor in actors {
+            pool.spawn_ok(actor.run());
+        }
 
-        pool.spawn_ok(async move { a.run().await });
-        pool.spawn_ok(async move { b.run().await });
-        pool.spawn_ok(async move { c.run().await });
-        pool.spawn_ok(async move { d.run().await });
+        let mut waiting_directors: Vec<Director<usize>> = directors
+            .iter()
+            .enumerate()
+            .map(|(_, director)| director.clone_with_handle("test"))
+            .collect();
 
-        let count = 10;
-
-        thread::spawn(move || {
-            for i in 0..count {
-                thread::sleep_ms(30);
-                a_tx_2.update(|a| {
-                    *a += 1;
-                    println!("a = {} on {}", a, current().name().unwrap());
+        for _ in 0..directions {
+            for (_, director) in directors.iter().enumerate() {
+                let director = director.clone_with_handle("test");
+                pool.spawn_ok(async move {
+                    director.act(move |value| *value += 1);
                 });
             }
-        });
-        thread::spawn(move || {
-            for i in 0..count {
-                thread::sleep_ms(70);
-                b_tx_2.update(|a| {
-                    *a += 1;
-                    println!("b = {} on {}", a, current().name().unwrap());
-                });
-            }
-        });
-        thread::spawn(move || {
-            for i in 0..count {
-                thread::sleep_ms(90);
-                c_tx_2.update(|a| {
-                    *a += 1;
-                    println!("c = {} on {}", a, current().name().unwrap());
-                });
-            }
-        });
-        thread::spawn(move || {
-            for i in 0..count {
-                thread::sleep_ms(110);
-                d_tx_2.update(|a| {
-                    *a += 1;
-                    println!("d = {} on {}", a, current().name().unwrap());
-                });
-            }
-        });
+        }
 
-        while block_on(async { a_tx.update(|a| *a < 10).await }) {}
-        println!("Shutting down a");
-        println!("Shut down a {}", block_on(async { a_tx.shutdown().await }));
-        while block_on(async { b_tx.update(|a| *a < 10).await }) {}
-        println!("Shut down b {}", block_on(async { b_tx.shutdown().await }));
-        while block_on(async { c_tx.update(|a| *a < 10).await }) {}
-        println!("Shut down c {}", block_on(async { c_tx.shutdown().await }));
-        while block_on(async { d_tx.update(|a| *a < 10).await }) {}
-        println!("Shut down c {}", block_on(async { d_tx.shutdown().await }));
+        let start = Instant::now();
+        for director in waiting_directors.iter_mut() {
+            while director.wait(move |value| *value < directions) {
+                if start.elapsed() > max_wait {
+                    panic!("Still waiting after {:?}", max_wait);
+                }
+            }
+        }
+
+        let values: Vec<usize> = waiting_directors
+            .iter_mut()
+            .map(|director| director.shutdown_sync())
+            .collect();
+
+        for value in values {
+            assert_eq!(value, directions);
+        }
     }
+
+    #[test]
+    fn test_single_threaded() {
+        test(8, 1);
+    }
+
+    #[test]
+    fn test_multi_threaded() {
+        test(8, 2);
+    }
+
 }

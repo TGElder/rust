@@ -1,3 +1,4 @@
+pub extern crate async_channel;
 pub extern crate float_cmp;
 #[macro_use]
 pub extern crate futures;
@@ -24,6 +25,7 @@ pub mod rectangle;
 pub mod scale;
 pub mod unwrap_or;
 pub mod update;
+pub mod update_async;
 
 pub type M<T> = na::DMatrix<T>;
 pub type V2<T> = na::Vector2<T>;
