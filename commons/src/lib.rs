@@ -1,5 +1,7 @@
+pub extern crate async_channel;
 pub extern crate float_cmp;
 pub extern crate futures;
+pub use futures::*;
 pub extern crate image;
 extern crate maplit;
 pub extern crate nalgebra as na;
@@ -8,6 +10,7 @@ pub extern crate num;
 pub extern crate rand;
 extern crate serde;
 
+pub mod actor;
 pub mod almost;
 pub mod barycentric;
 pub mod edge;
