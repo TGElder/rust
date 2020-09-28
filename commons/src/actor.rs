@@ -6,10 +6,10 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
-pub type Fn<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
+pub type Action<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
 
 enum Command<I> {
-    Act(Box<Fn<I, ()>>),
+    Act(Box<Action<I, ()>>),
     Terminate(Arm<Option<I>>),
 }
 
@@ -83,28 +83,28 @@ impl<I> Clone for Director<I> {
 }
 
 impl<I> Director<I> {
-    pub fn act<O, F>(&self, function: F) -> ActorFuture<I, O>
+    pub fn act<O, F>(&self, action: F) -> ActorFuture<I, O>
     where
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
     {
         let output = Arc::new(Mutex::new(None));
         let output_in_fn = output.clone();
-        let function = move |input: &mut I| {
-            let out = function(input);
+        let action = move |input: &mut I| {
+            let out = action(input);
             *output_in_fn.lock().unwrap() = Some(out);
         };
 
         let shared_state = SharedState {
             waker: None,
-            command: Some(Command::Act(Box::new(function))),
+            command: Some(Command::Act(Box::new(action))),
             sender_handle: Handle::Director(self.name),
         };
         let shared_state = Arc::new(Mutex::new(shared_state));
 
         self.tx
             .try_send(shared_state.clone())
-            .unwrap_or_else(|err| panic!("{} could not send message: {}", self.name, err));
+            .unwrap_or_else(|err| panic!("Director {} could not send action: {}", self.name, err));
 
         ActorFuture {
             shared_state,
@@ -112,12 +112,12 @@ impl<I> Director<I> {
         }
     }
 
-    pub fn wait<O, F>(&self, function: F) -> O
+    pub fn wait<O, F>(&self, action: F) -> O
     where
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
     {
-        block_on(async { self.act(function).await })
+        block_on(async { self.act(action).await })
     }
 }
 
@@ -177,8 +177,8 @@ impl<I> Actor<I> {
             let mut state = state.lock().unwrap();
             if let Some(command) = state.command.take() {
                 match command {
-                    Command::Act(function) => {
-                        function(&mut self.state);
+                    Command::Act(action) => {
+                        action(&mut self.state);
                         state.try_wake();
                     }
                     Command::Terminate(output) => {
