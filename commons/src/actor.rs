@@ -29,10 +29,27 @@ impl<I> SharedState<I> {
         &self.sender_handle
     }
 
-    pub fn try_wake(&mut self) {
+    fn try_wake(&mut self) {
         if let Some(waker) = self.waker.take() {
             waker.wake()
         }
+    }
+}
+
+trait ArmSharedStateExt<I> {
+    fn take_command(&self) -> Option<Command<I>>;
+    fn try_wake(&self);
+}
+
+impl<I> ArmSharedStateExt<I> for Arm<SharedState<I>> {
+    fn take_command(&self) -> Option<Command<I>> {
+        let mut shared_state = self.lock().unwrap();
+        shared_state.command.take()
+    }
+
+    fn try_wake(&self) {
+        let mut shared_state = self.lock().unwrap();
+        shared_state.try_wake()
     }
 }
 
@@ -174,8 +191,7 @@ impl<I> Actor<I> {
     pub async fn run(mut self) {
         loop {
             let state = self.rx.recv().await.unwrap();
-            let mut state = state.lock().unwrap();
-            if let Some(command) = state.command.take() {
+            if let Some(command) = state.take_command() {
                 match command {
                     Command::Act(action) => {
                         action(&mut self.state);
