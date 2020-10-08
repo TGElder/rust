@@ -71,7 +71,7 @@ where
     }
 
     fn visible_land_positions(&mut self) -> usize {
-        block_on(async { self.game.update(|game| visible_land_positions(game)).await })
+        sync!(self.game.update(|game| visible_land_positions(game)))
     }
 }
 

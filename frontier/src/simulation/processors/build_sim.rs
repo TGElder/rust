@@ -39,7 +39,7 @@ where
     }
 
     fn micros(&mut self) -> u128 {
-        block_on(async { self.game.update(|game| *game.micros()).await })
+        sync!(self.game.update(|game| *game.micros()))
     }
 
     fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
