@@ -14,11 +14,12 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Processor for GetTownTraffic<G>
 where
     G: HasWorld + GetRoute + Settlements,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, territory) = match instruction {
             Instruction::GetTownTraffic {
                 settlement,
@@ -29,7 +30,9 @@ where
 
         let route_keys = get_route_keys(territory, &state);
         let route_to_ports = get_route_to_ports(route_keys, &state);
-        let traffic_summaries = self.get_traffic_summaries(route_to_ports, territory.clone());
+        let traffic_summaries = self
+            .get_traffic_summaries(route_to_ports, territory.clone())
+            .await;
         let aggregated_traffic_summaries = aggregate_by_nation(traffic_summaries);
 
         state.instructions.push(Instruction::UpdateTown {
@@ -51,16 +54,14 @@ where
         }
     }
 
-    fn get_traffic_summaries(
+    async fn get_traffic_summaries(
         &mut self,
         route_to_ports: HashMap<RouteKey, HashSet<V2<usize>>>,
         territory: HashSet<V2<usize>>,
     ) -> Vec<TownTrafficSummary> {
-        block_on(async {
-            self.game
-                .update(move |game| get_traffic_summaries(game, route_to_ports, territory))
-                .await
-        })
+        self.game
+            .update(move |game| get_traffic_summaries(game, route_to_ports, territory))
+            .await
     }
 }
 
@@ -279,7 +280,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -345,7 +346,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -411,7 +412,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -477,7 +478,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -560,7 +561,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -643,7 +644,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         if let Some(Instruction::UpdateTown {
@@ -726,7 +727,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -784,7 +785,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -849,7 +850,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -912,7 +913,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -974,7 +975,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -1030,7 +1031,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(

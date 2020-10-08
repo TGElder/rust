@@ -42,7 +42,7 @@ where
     }
 
     fn build_road(&mut self, road: Edge) {
-        sync!(self.game.update(move |game| build_road(game, road)))
+        block_on(self.game.update(move |game| build_road(game, road)))
     }
 }
 

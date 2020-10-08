@@ -11,11 +11,12 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Processor for RemoveTown<G>
 where
     G: RemoveSettlement + Controlled,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
             Instruction::UpdateTown {
                 settlement,
@@ -28,7 +29,9 @@ where
         {
             return state;
         }
-        let controlled = self.remove_settlement_and_return_controlled(settlement.position);
+        let controlled = self
+            .remove_settlement_and_return_controlled(settlement.position)
+            .await;
         state
             .instructions
             .push(Instruction::RefreshPositions(controlled));
@@ -46,15 +49,13 @@ where
         }
     }
 
-    fn remove_settlement_and_return_controlled(
+    async fn remove_settlement_and_return_controlled(
         &mut self,
         position: V2<usize>,
     ) -> HashSet<V2<usize>> {
-        block_on(async {
-            self.game
-                .update(move |game| remove_settlement_and_return_controlled(game, position))
-                .await
-        })
+        self.game
+            .update(move |game| remove_settlement_and_return_controlled(game, position))
+            .await
     }
 }
 
@@ -128,7 +129,7 @@ mod tests {
             settlement: settlement.clone(),
             traffic: vec![],
         };
-        processor.process(state, &instruction);
+        block_on(processor.process(state, &instruction));
 
         // Then
         let game = game.shutdown();
@@ -160,7 +161,7 @@ mod tests {
                 traffic_share: 1.0,
             }],
         };
-        processor.process(state, &instruction);
+        block_on(processor.process(state, &instruction));
 
         // Then
         let game = game.shutdown();
@@ -189,7 +190,7 @@ mod tests {
             settlement,
             traffic: vec![],
         };
-        processor.process(state, &instruction);
+        block_on(processor.process(state, &instruction));
 
         // Then
         let game = game.shutdown();
@@ -222,7 +223,7 @@ mod tests {
             settlement,
             traffic: vec![],
         };
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         assert_eq!(
             state.instructions,

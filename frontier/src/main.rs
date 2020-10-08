@@ -2,8 +2,6 @@
 
 #[macro_use]
 extern crate commons;
-#[macro_use]
-mod sync;
 
 mod artists;
 mod avatar;
@@ -168,15 +166,17 @@ fn main() {
     game.add_consumer(PathfinderUpdater::new(&pathfinder_without_planned_roads));
     game.add_consumer(SimulationStateLoader::new(sim.tx()));
 
-    game.add_consumer(ShutdownHandler::new(game.tx(), sim.tx(), thread_pool));
+    game.add_consumer(ShutdownHandler::new(
+        game.tx(),
+        sim.tx(),
+        thread_pool.clone(),
+    ));
 
     let game_handle = thread::spawn(move || game.run());
-    let sim_handle = thread::spawn(move || sim.run());
+    thread_pool.spawn_ok(async move { sim.run().await });
 
     engine.run();
 
-    println!("Joining sim");
-    sim_handle.join().unwrap();
     println!("Joining game");
     game_handle.join().unwrap();
 }

@@ -15,16 +15,17 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Processor for UpdateRouteToPorts<G>
 where
     G: CheckForPort + HasWorld,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let route_changes = match instruction {
             Instruction::ProcessRouteChanges(route_changes) => (route_changes.clone()),
             _ => return state,
         };
-        self.update_many_route_to_ports(state, route_changes)
+        self.update_many_route_to_ports(state, route_changes).await
     }
 }
 
@@ -38,16 +39,14 @@ where
         }
     }
 
-    fn update_many_route_to_ports(
+    async fn update_many_route_to_ports(
         &mut self,
         state: State,
         route_changes: Vec<RouteChange>,
     ) -> State {
-        block_on(async {
-            self.game
-                .update(move |game| update_many_route_to_ports(game, state, route_changes))
-                .await
-        })
+        self.game
+            .update(move |game| update_many_route_to_ports(game, state, route_changes))
+            .await
     }
 }
 
@@ -181,7 +180,7 @@ mod tests {
         // When
         let route_change = RouteChange::New { key, route };
         let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -218,7 +217,7 @@ mod tests {
         // When
         let route_change = RouteChange::New { key, route };
         let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
@@ -264,7 +263,7 @@ mod tests {
         // When
         let route_change = RouteChange::Updated { key, old, new };
         let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(
@@ -313,7 +312,7 @@ mod tests {
         // When
         let route_change = RouteChange::Updated { key, old, new };
         let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
@@ -359,7 +358,7 @@ mod tests {
         // When
         let route_change = RouteChange::Updated { key, old, new };
         let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
@@ -396,7 +395,7 @@ mod tests {
         // When
         let route_change = RouteChange::Removed { key, route };
         let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
@@ -456,7 +455,7 @@ mod tests {
             },
         ];
         let instruction = Instruction::ProcessRouteChanges(route_changes);
-        let state = processor.process(state, &instruction);
+        let state = block_on(processor.process(state, &instruction));
 
         // Then
         assert_eq!(

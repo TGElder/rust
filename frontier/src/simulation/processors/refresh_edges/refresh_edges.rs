@@ -20,13 +20,14 @@ where
     pathfinder: Arc<RwLock<P>>,
 }
 
+#[async_trait]
 impl<G, T, P> Processor for RefreshEdges<G, T, P>
 where
     G: BuildRoad + GetRoute + HasWorld,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let edges = match instruction {
             Instruction::RefreshEdges(edges) => edges.clone(),
             _ => return state,

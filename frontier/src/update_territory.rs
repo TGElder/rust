@@ -2,6 +2,7 @@ use super::*;
 
 use crate::game::traits::SetTerritory;
 use crate::pathfinder::traits::PositionsWithin;
+use commons::futures::executor::block_on;
 use commons::grid::get_corners;
 use commons::update::UpdateSender;
 use commons::V2;
@@ -84,7 +85,7 @@ where
     }
 
     fn set_territory(&mut self, states: Vec<TerritoryState>) {
-        sync!(self.game.update(move |game| game.set_territory(states)));
+        block_on(self.game.update(move |game| game.set_territory(states)));
     }
 }
 

@@ -10,24 +10,25 @@ const HANDLE: &str = "get_routes";
 pub struct GetRoutes<G, P>
 where
     G: Micros,
-    P: ClosestTargets + InBounds,
+    P: ClosestTargets + InBounds + Send + Sync,
 {
     game: UpdateSender<G>,
     pathfinder: Arc<RwLock<P>>,
 }
 
+#[async_trait]
 impl<G, P> Processor for GetRoutes<G, P>
 where
     G: Micros,
-    P: ClosestTargets + InBounds,
+    P: ClosestTargets + InBounds + Send + Sync,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let demand = match instruction {
             Instruction::GetRoutes(demand) => *demand,
             _ => return state,
         };
-        let route_set: RouteSet =
-            routes(self.game_micros(), &demand, self.closest_targets(&demand)).collect();
+        let micros = self.game_micros().await;
+        let route_set: RouteSet = routes(micros, &demand, self.closest_targets(&demand)).collect();
         state.instructions.push(Instruction::GetRouteChanges {
             key: RouteSetKey {
                 settlement: demand.position,
@@ -42,7 +43,7 @@ where
 impl<G, P> GetRoutes<G, P>
 where
     G: Micros,
-    P: ClosestTargets + InBounds,
+    P: ClosestTargets + InBounds + Send + Sync,
 {
     pub fn new(game: &UpdateSender<G>, pathfinder: &Arc<RwLock<P>>) -> GetRoutes<G, P> {
         GetRoutes {
@@ -51,8 +52,8 @@ where
         }
     }
 
-    fn game_micros(&mut self) -> u128 {
-        sync!(self.game.update(|game| *game.micros()))
+    async fn game_micros(&mut self) -> u128 {
+        self.game.update(|game| *game.micros()).await
     }
 
     fn closest_targets(&self, demand: &Demand) -> Vec<ClosestTargetResult> {
@@ -157,7 +158,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
+        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
 
         // Then
         let mut route_set = HashMap::new();
@@ -243,7 +244,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
+        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
 
         // Then
         assert_eq!(
@@ -293,7 +294,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
+        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
 
         // Then
         assert_eq!(
@@ -325,7 +326,7 @@ mod tests {
         };
 
         // When
-        let state = processor.process(State::default(), &Instruction::GetRoutes(demand));
+        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
 
         // Then
         assert_eq!(

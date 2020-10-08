@@ -14,16 +14,17 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Processor for GetRouteChanges<G>
 where
     G: Routes,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (key, route_set) = match instruction {
             Instruction::GetRouteChanges { key, route_set } => (*key, route_set.clone()),
             _ => return state,
         };
-        let route_changes = self.update_routes_and_get_changes(key, route_set);
+        let route_changes = self.update_routes_and_get_changes(key, route_set).await;
         if route_changes.is_empty() {
             return state;
         }
@@ -44,16 +45,14 @@ where
         }
     }
 
-    fn update_routes_and_get_changes(
+    async fn update_routes_and_get_changes(
         &mut self,
         key: RouteSetKey,
         route_set: RouteSet,
     ) -> Vec<RouteChange> {
-        block_on(async {
-            self.game
-                .update(move |game| update_routes_and_get_changes(game, key, route_set))
-                .await
-        })
+        self.game
+            .update(move |game| update_routes_and_get_changes(game, key, route_set))
+            .await
     }
 }
 
@@ -174,7 +173,7 @@ mod tests {
             route_set,
         };
         let mut processor = GetRouteChanges::new(&game.tx());
-        let state = processor.process(State::default(), &instruction);
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -238,7 +237,7 @@ mod tests {
             route_set,
         };
         let mut processor = GetRouteChanges::new(&game.tx());
-        let state = processor.process(State::default(), &instruction);
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -297,7 +296,7 @@ mod tests {
             route_set: route_set.clone(),
         };
         let mut processor = GetRouteChanges::new(&game.tx());
-        let state = processor.process(State::default(), &instruction);
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -350,7 +349,7 @@ mod tests {
             route_set,
         };
         let mut processor = GetRouteChanges::new(&game.tx());
-        let state = processor.process(State::default(), &instruction);
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -413,7 +412,7 @@ mod tests {
             route_set,
         };
         let mut processor = GetRouteChanges::new(&game.tx());
-        let state = processor.process(State::default(), &instruction);
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         let actual = match state.instructions.get(0) {

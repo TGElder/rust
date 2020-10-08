@@ -12,17 +12,18 @@ where
     max_abs_population_change: fn(&SettlementClass) -> f64,
 }
 
+#[async_trait]
 impl<G> Processor for UpdateCurrentPopulation<G>
 where
     G: Micros + Settlements + UpdateSettlement,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let position = match instruction {
             Instruction::UpdateCurrentPopulation(position) => *position,
             _ => return state,
         };
 
-        if let Some(settlement) = self.try_update_settlement(position) {
+        if let Some(settlement) = self.try_update_settlement(position).await {
             state.instructions.push(Instruction::GetDemand(settlement))
         }
 
@@ -44,15 +45,11 @@ where
         }
     }
 
-    fn try_update_settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
+    async fn try_update_settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
         let max_abs_population_change = self.max_abs_population_change;
-        block_on(async {
-            self.game
-                .update(move |game| {
-                    try_update_settlement(game, position, max_abs_population_change)
-                })
-                .await
-        })
+        self.game
+            .update(move |game| try_update_settlement(game, position, max_abs_population_change))
+            .await
     }
 }
 
@@ -172,10 +169,10 @@ mod tests {
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::UpdateCurrentPopulation(v2(1, 2)),
-        );
+        ));
 
         // Then
         let game = game.shutdown();
@@ -212,10 +209,10 @@ mod tests {
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::UpdateCurrentPopulation(v2(1, 2)),
-        );
+        ));
 
         // Then
         let game = game.shutdown();
@@ -252,10 +249,10 @@ mod tests {
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::UpdateCurrentPopulation(v2(1, 2)),
-        );
+        ));
 
         // Then
         let game = game.shutdown();
@@ -283,10 +280,10 @@ mod tests {
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::UpdateCurrentPopulation(v2(1, 2)),
-        );
+        ));
 
         // Then
         assert_eq!(state.instructions, vec![]);
@@ -318,10 +315,10 @@ mod tests {
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::UpdateCurrentPopulation(v2(1, 2)),
-        );
+        ));
 
         // Then
         let game = game.shutdown();
@@ -361,10 +358,10 @@ mod tests {
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::UpdateCurrentPopulation(v2(1, 2)),
-        );
+        ));
 
         // Then
         let game = game.shutdown();
@@ -404,10 +401,10 @@ mod tests {
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::UpdateCurrentPopulation(v2(1, 2)),
-        );
+        ));
 
         // Then
         let game = game.shutdown();

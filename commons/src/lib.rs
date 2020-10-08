@@ -1,4 +1,5 @@
 pub extern crate async_channel;
+pub extern crate async_trait;
 pub extern crate float_cmp;
 pub extern crate futures;
 pub use futures::*;
@@ -9,9 +10,6 @@ extern crate noise;
 pub extern crate num;
 pub extern crate rand;
 extern crate serde;
-
-#[macro_use]
-mod sync;
 
 pub mod actor;
 pub mod almost;

@@ -8,11 +8,12 @@ where
     demand_fn: F,
 }
 
+#[async_trait]
 impl<F> Processor for GetDemand<F>
 where
-    F: Fn(&Settlement) -> Vec<Demand>,
+    F: Fn(&Settlement) -> Vec<Demand> + Send,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let settlement = match instruction {
             Instruction::GetDemand(settlement) => settlement,
             _ => return state,
@@ -61,10 +62,10 @@ mod tests {
         let demand_fn = |_: &Settlement| demand();
 
         let mut processor = GetDemand::new(demand_fn);
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::GetDemand(Settlement::default()),
-        );
+        ));
 
         let expected = demand();
         assert_eq!(
@@ -87,10 +88,10 @@ mod tests {
         let demand_fn = |_: &Settlement| vec![demand];
 
         let mut processor = GetDemand::new(demand_fn);
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::GetDemand(Settlement::default()),
-        );
+        ));
 
         assert_eq!(state.instructions, vec![Instruction::GetRoutes(demand)]);
     }
@@ -106,10 +107,10 @@ mod tests {
         let demand_fn = |_: &Settlement| vec![demand];
 
         let mut processor = GetDemand::new(demand_fn);
-        let state = processor.process(
+        let state = block_on(processor.process(
             State::default(),
             &Instruction::GetDemand(Settlement::default()),
-        );
+        ));
 
         assert_eq!(state.instructions, vec![Instruction::GetRoutes(demand)]);
     }

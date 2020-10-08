@@ -15,24 +15,25 @@ where
     territory: T,
 }
 
+#[async_trait]
 impl<G, T> Processor for GetTerritory<G, T>
 where
     G: Controlled + Settlements,
-    T: UpdateTerritory,
+    T: UpdateTerritory + Send,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let settlement = match instruction {
             Instruction::GetTerritory(settlement) => *settlement,
             _ => return state,
         };
 
-        let settlement = unwrap_or!(self.settlement(settlement), return state);
+        let settlement = unwrap_or!(self.settlement(settlement).await, return state);
         if settlement.class != Town {
             return state;
         };
 
         self.territory.update_territory(settlement.position);
-        let territory = self.territory(settlement.position);
+        let territory = self.territory(settlement.position).await;
 
         state.instructions.push(Instruction::GetTownTraffic {
             settlement,
@@ -55,20 +56,16 @@ where
         }
     }
 
-    fn settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
-        block_on(async {
-            self.game
-                .update(move |game| settlement(game, position))
-                .await
-        })
+    async fn settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
+        self.game
+            .update(move |game| settlement(game, position))
+            .await
     }
 
-    fn territory(&mut self, settlement: V2<usize>) -> HashSet<V2<usize>> {
-        block_on(async {
-            self.game
-                .update(move |game| territory(game, settlement))
-                .await
-        })
+    async fn territory(&mut self, settlement: V2<usize>) -> HashSet<V2<usize>> {
+        self.game
+            .update(move |game| territory(game, settlement))
+            .await
     }
 }
 
@@ -135,7 +132,7 @@ mod tests {
 
         // Given
         let instruction = Instruction::GetTerritory(settlement.position);
-        let state = processor.process(State::default(), &instruction);
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -175,7 +172,7 @@ mod tests {
 
         // Given
         let instruction = Instruction::GetTerritory(settlement.position);
-        let state = processor.process(State::default(), &instruction);
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(*updated_territory.lock().unwrap(), vec![]);
@@ -201,7 +198,7 @@ mod tests {
 
         // Given
         let instruction = Instruction::GetTerritory(v2(5, 6));
-        let state = processor.process(State::default(), &instruction);
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(*updated_territory.lock().unwrap(), vec![]);

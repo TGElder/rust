@@ -11,16 +11,17 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Processor for UpdateHomelandPopulation<G>
 where
     G: Settlements + UpdateSettlement,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let visible_land = match instruction {
             Instruction::VisibleLandPositions(visible_land) => visible_land,
             _ => return state,
         };
-        self.update_homelands(*visible_land as f64);
+        self.update_homelands(*visible_land as f64).await;
         state
     }
 }
@@ -35,12 +36,10 @@ where
         }
     }
 
-    fn update_homelands(&mut self, total_population: f64) {
-        block_on(async {
-            self.game
-                .update(move |game| update_homelands(game, total_population))
-                .await
-        })
+    async fn update_homelands(&mut self, total_population: f64) {
+        self.game
+            .update(move |game| update_homelands(game, total_population))
+            .await
     }
 }
 
@@ -103,7 +102,7 @@ mod tests {
         let mut processor = UpdateHomelandPopulation::new(&game.tx());
 
         // When
-        processor.process(State::default(), &Instruction::VisibleLandPositions(202));
+        block_on(processor.process(State::default(), &Instruction::VisibleLandPositions(202)));
 
         // Then
         let actual = game.shutdown();

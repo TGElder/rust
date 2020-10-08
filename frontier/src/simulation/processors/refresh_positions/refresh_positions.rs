@@ -15,11 +15,12 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Processor for RefreshPositions<G>
 where
     G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let positions = match instruction {
             Instruction::RefreshPositions(positions) => positions.clone(),
             _ => return state,

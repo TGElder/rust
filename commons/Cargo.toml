@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 async-channel = "1.4"
+async-trait = "0.1"
 float-cmp = "0.5"
 futures = { version = "0.3", features = ["thread-pool"] }
 image = "0.22"

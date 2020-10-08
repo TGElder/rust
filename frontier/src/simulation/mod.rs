@@ -23,6 +23,7 @@ use state::*;
 pub use state_loader::*;
 use traffic::*;
 
+use commons::async_trait::async_trait;
 use commons::futures::executor::block_on;
 use commons::update::UpdateSender;
 use commons::V2;

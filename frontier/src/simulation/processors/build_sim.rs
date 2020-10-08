@@ -12,16 +12,17 @@ where
     builders: Vec<Box<dyn Builder + Send>>,
 }
 
+#[async_trait]
 impl<G> Processor for BuildSim<G>
 where
     G: Micros,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::Build => (),
             _ => return state,
         };
-        let micros = self.micros();
+        let micros = self.micros().await;
         self.build_all(state.build_queue.take_instructions_before(micros));
         state
     }
@@ -38,8 +39,8 @@ where
         }
     }
 
-    fn micros(&mut self) -> u128 {
-        sync!(self.game.update(|game| *game.micros()))
+    async fn micros(&mut self) -> u128 {
+        self.game.update(|game| *game.micros()).await
     }
 
     fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
@@ -105,7 +106,7 @@ mod tests {
         });
 
         // When
-        let state = processor.process(state, &Instruction::Build);
+        let state = block_on(processor.process(state, &Instruction::Build));
 
         // Then
         assert_eq!(
@@ -137,7 +138,7 @@ mod tests {
         state.build_queue.insert(instruction_2.clone());
 
         // When
-        let state = processor.process(state, &Instruction::Build);
+        let state = block_on(processor.process(state, &Instruction::Build));
 
         // Then
         assert_eq!(
@@ -168,7 +169,7 @@ mod tests {
         });
 
         // When
-        processor.process(state, &Instruction::Build);
+        block_on(processor.process(state, &Instruction::Build));
 
         // Then
         assert_eq!(
