@@ -116,7 +116,7 @@ mod tests {
         let state = state_rx
             .recv_timeout(Duration::from_secs(10))
             .unwrap_or_else(|_| panic!("State not retrieved after 10 seconds"));
-        block_on(async { sim_tx.update(|sim| sim.shutdown()).await });
+        sync!(sim_tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
 
         // Then
@@ -185,7 +185,7 @@ mod tests {
         let retrieved = state_rx
             .recv_timeout(Duration::from_secs(10))
             .unwrap_or_else(|_| panic!("State not retrieved after 10 seconds"));
-        block_on(async { sim_tx.update(|sim| sim.shutdown()).await });
+        sync!(sim_tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
 
         // Then

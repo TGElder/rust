@@ -160,7 +160,7 @@ mod tests {
             sim.set_state(State::default());
             let tx = sim.tx().clone();
             let handle = thread::spawn(move || sim.run());
-            block_on(async { tx.update(|sim| sim.shutdown()).await });
+            sync!(tx.update(|sim| sim.shutdown()));
             handle.join().unwrap();
             done_2.store(true, Ordering::Relaxed);
         });
@@ -189,7 +189,7 @@ mod tests {
                 panic!("No step instruction received after 10 seconds");
             }
         }
-        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        sync!(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
     }
 
@@ -234,7 +234,7 @@ mod tests {
                 panic!("No GetTerritory instruction received after 10 seconds");
             }
         }
-        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        sync!(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
     }
 
@@ -255,7 +255,7 @@ mod tests {
             && (instructions_1.lock().unwrap().is_empty()
                 || instructions_2.lock().unwrap().is_empty())
         {}
-        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        sync!(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
 
         assert_eq!(instructions_1.lock().unwrap()[0], Instruction::Step);
@@ -357,7 +357,7 @@ mod tests {
                 panic!("No GetTerritory instruction received after 10 seconds");
             }
         }
-        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        sync!(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
 
         // Then
@@ -407,7 +407,7 @@ mod tests {
                 }
             }
 
-            block_on(async { tx.update(|sim| sim.shutdown()).await });
+            sync!(tx.update(|sim| sim.shutdown()));
             handle.join().unwrap();
             done_2.store(true, Ordering::Relaxed);
         });
@@ -435,8 +435,8 @@ mod tests {
         });
 
         // When
-        block_on(async { tx.update(|_| {}).await });
-        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        sync!(tx.update(|_| {}));
+        sync!(tx.update(|sim| sim.shutdown()));
 
         // Then
         let sim = handle.join().unwrap();
@@ -463,8 +463,8 @@ mod tests {
         });
 
         // When
-        block_on(async { tx.update(|_| {}).await });
-        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        sync!(tx.update(|_| {}));
+        sync!(tx.update(|sim| sim.shutdown()));
 
         // Then
         let sim = handle.join().unwrap();
@@ -504,7 +504,7 @@ mod tests {
             }
         }
 
-        block_on(async { tx.update(|sim| sim.shutdown()).await });
+        sync!(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
     }
 }
