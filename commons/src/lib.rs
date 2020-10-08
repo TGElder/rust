@@ -10,6 +10,9 @@ pub extern crate num;
 pub extern crate rand;
 extern crate serde;
 
+#[macro_use]
+mod sync;
+
 pub mod actor;
 pub mod almost;
 pub mod barycentric;
@@ -23,7 +26,7 @@ pub mod manhattan;
 pub mod perlin;
 pub mod rectangle;
 pub mod scale;
-pub mod unwrap_or;
+mod unwrap_or;
 pub mod update;
 
 pub type M<T> = na::DMatrix<T>;

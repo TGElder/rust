@@ -2,6 +2,8 @@
 
 #[macro_use]
 extern crate commons;
+#[macro_use]
+mod sync;
 
 mod artists;
 mod avatar;

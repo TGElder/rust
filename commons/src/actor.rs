@@ -1,6 +1,5 @@
 use crate::Arm;
 use async_channel::{unbounded, Receiver, Sender};
-use futures::executor::block_on;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -134,7 +133,7 @@ impl<I> Director<I> {
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
     {
-        block_on(async { self.act(action).await })
+        sync!(self.act(action))
     }
 }
 
@@ -164,7 +163,7 @@ impl<I> Terminator<I> {
     }
 
     pub fn terminate_and_wait(self) -> I {
-        block_on(async { self.terminate().await })
+        sync!(self.terminate())
     }
 }
 
