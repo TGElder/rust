@@ -25,7 +25,7 @@ where
             Instruction::RefreshPositions(positions) => positions.clone(),
             _ => return state,
         };
-        self.refresh_positions_in_batches(state, positions)
+        self.refresh_positions_in_batches(state, positions).await
     }
 }
 
@@ -39,27 +39,23 @@ where
         }
     }
 
-    fn refresh_positions_in_batches(
+    async fn refresh_positions_in_batches(
         &mut self,
         mut state: State,
         positions: HashSet<V2<usize>>,
     ) -> State {
         let positions: Vec<V2<usize>> = positions.into_iter().collect();
         for batch in positions.chunks(BATCH_SIZE) {
-            state = self.refresh_positions(state, batch.to_vec());
+            state = self.refresh_positions(state, batch.to_vec()).await;
         }
         state
     }
 
-    fn refresh_positions(&mut self, state: State, positions: Vec<V2<usize>>) -> State {
+    async fn refresh_positions(&mut self, state: State, positions: Vec<V2<usize>>) -> State {
         let initial_town_population = state.params.initial_town_population;
-        block_on(async {
-            self.game
-                .update(move |game| {
-                    refresh_positions(game, state, positions, initial_town_population)
-                })
-                .await
-        })
+        self.game
+            .update(move |game| refresh_positions(game, state, positions, initial_town_population))
+            .await
     }
 }
 

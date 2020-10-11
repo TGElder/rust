@@ -76,6 +76,7 @@ mod tests {
     use super::*;
 
     use crate::settlement::Settlement;
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashSet;

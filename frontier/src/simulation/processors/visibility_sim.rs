@@ -155,6 +155,7 @@ mod tests {
 
     use crate::resource::Resource;
     use crate::route::RouteKey;
+    use commons::futures::executor::block_on;
     use commons::grid::Grid;
     use commons::same_elements;
     use commons::update::UpdateProcess;

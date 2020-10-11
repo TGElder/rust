@@ -32,7 +32,7 @@ where
             return state;
         };
 
-        self.territory.update_territory(settlement.position);
+        self.territory.update_territory(settlement.position).await;
         let territory = self.territory(settlement.position).await;
 
         state.instructions.push(Instruction::GetTownTraffic {
@@ -88,6 +88,7 @@ mod tests {
     use super::*;
 
     use crate::settlement::SettlementClass::Homeland;
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashMap;

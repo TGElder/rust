@@ -101,6 +101,7 @@ mod tests {
     use super::*;
 
     use commons::almost::Almost;
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
 

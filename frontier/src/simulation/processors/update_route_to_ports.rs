@@ -110,6 +110,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::Route;
     use crate::world::World;
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::{v2, M};
     use std::time::Duration;

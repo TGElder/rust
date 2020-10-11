@@ -15,10 +15,11 @@ where
     territory: T,
 }
 
+#[async_trait]
 impl<G, T> Builder for SettlementBuilder<G, T>
 where
     G: AddSettlement + WhoControlsTile,
-    T: UpdateTerritory,
+    T: UpdateTerritory + Send,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Settlement { .. } = build {
@@ -28,11 +29,11 @@ where
         }
     }
 
-    fn build(&mut self, build: Build) {
+    async fn build(&mut self, build: Build) {
         if let Build::Settlement(settlement) = build {
             let position = settlement.position;
-            if self.try_add_settlement(settlement) {
-                self.territory.update_territory(position);
+            if self.try_add_settlement(settlement).await {
+                self.territory.update_territory(position).await;
             }
         }
     }
@@ -50,12 +51,10 @@ where
         }
     }
 
-    fn try_add_settlement(&mut self, settlement: Settlement) -> bool {
-        block_on(async {
-            self.game
-                .update(move |game| try_add_settlement(game, settlement))
-                .await
-        })
+    async fn try_add_settlement(&mut self, settlement: Settlement) -> bool {
+        self.game
+            .update(move |game| try_add_settlement(game, settlement))
+            .await
     }
 }
 
@@ -73,6 +72,7 @@ where
 mod tests {
     use super::*;
 
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::{v2, V2};
     use std::collections::HashMap;
@@ -130,7 +130,7 @@ mod tests {
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
-        builder.build(Build::Settlement(settlement.clone()));
+        block_on(builder.build(Build::Settlement(settlement.clone())));
         let game = game.shutdown();
 
         // Then
@@ -156,7 +156,7 @@ mod tests {
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
-        builder.build(Build::Settlement(settlement));
+        block_on(builder.build(Build::Settlement(settlement)));
         let game = game.shutdown();
 
         // Then
@@ -179,7 +179,7 @@ mod tests {
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
 
         // When
-        builder.build(Build::Settlement(settlement));
+        block_on(builder.build(Build::Settlement(settlement)));
 
         // Then
         assert_eq!(*update_territory.lock().unwrap(), vec![v2(1, 2)]);
@@ -204,7 +204,7 @@ mod tests {
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
 
         // When
-        builder.build(Build::Settlement(settlement));
+        block_on(builder.build(Build::Settlement(settlement)));
 
         // Then
         assert_eq!(*update_territory.lock().unwrap(), vec![]);
@@ -230,7 +230,7 @@ mod tests {
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
 
         // When
-        builder.build(Build::Settlement(settlement));
+        block_on(builder.build(Build::Settlement(settlement)));
 
         // Then
         assert_eq!(*update_territory.lock().unwrap(), vec![]);

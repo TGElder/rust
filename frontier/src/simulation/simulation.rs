@@ -123,6 +123,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::RouteKey;
     use commons::edge::Edge;
+    use commons::futures::executor::block_on;
     use commons::index2d::Vec2D;
     use commons::v2;
     use std::fs::remove_file;

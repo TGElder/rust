@@ -12,6 +12,7 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Builder for RoadBuilder<G>
 where
     G: BuildRoad,
@@ -24,9 +25,9 @@ where
         }
     }
 
-    fn build(&mut self, build: Build) {
+    async fn build(&mut self, build: Build) {
         if let Build::Road(road) = build {
-            self.build_road(road);
+            self.build_road(road).await;
         }
     }
 }
@@ -41,8 +42,8 @@ where
         }
     }
 
-    fn build_road(&mut self, road: Edge) {
-        block_on(self.game.update(move |game| build_road(game, road)))
+    async fn build_road(&mut self, road: Edge) {
+        self.game.update(move |game| build_road(game, road)).await
     }
 }
 
@@ -57,6 +58,7 @@ where
 mod tests {
     use super::*;
 
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
 
@@ -83,7 +85,7 @@ mod tests {
         let mut builder = RoadBuilder::new(&game.tx());
 
         // When
-        builder.build(Build::Road(Edge::new(v2(1, 2), v2(1, 3))));
+        block_on(builder.build(Build::Road(Edge::new(v2(1, 2), v2(1, 3)))));
 
         // Then
         let roads = game.shutdown();

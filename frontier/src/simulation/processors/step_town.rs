@@ -64,6 +64,7 @@ mod tests {
     use super::*;
 
     use crate::settlement::{SettlementClass, SettlementClass::Homeland};
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::{same_elements, v2};
     use std::collections::HashMap;

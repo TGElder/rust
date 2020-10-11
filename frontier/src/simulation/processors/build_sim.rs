@@ -23,7 +23,8 @@ where
             _ => return state,
         };
         let micros = self.micros().await;
-        self.build_all(state.build_queue.take_instructions_before(micros));
+        self.build_all(state.build_queue.take_instructions_before(micros))
+            .await;
         state
     }
 }
@@ -43,17 +44,17 @@ where
         self.game.update(|game| *game.micros()).await
     }
 
-    fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
+    async fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
         instructions.sort_by_key(|instruction| instruction.when);
         for BuildInstruction { what, .. } in instructions {
-            self.build(what);
+            self.build(what).await;
         }
     }
 
-    fn build(&mut self, build: Build) {
+    async fn build(&mut self, build: Build) {
         for builder in self.builders.iter_mut() {
             if builder.can_build(&build) {
-                builder.build(build);
+                builder.build(build).await;
                 return;
             }
         }
@@ -65,6 +66,7 @@ mod tests {
     use super::*;
 
     use commons::edge::Edge;
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
     use std::sync::{Arc, Mutex};
@@ -80,12 +82,13 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl Builder for BuildRetriever {
         fn can_build(&self, _: &Build) -> bool {
             true
         }
 
-        fn build(&mut self, build: Build) {
+        async fn build(&mut self, build: Build) {
             self.builds.lock().unwrap().push(build);
         }
     }

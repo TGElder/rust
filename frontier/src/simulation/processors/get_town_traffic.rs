@@ -173,6 +173,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::Route;
     use crate::world::World;
+    use commons::futures::executor::block_on;
     use commons::grid::Grid;
     use commons::same_elements;
     use commons::update::UpdateProcess;

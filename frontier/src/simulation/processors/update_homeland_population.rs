@@ -80,6 +80,7 @@ where
 mod tests {
     use super::*;
 
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
 

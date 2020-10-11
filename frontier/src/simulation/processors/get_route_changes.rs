@@ -135,6 +135,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use commons::futures::executor::block_on;
     use commons::same_elements;
     use commons::update::UpdateProcess;
     use commons::v2;

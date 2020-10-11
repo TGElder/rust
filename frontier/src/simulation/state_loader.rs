@@ -71,6 +71,7 @@ mod tests {
     use crate::route::RouteKey;
     use crate::world::World;
     use commons::edge::Edge;
+    use commons::futures::executor::block_on;
     use commons::{v2, M};
     use std::collections::HashSet;
     use std::fs::remove_file;
