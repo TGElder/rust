@@ -5,7 +5,7 @@ mod build_queue;
 mod builder;
 pub mod builders;
 
-use commons::futures::executor::block_on;
+use commons::async_trait::async_trait;
 use commons::update::UpdateSender;
 use serde::{Deserialize, Serialize};
 

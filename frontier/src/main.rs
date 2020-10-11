@@ -2,8 +2,6 @@
 
 #[macro_use]
 extern crate commons;
-#[macro_use]
-mod sync;
 
 mod artists;
 mod avatar;
@@ -33,7 +31,8 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use commons::futures::executor::ThreadPool;
+use commons::future::FutureExt;
+use commons::futures::executor::{block_on, ThreadPool};
 use commons::grid::Grid;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
@@ -168,15 +167,20 @@ fn main() {
     game.add_consumer(PathfinderUpdater::new(&pathfinder_without_planned_roads));
     game.add_consumer(SimulationStateLoader::new(sim.tx()));
 
-    game.add_consumer(ShutdownHandler::new(game.tx(), sim.tx(), thread_pool));
+    game.add_consumer(ShutdownHandler::new(
+        game.tx(),
+        sim.tx(),
+        thread_pool.clone(),
+    ));
 
     let game_handle = thread::spawn(move || game.run());
-    let sim_handle = thread::spawn(move || sim.run());
+    let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
+    thread_pool.spawn_ok(sim_run);
 
     engine.run();
 
     println!("Joining sim");
-    sim_handle.join().unwrap();
+    block_on(sim_handle);
     println!("Joining game");
     game_handle.join().unwrap();
 }

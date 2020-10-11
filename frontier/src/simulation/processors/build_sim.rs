@@ -12,17 +12,19 @@ where
     builders: Vec<Box<dyn Builder + Send>>,
 }
 
+#[async_trait]
 impl<G> Processor for BuildSim<G>
 where
     G: Micros,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::Build => (),
             _ => return state,
         };
-        let micros = self.micros();
-        self.build_all(state.build_queue.take_instructions_before(micros));
+        let micros = self.micros().await;
+        self.build_all(state.build_queue.take_instructions_before(micros))
+            .await;
         state
     }
 }
@@ -38,21 +40,21 @@ where
         }
     }
 
-    fn micros(&mut self) -> u128 {
-        sync!(self.game.update(|game| *game.micros()))
+    async fn micros(&mut self) -> u128 {
+        self.game.update(|game| *game.micros()).await
     }
 
-    fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
+    async fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
         instructions.sort_by_key(|instruction| instruction.when);
         for BuildInstruction { what, .. } in instructions {
-            self.build(what);
+            self.build(what).await;
         }
     }
 
-    fn build(&mut self, build: Build) {
+    async fn build(&mut self, build: Build) {
         for builder in self.builders.iter_mut() {
             if builder.can_build(&build) {
-                builder.build(build);
+                builder.build(build).await;
                 return;
             }
         }
@@ -64,6 +66,7 @@ mod tests {
     use super::*;
 
     use commons::edge::Edge;
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
     use std::sync::{Arc, Mutex};
@@ -79,12 +82,13 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl Builder for BuildRetriever {
         fn can_build(&self, _: &Build) -> bool {
             true
         }
 
-        fn build(&mut self, build: Build) {
+        async fn build(&mut self, build: Build) {
             self.builds.lock().unwrap().push(build);
         }
     }
@@ -105,7 +109,7 @@ mod tests {
         });
 
         // When
-        let state = processor.process(state, &Instruction::Build);
+        let state = block_on(processor.process(state, &Instruction::Build));
 
         // Then
         assert_eq!(
@@ -137,7 +141,7 @@ mod tests {
         state.build_queue.insert(instruction_2.clone());
 
         // When
-        let state = processor.process(state, &Instruction::Build);
+        let state = block_on(processor.process(state, &Instruction::Build));
 
         // Then
         assert_eq!(
@@ -168,7 +172,7 @@ mod tests {
         });
 
         // When
-        processor.process(state, &Instruction::Build);
+        block_on(processor.process(state, &Instruction::Build));
 
         // Then
         assert_eq!(

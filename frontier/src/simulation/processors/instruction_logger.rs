@@ -4,8 +4,9 @@ use crate::settlement::Settlement;
 
 pub struct InstructionLogger {}
 
+#[async_trait]
 impl Processor for InstructionLogger {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::GetDemand(Settlement {
                 name,

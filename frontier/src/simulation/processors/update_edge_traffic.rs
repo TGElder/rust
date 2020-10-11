@@ -6,8 +6,9 @@ use std::collections::HashSet;
 
 pub struct UpdateEdgeTraffic {}
 
+#[async_trait]
 impl Processor for UpdateEdgeTraffic {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let route_changes = match instruction {
             Instruction::ProcessRouteChanges(route_changes) => route_changes,
             _ => return state,
@@ -118,6 +119,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use commons::futures::executor::block_on;
     use commons::index2d::Vec2D;
     use commons::v2;
     use std::collections::HashSet;
@@ -169,8 +171,10 @@ mod tests {
         };
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state(), &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state(), &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         assert_eq!(
@@ -194,8 +198,10 @@ mod tests {
         let state = state();
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         let mut expected = hashmap! {};
@@ -219,8 +225,10 @@ mod tests {
         }
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         assert_eq!(
@@ -250,8 +258,10 @@ mod tests {
         }
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         let mut expected = hashmap! {};
@@ -275,8 +285,10 @@ mod tests {
         }
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         let mut expected = hashmap! {};
@@ -299,8 +311,10 @@ mod tests {
         }
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         assert_eq!(
@@ -327,8 +341,10 @@ mod tests {
         }
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         let expected = hashmap! {};
@@ -345,8 +361,10 @@ mod tests {
         let state = state();
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         assert_eq!(
@@ -370,8 +388,10 @@ mod tests {
         let state = state();
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         assert_eq!(state.edge_traffic, hashmap! {},);
@@ -395,8 +415,10 @@ mod tests {
         }
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         let mut expected = hashmap! {};
@@ -424,8 +446,10 @@ mod tests {
         }
 
         // When
-        let state = UpdateEdgeTraffic::new()
-            .process(state, &Instruction::ProcessRouteChanges(vec![change]));
+        let state = block_on(
+            UpdateEdgeTraffic::new()
+                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
+        );
 
         // Then
         let mut expected = hashmap! {};
@@ -452,10 +476,10 @@ mod tests {
         };
 
         // When
-        let state = UpdateEdgeTraffic::new().process(
+        let state = block_on(UpdateEdgeTraffic::new().process(
             state(),
             &Instruction::ProcessRouteChanges(vec![change_1, change_2]),
-        );
+        ));
 
         // Then
         assert_eq!(

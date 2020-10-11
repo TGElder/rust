@@ -2,7 +2,8 @@ use super::*;
 
 use crate::game::traits::SetTerritory;
 use crate::pathfinder::traits::PositionsWithin;
-use commons::grid::get_corners;
+use commons::async_trait::async_trait;
+use commons::get_corners;
 use commons::update::UpdateSender;
 use commons::V2;
 use std::sync::RwLock;
@@ -10,8 +11,9 @@ use std::time::Duration;
 
 const HANDLE: &str = "territory_updater";
 
+#[async_trait]
 pub trait UpdateTerritory: Clone {
-    fn update_territory(&mut self, controller: V2<usize>);
+    async fn update_territory(&mut self, controller: V2<usize>);
 }
 
 pub struct TerritoryUpdater<G, P>
@@ -56,24 +58,25 @@ where
     }
 }
 
+#[async_trait]
 impl<G, P> UpdateTerritory for TerritoryUpdater<G, P>
 where
     G: SetTerritory,
-    P: PositionsWithin,
+    P: PositionsWithin + Send + Sync,
 {
-    fn update_territory(&mut self, controller: V2<usize>) {
+    async fn update_territory(&mut self, controller: V2<usize>) {
         let states = vec![TerritoryState {
             controller,
             durations: self.get_durations(controller),
         }];
-        self.set_territory(states);
+        self.set_territory(states).await;
     }
 }
 
 impl<G, P> TerritoryUpdater<G, P>
 where
     G: SetTerritory,
-    P: PositionsWithin,
+    P: PositionsWithin + Send + Sync,
 {
     fn get_durations(&mut self, controller: V2<usize>) -> HashMap<V2<usize>, Duration> {
         let corners = get_corners(&controller);
@@ -83,8 +86,10 @@ where
             .positions_within(&corners, self.duration)
     }
 
-    fn set_territory(&mut self, states: Vec<TerritoryState>) {
-        sync!(self.game.update(move |game| game.set_territory(states)));
+    async fn set_territory(&mut self, states: Vec<TerritoryState>) {
+        self.game
+            .update(move |game| game.set_territory(states))
+            .await
     }
 }
 
@@ -93,13 +98,15 @@ mod tests {
     use super::*;
 
     use crate::game::TerritoryState;
+    use commons::futures::executor::block_on;
     use commons::same_elements;
     use commons::update::UpdateProcess;
     use commons::v2;
     use std::sync::Mutex;
 
+    #[async_trait]
     impl UpdateTerritory for Arc<Mutex<Vec<V2<usize>>>> {
-        fn update_territory(&mut self, controller: V2<usize>) {
+        async fn update_territory(&mut self, controller: V2<usize>) {
             self.lock().unwrap().push(controller);
         }
     }
@@ -141,7 +148,7 @@ mod tests {
         let mut update_territory = TerritoryUpdater::new(&game.tx(), &pathfinder, duration);
 
         // When
-        update_territory.update_territory(v2(1, 2));
+        block_on(update_territory.update_territory(v2(1, 2)));
         let updates = game.shutdown();
 
         // Then
