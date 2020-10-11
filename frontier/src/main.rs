@@ -173,9 +173,8 @@ fn main() {
         thread_pool.clone(),
     ));
 
-    let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
-
     let game_handle = thread::spawn(move || game.run());
+    let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
     thread_pool.spawn_ok(sim_run);
 
     engine.run();
