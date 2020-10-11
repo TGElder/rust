@@ -71,6 +71,7 @@ mod tests {
     use crate::route::RouteKey;
     use crate::world::World;
     use commons::edge::Edge;
+    use commons::futures::executor::block_on;
     use commons::{v2, M};
     use std::collections::HashSet;
     use std::fs::remove_file;
@@ -88,8 +89,9 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl Processor for StateRetriever {
-        fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+        async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
             state.instructions.push(instruction.clone());
             self.tx.send(state).unwrap();
             State::default()
@@ -110,13 +112,13 @@ mod tests {
 
         // When
         let sim_tx = sim.tx().clone();
-        let handle = thread::spawn(move || sim.run());
+        let handle = thread::spawn(move || block_on(sim.run()));
         consumer.consume_game_event(&game_state, &GameEvent::NewGame);
         consumer.consume_game_event(&game_state, &GameEvent::Init);
         let state = state_rx
             .recv_timeout(Duration::from_secs(10))
             .unwrap_or_else(|_| panic!("State not retrieved after 10 seconds"));
-        sync!(sim_tx.update(|sim| sim.shutdown()));
+        block_on(sim_tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
 
         // Then
@@ -178,14 +180,14 @@ mod tests {
 
         // When
         let sim_tx = sim_2.tx().clone();
-        let handle = thread::spawn(move || sim_2.run());
+        let handle = thread::spawn(move || block_on(sim_2.run()));
         let game_state = GameState::default();
         consumer.consume_game_event(&game_state, &GameEvent::Load(file_name.to_string()));
         consumer.consume_game_event(&game_state, &GameEvent::Init);
         let retrieved = state_rx
             .recv_timeout(Duration::from_secs(10))
             .unwrap_or_else(|_| panic!("State not retrieved after 10 seconds"));
-        sync!(sim_tx.update(|sim| sim.shutdown()));
+        block_on(sim_tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
 
         // Then

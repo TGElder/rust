@@ -20,18 +20,19 @@ where
     pathfinder: Arc<RwLock<P>>,
 }
 
+#[async_trait]
 impl<G, T, P> Processor for RefreshEdges<G, T, P>
 where
     G: BuildRoad + GetRoute + HasWorld,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let edges = match instruction {
             Instruction::RefreshEdges(edges) => edges.clone(),
             _ => return state,
         };
-        self.refresh_edges_in_batches(state, edges)
+        self.refresh_edges_in_batches(state, edges).await
     }
 }
 
@@ -53,22 +54,20 @@ where
         }
     }
 
-    fn refresh_edges_in_batches(&mut self, mut state: State, edges: HashSet<Edge>) -> State {
+    async fn refresh_edges_in_batches(&mut self, mut state: State, edges: HashSet<Edge>) -> State {
         let edges: Vec<Edge> = edges.into_iter().collect();
         for batch in edges.chunks(BATCH_SIZE) {
-            state = self.refresh_edges(state, batch.to_vec());
+            state = self.refresh_edges(state, batch.to_vec()).await;
         }
         state
     }
 
-    fn refresh_edges(&mut self, state: State, edges: Vec<Edge>) -> State {
+    async fn refresh_edges(&mut self, state: State, edges: Vec<Edge>) -> State {
         let travel_duration = self.travel_duration.clone();
         let pathfinder = self.pathfinder.clone();
-        block_on(async {
-            self.game
-                .update(move |game| refresh_edges(game, travel_duration, pathfinder, state, edges))
-                .await
-        })
+        self.game
+            .update(move |game| refresh_edges(game, travel_duration, pathfinder, state, edges))
+            .await
     }
 }
 

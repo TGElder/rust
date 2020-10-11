@@ -11,12 +11,13 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Processor for StepHomeland<G>
 where
     G: Settlements,
 {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        block_on(self.process(state, instruction))
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
+        self.process(state, instruction).await
     }
 }
 
@@ -65,6 +66,7 @@ mod tests {
     use super::*;
 
     use crate::settlement::{SettlementClass, SettlementClass::Town};
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::{same_elements, v2};
     use std::collections::HashMap;
@@ -88,11 +90,7 @@ mod tests {
         let mut processor = StepHomeland::new(&game.tx());
 
         // When
-        let state = block_on(async {
-            processor
-                .process(State::default(), &Instruction::Step)
-                .await
-        });
+        let state = block_on(processor.process(State::default(), &Instruction::Step));
 
         // Then
         assert!(same_elements(
@@ -120,11 +118,7 @@ mod tests {
         let mut processor = StepHomeland::new(&game.tx());
 
         // When
-        let state = block_on(async {
-            processor
-                .process(State::default(), &Instruction::Step)
-                .await
-        });
+        let state = block_on(processor.process(State::default(), &Instruction::Step));
 
         // Then
         assert_eq!(

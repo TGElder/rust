@@ -23,7 +23,7 @@ use state::*;
 pub use state_loader::*;
 use traffic::*;
 
-use commons::futures::executor::block_on;
+use commons::async_trait::async_trait;
 use commons::update::UpdateSender;
 use commons::V2;
 use serde::{Deserialize, Serialize};

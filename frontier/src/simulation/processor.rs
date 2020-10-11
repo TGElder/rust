@@ -1,5 +1,6 @@
 use super::*;
 
+#[async_trait]
 pub trait Processor {
-    fn process(&mut self, state: State, instruction: &Instruction) -> State;
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State;
 }

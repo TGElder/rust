@@ -13,6 +13,7 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Builder for CropsBuilder<G>
 where
     G: BuildCrops + Settlements,
@@ -25,9 +26,9 @@ where
         }
     }
 
-    fn build(&mut self, build: Build) {
+    async fn build(&mut self, build: Build) {
         if let Build::Crops { position, rotated } = build {
-            self.try_build_crops(position, rotated);
+            self.try_build_crops(position, rotated).await;
         }
     }
 }
@@ -42,12 +43,10 @@ where
         }
     }
 
-    fn try_build_crops(&mut self, position: V2<usize>, rotated: bool) {
-        block_on(async {
-            self.game
-                .update(move |game| try_build_crops(game, position, rotated))
-                .await
-        })
+    async fn try_build_crops(&mut self, position: V2<usize>, rotated: bool) {
+        self.game
+            .update(move |game| try_build_crops(game, position, rotated))
+            .await
     }
 }
 
@@ -65,6 +64,7 @@ where
 mod tests {
     use super::*;
 
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashMap;
@@ -122,10 +122,10 @@ mod tests {
         let mut builder = CropsBuilder::new(&game.tx());
 
         // When
-        builder.build(Build::Crops {
+        block_on(builder.build(Build::Crops {
             position: v2(1, 2),
             rotated: true,
-        });
+        }));
 
         // Then
         let game = game.shutdown();
@@ -148,10 +148,10 @@ mod tests {
         let mut builder = CropsBuilder::new(&game.tx());
 
         // When
-        builder.build(Build::Crops {
+        block_on(builder.build(Build::Crops {
             position: v2(1, 2),
             rotated: true,
-        });
+        }));
 
         // Then
         let game = game.shutdown();

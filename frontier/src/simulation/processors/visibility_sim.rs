@@ -20,11 +20,12 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Processor for VisibilitySim<G>
 where
     G: VisiblePositions,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::Step => (),
             _ => return state,
@@ -32,7 +33,7 @@ where
         let messages = self.get_messages();
         if !messages.is_empty() {
             state.instructions.push(Instruction::VisibleLandPositions(
-                self.visible_land_positions(),
+                self.visible_land_positions().await,
             ));
         }
         let positions_to_refresh = get_traffic_positions(&state, &messages);
@@ -70,8 +71,8 @@ where
         out
     }
 
-    fn visible_land_positions(&mut self) -> usize {
-        sync!(self.game.update(|game| visible_land_positions(game)))
+    async fn visible_land_positions(&mut self) -> usize {
+        self.game.update(|game| visible_land_positions(game)).await
     }
 }
 
@@ -154,6 +155,7 @@ mod tests {
 
     use crate::resource::Resource;
     use crate::route::RouteKey;
+    use commons::futures::executor::block_on;
     use commons::grid::Grid;
     use commons::same_elements;
     use commons::update::UpdateProcess;
@@ -195,7 +197,7 @@ mod tests {
                 by: "",
             },
         );
-        let state = processor.process(state, &Instruction::Step);
+        let state = block_on(processor.process(state, &Instruction::Step));
 
         // Then
         assert!(same_elements(
@@ -240,7 +242,7 @@ mod tests {
                 by: "",
             },
         );
-        let state = processor.process(state, &Instruction::Step);
+        let state = block_on(processor.process(state, &Instruction::Step));
 
         // Then
         assert_eq!(
@@ -268,7 +270,7 @@ mod tests {
                 by: "",
             },
         );
-        let state = processor.process(State::default(), &Instruction::Step);
+        let state = block_on(processor.process(State::default(), &Instruction::Step));
 
         // Then
         assert_eq!(
@@ -296,7 +298,7 @@ mod tests {
                 by: "",
             },
         );
-        let state = processor.process(State::default(), &Instruction::Step);
+        let state = block_on(processor.process(State::default(), &Instruction::Step));
 
         // Then
         assert_eq!(
@@ -315,7 +317,7 @@ mod tests {
         let mut processor = VisibilitySim::new(&game.tx());
 
         // When
-        let state = processor.process(State::default(), &Instruction::Step);
+        let state = block_on(processor.process(State::default(), &Instruction::Step));
 
         // Then
         assert_eq!(state.instructions, vec![]);

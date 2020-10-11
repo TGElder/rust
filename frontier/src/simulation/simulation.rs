@@ -55,7 +55,7 @@ impl Simulation {
             .for_each(|state| state.paused = paused);
     }
 
-    pub fn run(&mut self) {
+    pub async fn run(&mut self) {
         while self.run {
             self.process_updates();
 
@@ -64,7 +64,7 @@ impl Simulation {
             }
 
             if self.process_instructions {
-                self.process_instruction();
+                self.process_instruction().await;
             }
 
             self.try_step();
@@ -76,12 +76,12 @@ impl Simulation {
         process_updates(updates, self);
     }
 
-    fn process_instruction(&mut self) {
+    async fn process_instruction(&mut self) {
         let mut state = unwrap_or!(self.state.take(), return);
         if !state.paused {
             if let Some(instruction) = state.instructions.pop() {
                 for processor in self.processors.iter_mut() {
-                    state = processor.process(state, &instruction);
+                    state = processor.process(state, &instruction).await;
                 }
             }
         }
@@ -123,6 +123,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::RouteKey;
     use commons::edge::Edge;
+    use commons::futures::executor::block_on;
     use commons::index2d::Vec2D;
     use commons::v2;
     use std::fs::remove_file;
@@ -143,8 +144,9 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl Processor for InstructionRetriever {
-        fn process(&mut self, state: State, instruction: &Instruction) -> State {
+        async fn process(&mut self, state: State, instruction: &Instruction) -> State {
             self.instructions.lock().unwrap().push(instruction.clone());
             state
         }
@@ -159,8 +161,8 @@ mod tests {
             sim.start_processing_instructions();
             sim.set_state(State::default());
             let tx = sim.tx().clone();
-            let handle = thread::spawn(move || sim.run());
-            sync!(tx.update(|sim| sim.shutdown()));
+            let handle = thread::spawn(move || block_on(sim.run()));
+            block_on(tx.update(|sim| sim.shutdown()));
             handle.join().unwrap();
             done_2.store(true, Ordering::Relaxed);
         });
@@ -182,14 +184,14 @@ mod tests {
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
-        let handle = thread::spawn(move || sim.run());
+        let handle = thread::spawn(move || block_on(sim.run()));
         let start = Instant::now();
         while !instructions.lock().unwrap().contains(&Instruction::Step) {
             if start.elapsed().as_secs() > 10 {
                 panic!("No step instruction received after 10 seconds");
             }
         }
-        sync!(tx.update(|sim| sim.shutdown()));
+        block_on(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
     }
 
@@ -202,9 +204,9 @@ mod tests {
             InstructionIntroducer { introduced: false }
         }
     }
-
+    #[async_trait]
     impl Processor for InstructionIntroducer {
-        fn process(&mut self, mut state: State, _: &Instruction) -> State {
+        async fn process(&mut self, mut state: State, _: &Instruction) -> State {
             if !self.introduced {
                 state.instructions = vec![Instruction::GetTerritory(v2(1, 1))];
                 self.introduced = true;
@@ -223,7 +225,7 @@ mod tests {
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
-        let handle = thread::spawn(move || sim.run());
+        let handle = thread::spawn(move || block_on(sim.run()));
         let start = Instant::now();
         while !instructions
             .lock()
@@ -234,7 +236,7 @@ mod tests {
                 panic!("No GetTerritory instruction received after 10 seconds");
             }
         }
-        sync!(tx.update(|sim| sim.shutdown()));
+        block_on(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
     }
 
@@ -249,13 +251,13 @@ mod tests {
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
-        let handle = thread::spawn(move || sim.run());
+        let handle = thread::spawn(move || block_on(sim.run()));
         let start = Instant::now();
         while start.elapsed().as_secs() < 10
             && (instructions_1.lock().unwrap().is_empty()
                 || instructions_2.lock().unwrap().is_empty())
         {}
-        sync!(tx.update(|sim| sim.shutdown()));
+        block_on(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
 
         assert_eq!(instructions_1.lock().unwrap()[0], Instruction::Step);
@@ -272,7 +274,7 @@ mod tests {
         let tx = sim.tx().clone();
 
         tx.update(|sim| sim.shutdown());
-        let handle = thread::spawn(move || sim.run());
+        let handle = thread::spawn(move || block_on(sim.run()));
         handle.join().unwrap();
 
         assert!(instructions.lock().unwrap().is_empty());
@@ -346,7 +348,7 @@ mod tests {
         sim_2.load(file_name);
         let tx = sim_2.tx().clone();
 
-        let handle = thread::spawn(move || sim_2.run());
+        let handle = thread::spawn(move || block_on(sim_2.run()));
         let start = Instant::now();
         while !instructions
             .lock()
@@ -357,7 +359,7 @@ mod tests {
                 panic!("No GetTerritory instruction received after 10 seconds");
             }
         }
-        sync!(tx.update(|sim| sim.shutdown()));
+        block_on(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
 
         // Then
@@ -378,8 +380,9 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl Processor for InstructionRepeater {
-        fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+        async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
             thread::sleep(Duration::from_millis(10));
             state.instructions.push(instruction.clone());
             state
@@ -400,14 +403,14 @@ mod tests {
 
             let tx = sim.tx().clone();
             let start = Instant::now();
-            let handle = thread::spawn(move || sim.run());
+            let handle = thread::spawn(move || block_on(sim.run()));
             while instructions.lock().unwrap().is_empty() {
                 if start.elapsed().as_secs() > 10 {
                     panic!("Instruction not received after 10 seconds");
                 }
             }
 
-            sync!(tx.update(|sim| sim.shutdown()));
+            block_on(tx.update(|sim| sim.shutdown()));
             handle.join().unwrap();
             done_2.store(true, Ordering::Relaxed);
         });
@@ -430,13 +433,13 @@ mod tests {
         });
         let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
-            sim.run();
+            block_on(sim.run());
             sim
         });
 
         // When
-        sync!(tx.update(|_| {}));
-        sync!(tx.update(|sim| sim.shutdown()));
+        block_on(tx.update(|_| {}));
+        block_on(tx.update(|sim| sim.shutdown()));
 
         // Then
         let sim = handle.join().unwrap();
@@ -458,13 +461,13 @@ mod tests {
         sim.pause();
         let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
-            sim.run();
+            block_on(sim.run());
             sim
         });
 
         // When
-        sync!(tx.update(|_| {}));
-        sync!(tx.update(|sim| sim.shutdown()));
+        block_on(tx.update(|_| {}));
+        block_on(tx.update(|sim| sim.shutdown()));
 
         // Then
         let sim = handle.join().unwrap();
@@ -489,7 +492,7 @@ mod tests {
 
         let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
-            sim.run();
+            block_on(sim.run());
             sim
         });
 
@@ -504,7 +507,7 @@ mod tests {
             }
         }
 
-        sync!(tx.update(|sim| sim.shutdown()));
+        block_on(tx.update(|sim| sim.shutdown()));
         handle.join().unwrap();
     }
 }

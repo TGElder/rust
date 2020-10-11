@@ -12,11 +12,12 @@ where
     game: UpdateSender<G>,
 }
 
+#[async_trait]
 impl<G> Processor for UpdateTown<G>
 where
     G: UpdateSettlement,
 {
-    fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
             Instruction::UpdateTown {
                 settlement,
@@ -33,7 +34,8 @@ where
                 state.params.nation_flip_traffic_pc,
             ),
             ..settlement.clone()
-        });
+        })
+        .await;
 
         state
             .instructions
@@ -53,12 +55,10 @@ where
         }
     }
 
-    fn update_settlement(&mut self, settlement: Settlement) {
-        block_on(async {
-            self.game
-                .update(move |game| game.update_settlement(settlement))
-                .await
-        });
+    async fn update_settlement(&mut self, settlement: Settlement) {
+        self.game
+            .update(move |game| game.update_settlement(settlement))
+            .await
     }
 }
 
@@ -101,6 +101,7 @@ mod tests {
     use super::*;
 
     use commons::almost::Almost;
+    use commons::futures::executor::block_on;
     use commons::update::UpdateProcess;
     use commons::v2;
 
@@ -134,7 +135,7 @@ mod tests {
             },
             ..State::default()
         };
-        processor.process(state, &instruction);
+        block_on(processor.process(state, &instruction));
 
         // Then
         let updated_settlements = game.shutdown();
@@ -158,7 +159,7 @@ mod tests {
             settlement,
             traffic: vec![],
         };
-        processor.process(State::default(), &instruction);
+        block_on(processor.process(State::default(), &instruction));
 
         // Then
         let updated_settlements = game.shutdown();
@@ -198,7 +199,7 @@ mod tests {
             },
             ..State::default()
         };
-        processor.process(state, &instruction);
+        block_on(processor.process(state, &instruction));
 
         // Then
         let updated_settlements = game.shutdown();
@@ -236,7 +237,7 @@ mod tests {
             },
             ..State::default()
         };
-        processor.process(state, &instruction);
+        block_on(processor.process(state, &instruction));
 
         // Then
         let updated_settlements = game.shutdown();
@@ -258,7 +259,7 @@ mod tests {
                 traffic_share: 1.0,
             }],
         };
-        let state = processor.process(State::default(), &instruction);
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
