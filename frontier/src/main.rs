@@ -31,7 +31,8 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use commons::futures::executor::ThreadPool;
+use commons::future::FutureExt;
+use commons::futures::executor::{block_on, ThreadPool};
 use commons::grid::Grid;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
@@ -172,11 +173,15 @@ fn main() {
         thread_pool.clone(),
     ));
 
+    let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
+
     let game_handle = thread::spawn(move || game.run());
-    thread_pool.spawn_ok(async move { sim.run().await });
+    thread_pool.spawn_ok(sim_run);
 
     engine.run();
 
+    println!("Joining sim");
+    block_on(sim_handle);
     println!("Joining game");
     game_handle.join().unwrap();
 }
