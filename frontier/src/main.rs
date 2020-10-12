@@ -3,8 +3,10 @@
 #[macro_use]
 extern crate commons;
 
+mod actors;
 mod artists;
 mod avatar;
+mod event_forwarder;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
