@@ -1,3 +1,3 @@
 mod save;
 
-pub use save::*;
+pub use save::Save;
