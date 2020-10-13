@@ -179,11 +179,11 @@ fn main() {
     let event_forwarder = EventForwarder::new();
 
     let mut save = Save::new(event_forwarder.rx(), game.tx(), sim.tx());
-
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
 
     let game_handle = thread::spawn(move || game.run());
+
     let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
     thread_pool.spawn_ok(sim_run);
 
