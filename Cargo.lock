@@ -360,6 +360,7 @@ version = "0.1.0"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "commons 0.1.0",
+ "futures 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "isometric 0.1.0",
  "line_drawing 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "network 0.1.0",
