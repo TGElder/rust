@@ -3,8 +3,10 @@
 #[macro_use]
 extern crate commons;
 
+mod actors;
 mod artists;
 mod avatar;
+mod event_forwarder;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -25,12 +27,14 @@ mod world;
 mod world_gen;
 
 use crate::avatar::*;
+use crate::event_forwarder::EventForwarder;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
+use actors::Save;
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
 use commons::grid::Grid;
@@ -134,7 +138,6 @@ fn main() {
     game.add_consumer(ObjectBuilder::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(TownBuilder::new(game.tx()));
     game.add_consumer(Cheats::new(game.tx()));
-    game.add_consumer(Save::new(game.tx(), sim.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(&pathfinder_with_planned_roads));
@@ -173,14 +176,22 @@ fn main() {
         thread_pool.clone(),
     ));
 
+    let event_forwarder = EventForwarder::new();
+
+    let mut save = Save::new(event_forwarder.rx(), game.tx(), sim.tx());
+    let (save_run, save_handle) = async move { save.run().await }.remote_handle();
+    thread_pool.spawn_ok(save_run);
+
     let game_handle = thread::spawn(move || game.run());
+
     let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
     thread_pool.spawn_ok(sim_run);
 
+    engine.add_event_consumer(event_forwarder);
     engine.run();
 
-    println!("Joining sim");
-    block_on(sim_handle);
+    println!("Joining actors");
+    block_on(async { join!(save_handle, sim_handle) });
     println!("Joining game");
     game_handle.join().unwrap();
 }
