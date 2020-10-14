@@ -37,12 +37,12 @@ impl Simulation {
         self.state = Some(state);
     }
 
-    pub fn resume(&mut self) {
-        self.paused = false;
-    }
-
     pub fn pause(&mut self) {
         self.paused = true;
+    }
+
+    pub fn resume(&mut self) {
+        self.paused = false;
     }
 
     pub fn pause_persistent(&mut self) {
