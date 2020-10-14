@@ -26,7 +26,7 @@ impl Pause {
         let game_tx = self.game_tx.clone();
         self.sim_tx.update(move |sim| {
             block_on(async {
-                sim.pause();
+                sim.pause_persistent();
                 game_tx.update(|game| game.mut_state().speed = 0.0).await;
             })
         });
@@ -36,7 +36,7 @@ impl Pause {
         let game_tx = self.game_tx.clone();
         self.sim_tx.update(move |sim| {
             block_on(async {
-                sim.resume();
+                sim.resume_persistent();
                 game_tx
                     .update(move |game| game.mut_state().speed = default_speed)
                     .await;

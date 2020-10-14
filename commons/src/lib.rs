@@ -4,6 +4,7 @@ pub extern crate float_cmp;
 pub extern crate futures;
 pub use futures::*;
 pub extern crate image;
+pub extern crate log;
 extern crate maplit;
 pub extern crate nalgebra as na;
 extern crate noise;

@@ -2,6 +2,7 @@ use crate::game::Game;
 use crate::simulation::Simulation;
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
+use commons::log::debug;
 use commons::update::UpdateSender;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
@@ -63,9 +64,13 @@ impl Save {
     async fn save(&mut self) {
         let path_for_sim = self.path.clone();
         let path_for_game = self.path.clone();
-        join!(
-            self.sim_tx.update(move |sim| sim.save(&path_for_sim)),
-            self.game_tx.update(|game| game.save(path_for_game))
-        );
+        self.sim_tx.update(move |sim| sim.pause()).await;
+        debug!("Paused simulation");
+        self.sim_tx.update(move |sim| sim.save(&path_for_sim)).await;
+        debug!("Saved simulation state");
+        self.game_tx.update(|game| game.save(path_for_game)).await;
+        debug!("Saved game state");
+        self.sim_tx.update(move |sim| sim.resume()).await;
+        debug!("Resumed simulation");
     }
 }
