@@ -41,6 +41,7 @@ use commons::grid::Grid;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
+use simple_logger::SimpleLogger;
 use simulation::builders::{CropsBuilder, RoadBuilder, SettlementBuilder};
 use simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation::game_event_consumers::ResourceTargets;
@@ -53,6 +54,8 @@ use std::thread;
 use std::time::Duration;
 
 fn main() {
+    SimpleLogger::new().init().unwrap();
+
     let (game_state, init_events) = parse_args(env::args().collect());
 
     let mut engine = IsometricEngine::new(IsometricEngineParameters {
