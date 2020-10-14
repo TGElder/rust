@@ -10,6 +10,7 @@ async-trait = "0.1"
 float-cmp = "0.5"
 futures = { version = "0.3", features = ["thread-pool"] }
 image = "0.22"
+log = "0.4"
 maplit = "1.0.2"
 nalgebra = { version = "0.18", features = ["serde-serialize"] }
 noise = "0.6.0"

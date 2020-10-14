@@ -11,7 +11,7 @@ pub struct Simulation {
     state: Option<State>,
     tx: UpdateSender<Simulation>,
     rx: UpdateReceiver<Simulation>,
-    process_instructions: bool,
+    paused: bool,
     run: bool,
 }
 
@@ -23,7 +23,7 @@ impl Simulation {
             processors,
             tx,
             rx,
-            process_instructions: false,
+            paused: true,
             run: true,
             state: None,
         }
@@ -37,19 +37,23 @@ impl Simulation {
         self.state = Some(state);
     }
 
-    pub fn start_processing_instructions(&mut self) {
-        self.process_instructions = true;
-    }
-
     pub fn pause(&mut self) {
-        self.set_paused(true);
+        self.paused = true;
     }
 
     pub fn resume(&mut self) {
-        self.set_paused(false);
+        self.paused = false;
     }
 
-    fn set_paused(&mut self, paused: bool) {
+    pub fn pause_persistent(&mut self) {
+        self.set_paused_persistent(true);
+    }
+
+    pub fn resume_persistent(&mut self) {
+        self.set_paused_persistent(false);
+    }
+
+    fn set_paused_persistent(&mut self, paused: bool) {
         self.state
             .iter_mut()
             .for_each(|state| state.paused = paused);
@@ -59,15 +63,9 @@ impl Simulation {
         while self.run {
             self.process_updates();
 
-            if !self.run {
-                return;
+            if self.run && !self.paused {
+                self.evolve_state().await;
             }
-
-            if self.process_instructions {
-                self.process_instruction().await;
-            }
-
-            self.try_step();
         }
     }
 
@@ -76,20 +74,27 @@ impl Simulation {
         process_updates(updates, self);
     }
 
-    async fn process_instruction(&mut self) {
-        let mut state = unwrap_or!(self.state.take(), return);
-        if !state.paused {
-            if let Some(instruction) = state.instructions.pop() {
-                for processor in self.processors.iter_mut() {
-                    state = processor.process(state, &instruction).await;
-                }
-            }
+    async fn evolve_state(&mut self) {
+        let paused = unwrap_or!(&self.state, return).paused;
+        if paused {
+            return;
         }
+        let state = unwrap_or!(self.state.take(), return);
+        let mut state = self.process_instruction(state).await;
+        self.try_step(&mut state);
         self.state = Some(state);
     }
 
-    fn try_step(&mut self) {
-        let state = unwrap_or!(self.state.as_mut(), return);
+    async fn process_instruction(&mut self, mut state: State) -> State {
+        if let Some(instruction) = state.instructions.pop() {
+            for processor in self.processors.iter_mut() {
+                state = processor.process(state, &instruction).await;
+            }
+        }
+        state
+    }
+
+    fn try_step(&mut self, state: &mut State) {
         if state.instructions.is_empty() {
             state.instructions.push(Instruction::Step);
         }
@@ -158,7 +163,7 @@ mod tests {
         let done_2 = done.clone();
         thread::spawn(move || {
             let mut sim = Simulation::new(vec![]);
-            sim.start_processing_instructions();
+            sim.resume();
             sim.set_state(State::default());
             let tx = sim.tx().clone();
             let handle = thread::spawn(move || block_on(sim.run()));
@@ -180,7 +185,7 @@ mod tests {
         let processor = InstructionRetriever::new();
         let instructions = processor.instructions.clone();
         let mut sim = Simulation::new(vec![Box::new(processor)]);
-        sim.start_processing_instructions();
+        sim.resume();
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
@@ -221,7 +226,7 @@ mod tests {
         let receiver = InstructionRetriever::new();
         let instructions = receiver.instructions.clone();
         let mut sim = Simulation::new(vec![Box::new(introducer), Box::new(receiver)]);
-        sim.start_processing_instructions();
+        sim.resume();
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
@@ -247,7 +252,7 @@ mod tests {
         let processor_2 = InstructionRetriever::new();
         let instructions_2 = processor_2.instructions.clone();
         let mut sim = Simulation::new(vec![Box::new(processor_1), Box::new(processor_2)]);
-        sim.start_processing_instructions();
+        sim.resume();
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
@@ -269,7 +274,7 @@ mod tests {
         let processor = InstructionRetriever::new();
         let instructions = processor.instructions.clone();
         let mut sim = Simulation::new(vec![Box::new(processor)]);
-        sim.start_processing_instructions();
+        sim.resume();
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
@@ -344,7 +349,7 @@ mod tests {
 
         // When
         let mut sim_2 = Simulation::new(vec![Box::new(receiver)]);
-        sim_2.start_processing_instructions();
+        sim_2.resume();
         sim_2.load(file_name);
         let tx = sim_2.tx().clone();
 
@@ -398,7 +403,7 @@ mod tests {
             let receiver = InstructionRetriever::new();
             let instructions = receiver.instructions.clone();
             let mut sim = Simulation::new(vec![Box::new(repeater), Box::new(receiver)]);
-            sim.start_processing_instructions();
+            sim.resume();
             sim.set_state(State::default());
 
             let tx = sim.tx().clone();
@@ -424,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn should_not_process_instruction_if_start_processing_instructions_is_not_called() {
+    fn should_not_process_instruction_by_default() {
         // Given
         let mut sim = Simulation::new(vec![]);
         sim.set_state(State {
@@ -453,11 +458,11 @@ mod tests {
     fn should_not_process_instruction_while_paused() {
         // Given
         let mut sim = Simulation::new(vec![]);
-        sim.start_processing_instructions();
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
             ..State::default()
         });
+        sim.resume();
         sim.pause();
         let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
@@ -482,13 +487,75 @@ mod tests {
         let receiver = InstructionRetriever::new();
         let instructions = receiver.instructions.clone();
         let mut sim = Simulation::new(vec![Box::new(receiver)]);
-        sim.start_processing_instructions();
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
             ..State::default()
         });
         sim.pause();
         sim.resume();
+
+        let tx = sim.tx().clone();
+        let handle = thread::spawn(move || {
+            block_on(sim.run());
+            sim
+        });
+
+        let start = Instant::now();
+        while !instructions
+            .lock()
+            .unwrap()
+            .contains(&Instruction::GetTerritory(v2(1, 1)))
+        {
+            if start.elapsed().as_secs() > 10 {
+                panic!("No GetTerritory instruction received after 10 seconds");
+            }
+        }
+
+        block_on(tx.update(|sim| sim.shutdown()));
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn should_not_process_instruction_while_paused_persistent() {
+        // Given
+        let mut sim = Simulation::new(vec![]);
+        sim.resume();
+        sim.set_state(State {
+            instructions: vec![Instruction::GetTerritory(v2(1, 1))],
+            ..State::default()
+        });
+        sim.resume_persistent();
+        sim.pause_persistent();
+        let tx = sim.tx().clone();
+        let handle = thread::spawn(move || {
+            block_on(sim.run());
+            sim
+        });
+
+        // When
+        block_on(tx.update(|_| {}));
+        block_on(tx.update(|sim| sim.shutdown()));
+
+        // Then
+        let sim = handle.join().unwrap();
+        assert_eq!(
+            sim.state.unwrap().instructions,
+            vec![Instruction::GetTerritory(v2(1, 1))]
+        );
+    }
+
+    #[test]
+    fn should_process_instruction_when_resumed_persistent() {
+        let receiver = InstructionRetriever::new();
+        let instructions = receiver.instructions.clone();
+        let mut sim = Simulation::new(vec![Box::new(receiver)]);
+        sim.resume();
+        sim.set_state(State {
+            instructions: vec![Instruction::GetTerritory(v2(1, 1))],
+            ..State::default()
+        });
+        sim.pause_persistent();
+        sim.resume_persistent();
 
         let tx = sim.tx().clone();
         let handle = thread::spawn(move || {

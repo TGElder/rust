@@ -38,8 +38,7 @@ impl SimulationStateLoader {
     }
 
     fn init(&mut self) {
-        self.sim_tx
-            .update(move |sim| sim.start_processing_instructions());
+        self.sim_tx.update(move |sim| sim.resume());
     }
 }
 
