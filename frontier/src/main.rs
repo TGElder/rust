@@ -34,7 +34,7 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use actors::Save;
+use actors::{PauseGame, PauseSim, Save};
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
 use commons::grid::Grid;
@@ -144,7 +144,6 @@ fn main() {
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(&pathfinder_with_planned_roads));
-    game.add_consumer(Pause::new(game.tx(), sim.tx()));
 
     // Drawing
     game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
@@ -179,9 +178,17 @@ fn main() {
         thread_pool.clone(),
     ));
 
-    let event_forwarder = EventForwarder::new();
+    let mut event_forwarder = EventForwarder::new();
 
-    let mut save = Save::new(event_forwarder.rx(), game.tx(), sim.tx());
+    let mut pause_game = PauseGame::new(event_forwarder.subscribe(), game.tx());
+    let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
+    thread_pool.spawn_ok(pause_game_run);
+
+    let mut pause_sim = PauseSim::new(event_forwarder.subscribe(), sim.tx());
+    let (pause_sim_run, pause_sim_handle) = async move { pause_sim.run().await }.remote_handle();
+    thread_pool.spawn_ok(pause_sim_run);
+
+    let mut save = Save::new(event_forwarder.subscribe(), game.tx(), sim.tx());
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
 
@@ -194,7 +201,7 @@ fn main() {
     engine.run();
 
     println!("Joining actors");
-    block_on(async { join!(save_handle, sim_handle) });
+    block_on(async { join!(pause_game_handle, pause_sim_handle, save_handle, sim_handle) });
     println!("Joining game");
     game_handle.join().unwrap();
 }
