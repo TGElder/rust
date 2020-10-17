@@ -46,13 +46,13 @@ impl Save {
     async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
         let event: Arc<Event> = event.unwrap();
         match *event {
-            Event::Shutdown => self.shutdown().await,
             Event::Button {
                 ref button,
                 state: ElementState::Pressed,
                 modifiers: ModifiersState { alt: false, .. },
                 ..
             } if *button == self.binding => self.save().await,
+            Event::Shutdown => self.shutdown().await,
             _ => (),
         }
     }

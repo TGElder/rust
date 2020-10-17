@@ -45,20 +45,6 @@ impl Simulation {
         self.paused = false;
     }
 
-    pub fn pause_persistent(&mut self) {
-        self.set_paused_persistent(true);
-    }
-
-    pub fn resume_persistent(&mut self) {
-        self.set_paused_persistent(false);
-    }
-
-    fn set_paused_persistent(&mut self, paused: bool) {
-        self.state
-            .iter_mut()
-            .for_each(|state| state.paused = paused);
-    }
-
     pub fn toggle_paused_persistent(&mut self) {
         self.state
             .iter_mut()
@@ -528,10 +514,10 @@ mod tests {
         sim.resume();
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
+            paused: false,
             ..State::default()
         });
-        sim.resume_persistent();
-        sim.pause_persistent();
+        sim.toggle_paused_persistent();
         let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
             block_on(sim.run());
@@ -558,10 +544,10 @@ mod tests {
         sim.resume();
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
+            paused: true,
             ..State::default()
         });
-        sim.pause_persistent();
-        sim.resume_persistent();
+        sim.toggle_paused_persistent();
 
         let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
