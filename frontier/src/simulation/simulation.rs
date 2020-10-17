@@ -59,6 +59,12 @@ impl Simulation {
             .for_each(|state| state.paused = paused);
     }
 
+    pub fn toggle_paused_persistent(&mut self) {
+        self.state
+            .iter_mut()
+            .for_each(|state| state.paused = !state.paused);
+    }
+
     pub async fn run(&mut self) {
         while self.run {
             self.process_updates();

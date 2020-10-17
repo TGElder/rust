@@ -1,5 +1,4 @@
 use crate::game::Game;
-use crate::simulation::Simulation;
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
 use commons::log::debug;
@@ -7,30 +6,21 @@ use commons::update::UpdateSender;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-const HANDLE: &str = "save";
-const PATH: &str = "save";
+const HANDLE: &str = "pause_game";
 
-pub struct Save {
+pub struct PauseGame {
     engine_rx: Receiver<Arc<Event>>,
     game_tx: UpdateSender<Game>,
-    sim_tx: UpdateSender<Simulation>,
     binding: Button,
-    path: String,
     run: bool,
 }
 
-impl Save {
-    pub fn new(
-        engine_rx: Receiver<Arc<Event>>,
-        game_tx: &UpdateSender<Game>,
-        sim_tx: &UpdateSender<Simulation>,
-    ) -> Save {
-        Save {
+impl PauseGame {
+    pub fn new(engine_rx: Receiver<Arc<Event>>, game_tx: &UpdateSender<Game>) -> PauseGame {
+        PauseGame {
             engine_rx,
             game_tx: game_tx.clone_with_handle(HANDLE),
-            sim_tx: sim_tx.clone_with_handle(HANDLE),
-            binding: Button::Key(VirtualKeyCode::P),
-            path: PATH.to_string(),
+            binding: Button::Key(VirtualKeyCode::Space),
             run: true,
         }
     }
@@ -52,7 +42,7 @@ impl Save {
                 state: ElementState::Pressed,
                 modifiers: ModifiersState { alt: false, .. },
                 ..
-            } if *button == self.binding => self.save().await,
+            } if *button == self.binding => self.pause().await,
             _ => (),
         }
     }
@@ -61,16 +51,18 @@ impl Save {
         self.run = false;
     }
 
-    async fn save(&mut self) {
-        let path_for_sim = self.path.clone();
-        let path_for_game = self.path.clone();
-        self.sim_tx.update(move |sim| sim.pause()).await;
-        debug!("Paused simulation");
-        self.sim_tx.update(move |sim| sim.save(&path_for_sim)).await;
-        debug!("Saved simulation state");
-        self.game_tx.update(|game| game.save(path_for_game)).await;
-        debug!("Saved game state");
-        self.sim_tx.update(move |sim| sim.resume()).await;
-        debug!("Resumed simulation");
+    async fn pause(&mut self) {
+        debug!("Pausing game");
+        self.game_tx.update(move |sim| toggle_pause(sim)).await;
+        debug!("Paused game");
+    }
+}
+
+fn toggle_pause(game: &mut Game) {
+    let game_state = game.mut_state();
+    if game_state.speed == 0.0 {
+        game_state.speed = game_state.params.default_speed;
+    } else {
+        game_state.speed = 0.0;
     }
 }
