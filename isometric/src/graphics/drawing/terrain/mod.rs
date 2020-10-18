@@ -219,7 +219,7 @@ impl TerrainDrawing {
     }
 
     pub fn update<T>(
-        &mut self,
+        &self,
         terrain: &dyn Grid<T>,
         sea_level: f32,
         coloring: &dyn TerrainColoring<T>,

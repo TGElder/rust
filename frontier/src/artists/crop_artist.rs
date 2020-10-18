@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 
 const TEXTURE: &str = "resources/textures/crop.png";
 
+#[derive(Clone)]
 pub struct CropArtist {}
 
 impl CropArtist {

@@ -13,13 +13,13 @@ pub struct WorldColoring<'a> {
 }
 
 #[derive(Hash, PartialEq, Eq, Debug)]
-struct Slab {
+pub struct Slab {
     from: V2<usize>,
     slab_size: usize,
 }
 
 impl Slab {
-    fn new(point: V2<usize>, slab_size: usize) -> Slab {
+    pub fn new(point: V2<usize>, slab_size: usize) -> Slab {
         let from = (point / slab_size) * slab_size;
         Slab { from, slab_size }
     }
@@ -29,6 +29,7 @@ impl Slab {
     }
 }
 
+#[derive(Clone)]
 pub struct WorldArtistParameters {
     pub road_color: Color,
     pub river_color: Color,
@@ -53,6 +54,7 @@ impl Default for WorldArtistParameters {
     }
 }
 
+#[derive(Clone)]
 pub struct WorldArtist {
     width: usize,
     height: usize,
@@ -88,7 +90,7 @@ impl WorldArtist {
         self.drawing.init()
     }
 
-    fn draw_slab(&mut self, world: &World, coloring: &WorldColoring, slab: &Slab) -> Vec<Command> {
+    pub fn draw_slab(&self, world: &World, coloring: &WorldColoring, slab: &Slab) -> Vec<Command> {
         let mut out = self.draw_slab_tiles(world, coloring, slab);
         out.append(&mut self.draw_slab_rivers_roads(world, slab));
 
@@ -103,7 +105,7 @@ impl WorldArtist {
     }
 
     fn draw_slab_tiles(
-        &mut self,
+        &self,
         world: &World,
         coloring: &WorldColoring,
         slab: &Slab,
@@ -153,7 +155,7 @@ impl WorldArtist {
         result
     }
 
-    fn draw_slab_rivers_roads(&mut self, world: &World, slab: &Slab) -> Vec<Command> {
+    fn draw_slab_rivers_roads(&self, world: &World, slab: &Slab) -> Vec<Command> {
         let from = &slab.from;
         let to = &slab.to();
         let result = self.get_road_river_positions(world, from, to);
@@ -225,7 +227,7 @@ impl WorldArtist {
     }
 
     fn draw_slab_crops(
-        &mut self,
+        &self,
         world: &World,
         coloring: &WorldColoring,
         from: &V2<usize>,
@@ -236,7 +238,7 @@ impl WorldArtist {
     }
 
     fn draw_slab_vegetation(
-        &mut self,
+        &self,
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
@@ -245,7 +247,7 @@ impl WorldArtist {
     }
 
     fn draw_slab_resources(
-        &mut self,
+        &self,
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,

@@ -1,6 +1,6 @@
 mod coloring;
 
-pub use coloring::WorldColoringParameters;
+pub use coloring::{world_coloring, WorldColoringParameters}; // TODO move world_coloring  to actors
 use coloring::*;
 
 use super::*;

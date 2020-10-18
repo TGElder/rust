@@ -22,6 +22,7 @@ impl Default for VegatationArtistParams {
     }
 }
 
+#[derive(Clone)]
 pub struct VegetationArtist {
     params: VegatationArtistParams,
 }
