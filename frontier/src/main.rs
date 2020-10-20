@@ -34,7 +34,8 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use actors::{PauseGame, PauseSim, Save};
+use actors::{PauseGame, PauseSim, Save, WorldArtistActor};
+use artists::{WorldArtist, WorldArtistParameters};
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
 use commons::grid::Grid;
@@ -97,7 +98,7 @@ fn main() {
     let visibility_sim_consumer = visibility_sim.consumer();
 
     let mut sim = Simulation::new(vec![
-        Box::new(InstructionLogger::new()),
+        // Box::new(InstructionLogger::new()),
         Box::new(builder),
         Box::new(StepHomeland::new(game.tx())),
         Box::new(StepTown::new(game.tx())),
@@ -146,7 +147,7 @@ fn main() {
     game.add_consumer(ResourceTargets::new(&pathfinder_with_planned_roads));
 
     // Drawing
-    game.add_consumer(WorldArtistHandler::new(engine.command_tx()));
+
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
     game.add_consumer(TownHouses::new(game.tx()));
     game.add_consumer(TownLabels::new(game.tx()));
@@ -192,6 +193,28 @@ fn main() {
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
 
+    let world_artist = WorldArtist::new(
+        &game.game_state().world,
+        WorldArtistParameters {
+            waterfall_gradient: game
+                .game_state()
+                .params
+                .avatar_travel
+                .max_navigable_river_gradient,
+            ..WorldArtistParameters::default()
+        },
+    ); // TODO find better way of creating world_artist
+    let mut world_artist_actor = WorldArtistActor::new(
+        event_forwarder.subscribe(),
+        game.tx(),
+        engine.command_tx(),
+        world_artist,
+    );
+    game.add_consumer(WorldArtistHandler::new(world_artist_actor.tx()));
+    let (world_artist_actor_run, world_artist_actor_handle) =
+        async move { world_artist_actor.run().await }.remote_handle();
+    thread_pool.spawn_ok(world_artist_actor_run);
+
     let game_handle = thread::spawn(move || game.run());
 
     let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
@@ -201,7 +224,15 @@ fn main() {
     engine.run();
 
     println!("Joining actors");
-    block_on(async { join!(pause_game_handle, pause_sim_handle, save_handle, sim_handle) });
+    block_on(async {
+        join!(
+            pause_game_handle,
+            pause_sim_handle,
+            save_handle,
+            sim_handle,
+            world_artist_actor_handle
+        )
+    });
     println!("Joining game");
     game_handle.join().unwrap();
 }

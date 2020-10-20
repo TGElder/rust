@@ -14,8 +14,8 @@ pub struct WorldColoring<'a> {
 
 #[derive(Hash, PartialEq, Eq, Debug)]
 pub struct Slab {
-    from: V2<usize>,
-    slab_size: usize,
+    pub from: V2<usize>,
+    pub slab_size: usize,
 }
 
 impl Slab {
@@ -84,6 +84,10 @@ impl WorldArtist {
             crop_artist: CropArtist::new(),
             params,
         }
+    }
+
+    pub fn params(&self) -> &WorldArtistParameters {
+        &self.params
     }
 
     pub fn init(&self) -> Vec<Command> {
@@ -246,12 +250,7 @@ impl WorldArtist {
         self.vegetation_artist.draw(world, from, to)
     }
 
-    fn draw_slab_resources(
-        &self,
-        world: &World,
-        from: &V2<usize>,
-        to: &V2<usize>,
-    ) -> Vec<Command> {
+    fn draw_slab_resources(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Vec<Command> {
         self.resource_artist.draw(world, from, to)
     }
 
@@ -286,7 +285,7 @@ impl WorldArtist {
         self.draw_slabs(world, coloring, affected)
     }
 
-    fn get_all_slabs(&self) -> HashSet<Slab> {
+    pub fn get_all_slabs(&self) -> HashSet<Slab> {
         let mut out = HashSet::new();
         let slab_size = self.params.slab_size;
         for x in 0..self.width / slab_size {
