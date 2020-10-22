@@ -1,9 +1,13 @@
-use super::*;
-
+use crate::artists::WorldColoring;
+use crate::game::GameState;
 use crate::nation::Nation;
 use crate::settlement::Settlement;
-use commons::*;
-use isometric::drawing::*;
+use crate::territory::Claim;
+use crate::world::{World, WorldCell, WorldObject};
+use commons::{Grid, V2, V3};
+use isometric::drawing::{
+    LayerColoring, NoneColoring, SeaLevelColoring, ShadedTileTerrainColoring, TerrainColoring,
+};
 use isometric::*;
 use serde::{Deserialize, Serialize};
 

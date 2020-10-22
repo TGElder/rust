@@ -1,5 +1,6 @@
+use crate::actors::WorldColoringParameters;
 use crate::avatar::*;
-use crate::game_event_consumers::{TownArtistParameters, WorldColoringParameters};
+use crate::game_event_consumers::TownArtistParameters;
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
 use crate::road_builder::*;
