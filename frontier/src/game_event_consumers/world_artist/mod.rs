@@ -1,12 +1,8 @@
-mod coloring;
-
 use crate::actors::{Redraw, RedrawType};
-pub use coloring::{world_coloring, WorldColoringParameters}; // TODO move world_coloring  to actors
 use commons::async_channel::Sender as AsyncSender;
 use commons::futures::executor::block_on;
 
 use super::*;
-use crate::artists::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
 const HANDLE: &str = "world_artist_handler";

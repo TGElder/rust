@@ -1,6 +1,10 @@
+mod coloring;
+
+pub use coloring::WorldColoringParameters;
+
 use crate::artists::{Slab, WorldArtist};
 use crate::game::{Game, GameEvent};
-use crate::game_event_consumers::world_coloring;
+use coloring::world_coloring;
 use commons::async_channel::{unbounded, Receiver, RecvError, Sender as AsyncSender};
 use commons::futures::future::FutureExt;
 use commons::update::UpdateSender;
