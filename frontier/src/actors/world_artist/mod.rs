@@ -1,11 +1,8 @@
-mod coloring;
-
 use crate::artists::{Slab, WorldArtist};
 use crate::game::Game;
 use crate::game_event_consumers::world_coloring;
 use commons::async_channel::{unbounded, Receiver, RecvError, Sender as AsyncSender};
 use commons::futures::future::FutureExt;
-use commons::log::debug;
 use commons::update::UpdateSender;
 use commons::V2;
 use isometric::Command;
@@ -71,17 +68,6 @@ impl WorldArtistActor {
         }
     }
 
-    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
-        let event: Arc<Event> = event.unwrap();
-        if let Event::Shutdown = *event {
-            self.shutdown().await
-        }
-    }
-
-    async fn shutdown(&mut self) {
-        self.run = false;
-    }
-
     async fn redraw(&mut self, event: Result<Redraw, RecvError>) {
         let Redraw { redraw_type, when } = ok_or!(event, return);
         match redraw_type {
@@ -103,30 +89,40 @@ impl WorldArtistActor {
     }
 
     async fn redraw_tile(&mut self, tile: V2<usize>, when: u128) {
-        let slab = Slab::new(tile, self.world_artist.params().slab_size); // TODO maybe move get_slab to world_artist?
+        let slab = Slab::at(tile, self.world_artist.params().slab_size); // TODO maybe move get_slab to world_artist?
         self.redraw_slab(slab, when).await;
     }
 
     async fn redraw_slab(&mut self, slab: Slab, when: u128) {
-        debug!("Maybe redrawing {:?}@{}", slab.from, when);
-        if self
-            .last_redraw
-            .get(&slab.from)
-            .map(|last_redraw| when <= *last_redraw)
-            .unwrap_or(false)
-        {
-            debug!(" - already redrawn @{}", self.last_redraw[&slab.from]);
+        if self.has_been_redrawn_after(&slab, &when) {
             return;
         }
+
         let world_artist = self.world_artist.clone();
-        let from = slab.from;
         let (game_micros, commands) = self
             .game_tx
             .update(move |game| draw_slab(&game, world_artist, slab))
             .await;
-        self.last_redraw.insert(from, game_micros);
+
+        self.last_redraw.insert(slab.from, game_micros);
         self.command_tx.send(commands).unwrap();
-        debug!(" - redrawn");
+    }
+
+    fn has_been_redrawn_after(&self, slab: &Slab, when: &u128) -> bool {
+        self.last_redraw
+            .get(&slab.from)
+            .map(|last_redraw| when <= last_redraw)
+            .unwrap_or(false)
+    }
+
+    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
+        if let Event::Shutdown = *event.unwrap() {
+            self.shutdown().await
+        }
+    }
+
+    async fn shutdown(&mut self) {
+        self.run = false;
     }
 }
 

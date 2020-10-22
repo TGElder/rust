@@ -98,7 +98,7 @@ fn main() {
     let visibility_sim_consumer = visibility_sim.consumer();
 
     let mut sim = Simulation::new(vec![
-        // Box::new(InstructionLogger::new()),
+        Box::new(InstructionLogger::new()),
         Box::new(builder),
         Box::new(StepHomeland::new(game.tx())),
         Box::new(StepTown::new(game.tx())),

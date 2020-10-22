@@ -12,14 +12,14 @@ pub struct WorldColoring<'a> {
     pub crops: Box<dyn TerrainColoring<WorldCell> + 'a>,
 }
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 pub struct Slab {
     pub from: V2<usize>,
     pub slab_size: usize,
 }
 
 impl Slab {
-    pub fn new(point: V2<usize>, slab_size: usize) -> Slab {
+    pub fn at(point: V2<usize>, slab_size: usize) -> Slab {
         let from = (point / slab_size) * slab_size;
         Slab { from, slab_size }
     }
@@ -254,51 +254,16 @@ impl WorldArtist {
         self.resource_artist.draw(world, from, to)
     }
 
-    fn draw_slabs(
-        &mut self,
-        world: &World,
-        coloring: &WorldColoring,
-        slabs: HashSet<Slab>,
-    ) -> Vec<Command> {
-        let mut out = vec![];
-        for slab in slabs {
-            out.append(&mut self.draw_slab(world, coloring, &slab));
-        }
-        out
-    }
-
-    fn get_affected_slabs(&self, world: &World, positions: &[V2<usize>]) -> HashSet<Slab> {
-        positions
-            .iter()
-            .flat_map(|position| world.expand_position(&position))
-            .map(|position| Slab::new(position, self.params.slab_size))
-            .collect()
-    }
-
-    pub fn draw_affected(
-        &mut self,
-        world: &World,
-        coloring: &WorldColoring,
-        positions: &[V2<usize>],
-    ) -> Vec<Command> {
-        let affected = self.get_affected_slabs(&world, positions);
-        self.draw_slabs(world, coloring, affected)
-    }
-
     pub fn get_all_slabs(&self) -> HashSet<Slab> {
         let mut out = HashSet::new();
         let slab_size = self.params.slab_size;
         for x in 0..self.width / slab_size {
             for y in 0..self.height / slab_size {
                 let from = v2(x * slab_size, y * slab_size);
-                out.insert(Slab::new(from, slab_size));
+                out.insert(Slab::at(from, slab_size));
             }
         }
         out
-    }
-
-    pub fn draw_all(&mut self, world: &World, coloring: &WorldColoring) -> Vec<Command> {
-        self.draw_slabs(world, coloring, self.get_all_slabs())
     }
 }
 
@@ -310,7 +275,7 @@ mod tests {
     #[test]
     fn slab_new() {
         assert_eq!(
-            Slab::new(v2(11, 33), 32),
+            Slab::at(v2(11, 33), 32),
             Slab {
                 from: v2(0, 32),
                 slab_size: 32,
@@ -320,6 +285,6 @@ mod tests {
 
     #[test]
     fn slab_to() {
-        assert_eq!(Slab::new(v2(11, 33), 32).to(), v2(32, 64));
+        assert_eq!(Slab::at(v2(11, 33), 32).to(), v2(32, 64));
     }
 }
