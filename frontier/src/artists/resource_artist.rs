@@ -24,6 +24,7 @@ impl Default for ResourceArtistParameters {
     }
 }
 
+#[derive(Clone)]
 pub struct ResourceArtist {
     params: ResourceArtistParameters,
 }

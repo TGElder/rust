@@ -1,7 +1,9 @@
 mod coloring;
 
-pub use coloring::WorldColoringParameters;
-use coloring::*;
+use crate::actors::{Redraw, RedrawType};
+pub use coloring::{world_coloring, WorldColoringParameters}; // TODO move world_coloring  to actors
+use commons::async_channel::Sender as AsyncSender;
+use commons::futures::executor::block_on;
 
 use super::*;
 use crate::artists::*;
@@ -14,54 +16,45 @@ struct WorldArtistHandlerBindings {
 }
 
 pub struct WorldArtistHandler {
-    command_tx: Sender<Vec<Command>>,
+    actor_tx: AsyncSender<Redraw>,
     bindings: WorldArtistHandlerBindings,
-    world_artist: Option<WorldArtist>,
     territory_layer: bool,
 }
 
 impl WorldArtistHandler {
-    pub fn new(command_tx: Sender<Vec<Command>>) -> WorldArtistHandler {
+    pub fn new(actor_tx: &AsyncSender<Redraw>) -> WorldArtistHandler {
         WorldArtistHandler {
-            command_tx,
+            actor_tx: actor_tx.clone(),
             bindings: WorldArtistHandlerBindings {
                 toggle_territory_layer: Button::Key(VirtualKeyCode::O),
             },
-            world_artist: None,
             territory_layer: false,
         }
     }
 
-    fn init(&mut self, game_state: &GameState) {
-        let world_artist = WorldArtist::new(
-            &game_state.world,
-            WorldArtistParameters {
-                waterfall_gradient: game_state.params.avatar_travel.max_navigable_river_gradient,
-                ..WorldArtistParameters::default()
-            },
-        );
-        self.command_tx.send(world_artist.init()).unwrap();
-        self.world_artist = Some(world_artist);
+    fn init(&mut self) {
+        block_on(self.actor_tx.send(Redraw {
+            redraw_type: RedrawType::Init,
+            when: 0,
+        }))
+        .unwrap();
     }
 
     fn draw_all(&mut self, game_state: &GameState) {
-        if let Some(world_artist) = &mut self.world_artist {
-            let commands = world_artist.draw_all(
-                &game_state.world,
-                &world_coloring(game_state, self.territory_layer),
-            );
-            self.command_tx.send(commands).unwrap();
-        }
+        block_on(self.actor_tx.send(Redraw {
+            redraw_type: RedrawType::All,
+            when: game_state.game_micros,
+        }))
+        .unwrap();
     }
 
     fn update_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
-        if let Some(ref mut world_artist) = self.world_artist {
-            let commands = world_artist.draw_affected(
-                &game_state.world,
-                &world_coloring(game_state, self.territory_layer),
-                &cells,
-            );
-            self.command_tx.send(commands).unwrap();
+        for cell in cells {
+            block_on(self.actor_tx.send(Redraw {
+                redraw_type: RedrawType::Tile(*cell),
+                when: game_state.game_micros,
+            }))
+            .unwrap();
         }
     }
 
@@ -85,7 +78,7 @@ impl GameEventConsumer for WorldArtistHandler {
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
             GameEvent::Init => {
-                self.init(game_state);
+                self.init();
                 self.draw_all(game_state);
             }
             GameEvent::CellsRevealed { selection, .. } => {
