@@ -180,6 +180,7 @@ fn main() {
     ));
 
     let mut event_forwarder = EventForwarder::new();
+    let mut game_event_forwarder = GameEventForwarder::new();
 
     let mut pause_game = PauseGame::new(event_forwarder.subscribe(), game.tx());
     let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
@@ -206,11 +207,15 @@ fn main() {
     ); // TODO find better way of creating world_artist
     let mut world_artist_actor = WorldArtistActor::new(
         event_forwarder.subscribe(),
+        game_event_forwarder.subscribe(),
         game.tx(),
         engine.command_tx(),
         world_artist,
     );
+
+    game.add_consumer(game_event_forwarder);
     game.add_consumer(WorldArtistHandler::new(world_artist_actor.tx()));
+
     let (world_artist_actor_run, world_artist_actor_handle) =
         async move { world_artist_actor.run().await }.remote_handle();
     thread_pool.spawn_ok(world_artist_actor_run);

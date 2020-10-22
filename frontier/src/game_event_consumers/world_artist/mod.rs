@@ -28,16 +28,8 @@ impl WorldArtistHandler {
             bindings: WorldArtistHandlerBindings {
                 toggle_territory_layer: Button::Key(VirtualKeyCode::O),
             },
-            territory_layer: false,
+            territory_layer: true,
         }
-    }
-
-    fn init(&mut self) {
-        block_on(self.actor_tx.send(Redraw {
-            redraw_type: RedrawType::Init,
-            when: 0,
-        }))
-        .unwrap();
     }
 
     fn draw_all(&mut self, game_state: &GameState) {
@@ -77,10 +69,6 @@ impl GameEventConsumer for WorldArtistHandler {
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
-            GameEvent::Init => {
-                self.init();
-                self.draw_all(game_state);
-            }
             GameEvent::CellsRevealed { selection, .. } => {
                 match selection {
                     CellSelection::All => self.draw_all(game_state),
