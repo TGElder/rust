@@ -1,3 +1,7 @@
+mod slab;
+
+pub use slab::Slab;
+
 use super::crop_artist::*;
 use super::resource_artist::*;
 use super::vegetation_artist::*;
@@ -5,28 +9,10 @@ use super::*;
 use commons::*;
 use isometric::drawing::*;
 use isometric::*;
-use std::collections::HashSet;
 
 pub struct WorldColoring<'a> {
     pub terrain: Box<dyn TerrainColoring<WorldCell> + 'a>,
     pub crops: Box<dyn TerrainColoring<WorldCell> + 'a>,
-}
-
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
-pub struct Slab {
-    pub from: V2<usize>,
-    pub slab_size: usize,
-}
-
-impl Slab {
-    pub fn at(point: V2<usize>, slab_size: usize) -> Slab {
-        let from = (point / slab_size) * slab_size;
-        Slab { from, slab_size }
-    }
-
-    fn to(&self) -> V2<usize> {
-        v2(self.from.x + self.slab_size, self.from.y + self.slab_size)
-    }
 }
 
 #[derive(Clone)]
@@ -106,6 +92,10 @@ impl WorldArtist {
         out.append(&mut self.draw_slab_resources(world, &from, &to));
 
         out
+    }
+
+    pub fn get_all_slabs(&self) -> Vec<Slab> {
+        Slab::inside(&self.width, &self.height, &self.params.slab_size).collect()
     }
 
     fn draw_slab_tiles(
@@ -252,39 +242,5 @@ impl WorldArtist {
 
     fn draw_slab_resources(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Vec<Command> {
         self.resource_artist.draw(world, from, to)
-    }
-
-    pub fn get_all_slabs(&self) -> HashSet<Slab> {
-        let mut out = HashSet::new();
-        let slab_size = self.params.slab_size;
-        for x in 0..self.width / slab_size {
-            for y in 0..self.height / slab_size {
-                let from = v2(x * slab_size, y * slab_size);
-                out.insert(Slab::at(from, slab_size));
-            }
-        }
-        out
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn slab_new() {
-        assert_eq!(
-            Slab::at(v2(11, 33), 32),
-            Slab {
-                from: v2(0, 32),
-                slab_size: 32,
-            }
-        );
-    }
-
-    #[test]
-    fn slab_to() {
-        assert_eq!(Slab::at(v2(11, 33), 32).to(), v2(32, 64));
     }
 }
