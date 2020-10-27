@@ -11,4 +11,4 @@ use isometric::Command;
 use std::default::Default;
 
 pub use avatar_artist::*;
-pub use world_artist::*;
+pub use world_artist::{Slab, WorldArtist, WorldArtistParameters, WorldColoring};
