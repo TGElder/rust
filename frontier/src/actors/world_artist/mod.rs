@@ -99,17 +99,20 @@ impl WorldArtistActor {
     }
 
     async fn redraw_all(&mut self) {
-        let when = self
-            .game_tx
-            .update(|game| game.game_state().game_micros)
-            .await;
+        let when = self.when().await;
         for slab in self.world_artist.get_all_slabs() {
             self.redraw_slab(slab, when).await;
         }
     }
 
+    async fn when(&mut self) -> u128 {
+        self.game_tx
+            .update(|game| game.game_state().game_micros)
+            .await
+    }
+
     async fn redraw_tile(&mut self, tile: V2<usize>, when: u128) {
-        let slab = Slab::at(tile, self.world_artist.params().slab_size); // TODO maybe move get_slab to world_artist?
+        let slab = Slab::at(tile, self.world_artist.params().slab_size);
         self.redraw_slab(slab, when).await;
     }
 
