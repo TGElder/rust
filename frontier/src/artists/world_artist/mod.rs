@@ -9,7 +9,6 @@ use super::*;
 use commons::*;
 use isometric::drawing::*;
 use isometric::*;
-use std::collections::HashSet;
 
 pub struct WorldColoring<'a> {
     pub terrain: Box<dyn TerrainColoring<WorldCell> + 'a>,
@@ -95,16 +94,8 @@ impl WorldArtist {
         out
     }
 
-    pub fn get_all_slabs(&self) -> HashSet<Slab> {
-        let mut out = HashSet::new();
-        let slab_size = self.params.slab_size;
-        for x in 0..self.width / slab_size {
-            for y in 0..self.height / slab_size {
-                let from = v2(x * slab_size, y * slab_size);
-                out.insert(Slab::at(from, slab_size));
-            }
-        }
-        out
+    pub fn get_all_slabs(&self) -> Vec<Slab> {
+        Slab::inside(&self.width, &self.height, &self.params.slab_size).collect()
     }
 
     fn draw_slab_tiles(
