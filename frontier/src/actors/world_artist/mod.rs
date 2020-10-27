@@ -9,8 +9,7 @@ use commons::async_channel::{unbounded, Receiver, RecvError, Sender as AsyncSend
 use commons::futures::future::FutureExt;
 use commons::update::UpdateSender;
 use commons::V2;
-use isometric::Command;
-use isometric::Event;
+use isometric::{Button, Command, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -27,6 +26,18 @@ pub struct Redraw {
     pub when: u128,
 }
 
+pub struct WorldArtistActorBindings {
+    toggle_territory_layer: Button,
+}
+
+impl Default for WorldArtistActorBindings {
+    fn default() -> WorldArtistActorBindings {
+        WorldArtistActorBindings {
+            toggle_territory_layer: Button::Key(VirtualKeyCode::O),
+        }
+    }
+}
+
 pub struct WorldArtistActor {
     rx: Receiver<Redraw>,
     tx: AsyncSender<Redraw>,
@@ -34,9 +45,11 @@ pub struct WorldArtistActor {
     game_rx: Receiver<GameEvent>,
     game_tx: UpdateSender<Game>,
     command_tx: Sender<Vec<Command>>,
+    bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
     last_redraw: HashMap<V2<usize>, u128>,
     run: bool,
+    territory_layer: bool,
 }
 
 impl WorldArtistActor {
@@ -55,9 +68,11 @@ impl WorldArtistActor {
             game_rx,
             game_tx: game_tx.clone_with_handle(HANDLE),
             command_tx,
+            bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},
             world_artist,
             run: true,
+            territory_layer: false,
         }
     }
 
@@ -78,19 +93,26 @@ impl WorldArtistActor {
     async fn redraw(&mut self, event: Result<Redraw, RecvError>) {
         let Redraw { redraw_type, when } = ok_or!(event, return);
         match redraw_type {
-            RedrawType::All => self.redraw_all(when).await,
+            RedrawType::All => self.redraw_all().await,
             RedrawType::Tile(tile) => self.redraw_tile(tile, when).await,
         };
     }
 
-    async fn redraw_all(&mut self, when: u128) {
+    async fn redraw_all(&mut self) {
+        let when = self.when().await;
         for slab in self.world_artist.get_all_slabs() {
             self.redraw_slab(slab, when).await;
         }
     }
 
+    async fn when(&mut self) -> u128 {
+        self.game_tx
+            .update(|game| game.game_state().game_micros)
+            .await
+    }
+
     async fn redraw_tile(&mut self, tile: V2<usize>, when: u128) {
-        let slab = Slab::at(tile, self.world_artist.params().slab_size); // TODO maybe move get_slab to world_artist?
+        let slab = Slab::at(tile, self.world_artist.params().slab_size);
         self.redraw_slab(slab, when).await;
     }
 
@@ -100,9 +122,10 @@ impl WorldArtistActor {
         }
 
         let world_artist = self.world_artist.clone();
+        let territory_layer = self.territory_layer;
         let (game_micros, commands) = self
             .game_tx
-            .update(move |game| draw_slab(&game, world_artist, slab))
+            .update(move |game| draw_slab(&game, world_artist, slab, territory_layer))
             .await;
 
         self.last_redraw.insert(slab.from, game_micros);
@@ -117,9 +140,23 @@ impl WorldArtistActor {
     }
 
     async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
-        if let Event::Shutdown = *event.unwrap() {
-            self.shutdown().await
+        match *event.unwrap() {
+            Event::Button {
+                ref button,
+                state: ElementState::Pressed,
+                modifiers: ModifiersState { alt: false, .. },
+                ..
+            } if *button == self.bindings.toggle_territory_layer => {
+                self.toggle_territory_layer().await
+            }
+            Event::Shutdown => self.shutdown().await,
+            _ => (),
         }
+    }
+
+    async fn toggle_territory_layer(&mut self) {
+        self.territory_layer = !self.territory_layer;
+        self.redraw_all().await;
     }
 
     async fn shutdown(&mut self) {
@@ -129,7 +166,7 @@ impl WorldArtistActor {
     async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
         if let GameEvent::Init = event.unwrap() {
             self.init();
-            self.redraw_all(0).await;
+            self.redraw_all().await;
         }
     }
 
@@ -139,11 +176,20 @@ impl WorldArtistActor {
     }
 }
 
-fn draw_slab(game: &Game, world_artist: WorldArtist, slab: Slab) -> (u128, Vec<Command>) {
+fn draw_slab(
+    game: &Game,
+    world_artist: WorldArtist,
+    slab: Slab,
+    territory_layer: bool,
+) -> (u128, Vec<Command>) {
     // TODO fix double return
     let game_state = game.game_state();
     (
         game_state.game_micros,
-        world_artist.draw_slab(&game_state.world, &world_coloring(game_state, true), &slab),
-    ) // TODO support territory layer
+        world_artist.draw_slab(
+            &game_state.world,
+            &world_coloring(game_state, territory_layer),
+            &slab,
+        ),
+    )
 }

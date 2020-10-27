@@ -3,17 +3,11 @@ use commons::async_channel::Sender as AsyncSender;
 use commons::futures::executor::block_on;
 
 use super::*;
-use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
 const HANDLE: &str = "world_artist_handler";
 
-struct WorldArtistHandlerBindings {
-    toggle_territory_layer: Button,
-}
-
 pub struct WorldArtistHandler {
     actor_tx: AsyncSender<Redraw>,
-    bindings: WorldArtistHandlerBindings,
     territory_layer: bool,
 }
 
@@ -21,9 +15,6 @@ impl WorldArtistHandler {
     pub fn new(actor_tx: &AsyncSender<Redraw>) -> WorldArtistHandler {
         WorldArtistHandler {
             actor_tx: actor_tx.clone(),
-            bindings: WorldArtistHandlerBindings {
-                toggle_territory_layer: Button::Key(VirtualKeyCode::O),
-            },
             territory_layer: true,
         }
     }
@@ -79,19 +70,7 @@ impl GameEventConsumer for WorldArtistHandler {
         CaptureEvent::No
     }
 
-    fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent {
-        if let Event::Button {
-            ref button,
-            state: ElementState::Pressed,
-            modifiers: ModifiersState { alt: false, .. },
-            ..
-        } = *event
-        {
-            if button == &self.bindings.toggle_territory_layer {
-                self.territory_layer = !self.territory_layer;
-                self.draw_all(game_state);
-            }
-        }
+    fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
         CaptureEvent::No
     }
 }
