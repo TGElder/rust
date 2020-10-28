@@ -123,12 +123,15 @@ impl WorldArtistActor {
 
         let world_artist = self.world_artist.clone();
         let territory_layer = self.territory_layer;
-        let (game_micros, commands) = self
+        let Commands {
+            generated_at,
+            commands,
+        } = self
             .game_tx
             .update(move |game| draw_slab(&game, world_artist, slab, territory_layer))
             .await;
 
-        self.last_redraw.insert(slab.from, game_micros);
+        self.last_redraw.insert(slab.from, generated_at);
         self.command_tx.send(commands).unwrap();
     }
 
@@ -176,20 +179,24 @@ impl WorldArtistActor {
     }
 }
 
+struct Commands {
+    generated_at: u128,
+    commands: Vec<Command>,
+}
+
 fn draw_slab(
     game: &Game,
     world_artist: WorldArtist,
     slab: Slab,
     territory_layer: bool,
-) -> (u128, Vec<Command>) {
-    // TODO fix double return
+) -> Commands {
     let game_state = game.game_state();
-    (
-        game_state.game_micros,
-        world_artist.draw_slab(
+    Commands {
+        generated_at: game_state.game_micros,
+        commands: world_artist.draw_slab(
             &game_state.world,
             &world_coloring(game_state, territory_layer),
             &slab,
         ),
-    )
+    }
 }
