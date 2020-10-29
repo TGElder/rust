@@ -8,14 +8,12 @@ const HANDLE: &str = "world_artist_handler";
 
 pub struct WorldArtistHandler {
     actor_tx: AsyncSender<Redraw>,
-    territory_layer: bool,
 }
 
 impl WorldArtistHandler {
     pub fn new(actor_tx: &AsyncSender<Redraw>) -> WorldArtistHandler {
         WorldArtistHandler {
             actor_tx: actor_tx.clone(),
-            territory_layer: true,
         }
     }
 
@@ -38,9 +36,6 @@ impl WorldArtistHandler {
     }
 
     fn draw_territory(&mut self, game_state: &GameState, changes: &[TerritoryChange]) {
-        if !self.territory_layer {
-            return;
-        }
         let affected: Vec<V2<usize>> = changes
             .iter()
             .flat_map(|change| game_state.world.expand_position(&change.position))
