@@ -138,7 +138,7 @@ impl WorldArtistActor {
     fn has_been_redrawn_after(&self, slab: &Slab, when: &u128) -> bool {
         self.last_redraw
             .get(&slab.from)
-            .map(|last_redraw| when <= last_redraw)
+            .map(|last_redraw| when < last_redraw)
             .unwrap_or(false)
     }
 
