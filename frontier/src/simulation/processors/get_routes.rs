@@ -4,6 +4,7 @@ use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, InBounds, L
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::game_event_consumers::target_set;
 use commons::get_corners;
+use std::time::Duration;
 
 const HANDLE: &str = "get_routes";
 
@@ -82,7 +83,7 @@ where
     }
 
     fn routes<'a>(
-        &'a mut self,
+        &'a self,
         start_micros: u128,
         demand: &'a Demand,
         closest_targets: Vec<ClosestTargetResult>,
@@ -93,17 +94,12 @@ where
     }
 
     fn route(
-        &mut self,
+        &self,
         start_micros: u128,
         demand: &Demand,
         target: ClosestTargetResult,
     ) -> (RouteKey, Route) {
-        let duration = self
-            .duration_pathfinder
-            .read()
-            .unwrap()
-            .lowest_duration(&target.path)
-            .expect("Route pathfinder found route but duration pathfinder did not!");
+        let duration = self.route_duration(&target.path);
         (
             RouteKey {
                 settlement: demand.position,
@@ -117,6 +113,14 @@ where
                 traffic: demand.quantity,
             },
         )
+    }
+
+    fn route_duration(&self, path: &[V2<usize>]) -> Duration {
+        self.duration_pathfinder
+            .read()
+            .unwrap()
+            .lowest_duration(&path)
+            .expect("Route pathfinder found route but duration pathfinder did not!")
     }
 }
 
