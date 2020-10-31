@@ -99,7 +99,6 @@ where
         demand: &Demand,
         target: ClosestTargetResult,
     ) -> (RouteKey, Route) {
-        let duration = self.route_duration(&target.path);
         (
             RouteKey {
                 settlement: demand.position,
@@ -107,9 +106,9 @@ where
                 destination: target.position,
             },
             Route {
+                duration: self.route_duration(&target.path),
                 path: target.path,
                 start_micros,
-                duration,
                 traffic: demand.quantity,
             },
         )
