@@ -147,12 +147,12 @@ impl Network {
         self.edges_in = vec![vec![]; self.nodes];
     }
 
-    pub fn get_in(&self, node: usize) -> &Vec<Edge> {
-        &self.edges_in[node]
+    pub fn get_in(&self, node: &usize) -> &Vec<Edge> {
+        &self.edges_in[*node]
     }
 
-    pub fn get_out(&self, node: usize) -> &Vec<Edge> {
-        &self.edges_out[node]
+    pub fn get_out(&self, node: &usize) -> &Vec<Edge> {
+        &self.edges_out[*node]
     }
 
     pub fn lowest_cost_for_path(&self, path: &[usize]) -> Option<u128> {
@@ -168,7 +168,7 @@ impl Network {
     }
 
     fn lowest_cost_for_edge(&self, from: &usize, to: &usize) -> Option<u8> {
-        self.get_out(*from)
+        self.get_out(from)
             .iter()
             .filter(|other| *to == other.to)
             .map(|edge| edge.cost)
@@ -200,7 +200,7 @@ impl Network {
                 closed[index] = true;
                 out[index] = Some(cost);
 
-                for edge in self.get_in(index) {
+                for edge in self.get_in(&index) {
                     if !closed[edge.from] {
                         heap.push(Node {
                             index: edge.from,
@@ -298,7 +298,7 @@ impl Network {
                 return Some(get_path(from, index, &edges));
             }
             closed[index] = true;
-            for edge in self.get_out(index) {
+            for edge in self.get_out(&index) {
                 let neighbour = edge.to;
                 if closed[neighbour] {
                     continue;
@@ -336,7 +336,7 @@ impl Network {
             }
             closed[index] = true;
             out.push(NodeWithinResult { index, cost });
-            for edge in self.get_out(index) {
+            for edge in self.get_out(&index) {
                 let neighbour = edge.to;
                 if closed[neighbour] {
                     continue;
@@ -429,7 +429,7 @@ impl Network {
                 });
             }
             closed[index] = true;
-            for edge in self.get_out(index) {
+            for edge in self.get_out(&index) {
                 let neighbour = edge.to;
                 if closed[neighbour] {
                     continue;
@@ -500,12 +500,12 @@ mod tests {
         let mut network = Network::new(7, &[]);
         network.add_edge(&Edge::new(1, 2, 4));
         network.add_edge(&Edge::new(3, 2, 5));
-        assert_eq!(network.get_out(1), &vec![Edge::new(1, 2, 4)]);
+        assert_eq!(network.get_out(&1), &vec![Edge::new(1, 2, 4)]);
         assert_that!(
-            network.get_in(2),
+            network.get_in(&2),
             contains(vec![Edge::new(1, 2, 4), Edge::new(3, 2, 5),]).exactly()
         );
-        assert_eq!(network.get_out(3), &vec![Edge::new(3, 2, 5)]);
+        assert_eq!(network.get_out(&3), &vec![Edge::new(3, 2, 5)]);
     }
 
     #[test]
@@ -515,11 +515,11 @@ mod tests {
         network.add_edge(&Edge::new(3, 2, 5));
         network.add_edge(&Edge::new(2, 1, 4));
         network.remove_edges(1, 2);
-        assert_eq!(network.get_out(1), &vec![]);
-        assert_eq!(network.get_in(2), &vec![Edge::new(3, 2, 5)]);
-        assert_eq!(network.get_out(3), &vec![Edge::new(3, 2, 5)]);
-        assert_eq!(network.get_out(2), &vec![Edge::new(2, 1, 4)]);
-        assert_eq!(network.get_in(1), &vec![Edge::new(2, 1, 4)]);
+        assert_eq!(network.get_out(&1), &vec![]);
+        assert_eq!(network.get_in(&2), &vec![Edge::new(3, 2, 5)]);
+        assert_eq!(network.get_out(&3), &vec![Edge::new(3, 2, 5)]);
+        assert_eq!(network.get_out(&2), &vec![Edge::new(2, 1, 4)]);
+        assert_eq!(network.get_in(&1), &vec![Edge::new(2, 1, 4)]);
     }
 
     #[test]
@@ -527,29 +527,29 @@ mod tests {
         let edges = get_test_edges();
         let network = get_test_network(&edges);
         assert_that!(
-            &network.get_out(0).iter().collect(),
+            &network.get_out(&0).iter().collect(),
             contains(vec![&edges[0], &edges[1], &edges[2]]).exactly()
         );
         assert_that!(
-            &network.get_out(1).iter().collect(),
+            &network.get_out(&1).iter().collect(),
             contains(vec![&edges[3]]).exactly()
         );
         assert_that!(
-            &network.get_out(2).iter().collect(),
+            &network.get_out(&2).iter().collect(),
             contains(vec![&edges[4], &edges[5]]).exactly()
         );
-        assert_that!(network.get_out(3).len(), is(equal_to(0)));
-        assert_that!(network.get_out(4).len(), is(equal_to(0)));
+        assert_that!(network.get_out(&3).len(), is(equal_to(0)));
+        assert_that!(network.get_out(&4).len(), is(equal_to(0)));
         assert_that!(
-            &network.get_out(5).iter().collect(),
+            &network.get_out(&5).iter().collect(),
             contains(vec![&edges[6]]).exactly()
         );
         assert_that!(
-            &network.get_out(6).iter().collect(),
+            &network.get_out(&6).iter().collect(),
             contains(vec![&edges[7], &edges[8]]).exactly()
         );
         assert_that!(
-            &network.get_out(7).iter().collect(),
+            &network.get_out(&7).iter().collect(),
             contains(vec![&edges[9]]).exactly()
         );
     }
@@ -558,30 +558,30 @@ mod tests {
     fn test_get_in() {
         let edges = get_test_edges();
         let network = get_test_network(&edges);
-        assert_that!(network.get_in(0).len(), is(equal_to(0)));
+        assert_that!(network.get_in(&0).len(), is(equal_to(0)));
         assert_that!(
-            &network.get_in(1).iter().collect(),
+            &network.get_in(&1).iter().collect(),
             contains(vec![&edges[0]]).exactly()
         );
         assert_that!(
-            &network.get_in(2).iter().collect(),
+            &network.get_in(&2).iter().collect(),
             contains(vec![&edges[1], &edges[2]]).exactly()
         );
         assert_that!(
-            &network.get_in(3).iter().collect(),
+            &network.get_in(&3).iter().collect(),
             contains(vec![&edges[3], &edges[4], &edges[5]]).exactly()
         );
-        assert_that!(network.get_in(4).len(), is(equal_to(0)));
+        assert_that!(network.get_in(&4).len(), is(equal_to(0)));
         assert_that!(
-            &network.get_in(5).iter().collect(),
+            &network.get_in(&5).iter().collect(),
             contains(vec![&edges[7], &edges[8]]).exactly()
         );
         assert_that!(
-            &network.get_in(6).iter().collect(),
+            &network.get_in(&6).iter().collect(),
             contains(vec![&edges[6]]).exactly()
         );
         assert_that!(
-            &network.get_in(7).iter().collect(),
+            &network.get_in(&7).iter().collect(),
             contains(vec![&edges[9]]).exactly()
         );
     }
