@@ -4,7 +4,6 @@ use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, InBounds, L
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::game_event_consumers::target_set;
 use commons::get_corners;
-use commons::log::info;
 
 const HANDLE: &str = "get_routes";
 

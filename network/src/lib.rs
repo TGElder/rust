@@ -156,7 +156,7 @@ impl Network {
     }
 
     pub fn lowest_cost_for_path(&self, path: &[usize]) -> Option<u128> {
-        if path.len() == 0 {
+        if path.is_empty() {
             return None;
         }
         (0..path.len() - 1)
