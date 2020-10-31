@@ -52,10 +52,10 @@ impl PauseSim {
     }
 
     async fn pause(&mut self) {
-        debug!("Pausing simulation");
+        debug!("Pausing/resuming simulation");
         self.sim_tx
             .update(move |sim| sim.toggle_paused_persistent())
             .await;
-        debug!("Paused simulation");
+        debug!("Paused/resumed simulation");
     }
 }
