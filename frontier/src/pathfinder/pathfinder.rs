@@ -1,5 +1,5 @@
 use crate::pathfinder::traits::{
-    ClosestTargetResult, ClosestTargets, InBounds, PositionsWithin, UpdateEdge,
+    ClosestTargetResult, ClosestTargets, InBounds, LowestDuration, PositionsWithin, UpdateEdge,
 };
 use crate::travel_duration::*;
 use crate::world::*;
@@ -245,6 +245,17 @@ where
 {
     fn in_bounds(&self, position: &V2<usize>) -> bool {
         self.index.get_index(position).is_ok()
+    }
+}
+
+impl<T> LowestDuration for Pathfinder<T>
+where
+    T: TravelDuration,
+{
+    fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
+        self.network
+            .lowest_cost_for_path(&self.get_network_indices(path))
+            .map(|cost| self.travel_duration.get_duration_from_cost(cost))
     }
 }
 

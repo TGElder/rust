@@ -155,6 +155,26 @@ impl Network {
         &self.edges_out[node]
     }
 
+    pub fn lowest_cost_for_path(&self, path: &[usize]) -> Option<u128> {
+        if path.len() == 0 {
+            return None;
+        }
+        (0..path.len() - 1)
+            .map(|i| {
+                self.lowest_cost_for_edge(&path[i], &path[i + 1])
+                    .map(|cost| cost as u128)
+            })
+            .sum()
+    }
+
+    fn lowest_cost_for_edge(&self, from: &usize, to: &usize) -> Option<u8> {
+        self.get_out(*from)
+            .iter()
+            .filter(|other| *to == other.to)
+            .map(|edge| edge.cost)
+            .min()
+    }
+
     pub fn init_targets(&mut self, name: String) {
         self.targets.insert(name, vec![false; self.nodes]);
     }
@@ -1080,5 +1100,41 @@ mod tests {
         let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
         let network = Network::new(3, &edges);
         network.closest_loaded_targets(&[0], "targets", 1);
+    }
+
+    #[test]
+    fn test_lowest_cost_for_path() {
+        let edges = vec![
+            Edge::new(0, 1, 1),
+            Edge::new(0, 1, 2),
+            Edge::new(1, 2, 3),
+            Edge::new(1, 2, 4),
+        ];
+        let network = Network::new(3, &edges);
+        assert_eq!(network.lowest_cost_for_path(&[0, 1, 2]), Some(4));
+    }
+
+    #[test]
+    fn test_lowest_cost_for_path_no_route() {
+        let edges = vec![
+            Edge::new(0, 1, 1),
+            Edge::new(0, 1, 2),
+            Edge::new(1, 2, 3),
+            Edge::new(1, 2, 4),
+        ];
+        let network = Network::new(3, &edges);
+        assert_eq!(network.lowest_cost_for_path(&[2, 1, 0]), None);
+    }
+
+    #[test]
+    fn test_lowest_cost_for_path_empty_path() {
+        let edges = vec![
+            Edge::new(0, 1, 1),
+            Edge::new(0, 1, 2),
+            Edge::new(1, 2, 3),
+            Edge::new(1, 2, 4),
+        ];
+        let network = Network::new(3, &edges);
+        assert_eq!(network.lowest_cost_for_path(&[]), None);
     }
 }

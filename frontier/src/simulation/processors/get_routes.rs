@@ -1,26 +1,30 @@
 use super::*;
 use crate::game::traits::Micros;
-use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, InBounds};
+use crate::pathfinder::traits::{ClosestTargetResult, ClosestTargets, InBounds, LowestDuration};
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::game_event_consumers::target_set;
 use commons::get_corners;
+use commons::log::info;
 
 const HANDLE: &str = "get_routes";
 
-pub struct GetRoutes<G, P>
+pub struct GetRoutes<G, P, Q>
 where
     G: Micros,
     P: ClosestTargets + InBounds + Send + Sync,
+    Q: LowestDuration + Send + Sync,
 {
     game: UpdateSender<G>,
-    pathfinder: Arc<RwLock<P>>,
+    route_pathfinder: Arc<RwLock<P>>,
+    duration_pathfinder: Arc<RwLock<Q>>,
 }
 
 #[async_trait]
-impl<G, P> Processor for GetRoutes<G, P>
+impl<G, P, Q> Processor for GetRoutes<G, P, Q>
 where
     G: Micros,
     P: ClosestTargets + InBounds + Send + Sync,
+    Q: LowestDuration + Send + Sync,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let demand = match instruction {
@@ -28,7 +32,9 @@ where
             _ => return state,
         };
         let micros = self.game_micros().await;
-        let route_set: RouteSet = routes(micros, &demand, self.closest_targets(&demand)).collect();
+        let route_set: RouteSet = self
+            .routes(micros, &demand, self.closest_targets(&demand))
+            .collect();
         state.instructions.push(Instruction::GetRouteChanges {
             key: RouteSetKey {
                 settlement: demand.position,
@@ -40,15 +46,21 @@ where
     }
 }
 
-impl<G, P> GetRoutes<G, P>
+impl<G, P, Q> GetRoutes<G, P, Q>
 where
     G: Micros,
     P: ClosestTargets + InBounds + Send + Sync,
+    Q: LowestDuration + Send + Sync,
 {
-    pub fn new(game: &UpdateSender<G>, pathfinder: &Arc<RwLock<P>>) -> GetRoutes<G, P> {
+    pub fn new(
+        game: &UpdateSender<G>,
+        route_pathfinder: &Arc<RwLock<P>>,
+        duration_pathfinder: &Arc<RwLock<Q>>,
+    ) -> GetRoutes<G, P, Q> {
         GetRoutes {
             game: game.clone_with_handle(HANDLE),
-            pathfinder: pathfinder.clone(),
+            route_pathfinder: route_pathfinder.clone(),
+            duration_pathfinder: duration_pathfinder.clone(),
         }
     }
 
@@ -62,39 +74,51 @@ where
         }
         let target_set = target_set(demand.resource);
         let sources = demand.sources;
-        let pathfinder = self.pathfinder.read().unwrap();
+        let pathfinder = self.route_pathfinder.read().unwrap();
         let corners: Vec<V2<usize>> = get_corners(&demand.position)
             .into_iter()
             .filter(|corner| pathfinder.in_bounds(corner))
             .collect();
         pathfinder.closest_targets(&corners, &target_set, sources)
     }
-}
 
-fn routes<'a>(
-    start_micros: u128,
-    demand: &'a Demand,
-    closest_targets: Vec<ClosestTargetResult>,
-) -> impl Iterator<Item = (RouteKey, Route)> + 'a {
-    closest_targets
-        .into_iter()
-        .map(move |target| route(start_micros, demand, target))
-}
+    fn routes<'a>(
+        &'a mut self,
+        start_micros: u128,
+        demand: &'a Demand,
+        closest_targets: Vec<ClosestTargetResult>,
+    ) -> impl Iterator<Item = (RouteKey, Route)> + 'a {
+        closest_targets
+            .into_iter()
+            .map(move |target| self.route(start_micros, demand, target))
+    }
 
-fn route(start_micros: u128, demand: &Demand, target: ClosestTargetResult) -> (RouteKey, Route) {
-    (
-        RouteKey {
-            settlement: demand.position,
-            resource: demand.resource,
-            destination: target.position,
-        },
-        Route {
-            path: target.path,
-            start_micros,
-            duration: target.duration,
-            traffic: demand.quantity,
-        },
-    )
+    fn route(
+        &mut self,
+        start_micros: u128,
+        demand: &Demand,
+        target: ClosestTargetResult,
+    ) -> (RouteKey, Route) {
+        let duration = self
+            .duration_pathfinder
+            .read()
+            .unwrap()
+            .lowest_duration(&target.path)
+            .expect("Route pathfinder found route but duration pathfinder did not!");
+        (
+            RouteKey {
+                settlement: demand.position,
+                resource: demand.resource,
+                destination: target.position,
+            },
+            Route {
+                path: target.path,
+                start_micros,
+                duration,
+                traffic: demand.quantity,
+            },
+        )
+    }
 }
 
 #[cfg(test)]
@@ -108,11 +132,19 @@ mod tests {
     use std::collections::HashMap;
     use std::time::Duration;
 
+    struct MockDurationPathfinder {}
+
+    impl LowestDuration for MockDurationPathfinder {
+        fn lowest_duration(&self, _: &[V2<usize>]) -> Option<Duration> {
+            Some(Duration::from_secs(303))
+        }
+    }
+
     #[test]
     fn test() {
-        struct MockPathfinder {}
+        struct MockRoutePathfinder {}
 
-        impl ClosestTargets for MockPathfinder {
+        impl ClosestTargets for MockRoutePathfinder {
             fn init_targets(&mut self, _: String) {}
 
             fn load_target(&mut self, _: &str, _: &V2<usize>, _: bool) {}
@@ -141,7 +173,7 @@ mod tests {
             }
         }
 
-        impl InBounds for MockPathfinder {
+        impl InBounds for MockRoutePathfinder {
             fn in_bounds(&self, position: &V2<usize>) -> bool {
                 *position != v2(2, 4)
             }
@@ -149,8 +181,9 @@ mod tests {
 
         // Given
         let game = UpdateProcess::new(101);
-        let pathfinder = Arc::new(RwLock::new(MockPathfinder {}));
-        let mut processor = GetRoutes::new(&game.tx(), &pathfinder);
+        let route_pathfinder = Arc::new(RwLock::new(MockRoutePathfinder {}));
+        let duration_pathfinder = Arc::new(RwLock::new(MockDurationPathfinder {}));
+        let mut processor = GetRoutes::new(&game.tx(), &route_pathfinder, &duration_pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -172,7 +205,7 @@ mod tests {
             Route {
                 path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
                 start_micros: 101,
-                duration: Duration::from_secs(2),
+                duration: Duration::from_secs(303),
                 traffic: 3,
             },
         );
@@ -185,7 +218,7 @@ mod tests {
             Route {
                 path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
                 start_micros: 101,
-                duration: Duration::from_secs(4),
+                duration: Duration::from_secs(303),
                 traffic: 3,
             },
         );
@@ -207,9 +240,9 @@ mod tests {
 
     #[test]
     fn test_no_closest_targets() {
-        struct MockPathfinder {}
+        struct MockRoutePathfinder {}
 
-        impl ClosestTargets for MockPathfinder {
+        impl ClosestTargets for MockRoutePathfinder {
             fn init_targets(&mut self, _: String) {}
 
             fn load_target(&mut self, _: &str, _: &V2<usize>, _: bool) {}
@@ -227,7 +260,7 @@ mod tests {
             }
         }
 
-        impl InBounds for MockPathfinder {
+        impl InBounds for MockRoutePathfinder {
             fn in_bounds(&self, position: &V2<usize>) -> bool {
                 *position != v2(2, 4)
             }
@@ -235,8 +268,9 @@ mod tests {
 
         // Given
         let game = UpdateProcess::new(101);
-        let pathfinder = Arc::new(RwLock::new(MockPathfinder {}));
-        let mut processor = GetRoutes::new(&game.tx(), &pathfinder);
+        let route_pathfinder = Arc::new(RwLock::new(MockRoutePathfinder {}));
+        let duration_pathfinder = Arc::new(RwLock::new(MockDurationPathfinder {}));
+        let mut processor = GetRoutes::new(&game.tx(), &route_pathfinder, &duration_pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -285,8 +319,9 @@ mod tests {
     fn zero_source_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
         let game = UpdateProcess::new(101);
-        let pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
-        let mut processor = GetRoutes::new(&game.tx(), &pathfinder);
+        let route_pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
+        let duration_pathfinder = Arc::new(RwLock::new(MockDurationPathfinder {}));
+        let mut processor = GetRoutes::new(&game.tx(), &route_pathfinder, &duration_pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -317,8 +352,9 @@ mod tests {
     fn zero_quantity_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
         let game = UpdateProcess::new(101);
-        let pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
-        let mut processor = GetRoutes::new(&game.tx(), &pathfinder);
+        let route_pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
+        let duration_pathfinder = Arc::new(RwLock::new(MockDurationPathfinder {}));
+        let mut processor = GetRoutes::new(&game.tx(), &route_pathfinder, &duration_pathfinder);
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
