@@ -52,9 +52,9 @@ impl PauseGame {
     }
 
     async fn pause(&mut self) {
-        debug!("Pausing game");
+        debug!("Pausing/resuming game");
         self.game_tx.update(move |sim| toggle_pause(sim)).await;
-        debug!("Paused game");
+        debug!("Paused/resumed game");
     }
 }
 
