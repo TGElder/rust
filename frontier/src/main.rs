@@ -113,7 +113,11 @@ fn main() {
         )),
         Box::new(GetDemand::new(town_demand_fn)),
         Box::new(GetDemand::new(homeland_demand_fn)),
-        Box::new(GetRoutes::new(game.tx(), &pathfinder_with_planned_roads)),
+        Box::new(GetRoutes::new(
+            game.tx(),
+            &pathfinder_with_planned_roads,
+            &pathfinder_without_planned_roads,
+        )),
         Box::new(GetRouteChanges::new(game.tx())),
         Box::new(UpdatePositionTraffic::new()),
         Box::new(UpdateEdgeTraffic::new()),
