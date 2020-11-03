@@ -208,7 +208,7 @@ fn main() {
                 .max_navigable_river_gradient,
             ..WorldArtistParameters::default()
         },
-    ); // TODO find better way of creating world_artist
+    );
     let mut world_artist_actor = WorldArtistActor::new(
         event_forwarder.subscribe(),
         game_event_forwarder.subscribe(),
