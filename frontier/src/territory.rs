@@ -107,15 +107,6 @@ impl Territory {
             .min_by(|a, b| a.cmp(&b))
     }
 
-    #[allow(dead_code)] // TODO
-    pub fn anyone_controls_tile(&self, position: &V2<usize>) -> bool {
-        self.claims
-            .get_corners_in_bounds(position)
-            .iter()
-            .flat_map(|corner| self.claims.get(corner))
-            .any(|map| !map.is_empty())
-    }
-
     pub fn who_controls(&self, position: &V2<usize>) -> Option<&Claim> {
         self.claims
             .get(position)
@@ -131,11 +122,6 @@ impl Territory {
             }) if controlled_by == controller => true,
             _ => false,
         }
-    }
-
-    #[allow(dead_code)] // TODO
-    pub fn controllers(&self) -> HashSet<V2<usize>> {
-        self.territory.keys().cloned().collect()
     }
 
     pub fn controlled(&self, controller: &V2<usize>) -> HashSet<V2<usize>> {
@@ -294,8 +280,12 @@ mod tests {
         let mut territory = territory();
         territory.add_controller(v2(0, 0));
         assert_eq!(
-            territory.controllers(),
-            [v2(0, 0)].iter().cloned().collect()
+            territory
+                .territory
+                .keys()
+                .cloned()
+                .collect::<HashSet<V2<usize>>>(),
+            hashset! {v2(0, 0)}
         );
     }
 
@@ -304,7 +294,7 @@ mod tests {
         let mut territory = territory();
         territory.add_controller(v2(1, 1));
         territory.remove_controller(&v2(1, 1));
-        assert_eq!(territory.controllers(), HashSet::new(),);
+        assert_eq!(territory.territory.keys().count(), 0);
     }
 
     #[test]
@@ -564,7 +554,6 @@ mod tests {
     fn who_controls_tile_no_claims() {
         let territory = territory();
         assert_eq!(territory.who_controls_tile(&v2(0, 0)), None);
-        assert!(!territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]
@@ -588,7 +577,6 @@ mod tests {
                 since_micros: 0
             })
         );
-        assert!(territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]
@@ -617,7 +605,6 @@ mod tests {
                 since_micros: 0
             })
         );
-        assert!(territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]
@@ -660,7 +647,6 @@ mod tests {
                 since_micros: 1
             })
         );
-        assert!(territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]
@@ -703,7 +689,6 @@ mod tests {
                 since_micros: 0
             })
         );
-        assert!(territory.anyone_controls_tile(&v2(0, 0)));
     }
 
     #[test]
@@ -723,22 +708,6 @@ mod tests {
         let mut territory = territory();
         territory.add_controller(v2(1, 1));
         assert!(!territory.is_controlled_by(&v2(0, 0), &v2(1, 1)));
-    }
-
-    #[test]
-    fn controllers() {
-        let mut territory = territory();
-        territory.add_controller(v2(1, 1));
-        territory.add_controller(v2(2, 2));
-        assert_eq!(
-            territory.controllers(),
-            [v2(1, 1), v2(2, 2)].iter().cloned().collect()
-        );
-    }
-
-    #[test]
-    fn controllers_no_controllers() {
-        assert_eq!(territory().controllers(), HashSet::new());
     }
 
     #[test]

@@ -52,7 +52,6 @@ where
         self.index.get_position(network_index)
     }
 
-    #[allow(dead_code)] // TODO
     fn get_positions_from_network_indices(&self, network_indices: &[usize]) -> Vec<V2<usize>> {
         network_indices
             .iter()
