@@ -130,6 +130,17 @@ mod tests {
     use super::*;
     use commons::almost::Almost;
 
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    struct Elevation {
+        elevation: f32,
+    }
+
+    impl WithElevation for Elevation {
+        fn elevation(&self) -> f32 {
+            self.elevation
+        }
+    }
+
     #[test]
     fn test_bresenham_circle() {
         let circle = bresenham_cicle(&v2(0, 0), 3).collect::<HashSet<(i64, i64)>>();
@@ -210,7 +221,7 @@ mod tests {
         head_height: f32,
         planet_radius: Option<f32>,
     ) {
-        let grid = M::from_vec(7, 1, heights);
+        let grid = M::from_vec(7, 1, heights).map(|elevation| Elevation { elevation });
 
         let visibility_computer = VisibilityComputer {
             head_height,
@@ -294,20 +305,25 @@ mod tests {
     #[rustfmt::skip]
     fn update_visibility() {
         let grid = M::from_vec(
-                7,
-                7,
-                vec![
-                    8.0, 8.0, 2.0, 1.0, 1.0, 8.0, 8.0, 
-                    8.0, 1.0, 2.0, 1.0, 1.0, 1.0, 8.0, 
-                    8.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1.0, 
-                    8.0, 1.0, 2.0, 1.0, 1.0, 0.0, 1.0, 
-                    8.0, 1.0, 2.0, 1.0, 1.0, 0.0, 1.0,
-                    8.0, 1.0, 2.0, 1.0, 1.0, 0.0, 8.0, 
-                    8.0, 8.0, 2.0, 1.0, 1.0, 8.0, 8.0,
-                ],
-            );
+            7,
+            7,
+            vec![
+                8.0, 8.0, 2.0, 1.0, 1.0, 8.0, 8.0, 
+                8.0, 1.0, 2.0, 1.0, 1.0, 1.0, 8.0, 
+                8.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1.0, 
+                8.0, 1.0, 2.0, 1.0, 1.0, 0.0, 1.0, 
+                8.0, 1.0, 2.0, 1.0, 1.0, 0.0, 1.0,
+                8.0, 1.0, 2.0, 1.0, 1.0, 0.0, 8.0, 
+                8.0, 8.0, 2.0, 1.0, 1.0, 8.0, 8.0,
+            ],
+        )
+        .map(|elevation| Elevation { elevation });
 
-        let visibility_computer = VisibilityComputer{head_height: 0.0, planet_radius: None, max_distance: 3};
+        let visibility_computer = VisibilityComputer {
+            head_height: 0.0,
+            planet_radius: None,
+            max_distance: 3,
+        };
 
         let out = visibility_computer.get_visible_from(&grid, v2(3, 3));
 
