@@ -1,19 +1,20 @@
+use crate::actors::VisibilityHandlerMessage;
 use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation};
 use crate::game::{
     CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
 };
-use crate::game_event_consumers::VisibilityHandlerMessage;
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
+use commons::async_channel::Sender;
+use commons::futures::executor::block_on;
 use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;
 use commons::V2;
 use isometric::{Color, Event};
 use std::collections::{HashMap, HashSet};
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 const AVATAR_NAME: &str = "avatar";
@@ -48,9 +49,11 @@ impl SetupNewWorld {
             .update(move |game| setup_game(game, avatars, nations, settlements));
 
         let visited = get_visited_positions(&homeland_starts);
-        self.visibility_tx
-            .send(VisibilityHandlerMessage { visited })
-            .unwrap();
+        block_on(
+            self.visibility_tx
+                .send(VisibilityHandlerMessage { visited }),
+        )
+        .unwrap();
     }
 }
 

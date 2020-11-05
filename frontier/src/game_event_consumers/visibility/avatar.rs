@@ -1,12 +1,13 @@
 use crate::avatar::*;
 use crate::game::*;
+use commons::async_channel::Sender;
+use commons::futures::executor::block_on;
 use commons::V2;
 use isometric::Event;
 use std::sync::Arc;
 
-use crate::game_event_consumers::VisibilityHandlerMessage;
+use crate::actors::VisibilityHandlerMessage;
 use std::iter::{empty, once};
-use std::sync::mpsc::Sender;
 
 const HANDLE: &str = "visibility_from_avatar";
 
@@ -20,11 +21,10 @@ impl VisibilityFromAvatar {
     }
 
     fn tick(&mut self, game_state: &GameState, from: &u128, to: &u128) {
-        self.tx
-            .send(VisibilityHandlerMessage {
-                visited: avatar_visited_cells(game_state, from, to).collect(),
-            })
-            .unwrap();
+        block_on(self.tx.send(VisibilityHandlerMessage {
+            visited: avatar_visited_cells(game_state, from, to).collect(),
+        }))
+        .unwrap();
     }
 }
 

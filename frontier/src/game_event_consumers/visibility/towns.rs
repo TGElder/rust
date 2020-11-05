@@ -5,8 +5,9 @@ use commons::V2;
 use isometric::Event;
 use std::sync::Arc;
 
-use crate::game_event_consumers::VisibilityHandlerMessage;
-use std::sync::mpsc::Sender;
+use crate::actors::VisibilityHandlerMessage;
+use commons::async_channel::Sender;
+use commons::futures::executor::block_on;
 
 const HANDLE: &str = "visibility_from_towns";
 
@@ -20,11 +21,10 @@ impl VisibilityFromTowns {
     }
 
     fn tick(&mut self, game_state: &GameState) {
-        self.tx
-            .send(VisibilityHandlerMessage {
-                visited: town_visited_cells(game_state).collect(),
-            })
-            .unwrap();
+        block_on(self.tx.send(VisibilityHandlerMessage {
+            visited: town_visited_cells(game_state).collect(),
+        }))
+        .unwrap();
     }
 }
 

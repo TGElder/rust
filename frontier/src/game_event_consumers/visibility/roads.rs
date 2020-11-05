@@ -1,10 +1,11 @@
 use crate::game::*;
+use commons::async_channel::Sender;
+use commons::futures::executor::block_on;
 use commons::V2;
 use isometric::Event;
 use std::sync::Arc;
 
-use crate::game_event_consumers::VisibilityHandlerMessage;
-use std::sync::mpsc::Sender;
+use crate::actors::VisibilityHandlerMessage;
 
 const HANDLE: &str = "visibility_from_roads";
 
@@ -18,11 +19,10 @@ impl VisibilityFromRoads {
     }
 
     fn visit(&mut self, visited: &[V2<usize>]) {
-        self.tx
-            .send(VisibilityHandlerMessage {
-                visited: visited.iter().cloned().collect(),
-            })
-            .unwrap();
+        block_on(self.tx.send(VisibilityHandlerMessage {
+            visited: visited.iter().cloned().collect(),
+        }))
+        .unwrap();
     }
 }
 
