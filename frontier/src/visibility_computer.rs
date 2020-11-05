@@ -237,7 +237,6 @@ mod tests {
         }
         let expected_len = expected.into_iter().filter(|t| *t).count();
 
-        println!("{:?}", actual_out);
         assert_eq!(actual_out.len(), expected_len);
     }
 
