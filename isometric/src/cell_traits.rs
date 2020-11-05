@@ -14,6 +14,12 @@ pub trait WithElevation {
     fn elevation(&self) -> f32;
 }
 
+impl WithElevation for f32 {
+    fn elevation(&self) -> f32 {
+        *self
+    }
+}
+
 pub trait WithVisibility {
     fn is_visible(&self) -> bool;
 }

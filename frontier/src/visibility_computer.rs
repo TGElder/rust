@@ -1,9 +1,10 @@
 extern crate line_drawing;
 
-use crate::world::*;
 use commons::*;
+use isometric::cell_traits::WithElevation;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::iter::once;
 
 use line_drawing::{BresenhamCircle, Midpoint};
 
@@ -24,11 +25,14 @@ impl Default for VisibilityComputer {
     }
 }
 
-fn bresenham_cicle(position: &V2<usize>, radius: i64) -> Vec<(i64, i64)> {
-    BresenhamCircle::new(position.x as i64, position.y as i64, radius).collect()
+fn bresenham_cicle<'a>(
+    position: &'a V2<usize>,
+    radius: i64,
+) -> impl Iterator<Item = (i64, i64)> + 'a {
+    BresenhamCircle::new(position.x as i64, position.y as i64, radius)
 }
 
-fn bresenham_line(from: &V2<usize>, to: (i64, i64)) -> Vec<(i64, i64)> {
+fn bresenham_line(from: &V2<usize>, to: &(i64, i64)) -> Vec<(i64, i64)> {
     Midpoint::new((from.x as f32, from.y as f32), (to.0 as f32, to.1 as f32)).collect()
 }
 
@@ -44,29 +48,22 @@ fn to_position(position: &(i64, i64)) -> Option<V2<usize>> {
     }
 }
 
-fn to_3d(world: &World, position: V2<usize>, consider_vegetation: bool) -> Option<V3<f32>> {
-    if let Some(cell) = world.get_cell(&position) {
-        let veg_height = if consider_vegetation {
-            cell.climate.vegetation_elevation
-        } else {
-            0.0
-        };
-        return Some(v3(
-            position.x as f32,
-            position.y as f32,
-            (cell.elevation + veg_height).max(world.sea_level()),
-        ));
+fn to_3d<T>(grid: &dyn Grid<T>, position: V2<usize>) -> Option<V3<f32>>
+where
+    T: WithElevation,
+{
+    if let Some(cell) = grid.get_cell(&position) {
+        return Some(v3(position.x as f32, position.y as f32, cell.elevation()));
     }
     None
 }
 
-fn to_position_and_3d(
-    world: &World,
-    position: &(i64, i64),
-    consider_vegetation: bool,
-) -> Option<(V2<usize>, V3<f32>)> {
+fn to_position_and_3d<T>(world: &dyn Grid<T>, position: &(i64, i64)) -> Option<(V2<usize>, V3<f32>)>
+where
+    T: WithElevation,
+{
     if let Some(position) = to_position(position) {
-        if let Some(position_3d) = to_3d(world, position, consider_vegetation) {
+        if let Some(position_3d) = to_3d(world, position) {
             return Some((position, position_3d));
         }
     }
@@ -82,14 +79,21 @@ impl VisibilityComputer {
             .unwrap_or(0.0)
     }
 
-    fn check_visibility_along_line(&self, world: &World, line: Vec<(i64, i64)>) -> Vec<V2<usize>> {
+    fn check_visibility_along_line<T>(
+        &self,
+        world: &dyn Grid<T>,
+        line: Vec<(i64, i64)>,
+    ) -> Vec<V2<usize>>
+    where
+        T: WithElevation,
+    {
         let mut max_slope = -std::f32::INFINITY;
         let mut out = vec![];
-        if let Some((from, mut from_3d)) = to_position_and_3d(world, &line[0], false) {
+        if let Some((from, mut from_3d)) = to_position_and_3d(world, &line[0]) {
             from_3d.z += self.head_height;
             out.push(from);
             for position in line.iter().skip(1) {
-                match to_position_and_3d(world, position, true) {
+                match to_position_and_3d(world, position) {
                     None => return out,
                     Some((to, mut to_3d)) => {
                         let run = run(&from_3d, &to_3d);
@@ -106,21 +110,17 @@ impl VisibilityComputer {
         out
     }
 
-    pub fn get_newly_visible_from(&self, world: &World, origin: V2<usize>) -> Vec<V2<usize>> {
-        let mut out = HashSet::new();
-        out.insert(origin);
-        for position in bresenham_cicle(&origin, self.max_distance) {
-            let line = bresenham_line(&origin, position);
-            let mut visible = self.check_visibility_along_line(world, line);
-            visible.retain(|position| {
-                !world
-                    .get_cell(&position)
-                    .map(|cell| cell.visible)
-                    .unwrap_or(true)
-            });
-            out.extend(&visible);
-        }
-        out.into_iter().collect()
+    pub fn get_visible_from<T>(&self, world: &dyn Grid<T>, origin: V2<usize>) -> HashSet<V2<usize>>
+    where
+        T: WithElevation,
+    {
+        once(origin)
+            .chain(
+                bresenham_cicle(&origin, self.max_distance)
+                    .map(|position| bresenham_line(&origin, &position))
+                    .flat_map(|line| self.check_visibility_along_line(world, line)),
+            )
+            .collect()
     }
 }
 
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_bresenham_circle() {
-        let circle = bresenham_cicle(&v2(0, 0), 3);
+        let circle = bresenham_cicle(&v2(0, 0), 3).collect::<HashSet<(i64, i64)>>();
         assert!(circle.contains(&(-3, 0)));
         assert!(circle.contains(&(-3, 1)));
         assert!(circle.contains(&(-2, 2)));
@@ -155,19 +155,19 @@ mod tests {
     #[test]
     fn test_bresenham_line() {
         assert_eq!(
-            bresenham_line(&v2(0, 0), (3, 0)),
+            bresenham_line(&v2(0, 0), &(3, 0)),
             vec![(0, 0), (1, 0), (2, 0), (3, 0)]
         );
         assert_eq!(
-            bresenham_line(&v2(0, 0), (3, 1)),
+            bresenham_line(&v2(0, 0), &(3, 1)),
             vec![(0, 0), (1, 0), (2, 1), (3, 1)]
         );
         assert_eq!(
-            bresenham_line(&v2(0, 0), (2, 2)),
+            bresenham_line(&v2(0, 0), &(2, 2)),
             vec![(0, 0), (1, 1), (2, 2)]
         );
         assert_eq!(
-            bresenham_line(&v2(0, 0), (1, 3)),
+            bresenham_line(&v2(0, 0), &(1, 3)),
             vec![(0, 0), (0, 1), (1, 2), (1, 3)]
         );
     }
@@ -210,7 +210,7 @@ mod tests {
         head_height: f32,
         planet_radius: Option<f32>,
     ) {
-        let world = World::new(M::from_vec(7, 1, heights), 0.0);
+        let grid = M::from_vec(7, 1, heights);
 
         let visibility_computer = VisibilityComputer {
             head_height,
@@ -218,7 +218,7 @@ mod tests {
             max_distance: 7,
         };
 
-        let actual_out = visibility_computer.get_newly_visible_from(&world, v2(0, 0));
+        let actual_out = visibility_computer.get_visible_from(&grid, v2(0, 0));
         for (i, expected) in expected.iter().enumerate() {
             if *expected {
                 assert!(actual_out.contains(&v2(i, 0)));
@@ -226,6 +226,7 @@ mod tests {
         }
         let expected_len = expected.into_iter().filter(|t| *t).count();
 
+        println!("{:?}", actual_out);
         assert_eq!(actual_out.len(), expected_len);
     }
 
@@ -292,8 +293,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn update_visibility() {
-        let world = World::new(
-            M::from_vec(
+        let grid = M::from_vec(
                 7,
                 7,
                 vec![
@@ -305,13 +305,11 @@ mod tests {
                     8.0, 1.0, 2.0, 1.0, 1.0, 0.0, 8.0, 
                     8.0, 8.0, 2.0, 1.0, 1.0, 8.0, 8.0,
                 ],
-            ),
-            0.5,
-        );
+            );
 
         let visibility_computer = VisibilityComputer{head_height: 0.0, planet_radius: None, max_distance: 3};
 
-        let out = visibility_computer.get_newly_visible_from(&world, v2(3, 3));
+        let out = visibility_computer.get_visible_from(&grid, v2(3, 3));
 
         assert_eq!(out.len(), 17);
 
