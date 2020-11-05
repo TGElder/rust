@@ -103,10 +103,11 @@ impl VisibilityHandler {
     fn check_visibility_and_reveal(&mut self, game_state: &GameState, cell: V2<usize>) {
         let newly_visible = self
             .visibility_computer
-            .get_newly_visible_from(&game_state.world, cell);
+            .get_visible_from(&game_state.world, cell);
 
-        self.game_tx
-            .update(move |game: &mut Game| game.reveal_cells(newly_visible, HANDLE));
+        self.game_tx.update(move |game: &mut Game| {
+            game.reveal_cells(newly_visible.into_iter().collect(), HANDLE)
+        });
     }
 
     fn get_path(path: &str) -> String {
