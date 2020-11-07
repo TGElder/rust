@@ -34,7 +34,7 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use actors::{PauseGame, PauseSim, Save, WorldArtistActor};
+use actors::{PauseGame, PauseSim, Save, Visibility, WorldArtistActor};
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
@@ -131,6 +131,7 @@ fn main() {
         Box::new(visibility_sim),
     ]);
 
+    game.add_consumer(visibility_sim_consumer);
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
     // Controls
@@ -155,19 +156,6 @@ fn main() {
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
     game.add_consumer(TownHouses::new(game.tx()));
     game.add_consumer(TownLabels::new(game.tx()));
-
-    // Visibility
-    let handler = VisibilityHandler::new(game.tx());
-    let from_avatar = VisibilityFromAvatar::new(handler.tx());
-    let from_towns = VisibilityFromTowns::new(handler.tx());
-    let from_roads = VisibilityFromRoads::new(handler.tx());
-    let setup_new_world = SetupNewWorld::new(game.tx(), handler.tx());
-    game.add_consumer(from_avatar);
-    game.add_consumer(from_towns);
-    game.add_consumer(from_roads);
-    game.add_consumer(handler);
-    game.add_consumer(visibility_sim_consumer);
-    game.add_consumer(setup_new_world);
 
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.tx()));
 
@@ -197,6 +185,20 @@ fn main() {
     let mut save = Save::new(event_forwarder.subscribe(), game.tx(), sim.tx());
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
+
+    // Visibility
+    let mut visibility = Visibility::new(game_event_forwarder.subscribe(), game.tx());
+    let from_avatar = VisibilityFromAvatar::new(visibility.tx());
+    let from_towns = VisibilityFromTowns::new(visibility.tx());
+    let from_roads = VisibilityFromRoads::new(visibility.tx());
+    let setup_new_world = SetupNewWorld::new(game.tx(), visibility.tx());
+    game.add_consumer(from_avatar);
+    game.add_consumer(from_towns);
+    game.add_consumer(from_roads);
+    game.add_consumer(setup_new_world);
+
+    let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
+    thread_pool.spawn_ok(visibility_run);
 
     let world_artist = WorldArtist::new(
         &game.game_state().world,
@@ -239,7 +241,8 @@ fn main() {
             pause_sim_handle,
             save_handle,
             sim_handle,
-            world_artist_actor_handle
+            world_artist_actor_handle,
+            visibility_handle
         )
     });
     println!("Joining game");
