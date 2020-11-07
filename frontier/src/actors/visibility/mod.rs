@@ -24,13 +24,12 @@ pub struct Visibility {
     game_tx: UpdateSender<Game>,
     visibility_computer: VisibilityComputer,
     state: VisibilityHandlerState,
-    grid: Option<M<Elevation>>,
+    elevations: Option<M<Elevation>>,
     run: bool,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct VisibilityHandlerState {
-    active: bool,
     visited: Option<M<bool>>,
 }
 
@@ -54,11 +53,8 @@ impl Visibility {
             game_rx,
             game_tx: game_tx.clone_with_handle(HANDLE),
             visibility_computer: VisibilityComputer::default(),
-            state: VisibilityHandlerState {
-                active: true,
-                visited: None,
-            },
-            grid: None,
+            state: VisibilityHandlerState { visited: None },
+            elevations: None,
             run: true,
         }
     }
@@ -69,40 +65,52 @@ impl Visibility {
 
     pub async fn run(&mut self) {
         while self.run {
-            if self.grid.is_some() {
+            if self.elevations.is_some() {
                 select! {
                     mut update = self.rx.get_update().fuse() => update.process(self),
                     event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
                 }
             } else {
                 select! {
-                    event = self.game_rx.recv().fuse() => self.handle_game_event(event).await // TODO can we avoid the repeat?
+                    event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
                 }
             }
         }
     }
 
     pub fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
-        for cell in visited {
-            self.check_visibility_and_reveal_one(cell);
+        for position in visited {
+            self.check_visibility_and_reveal_one(position);
         }
     }
 
-    fn check_visibility_and_reveal_one(&mut self, cell: V2<usize>) {
-        let visited = self.state.visited.as_mut().unwrap();
-        let visited = unwrap_or!(visited.mut_cell(&cell), return); // TODO create function for visited stuff
-        if *visited {
+    fn check_visibility_and_reveal_one(&mut self, position: V2<usize>) {
+        let already_visited = ok_or!(self.already_visited(&position), return);
+        if *already_visited {
             return;
         } else {
-            *visited = true;
+            self.set_visited(&position);
         }
-        let newly_visible = self
+
+        let visible = self
             .visibility_computer
-            .get_visible_from(self.grid.as_ref().unwrap(), cell);
+            .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
         self.game_tx.update(move |game: &mut Game| {
-            game.reveal_cells(newly_visible.into_iter().collect(), HANDLE)
+            game.reveal_cells(visible.into_iter().collect(), HANDLE)
         });
+    }
+
+    fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {
+        let visited = self.state.visited.as_ref().unwrap();
+        visited.get_cell(&position).ok_or(())
+    }
+
+    fn set_visited(&mut self, position: &V2<usize>) {
+        let visited = self.state.visited.as_mut().unwrap();
+        if let Some(visited) = visited.mut_cell(&position) {
+            *visited = true;
+        }
     }
 
     async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
@@ -112,9 +120,17 @@ impl Visibility {
     }
 
     async fn init(&mut self) {
+        self.init_visited().await;
+        self.init_elevations().await;
+    }
+
+    async fn init_visited(&mut self) {
         let (width, height) = self.game_tx.update(|game| get_dimensions(game)).await;
         self.state.visited = Some(M::from_element(width, height, false));
-        self.grid = Some(self.game_tx.update(|game| get_elevations(game)).await);
+    }
+
+    async fn init_elevations(&mut self) {
+        self.elevations = Some(self.game_tx.update(|game| get_elevations(game)).await);
     }
 }
 
