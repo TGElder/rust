@@ -1,19 +1,19 @@
+use crate::actors::Visibility;
 use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation};
 use crate::game::{
     CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
 };
-use crate::game_event_consumers::VisibilityHandlerMessage;
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
+use commons::async_update::UpdateSender as AsyncUpdateSender; // TODO remove aliasing after removing other type
 use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;
 use commons::V2;
 use isometric::{Color, Event};
 use std::collections::{HashMap, HashSet};
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 const AVATAR_NAME: &str = "avatar";
@@ -21,13 +21,13 @@ const HANDLE: &str = "setup_homelands";
 
 pub struct SetupNewWorld {
     game_tx: UpdateSender<Game>,
-    visibility_tx: Sender<VisibilityHandlerMessage>,
+    visibility_tx: AsyncUpdateSender<Visibility>,
 }
 
 impl SetupNewWorld {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        visibility_tx: &Sender<VisibilityHandlerMessage>,
+        visibility_tx: &AsyncUpdateSender<Visibility>,
     ) -> SetupNewWorld {
         SetupNewWorld {
             game_tx: game_tx.clone_with_handle(HANDLE),
@@ -49,8 +49,7 @@ impl SetupNewWorld {
 
         let visited = get_visited_positions(&homeland_starts);
         self.visibility_tx
-            .send(VisibilityHandlerMessage { visited })
-            .unwrap();
+            .update(|visibility| visibility.check_visibility_and_reveal(visited));
     }
 }
 
