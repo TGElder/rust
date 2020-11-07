@@ -20,13 +20,13 @@ impl VisibilityFromAvatar {
     }
 
     fn tick(&mut self, game_state: &GameState, from: &u128, to: &u128) {
-        let cells = avatar_visited_cells(game_state, from, to).collect();
+        let visited = avatar_visited(game_state, from, to).collect();
         self.tx
-            .update(|visibility| visibility.check_visibility_and_reveal(cells));
+            .update(|visibility| visibility.check_visibility_and_reveal(visited));
     }
 }
 
-fn avatar_visited_cells<'a>(
+fn avatar_visited<'a>(
     game_state: &'a GameState,
     from: &'a u128,
     to: &'a u128,

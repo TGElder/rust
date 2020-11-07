@@ -7,7 +7,7 @@ use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
-use commons::async_update::UpdateSender as AsyncUpdateSender;
+use commons::async_update::UpdateSender as AsyncUpdateSender; // TODO remove aliasing after removing other type
 use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;

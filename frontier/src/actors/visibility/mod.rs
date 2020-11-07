@@ -80,11 +80,11 @@ impl Visibility {
 
     pub fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
         for position in visited {
-            self.check_visibility_and_reveal_one(position);
+            self.check_visibility_and_reveal_position(position);
         }
     }
 
-    fn check_visibility_and_reveal_one(&mut self, position: V2<usize>) {
+    fn check_visibility_and_reveal_position(&mut self, position: V2<usize>) {
         let already_visited = ok_or!(self.already_visited(&position), return);
         if *already_visited {
             return;

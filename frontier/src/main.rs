@@ -186,9 +186,8 @@ fn main() {
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
 
-    let mut visibility = Visibility::new(game_event_forwarder.subscribe(), game.tx());
-
     // Visibility
+    let mut visibility = Visibility::new(game_event_forwarder.subscribe(), game.tx());
     let from_avatar = VisibilityFromAvatar::new(visibility.tx());
     let from_towns = VisibilityFromTowns::new(visibility.tx());
     let from_roads = VisibilityFromRoads::new(visibility.tx());
