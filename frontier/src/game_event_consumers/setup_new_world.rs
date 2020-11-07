@@ -1,4 +1,4 @@
-use crate::actors::VisibilityHandlerMessage;
+use crate::actors::Visibility;
 use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation};
 use crate::game::{
     CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
@@ -7,8 +7,7 @@ use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
-use commons::async_channel::Sender;
-use commons::futures::executor::block_on;
+use commons::async_update::UpdateSender as AsyncUpdateSender;
 use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;
@@ -22,13 +21,13 @@ const HANDLE: &str = "setup_homelands";
 
 pub struct SetupNewWorld {
     game_tx: UpdateSender<Game>,
-    visibility_tx: Sender<VisibilityHandlerMessage>,
+    visibility_tx: AsyncUpdateSender<Visibility>,
 }
 
 impl SetupNewWorld {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        visibility_tx: &Sender<VisibilityHandlerMessage>,
+        visibility_tx: &AsyncUpdateSender<Visibility>,
     ) -> SetupNewWorld {
         SetupNewWorld {
             game_tx: game_tx.clone_with_handle(HANDLE),
@@ -49,11 +48,8 @@ impl SetupNewWorld {
             .update(move |game| setup_game(game, avatars, nations, settlements));
 
         let visited = get_visited_positions(&homeland_starts);
-        block_on(
-            self.visibility_tx
-                .send(VisibilityHandlerMessage { visited }),
-        )
-        .unwrap();
+        self.visibility_tx
+            .update(|visibility| visibility.check_visibility_and_reveal(visited));
     }
 }
 

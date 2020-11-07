@@ -5,26 +5,24 @@ use commons::V2;
 use isometric::Event;
 use std::sync::Arc;
 
-use crate::actors::VisibilityHandlerMessage;
-use commons::async_channel::Sender;
-use commons::futures::executor::block_on;
+use crate::actors::Visibility;
+use commons::async_update::UpdateSender;
 
 const HANDLE: &str = "visibility_from_towns";
 
 pub struct VisibilityFromTowns {
-    tx: Sender<VisibilityHandlerMessage>,
+    tx: UpdateSender<Visibility>,
 }
 
 impl VisibilityFromTowns {
-    pub fn new(tx: &Sender<VisibilityHandlerMessage>) -> VisibilityFromTowns {
+    pub fn new(tx: &UpdateSender<Visibility>) -> VisibilityFromTowns {
         VisibilityFromTowns { tx: tx.clone() }
     }
 
     fn tick(&mut self, game_state: &GameState) {
-        block_on(self.tx.send(VisibilityHandlerMessage {
-            visited: town_visited_cells(game_state).collect(),
-        }))
-        .unwrap();
+        let visited = town_visited_cells(game_state).collect();
+        self.tx
+            .update(|visibility| visibility.check_visibility_and_reveal(visited));
     }
 }
 

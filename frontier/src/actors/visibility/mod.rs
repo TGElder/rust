@@ -1,6 +1,12 @@
 use crate::game::{Game, GameEvent};
 use crate::visibility_computer::VisibilityComputer;
-use commons::async_channel::{unbounded, Receiver, RecvError, Sender as AsyncSender};
+use commons::async_channel::{Receiver, RecvError};
+use commons::async_update::{
+    update_channel,
+    Process,
+    UpdateReceiver,
+    UpdateSender as AsyncUpdateSender, // TODO remove aliasing after removing other type
+};
 use commons::futures::future::FutureExt;
 use commons::grid::Grid;
 use commons::update::UpdateSender;
@@ -12,18 +18,14 @@ use std::collections::HashSet;
 const HANDLE: &str = "world_artist_actor";
 
 pub struct Visibility {
-    rx: Receiver<VisibilityHandlerMessage>,
-    tx: AsyncSender<VisibilityHandlerMessage>,
+    rx: UpdateReceiver<Visibility>,
+    tx: AsyncUpdateSender<Visibility>,
     game_rx: Receiver<GameEvent>,
     game_tx: UpdateSender<Game>,
     visibility_computer: VisibilityComputer,
     state: VisibilityHandlerState,
     grid: Option<M<Elevation>>,
     run: bool,
-}
-
-pub struct VisibilityHandlerMessage {
-    pub visited: HashSet<V2<usize>>, // TODO should this still be a HashSet?
 }
 
 #[derive(Serialize, Deserialize)]
@@ -45,7 +47,7 @@ impl WithElevation for Elevation {
 
 impl Visibility {
     pub fn new(game_rx: Receiver<GameEvent>, game_tx: &UpdateSender<Game>) -> Visibility {
-        let (tx, rx) = unbounded();
+        let (tx, rx) = update_channel();
         Visibility {
             rx,
             tx,
@@ -61,7 +63,7 @@ impl Visibility {
         }
     }
 
-    pub fn tx(&self) -> &AsyncSender<VisibilityHandlerMessage> {
+    pub fn tx(&self) -> &AsyncUpdateSender<Visibility> {
         &self.tx
     }
 
@@ -69,7 +71,7 @@ impl Visibility {
         while self.run {
             if self.grid.is_some() {
                 select! {
-                    message = self.rx.recv().fuse() => self.handle_visibility_message(message),
+                    mut update = self.rx.get_update().fuse() => update.process(self),
                     event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
                 }
             } else {
@@ -80,14 +82,13 @@ impl Visibility {
         }
     }
 
-    fn handle_visibility_message(&mut self, message: Result<VisibilityHandlerMessage, RecvError>) {
-        let VisibilityHandlerMessage { visited } = message.unwrap();
+    pub fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
         for cell in visited {
-            self.check_visibility_and_reveal(cell);
+            self.check_visibility_and_reveal_one(cell);
         }
     }
 
-    fn check_visibility_and_reveal(&mut self, cell: V2<usize>) {
+    fn check_visibility_and_reveal_one(&mut self, cell: V2<usize>) {
         let visited = self.state.visited.as_mut().unwrap();
         let visited = unwrap_or!(visited.mut_cell(&cell), return); // TODO create function for visited stuff
         if *visited {

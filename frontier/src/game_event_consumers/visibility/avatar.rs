@@ -1,30 +1,28 @@
+use crate::actors::Visibility;
 use crate::avatar::*;
 use crate::game::*;
-use commons::async_channel::Sender;
-use commons::futures::executor::block_on;
+use commons::async_update::UpdateSender;
 use commons::V2;
 use isometric::Event;
 use std::sync::Arc;
 
-use crate::actors::VisibilityHandlerMessage;
 use std::iter::{empty, once};
 
 const HANDLE: &str = "visibility_from_avatar";
 
 pub struct VisibilityFromAvatar {
-    tx: Sender<VisibilityHandlerMessage>,
+    tx: UpdateSender<Visibility>,
 }
 
 impl VisibilityFromAvatar {
-    pub fn new(tx: &Sender<VisibilityHandlerMessage>) -> VisibilityFromAvatar {
+    pub fn new(tx: &UpdateSender<Visibility>) -> VisibilityFromAvatar {
         VisibilityFromAvatar { tx: tx.clone() }
     }
 
     fn tick(&mut self, game_state: &GameState, from: &u128, to: &u128) {
-        block_on(self.tx.send(VisibilityHandlerMessage {
-            visited: avatar_visited_cells(game_state, from, to).collect(),
-        }))
-        .unwrap();
+        let cells = avatar_visited_cells(game_state, from, to).collect();
+        self.tx
+            .update(|visibility| visibility.check_visibility_and_reveal(cells));
     }
 }
 
