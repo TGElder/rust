@@ -7,7 +7,7 @@ use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
-use commons::actor::Actor;
+use commons::fn_sender::FnSender;
 use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;
@@ -21,7 +21,7 @@ const HANDLE: &str = "setup_homelands";
 
 pub struct SetupNewWorld<D>
 where
-    D: Actor<Visibility>,
+    D: FnSender<Visibility>,
 {
     game_tx: UpdateSender<Game>,
     visibility_tx: D,
@@ -29,7 +29,7 @@ where
 
 impl<D> SetupNewWorld<D>
 where
-    D: Actor<Visibility> + Clone,
+    D: FnSender<Visibility> + Clone,
 {
     pub fn new(game_tx: &UpdateSender<Game>, visibility_tx: &D) -> SetupNewWorld<D> {
         SetupNewWorld {
@@ -52,7 +52,7 @@ where
 
         let visited = get_visited_positions(&homeland_starts);
         self.visibility_tx
-            .act(|visibility| visibility.check_visibility_and_reveal(visited));
+            .send(|visibility| visibility.check_visibility_and_reveal(visited));
     }
 }
 
@@ -175,7 +175,7 @@ fn setup_game(
 
 impl<D> GameEventConsumer for SetupNewWorld<D>
 where
-    D: Actor<Visibility> + Clone + Send,
+    D: FnSender<Visibility> + Clone + Send,
 {
     fn name(&self) -> &'static str {
         HANDLE
