@@ -1,6 +1,6 @@
 use crate::actors::Visibility;
 use crate::game::*;
-use commons::actor::Direct;
+use commons::actor::Actor;
 use commons::V2;
 use isometric::Event;
 use std::sync::Arc;
@@ -9,14 +9,14 @@ const HANDLE: &str = "visibility_from_roads";
 
 pub struct VisibilityFromRoads<D>
 where
-    D: Direct<Visibility>,
+    D: Actor<Visibility>,
 {
     tx: D,
 }
 
 impl<D> VisibilityFromRoads<D>
 where
-    D: Direct<Visibility> + Clone,
+    D: Actor<Visibility> + Clone,
 {
     pub fn new(tx: &D) -> VisibilityFromRoads<D> {
         VisibilityFromRoads { tx: tx.clone() }
@@ -31,7 +31,7 @@ where
 
 impl<D> GameEventConsumer for VisibilityFromRoads<D>
 where
-    D: Direct<Visibility> + Clone + Send,
+    D: Actor<Visibility> + Clone + Send,
 {
     fn name(&self) -> &'static str {
         HANDLE

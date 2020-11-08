@@ -6,20 +6,20 @@ use isometric::Event;
 use std::sync::Arc;
 
 use crate::actors::Visibility;
-use commons::actor::Direct;
+use commons::actor::Actor;
 
 const HANDLE: &str = "visibility_from_towns";
 
 pub struct VisibilityFromTowns<D>
 where
-    D: Direct<Visibility>,
+    D: Actor<Visibility>,
 {
     tx: D,
 }
 
 impl<D> VisibilityFromTowns<D>
 where
-    D: Direct<Visibility> + Clone,
+    D: Actor<Visibility> + Clone,
 {
     pub fn new(tx: &D) -> VisibilityFromTowns<D> {
         VisibilityFromTowns { tx: tx.clone() }
@@ -43,7 +43,7 @@ fn town_visited_cells<'a>(game_state: &'a GameState) -> impl Iterator<Item = V2<
 
 impl<D> GameEventConsumer for VisibilityFromTowns<D>
 where
-    D: Direct<Visibility> + Clone + Send,
+    D: Actor<Visibility> + Clone + Send,
 {
     fn name(&self) -> &'static str {
         HANDLE

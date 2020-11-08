@@ -1,6 +1,6 @@
 use crate::game::{Game, GameEvent};
 use crate::visibility_computer::VisibilityComputer;
-use commons::actor::{action_channel, Act, Actor, Director};
+use commons::actor::{action_channel, Act, ActionReceiver, ActionSender};
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
 use commons::grid::Grid;
@@ -13,8 +13,8 @@ use std::collections::HashSet;
 const HANDLE: &str = "world_artist_actor";
 
 pub struct Visibility {
-    tx: Director<Visibility>,
-    rx: Actor<Visibility>,
+    tx: ActionSender<Visibility>,
+    rx: ActionReceiver<Visibility>,
     game_rx: Receiver<GameEvent>,
     game_tx: UpdateSender<Game>,
     visibility_computer: VisibilityComputer,
@@ -54,7 +54,7 @@ impl Visibility {
         }
     }
 
-    pub fn tx(&self) -> &Director<Visibility> {
+    pub fn tx(&self) -> &ActionSender<Visibility> {
         &self.tx
     }
 
@@ -62,7 +62,7 @@ impl Visibility {
         while self.run {
             if self.elevations.is_some() {
                 select! {
-                    mut update = self.rx.get_update().fuse() => update.act(self),
+                    mut message = self.rx.get_message().fuse() => message.act(self),
                     event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
                 }
             } else {
