@@ -8,24 +8,14 @@ use std::task::{Context, Poll, Waker};
 
 pub type Action<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
 
-enum Command<I> {
-    Act(Box<Action<I, ()>>),
-    Terminate(Arm<Option<I>>),
-}
-
-pub enum Handle {
-    Director(&'static str),
-    Terminator,
-}
-
-pub struct SharedState<I> {
-    command: Option<Command<I>>,
+pub struct ActionMessage<I> {
+    action: Option<Box<Action<I, ()>>>,
     waker: Option<Waker>,
-    sender_handle: Handle,
+    sender_handle: &'static str,
 }
 
-impl<I> SharedState<I> {
-    pub fn sender_handle(&self) -> &Handle {
+impl<I> ActionMessage<I> {
+    pub fn sender_handle(&self) -> &'static str {
         &self.sender_handle
     }
 
@@ -36,71 +26,69 @@ impl<I> SharedState<I> {
     }
 }
 
-trait ArmSharedStateExt<I> {
-    fn take_command(&self) -> Option<Command<I>>;
-    fn try_wake(&self);
-}
-
-impl<I> ArmSharedStateExt<I> for Arm<SharedState<I>> {
-    fn take_command(&self) -> Option<Command<I>> {
-        let mut shared_state = self.lock().unwrap();
-        shared_state.command.take()
-    }
-
-    fn try_wake(&self) {
-        let mut shared_state = self.lock().unwrap();
-        shared_state.try_wake()
-    }
-}
-
-pub struct ActorFuture<I, O> {
-    shared_state: Arm<SharedState<I>>,
+pub struct ActionFuture<I, O> {
+    message: Arm<ActionMessage<I>>,
     output: Arm<Option<O>>,
 }
 
-impl<I, O> Future for ActorFuture<I, O> {
+impl<I, O> Future for ActionFuture<I, O> {
     type Output = O;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<O> {
         if let Some(output) = self.output.lock().unwrap().take() {
             Poll::Ready(output)
         } else {
-            let mut state = self.shared_state.lock().unwrap();
-            state.waker = Some(cx.waker().clone());
+            let mut message = self.message.lock().unwrap();
+            message.waker = Some(cx.waker().clone());
             Poll::Pending
         }
     }
 }
 
-pub struct Director<I> {
-    tx: Sender<Arm<SharedState<I>>>,
+pub struct ActionSender<I> {
+    tx: Sender<Arm<ActionMessage<I>>>,
     name: &'static str,
 }
 
-impl<I> Director<I> {
+impl<I> ActionSender<I> {
     pub fn name(&self) -> &'static str {
         &self.name
     }
 
-    pub fn clone_with_name(&self, name: &'static str) -> Director<I> {
-        Director {
+    pub fn clone_with_name(&self, name: &'static str) -> ActionSender<I> {
+        ActionSender {
             tx: self.tx.clone(),
             name,
         }
     }
 }
 
-impl<I> Clone for Director<I> {
-    fn clone(&self) -> Director<I> {
-        Director {
+impl<I> Clone for ActionSender<I> {
+    fn clone(&self) -> ActionSender<I> {
+        ActionSender {
             tx: self.tx.clone(),
             name: self.name,
         }
     }
 }
 
-impl<I> Director<I> {
-    pub fn act<O, F>(&self, action: F) -> ActorFuture<I, O>
+pub trait Actor<I> {
+    fn act<O, F>(&self, action: F) -> ActionFuture<I, O>
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut I) -> O + Send + Sync + 'static;
+
+    fn wait<O, F>(&self, action: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut I) -> O + Send + Sync + 'static,
+    {
+        block_on(self.act(action))
+    }
+}
+
+impl<I> Actor<I> for ActionSender<I> {
+    fn act<O, F>(&self, action: F) -> ActionFuture<I, O>
     where
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
@@ -112,164 +100,149 @@ impl<I> Director<I> {
             *output_in_fn.lock().unwrap() = Some(out);
         };
 
-        let shared_state = SharedState {
+        let message = ActionMessage {
             waker: None,
-            command: Some(Command::Act(Box::new(action))),
-            sender_handle: Handle::Director(self.name),
+            action: Some(Box::new(action)),
+            sender_handle: self.name,
         };
-        let shared_state = Arc::new(Mutex::new(shared_state));
+        let message = Arc::new(Mutex::new(message));
 
-        self.tx
-            .try_send(shared_state.clone())
-            .unwrap_or_else(|err| panic!("Director {} could not send action: {}", self.name, err));
+        self.tx.try_send(message.clone()).unwrap_or_else(|err| {
+            panic!(
+                "Action sender {} could not send message: {}",
+                self.name, err
+            )
+        });
 
-        ActorFuture {
-            shared_state,
-            output,
+        ActionFuture { message, output }
+    }
+}
+
+pub struct ActionReceiver<I> {
+    rx: Receiver<Arm<ActionMessage<I>>>,
+}
+
+impl<I> ActionReceiver<I> {
+    pub async fn get_message(&mut self) -> Arm<ActionMessage<I>> {
+        self.rx
+            .recv()
+            .await
+            .unwrap_or_else(|err| panic!("Action receiver could not receive message: {}", err))
+    }
+}
+
+trait PrivateActionMessageExt<I> {
+    fn take_action(&self) -> Option<Box<Action<I, ()>>>;
+    fn try_wake(&self);
+}
+
+impl<I> PrivateActionMessageExt<I> for Arm<ActionMessage<I>> {
+    fn take_action(&self) -> Option<Box<Action<I, ()>>> {
+        let mut message = self.lock().unwrap();
+        message.action.take()
+    }
+
+    fn try_wake(&self) {
+        let mut message = self.lock().unwrap();
+        message.try_wake()
+    }
+}
+
+pub trait ActionMessageExt<I> {
+    fn act(&mut self, input: &mut I);
+}
+
+impl<I> ActionMessageExt<I> for Arm<ActionMessage<I>> {
+    fn act(&mut self, input: &mut I) {
+        if let Some(function) = self.take_action() {
+            function(input);
+            self.try_wake();
+        }
+    }
+}
+
+pub fn action_channel<I>() -> (ActionSender<I>, ActionReceiver<I>) {
+    let (tx, rx) = unbounded();
+    (ActionSender { tx, name: "root" }, ActionReceiver { rx })
+}
+
+#[derive(Clone)]
+struct TestActor<I> {
+    state: Arm<Option<I>>,
+}
+
+impl<I> TestActor<I> {
+    pub fn new(state: I) -> TestActor<I> {
+        TestActor {
+            state: Arc::new(Mutex::new(Some(state))),
         }
     }
 
-    pub fn wait<O, F>(&self, action: F) -> O
+    pub fn take(&self) -> I {
+        self.state.lock().unwrap().take().unwrap()
+    }
+}
+
+impl<I> Actor<I> for TestActor<I> {
+    fn act<O, F>(&self, action: F) -> ActionFuture<I, O>
     where
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
     {
-        block_on(self.act(action))
-    }
-}
+        let output = action(self.state.lock().unwrap().as_mut().unwrap());
 
-pub struct Terminator<I> {
-    tx: Sender<Arm<SharedState<I>>>,
-}
-
-impl<I> Terminator<I> {
-    pub fn terminate(self) -> ActorFuture<I, I> {
-        let output = Arc::new(Mutex::new(None));
-
-        let shared_state = SharedState {
-            waker: None,
-            command: Some(Command::Terminate(output.clone())),
-            sender_handle: Handle::Terminator,
-        };
-        let shared_state = Arc::new(Mutex::new(shared_state));
-
-        self.tx
-            .try_send(shared_state.clone())
-            .unwrap_or_else(|err| panic!("Could not terminate: {}", err));
-
-        ActorFuture {
-            shared_state,
-            output,
-        }
-    }
-
-    pub fn terminate_and_wait(self) -> I {
-        block_on(self.terminate())
-    }
-}
-
-pub struct Actor<I> {
-    state: I,
-    tx: Sender<Arm<SharedState<I>>>,
-    rx: Receiver<Arm<SharedState<I>>>,
-}
-
-impl<I> Actor<I> {
-    pub fn new(state: I) -> (Actor<I>, Terminator<I>) {
-        let (tx, rx) = unbounded();
-        let terminator = Terminator { tx: tx.clone() };
-        (Actor { state, tx, rx }, terminator)
-    }
-
-    pub fn director(&self, handle: &'static str) -> Director<I> {
-        Director {
-            tx: self.tx.clone(),
-            name: handle,
-        }
-    }
-
-    pub async fn run(mut self) {
-        loop {
-            let state = self.rx.recv().await.unwrap();
-            if let Some(command) = state.take_command() {
-                match command {
-                    Command::Act(action) => {
-                        action(&mut self.state);
-                        state.try_wake();
-                    }
-                    Command::Terminate(output) => {
-                        *output.lock().unwrap() = Some(self.state);
-                        state.try_wake();
-                        return;
-                    }
-                }
-            }
+        ActionFuture {
+            message: Arc::new(Mutex::new(ActionMessage {
+                action: None,
+                waker: None,
+                sender_handle: "test_actor",
+            })),
+            output: Arc::new(Mutex::new(Some(output))),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
-    use futures::executor::ThreadPoolBuilder;
-    use std::time::{Duration, Instant};
+    use std::thread;
 
-    fn test(actor_count: usize, pool_size: usize) {
-        let max_wait = Duration::from_secs(10);
-        let directions = 10;
-
-        let mut actors = vec![];
-        let mut terminators = vec![];
-        let mut spawning_directors = vec![];
-        let mut waiting_directors = vec![];
-
-        for _ in 0..actor_count {
-            let (actor, terminator) = Actor::new(0usize);
-            spawning_directors.push(actor.director(""));
-            waiting_directors.push(actor.director(""));
-            actors.push(actor);
-            terminators.push(terminator);
+    #[test]
+    fn action_sender() {
+        struct State {
+            value: usize,
+            run: bool,
         }
 
-        let pool = ThreadPoolBuilder::new()
-            .pool_size(pool_size)
-            .name_prefix("pool")
-            .create()
-            .unwrap();
-        for actor in actors {
-            pool.spawn_ok(actor.run());
-        }
+        let mut state = State {
+            value: 100,
+            run: true,
+        };
 
-        for _ in 0..directions {
-            for (_, director) in spawning_directors.iter().enumerate() {
-                let director = director.clone();
-                pool.spawn_ok(async move {
-                    director.act(move |value| *value += 1);
-                });
+        let (tx, mut rx) = action_channel();
+
+        let handle = thread::spawn(move || {
+            while state.run {
+                block_on(rx.get_message()).act(&mut state);
             }
-        }
+            state.value
+        });
 
-        let start = Instant::now();
-        for director in waiting_directors.iter_mut() {
-            while director.wait(move |value| *value < directions) {
-                if start.elapsed() > max_wait {
-                    panic!("Still waiting after {:?}", max_wait);
-                }
-            }
-        }
+        tx.wait(|state| state.value += 1);
+        assert_eq!(tx.wait(|state| state.value), 101);
 
-        for terminator in terminators {
-            assert_eq!(terminator.terminate_and_wait(), directions);
-        }
+        tx.wait(|state| state.run = false);
+        assert_eq!(handle.join().unwrap(), 101);
     }
 
     #[test]
-    fn test_single_threaded() {
-        test(8, 1);
-    }
+    fn test_actor() {
+        let actor = TestActor::new(100usize);
 
-    #[test]
-    fn test_multi_threaded() {
-        test(8, 2);
+        actor.wait(|value| *value += 1);
+
+        assert_eq!(actor.wait(|value| *value), 101);
+        assert_eq!(actor.take(), 101);
     }
 }
