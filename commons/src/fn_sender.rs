@@ -1,4 +1,5 @@
 use crate::Arm;
+use async_trait::async_trait;
 use async_channel::{unbounded, Receiver, Sender};
 use futures::executor::block_on;
 use std::future::Future;
@@ -10,7 +11,7 @@ pub type MessageFn<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
 
 pub struct FnMessage<I> {
     function: Option<Box<MessageFn<I, ()>>>,
-    waker: Option<Waker>,
+    waker: Arm<Option<Waker>>,
     sender_handle: &'static str,
 }
 
@@ -20,69 +21,57 @@ impl<I> FnMessage<I> {
     }
 
     fn try_wake(&mut self) {
-        if let Some(waker) = self.waker.take() {
+        let mut waker = self.waker.lock().unwrap();
+        if let Some(waker) = waker.take() {
             waker.wake()
         }
     }
 }
 
-trait PrivateFnMessageExt<I> {
-    fn take_function(&self) -> Option<Box<MessageFn<I, ()>>>;
-    fn try_wake(&self);
-}
-
-impl<I> PrivateFnMessageExt<I> for Arm<FnMessage<I>> {
-    fn take_function(&self) -> Option<Box<MessageFn<I, ()>>> {
-        let mut message = self.lock().unwrap();
-        message.function.take()
-    }
-
-    fn try_wake(&self) {
-        let mut message = self.lock().unwrap();
-        message.try_wake()
-    }
-}
 
 pub trait FnMessageExt<I> {
     fn apply(&mut self, input: &mut I);
 }
 
-impl<I> FnMessageExt<I> for Arm<FnMessage<I>> {
+impl<I> FnMessageExt<I> for FnMessage<I> {
     fn apply(&mut self, input: &mut I) {
-        if let Some(function) = self.take_function() {
+        if let Some(function) = self.function.take() {
             function(input);
             self.try_wake();
         }
     }
 }
 
-pub struct FnSenderFuture<I, O> {
-    message: Arm<FnMessage<I>>,
+pub struct FnSenderFuture<O> {
+    waker: Arm<Option<Waker>>,
     output: Arm<Option<O>>,
 }
 
-impl<I, O> Future for FnSenderFuture<I, O> {
+impl<O> Future for FnSenderFuture<O> {
     type Output = O;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<O> {
         if let Some(output) = self.output.lock().unwrap().take() {
             Poll::Ready(output)
         } else {
-            let mut message = self.message.lock().unwrap();
-            message.waker = Some(cx.waker().clone());
+            let mut waker = self.waker.lock().unwrap();
+            *waker = Some(cx.waker().clone());
             Poll::Pending
         }
     }
 }
 
+#[async_trait]
 pub trait FnSender<I> {
-    fn send<O, F>(&self, function: F) -> FnSenderFuture<I, O>
+    async fn send<O, F>(&self, function: F) -> O
     where
+        I: Send,
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static;
 
     fn wait<O, F>(&self, function: F) -> O
     where
+        I: Send,
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
     {
@@ -91,7 +80,7 @@ pub trait FnSender<I> {
 }
 
 pub struct FnMessageSender<I> {
-    tx: Sender<Arm<FnMessage<I>>>,
+    tx: Sender<FnMessage<I>>,
     name: &'static str,
 }
 
@@ -117,9 +106,11 @@ impl<I> Clone for FnMessageSender<I> {
     }
 }
 
+#[async_trait]
 impl<I> FnSender<I> for FnMessageSender<I> {
-    fn send<O, F>(&self, function: F) -> FnSenderFuture<I, O>
+    async fn send<O, F>(&self, function: F) -> O
     where
+        I: Send,
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
     {
@@ -130,30 +121,31 @@ impl<I> FnSender<I> for FnMessageSender<I> {
             *output_in_fn.lock().unwrap() = Some(out);
         };
 
+        let waker = Arc::new(Mutex::new(None));
+
         let message = FnMessage {
-            waker: None,
             function: Some(Box::new(function)),
+            waker: waker.clone(),
             sender_handle: self.name,
         };
-        let message = Arc::new(Mutex::new(message));
 
-        self.tx.try_send(message.clone()).unwrap_or_else(|err| {
+        self.tx.try_send(message).unwrap_or_else(|err| {
             panic!(
                 "Function sender {} could not send message: {}",
                 self.name, err
             )
         });
 
-        FnSenderFuture { message, output }
+        FnSenderFuture { waker, output }.await
     }
 }
 
 pub struct FnMessageReceiver<I> {
-    rx: Receiver<Arm<FnMessage<I>>>,
+    rx: Receiver<FnMessage<I>>,
 }
 
 impl<I> FnMessageReceiver<I> {
-    pub async fn get_message(&mut self) -> Arm<FnMessage<I>> {
+    pub async fn get_message(&mut self) -> FnMessage<I> {
         self.rx
             .recv()
             .await
@@ -186,22 +178,15 @@ impl<I> TestSender<I> {
     }
 }
 
+#[async_trait]
 impl<I> FnSender<I> for TestSender<I> {
-    fn send<O, F>(&self, function: F) -> FnSenderFuture<I, O>
+    async fn send<O, F>(&self, function: F) -> O
     where
+        I: Send,
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
     {
-        let output = function(self.state.lock().unwrap().as_mut().unwrap());
-
-        FnSenderFuture {
-            message: Arc::new(Mutex::new(FnMessage {
-                function: None,
-                waker: None,
-                sender_handle: "test sender",
-            })),
-            output: Arc::new(Mutex::new(Some(output))),
-        }
+        function(self.state.lock().unwrap().as_mut().unwrap())
     }
 }
 
