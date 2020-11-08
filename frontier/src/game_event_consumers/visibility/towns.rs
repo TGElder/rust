@@ -6,23 +6,29 @@ use isometric::Event;
 use std::sync::Arc;
 
 use crate::actors::Visibility;
-use commons::async_update::UpdateSender;
+use commons::actor::Direct;
 
 const HANDLE: &str = "visibility_from_towns";
 
-pub struct VisibilityFromTowns {
-    tx: UpdateSender<Visibility>,
+pub struct VisibilityFromTowns<D>
+where
+    D: Direct<Visibility>,
+{
+    tx: D,
 }
 
-impl VisibilityFromTowns {
-    pub fn new(tx: &UpdateSender<Visibility>) -> VisibilityFromTowns {
+impl<D> VisibilityFromTowns<D>
+where
+    D: Direct<Visibility> + Clone,
+{
+    pub fn new(tx: &D) -> VisibilityFromTowns<D> {
         VisibilityFromTowns { tx: tx.clone() }
     }
 
     fn tick(&mut self, game_state: &GameState) {
         let visited = town_visited_cells(game_state).collect();
         self.tx
-            .update(|visibility| visibility.check_visibility_and_reveal(visited));
+            .act(|visibility| visibility.check_visibility_and_reveal(visited));
     }
 }
 
@@ -35,7 +41,10 @@ fn town_visited_cells<'a>(game_state: &'a GameState) -> impl Iterator<Item = V2<
         .flat_map(move |(position, _)| world.get_corners_in_bounds(position))
 }
 
-impl GameEventConsumer for VisibilityFromTowns {
+impl<D> GameEventConsumer for VisibilityFromTowns<D>
+where
+    D: Direct<Visibility> + Clone + Send,
+{
     fn name(&self) -> &'static str {
         HANDLE
     }

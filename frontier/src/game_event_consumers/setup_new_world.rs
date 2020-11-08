@@ -7,7 +7,7 @@ use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
-use commons::async_update::UpdateSender as AsyncUpdateSender; // TODO remove aliasing after removing other type
+use commons::actor::Direct;
 use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::update::UpdateSender;
@@ -19,16 +19,19 @@ use std::sync::Arc;
 const AVATAR_NAME: &str = "avatar";
 const HANDLE: &str = "setup_homelands";
 
-pub struct SetupNewWorld {
+pub struct SetupNewWorld<D>
+where
+    D: Direct<Visibility>,
+{
     game_tx: UpdateSender<Game>,
-    visibility_tx: AsyncUpdateSender<Visibility>,
+    visibility_tx: D,
 }
 
-impl SetupNewWorld {
-    pub fn new(
-        game_tx: &UpdateSender<Game>,
-        visibility_tx: &AsyncUpdateSender<Visibility>,
-    ) -> SetupNewWorld {
+impl<D> SetupNewWorld<D>
+where
+    D: Direct<Visibility> + Clone,
+{
+    pub fn new(game_tx: &UpdateSender<Game>, visibility_tx: &D) -> SetupNewWorld<D> {
         SetupNewWorld {
             game_tx: game_tx.clone_with_handle(HANDLE),
             visibility_tx: visibility_tx.clone(),
@@ -49,7 +52,7 @@ impl SetupNewWorld {
 
         let visited = get_visited_positions(&homeland_starts);
         self.visibility_tx
-            .update(|visibility| visibility.check_visibility_and_reveal(visited));
+            .act(|visibility| visibility.check_visibility_and_reveal(visited));
     }
 }
 
@@ -170,7 +173,10 @@ fn setup_game(
     game_state.selected_avatar = Some(AVATAR_NAME.to_string());
 }
 
-impl GameEventConsumer for SetupNewWorld {
+impl<D> GameEventConsumer for SetupNewWorld<D>
+where
+    D: Direct<Visibility> + Clone + Send,
+{
     fn name(&self) -> &'static str {
         HANDLE
     }
