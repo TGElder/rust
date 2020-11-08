@@ -12,11 +12,11 @@ pub extern crate num;
 pub extern crate rand;
 extern crate serde;
 
-pub mod actor;
 pub mod almost;
 pub mod barycentric;
 pub mod edge;
 pub mod equalize;
+pub mod fn_sender;
 pub mod grid;
 pub mod hub;
 pub mod index2d;

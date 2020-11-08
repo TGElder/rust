@@ -6,20 +6,20 @@ use isometric::Event;
 use std::sync::Arc;
 
 use crate::actors::Visibility;
-use commons::actor::Actor;
+use commons::fn_sender::FnSender;
 
 const HANDLE: &str = "visibility_from_towns";
 
 pub struct VisibilityFromTowns<D>
 where
-    D: Actor<Visibility>,
+    D: FnSender<Visibility>,
 {
     tx: D,
 }
 
 impl<D> VisibilityFromTowns<D>
 where
-    D: Actor<Visibility> + Clone,
+    D: FnSender<Visibility> + Clone,
 {
     pub fn new(tx: &D) -> VisibilityFromTowns<D> {
         VisibilityFromTowns { tx: tx.clone() }
@@ -28,7 +28,7 @@ where
     fn tick(&mut self, game_state: &GameState) {
         let visited = town_visited_cells(game_state).collect();
         self.tx
-            .act(|visibility| visibility.check_visibility_and_reveal(visited));
+            .send(|visibility| visibility.check_visibility_and_reveal(visited));
     }
 }
 
@@ -43,7 +43,7 @@ fn town_visited_cells<'a>(game_state: &'a GameState) -> impl Iterator<Item = V2<
 
 impl<D> GameEventConsumer for VisibilityFromTowns<D>
 where
-    D: Actor<Visibility> + Clone + Send,
+    D: FnSender<Visibility> + Clone + Send,
 {
     fn name(&self) -> &'static str {
         HANDLE
