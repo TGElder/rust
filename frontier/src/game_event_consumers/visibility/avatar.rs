@@ -1,7 +1,7 @@
 use crate::actors::Visibility;
 use crate::avatar::*;
 use crate::game::*;
-use commons::actor::Actor;
+use commons::fn_sender::FnSender;
 use commons::V2;
 use isometric::Event;
 use std::sync::Arc;
@@ -12,14 +12,14 @@ const HANDLE: &str = "visibility_from_avatar";
 
 pub struct VisibilityFromAvatar<D>
 where
-    D: Actor<Visibility>,
+    D: FnSender<Visibility>,
 {
     tx: D,
 }
 
 impl<D> VisibilityFromAvatar<D>
 where
-    D: Actor<Visibility> + Clone,
+    D: FnSender<Visibility> + Clone,
 {
     pub fn new(tx: &D) -> VisibilityFromAvatar<D> {
         VisibilityFromAvatar { tx: tx.clone() }
@@ -28,7 +28,7 @@ where
     fn tick(&mut self, game_state: &GameState, from: &u128, to: &u128) {
         let visited = avatar_visited(game_state, from, to).collect();
         self.tx
-            .act(|visibility| visibility.check_visibility_and_reveal(visited));
+            .send(|visibility| visibility.check_visibility_and_reveal(visited));
     }
 }
 
@@ -52,7 +52,7 @@ fn avatar_visited<'a>(
 
 impl<D> GameEventConsumer for VisibilityFromAvatar<D>
 where
-    D: Actor<Visibility> + Clone + Send,
+    D: FnSender<Visibility> + Clone + Send,
 {
     fn name(&self) -> &'static str {
         HANDLE
