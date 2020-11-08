@@ -1,6 +1,6 @@
 use crate::game::{Game, GameEvent};
 use crate::visibility_computer::VisibilityComputer;
-use commons::actor::{action_channel, Act, ActionReceiver, ActionSender};
+use commons::actor::{action_channel, ActionMessageExt, ActionReceiver, ActionSender};
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
 use commons::grid::Grid;

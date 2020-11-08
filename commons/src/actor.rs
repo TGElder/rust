@@ -26,23 +26,6 @@ impl<I> ActionMessage<I> {
     }
 }
 
-trait ActionMessageExt<I> {
-    fn take_action(&self) -> Option<Box<Action<I, ()>>>;
-    fn try_wake(&self);
-}
-
-impl<I> ActionMessageExt<I> for Arm<ActionMessage<I>> {
-    fn take_action(&self) -> Option<Box<Action<I, ()>>> {
-        let mut message = self.lock().unwrap();
-        message.action.take()
-    }
-
-    fn try_wake(&self) {
-        let mut message = self.lock().unwrap();
-        message.try_wake()
-    }
-}
-
 pub struct ActionFuture<I, O> {
     message: Arm<ActionMessage<I>>,
     output: Arm<Option<O>>,
@@ -125,7 +108,10 @@ impl<I> Actor<I> for ActionSender<I> {
         let message = Arc::new(Mutex::new(message));
 
         self.tx.try_send(message.clone()).unwrap_or_else(|err| {
-            panic!("Action sender {} could not send action: {}", self.name, err)
+            panic!(
+                "Action sender {} could not send message: {}",
+                self.name, err
+            )
         });
 
         ActionFuture { message, output }
@@ -138,15 +124,35 @@ pub struct ActionReceiver<I> {
 
 impl<I> ActionReceiver<I> {
     pub async fn get_message(&mut self) -> Arm<ActionMessage<I>> {
-        self.rx.recv().await.unwrap()
+        self.rx
+            .recv()
+            .await
+            .unwrap_or_else(|err| panic!("Action receiver could not receive message: {}", err))
     }
 }
 
-pub trait Act<I> {
+trait PrivateActionMessageExt<I> {
+    fn take_action(&self) -> Option<Box<Action<I, ()>>>;
+    fn try_wake(&self);
+}
+
+impl<I> PrivateActionMessageExt<I> for Arm<ActionMessage<I>> {
+    fn take_action(&self) -> Option<Box<Action<I, ()>>> {
+        let mut message = self.lock().unwrap();
+        message.action.take()
+    }
+
+    fn try_wake(&self) {
+        let mut message = self.lock().unwrap();
+        message.try_wake()
+    }
+}
+
+pub trait ActionMessageExt<I> {
     fn act(&mut self, input: &mut I);
 }
 
-impl<I> Act<I> for Arm<ActionMessage<I>> {
+impl<I> ActionMessageExt<I> for Arm<ActionMessage<I>> {
     fn act(&mut self, input: &mut I) {
         if let Some(function) = self.take_action() {
             function(input);
@@ -209,12 +215,12 @@ mod tests {
             run: bool,
         }
 
-        let (tx, mut rx) = action_channel();
-
         let mut state = State {
             value: 100,
             run: true,
         };
+
+        let (tx, mut rx) = action_channel();
 
         let handle = thread::spawn(move || {
             while state.run {
