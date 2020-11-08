@@ -14,7 +14,6 @@ extern crate serde;
 
 pub mod actor;
 pub mod almost;
-pub mod async_update;
 pub mod barycentric;
 pub mod edge;
 pub mod equalize;

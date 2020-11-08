@@ -1,12 +1,7 @@
 use crate::game::{Game, GameEvent};
 use crate::visibility_computer::VisibilityComputer;
+use commons::actor::{action_channel, ActionMessageExt, ActionReceiver, ActionSender};
 use commons::async_channel::{Receiver, RecvError};
-use commons::async_update::{
-    update_channel,
-    Process,
-    UpdateReceiver,
-    UpdateSender as AsyncUpdateSender, // TODO remove aliasing after removing other type
-};
 use commons::futures::future::FutureExt;
 use commons::grid::Grid;
 use commons::update::UpdateSender;
@@ -18,8 +13,8 @@ use std::collections::HashSet;
 const HANDLE: &str = "world_artist_actor";
 
 pub struct Visibility {
-    rx: UpdateReceiver<Visibility>,
-    tx: AsyncUpdateSender<Visibility>,
+    tx: ActionSender<Visibility>,
+    rx: ActionReceiver<Visibility>,
     game_rx: Receiver<GameEvent>,
     game_tx: UpdateSender<Game>,
     visibility_computer: VisibilityComputer,
@@ -46,10 +41,10 @@ impl WithElevation for Elevation {
 
 impl Visibility {
     pub fn new(game_rx: Receiver<GameEvent>, game_tx: &UpdateSender<Game>) -> Visibility {
-        let (tx, rx) = update_channel();
+        let (tx, rx) = action_channel();
         Visibility {
-            rx,
             tx,
+            rx,
             game_rx,
             game_tx: game_tx.clone_with_handle(HANDLE),
             visibility_computer: VisibilityComputer::default(),
@@ -59,7 +54,7 @@ impl Visibility {
         }
     }
 
-    pub fn tx(&self) -> &AsyncUpdateSender<Visibility> {
+    pub fn tx(&self) -> &ActionSender<Visibility> {
         &self.tx
     }
 
@@ -67,7 +62,7 @@ impl Visibility {
         while self.run {
             if self.elevations.is_some() {
                 select! {
-                    mut update = self.rx.get_update().fuse() => update.process(self),
+                    mut message = self.rx.get_message().fuse() => message.act(self),
                     event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
                 }
             } else {
