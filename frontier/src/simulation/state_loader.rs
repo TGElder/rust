@@ -1,8 +1,8 @@
 use super::*;
 
 use crate::game::*;
+use commons::fn_sender::{FnMessageSender, FnSender};
 use commons::index2d::Vec2D;
-use commons::update::*;
 use isometric::Event;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -10,13 +10,13 @@ use std::sync::Arc;
 const HANDLE: &str = "simulation_state_loader";
 
 pub struct SimulationStateLoader {
-    sim_tx: UpdateSender<Simulation>,
+    sim_tx: FnMessageSender<Simulation>,
 }
 
 impl SimulationStateLoader {
-    pub fn new(sim_tx: &UpdateSender<Simulation>) -> SimulationStateLoader {
+    pub fn new(sim_tx: &FnMessageSender<Simulation>) -> SimulationStateLoader {
         SimulationStateLoader {
-            sim_tx: sim_tx.clone_with_handle(HANDLE),
+            sim_tx: sim_tx.clone_with_name(HANDLE),
         }
     }
 
@@ -30,15 +30,15 @@ impl SimulationStateLoader {
             build_queue: BuildQueue::default(),
             paused: false,
         };
-        self.sim_tx.update(move |sim| sim.set_state(state));
+        self.sim_tx.send(move |sim| sim.set_state(state));
     }
 
     fn load(&mut self, path: String) {
-        self.sim_tx.update(move |sim| sim.load(&path));
+        self.sim_tx.send(move |sim| sim.load(&path));
     }
 
     fn init(&mut self) {
-        self.sim_tx.update(move |sim| sim.resume());
+        self.sim_tx.send(move |sim| sim.resume());
     }
 }
 
@@ -117,7 +117,7 @@ mod tests {
         let state = state_rx
             .recv_timeout(Duration::from_secs(10))
             .unwrap_or_else(|_| panic!("State not retrieved after 10 seconds"));
-        block_on(sim_tx.update(|sim| sim.shutdown()));
+        sim_tx.wait(|sim| sim.shutdown());
         handle.join().unwrap();
 
         // Then
@@ -186,7 +186,7 @@ mod tests {
         let retrieved = state_rx
             .recv_timeout(Duration::from_secs(10))
             .unwrap_or_else(|_| panic!("State not retrieved after 10 seconds"));
-        block_on(sim_tx.update(|sim| sim.shutdown()));
+        sim_tx.wait(|sim| sim.shutdown());
         handle.join().unwrap();
 
         // Then

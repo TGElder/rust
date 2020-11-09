@@ -1,8 +1,8 @@
 use crate::simulation::Simulation;
 use commons::async_channel::{Receiver, RecvError};
+use commons::fn_sender::{FnMessageSender, FnSender};
 use commons::futures::future::FutureExt;
 use commons::log::debug;
-use commons::update::UpdateSender;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
@@ -10,16 +10,16 @@ const HANDLE: &str = "pause_sim";
 
 pub struct PauseSim {
     engine_rx: Receiver<Arc<Event>>,
-    sim_tx: UpdateSender<Simulation>,
+    sim_tx: FnMessageSender<Simulation>,
     binding: Button,
     run: bool,
 }
 
 impl PauseSim {
-    pub fn new(engine_rx: Receiver<Arc<Event>>, sim_tx: &UpdateSender<Simulation>) -> PauseSim {
+    pub fn new(engine_rx: Receiver<Arc<Event>>, sim_tx: &FnMessageSender<Simulation>) -> PauseSim {
         PauseSim {
             engine_rx,
-            sim_tx: sim_tx.clone_with_handle(HANDLE),
+            sim_tx: sim_tx.clone_with_name(HANDLE),
             binding: Button::Key(VirtualKeyCode::Space),
             run: true,
         }
@@ -54,7 +54,7 @@ impl PauseSim {
     async fn pause(&mut self) {
         debug!("Pausing/resuming simulation");
         self.sim_tx
-            .update(move |sim| sim.toggle_paused_persistent())
+            .send(move |sim| sim.toggle_paused_persistent())
             .await;
         debug!("Paused/resumed simulation");
     }

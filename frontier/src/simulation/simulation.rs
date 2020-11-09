@@ -1,23 +1,21 @@
 use super::*;
 
-use commons::update::*;
+use commons::fn_sender::{fn_channel, FnMessageExt, FnMessageReceiver, FnMessageSender};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-
-const UPDATE_CHANNEL_BOUND: usize = 100;
 
 pub struct Simulation {
     processors: Vec<Box<dyn Processor + Send>>,
     state: Option<State>,
-    tx: UpdateSender<Simulation>,
-    rx: UpdateReceiver<Simulation>,
+    tx: FnMessageSender<Simulation>,
+    rx: FnMessageReceiver<Simulation>,
     paused: bool,
     run: bool,
 }
 
 impl Simulation {
     pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> Simulation {
-        let (tx, rx) = update_channel(UPDATE_CHANNEL_BOUND);
+        let (tx, rx) = fn_channel();
 
         Simulation {
             processors,
@@ -29,7 +27,7 @@ impl Simulation {
         }
     }
 
-    pub fn tx(&self) -> &UpdateSender<Simulation> {
+    pub fn tx(&self) -> &FnMessageSender<Simulation> {
         &self.tx
     }
 
@@ -62,8 +60,7 @@ impl Simulation {
     }
 
     fn process_updates(&mut self) {
-        let updates = self.rx.get_updates();
-        process_updates(updates, self);
+        self.rx.get_messages().apply(self);
     }
 
     async fn evolve_state(&mut self) {
@@ -120,6 +117,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::RouteKey;
     use commons::edge::Edge;
+    use commons::fn_sender::FnSender;
     use commons::futures::executor::block_on;
     use commons::index2d::Vec2D;
     use commons::v2;
@@ -159,7 +157,7 @@ mod tests {
             sim.set_state(State::default());
             let tx = sim.tx().clone();
             let handle = thread::spawn(move || block_on(sim.run()));
-            block_on(tx.update(|sim| sim.shutdown()));
+            tx.wait(|sim| sim.shutdown());
             handle.join().unwrap();
             done_2.store(true, Ordering::Relaxed);
         });
@@ -188,7 +186,7 @@ mod tests {
                 panic!("No step instruction received after 10 seconds");
             }
         }
-        block_on(tx.update(|sim| sim.shutdown()));
+        tx.wait(|sim| sim.shutdown());
         handle.join().unwrap();
     }
 
@@ -233,7 +231,7 @@ mod tests {
                 panic!("No GetTerritory instruction received after 10 seconds");
             }
         }
-        block_on(tx.update(|sim| sim.shutdown()));
+        tx.wait(|sim| sim.shutdown());
         handle.join().unwrap();
     }
 
@@ -254,7 +252,7 @@ mod tests {
             && (instructions_1.lock().unwrap().is_empty()
                 || instructions_2.lock().unwrap().is_empty())
         {}
-        block_on(tx.update(|sim| sim.shutdown()));
+        tx.wait(|sim| sim.shutdown());
         handle.join().unwrap();
 
         assert_eq!(instructions_1.lock().unwrap()[0], Instruction::Step);
@@ -270,7 +268,7 @@ mod tests {
         sim.set_state(State::default());
         let tx = sim.tx().clone();
 
-        tx.update(|sim| sim.shutdown());
+        tx.send(|sim| sim.shutdown());
         let handle = thread::spawn(move || block_on(sim.run()));
         handle.join().unwrap();
 
@@ -356,7 +354,7 @@ mod tests {
                 panic!("No GetTerritory instruction received after 10 seconds");
             }
         }
-        block_on(tx.update(|sim| sim.shutdown()));
+        tx.wait(|sim| sim.shutdown());
         handle.join().unwrap();
 
         // Then
@@ -407,7 +405,7 @@ mod tests {
                 }
             }
 
-            block_on(tx.update(|sim| sim.shutdown()));
+            tx.wait(|sim| sim.shutdown());
             handle.join().unwrap();
             done_2.store(true, Ordering::Relaxed);
         });
@@ -435,8 +433,8 @@ mod tests {
         });
 
         // When
-        block_on(tx.update(|_| {}));
-        block_on(tx.update(|sim| sim.shutdown()));
+        tx.wait(|_| {});
+        tx.wait(|sim| sim.shutdown());
 
         // Then
         let sim = handle.join().unwrap();
@@ -463,8 +461,8 @@ mod tests {
         });
 
         // When
-        block_on(tx.update(|_| {}));
-        block_on(tx.update(|sim| sim.shutdown()));
+        tx.wait(|_| {});
+        tx.wait(|sim| sim.shutdown());
 
         // Then
         let sim = handle.join().unwrap();
@@ -503,7 +501,7 @@ mod tests {
             }
         }
 
-        block_on(tx.update(|sim| sim.shutdown()));
+        tx.wait(|sim| sim.shutdown());
         handle.join().unwrap();
     }
 
@@ -525,8 +523,8 @@ mod tests {
         });
 
         // When
-        block_on(tx.update(|_| {}));
-        block_on(tx.update(|sim| sim.shutdown()));
+        tx.wait(|_| {});
+        tx.wait(|sim| sim.shutdown());
 
         // Then
         let sim = handle.join().unwrap();
@@ -566,7 +564,7 @@ mod tests {
             }
         }
 
-        block_on(tx.update(|sim| sim.shutdown()));
+        tx.wait(|sim| sim.shutdown());
         handle.join().unwrap();
     }
 }

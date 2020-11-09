@@ -1,6 +1,7 @@
 use crate::game::Game;
 use crate::simulation::Simulation;
 use commons::async_channel::{Receiver, RecvError};
+use commons::fn_sender::{FnMessageSender, FnSender};
 use commons::futures::future::FutureExt;
 use commons::log::debug;
 use commons::update::UpdateSender;
@@ -13,7 +14,7 @@ const PATH: &str = "save";
 pub struct Save {
     engine_rx: Receiver<Arc<Event>>,
     game_tx: UpdateSender<Game>,
-    sim_tx: UpdateSender<Simulation>,
+    sim_tx: FnMessageSender<Simulation>,
     binding: Button,
     path: String,
     run: bool,
@@ -23,12 +24,12 @@ impl Save {
     pub fn new(
         engine_rx: Receiver<Arc<Event>>,
         game_tx: &UpdateSender<Game>,
-        sim_tx: &UpdateSender<Simulation>,
+        sim_tx: &FnMessageSender<Simulation>,
     ) -> Save {
         Save {
             engine_rx,
             game_tx: game_tx.clone_with_handle(HANDLE),
-            sim_tx: sim_tx.clone_with_handle(HANDLE),
+            sim_tx: sim_tx.clone_with_name(HANDLE),
             binding: Button::Key(VirtualKeyCode::P),
             path: PATH.to_string(),
             run: true,
@@ -64,13 +65,13 @@ impl Save {
     async fn save(&mut self) {
         let path_for_sim = self.path.clone();
         let path_for_game = self.path.clone();
-        self.sim_tx.update(move |sim| sim.pause()).await;
+        self.sim_tx.send(move |sim| sim.pause()).await;
         debug!("Paused simulation");
-        self.sim_tx.update(move |sim| sim.save(&path_for_sim)).await;
+        self.sim_tx.send(move |sim| sim.save(&path_for_sim)).await;
         debug!("Saved simulation state");
         self.game_tx.update(|game| game.save(path_for_game)).await;
         debug!("Saved game state");
-        self.sim_tx.update(move |sim| sim.resume()).await;
+        self.sim_tx.send(move |sim| sim.resume()).await;
         debug!("Resumed simulation");
     }
 }
