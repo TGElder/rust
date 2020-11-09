@@ -40,6 +40,14 @@ impl<I> FnMessageExt<I> for FnMessage<I> {
     }
 }
 
+impl<I> FnMessageExt<I> for Vec<FnMessage<I>> {
+    fn apply(&mut self, input: &mut I) {
+        for message in self {
+            message.apply(input);
+        }
+    }
+}
+
 pub struct FnSenderFuture<O> {
     waker: Arm<Option<Waker>>,
     output: Arm<Option<O>>,
@@ -146,6 +154,14 @@ impl<I> FnMessageReceiver<I> {
             .recv()
             .await
             .unwrap_or_else(|err| panic!("Function receiver could not receive message: {}", err))
+    }
+
+    pub fn get_messages(&mut self) -> Vec<FnMessage<I>> {
+        let mut out = vec![];
+        while let Ok(update) = self.rx.try_recv() {
+            out.push(update);
+        }
+        out
     }
 }
 
