@@ -1,5 +1,4 @@
 use crate::Arm;
-use async_trait::async_trait;
 use async_channel::{unbounded, Receiver, Sender};
 use futures::executor::block_on;
 use std::future::Future;
@@ -27,7 +26,6 @@ impl<I> FnMessage<I> {
         }
     }
 }
-
 
 pub trait FnMessageExt<I> {
     fn apply(&mut self, input: &mut I);
@@ -61,9 +59,8 @@ impl<O> Future for FnSenderFuture<O> {
     }
 }
 
-#[async_trait]
 pub trait FnSender<I> {
-    async fn send<O, F>(&self, function: F) -> O
+    fn send<O, F>(&self, function: F) -> FnSenderFuture<O>
     where
         I: Send,
         O: Send + 'static,
@@ -106,9 +103,8 @@ impl<I> Clone for FnMessageSender<I> {
     }
 }
 
-#[async_trait]
 impl<I> FnSender<I> for FnMessageSender<I> {
-    async fn send<O, F>(&self, function: F) -> O
+    fn send<O, F>(&self, function: F) -> FnSenderFuture<O>
     where
         I: Send,
         O: Send + 'static,
@@ -136,7 +132,7 @@ impl<I> FnSender<I> for FnMessageSender<I> {
             )
         });
 
-        FnSenderFuture { waker, output }.await
+        FnSenderFuture { waker, output }
     }
 }
 
@@ -178,15 +174,19 @@ impl<I> TestSender<I> {
     }
 }
 
-#[async_trait]
 impl<I> FnSender<I> for TestSender<I> {
-    async fn send<O, F>(&self, function: F) -> O
+    fn send<O, F>(&self, function: F) -> FnSenderFuture<O>
     where
         I: Send,
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
     {
-        function(self.state.lock().unwrap().as_mut().unwrap())
+        let output = function(self.state.lock().unwrap().as_mut().unwrap());
+
+        FnSenderFuture {
+            waker: Arc::new(Mutex::new(None)),
+            output: Arc::new(Mutex::new(Some(output))),
+        }
     }
 }
 
