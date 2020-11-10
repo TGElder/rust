@@ -11,7 +11,7 @@ pub struct GetTownTraffic<G>
 where
     G: HasWorld + GetRoute + Settlements,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -48,9 +48,9 @@ impl<G> GetTownTraffic<G>
 where
     G: HasWorld + GetRoute + Settlements,
 {
-    pub fn new(game: &UpdateSender<G>) -> GetTownTraffic<G> {
+    pub fn new(game: &FnSender<G>) -> GetTownTraffic<G> {
         GetTownTraffic {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
@@ -60,7 +60,7 @@ where
         territory: HashSet<V2<usize>>,
     ) -> Vec<TownTrafficSummary> {
         self.game
-            .update(move |game| get_traffic_summaries(game, route_to_ports, territory))
+            .send(move |game| get_traffic_summaries(game, route_to_ports, territory))
             .await
     }
 }
@@ -173,10 +173,10 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::Route;
     use crate::world::World;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
     use commons::grid::Grid;
     use commons::same_elements;
-    use commons::update::UpdateProcess;
     use commons::{v2, M};
 
     use std::collections::{HashMap, HashSet};
@@ -268,7 +268,7 @@ mod tests {
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -296,7 +296,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -333,7 +333,7 @@ mod tests {
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -362,7 +362,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -399,7 +399,7 @@ mod tests {
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -428,7 +428,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -465,7 +465,7 @@ mod tests {
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -494,7 +494,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -549,7 +549,7 @@ mod tests {
         };
         add_route(route_key_2, route_2, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -577,7 +577,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -632,7 +632,7 @@ mod tests {
         };
         add_route(route_key_2, route_2, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -670,7 +670,7 @@ mod tests {
         }
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -715,7 +715,7 @@ mod tests {
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -773,7 +773,7 @@ mod tests {
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -798,7 +798,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -835,7 +835,7 @@ mod tests {
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -863,7 +863,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -901,7 +901,7 @@ mod tests {
         add_route(route_key, route, &mut game.routes, &mut traffic);
         game.routes = hashmap! {}; // Removing route to create invalid state
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -926,7 +926,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -963,7 +963,7 @@ mod tests {
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -991,7 +991,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -1019,7 +1019,7 @@ mod tests {
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = GetTownTraffic::new(&game.tx());
 
         let state = State {
@@ -1044,6 +1044,6 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 }

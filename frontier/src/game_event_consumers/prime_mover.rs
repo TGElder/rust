@@ -42,17 +42,17 @@ pub struct PrimeMoverState {
 pub struct PrimeMover {
     params: PrimeMoverParams,
     binding: Button,
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     state: PrimeMoverState,
     active: bool,
     rng: SmallRng,
 }
 
 impl PrimeMover {
-    pub fn new(seed: u64, game_tx: &UpdateSender<Game>) -> PrimeMover {
+    pub fn new(seed: u64, game_tx: &FnSender<Game>) -> PrimeMover {
         PrimeMover {
             params: PrimeMoverParams::default(),
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             state: PrimeMoverState::default(),
             active: false,
             rng: SeedableRng::seed_from_u64(seed),
@@ -154,7 +154,7 @@ impl PrimeMover {
         let pause_at_start = self.params.pause_at_start_of_journey;
         let pause_at_end = self.params.pause_at_end_of_journey;
         let first = *unwrap_or!(positions.first(), return);
-        self.game_tx.update(move |game| {
+        self.game_tx.send(move |game| {
             add_avatar(game, key.to_string(), first, color, skin_color, load);
             walk_positions(
                 game,

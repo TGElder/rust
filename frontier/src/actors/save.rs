@@ -4,7 +4,6 @@ use commons::async_channel::{Receiver, RecvError};
 use commons::fn_sender::FnSender;
 use commons::futures::future::FutureExt;
 use commons::log::debug;
-use commons::update::UpdateSender;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
@@ -13,7 +12,7 @@ const PATH: &str = "save";
 
 pub struct Save {
     engine_rx: Receiver<Arc<Event>>,
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     sim_tx: FnSender<Simulation>,
     binding: Button,
     path: String,
@@ -23,12 +22,12 @@ pub struct Save {
 impl Save {
     pub fn new(
         engine_rx: Receiver<Arc<Event>>,
-        game_tx: &UpdateSender<Game>,
+        game_tx: &FnSender<Game>,
         sim_tx: &FnSender<Simulation>,
     ) -> Save {
         Save {
             engine_rx,
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             sim_tx: sim_tx.clone_with_name(HANDLE),
             binding: Button::Key(VirtualKeyCode::P),
             path: PATH.to_string(),
@@ -69,7 +68,7 @@ impl Save {
         debug!("Paused simulation");
         self.sim_tx.send(move |sim| sim.save(&path_for_sim)).await;
         debug!("Saved simulation state");
-        self.game_tx.update(|game| game.save(path_for_game)).await;
+        self.game_tx.send(|game| game.save(path_for_game)).await;
         debug!("Saved game state");
         self.sim_tx.send(move |sim| sim.resume()).await;
         debug!("Resumed simulation");

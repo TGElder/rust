@@ -1,25 +1,23 @@
 use super::*;
 
-use commons::fn_sender::FnSender;
-
 use crate::simulation::Simulation;
 
 const HANDLE: &str = "shutdown_handler";
 
 pub struct ShutdownHandler {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     sim_tx: FnSender<Simulation>,
     pool: ThreadPool,
 }
 
 impl ShutdownHandler {
     pub fn new(
-        game_tx: &UpdateSender<Game>,
+        game_tx: &FnSender<Game>,
         sim_tx: &FnSender<Simulation>,
         pool: ThreadPool,
     ) -> ShutdownHandler {
         ShutdownHandler {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             sim_tx: sim_tx.clone_with_name(HANDLE),
             pool,
         }
@@ -32,7 +30,7 @@ impl ShutdownHandler {
             println!("Waiting for simulation to shutdown...");
             sim_tx.send(|sim| sim.shutdown()).await;
             println!("Waiting for game to shutdown...");
-            game_tx.update(|game| game.shutdown());
+            game_tx.send(|game| game.shutdown());
         });
     }
 }

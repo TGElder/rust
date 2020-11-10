@@ -5,14 +5,14 @@ use isometric::{EventHandler, VirtualKeyCode};
 const HANDLE: &str = "rotate_handler";
 
 pub struct RotateHandler {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     engine_rotatehandler: EngineRotateHandler,
 }
 
 impl RotateHandler {
-    pub fn new(game_tx: &UpdateSender<Game>) -> RotateHandler {
+    pub fn new(game_tx: &FnSender<Game>) -> RotateHandler {
         RotateHandler {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             engine_rotatehandler: EngineRotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E),
         }
     }
@@ -36,7 +36,7 @@ impl GameEventConsumer for RotateHandler {
         let commands = self.engine_rotatehandler.handle_event(event);
         if !commands.is_empty() {
             self.game_tx
-                .update(move |game| game.send_engine_commands(commands));
+                .send(move |game| game.send_engine_commands(commands));
         }
         CaptureEvent::No
     }

@@ -22,7 +22,7 @@ impl Default for PathfinderAvatarBindings {
 }
 
 pub struct PathfindingAvatarControls {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pool: ThreadPool,
     world_coord: Option<WorldCoord>,
@@ -31,12 +31,12 @@ pub struct PathfindingAvatarControls {
 
 impl PathfindingAvatarControls {
     pub fn new(
-        game_tx: &UpdateSender<Game>,
+        game_tx: &FnSender<Game>,
         pathfinder: &Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
         pool: ThreadPool,
     ) -> PathfindingAvatarControls {
         PathfindingAvatarControls {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             pathfinder: pathfinder.clone(),
             pool,
             bindings: PathfinderAvatarBindings::default(),
@@ -50,14 +50,14 @@ impl PathfindingAvatarControls {
         let pathfinder = self.pathfinder.clone();
         self.pool.spawn_ok(async move {
             if let Some((name, stop_position, stop_micros)) =
-                game_tx.update(move |game| stop_selected_avatar(game)).await
+                game_tx.send(move |game| stop_selected_avatar(game)).await
             {
                 let positions = pathfinder
                     .read()
                     .unwrap()
                     .find_path(&[stop_position], &[to]);
                 if let Some(positions) = positions {
-                    game_tx.update(move |game| {
+                    game_tx.send(move |game| {
                         game.walk_positions(name, positions, stop_micros, None, None);
                     });
                 }
@@ -66,7 +66,7 @@ impl PathfindingAvatarControls {
     }
 
     fn stop(&mut self) {
-        self.pool.spawn_ok(self.game_tx.update(move |game| {
+        self.pool.spawn_ok(self.game_tx.send(move |game| {
             stop_selected_avatar(game);
         }));
     }

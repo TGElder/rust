@@ -18,27 +18,27 @@ impl Default for SpeedControlBindings {
 }
 
 pub struct SpeedControl {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     bindings: SpeedControlBindings,
 }
 
 impl SpeedControl {
-    pub fn new(game_tx: &UpdateSender<Game>) -> SpeedControl {
+    pub fn new(game_tx: &FnSender<Game>) -> SpeedControl {
         SpeedControl {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             bindings: SpeedControlBindings::default(),
         }
     }
 
     fn slow_down(&mut self) {
-        self.game_tx.update(move |game: &mut Game| {
+        self.game_tx.send(move |game: &mut Game| {
             game.mut_state().speed /= 2.0;
             println!("speed = {}", game.game_state().speed);
         });
     }
 
     fn speed_up(&mut self) {
-        self.game_tx.update(move |game: &mut Game| {
+        self.game_tx.send(move |game: &mut Game| {
             game.mut_state().speed *= 2.0;
             println!("speed = {}", game.game_state().speed);
         });

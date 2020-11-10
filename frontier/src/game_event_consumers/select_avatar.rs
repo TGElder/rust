@@ -4,18 +4,18 @@ use isometric::{Button, ElementState, VirtualKeyCode};
 const HANDLE: &str = "select_avatar";
 
 pub struct SelectAvatar {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
 }
 
 impl SelectAvatar {
-    pub fn new(game_tx: &UpdateSender<Game>) -> SelectAvatar {
+    pub fn new(game_tx: &FnSender<Game>) -> SelectAvatar {
         SelectAvatar {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
         }
     }
 
     fn select_avatar(&mut self, name: String) {
-        self.game_tx.update(move |game: &mut Game| {
+        self.game_tx.send(move |game: &mut Game| {
             game.mut_state().selected_avatar = Some(name);
         });
     }

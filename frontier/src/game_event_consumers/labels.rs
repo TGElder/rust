@@ -10,16 +10,16 @@ use std::io::{BufReader, BufWriter};
 const HANDLE: &str = "label_editor_handler";
 
 pub struct LabelEditorHandler {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     label_editor: LabelEditor,
     world_coord: Option<WorldCoord>,
     binding: Button,
 }
 
 impl LabelEditorHandler {
-    pub fn new(game_tx: &UpdateSender<Game>) -> LabelEditorHandler {
+    pub fn new(game_tx: &FnSender<Game>) -> LabelEditorHandler {
         LabelEditorHandler {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             label_editor: LabelEditor::new(HashMap::new()),
             world_coord: None,
             binding: Button::Key(VirtualKeyCode::L),
@@ -61,7 +61,7 @@ impl LabelEditorHandler {
         self.label_editor = LabelEditor::new(labels);
         let commands = self.label_editor.draw_all();
         self.game_tx
-            .update(move |game| game.send_engine_commands(commands));
+            .send(move |game| game.send_engine_commands(commands));
     }
 }
 
@@ -95,7 +95,7 @@ impl GameEventConsumer for LabelEditorHandler {
         let editor_commands = self.label_editor.handle_event(event.clone());
         if !editor_commands.is_empty() {
             self.game_tx
-                .update(move |game| game.send_engine_commands(editor_commands));
+                .send(move |game| game.send_engine_commands(editor_commands));
             return capture_if_keypress(event);
         }
         match *event {

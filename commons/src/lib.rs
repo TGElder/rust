@@ -26,7 +26,6 @@ pub mod perlin;
 pub mod rectangle;
 pub mod scale;
 mod unwrap_or;
-pub mod update;
 
 pub type M<T> = na::DMatrix<T>;
 pub type V2<T> = na::Vector2<T>;

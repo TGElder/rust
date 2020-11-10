@@ -8,15 +8,15 @@ use std::time::Duration;
 const HANDLE: &str = "town_builder";
 
 pub struct TownBuilder {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     binding: Button,
     world_coord: Option<WorldCoord>,
 }
 
 impl TownBuilder {
-    pub fn new(game_tx: &UpdateSender<Game>) -> TownBuilder {
+    pub fn new(game_tx: &FnSender<Game>) -> TownBuilder {
         TownBuilder {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             binding: Button::Key(VirtualKeyCode::H),
             world_coord: None,
         }
@@ -42,12 +42,12 @@ impl TownBuilder {
 
     fn add_town(&mut self, position: V2<usize>) {
         self.game_tx
-            .update(move |game| add_settlement(game, position));
+            .send(move |game| add_settlement(game, position));
     }
 
     fn remove_town(&mut self, position: V2<usize>) {
         self.game_tx
-            .update(move |game| game.remove_settlement(position));
+            .send(move |game| game.remove_settlement(position));
     }
 }
 

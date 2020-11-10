@@ -8,7 +8,7 @@ pub struct BuildSim<G>
 where
     G: Micros,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
     builders: Vec<Box<dyn Builder + Send>>,
 }
 
@@ -33,15 +33,15 @@ impl<G> BuildSim<G>
 where
     G: Micros,
 {
-    pub fn new(game: &UpdateSender<G>, builders: Vec<Box<dyn Builder + Send>>) -> BuildSim<G> {
+    pub fn new(game: &FnSender<G>, builders: Vec<Box<dyn Builder + Send>>) -> BuildSim<G> {
         BuildSim {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
             builders,
         }
     }
 
     async fn micros(&mut self) -> u128 {
-        self.game.update(|game| *game.micros()).await
+        self.game.send(|game| *game.micros()).await
     }
 
     async fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
@@ -66,8 +66,8 @@ mod tests {
     use super::*;
 
     use commons::edge::Edge;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::v2;
     use std::sync::{Arc, Mutex};
     struct BuildRetriever {
@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn should_hand_build_to_builder_if_when_elapsed() {
         // Given
-        let game = UpdateProcess::new(1000);
+        let game = FnThread::new(1000);
 
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn should_not_hand_build_to_builder_if_when_not_elapsed() {
         // Given
-        let game = UpdateProcess::new(1000);
+        let game = FnThread::new(1000);
 
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn should_order_builds_by_when() {
-        let game = UpdateProcess::new(1000);
+        let game = FnThread::new(1000);
 
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();

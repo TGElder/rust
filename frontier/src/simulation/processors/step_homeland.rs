@@ -8,7 +8,7 @@ pub struct StepHomeland<G>
 where
     G: Settlements,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -25,9 +25,9 @@ impl<G> StepHomeland<G>
 where
     G: Settlements,
 {
-    pub fn new(game: &UpdateSender<G>) -> StepHomeland<G> {
+    pub fn new(game: &FnSender<G>) -> StepHomeland<G> {
         StepHomeland {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
@@ -47,7 +47,7 @@ where
 
     async fn get_homeland_positions(&mut self) -> Vec<V2<usize>> {
         self.game
-            .update(|settlements| get_homeland_positions(settlements))
+            .send(|settlements| get_homeland_positions(settlements))
             .await
     }
 }
@@ -66,8 +66,8 @@ mod tests {
     use super::*;
 
     use crate::settlement::{SettlementClass, SettlementClass::Town};
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::{same_elements, v2};
     use std::collections::HashMap;
 
@@ -85,7 +85,7 @@ mod tests {
         let mut settlements = HashMap::new();
         settlements.insert(v2(1, 1), settlement(Homeland, v2(1, 1)));
         settlements.insert(v2(2, 2), settlement(Homeland, v2(2, 2)));
-        let game = UpdateProcess::new(settlements);
+        let game = FnThread::new(settlements);
 
         let mut processor = StepHomeland::new(&game.tx());
 
@@ -104,7 +104,7 @@ mod tests {
         ));
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
         let mut settlements = HashMap::new();
         settlements.insert(v2(1, 1), settlement(Town, v2(1, 1)));
         settlements.insert(v2(2, 2), settlement(Homeland, v2(2, 2)));
-        let game = UpdateProcess::new(settlements);
+        let game = FnThread::new(settlements);
 
         let mut processor = StepHomeland::new(&game.tx());
 
@@ -130,6 +130,6 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 }

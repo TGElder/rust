@@ -10,7 +10,6 @@ use crate::world::World;
 use commons::fn_sender::FnSender;
 use commons::grid::Grid;
 use commons::rand::prelude::*;
-use commons::update::UpdateSender;
 use commons::V2;
 use isometric::{Color, Event};
 use std::collections::{HashMap, HashSet};
@@ -20,17 +19,14 @@ const AVATAR_NAME: &str = "avatar";
 const HANDLE: &str = "setup_homelands";
 
 pub struct SetupNewWorld {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     visibility_tx: FnSender<Visibility>,
 }
 
 impl SetupNewWorld {
-    pub fn new(
-        game_tx: &UpdateSender<Game>,
-        visibility_tx: &FnSender<Visibility>,
-    ) -> SetupNewWorld {
+    pub fn new(game_tx: &FnSender<Game>, visibility_tx: &FnSender<Visibility>) -> SetupNewWorld {
         SetupNewWorld {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             visibility_tx: visibility_tx.clone_with_name(HANDLE),
         }
     }
@@ -45,7 +41,7 @@ impl SetupNewWorld {
         let nations = gen_nations(&mut rng, &params);
         let settlements = gen_settlements(params, &homeland_starts, &nations);
         self.game_tx
-            .update(move |game| setup_game(game, avatars, nations, settlements));
+            .send(move |game| setup_game(game, avatars, nations, settlements));
 
         let visited = get_visited_positions(&homeland_starts);
         self.visibility_tx
