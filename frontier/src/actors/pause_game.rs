@@ -1,8 +1,8 @@
 use crate::game::Game;
 use commons::async_channel::{Receiver, RecvError};
+use commons::fn_sender::FnSender;
 use commons::futures::future::FutureExt;
 use commons::log::debug;
-use commons::update::UpdateSender;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
@@ -10,16 +10,16 @@ const HANDLE: &str = "pause_game";
 
 pub struct PauseGame {
     engine_rx: Receiver<Arc<Event>>,
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     binding: Button,
     run: bool,
 }
 
 impl PauseGame {
-    pub fn new(engine_rx: Receiver<Arc<Event>>, game_tx: &UpdateSender<Game>) -> PauseGame {
+    pub fn new(engine_rx: Receiver<Arc<Event>>, game_tx: &FnSender<Game>) -> PauseGame {
         PauseGame {
             engine_rx,
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             binding: Button::Key(VirtualKeyCode::Space),
             run: true,
         }
@@ -53,7 +53,7 @@ impl PauseGame {
 
     async fn pause(&mut self) {
         debug!("Pausing/resuming game");
-        self.game_tx.update(move |sim| toggle_pause(sim)).await;
+        self.game_tx.send(move |sim| toggle_pause(sim)).await;
         debug!("Paused/resumed game");
     }
 }

@@ -6,15 +6,15 @@ use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 const HANDLE: &str = "basic_road_builder";
 
 pub struct BasicRoadBuilder {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     travel_duration: Option<AutoRoadTravelDuration>,
     binding: Button,
 }
 
 impl BasicRoadBuilder {
-    pub fn new(game_tx: &UpdateSender<Game>) -> BasicRoadBuilder {
+    pub fn new(game_tx: &FnSender<Game>) -> BasicRoadBuilder {
         BasicRoadBuilder {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             travel_duration: None,
             binding: Button::Key(VirtualKeyCode::R),
         }
@@ -43,7 +43,7 @@ impl BasicRoadBuilder {
                         let result = RoadBuilderResult::new(vec![path[0], path[1]], mode);
                         let start_at = game_state.game_micros;
                         let name = name.clone();
-                        self.game_tx.update(move |game| {
+                        self.game_tx.send(move |game| {
                             game.update_roads(result);
                             game.walk_positions(name, path, start_at, None, None);
                         });

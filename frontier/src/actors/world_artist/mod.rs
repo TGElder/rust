@@ -6,8 +6,8 @@ use crate::artists::{Slab, WorldArtist};
 use crate::game::{Game, GameEvent};
 use coloring::world_coloring;
 use commons::async_channel::{unbounded, Receiver, RecvError, Sender as AsyncSender};
+use commons::fn_sender::FnSender;
 use commons::futures::future::FutureExt;
-use commons::update::UpdateSender;
 use commons::V2;
 use isometric::{Button, Command, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::collections::HashMap;
@@ -43,7 +43,7 @@ pub struct WorldArtistActor {
     tx: AsyncSender<Redraw>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     command_tx: Sender<Vec<Command>>,
     bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
@@ -56,7 +56,7 @@ impl WorldArtistActor {
     pub fn new(
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
-        game_tx: &UpdateSender<Game>,
+        game_tx: &FnSender<Game>,
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
     ) -> WorldArtistActor {
@@ -66,7 +66,7 @@ impl WorldArtistActor {
             tx,
             engine_rx,
             game_rx,
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             command_tx,
             bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},
@@ -107,7 +107,7 @@ impl WorldArtistActor {
 
     async fn when(&mut self) -> u128 {
         self.game_tx
-            .update(|game| game.game_state().game_micros)
+            .send(|game| game.game_state().game_micros)
             .await
     }
 
@@ -128,7 +128,7 @@ impl WorldArtistActor {
             commands,
         } = self
             .game_tx
-            .update(move |game| draw_slab(&game, world_artist, slab, territory_layer))
+            .send(move |game| draw_slab(&game, world_artist, slab, territory_layer))
             .await;
 
         self.last_redraw.insert(slab.from, generated_at);

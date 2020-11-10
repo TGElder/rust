@@ -11,7 +11,7 @@ where
     G: AddSettlement + WhoControlsTile,
     T: UpdateTerritory,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
     territory: T,
 }
 
@@ -44,16 +44,16 @@ where
     G: AddSettlement + WhoControlsTile,
     T: UpdateTerritory,
 {
-    pub fn new(game: &UpdateSender<G>, territory: &T) -> SettlementBuilder<G, T> {
+    pub fn new(game: &FnSender<G>, territory: &T) -> SettlementBuilder<G, T> {
         SettlementBuilder {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
             territory: territory.clone(),
         }
     }
 
     async fn try_add_settlement(&mut self, settlement: Settlement) -> bool {
         self.game
-            .update(move |game| try_add_settlement(game, settlement))
+            .send(move |game| try_add_settlement(game, settlement))
             .await
     }
 }
@@ -72,8 +72,8 @@ where
 mod tests {
     use super::*;
 
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::{v2, V2};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn can_build_settlement() {
         // Given
-        let game = UpdateProcess::new(Game::default());
+        let game = FnThread::new(Game::default());
         let builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
@@ -115,7 +115,7 @@ mod tests {
         assert!(can_build);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -126,12 +126,12 @@ mod tests {
             ..Settlement::default()
         };
         let game = Game::default();
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
         block_on(builder.build(Build::Settlement(settlement.clone())));
-        let game = game.shutdown();
+        let game = game.join();
 
         // Then
         assert_eq!(
@@ -152,12 +152,12 @@ mod tests {
             control,
             ..Game::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory());
 
         // When
         block_on(builder.build(Build::Settlement(settlement)));
-        let game = game.shutdown();
+        let game = game.join();
 
         // Then
         assert_eq!(game.settlements, hashmap! {},);
@@ -174,7 +174,7 @@ mod tests {
             add_settlement_return: true,
             ..Game::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let update_territory = update_territory();
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
 
@@ -185,7 +185,7 @@ mod tests {
         assert_eq!(*update_territory.lock().unwrap(), vec![v2(1, 2)]);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod tests {
             add_settlement_return: false,
             ..Game::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let update_territory = update_territory();
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
 
@@ -210,7 +210,7 @@ mod tests {
         assert_eq!(*update_territory.lock().unwrap(), vec![]);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -225,7 +225,7 @@ mod tests {
             control,
             ..Game::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let update_territory = update_territory();
         let mut builder = SettlementBuilder::new(&game.tx(), &update_territory);
 
@@ -236,6 +236,6 @@ mod tests {
         assert_eq!(*update_territory.lock().unwrap(), vec![]);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 }

@@ -1,8 +1,8 @@
 use crate::game::{CaptureEvent, CellSelection, Game, GameEvent, GameEventConsumer, GameState};
 use crate::settlement::SettlementClass;
 use crate::world::World;
+use commons::fn_sender::FnSender;
 use commons::grid::Grid;
-use commons::update::UpdateSender;
 use commons::{v2, V2};
 use isometric::Event;
 use line_drawing::WalkGrid;
@@ -12,13 +12,13 @@ use std::sync::Arc;
 const HANDLE: &str = "voyager";
 
 pub struct Voyager {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
 }
 
 impl Voyager {
-    pub fn new(game_tx: &UpdateSender<Game>) -> Voyager {
+    pub fn new(game_tx: &FnSender<Game>) -> Voyager {
         Voyager {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
         }
     }
 
@@ -34,7 +34,7 @@ impl Voyager {
     }
 
     fn reveal_cells(&mut self, revealed: Vec<V2<usize>>) {
-        self.game_tx.update(move |game| {
+        self.game_tx.send(move |game| {
             game.reveal_cells(revealed, HANDLE);
         });
     }

@@ -12,7 +12,7 @@ pub struct UpdateRouteToPorts<G>
 where
     G: CheckForPort + HasWorld,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -33,9 +33,9 @@ impl<G> UpdateRouteToPorts<G>
 where
     G: CheckForPort + HasWorld,
 {
-    pub fn new(game: &UpdateSender<G>) -> UpdateRouteToPorts<G> {
+    pub fn new(game: &FnSender<G>) -> UpdateRouteToPorts<G> {
         UpdateRouteToPorts {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
@@ -45,7 +45,7 @@ where
         route_changes: Vec<RouteChange>,
     ) -> State {
         self.game
-            .update(move |game| update_many_route_to_ports(game, state, route_changes))
+            .send(move |game| update_many_route_to_ports(game, state, route_changes))
             .await
     }
 }
@@ -110,8 +110,8 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::Route;
     use crate::world::World;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::{v2, M};
     use std::time::Duration;
 
@@ -160,7 +160,7 @@ mod tests {
             ports: hashset! {v2(0, 1), v2(1, 2)},
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -190,14 +190,14 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
     fn should_do_nothing_for_new_route_with_no_ports() {
         // Given
         let game = MockGame::default();
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -224,7 +224,7 @@ mod tests {
         assert_eq!(state.route_to_ports, hashmap! {});
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -234,7 +234,7 @@ mod tests {
             ports: hashset! {v2(0, 1), v2(1, 0), v2(1, 2)},
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -273,7 +273,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -283,7 +283,7 @@ mod tests {
             ports: hashset! {v2(1, 0)},
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -319,7 +319,7 @@ mod tests {
         assert_eq!(state.route_to_ports, hashmap! {});
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -329,7 +329,7 @@ mod tests {
             ports: hashset! {v2(0, 1), v2(1, 0), v2(1, 2)},
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -365,14 +365,14 @@ mod tests {
         assert_eq!(state.route_to_ports, hashmap! {});
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
     fn should_remove_entry_for_removed_route() {
         // Given
         let game = MockGame::default();
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -402,7 +402,7 @@ mod tests {
         assert_eq!(state.route_to_ports, hashmap! {});
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -412,7 +412,7 @@ mod tests {
             ports: hashset! {v2(0, 1), v2(1, 2)},
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let key_new = RouteKey {
             settlement: v2(0, 0),
@@ -465,6 +465,6 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 }

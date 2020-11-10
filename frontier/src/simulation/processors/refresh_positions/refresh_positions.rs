@@ -12,7 +12,7 @@ pub struct RefreshPositions<G>
 where
     G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -33,9 +33,9 @@ impl<G> RefreshPositions<G>
 where
     G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile,
 {
-    pub fn new(game: &UpdateSender<G>) -> RefreshPositions<G> {
+    pub fn new(game: &FnSender<G>) -> RefreshPositions<G> {
         RefreshPositions {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
@@ -54,7 +54,7 @@ where
     async fn refresh_positions(&mut self, state: State, positions: Vec<V2<usize>>) -> State {
         let initial_town_population = state.params.initial_town_population;
         self.game
-            .update(move |game| refresh_positions(game, state, positions, initial_town_population))
+            .send(move |game| refresh_positions(game, state, positions, initial_town_population))
             .await
     }
 }

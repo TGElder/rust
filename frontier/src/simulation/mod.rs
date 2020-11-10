@@ -24,7 +24,7 @@ pub use state_loader::*;
 use traffic::*;
 
 use commons::async_trait::async_trait;
-use commons::update::UpdateSender;
+use commons::fn_sender::FnSender;
 use commons::V2;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};

@@ -7,7 +7,7 @@ use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 const HANDLE: &str = "object_builder_handler";
 
 pub struct ObjectBuilder {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     rng: SmallRng,
     bindings: ObjectBuilderBindings,
     world_coord: Option<WorldCoord>,
@@ -19,9 +19,9 @@ struct ObjectBuilderBindings {
 }
 
 impl ObjectBuilder {
-    pub fn new(seed: u64, game_tx: &UpdateSender<Game>) -> ObjectBuilder {
+    pub fn new(seed: u64, game_tx: &FnSender<Game>) -> ObjectBuilder {
         ObjectBuilder {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             rng: SeedableRng::seed_from_u64(seed),
             bindings: ObjectBuilderBindings {
                 build_crop: Button::Key(VirtualKeyCode::F),
@@ -43,14 +43,14 @@ impl ObjectBuilder {
     fn build_object_at_cursor(&mut self, object: WorldObject) {
         if let Some(position) = self.get_position() {
             self.game_tx
-                .update(move |game| game.add_object(object, position));
+                .send(move |game| game.add_object(object, position));
         }
     }
 
     fn clear_object_at_cursor(&mut self) {
         if let Some(position) = self.get_position() {
             self.game_tx
-                .update(move |game| game.force_object(WorldObject::None, position));
+                .send(move |game| game.force_object(WorldObject::None, position));
         }
     }
 }

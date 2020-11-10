@@ -15,12 +15,12 @@ pub type MessageFn<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
 pub struct FnMessage<I> {
     function: Option<Box<MessageFn<I, ()>>>,
     waker: Arm<Option<Waker>>,
-    sender_handle: &'static str,
+    sender_name: &'static str,
 }
 
 impl<I> FnMessage<I> {
-    pub fn sender_handle(&self) -> &'static str {
-        &self.sender_handle
+    pub fn sender_name(&self) -> &'static str {
+        &self.sender_name
     }
 
     fn try_wake(&mut self) {
@@ -90,7 +90,6 @@ impl<I> FnSender<I> {
 
     pub fn send<O, F>(&self, function: F) -> FnSenderFuture<O>
     where
-        I: Send,
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + Sync + 'static,
     {
@@ -106,7 +105,7 @@ impl<I> FnSender<I> {
         let message = FnMessage {
             function: Some(Box::new(function)),
             waker: waker.clone(),
-            sender_handle: self.name,
+            sender_name: self.name,
         };
 
         self.tx.try_send(message).unwrap_or_else(|err| {

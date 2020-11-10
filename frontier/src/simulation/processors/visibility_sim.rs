@@ -17,7 +17,7 @@ where
 {
     tx: Sender<VisibilityMessage>,
     rx: Receiver<VisibilityMessage>,
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -50,12 +50,12 @@ impl<G> VisibilitySim<G>
 where
     G: VisiblePositions,
 {
-    pub fn new(game: &UpdateSender<G>) -> VisibilitySim<G> {
+    pub fn new(game: &FnSender<G>) -> VisibilitySim<G> {
         let (tx, rx) = channel();
         VisibilitySim {
             tx,
             rx,
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
@@ -72,7 +72,7 @@ where
     }
 
     async fn visible_land_positions(&mut self) -> usize {
-        self.game.update(|game| visible_land_positions(game)).await
+        self.game.send(|game| visible_land_positions(game)).await
     }
 }
 
@@ -155,17 +155,17 @@ mod tests {
 
     use crate::resource::Resource;
     use crate::route::RouteKey;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
     use commons::grid::Grid;
     use commons::same_elements;
-    use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashSet;
 
     #[test]
     fn should_refresh_positions_surrounding_revealed_cell_with_traffic() {
         // Given
-        let game = UpdateProcess::new(0);
+        let game = FnThread::new(0);
         let mut processor = VisibilitySim::new(&game.tx());
         let mut consumer = processor.consumer();
 
@@ -219,13 +219,13 @@ mod tests {
         ));
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
     fn should_not_refresh_positions_surrounding_revealed_cell_without_traffic() {
         // Given
-        let game = UpdateProcess::new(0);
+        let game = FnThread::new(0);
         let mut processor = VisibilitySim::new(&game.tx());
         let mut consumer = processor.consumer();
 
@@ -251,14 +251,14 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
     fn should_append_visible_land_positions_instruction_for_some_cell_selection() {
         // Given
         let visible_land_positions = 404;
-        let game = UpdateProcess::new(visible_land_positions);
+        let game = FnThread::new(visible_land_positions);
         let mut processor = VisibilitySim::new(&game.tx());
         let mut consumer = processor.consumer();
 
@@ -279,14 +279,14 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
     fn should_append_visible_land_positions_instruction_for_all_cell_selection() {
         // Given
         let visible_land_positions = 404;
-        let game = UpdateProcess::new(visible_land_positions);
+        let game = FnThread::new(visible_land_positions);
         let mut processor = VisibilitySim::new(&game.tx());
         let mut consumer = processor.consumer();
 
@@ -307,13 +307,13 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
     fn should_do_nothing_if_no_messages() {
         // Given
-        let game = UpdateProcess::new(0);
+        let game = FnThread::new(0);
         let mut processor = VisibilitySim::new(&game.tx());
 
         // When
@@ -323,6 +323,6 @@ mod tests {
         assert_eq!(state.instructions, vec![]);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 }

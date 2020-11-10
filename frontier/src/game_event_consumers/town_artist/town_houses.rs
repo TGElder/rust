@@ -6,13 +6,13 @@ use isometric::drawing::{draw_house, DrawHouseParams};
 const HANDLE: &str = "town_houses";
 
 pub struct TownHouses {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
 }
 
 impl TownHouses {
-    pub fn new(game_tx: &UpdateSender<Game>) -> TownHouses {
+    pub fn new(game_tx: &FnSender<Game>) -> TownHouses {
         TownHouses {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
         }
     }
 
@@ -54,7 +54,7 @@ impl TownHouses {
                 &position,
                 &draw_house_params,
             );
-            self.game_tx.update(move |game| {
+            self.game_tx.send(move |game| {
                 game.send_engine_commands(commands);
             });
         }
@@ -63,7 +63,7 @@ impl TownHouses {
     fn erase_settlement(&mut self, settlement: &Settlement) {
         let command = Command::Erase(get_name(settlement));
         self.game_tx
-            .update(move |game| game.send_engine_commands(vec![command]));
+            .send(move |game| game.send_engine_commands(vec![command]));
     }
 
     fn draw_all(&mut self, game_state: &GameState) {

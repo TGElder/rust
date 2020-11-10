@@ -11,7 +11,7 @@ where
     G: Controlled + Settlements,
     T: UpdateTerritory,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
     territory: T,
 }
 
@@ -49,22 +49,20 @@ where
     G: Controlled + Settlements,
     T: UpdateTerritory,
 {
-    pub fn new(game: &UpdateSender<G>, territory: &T) -> GetTerritory<G, T> {
+    pub fn new(game: &FnSender<G>, territory: &T) -> GetTerritory<G, T> {
         GetTerritory {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
             territory: territory.clone(),
         }
     }
 
     async fn settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
-        self.game
-            .update(move |game| settlement(game, position))
-            .await
+        self.game.send(move |game| settlement(game, position)).await
     }
 
     async fn territory(&mut self, settlement: V2<usize>) -> HashSet<V2<usize>> {
         self.game
-            .update(move |game| territory(game, settlement))
+            .send(move |game| territory(game, settlement))
             .await
     }
 }
@@ -88,8 +86,8 @@ mod tests {
     use super::*;
 
     use crate::settlement::SettlementClass::Homeland;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
@@ -125,7 +123,7 @@ mod tests {
             territory: territory.clone(),
             settlements,
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let updated_territory = Arc::new(Mutex::new(vec![]));
 
@@ -149,7 +147,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -165,7 +163,7 @@ mod tests {
             territory,
             settlements,
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let updated_territory = Arc::new(Mutex::new(vec![]));
 
@@ -180,7 +178,7 @@ mod tests {
         assert_eq!(state.instructions, vec![]);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -191,7 +189,7 @@ mod tests {
             territory,
             settlements,
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
 
         let updated_territory = Arc::new(Mutex::new(vec![]));
 
@@ -206,6 +204,6 @@ mod tests {
         assert_eq!(state.instructions, vec![]);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 }
