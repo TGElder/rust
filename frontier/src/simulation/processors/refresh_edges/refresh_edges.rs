@@ -15,7 +15,7 @@ where
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
     travel_duration: Arc<T>,
     pathfinder: Arc<RwLock<P>>,
 }
@@ -43,12 +43,12 @@ where
     P: UpdateEdge + Send + Sync + 'static,
 {
     pub fn new(
-        game: &UpdateSender<G>,
+        game: &FnSender<G>,
         travel_duration: T,
         pathfinder: &Arc<RwLock<P>>,
     ) -> RefreshEdges<G, T, P> {
         RefreshEdges {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
             travel_duration: Arc::new(travel_duration),
             pathfinder: pathfinder.clone(),
         }
@@ -66,7 +66,7 @@ where
         let travel_duration = self.travel_duration.clone();
         let pathfinder = self.pathfinder.clone();
         self.game
-            .update(move |game| refresh_edges(game, travel_duration, pathfinder, state, edges))
+            .send(move |game| refresh_edges(game, travel_duration, pathfinder, state, edges))
             .await
     }
 }

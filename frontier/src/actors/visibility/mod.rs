@@ -4,7 +4,6 @@ use commons::async_channel::{Receiver, RecvError};
 use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
 use commons::futures::future::FutureExt;
 use commons::grid::Grid;
-use commons::update::UpdateSender;
 use commons::{v2, M, V2};
 use isometric::cell_traits::WithElevation;
 use serde::{Deserialize, Serialize};
@@ -16,7 +15,7 @@ pub struct Visibility {
     tx: FnSender<Visibility>,
     rx: FnReceiver<Visibility>,
     game_rx: Receiver<GameEvent>,
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     visibility_computer: VisibilityComputer,
     state: VisibilityHandlerState,
     elevations: Option<M<Elevation>>,
@@ -40,13 +39,13 @@ impl WithElevation for Elevation {
 }
 
 impl Visibility {
-    pub fn new(game_rx: Receiver<GameEvent>, game_tx: &UpdateSender<Game>) -> Visibility {
+    pub fn new(game_rx: Receiver<GameEvent>, game_tx: &FnSender<Game>) -> Visibility {
         let (tx, rx) = fn_channel();
         Visibility {
             tx,
             rx,
             game_rx,
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             visibility_computer: VisibilityComputer::default(),
             state: VisibilityHandlerState { visited: None },
             elevations: None,
@@ -91,9 +90,8 @@ impl Visibility {
             .visibility_computer
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
-        self.game_tx.update(move |game: &mut Game| {
-            game.reveal_cells(visible.into_iter().collect(), HANDLE)
-        });
+        self.game_tx
+            .send(move |game: &mut Game| game.reveal_cells(visible.into_iter().collect(), HANDLE));
     }
 
     fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {
@@ -120,12 +118,12 @@ impl Visibility {
     }
 
     async fn init_visited(&mut self) {
-        let (width, height) = self.game_tx.update(|game| get_dimensions(game)).await;
+        let (width, height) = self.game_tx.send(|game| get_dimensions(game)).await;
         self.state.visited = Some(M::from_element(width, height, false));
     }
 
     async fn init_elevations(&mut self) {
-        self.elevations = Some(self.game_tx.update(|game| get_elevations(game)).await);
+        self.elevations = Some(self.game_tx.send(|game| get_elevations(game)).await);
     }
 }
 

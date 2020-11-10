@@ -22,15 +22,15 @@ impl Default for CheatBindings {
 }
 
 pub struct Cheats {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     bindings: CheatBindings,
     world_coord: Option<WorldCoord>,
 }
 
 impl Cheats {
-    pub fn new(game_tx: &UpdateSender<Game>) -> Cheats {
+    pub fn new(game_tx: &FnSender<Game>) -> Cheats {
         Cheats {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             bindings: CheatBindings::default(),
             world_coord: None,
         }
@@ -41,7 +41,7 @@ impl Cheats {
     }
 
     fn reveal_all(&mut self, _: &GameState) {
-        self.game_tx.update(move |game| {
+        self.game_tx.send(move |game| {
             game.reveal_all_cells(HANDLE);
         });
     }
@@ -66,7 +66,7 @@ impl Cheats {
 
     fn send_update_avatar_state_command(&mut self, name: &str, avatar_state: AvatarState) {
         let name = name.to_string();
-        self.game_tx.update(move |game| {
+        self.game_tx.send(move |game| {
             game.update_avatar_state(name.to_string(), avatar_state);
         });
     }

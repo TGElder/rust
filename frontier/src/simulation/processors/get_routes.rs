@@ -14,7 +14,7 @@ where
     P: ClosestTargets + InBounds + Send + Sync,
     Q: LowestDuration + Send + Sync,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
     route_pathfinder: Arc<RwLock<P>>,
     duration_pathfinder: Arc<RwLock<Q>>,
 }
@@ -53,19 +53,19 @@ where
     Q: LowestDuration + Send + Sync,
 {
     pub fn new(
-        game: &UpdateSender<G>,
+        game: &FnSender<G>,
         route_pathfinder: &Arc<RwLock<P>>,
         duration_pathfinder: &Arc<RwLock<Q>>,
     ) -> GetRoutes<G, P, Q> {
         GetRoutes {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
             route_pathfinder: route_pathfinder.clone(),
             duration_pathfinder: duration_pathfinder.clone(),
         }
     }
 
     async fn game_micros(&mut self) -> u128 {
-        self.game.update(|game| *game.micros()).await
+        self.game.send(|game| *game.micros()).await
     }
 
     fn closest_targets(&self, demand: &Demand) -> Vec<ClosestTargetResult> {
@@ -128,8 +128,8 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::{same_elements, v2};
     use std::collections::HashMap;
     use std::time::Duration;
@@ -182,7 +182,7 @@ mod tests {
         }
 
         // Given
-        let game = UpdateProcess::new(101);
+        let game = FnThread::new(101);
         let route_pathfinder = Arc::new(RwLock::new(MockRoutePathfinder {}));
         let duration_pathfinder = Arc::new(RwLock::new(MockDurationPathfinder {}));
         let mut processor = GetRoutes::new(&game.tx(), &route_pathfinder, &duration_pathfinder);
@@ -237,7 +237,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -269,7 +269,7 @@ mod tests {
         }
 
         // Given
-        let game = UpdateProcess::new(101);
+        let game = FnThread::new(101);
         let route_pathfinder = Arc::new(RwLock::new(MockRoutePathfinder {}));
         let duration_pathfinder = Arc::new(RwLock::new(MockDurationPathfinder {}));
         let mut processor = GetRoutes::new(&game.tx(), &route_pathfinder, &duration_pathfinder);
@@ -296,7 +296,7 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     struct PanicPathfinder {}
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn zero_source_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
-        let game = UpdateProcess::new(101);
+        let game = FnThread::new(101);
         let route_pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
         let duration_pathfinder = Arc::new(RwLock::new(MockDurationPathfinder {}));
         let mut processor = GetRoutes::new(&game.tx(), &route_pathfinder, &duration_pathfinder);
@@ -347,13 +347,13 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
     fn zero_quantity_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
-        let game = UpdateProcess::new(101);
+        let game = FnThread::new(101);
         let route_pathfinder = Arc::new(RwLock::new(PanicPathfinder {}));
         let duration_pathfinder = Arc::new(RwLock::new(MockDurationPathfinder {}));
         let mut processor = GetRoutes::new(&game.tx(), &route_pathfinder, &duration_pathfinder);
@@ -380,6 +380,6 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 }

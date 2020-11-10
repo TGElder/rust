@@ -11,7 +11,7 @@ pub struct GetRouteChanges<G>
 where
     G: Routes,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -39,9 +39,9 @@ impl<G> GetRouteChanges<G>
 where
     G: Routes,
 {
-    pub fn new(game: &UpdateSender<G>) -> GetRouteChanges<G> {
+    pub fn new(game: &FnSender<G>) -> GetRouteChanges<G> {
         GetRouteChanges {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
@@ -51,7 +51,7 @@ where
         route_set: RouteSet,
     ) -> Vec<RouteChange> {
         self.game
-            .update(move |game| update_routes_and_get_changes(game, key, route_set))
+            .send(move |game| update_routes_and_get_changes(game, key, route_set))
             .await
     }
 }
@@ -135,9 +135,9 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
     use commons::same_elements;
-    use commons::update::UpdateProcess;
     use commons::v2;
     use std::time::Duration;
 
@@ -166,7 +166,7 @@ mod tests {
             key => route.clone()
         };
 
-        let game = UpdateProcess::new(routes);
+        let game = FnThread::new(routes);
 
         // When
         let instruction = Instruction::GetRouteChanges {
@@ -184,7 +184,7 @@ mod tests {
                 route: route.clone()
             }])]
         );
-        let routes = game.shutdown();
+        let routes = game.join();
         assert_eq!(
             routes,
             hashmap! {
@@ -230,7 +230,7 @@ mod tests {
             key => new.clone()
         };
 
-        let game = UpdateProcess::new(routes);
+        let game = FnThread::new(routes);
 
         // When
         let instruction = Instruction::GetRouteChanges {
@@ -251,7 +251,7 @@ mod tests {
                 }
             ])]
         );
-        let routes = game.shutdown();
+        let routes = game.join();
         assert_eq!(
             routes,
             hashmap! {
@@ -289,7 +289,7 @@ mod tests {
             set_key => route_set.clone()
         };
 
-        let game = UpdateProcess::new(routes);
+        let game = FnThread::new(routes);
 
         // When
         let instruction = Instruction::GetRouteChanges {
@@ -306,7 +306,7 @@ mod tests {
                 RouteChange::NoChange { key, route }
             ])],
         );
-        let routes = game.shutdown();
+        let routes = game.join();
         assert_eq!(
             routes,
             hashmap! {
@@ -342,7 +342,7 @@ mod tests {
 
         let route_set = hashmap! {};
 
-        let game = UpdateProcess::new(routes);
+        let game = FnThread::new(routes);
 
         // When
         let instruction = Instruction::GetRouteChanges {
@@ -359,7 +359,7 @@ mod tests {
                 RouteChange::Removed { key, route }
             ])]
         );
-        let routes = game.shutdown();
+        let routes = game.join();
         assert_eq!(
             routes,
             hashmap! {
@@ -405,7 +405,7 @@ mod tests {
             key_2 => route_2.clone()
         };
 
-        let game = UpdateProcess::new(routes);
+        let game = FnThread::new(routes);
 
         // When
         let instruction = Instruction::GetRouteChanges {
@@ -433,7 +433,7 @@ mod tests {
                 }
             ]
         ));
-        let routes = game.shutdown();
+        let routes = game.join();
         assert_eq!(
             routes,
             hashmap! {

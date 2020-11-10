@@ -8,7 +8,7 @@ pub struct UpdateHomelandPopulation<G>
 where
     G: Settlements + UpdateSettlement,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -30,15 +30,15 @@ impl<G> UpdateHomelandPopulation<G>
 where
     G: Settlements + UpdateSettlement,
 {
-    pub fn new(game: &UpdateSender<G>) -> UpdateHomelandPopulation<G> {
+    pub fn new(game: &FnSender<G>) -> UpdateHomelandPopulation<G> {
         UpdateHomelandPopulation {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
     async fn update_homelands(&mut self, total_population: f64) {
         self.game
-            .update(move |game| update_homelands(game, total_population))
+            .send(move |game| update_homelands(game, total_population))
             .await
     }
 }
@@ -80,8 +80,8 @@ where
 mod tests {
     use super::*;
 
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::v2;
 
     #[test]
@@ -99,14 +99,14 @@ mod tests {
                 ..Settlement::default()
             },
         };
-        let game = UpdateProcess::new(settlements);
+        let game = FnThread::new(settlements);
         let mut processor = UpdateHomelandPopulation::new(&game.tx());
 
         // When
         block_on(processor.process(State::default(), &Instruction::VisibleLandPositions(202)));
 
         // Then
-        let actual = game.shutdown();
+        let actual = game.join();
         let expected = hashmap! {
             v2(0, 1) => Settlement{
                 position: v2(0, 1),

@@ -9,7 +9,7 @@ pub struct RoadBuilder<G>
 where
     G: BuildRoad,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -36,14 +36,14 @@ impl<G> RoadBuilder<G>
 where
     G: BuildRoad,
 {
-    pub fn new(game: &UpdateSender<G>) -> RoadBuilder<G> {
+    pub fn new(game: &FnSender<G>) -> RoadBuilder<G> {
         RoadBuilder {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
     async fn build_road(&mut self, road: Edge) {
-        self.game.update(move |game| build_road(game, road)).await
+        self.game.send(move |game| build_road(game, road)).await
     }
 }
 
@@ -58,14 +58,14 @@ where
 mod tests {
     use super::*;
 
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::v2;
 
     #[test]
     fn can_build_road() {
         // Given
-        let game = UpdateProcess::new(hashset! {});
+        let game = FnThread::new(hashset! {});
         let builder = RoadBuilder::new(&game.tx());
 
         // When
@@ -75,20 +75,20 @@ mod tests {
         assert!(can_build);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
     fn should_build_road() {
         // Given
-        let game = UpdateProcess::new(hashset! {});
+        let game = FnThread::new(hashset! {});
         let mut builder = RoadBuilder::new(&game.tx());
 
         // When
         block_on(builder.build(Build::Road(Edge::new(v2(1, 2), v2(1, 3)))));
 
         // Then
-        let roads = game.shutdown();
+        let roads = game.join();
         assert_eq!(roads, hashset! {Edge::new(v2(1, 2), v2(1, 3))});
     }
 }

@@ -11,7 +11,7 @@ const HANDLE: &str = "town_labels";
 const LABEL_FLOAT: f32 = 0.33;
 
 pub struct TownLabels {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     font: Arc<Font>,
     state: TownLabelState,
     binding: Button,
@@ -46,10 +46,10 @@ impl TownLabelState {
 }
 
 impl TownLabels {
-    pub fn new(game_tx: &UpdateSender<Game>) -> TownLabels {
+    pub fn new(game_tx: &FnSender<Game>) -> TownLabels {
         TownLabels {
             font: Arc::new(Font::from_file("resources/fonts/roboto_slab_20.fnt")),
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             state: TownLabelState::NameOnly,
             binding: Button::Key(VirtualKeyCode::L),
         }
@@ -102,13 +102,13 @@ impl TownLabels {
             -settlement.current_population as i32,
         );
         self.game_tx
-            .update(move |game| game.send_engine_commands(commands));
+            .send(move |game| game.send_engine_commands(commands));
     }
 
     fn erase_settlement(&mut self, settlement: &Settlement) {
         let command = Command::Erase(get_name(settlement));
         self.game_tx
-            .update(move |game| game.send_engine_commands(vec![command]));
+            .send(move |game| game.send_engine_commands(vec![command]));
     }
 
     fn draw_all(&mut self, game_state: &GameState) {

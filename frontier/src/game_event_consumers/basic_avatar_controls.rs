@@ -22,15 +22,15 @@ impl Default for BasicAvatarBindings {
 }
 
 pub struct BasicAvatarControls {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     travel_duration: Option<AvatarTravelDuration>,
     bindings: BasicAvatarBindings,
 }
 
 impl BasicAvatarControls {
-    pub fn new(game_tx: &UpdateSender<Game>) -> BasicAvatarControls {
+    pub fn new(game_tx: &FnSender<Game>) -> BasicAvatarControls {
         BasicAvatarControls {
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             travel_duration: None,
             bindings: BasicAvatarBindings::default(),
         }
@@ -85,7 +85,7 @@ impl BasicAvatarControls {
 
     fn send_update_avatar_state_command(&mut self, name: &str, avatar_state: AvatarState) {
         let name = name.to_string();
-        self.game_tx.update(move |game| {
+        self.game_tx.send(move |game| {
             game.update_avatar_state(name.to_string(), avatar_state);
         });
     }

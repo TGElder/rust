@@ -3,8 +3,8 @@ use super::*;
 use crate::game::traits::SetTerritory;
 use crate::pathfinder::traits::PositionsWithin;
 use commons::async_trait::async_trait;
+use commons::fn_sender::FnSender;
 use commons::get_corners;
-use commons::update::UpdateSender;
 use commons::V2;
 use std::sync::RwLock;
 use std::time::Duration;
@@ -21,7 +21,7 @@ where
     G: SetTerritory,
     P: PositionsWithin,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
     pathfinder: Arc<RwLock<P>>,
     duration: Duration,
 }
@@ -32,12 +32,12 @@ where
     P: PositionsWithin,
 {
     pub fn new(
-        game: &UpdateSender<G>,
+        game: &FnSender<G>,
         pathfinder: &Arc<RwLock<P>>,
         duration: Duration,
     ) -> TerritoryUpdater<G, P> {
         TerritoryUpdater {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
             pathfinder: pathfinder.clone(),
             duration,
         }
@@ -87,9 +87,7 @@ where
     }
 
     async fn set_territory(&mut self, states: Vec<TerritoryState>) {
-        self.game
-            .update(move |game| game.set_territory(states))
-            .await
+        self.game.send(move |game| game.set_territory(states)).await
     }
 }
 
@@ -98,9 +96,9 @@ mod tests {
     use super::*;
 
     use crate::game::TerritoryState;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
     use commons::same_elements;
-    use commons::update::UpdateProcess;
     use commons::v2;
     use std::sync::Mutex;
 
@@ -141,7 +139,7 @@ mod tests {
     #[test]
     fn test() {
         // Given
-        let game = UpdateProcess::new(vec![]);
+        let game = FnThread::new(vec![]);
         let pathfinder = Arc::new(RwLock::new(MockPathfinder {}));
         let duration = Duration::from_secs(5);
 
@@ -149,7 +147,7 @@ mod tests {
 
         // When
         block_on(update_territory.update_territory(v2(1, 2)));
-        let updates = game.shutdown();
+        let updates = game.join();
 
         // Then
         assert_eq!(

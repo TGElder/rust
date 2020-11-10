@@ -8,7 +8,7 @@ pub struct RemoveTown<G>
 where
     G: RemoveSettlement + Controlled,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -43,9 +43,9 @@ impl<G> RemoveTown<G>
 where
     G: RemoveSettlement + Controlled,
 {
-    pub fn new(game: &UpdateSender<G>) -> RemoveTown<G> {
+    pub fn new(game: &FnSender<G>) -> RemoveTown<G> {
         RemoveTown {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
@@ -54,7 +54,7 @@ where
         position: V2<usize>,
     ) -> HashSet<V2<usize>> {
         self.game
-            .update(move |game| remove_settlement_and_return_controlled(game, position))
+            .send(move |game| remove_settlement_and_return_controlled(game, position))
             .await
     }
 }
@@ -76,8 +76,8 @@ mod tests {
     use super::*;
 
     use crate::settlement::Settlement;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashSet;
     use std::default::Default;
@@ -115,7 +115,7 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let game = UpdateProcess::new(MockGame::default());
+        let game = FnThread::new(MockGame::default());
         let mut processor = RemoveTown::new(&game.tx());
         let state = State {
             params: SimulationParams {
@@ -133,7 +133,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         assert_eq!(game.removed, vec![settlement.position]);
     }
 
@@ -144,7 +144,7 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let game = UpdateProcess::new(MockGame::default());
+        let game = FnThread::new(MockGame::default());
         let mut processor = RemoveTown::new(&game.tx());
         let state = State {
             params: SimulationParams {
@@ -165,7 +165,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         assert_eq!(game.removed, vec![]);
     }
 
@@ -176,7 +176,7 @@ mod tests {
             current_population: 0.7,
             ..Settlement::default()
         };
-        let game = UpdateProcess::new(MockGame::default());
+        let game = FnThread::new(MockGame::default());
         let mut processor = RemoveTown::new(&game.tx());
         let state = State {
             params: SimulationParams {
@@ -194,7 +194,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         assert_eq!(game.removed, vec![]);
     }
 
@@ -209,7 +209,7 @@ mod tests {
             controlled: hashset! { v2(1, 2), v2(3, 4) },
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = RemoveTown::new(&game.tx());
         let state = State {
             params: SimulationParams {
@@ -234,6 +234,6 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 }

@@ -10,7 +10,7 @@ pub struct CropsBuilder<G>
 where
     G: BuildCrops + Settlements,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -37,15 +37,15 @@ impl<G> CropsBuilder<G>
 where
     G: BuildCrops + Settlements,
 {
-    pub fn new(game: &UpdateSender<G>) -> CropsBuilder<G> {
+    pub fn new(game: &FnSender<G>) -> CropsBuilder<G> {
         CropsBuilder {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
     async fn try_build_crops(&mut self, position: V2<usize>, rotated: bool) {
         self.game
-            .update(move |game| try_build_crops(game, position, rotated))
+            .send(move |game| try_build_crops(game, position, rotated))
             .await
     }
 }
@@ -64,8 +64,8 @@ where
 mod tests {
     use super::*;
 
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashMap;
 
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn can_build_crops() {
         // Given
-        let game = UpdateProcess::new(MockGame::default());
+        let game = FnThread::new(MockGame::default());
         let builder = CropsBuilder::new(&game.tx());
 
         // When
@@ -112,13 +112,13 @@ mod tests {
         assert!(can_build);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
     fn should_build_crops_if_no_town_on_tile() {
         // Given
-        let game = UpdateProcess::new(MockGame::default());
+        let game = FnThread::new(MockGame::default());
         let mut builder = CropsBuilder::new(&game.tx());
 
         // When
@@ -128,7 +128,7 @@ mod tests {
         }));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         assert_eq!(game.crops, hashmap! {v2(1, 2) => true});
     }
 
@@ -144,7 +144,7 @@ mod tests {
             settlements: hashmap! {v2(1, 2) => settlement},
             ..MockGame::default()
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut builder = CropsBuilder::new(&game.tx());
 
         // When
@@ -154,7 +154,7 @@ mod tests {
         }));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         assert_eq!(game.crops, hashmap! {});
     }
 }

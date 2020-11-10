@@ -9,7 +9,7 @@ pub struct UpdateTown<G>
 where
     G: UpdateSettlement,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
 }
 
 #[async_trait]
@@ -49,15 +49,15 @@ impl<G> UpdateTown<G>
 where
     G: UpdateSettlement,
 {
-    pub fn new(game: &UpdateSender<G>) -> UpdateTown<G> {
+    pub fn new(game: &FnSender<G>) -> UpdateTown<G> {
         UpdateTown {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
         }
     }
 
     async fn update_settlement(&mut self, settlement: Settlement) {
         self.game
-            .update(move |game| game.update_settlement(settlement))
+            .send(move |game| game.update_settlement(settlement))
             .await
     }
 }
@@ -101,8 +101,8 @@ mod tests {
     use super::*;
 
     use commons::almost::Almost;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::v2;
 
     use std::default::Default;
@@ -111,7 +111,7 @@ mod tests {
     fn should_update_target_population_based_on_total_traffic_share() {
         // Given
         let settlement = Settlement::default();
-        let game = UpdateProcess::new(hashmap! {});
+        let game = FnThread::new(hashmap! {});
         let mut processor = UpdateTown::new(&game.tx());
 
         // When
@@ -138,7 +138,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = game.shutdown();
+        let updated_settlements = game.join();
         assert!(updated_settlements[&v2(0, 0)]
             .target_population
             .almost(&28.0));
@@ -151,7 +151,7 @@ mod tests {
             target_population: 0.5,
             ..Settlement::default()
         };
-        let game = UpdateProcess::new(hashmap! {});
+        let game = FnThread::new(hashmap! {});
         let mut processor = UpdateTown::new(&game.tx());
 
         // When
@@ -162,7 +162,7 @@ mod tests {
         block_on(processor.process(State::default(), &instruction));
 
         // Then
-        let updated_settlements = game.shutdown();
+        let updated_settlements = game.join();
         assert!(updated_settlements[&v2(0, 0)]
             .target_population
             .almost(&0.0));
@@ -175,7 +175,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let game = UpdateProcess::new(hashmap! {});
+        let game = FnThread::new(hashmap! {});
         let mut processor = UpdateTown::new(&game.tx());
 
         // When
@@ -202,7 +202,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = game.shutdown();
+        let updated_settlements = game.join();
         assert_eq!(updated_settlements[&v2(0, 0)].nation, "C".to_string(),);
     }
 
@@ -213,7 +213,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let game = UpdateProcess::new(hashmap! {});
+        let game = FnThread::new(hashmap! {});
         let mut processor = UpdateTown::new(&game.tx());
 
         // When
@@ -240,7 +240,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = game.shutdown();
+        let updated_settlements = game.join();
         assert_eq!(updated_settlements[&v2(0, 0)].nation, "A".to_string());
     }
 
@@ -248,7 +248,7 @@ mod tests {
     fn should_add_update_current_population_instruction() {
         // Given
         let settlement = Settlement::default();
-        let game = UpdateProcess::new(hashmap! {});
+        let game = FnThread::new(hashmap! {});
         let mut processor = UpdateTown::new(&game.tx());
 
         // When
@@ -268,6 +268,6 @@ mod tests {
         );
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 }

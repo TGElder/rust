@@ -5,15 +5,15 @@ const HANDLE: &str = "follow_avatar";
 
 pub struct FollowAvatar {
     command_tx: Sender<Vec<Command>>,
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
     binding: Button,
 }
 
 impl FollowAvatar {
-    pub fn new(command_tx: Sender<Vec<Command>>, game_tx: &UpdateSender<Game>) -> FollowAvatar {
+    pub fn new(command_tx: Sender<Vec<Command>>, game_tx: &FnSender<Game>) -> FollowAvatar {
         FollowAvatar {
             command_tx,
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
             binding: Button::Key(VirtualKeyCode::C),
         }
     }
@@ -33,7 +33,7 @@ impl FollowAvatar {
     }
 
     fn toggle_follow_avatar(&mut self) {
-        self.game_tx.update(toggle_follow_avatar);
+        self.game_tx.send(toggle_follow_avatar);
     }
 }
 

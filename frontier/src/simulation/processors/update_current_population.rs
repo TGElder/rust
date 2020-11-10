@@ -8,7 +8,7 @@ pub struct UpdateCurrentPopulation<G>
 where
     G: Micros + Settlements + UpdateSettlement,
 {
-    game: UpdateSender<G>,
+    game: FnSender<G>,
     max_abs_population_change: fn(&SettlementClass) -> f64,
 }
 
@@ -36,11 +36,11 @@ where
     G: Micros + Settlements + UpdateSettlement,
 {
     pub fn new(
-        game: &UpdateSender<G>,
+        game: &FnSender<G>,
         max_abs_population_change: fn(&SettlementClass) -> f64,
     ) -> UpdateCurrentPopulation<G> {
         UpdateCurrentPopulation {
-            game: game.clone_with_handle(HANDLE),
+            game: game.clone_with_name(HANDLE),
             max_abs_population_change,
         }
     }
@@ -48,7 +48,7 @@ where
     async fn try_update_settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
         let max_abs_population_change = self.max_abs_population_change;
         self.game
-            .update(move |game| try_update_settlement(game, position, max_abs_population_change))
+            .send(move |game| try_update_settlement(game, position, max_abs_population_change))
             .await
     }
 }
@@ -114,8 +114,8 @@ mod tests {
     use super::*;
 
     use commons::almost::Almost;
+    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::update::UpdateProcess;
     use commons::v2;
     use std::collections::HashMap;
     use std::time::Duration;
@@ -166,7 +166,7 @@ mod tests {
             micros: 33,
             settlements,
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
@@ -176,7 +176,7 @@ mod tests {
         ));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         let settlement = game.get_settlement(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&78.45387355842092));
@@ -206,7 +206,7 @@ mod tests {
             micros: 33,
             settlements,
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
@@ -216,7 +216,7 @@ mod tests {
         ));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         let settlement = game.get_settlement(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&22.54612644157907));
@@ -246,7 +246,7 @@ mod tests {
             micros: 33,
             settlements,
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
@@ -256,7 +256,7 @@ mod tests {
         ));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         let settlement = game.get_settlement(&v2(1, 2)).unwrap();
 
         assert!(settlement
@@ -277,7 +277,7 @@ mod tests {
             micros: 33,
             settlements: hashmap! {},
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
@@ -290,7 +290,7 @@ mod tests {
         assert_eq!(state.instructions, vec![]);
 
         // Finally
-        game.shutdown();
+        game.join();
     }
 
     #[test]
@@ -312,7 +312,7 @@ mod tests {
             micros: 11,
             settlements,
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         let mut processor = UpdateCurrentPopulation::new(&game.tx(), max_abs_population_change);
 
         // When
@@ -322,7 +322,7 @@ mod tests {
         ));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         let settlement = game.get_settlement(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&100.0));
@@ -352,7 +352,7 @@ mod tests {
             micros: 33,
             settlements,
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         fn max_abs_population_change(_: &SettlementClass) -> f64 {
             1.0
         };
@@ -365,7 +365,7 @@ mod tests {
         ));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         let settlement = game.get_settlement(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&2.0));
@@ -395,7 +395,7 @@ mod tests {
             micros: 33,
             settlements,
         };
-        let game = UpdateProcess::new(game);
+        let game = FnThread::new(game);
         fn max_abs_population_change(_: &SettlementClass) -> f64 {
             1.0
         };
@@ -408,7 +408,7 @@ mod tests {
         ));
 
         // Then
-        let game = game.shutdown();
+        let game = game.join();
         let settlement = game.get_settlement(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&99.0));

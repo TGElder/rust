@@ -10,8 +10,8 @@ use crate::road_builder::*;
 use crate::settlement::*;
 use crate::territory::*;
 use crate::world::*;
+use commons::fn_sender::*;
 use commons::grid::Grid;
-use commons::update::*;
 use commons::V2;
 use commons::*;
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
@@ -20,8 +20,6 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-
-const UPDATE_CHANNEL_BOUND: usize = 10_000;
 
 pub enum CellSelection {
     All,
@@ -88,8 +86,8 @@ pub struct Game {
     previous_instant: Instant,
     consumers: Vec<Box<dyn GameEventConsumer>>,
     engine_tx: Sender<Vec<Command>>,
-    tx: UpdateSender<Game>,
-    rx: UpdateReceiver<Game>,
+    tx: FnSender<Game>,
+    rx: FnReceiver<Game>,
     avatar_travel_duration: AvatarTravelDuration,
     run: bool,
 }
@@ -100,11 +98,11 @@ impl Game {
         engine: &mut IsometricEngine,
         mut init_events: Vec<GameEvent>,
     ) -> Game {
-        let (tx, rx) = update_channel(UPDATE_CHANNEL_BOUND);
+        let (tx, rx) = fn_channel();
 
-        engine.add_event_consumer(EventForwarder::new(tx.clone_with_handle("event_forwarder")));
+        engine.add_event_consumer(EventForwarder::new(tx.clone_with_name("event_forwarder")));
 
-        tx.update(move |game| {
+        tx.send(move |game| {
             init_events
                 .drain(..)
                 .for_each(|event| game.consume_event(event))
@@ -132,7 +130,7 @@ impl Game {
         &mut self.game_state
     }
 
-    pub fn tx(&self) -> &UpdateSender<Game> {
+    pub fn tx(&self) -> &FnSender<Game> {
         &self.tx
     }
 
@@ -387,18 +385,18 @@ impl Game {
     pub fn run(&mut self) {
         while self.run {
             self.on_tick();
-            for update in self.rx.get_updates() {
-                self.handle_update(update);
+            for message in self.rx.get_messages() {
+                self.handle_message(message);
             }
         }
     }
 
-    fn handle_update(&mut self, update: Arm<Update<Game>>) {
+    fn handle_message(&mut self, mut message: FnMessage<Game>) {
         let start = Instant::now();
-        let handle = update.lock().unwrap().sender_handle();
-        process_update(update, self);
+        let name = message.sender_name();
+        message.apply(self);
         log_time(
-            handle.to_string(),
+            name.to_string(),
             start.elapsed(),
             &self.game_state.params.log_duration_threshold,
         );
@@ -418,11 +416,11 @@ fn log_time(description: String, duration: Duration, threshold: &Option<Duration
 }
 
 struct EventForwarder {
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
 }
 
 impl EventForwarder {
-    pub fn new(game_tx: UpdateSender<Game>) -> EventForwarder {
+    pub fn new(game_tx: FnSender<Game>) -> EventForwarder {
         EventForwarder { game_tx }
     }
 }
@@ -430,6 +428,6 @@ impl EventForwarder {
 impl EventConsumer for EventForwarder {
     fn consume_event(&mut self, event: Arc<Event>) {
         self.game_tx
-            .update(move |game| game.consume_event(GameEvent::EngineEvent(event)));
+            .send(move |game| game.consume_event(GameEvent::EngineEvent(event)));
     }
 }

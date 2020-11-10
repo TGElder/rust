@@ -8,17 +8,17 @@ where
     T: EventHandler,
 {
     event_handler: T,
-    game_tx: UpdateSender<Game>,
+    game_tx: FnSender<Game>,
 }
 
 impl<T> EventHandlerAdapter<T>
 where
     T: EventHandler,
 {
-    pub fn new(event_handler: T, game_tx: &UpdateSender<Game>) -> EventHandlerAdapter<T> {
+    pub fn new(event_handler: T, game_tx: &FnSender<Game>) -> EventHandlerAdapter<T> {
         EventHandlerAdapter {
             event_handler,
-            game_tx: game_tx.clone_with_handle(HANDLE),
+            game_tx: game_tx.clone_with_name(HANDLE),
         }
     }
 
@@ -26,7 +26,7 @@ where
         let commands = self.event_handler.handle_event(event);
         if !commands.is_empty() {
             self.game_tx
-                .update(move |game| game.send_engine_commands(commands));
+                .send(move |game| game.send_engine_commands(commands));
         }
     }
 }
