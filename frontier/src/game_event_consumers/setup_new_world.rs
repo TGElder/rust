@@ -19,22 +19,19 @@ use std::sync::Arc;
 const AVATAR_NAME: &str = "avatar";
 const HANDLE: &str = "setup_homelands";
 
-pub struct SetupNewWorld<D>
-where
-    D: FnSender<Visibility>,
-{
+pub struct SetupNewWorld {
     game_tx: UpdateSender<Game>,
-    visibility_tx: D,
+    visibility_tx: FnSender<Visibility>,
 }
 
-impl<D> SetupNewWorld<D>
-where
-    D: FnSender<Visibility> + Clone,
-{
-    pub fn new(game_tx: &UpdateSender<Game>, visibility_tx: &D) -> SetupNewWorld<D> {
+impl SetupNewWorld {
+    pub fn new(
+        game_tx: &UpdateSender<Game>,
+        visibility_tx: &FnSender<Visibility>,
+    ) -> SetupNewWorld {
         SetupNewWorld {
             game_tx: game_tx.clone_with_handle(HANDLE),
-            visibility_tx: visibility_tx.clone(),
+            visibility_tx: visibility_tx.clone_with_name(HANDLE),
         }
     }
 
@@ -173,10 +170,7 @@ fn setup_game(
     game_state.selected_avatar = Some(AVATAR_NAME.to_string());
 }
 
-impl<D> GameEventConsumer for SetupNewWorld<D>
-where
-    D: FnSender<Visibility> + Clone + Send,
-{
+impl GameEventConsumer for SetupNewWorld {
     fn name(&self) -> &'static str {
         HANDLE
     }

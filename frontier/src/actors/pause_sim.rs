@@ -1,6 +1,6 @@
 use crate::simulation::Simulation;
 use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::{FnMessageSender, FnSender};
+use commons::fn_sender::FnSender;
 use commons::futures::future::FutureExt;
 use commons::log::debug;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
@@ -10,13 +10,13 @@ const HANDLE: &str = "pause_sim";
 
 pub struct PauseSim {
     engine_rx: Receiver<Arc<Event>>,
-    sim_tx: FnMessageSender<Simulation>,
+    sim_tx: FnSender<Simulation>,
     binding: Button,
     run: bool,
 }
 
 impl PauseSim {
-    pub fn new(engine_rx: Receiver<Arc<Event>>, sim_tx: &FnMessageSender<Simulation>) -> PauseSim {
+    pub fn new(engine_rx: Receiver<Arc<Event>>, sim_tx: &FnSender<Simulation>) -> PauseSim {
         PauseSim {
             engine_rx,
             sim_tx: sim_tx.clone_with_name(HANDLE),

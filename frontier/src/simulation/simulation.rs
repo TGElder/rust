@@ -1,14 +1,14 @@
 use super::*;
 
-use commons::fn_sender::{fn_channel, FnMessageExt, FnMessageReceiver, FnMessageSender};
+use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
 pub struct Simulation {
     processors: Vec<Box<dyn Processor + Send>>,
     state: Option<State>,
-    tx: FnMessageSender<Simulation>,
-    rx: FnMessageReceiver<Simulation>,
+    tx: FnSender<Simulation>,
+    rx: FnReceiver<Simulation>,
     paused: bool,
     run: bool,
 }
@@ -27,7 +27,7 @@ impl Simulation {
         }
     }
 
-    pub fn tx(&self) -> &FnMessageSender<Simulation> {
+    pub fn tx(&self) -> &FnSender<Simulation> {
         &self.tx
     }
 
@@ -117,7 +117,6 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::RouteKey;
     use commons::edge::Edge;
-    use commons::fn_sender::FnSender;
     use commons::futures::executor::block_on;
     use commons::index2d::Vec2D;
     use commons::v2;
