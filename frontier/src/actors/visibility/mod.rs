@@ -1,7 +1,7 @@
 use crate::game::{Game, GameEvent};
 use crate::visibility_computer::VisibilityComputer;
 use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::{fn_channel, FnMessageExt, FnMessageReceiver, FnMessageSender};
+use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
 use commons::futures::future::FutureExt;
 use commons::grid::Grid;
 use commons::update::UpdateSender;
@@ -13,8 +13,8 @@ use std::collections::HashSet;
 const HANDLE: &str = "world_artist_actor";
 
 pub struct Visibility {
-    tx: FnMessageSender<Visibility>,
-    rx: FnMessageReceiver<Visibility>,
+    tx: FnSender<Visibility>,
+    rx: FnReceiver<Visibility>,
     game_rx: Receiver<GameEvent>,
     game_tx: UpdateSender<Game>,
     visibility_computer: VisibilityComputer,
@@ -54,7 +54,7 @@ impl Visibility {
         }
     }
 
-    pub fn tx(&self) -> &FnMessageSender<Visibility> {
+    pub fn tx(&self) -> &FnSender<Visibility> {
         &self.tx
     }
 

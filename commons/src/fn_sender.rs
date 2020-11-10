@@ -1,10 +1,14 @@
 use crate::Arm;
 use async_channel::{unbounded, Receiver, Sender};
 use futures::executor::block_on;
-use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
+use std::{
+    future::Future,
+    sync::atomic::{AtomicBool, Ordering},
+    thread::{self, JoinHandle},
+};
 
 pub type MessageFn<I, O> = dyn FnOnce(&mut I) -> O + Send + Sync;
 
@@ -67,52 +71,24 @@ impl<O> Future for FnSenderFuture<O> {
     }
 }
 
-pub trait FnSender<I> {
-    fn send<O, F>(&self, function: F) -> FnSenderFuture<O>
-    where
-        I: Send,
-        O: Send + 'static,
-        F: FnOnce(&mut I) -> O + Send + Sync + 'static;
-
-    fn wait<O, F>(&self, function: F) -> O
-    where
-        I: Send,
-        O: Send + 'static,
-        F: FnOnce(&mut I) -> O + Send + Sync + 'static,
-    {
-        block_on(self.send(function))
-    }
-}
-
-pub struct FnMessageSender<I> {
+pub struct FnSender<I> {
     tx: Sender<FnMessage<I>>,
     name: &'static str,
 }
 
-impl<I> FnMessageSender<I> {
+impl<I> FnSender<I> {
     pub fn name(&self) -> &'static str {
         &self.name
     }
 
-    pub fn clone_with_name(&self, name: &'static str) -> FnMessageSender<I> {
-        FnMessageSender {
+    pub fn clone_with_name(&self, name: &'static str) -> FnSender<I> {
+        FnSender {
             tx: self.tx.clone(),
             name,
         }
     }
-}
 
-impl<I> Clone for FnMessageSender<I> {
-    fn clone(&self) -> FnMessageSender<I> {
-        FnMessageSender {
-            tx: self.tx.clone(),
-            name: self.name,
-        }
-    }
-}
-
-impl<I> FnSender<I> for FnMessageSender<I> {
-    fn send<O, F>(&self, function: F) -> FnSenderFuture<O>
+    pub fn send<O, F>(&self, function: F) -> FnSenderFuture<O>
     where
         I: Send,
         O: Send + 'static,
@@ -142,13 +118,31 @@ impl<I> FnSender<I> for FnMessageSender<I> {
 
         FnSenderFuture { waker, output }
     }
+
+    pub fn wait<O, F>(&self, function: F) -> O
+    where
+        I: Send,
+        O: Send + 'static,
+        F: FnOnce(&mut I) -> O + Send + Sync + 'static,
+    {
+        block_on(self.send(function))
+    }
 }
 
-pub struct FnMessageReceiver<I> {
+impl<I> Clone for FnSender<I> {
+    fn clone(&self) -> FnSender<I> {
+        FnSender {
+            tx: self.tx.clone(),
+            name: self.name,
+        }
+    }
+}
+
+pub struct FnReceiver<I> {
     rx: Receiver<FnMessage<I>>,
 }
 
-impl<I> FnMessageReceiver<I> {
+impl<I> FnReceiver<I> {
     pub async fn get_message(&mut self) -> FnMessage<I> {
         self.rx
             .recv()
@@ -165,44 +159,41 @@ impl<I> FnMessageReceiver<I> {
     }
 }
 
-pub fn fn_channel<I>() -> (FnMessageSender<I>, FnMessageReceiver<I>) {
+pub fn fn_channel<I>() -> (FnSender<I>, FnReceiver<I>) {
     let (tx, rx) = unbounded();
-    (
-        FnMessageSender { tx, name: "root" },
-        FnMessageReceiver { rx },
-    )
+    (FnSender { tx, name: "root" }, FnReceiver { rx })
 }
 
-#[derive(Clone)]
-struct TestSender<I> {
-    state: Arm<Option<I>>,
+pub struct FnThread<I> {
+    tx: FnSender<I>,
+    handle: JoinHandle<I>,
+    run: Arc<Mutex<AtomicBool>>,
 }
 
-impl<I> TestSender<I> {
-    pub fn new(state: I) -> TestSender<I> {
-        TestSender {
-            state: Arc::new(Mutex::new(Some(state))),
-        }
+impl<I> FnThread<I>
+where
+    I: Send + 'static,
+{
+    pub fn new(mut t: I) -> FnThread<I> {
+        let (tx, mut rx) = fn_channel();
+        let run = Arc::new(Mutex::new(AtomicBool::new(true)));
+        let run_in_thread = run.clone();
+        let handle = thread::spawn(move || {
+            while run_in_thread.lock().unwrap().load(Ordering::Relaxed) {
+                rx.get_messages().apply(&mut t);
+            }
+            t
+        });
+        FnThread { tx, handle, run }
     }
 
-    pub fn take(&self) -> I {
-        self.state.lock().unwrap().take().unwrap()
+    pub fn tx(&self) -> &FnSender<I> {
+        &self.tx
     }
-}
 
-impl<I> FnSender<I> for TestSender<I> {
-    fn send<O, F>(&self, function: F) -> FnSenderFuture<O>
-    where
-        I: Send,
-        O: Send + 'static,
-        F: FnOnce(&mut I) -> O + Send + Sync + 'static,
-    {
-        let output = function(self.state.lock().unwrap().as_mut().unwrap());
-
-        FnSenderFuture {
-            waker: Arc::new(Mutex::new(None)),
-            output: Arc::new(Mutex::new(Some(output))),
-        }
+    pub fn join(self) -> I {
+        self.run.lock().unwrap().store(false, Ordering::Relaxed);
+        self.handle.join().unwrap()
     }
 }
 
@@ -241,12 +232,13 @@ mod tests {
     }
 
     #[test]
-    fn test_sender() {
-        let actor = TestSender::new(100usize);
+    fn fn_thread() {
+        let actor = FnThread::new(100usize);
+        let tx = actor.tx().clone();
 
-        actor.wait(|value| *value += 1);
+        tx.wait(|value| *value += 1);
 
-        assert_eq!(actor.wait(|value| *value), 101);
-        assert_eq!(actor.take(), 101);
+        assert_eq!(tx.wait(|value| *value), 101);
+        assert_eq!(actor.join(), 101);
     }
 }

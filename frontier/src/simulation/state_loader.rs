@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::game::*;
-use commons::fn_sender::{FnMessageSender, FnSender};
+use commons::fn_sender::FnSender;
 use commons::index2d::Vec2D;
 use isometric::Event;
 use std::collections::HashSet;
@@ -10,11 +10,11 @@ use std::sync::Arc;
 const HANDLE: &str = "simulation_state_loader";
 
 pub struct SimulationStateLoader {
-    sim_tx: FnMessageSender<Simulation>,
+    sim_tx: FnSender<Simulation>,
 }
 
 impl SimulationStateLoader {
-    pub fn new(sim_tx: &FnMessageSender<Simulation>) -> SimulationStateLoader {
+    pub fn new(sim_tx: &FnSender<Simulation>) -> SimulationStateLoader {
         SimulationStateLoader {
             sim_tx: sim_tx.clone_with_name(HANDLE),
         }

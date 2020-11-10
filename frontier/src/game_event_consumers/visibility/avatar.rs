@@ -10,19 +10,15 @@ use std::iter::{empty, once};
 
 const HANDLE: &str = "visibility_from_avatar";
 
-pub struct VisibilityFromAvatar<D>
-where
-    D: FnSender<Visibility>,
-{
-    tx: D,
+pub struct VisibilityFromAvatar {
+    tx: FnSender<Visibility>,
 }
 
-impl<D> VisibilityFromAvatar<D>
-where
-    D: FnSender<Visibility> + Clone,
-{
-    pub fn new(tx: &D) -> VisibilityFromAvatar<D> {
-        VisibilityFromAvatar { tx: tx.clone() }
+impl VisibilityFromAvatar {
+    pub fn new(tx: &FnSender<Visibility>) -> VisibilityFromAvatar {
+        VisibilityFromAvatar {
+            tx: tx.clone_with_name(HANDLE),
+        }
     }
 
     fn tick(&mut self, game_state: &GameState, from: &u128, to: &u128) {
@@ -50,10 +46,7 @@ fn avatar_visited<'a>(
     Box::new(empty())
 }
 
-impl<D> GameEventConsumer for VisibilityFromAvatar<D>
-where
-    D: FnSender<Visibility> + Clone + Send,
-{
+impl GameEventConsumer for VisibilityFromAvatar {
     fn name(&self) -> &'static str {
         HANDLE
     }

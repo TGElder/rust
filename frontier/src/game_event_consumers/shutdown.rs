@@ -1,6 +1,6 @@
 use super::*;
 
-use commons::fn_sender::{FnMessageSender, FnSender};
+use commons::fn_sender::FnSender;
 
 use crate::simulation::Simulation;
 
@@ -8,14 +8,14 @@ const HANDLE: &str = "shutdown_handler";
 
 pub struct ShutdownHandler {
     game_tx: UpdateSender<Game>,
-    sim_tx: FnMessageSender<Simulation>,
+    sim_tx: FnSender<Simulation>,
     pool: ThreadPool,
 }
 
 impl ShutdownHandler {
     pub fn new(
         game_tx: &UpdateSender<Game>,
-        sim_tx: &FnMessageSender<Simulation>,
+        sim_tx: &FnSender<Simulation>,
         pool: ThreadPool,
     ) -> ShutdownHandler {
         ShutdownHandler {

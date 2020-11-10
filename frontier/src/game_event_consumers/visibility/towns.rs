@@ -10,19 +10,15 @@ use commons::fn_sender::FnSender;
 
 const HANDLE: &str = "visibility_from_towns";
 
-pub struct VisibilityFromTowns<D>
-where
-    D: FnSender<Visibility>,
-{
-    tx: D,
+pub struct VisibilityFromTowns {
+    tx: FnSender<Visibility>,
 }
 
-impl<D> VisibilityFromTowns<D>
-where
-    D: FnSender<Visibility> + Clone,
-{
-    pub fn new(tx: &D) -> VisibilityFromTowns<D> {
-        VisibilityFromTowns { tx: tx.clone() }
+impl VisibilityFromTowns {
+    pub fn new(tx: &FnSender<Visibility>) -> VisibilityFromTowns {
+        VisibilityFromTowns {
+            tx: tx.clone_with_name(HANDLE),
+        }
     }
 
     fn tick(&mut self, game_state: &GameState) {
@@ -41,10 +37,7 @@ fn town_visited_cells<'a>(game_state: &'a GameState) -> impl Iterator<Item = V2<
         .flat_map(move |(position, _)| world.get_corners_in_bounds(position))
 }
 
-impl<D> GameEventConsumer for VisibilityFromTowns<D>
-where
-    D: FnSender<Visibility> + Clone + Send,
-{
+impl GameEventConsumer for VisibilityFromTowns {
     fn name(&self) -> &'static str {
         HANDLE
     }

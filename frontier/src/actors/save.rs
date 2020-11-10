@@ -1,7 +1,7 @@
 use crate::game::Game;
 use crate::simulation::Simulation;
 use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::{FnMessageSender, FnSender};
+use commons::fn_sender::FnSender;
 use commons::futures::future::FutureExt;
 use commons::log::debug;
 use commons::update::UpdateSender;
@@ -14,7 +14,7 @@ const PATH: &str = "save";
 pub struct Save {
     engine_rx: Receiver<Arc<Event>>,
     game_tx: UpdateSender<Game>,
-    sim_tx: FnMessageSender<Simulation>,
+    sim_tx: FnSender<Simulation>,
     binding: Button,
     path: String,
     run: bool,
@@ -24,7 +24,7 @@ impl Save {
     pub fn new(
         engine_rx: Receiver<Arc<Event>>,
         game_tx: &UpdateSender<Game>,
-        sim_tx: &FnMessageSender<Simulation>,
+        sim_tx: &FnSender<Simulation>,
     ) -> Save {
         Save {
             engine_rx,
