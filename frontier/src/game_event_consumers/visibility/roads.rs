@@ -7,19 +7,15 @@ use std::sync::Arc;
 
 const HANDLE: &str = "visibility_from_roads";
 
-pub struct VisibilityFromRoads<D>
-where
-    D: FnSender<Visibility>,
-{
-    tx: D,
+pub struct VisibilityFromRoads {
+    tx: FnSender<Visibility>,
 }
 
-impl<D> VisibilityFromRoads<D>
-where
-    D: FnSender<Visibility> + Clone,
-{
-    pub fn new(tx: &D) -> VisibilityFromRoads<D> {
-        VisibilityFromRoads { tx: tx.clone() }
+impl VisibilityFromRoads {
+    pub fn new(tx: &FnSender<Visibility>) -> VisibilityFromRoads {
+        VisibilityFromRoads {
+            tx: tx.clone_with_name(HANDLE),
+        }
     }
 
     fn visit(&mut self, visited: &[V2<usize>]) {
@@ -29,10 +25,7 @@ where
     }
 }
 
-impl<D> GameEventConsumer for VisibilityFromRoads<D>
-where
-    D: FnSender<Visibility> + Clone + Send,
-{
+impl GameEventConsumer for VisibilityFromRoads {
     fn name(&self) -> &'static str {
         HANDLE
     }
