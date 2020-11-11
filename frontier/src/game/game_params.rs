@@ -15,6 +15,7 @@ use std::time::Duration;
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct GameParams {
     pub seed: u64,
+    pub reveal_all: bool,
     pub world_gen: WorldGenParameters,
     pub world_coloring: WorldColoringParameters,
     pub avatar_travel: AvatarTravelParams,
@@ -37,6 +38,7 @@ impl Default for GameParams {
     fn default() -> GameParams {
         GameParams {
             seed: 0,
+            reveal_all: false,
             world_gen: WorldGenParameters::default(),
             world_coloring: WorldColoringParameters::default(),
             avatar_travel: AvatarTravelParams::default(),

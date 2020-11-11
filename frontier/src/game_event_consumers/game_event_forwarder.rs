@@ -39,7 +39,9 @@ impl GameEventConsumer for GameEventForwarder {
     #[allow(clippy::single_match)]
     fn consume_game_event(&mut self, _: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
+            GameEvent::NewGame => self.send_event(&|| GameEvent::NewGame),
             GameEvent::Init => self.send_event(&|| GameEvent::Init),
+            // GameEvent::Load(path) => self.send_event(&|| GameEvent::Load(path.clone())),
             _ => (),
         };
         CaptureEvent::No
