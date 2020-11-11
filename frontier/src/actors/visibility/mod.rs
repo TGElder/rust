@@ -1,7 +1,7 @@
 use crate::game::{Game, GameEvent};
 use crate::visibility_computer::VisibilityComputer;
 use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
+use commons::fn_sender::{fn_channel, FnMessage, FnMessageExt, FnReceiver, FnSender};
 use commons::futures::future::FutureExt;
 use commons::grid::Grid;
 use commons::{v2, M, V2};
@@ -25,6 +25,7 @@ pub struct Visibility {
 #[derive(Serialize, Deserialize)]
 pub struct VisibilityHandlerState {
     visited: Option<M<bool>>,
+    active: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -47,7 +48,10 @@ impl Visibility {
             game_rx,
             game_tx: game_tx.clone_with_name(HANDLE),
             visibility_computer: VisibilityComputer::default(),
-            state: VisibilityHandlerState { visited: None },
+            state: VisibilityHandlerState {
+                visited: None,
+                active: true,
+            },
             elevations: None,
             run: true,
         }
@@ -61,7 +65,7 @@ impl Visibility {
         while self.run {
             if self.elevations.is_some() {
                 select! {
-                    mut message = self.rx.get_message().fuse() => message.apply(self),
+                    mut message = self.rx.get_message().fuse() => self.handle_message(message),
                     event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
                 }
             } else {
@@ -72,10 +76,21 @@ impl Visibility {
         }
     }
 
+    fn handle_message(&mut self, mut message: FnMessage<Visibility>) {
+        if self.state.active {
+            message.apply(self);
+        }
+    }
+
     pub fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
         for position in visited {
             self.check_visibility_and_reveal_position(position);
         }
+    }
+
+    pub fn deactive(&mut self) {
+        println!("Deactivating viz handler");
+        self.state.active = false;
     }
 
     fn check_visibility_and_reveal_position(&mut self, position: V2<usize>) {
@@ -107,8 +122,20 @@ impl Visibility {
     }
 
     async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
-        if let GameEvent::Init = event.unwrap() {
-            self.init().await;
+        match event.unwrap() {
+            GameEvent::NewGame => self.new_game().await,
+            GameEvent::Init => self.init().await,
+            _ => (),
+        }
+    }
+
+    async fn new_game(&mut self) {
+        self.set_active().await;
+    }
+
+    async fn set_active(&mut self) {
+        if self.game_tx.send(|game| get_reveal_all(game)).await {
+            self.deactive();
         }
     }
 
@@ -125,6 +152,10 @@ impl Visibility {
     async fn init_elevations(&mut self) {
         self.elevations = Some(self.game_tx.send(|game| get_elevations(game)).await);
     }
+}
+
+fn get_reveal_all(game: &Game) -> bool {
+    game.game_state().params.reveal_all
 }
 
 fn get_dimensions(game: &Game) -> (usize, usize) {
