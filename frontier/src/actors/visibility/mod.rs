@@ -89,7 +89,6 @@ impl Visibility {
     }
 
     pub fn deactive(&mut self) {
-        println!("Deactivating viz handler");
         self.state.active = false;
     }
 
@@ -130,10 +129,10 @@ impl Visibility {
     }
 
     async fn new_game(&mut self) {
-        self.set_active().await;
+        self.try_deactivate().await;
     }
 
-    async fn set_active(&mut self) {
+    async fn try_deactivate(&mut self) {
         if self.game_tx.send(|game| get_reveal_all(game)).await {
             self.deactive();
         }
