@@ -146,7 +146,6 @@ fn main() {
     game.add_consumer(BasicRoadBuilder::new(game.tx()));
     game.add_consumer(ObjectBuilder::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(TownBuilder::new(game.tx()));
-    game.add_consumer(Cheats::new(game.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(&pathfinder_with_planned_roads));
@@ -196,6 +195,8 @@ fn main() {
     game.add_consumer(from_towns);
     game.add_consumer(from_roads);
     game.add_consumer(setup_new_world);
+
+    game.add_consumer(Cheats::new(game.tx(), visibility.tx()));
 
     let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
     thread_pool.spawn_ok(visibility_run);
@@ -253,6 +254,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
     let mut rng = rng(seed);
     let params = GameParams {
         seed,
+        reveal_all,
         homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(power as f32)) as u64),
         ..GameParams::default()
     };

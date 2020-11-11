@@ -1,3 +1,5 @@
+use crate::actors::Visibility;
+
 use super::*;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
@@ -23,14 +25,16 @@ impl Default for CheatBindings {
 
 pub struct Cheats {
     game_tx: FnSender<Game>,
+    visibility_tx: FnSender<Visibility>,
     bindings: CheatBindings,
     world_coord: Option<WorldCoord>,
 }
 
 impl Cheats {
-    pub fn new(game_tx: &FnSender<Game>) -> Cheats {
+    pub fn new(game_tx: &FnSender<Game>, visibility_tx: &FnSender<Visibility>) -> Cheats {
         Cheats {
             game_tx: game_tx.clone_with_name(HANDLE),
+            visibility_tx: visibility_tx.clone_with_name(HANDLE),
             bindings: CheatBindings::default(),
             world_coord: None,
         }
@@ -44,6 +48,8 @@ impl Cheats {
         self.game_tx.send(move |game| {
             game.reveal_all_cells(HANDLE);
         });
+        self.visibility_tx
+            .send(move |visibility| visibility.deactive());
     }
 
     fn move_avatar(&mut self, game_state: &GameState) {
