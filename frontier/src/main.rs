@@ -186,7 +186,11 @@ fn main() {
     thread_pool.spawn_ok(save_run);
 
     // Visibility
-    let mut visibility = Visibility::new(game_event_forwarder.subscribe(), game.tx());
+    let mut visibility = Visibility::new(
+        event_forwarder.subscribe(),
+        game_event_forwarder.subscribe(),
+        game.tx(),
+    );
     let from_avatar = VisibilityFromAvatar::new(visibility.tx());
     let from_towns = VisibilityFromTowns::new(visibility.tx());
     let from_roads = VisibilityFromRoads::new(visibility.tx());
