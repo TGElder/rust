@@ -6,14 +6,19 @@ use commons::futures::future::FutureExt;
 use commons::grid::Grid;
 use commons::{v2, M, V2};
 use isometric::cell_traits::WithElevation;
+use isometric::Event;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use std::sync::Arc;
 
 const HANDLE: &str = "world_artist_actor";
 
 pub struct Visibility {
     tx: FnSender<Visibility>,
     rx: FnReceiver<Visibility>,
+    engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
     game_tx: FnSender<Game>,
     visibility_computer: VisibilityComputer,
@@ -40,11 +45,16 @@ impl WithElevation for Elevation {
 }
 
 impl Visibility {
-    pub fn new(game_rx: Receiver<GameEvent>, game_tx: &FnSender<Game>) -> Visibility {
+    pub fn new(
+        engine_rx: Receiver<Arc<Event>>,
+        game_rx: Receiver<GameEvent>,
+        game_tx: &FnSender<Game>,
+    ) -> Visibility {
         let (tx, rx) = fn_channel();
         Visibility {
             tx,
             rx,
+            engine_rx,
             game_rx,
             game_tx: game_tx.clone_with_name(HANDLE),
             visibility_computer: VisibilityComputer::default(),
@@ -63,14 +73,16 @@ impl Visibility {
 
     pub async fn run(&mut self) {
         while self.run {
-            if self.elevations.is_some() {
+            if !self.state.active || self.elevations.is_some() {
                 select! {
                     mut message = self.rx.get_message().fuse() => self.handle_message(message),
-                    event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
+                    event = self.game_rx.recv().fuse() => self.handle_game_event(event).await,
+                    event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await,
                 }
             } else {
                 select! {
-                    event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
+                    event = self.game_rx.recv().fuse() => self.handle_game_event(event).await,
+                    event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await,
                 }
             }
         }
@@ -124,12 +136,17 @@ impl Visibility {
         match event.unwrap() {
             GameEvent::NewGame => self.new_game().await,
             GameEvent::Init => self.init().await,
+            GameEvent::Load(path) => self.load(&path),
+            GameEvent::Save(path) => self.save(&path),
             _ => (),
         }
     }
 
     async fn new_game(&mut self) {
         self.try_deactivate().await;
+        if self.state.active {
+            self.init_visited().await;
+        }
     }
 
     async fn try_deactivate(&mut self) {
@@ -139,7 +156,6 @@ impl Visibility {
     }
 
     async fn init(&mut self) {
-        self.init_visited().await;
         self.init_elevations().await;
     }
 
@@ -150,6 +166,32 @@ impl Visibility {
 
     async fn init_elevations(&mut self) {
         self.elevations = Some(self.game_tx.send(|game| get_elevations(game)).await);
+    }
+
+    fn get_path(path: &str) -> String {
+        format!("{}.visibility_actor", path)
+    }
+
+    fn save(&mut self, path: &str) {
+        let path = Self::get_path(path);
+        let mut file = BufWriter::new(File::create(path).unwrap());
+        bincode::serialize_into(&mut file, &self.state).unwrap();
+    }
+
+    fn load(&mut self, path: &str) {
+        let path = Self::get_path(path);
+        let file = BufReader::new(File::open(path).unwrap());
+        self.state = bincode::deserialize_from(file).unwrap();
+    }
+
+    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
+        if let Event::Shutdown = *event.unwrap() {
+            self.shutdown();
+        }
+    }
+
+    fn shutdown(&mut self) {
+        self.run = false;
     }
 }
 

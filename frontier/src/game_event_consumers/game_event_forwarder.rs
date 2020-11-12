@@ -41,7 +41,8 @@ impl GameEventConsumer for GameEventForwarder {
         match event {
             GameEvent::NewGame => self.send_event(&|| GameEvent::NewGame),
             GameEvent::Init => self.send_event(&|| GameEvent::Init),
-            // GameEvent::Load(path) => self.send_event(&|| GameEvent::Load(path.clone())),
+            GameEvent::Save(path) => self.send_event(&|| GameEvent::Save(path.clone())),
+            GameEvent::Load(path) => self.send_event(&|| GameEvent::Load(path.clone())),
             _ => (),
         };
         CaptureEvent::No
