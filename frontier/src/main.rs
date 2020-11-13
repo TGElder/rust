@@ -185,10 +185,6 @@ fn main() {
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
 
-    let mut update_roads = UpdateRoads::new(event_forwarder.subscribe(), game.tx());
-    let (update_roads_run, update_roads_handle) =
-        async move { update_roads.run().await }.remote_handle();
-    thread_pool.spawn_ok(update_roads_run);
 
     // Visibility
     let mut visibility = Visibility::new(
@@ -198,11 +194,9 @@ fn main() {
     );
     let from_avatar = VisibilityFromAvatar::new(visibility.tx());
     let from_towns = VisibilityFromTowns::new(visibility.tx());
-    let from_roads = VisibilityFromRoads::new(visibility.tx());
     let setup_new_world = SetupNewWorld::new(game.tx(), visibility.tx());
     game.add_consumer(from_avatar);
     game.add_consumer(from_towns);
-    game.add_consumer(from_roads);
     game.add_consumer(setup_new_world);
 
     game.add_consumer(Cheats::new(game.tx(), visibility.tx()));
@@ -228,6 +222,10 @@ fn main() {
         engine.command_tx(),
         world_artist,
     );
+
+    let mut update_roads = UpdateRoads::new(event_forwarder.subscribe(), game.tx(), world_artist_actor.tx(), visibility.tx());
+    let (update_roads_run, update_roads_handle) = async move { update_roads.run().await }.remote_handle();
+    thread_pool.spawn_ok(update_roads_run);
 
     game.add_consumer(game_event_forwarder);
     game.add_consumer(WorldArtistHandler::new(

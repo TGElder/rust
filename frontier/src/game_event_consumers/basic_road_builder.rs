@@ -7,14 +7,16 @@ const HANDLE: &str = "basic_road_builder";
 
 pub struct BasicRoadBuilder {
     game_tx: FnSender<Game>,
+    update_roads_tx: Sender<RoadBuilderResult>,
     travel_duration: Option<AutoRoadTravelDuration>,
     binding: Button,
 }
 
 impl BasicRoadBuilder {
-    pub fn new(game_tx: &FnSender<Game>) -> BasicRoadBuilder {
+    pub fn new(game_tx: &FnSender<Game>, update_roads_tx: &Sender<RoadBuilderResult>) -> BasicRoadBuilder {
         BasicRoadBuilder {
             game_tx: game_tx.clone_with_name(HANDLE),
+            update_roads_tx: update_roads_tx.clone(),
             travel_duration: None,
             binding: Button::Key(VirtualKeyCode::R),
         }
@@ -43,8 +45,8 @@ impl BasicRoadBuilder {
                         let result = RoadBuilderResult::new(vec![path[0], path[1]], mode);
                         let start_at = game_state.game_micros;
                         let name = name.clone();
+                        self.update_roads_tx.send(result).unwrap();
                         self.game_tx.send(move |game| {
-                            game.update_roads(result);
                             game.walk_positions(name, path, start_at, None, None);
                         });
                     }
