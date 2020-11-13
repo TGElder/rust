@@ -34,7 +34,7 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use actors::{PauseGame, PauseSim, Save, Visibility, WorldArtistActor};
+use actors::{PauseGame, PauseSim, Save, UpdateRoads, Visibility, WorldArtistActor};
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
@@ -185,6 +185,11 @@ fn main() {
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
 
+    let mut update_roads = UpdateRoads::new(event_forwarder.subscribe(), game.tx());
+    let (update_roads_run, update_roads_handle) =
+        async move { update_roads.run().await }.remote_handle();
+    thread_pool.spawn_ok(update_roads_run);
+
     // Visibility
     let mut visibility = Visibility::new(
         event_forwarder.subscribe(),
@@ -250,6 +255,7 @@ fn main() {
             save_handle,
             sim_handle,
             world_artist_actor_handle,
+            update_roads_handle,
             visibility_handle
         )
     });
