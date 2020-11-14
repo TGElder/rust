@@ -9,7 +9,7 @@ const HANDLE: &str = "get_route_changes";
 
 pub struct GetRouteChanges<G>
 where
-    G: Routes,
+    G: Routes + Send,
 {
     game: FnSender<G>,
 }
@@ -17,7 +17,7 @@ where
 #[async_trait]
 impl<G> Processor for GetRouteChanges<G>
 where
-    G: Routes,
+    G: Routes + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (key, route_set) = match instruction {
@@ -37,7 +37,7 @@ where
 
 impl<G> GetRouteChanges<G>
 where
-    G: Routes,
+    G: Routes + Send,
 {
     pub fn new(game: &FnSender<G>) -> GetRouteChanges<G> {
         GetRouteChanges {

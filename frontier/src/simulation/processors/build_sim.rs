@@ -6,7 +6,7 @@ const HANDLE: &str = "builder";
 
 pub struct BuildSim<G>
 where
-    G: Micros,
+    G: Micros + Send,
 {
     game: FnSender<G>,
     builders: Vec<Box<dyn Builder + Send>>,
@@ -15,7 +15,7 @@ where
 #[async_trait]
 impl<G> Processor for BuildSim<G>
 where
-    G: Micros,
+    G: Micros + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         match instruction {
@@ -31,7 +31,7 @@ where
 
 impl<G> BuildSim<G>
 where
-    G: Micros,
+    G: Micros + Send,
 {
     pub fn new(game: &FnSender<G>, builders: Vec<Box<dyn Builder + Send>>) -> BuildSim<G> {
         BuildSim {

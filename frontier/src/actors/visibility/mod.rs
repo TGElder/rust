@@ -75,7 +75,7 @@ impl Visibility {
         while self.run {
             if !self.state.active || self.elevations.is_some() {
                 select! {
-                    mut message = self.rx.get_message().fuse() => self.handle_message(message),
+                    mut message = self.rx.get_message().fuse() => self.handle_message(message).await,
                     event = self.game_rx.recv().fuse() => self.handle_game_event(event).await,
                     event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await,
                 }
@@ -88,9 +88,9 @@ impl Visibility {
         }
     }
 
-    fn handle_message(&mut self, mut message: FnMessage<Visibility>) {
+    async fn handle_message(&mut self, mut message: FnMessage<Visibility>) {
         if self.state.active {
-            message.apply(self);
+            message.apply(self).await;
         }
     }
 

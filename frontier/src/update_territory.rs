@@ -18,7 +18,7 @@ pub trait UpdateTerritory: Clone {
 
 pub struct TerritoryUpdater<G, P>
 where
-    G: SetTerritory,
+    G: SetTerritory + Send,
     P: PositionsWithin,
 {
     game: FnSender<G>,
@@ -28,7 +28,7 @@ where
 
 impl<G, P> TerritoryUpdater<G, P>
 where
-    G: SetTerritory,
+    G: SetTerritory + Send,
     P: PositionsWithin,
 {
     pub fn new(
@@ -46,7 +46,7 @@ where
 
 impl<G, P> Clone for TerritoryUpdater<G, P>
 where
-    G: SetTerritory,
+    G: SetTerritory + Send,
     P: PositionsWithin,
 {
     fn clone(&self) -> Self {
@@ -61,7 +61,7 @@ where
 #[async_trait]
 impl<G, P> UpdateTerritory for TerritoryUpdater<G, P>
 where
-    G: SetTerritory,
+    G: SetTerritory + Send,
     P: PositionsWithin + Send + Sync,
 {
     async fn update_territory(&mut self, controller: V2<usize>) {
@@ -75,7 +75,7 @@ where
 
 impl<G, P> TerritoryUpdater<G, P>
 where
-    G: SetTerritory,
+    G: SetTerritory + Send,
     P: PositionsWithin + Send + Sync,
 {
     fn get_durations(&mut self, controller: V2<usize>) -> HashMap<V2<usize>, Duration> {

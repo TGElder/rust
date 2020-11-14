@@ -10,7 +10,7 @@ const HANDLE: &str = "update_route_to_ports";
 
 pub struct UpdateRouteToPorts<G>
 where
-    G: CheckForPort + HasWorld,
+    G: CheckForPort + HasWorld + Send,
 {
     game: FnSender<G>,
 }
@@ -18,7 +18,7 @@ where
 #[async_trait]
 impl<G> Processor for UpdateRouteToPorts<G>
 where
-    G: CheckForPort + HasWorld,
+    G: CheckForPort + HasWorld + Send,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let route_changes = match instruction {
@@ -31,7 +31,7 @@ where
 
 impl<G> UpdateRouteToPorts<G>
 where
-    G: CheckForPort + HasWorld,
+    G: CheckForPort + HasWorld + Send,
 {
     pub fn new(game: &FnSender<G>) -> UpdateRouteToPorts<G> {
         UpdateRouteToPorts {
@@ -56,7 +56,7 @@ pub fn update_many_route_to_ports<G>(
     route_changes: Vec<RouteChange>,
 ) -> State
 where
-    G: CheckForPort + HasWorld,
+    G: CheckForPort + HasWorld + Send,
 {
     for route_change in route_changes {
         update_route_to_ports(game, &mut state, &route_change);
@@ -66,7 +66,7 @@ where
 
 pub fn update_route_to_ports<G>(game: &G, state: &mut State, route_change: &RouteChange)
 where
-    G: CheckForPort + HasWorld,
+    G: CheckForPort + HasWorld + Send,
 {
     match route_change {
         RouteChange::New { key, route } => update(game, state, key, route),
@@ -80,7 +80,7 @@ where
 
 fn update<G>(game: &G, state: &mut State, route_key: &RouteKey, route: &Route)
 where
-    G: CheckForPort + HasWorld,
+    G: CheckForPort + HasWorld + Send,
 {
     let ports = get_ports(game, &route.path);
     if ports.is_empty() {
@@ -92,7 +92,7 @@ where
 
 fn get_ports<G>(game: &G, path: &[V2<usize>]) -> HashSet<V2<usize>>
 where
-    G: CheckForPort + HasWorld,
+    G: CheckForPort + HasWorld + Send,
 {
     let world = game.world();
     path.edges()

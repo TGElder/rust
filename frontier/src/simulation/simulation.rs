@@ -51,7 +51,7 @@ impl Simulation {
 
     pub async fn run(&mut self) {
         while self.run {
-            self.process_updates();
+            self.process_updates().await;
 
             if self.run && !self.paused {
                 self.evolve_state().await;
@@ -59,8 +59,8 @@ impl Simulation {
         }
     }
 
-    fn process_updates(&mut self) {
-        self.rx.get_messages().apply(self);
+    async fn process_updates(&mut self) {
+        self.rx.get_messages().apply(self).await;
     }
 
     async fn evolve_state(&mut self) {
