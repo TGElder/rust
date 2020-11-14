@@ -21,10 +21,11 @@ impl WorldArtistHandler {
         }
     }
 
-    fn draw_all(&mut self) {
+    fn draw_all(&mut self, game_state: &GameState) {
         let actor_tx = self.actor_tx.clone();
+        let when = game_state.game_micros;
         self.thread_pool
-            .spawn_ok(actor_tx.send_future(|artist| artist.redraw_all().boxed()))
+            .spawn_ok(actor_tx.send_future(move |artist| artist.redraw_all_at(when).boxed()))
     }
 
     fn update_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
@@ -33,7 +34,7 @@ impl WorldArtistHandler {
             let cell = *cell;
             let when = game_state.game_micros;
             self.thread_pool.spawn_ok(
-                actor_tx.send_future(move |artist| artist.redraw_tile(cell, when).boxed()),
+                actor_tx.send_future(move |artist| artist.redraw_tile_at(cell, when).boxed()),
             );
         }
     }
@@ -56,7 +57,7 @@ impl GameEventConsumer for WorldArtistHandler {
         match event {
             GameEvent::CellsRevealed { selection, .. } => {
                 match selection {
-                    CellSelection::All => self.draw_all(),
+                    CellSelection::All => self.draw_all(game_state),
                     CellSelection::Some(cells) => self.update_cells(game_state, &cells),
                 };
             }

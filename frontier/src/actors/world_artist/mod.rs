@@ -5,13 +5,11 @@ pub use coloring::WorldColoringParameters;
 use crate::artists::{Slab, WorldArtist};
 use crate::game::{Game, GameEvent};
 use coloring::world_coloring;
+use commons::async_channel::{Receiver, RecvError};
 use commons::fn_sender::FnSender;
+use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver};
 use commons::futures::future::FutureExt;
 use commons::V2;
-use commons::{
-    async_channel::{Receiver, RecvError},
-    fn_sender::{fn_channel, FnMessageExt, FnReceiver},
-};
 use isometric::{Button, Command, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
@@ -83,8 +81,12 @@ impl WorldArtistActor {
         }
     }
 
-    pub async fn redraw_all(&mut self) {
+    async fn redraw_all(&mut self) {
         let when = self.when().await;
+        self.redraw_all_at(when).await;
+    }
+
+    pub async fn redraw_all_at(&mut self, when: u128) {
         for slab in self.world_artist.get_all_slabs() {
             self.redraw_slab(slab, when).await;
         }
@@ -96,7 +98,7 @@ impl WorldArtistActor {
             .await
     }
 
-    pub async fn redraw_tile(&mut self, tile: V2<usize>, when: u128) {
+    pub async fn redraw_tile_at(&mut self, tile: V2<usize>, when: u128) {
         let slab = Slab::at(tile, self.world_artist.params().slab_size);
         self.redraw_slab(slab, when).await;
     }

@@ -1,15 +1,14 @@
 use crate::Arm;
-use async_trait::async_trait;
 use async_channel::{unbounded, Receiver, Sender};
-use futures::{future::BoxFuture, FutureExt, executor::block_on};
+use async_trait::async_trait;
+use futures::executor::block_on;
+use futures::future::{BoxFuture, FutureExt};
+use futures::Future;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
-use std::{
-    future::Future,
-    sync::atomic::{AtomicBool, Ordering},
-    thread::{self, JoinHandle},
-};
+use std::thread::{self, JoinHandle};
 
 pub type MessageFn<I, O> = dyn FnOnce(&mut I) -> BoxFuture<O> + Send;
 
@@ -33,15 +32,17 @@ impl<I> FnMessage<I> {
 }
 
 #[async_trait]
-pub trait FnMessageExt<I> 
-    where I: Send
+pub trait FnMessageExt<I>
+where
+    I: Send,
 {
     async fn apply(&mut self, input: &mut I);
 }
 
 #[async_trait]
-impl<I> FnMessageExt<I> for FnMessage<I> 
-    where I: Send
+impl<I> FnMessageExt<I> for FnMessage<I>
+where
+    I: Send,
 {
     async fn apply(&mut self, input: &mut I) {
         if let Some(function) = self.function.take() {
@@ -52,8 +53,9 @@ impl<I> FnMessageExt<I> for FnMessage<I>
 }
 
 #[async_trait]
-impl<I> FnMessageExt<I> for Vec<FnMessage<I>> 
-    where I: Send
+impl<I> FnMessageExt<I> for Vec<FnMessage<I>>
+where
+    I: Send,
 {
     async fn apply(&mut self, input: &mut I) {
         for message in self {
@@ -81,15 +83,17 @@ impl<O> Future for FnSenderFuture<O> {
     }
 }
 
-pub struct FnSender<I> 
-    where I: Send
+pub struct FnSender<I>
+where
+    I: Send,
 {
     tx: Sender<FnMessage<I>>,
     name: &'static str,
 }
 
-impl<I> FnSender<I> 
-    where I: Send
+impl<I> FnSender<I>
+where
+    I: Send,
 {
     pub fn name(&self) -> &'static str {
         &self.name
@@ -102,7 +106,6 @@ impl<I> FnSender<I>
         }
     }
 
-   
     pub fn send_future<O, F>(&self, function: F) -> FnSenderFuture<O>
     where
         O: Send + 'static,
@@ -110,11 +113,12 @@ impl<I> FnSender<I>
     {
         let output = Arc::new(Mutex::new(None));
         let output_in_fn = output.clone();
-        let function:  Box<dyn FnOnce(&mut I) -> BoxFuture<()> + Send> = Box::new(move |input: &mut I| {
+        let function: Box<MessageFn<I, ()>> = Box::new(move |input: &mut I| {
             async move {
                 let out = function(input).await;
                 *output_in_fn.lock().unwrap() = Some(out);
-            }.boxed()
+            }
+            .boxed()
         });
 
         let waker = Arc::new(Mutex::new(None));
@@ -148,7 +152,7 @@ impl<I> FnSender<I>
         O: Send + 'static,
         F: FnOnce(&mut I) -> O + Send + 'static,
     {
-       self.send_future(|input| async move{function(input)}.boxed())
+        self.send_future(|input| async move { function(input) }.boxed())
     }
 
     pub fn wait<O, F>(&self, function: F) -> O
@@ -158,11 +162,11 @@ impl<I> FnSender<I>
     {
         block_on(self.send(function))
     }
-
 }
 
-impl<I> Clone for FnSender<I> 
-    where I: Send
+impl<I> Clone for FnSender<I>
+where
+    I: Send,
 {
     fn clone(&self) -> FnSender<I> {
         FnSender {
@@ -193,15 +197,17 @@ impl<I> FnReceiver<I> {
     }
 }
 
-pub fn fn_channel<I>() -> (FnSender<I>, FnReceiver<I>) 
-    where I: Send
+pub fn fn_channel<I>() -> (FnSender<I>, FnReceiver<I>)
+where
+    I: Send,
 {
     let (tx, rx) = unbounded();
     (FnSender { tx, name: "root" }, FnReceiver { rx })
 }
 
-pub struct FnThread<I> 
-    where I: Send
+pub struct FnThread<I>
+where
+    I: Send,
 {
     tx: FnSender<I>,
     handle: JoinHandle<I>,
@@ -248,7 +254,7 @@ mod tests {
             run: bool,
         }
 
-        impl State{
+        impl State {
             async fn increment_value(&mut self, increment: usize) {
                 self.value += increment;
             }
@@ -271,10 +277,7 @@ mod tests {
 
         let handle = thread::spawn(move || {
             while state.run {
-                block_on(async{
-                    rx.get_message().await.apply(&mut state).await
-                }
-                );
+                block_on(async { rx.get_message().await.apply(&mut state).await });
             }
             state.value
         });
@@ -303,20 +306,18 @@ mod tests {
 
         let handle = thread::spawn(move || {
             while state.run {
-                block_on(async{
-                    rx.get_message().await.apply(&mut state).await
-                });
+                block_on(async { rx.get_message().await.apply(&mut state).await });
             }
             state.value
         });
 
-        tx.wait(|state| state.value += 1);
+        let increment = 1;
+        tx.wait(move |state| state.value += increment);
         assert_eq!(tx.wait(|state| state.value), 101);
 
         tx.wait(|state| state.run = false);
         assert_eq!(handle.join().unwrap(), 101);
     }
-
 
     #[test]
     fn fn_thread() {
@@ -328,5 +329,4 @@ mod tests {
         assert_eq!(tx.wait(|value| *value), 101);
         assert_eq!(actor.join(), 101);
     }
-
 }
