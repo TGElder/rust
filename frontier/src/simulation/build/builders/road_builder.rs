@@ -7,7 +7,7 @@ const HANDLE: &str = "road_builder";
 
 pub struct RoadBuilder<G>
 where
-    G: BuildRoad,
+    G: BuildRoad + Send,
 {
     game: FnSender<G>,
 }
@@ -15,7 +15,7 @@ where
 #[async_trait]
 impl<G> Builder for RoadBuilder<G>
 where
-    G: BuildRoad,
+    G: BuildRoad + Send,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Road(..) = build {
@@ -34,7 +34,7 @@ where
 
 impl<G> RoadBuilder<G>
 where
-    G: BuildRoad,
+    G: BuildRoad + Send,
 {
     pub fn new(game: &FnSender<G>) -> RoadBuilder<G> {
         RoadBuilder {
@@ -49,7 +49,7 @@ where
 
 fn build_road<G>(game: &mut G, road: Edge)
 where
-    G: BuildRoad,
+    G: BuildRoad + Send,
 {
     game.add_road(&road);
 }

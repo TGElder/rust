@@ -10,7 +10,7 @@ const HANDLE: &str = "get_routes";
 
 pub struct GetRoutes<G, P, Q>
 where
-    G: Micros,
+    G: Micros + Send,
     P: ClosestTargets + InBounds + Send + Sync,
     Q: LowestDuration + Send + Sync,
 {
@@ -22,7 +22,7 @@ where
 #[async_trait]
 impl<G, P, Q> Processor for GetRoutes<G, P, Q>
 where
-    G: Micros,
+    G: Micros + Send,
     P: ClosestTargets + InBounds + Send + Sync,
     Q: LowestDuration + Send + Sync,
 {
@@ -48,7 +48,7 @@ where
 
 impl<G, P, Q> GetRoutes<G, P, Q>
 where
-    G: Micros,
+    G: Micros + Send,
     P: ClosestTargets + InBounds + Send + Sync,
     Q: LowestDuration + Send + Sync,
 {

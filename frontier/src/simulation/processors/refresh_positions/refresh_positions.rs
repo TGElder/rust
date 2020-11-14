@@ -10,7 +10,7 @@ const BATCH_SIZE: usize = 128;
 
 pub struct RefreshPositions<G>
 where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
 {
     game: FnSender<G>,
 }
@@ -18,7 +18,7 @@ where
 #[async_trait]
 impl<G> Processor for RefreshPositions<G>
 where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let positions = match instruction {
@@ -31,7 +31,7 @@ where
 
 impl<G> RefreshPositions<G>
 where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
 {
     pub fn new(game: &FnSender<G>) -> RefreshPositions<G> {
         RefreshPositions {
@@ -66,7 +66,7 @@ fn refresh_positions<G>(
     initial_town_population: f64,
 ) -> State
 where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
 {
     for position in positions {
         refresh_position(game, &mut state, position, &initial_town_population);
@@ -80,7 +80,7 @@ fn refresh_position<G>(
     position: V2<usize>,
     initial_town_population: &f64,
 ) where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile,
+    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
 {
     let traffic = get_position_traffic(game, &state, &position);
     for instruction in try_build_town(game, &traffic, &initial_town_population) {
