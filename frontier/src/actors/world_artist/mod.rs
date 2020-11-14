@@ -5,26 +5,19 @@ pub use coloring::WorldColoringParameters;
 use crate::artists::{Slab, WorldArtist};
 use crate::game::{Game, GameEvent};
 use coloring::world_coloring;
-use commons::async_channel::{unbounded, Receiver, RecvError, Sender as AsyncSender};
 use commons::fn_sender::FnSender;
 use commons::futures::future::FutureExt;
 use commons::V2;
+use commons::{
+    async_channel::{Receiver, RecvError},
+    fn_sender::{fn_channel, FnMessageExt, FnReceiver},
+};
 use isometric::{Button, Command, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 const HANDLE: &str = "world_artist_actor";
-
-pub enum RedrawType {
-    All,
-    Tile(V2<usize>),
-}
-
-pub struct Redraw {
-    pub redraw_type: RedrawType,
-    pub when: u128,
-}
 
 pub struct WorldArtistActorBindings {
     toggle_territory_layer: Button,
@@ -39,8 +32,8 @@ impl Default for WorldArtistActorBindings {
 }
 
 pub struct WorldArtistActor {
-    rx: Receiver<Redraw>,
-    tx: AsyncSender<Redraw>,
+    rx: FnReceiver<WorldArtistActor>,
+    tx: FnSender<WorldArtistActor>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
     game_tx: FnSender<Game>,
@@ -60,7 +53,7 @@ impl WorldArtistActor {
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
     ) -> WorldArtistActor {
-        let (tx, rx) = unbounded();
+        let (tx, rx) = fn_channel();
         WorldArtistActor {
             rx,
             tx,
@@ -76,29 +69,21 @@ impl WorldArtistActor {
         }
     }
 
-    pub fn tx(&self) -> &AsyncSender<Redraw> {
+    pub fn tx(&self) -> &FnSender<WorldArtistActor> {
         &self.tx
     }
 
     pub async fn run(&mut self) {
         while self.run {
             select! {
-                event = self.rx.recv().fuse() => self.redraw(event).await,
+                mut message = self.rx.get_message().fuse() => message.apply(self).await,
                 event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await,
                 event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
             }
         }
     }
 
-    async fn redraw(&mut self, event: Result<Redraw, RecvError>) {
-        let Redraw { redraw_type, when } = ok_or!(event, return);
-        match redraw_type {
-            RedrawType::All => self.redraw_all().await,
-            RedrawType::Tile(tile) => self.redraw_tile(tile, when).await,
-        };
-    }
-
-    async fn redraw_all(&mut self) {
+    pub async fn redraw_all(&mut self) {
         let when = self.when().await;
         for slab in self.world_artist.get_all_slabs() {
             self.redraw_slab(slab, when).await;
@@ -111,7 +96,7 @@ impl WorldArtistActor {
             .await
     }
 
-    async fn redraw_tile(&mut self, tile: V2<usize>, when: u128) {
+    pub async fn redraw_tile(&mut self, tile: V2<usize>, when: u128) {
         let slab = Slab::at(tile, self.world_artist.params().slab_size);
         self.redraw_slab(slab, when).await;
     }

@@ -1,35 +1,30 @@
-use crate::actors::{Redraw, RedrawType};
-use commons::async_channel::Sender;
+use crate::actors::WorldArtistActor;
+use futures::FutureExt;
 
 use super::*;
 
 const HANDLE: &str = "world_artist_handler";
 
 pub struct WorldArtistHandler {
-    actor_tx: Sender<Redraw>,
+    actor_tx: FnSender<WorldArtistActor>,
     thread_pool: ThreadPool,
 }
 
 impl WorldArtistHandler {
-    pub fn new(actor_tx: &Sender<Redraw>, thread_pool: ThreadPool) -> WorldArtistHandler {
+    pub fn new(
+        actor_tx: &FnSender<WorldArtistActor>,
+        thread_pool: ThreadPool,
+    ) -> WorldArtistHandler {
         WorldArtistHandler {
-            actor_tx: actor_tx.clone(),
+            actor_tx: actor_tx.clone_with_name(HANDLE),
             thread_pool,
         }
     }
 
-    fn draw_all(&mut self, game_state: &GameState) {
+    fn draw_all(&mut self) {
         let actor_tx = self.actor_tx.clone();
-        let when = game_state.game_micros;
-        self.thread_pool.spawn_ok(async move {
-            actor_tx
-                .send(Redraw {
-                    redraw_type: RedrawType::All,
-                    when,
-                })
-                .await
-                .unwrap()
-        })
+        self.thread_pool
+            .spawn_ok(actor_tx.send_future(|artist| artist.redraw_all().boxed()))
     }
 
     fn update_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
@@ -37,15 +32,9 @@ impl WorldArtistHandler {
             let actor_tx = self.actor_tx.clone();
             let cell = *cell;
             let when = game_state.game_micros;
-            self.thread_pool.spawn_ok(async move {
-                actor_tx
-                    .send(Redraw {
-                        redraw_type: RedrawType::Tile(cell),
-                        when,
-                    })
-                    .await
-                    .unwrap()
-            });
+            self.thread_pool.spawn_ok(
+                actor_tx.send_future(move |artist| artist.redraw_tile(cell, when).boxed()),
+            );
         }
     }
 
@@ -67,7 +56,7 @@ impl GameEventConsumer for WorldArtistHandler {
         match event {
             GameEvent::CellsRevealed { selection, .. } => {
                 match selection {
-                    CellSelection::All => self.draw_all(game_state),
+                    CellSelection::All => self.draw_all(),
                     CellSelection::Some(cells) => self.update_cells(game_state, &cells),
                 };
             }
