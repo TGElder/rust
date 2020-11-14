@@ -81,26 +81,26 @@ impl WorldArtistActor {
         }
     }
 
-    async fn redraw_all(&mut self) {
-        let when = self.when().await;
-        self.redraw_all_at(when).await;
-    }
-
     pub async fn redraw_all_at(&mut self, when: u128) {
         for slab in self.world_artist.get_all_slabs() {
             self.redraw_slab(slab, when).await;
         }
     }
 
+    pub async fn redraw_tile_at(&mut self, tile: V2<usize>, when: u128) {
+        let slab = Slab::at(tile, self.world_artist.params().slab_size);
+        self.redraw_slab(slab, when).await;
+    }
+
+    async fn redraw_all(&mut self) {
+        let when = self.when().await;
+        self.redraw_all_at(when).await;
+    }
+
     async fn when(&mut self) -> u128 {
         self.game_tx
             .send(|game| game.game_state().game_micros)
             .await
-    }
-
-    pub async fn redraw_tile_at(&mut self, tile: V2<usize>, when: u128) {
-        let slab = Slab::at(tile, self.world_artist.params().slab_size);
-        self.redraw_slab(slab, when).await;
     }
 
     async fn redraw_slab(&mut self, slab: Slab, when: u128) {
