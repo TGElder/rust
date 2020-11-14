@@ -9,7 +9,7 @@ const HANDLE: &str = "get_town_traffic";
 
 pub struct GetTownTraffic<G>
 where
-    G: HasWorld + GetRoute + Settlements,
+    G: HasWorld + GetRoute + Settlements + Send,
 {
     game: FnSender<G>,
 }
@@ -17,7 +17,7 @@ where
 #[async_trait]
 impl<G> Processor for GetTownTraffic<G>
 where
-    G: HasWorld + GetRoute + Settlements,
+    G: HasWorld + GetRoute + Settlements + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, territory) = match instruction {
@@ -46,7 +46,7 @@ where
 
 impl<G> GetTownTraffic<G>
 where
-    G: HasWorld + GetRoute + Settlements,
+    G: HasWorld + GetRoute + Settlements + Send,
 {
     pub fn new(game: &FnSender<G>) -> GetTownTraffic<G> {
         GetTownTraffic {
@@ -99,7 +99,7 @@ fn get_traffic_summaries<G>(
     territory: HashSet<V2<usize>>,
 ) -> Vec<TownTrafficSummary>
 where
-    G: HasWorld + GetRoute + Settlements,
+    G: HasWorld + GetRoute + Settlements + Send,
 {
     route_to_ports
         .into_iter()
@@ -116,7 +116,7 @@ fn get_traffic_summary_for_route<G>(
     territory: &HashSet<V2<usize>>,
 ) -> Option<TownTrafficSummary>
 where
-    G: HasWorld + GetRoute + Settlements,
+    G: HasWorld + GetRoute + Settlements + Send,
 {
     if territory.contains(&route_key.settlement) {
         return None;

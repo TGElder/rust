@@ -6,7 +6,7 @@ const HANDLE: &str = "remove_town";
 
 pub struct RemoveTown<G>
 where
-    G: RemoveSettlement + Controlled,
+    G: RemoveSettlement + Controlled + Send,
 {
     game: FnSender<G>,
 }
@@ -14,7 +14,7 @@ where
 #[async_trait]
 impl<G> Processor for RemoveTown<G>
 where
-    G: RemoveSettlement + Controlled,
+    G: RemoveSettlement + Controlled + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
@@ -41,7 +41,7 @@ where
 
 impl<G> RemoveTown<G>
 where
-    G: RemoveSettlement + Controlled,
+    G: RemoveSettlement + Controlled + Send,
 {
     pub fn new(game: &FnSender<G>) -> RemoveTown<G> {
         RemoveTown {
@@ -64,7 +64,7 @@ fn remove_settlement_and_return_controlled<G>(
     position: V2<usize>,
 ) -> HashSet<V2<usize>>
 where
-    G: RemoveSettlement + Controlled,
+    G: RemoveSettlement + Controlled + Send,
 {
     let out = game.controlled(&position);
     game.remove_settlement(&position);

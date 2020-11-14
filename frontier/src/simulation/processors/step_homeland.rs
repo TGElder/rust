@@ -6,7 +6,7 @@ const HANDLE: &str = "step_homeland";
 
 pub struct StepHomeland<G>
 where
-    G: Settlements,
+    G: Settlements + Send,
 {
     game: FnSender<G>,
 }
@@ -14,7 +14,7 @@ where
 #[async_trait]
 impl<G> Processor for StepHomeland<G>
 where
-    G: Settlements,
+    G: Settlements + Send,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         self.process(state, instruction).await
@@ -23,7 +23,7 @@ where
 
 impl<G> StepHomeland<G>
 where
-    G: Settlements,
+    G: Settlements + Send,
 {
     pub fn new(game: &FnSender<G>) -> StepHomeland<G> {
         StepHomeland {

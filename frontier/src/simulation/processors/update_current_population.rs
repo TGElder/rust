@@ -6,7 +6,7 @@ const HANDLE: &str = "update_current_population";
 
 pub struct UpdateCurrentPopulation<G>
 where
-    G: Micros + Settlements + UpdateSettlement,
+    G: Micros + Settlements + UpdateSettlement + Send,
 {
     game: FnSender<G>,
     max_abs_population_change: fn(&SettlementClass) -> f64,
@@ -15,7 +15,7 @@ where
 #[async_trait]
 impl<G> Processor for UpdateCurrentPopulation<G>
 where
-    G: Micros + Settlements + UpdateSettlement,
+    G: Micros + Settlements + UpdateSettlement + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let position = match instruction {
@@ -33,7 +33,7 @@ where
 
 impl<G> UpdateCurrentPopulation<G>
 where
-    G: Micros + Settlements + UpdateSettlement,
+    G: Micros + Settlements + UpdateSettlement + Send,
 {
     pub fn new(
         game: &FnSender<G>,
@@ -59,7 +59,7 @@ fn try_update_settlement<G>(
     max_abs_population_change: fn(&SettlementClass) -> f64,
 ) -> Option<Settlement>
 where
-    G: Micros + Settlements + UpdateSettlement,
+    G: Micros + Settlements + UpdateSettlement + Send,
 {
     let game_micros = *game.micros();
     let settlement = game.get_settlement(&position)?;

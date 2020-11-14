@@ -1,37 +1,51 @@
 use crate::actors::{Redraw, RedrawType};
-use commons::async_channel::Sender as AsyncSender;
-use commons::futures::executor::block_on;
+use commons::async_channel::Sender;
 
 use super::*;
 
 const HANDLE: &str = "world_artist_handler";
 
 pub struct WorldArtistHandler {
-    actor_tx: AsyncSender<Redraw>,
+    actor_tx: Sender<Redraw>,
+    thread_pool: ThreadPool,
 }
 
 impl WorldArtistHandler {
-    pub fn new(actor_tx: &AsyncSender<Redraw>) -> WorldArtistHandler {
+    pub fn new(actor_tx: &Sender<Redraw>, thread_pool: ThreadPool) -> WorldArtistHandler {
         WorldArtistHandler {
             actor_tx: actor_tx.clone(),
+            thread_pool,
         }
     }
 
     fn draw_all(&mut self, game_state: &GameState) {
-        block_on(self.actor_tx.send(Redraw {
-            redraw_type: RedrawType::All,
-            when: game_state.game_micros,
-        }))
-        .unwrap();
+        let actor_tx = self.actor_tx.clone();
+        let when = game_state.game_micros;
+        self.thread_pool.spawn_ok(async move {
+            actor_tx
+                .send(Redraw {
+                    redraw_type: RedrawType::All,
+                    when,
+                })
+                .await
+                .unwrap()
+        })
     }
 
     fn update_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
         for cell in cells {
-            block_on(self.actor_tx.send(Redraw {
-                redraw_type: RedrawType::Tile(*cell),
-                when: game_state.game_micros,
-            }))
-            .unwrap();
+            let actor_tx = self.actor_tx.clone();
+            let cell = *cell;
+            let when = game_state.game_micros;
+            self.thread_pool.spawn_ok(async move {
+                actor_tx
+                    .send(Redraw {
+                        redraw_type: RedrawType::Tile(cell),
+                        when,
+                    })
+                    .await
+                    .unwrap()
+            });
         }
     }
 

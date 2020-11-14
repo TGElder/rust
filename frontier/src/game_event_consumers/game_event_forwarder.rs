@@ -1,7 +1,6 @@
 use super::*;
 
 use commons::async_channel::{unbounded, Receiver, Sender};
-use commons::futures::executor::block_on;
 use isometric::Event;
 use std::sync::Arc;
 
@@ -9,12 +8,14 @@ const HANDLE: &str = "game_event_forwarder";
 
 pub struct GameEventForwarder {
     subscribers: Vec<Sender<GameEvent>>,
+    pool: ThreadPool,
 }
 
 impl GameEventForwarder {
-    pub fn new() -> GameEventForwarder {
+    pub fn new(pool: ThreadPool) -> GameEventForwarder {
         GameEventForwarder {
             subscribers: vec![],
+            pool,
         }
     }
 
@@ -26,7 +27,10 @@ impl GameEventForwarder {
 
     fn send_event(&mut self, event: &dyn Fn() -> GameEvent) {
         for subscriber in self.subscribers.iter_mut() {
-            block_on(subscriber.send(event())).unwrap();
+            let subscriber = subscriber.clone();
+            let event = event();
+            self.pool
+                .spawn_ok(async move { subscriber.send(event).await.unwrap() });
         }
     }
 }

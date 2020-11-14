@@ -11,7 +11,7 @@ const BATCH_SIZE: usize = 128;
 
 pub struct RefreshEdges<G, T, P>
 where
-    G: BuildRoad + GetRoute + HasWorld,
+    G: BuildRoad + GetRoute + HasWorld + Send,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -23,7 +23,7 @@ where
 #[async_trait]
 impl<G, T, P> Processor for RefreshEdges<G, T, P>
 where
-    G: BuildRoad + GetRoute + HasWorld,
+    G: BuildRoad + GetRoute + HasWorld + Send,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -38,7 +38,7 @@ where
 
 impl<G, T, P> RefreshEdges<G, T, P>
 where
-    G: BuildRoad + GetRoute + HasWorld,
+    G: BuildRoad + GetRoute + HasWorld + Send,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -79,7 +79,7 @@ fn refresh_edges<G, T, P>(
     edges: Vec<Edge>,
 ) -> State
 where
-    G: BuildRoad + GetRoute + HasWorld,
+    G: BuildRoad + GetRoute + HasWorld + Send,
     T: TravelDuration + 'static,
     P: UpdateEdge + 'static,
 {
@@ -102,7 +102,7 @@ fn refresh_edge<G, T, P>(
     state: &mut State,
     edge: Edge,
 ) where
-    G: BuildRoad + GetRoute + HasWorld,
+    G: BuildRoad + GetRoute + HasWorld + Send,
     T: TravelDuration + 'static,
     P: UpdateEdge + 'static,
 {

@@ -8,7 +8,7 @@ const HANDLE: &str = "settlement_builder";
 
 pub struct SettlementBuilder<G, T>
 where
-    G: AddSettlement + WhoControlsTile,
+    G: AddSettlement + WhoControlsTile + Send,
     T: UpdateTerritory,
 {
     game: FnSender<G>,
@@ -18,7 +18,7 @@ where
 #[async_trait]
 impl<G, T> Builder for SettlementBuilder<G, T>
 where
-    G: AddSettlement + WhoControlsTile,
+    G: AddSettlement + WhoControlsTile + Send,
     T: UpdateTerritory + Send,
 {
     fn can_build(&self, build: &Build) -> bool {
@@ -41,7 +41,7 @@ where
 
 impl<G, T> SettlementBuilder<G, T>
 where
-    G: AddSettlement + WhoControlsTile,
+    G: AddSettlement + WhoControlsTile + Send,
     T: UpdateTerritory,
 {
     pub fn new(game: &FnSender<G>, territory: &T) -> SettlementBuilder<G, T> {
@@ -60,7 +60,7 @@ where
 
 fn try_add_settlement<G>(game: &mut G, settlement: Settlement) -> bool
 where
-    G: AddSettlement + WhoControlsTile,
+    G: AddSettlement + WhoControlsTile + Send,
 {
     if game.who_controls_tile(&settlement.position).is_some() {
         return false;

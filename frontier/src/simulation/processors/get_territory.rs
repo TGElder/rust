@@ -8,7 +8,7 @@ const HANDLE: &str = "get_territory";
 
 pub struct GetTerritory<G, T>
 where
-    G: Controlled + Settlements,
+    G: Controlled + Settlements + Send,
     T: UpdateTerritory,
 {
     game: FnSender<G>,
@@ -18,7 +18,7 @@ where
 #[async_trait]
 impl<G, T> Processor for GetTerritory<G, T>
 where
-    G: Controlled + Settlements,
+    G: Controlled + Settlements + Send,
     T: UpdateTerritory + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
@@ -46,7 +46,7 @@ where
 
 impl<G, T> GetTerritory<G, T>
 where
-    G: Controlled + Settlements,
+    G: Controlled + Settlements + Send,
     T: UpdateTerritory,
 {
     pub fn new(game: &FnSender<G>, territory: &T) -> GetTerritory<G, T> {
