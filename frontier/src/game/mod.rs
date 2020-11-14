@@ -11,6 +11,7 @@ use crate::settlement::*;
 use crate::territory::*;
 use crate::world::*;
 use commons::fn_sender::*;
+use commons::futures::executor::block_on;
 use commons::grid::Grid;
 use commons::V2;
 use commons::*;
@@ -394,7 +395,7 @@ impl Game {
     fn handle_message(&mut self, mut message: FnMessage<Game>) {
         let start = Instant::now();
         let name = message.sender_name();
-        message.apply(self);
+        block_on(message.apply(self));
         log_time(
             name.to_string(),
             start.elapsed(),

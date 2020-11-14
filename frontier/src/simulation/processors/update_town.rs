@@ -7,7 +7,7 @@ const HANDLE: &str = "update_town";
 
 pub struct UpdateTown<G>
 where
-    G: UpdateSettlement,
+    G: UpdateSettlement + Send,
 {
     game: FnSender<G>,
 }
@@ -15,7 +15,7 @@ where
 #[async_trait]
 impl<G> Processor for UpdateTown<G>
 where
-    G: UpdateSettlement,
+    G: UpdateSettlement + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
@@ -47,7 +47,7 @@ where
 
 impl<G> UpdateTown<G>
 where
-    G: UpdateSettlement,
+    G: UpdateSettlement + Send,
 {
     pub fn new(game: &FnSender<G>) -> UpdateTown<G> {
         UpdateTown {

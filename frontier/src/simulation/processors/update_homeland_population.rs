@@ -6,7 +6,7 @@ const HANDLE: &str = "update_homeland_population";
 
 pub struct UpdateHomelandPopulation<G>
 where
-    G: Settlements + UpdateSettlement,
+    G: Settlements + UpdateSettlement + Send,
 {
     game: FnSender<G>,
 }
@@ -14,7 +14,7 @@ where
 #[async_trait]
 impl<G> Processor for UpdateHomelandPopulation<G>
 where
-    G: Settlements + UpdateSettlement,
+    G: Settlements + UpdateSettlement + Send,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let visible_land = match instruction {
@@ -28,7 +28,7 @@ where
 
 impl<G> UpdateHomelandPopulation<G>
 where
-    G: Settlements + UpdateSettlement,
+    G: Settlements + UpdateSettlement + Send,
 {
     pub fn new(game: &FnSender<G>) -> UpdateHomelandPopulation<G> {
         UpdateHomelandPopulation {
@@ -45,7 +45,7 @@ where
 
 fn update_homelands<G>(game: &mut G, total_population: f64)
 where
-    G: Settlements + UpdateSettlement,
+    G: Settlements + UpdateSettlement + Send,
 {
     let homelands = get_homelands(game);
     let target_population = total_population / homelands.len() as f64;

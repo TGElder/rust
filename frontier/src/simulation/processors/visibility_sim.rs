@@ -13,7 +13,7 @@ pub enum VisibilityMessage {
 
 pub struct VisibilitySim<G>
 where
-    G: VisiblePositions,
+    G: VisiblePositions + Send,
 {
     tx: Sender<VisibilityMessage>,
     rx: Receiver<VisibilityMessage>,
@@ -23,7 +23,7 @@ where
 #[async_trait]
 impl<G> Processor for VisibilitySim<G>
 where
-    G: VisiblePositions,
+    G: VisiblePositions + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         match instruction {
@@ -48,7 +48,7 @@ where
 
 impl<G> VisibilitySim<G>
 where
-    G: VisiblePositions,
+    G: VisiblePositions + Send,
 {
     pub fn new(game: &FnSender<G>) -> VisibilitySim<G> {
         let (tx, rx) = channel();
@@ -78,7 +78,7 @@ where
 
 fn visible_land_positions<G>(game: &mut G) -> usize
 where
-    G: VisiblePositions,
+    G: VisiblePositions + Send,
 {
     game.visible_land_positions()
 }

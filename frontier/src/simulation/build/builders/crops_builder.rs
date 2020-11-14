@@ -8,7 +8,7 @@ const HANDLE: &str = "crops_builder";
 
 pub struct CropsBuilder<G>
 where
-    G: BuildCrops + Settlements,
+    G: BuildCrops + Settlements + Send,
 {
     game: FnSender<G>,
 }
@@ -16,7 +16,7 @@ where
 #[async_trait]
 impl<G> Builder for CropsBuilder<G>
 where
-    G: BuildCrops + Settlements,
+    G: BuildCrops + Settlements + Send,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Crops { .. } = build {
@@ -35,7 +35,7 @@ where
 
 impl<G> CropsBuilder<G>
 where
-    G: BuildCrops + Settlements,
+    G: BuildCrops + Settlements + Send,
 {
     pub fn new(game: &FnSender<G>) -> CropsBuilder<G> {
         CropsBuilder {
@@ -52,7 +52,7 @@ where
 
 fn try_build_crops<G>(game: &mut G, position: V2<usize>, rotated: bool)
 where
-    G: BuildCrops + Settlements,
+    G: BuildCrops + Settlements + Send,
 {
     if let Some(Settlement { class: Town, .. }) = game.get_settlement(&position) {
         return;
