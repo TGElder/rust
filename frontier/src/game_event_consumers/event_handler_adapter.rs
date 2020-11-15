@@ -1,7 +1,7 @@
 use super::*;
 use isometric::EventHandler;
 
-const HANDLE: &str = "event_handler_adapter";
+const NAME: &str = "event_handler_adapter";
 
 pub struct EventHandlerAdapter<T>
 where
@@ -18,7 +18,7 @@ where
     pub fn new(event_handler: T, game_tx: &FnSender<Game>) -> EventHandlerAdapter<T> {
         EventHandlerAdapter {
             event_handler,
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
         }
     }
 
@@ -36,7 +36,7 @@ where
     T: EventHandler,
 {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

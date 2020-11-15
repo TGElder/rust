@@ -2,7 +2,7 @@ use super::*;
 use crate::game::traits::{Settlements, UpdateSettlement};
 use crate::settlement::{Settlement, SettlementClass::Homeland};
 
-const HANDLE: &str = "update_homeland_population";
+const NAME: &str = "update_homeland_population";
 
 pub struct UpdateHomelandPopulation<G>
 where
@@ -32,7 +32,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> UpdateHomelandPopulation<G> {
         UpdateHomelandPopulation {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 

@@ -2,7 +2,7 @@ use super::*;
 use crate::game::traits::{Micros, Settlements, UpdateSettlement};
 use crate::settlement::{Settlement, SettlementClass};
 
-const HANDLE: &str = "update_current_population";
+const NAME: &str = "update_current_population";
 
 pub struct UpdateCurrentPopulation<G>
 where
@@ -40,7 +40,7 @@ where
         max_abs_population_change: fn(&SettlementClass) -> f64,
     ) -> UpdateCurrentPopulation<G> {
         UpdateCurrentPopulation {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
             max_abs_population_change,
         }
     }

@@ -7,7 +7,7 @@ use commons::edge::Edge;
 use commons::futures::FutureExt;
 use std::collections::HashSet;
 
-const HANDLE: &str = "refresh_edges";
+const NAME: &str = "refresh_edges";
 const BATCH_SIZE: usize = 128;
 
 pub struct RefreshEdges<G, R, T, P>
@@ -54,8 +54,8 @@ where
         pathfinder: &Arc<RwLock<P>>,
     ) -> RefreshEdges<G, R, T, P> {
         RefreshEdges {
-            game: game.clone_with_name(HANDLE),
-            build_road: build_road.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
+            build_road: build_road.clone_with_name(NAME),
             travel_duration: Arc::new(travel_duration),
             pathfinder: pathfinder.clone(),
         }

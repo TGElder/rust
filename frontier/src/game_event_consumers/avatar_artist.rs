@@ -1,7 +1,7 @@
 use super::*;
 use crate::artists::{AvatarArtist, AvatarArtistParams};
 
-const HANDLE: &str = "avatar_artist_handler";
+const NAME: &str = "avatar_artist_handler";
 
 pub struct AvatarArtistHandler {
     command_tx: Sender<Vec<Command>>,
@@ -48,7 +48,7 @@ impl AvatarArtistHandler {
 
 impl GameEventConsumer for AvatarArtistHandler {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

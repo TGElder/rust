@@ -4,7 +4,7 @@ use crate::game::traits::{AddSettlement, WhoControlsTile};
 use crate::settlement::Settlement;
 use crate::update_territory::UpdateTerritory;
 
-const HANDLE: &str = "settlement_builder";
+const NAME: &str = "settlement_builder";
 
 pub struct SettlementBuilder<G, T>
 where
@@ -46,7 +46,7 @@ where
 {
     pub fn new(game: &FnSender<G>, territory: &T) -> SettlementBuilder<G, T> {
         SettlementBuilder {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
             territory: territory.clone(),
         }
     }

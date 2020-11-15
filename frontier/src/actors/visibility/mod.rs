@@ -13,7 +13,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 
-const HANDLE: &str = "world_artist_actor";
+const NAME: &str = "world_artist_actor";
 
 pub struct Visibility {
     tx: FnSender<Visibility>,
@@ -56,7 +56,7 @@ impl Visibility {
             rx,
             engine_rx,
             game_rx,
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             visibility_computer: VisibilityComputer::default(),
             state: VisibilityHandlerState {
                 visited: None,
@@ -117,7 +117,7 @@ impl Visibility {
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
         self.game_tx
-            .send(move |game: &mut Game| game.reveal_cells(visible.into_iter().collect(), HANDLE));
+            .send(move |game: &mut Game| game.reveal_cells(visible.into_iter().collect(), NAME));
     }
 
     fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {

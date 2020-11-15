@@ -9,7 +9,7 @@ use commons::v2;
 use isometric::Event;
 use std::collections::HashSet;
 
-const HANDLE: &str = "resource_route_targets";
+const NAME: &str = "resource_route_targets";
 
 pub struct ResourceTargets<P>
 where
@@ -78,7 +78,7 @@ where
     P: ClosestTargets + Send + Sync,
 {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

@@ -2,7 +2,7 @@ use super::*;
 use isometric::event_handlers::RotateHandler as EngineRotateHandler;
 use isometric::{EventHandler, VirtualKeyCode};
 
-const HANDLE: &str = "rotate_handler";
+const NAME: &str = "rotate_handler";
 
 pub struct RotateHandler {
     game_tx: FnSender<Game>,
@@ -12,7 +12,7 @@ pub struct RotateHandler {
 impl RotateHandler {
     pub fn new(game_tx: &FnSender<Game>) -> RotateHandler {
         RotateHandler {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             engine_rotatehandler: EngineRotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E),
         }
     }
@@ -20,7 +20,7 @@ impl RotateHandler {
 
 impl GameEventConsumer for RotateHandler {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

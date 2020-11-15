@@ -6,7 +6,7 @@ use crate::simulation::game_event_consumers::target_set;
 use commons::get_corners;
 use std::time::Duration;
 
-const HANDLE: &str = "get_routes";
+const NAME: &str = "get_routes";
 
 pub struct GetRoutes<G, P, Q>
 where
@@ -58,7 +58,7 @@ where
         duration_pathfinder: &Arc<RwLock<Q>>,
     ) -> GetRoutes<G, P, Q> {
         GetRoutes {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
             route_pathfinder: route_pathfinder.clone(),
             duration_pathfinder: duration_pathfinder.clone(),
         }

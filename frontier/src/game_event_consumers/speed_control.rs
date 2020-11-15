@@ -1,7 +1,7 @@
 use super::*;
 use isometric::{Button, ElementState, VirtualKeyCode};
 
-const HANDLE: &str = "speed_control";
+const NAME: &str = "speed_control";
 
 pub struct SpeedControlBindings {
     slow_down: Button,
@@ -25,7 +25,7 @@ pub struct SpeedControl {
 impl SpeedControl {
     pub fn new(game_tx: &FnSender<Game>) -> SpeedControl {
         SpeedControl {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             bindings: SpeedControlBindings::default(),
         }
     }
@@ -47,7 +47,7 @@ impl SpeedControl {
 
 impl GameEventConsumer for SpeedControl {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

@@ -3,7 +3,7 @@ use crate::game::traits::UpdateSettlement;
 use crate::settlement::Settlement;
 use commons::unsafe_ordering;
 
-const HANDLE: &str = "update_town";
+const NAME: &str = "update_town";
 
 pub struct UpdateTown<G>
 where
@@ -51,7 +51,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> UpdateTown<G> {
         UpdateTown {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 

@@ -5,7 +5,7 @@ use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::time::Duration;
 
-const HANDLE: &str = "town_builder";
+const NAME: &str = "town_builder";
 
 pub struct TownBuilder {
     game_tx: FnSender<Game>,
@@ -16,7 +16,7 @@ pub struct TownBuilder {
 impl TownBuilder {
     pub fn new(game_tx: &FnSender<Game>) -> TownBuilder {
         TownBuilder {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::H),
             world_coord: None,
         }
@@ -82,7 +82,7 @@ fn get_nation<'a>(game: &'a mut Game, name: &'a str) -> &'a mut Nation {
 
 impl GameEventConsumer for TownBuilder {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

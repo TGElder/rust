@@ -3,7 +3,7 @@ use futures::FutureExt;
 
 use super::*;
 
-const HANDLE: &str = "world_artist_handler";
+const NAME: &str = "world_artist_handler";
 
 pub struct WorldArtistHandler {
     actor_tx: FnSender<WorldArtistActor>,
@@ -16,7 +16,7 @@ impl WorldArtistHandler {
         thread_pool: ThreadPool,
     ) -> WorldArtistHandler {
         WorldArtistHandler {
-            actor_tx: actor_tx.clone_with_name(HANDLE),
+            actor_tx: actor_tx.clone_with_name(NAME),
             thread_pool,
         }
     }
@@ -50,7 +50,7 @@ impl WorldArtistHandler {
 
 impl GameEventConsumer for WorldArtistHandler {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

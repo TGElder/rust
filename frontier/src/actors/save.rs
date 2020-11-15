@@ -7,7 +7,7 @@ use commons::log::debug;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-const HANDLE: &str = "save";
+const NAME: &str = "save";
 const PATH: &str = "save";
 
 pub struct Save {
@@ -27,8 +27,8 @@ impl Save {
     ) -> Save {
         Save {
             engine_rx,
-            game_tx: game_tx.clone_with_name(HANDLE),
-            sim_tx: sim_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
+            sim_tx: sim_tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::P),
             path: PATH.to_string(),
             run: true,

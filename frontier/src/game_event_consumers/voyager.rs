@@ -9,7 +9,7 @@ use line_drawing::WalkGrid;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-const HANDLE: &str = "voyager";
+const NAME: &str = "voyager";
 
 pub struct Voyager {
     game_tx: FnSender<Game>,
@@ -18,12 +18,12 @@ pub struct Voyager {
 impl Voyager {
     pub fn new(game_tx: &FnSender<Game>) -> Voyager {
         Voyager {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
         }
     }
 
     fn cells_revealed(&mut self, game_state: &GameState, cells: &[V2<usize>], by: &'static str) {
-        if by == HANDLE {
+        if by == NAME {
             return;
         } // avoid chain reaction
         let world = &game_state.world;
@@ -35,14 +35,14 @@ impl Voyager {
 
     fn reveal_cells(&mut self, revealed: Vec<V2<usize>>) {
         self.game_tx.send(move |game| {
-            game.reveal_cells(revealed, HANDLE);
+            game.reveal_cells(revealed, NAME);
         });
     }
 }
 
 impl GameEventConsumer for Voyager {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

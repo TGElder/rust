@@ -5,7 +5,7 @@ use crate::settlement::Settlement;
 use commons::get_corners;
 use std::collections::{HashMap, HashSet};
 
-const HANDLE: &str = "get_town_traffic";
+const NAME: &str = "get_town_traffic";
 
 pub struct GetTownTraffic<G>
 where
@@ -50,7 +50,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> GetTownTraffic<G> {
         GetTownTraffic {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 

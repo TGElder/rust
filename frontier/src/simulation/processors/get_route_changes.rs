@@ -5,7 +5,7 @@ use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 
-const HANDLE: &str = "get_route_changes";
+const NAME: &str = "get_route_changes";
 
 pub struct GetRouteChanges<G>
 where
@@ -41,7 +41,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> GetRouteChanges<G> {
         GetRouteChanges {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 

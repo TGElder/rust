@@ -16,7 +16,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 const AVATAR_NAME: &str = "avatar";
-const HANDLE: &str = "setup_homelands";
+const NAME: &str = "setup_homelands";
 
 pub struct SetupNewWorld {
     game_tx: FnSender<Game>,
@@ -26,8 +26,8 @@ pub struct SetupNewWorld {
 impl SetupNewWorld {
     pub fn new(game_tx: &FnSender<Game>, visibility_tx: &FnSender<Visibility>) -> SetupNewWorld {
         SetupNewWorld {
-            game_tx: game_tx.clone_with_name(HANDLE),
-            visibility_tx: visibility_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
+            visibility_tx: visibility_tx.clone_with_name(NAME),
         }
     }
 
@@ -168,7 +168,7 @@ fn setup_game(
 
 impl GameEventConsumer for SetupNewWorld {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
