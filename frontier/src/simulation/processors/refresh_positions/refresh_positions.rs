@@ -5,7 +5,7 @@ use crate::game::traits::{
 };
 use std::collections::HashSet;
 
-const HANDLE: &str = "refresh_positions";
+const NAME: &str = "refresh_positions";
 const BATCH_SIZE: usize = 128;
 
 pub struct RefreshPositions<G>
@@ -35,7 +35,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> RefreshPositions<G> {
         RefreshPositions {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 

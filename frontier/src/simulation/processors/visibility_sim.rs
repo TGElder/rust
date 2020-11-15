@@ -55,7 +55,7 @@ where
         VisibilitySim {
             tx,
             rx,
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 
@@ -103,7 +103,7 @@ fn should_get_traffic(state: &State, position: &V2<usize>) -> bool {
     !state.traffic.get_cell_unsafe(position).is_empty()
 }
 
-const HANDLE: &str = "visibility_sim_consumer";
+const NAME: &str = "visibility_sim_consumer";
 
 pub struct VisibilitySimConsumer {
     tx: Sender<VisibilityMessage>,
@@ -131,7 +131,7 @@ impl VisibilitySimConsumer {
 
 impl GameEventConsumer for VisibilitySimConsumer {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, event: &GameEvent) -> CaptureEvent {

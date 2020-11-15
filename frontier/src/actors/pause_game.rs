@@ -6,7 +6,7 @@ use commons::log::debug;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-const HANDLE: &str = "pause_game";
+const NAME: &str = "pause_game";
 
 pub struct PauseGame {
     engine_rx: Receiver<Arc<Event>>,
@@ -19,7 +19,7 @@ impl PauseGame {
     pub fn new(engine_rx: Receiver<Arc<Event>>, game_tx: &FnSender<Game>) -> PauseGame {
         PauseGame {
             engine_rx,
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::Space),
             run: true,
         }

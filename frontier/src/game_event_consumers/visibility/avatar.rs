@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use std::iter::{empty, once};
 
-const HANDLE: &str = "visibility_from_avatar";
+const NAME: &str = "visibility_from_avatar";
 
 pub struct VisibilityFromAvatar {
     tx: FnSender<Visibility>,
@@ -17,7 +17,7 @@ pub struct VisibilityFromAvatar {
 impl VisibilityFromAvatar {
     pub fn new(tx: &FnSender<Visibility>) -> VisibilityFromAvatar {
         VisibilityFromAvatar {
-            tx: tx.clone_with_name(HANDLE),
+            tx: tx.clone_with_name(NAME),
         }
     }
 
@@ -48,7 +48,7 @@ fn avatar_visited<'a>(
 
 impl GameEventConsumer for VisibilityFromAvatar {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

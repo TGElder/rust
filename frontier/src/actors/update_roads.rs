@@ -11,7 +11,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::actors::{Visibility, WorldArtistActor};
 
-const HANDLE: &str = "update_roads";
+const NAME: &str = "update_roads";
 
 pub struct UpdateRoads {
     tx: FnSender<UpdateRoads>,
@@ -37,9 +37,9 @@ impl UpdateRoads {
             tx,
             rx,
             engine_rx,
-            game_tx: game_tx.clone_with_name(HANDLE),
-            artist_tx: redraw_tx.clone_with_name(HANDLE),
-            visibility_tx: visibility_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
+            artist_tx: redraw_tx.clone_with_name(NAME),
+            visibility_tx: visibility_tx.clone_with_name(NAME),
             pathfinders,
             run: true,
         }

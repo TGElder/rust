@@ -9,7 +9,7 @@ use commons::V2;
 use std::sync::RwLock;
 use std::time::Duration;
 
-const HANDLE: &str = "territory_updater";
+const NAME: &str = "territory_updater";
 
 #[async_trait]
 pub trait UpdateTerritory: Clone {
@@ -37,7 +37,7 @@ where
         duration: Duration,
     ) -> TerritoryUpdater<G, P> {
         TerritoryUpdater {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
             pathfinder: pathfinder.clone(),
             duration,
         }

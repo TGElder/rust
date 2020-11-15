@@ -3,7 +3,7 @@ use crate::travel_duration::TravelDuration;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;
 
-const HANDLE: &str = "basic_avatar_controls";
+const NAME: &str = "basic_avatar_controls";
 
 pub struct BasicAvatarBindings {
     forward: Button,
@@ -30,7 +30,7 @@ pub struct BasicAvatarControls {
 impl BasicAvatarControls {
     pub fn new(game_tx: &FnSender<Game>) -> BasicAvatarControls {
         BasicAvatarControls {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             travel_duration: None,
             bindings: BasicAvatarBindings::default(),
         }
@@ -93,7 +93,7 @@ impl BasicAvatarControls {
 
 impl GameEventConsumer for BasicAvatarControls {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

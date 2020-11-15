@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::actors::Visibility;
 use commons::fn_sender::FnSender;
 
-const HANDLE: &str = "visibility_from_towns";
+const NAME: &str = "visibility_from_towns";
 
 pub struct VisibilityFromTowns {
     tx: FnSender<Visibility>,
@@ -17,7 +17,7 @@ pub struct VisibilityFromTowns {
 impl VisibilityFromTowns {
     pub fn new(tx: &FnSender<Visibility>) -> VisibilityFromTowns {
         VisibilityFromTowns {
-            tx: tx.clone_with_name(HANDLE),
+            tx: tx.clone_with_name(NAME),
         }
     }
 
@@ -39,7 +39,7 @@ fn town_visited_cells<'a>(game_state: &'a GameState) -> impl Iterator<Item = V2<
 
 impl GameEventConsumer for VisibilityFromTowns {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

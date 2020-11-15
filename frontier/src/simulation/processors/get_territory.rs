@@ -4,7 +4,7 @@ use crate::settlement::{Settlement, SettlementClass::Town};
 use crate::update_territory::UpdateTerritory;
 use std::collections::HashSet;
 
-const HANDLE: &str = "get_territory";
+const NAME: &str = "get_territory";
 
 pub struct GetTerritory<G, T>
 where
@@ -51,7 +51,7 @@ where
 {
     pub fn new(game: &FnSender<G>, territory: &T) -> GetTerritory<G, T> {
         GetTerritory {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
             territory: territory.clone(),
         }
     }

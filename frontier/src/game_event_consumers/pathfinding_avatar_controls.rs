@@ -5,7 +5,7 @@ use isometric::{Button, ElementState, ModifiersState, MouseButton, VirtualKeyCod
 use std::default::Default;
 use std::sync::RwLock;
 
-const HANDLE: &str = "pathfinder_avatar_controls";
+const NAME: &str = "pathfinder_avatar_controls";
 
 pub struct PathfinderAvatarBindings {
     walk_to: Button,
@@ -36,7 +36,7 @@ impl PathfindingAvatarControls {
         pool: ThreadPool,
     ) -> PathfindingAvatarControls {
         PathfindingAvatarControls {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             pathfinder: pathfinder.clone(),
             pool,
             bindings: PathfinderAvatarBindings::default(),
@@ -108,7 +108,7 @@ fn compute_stop_position_and_micros(
 
 impl GameEventConsumer for PathfindingAvatarControls {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

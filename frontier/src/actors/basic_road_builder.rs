@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use super::UpdateRoads;
 
-const HANDLE: &str = "basic_road_builder";
+const NAME: &str = "basic_road_builder";
 
 pub struct BasicRoadBuilder {
     engine_rx: Receiver<Arc<Event>>,
@@ -30,8 +30,8 @@ impl BasicRoadBuilder {
     ) -> BasicRoadBuilder {
         BasicRoadBuilder {
             engine_rx,
-            game_tx: game_tx.clone_with_name(HANDLE),
-            update_roads_tx: update_roads_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
+            update_roads_tx: update_roads_tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::R),
             run: true,
         }

@@ -6,7 +6,7 @@ use commons::log::debug;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-const HANDLE: &str = "pause_sim";
+const NAME: &str = "pause_sim";
 
 pub struct PauseSim {
     engine_rx: Receiver<Arc<Event>>,
@@ -19,7 +19,7 @@ impl PauseSim {
     pub fn new(engine_rx: Receiver<Arc<Event>>, sim_tx: &FnSender<Simulation>) -> PauseSim {
         PauseSim {
             engine_rx,
-            sim_tx: sim_tx.clone_with_name(HANDLE),
+            sim_tx: sim_tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::Space),
             run: true,
         }

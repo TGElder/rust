@@ -1,7 +1,7 @@
 use super::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
-const HANDLE: &str = "follow_avatar";
+const NAME: &str = "follow_avatar";
 
 pub struct FollowAvatar {
     command_tx: Sender<Vec<Command>>,
@@ -13,7 +13,7 @@ impl FollowAvatar {
     pub fn new(command_tx: Sender<Vec<Command>>, game_tx: &FnSender<Game>) -> FollowAvatar {
         FollowAvatar {
             command_tx,
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::C),
         }
     }
@@ -44,7 +44,7 @@ fn toggle_follow_avatar(game: &mut Game) {
 
 impl GameEventConsumer for FollowAvatar {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

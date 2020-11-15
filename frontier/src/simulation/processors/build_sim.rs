@@ -2,7 +2,7 @@ use super::*;
 
 use crate::game::traits::Micros;
 
-const HANDLE: &str = "builder";
+const NAME: &str = "builder";
 
 pub struct BuildSim<G>
 where
@@ -35,7 +35,7 @@ where
 {
     pub fn new(game: &FnSender<G>, builders: Vec<Box<dyn Builder + Send>>) -> BuildSim<G> {
         BuildSim {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
             builders,
         }
     }

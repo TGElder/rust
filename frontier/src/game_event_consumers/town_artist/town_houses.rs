@@ -3,7 +3,7 @@ use super::*;
 use crate::settlement::*;
 use isometric::drawing::{draw_house, DrawHouseParams};
 
-const HANDLE: &str = "town_houses";
+const NAME: &str = "town_houses";
 
 pub struct TownHouses {
     game_tx: FnSender<Game>,
@@ -12,7 +12,7 @@ pub struct TownHouses {
 impl TownHouses {
     pub fn new(game_tx: &FnSender<Game>) -> TownHouses {
         TownHouses {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
         }
     }
 
@@ -79,7 +79,7 @@ fn get_name(settlement: &Settlement) -> String {
 
 impl GameEventConsumer for TownHouses {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

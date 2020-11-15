@@ -4,7 +4,7 @@ use crate::game::traits::{BuildCrops, Settlements};
 use crate::settlement::{Settlement, SettlementClass::Town};
 use commons::V2;
 
-const HANDLE: &str = "crops_builder";
+const NAME: &str = "crops_builder";
 
 pub struct CropsBuilder<G>
 where
@@ -39,7 +39,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> CropsBuilder<G> {
         CropsBuilder {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 
