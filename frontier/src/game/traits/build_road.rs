@@ -1,39 +1,33 @@
-use crate::game::Game;
-use crate::road_builder::{RoadBuildMode, RoadBuilderResult};
+use crate::actors::UpdateRoads;
+use commons::async_trait::async_trait;
 use commons::edge::Edge;
 use std::collections::HashSet;
 
+#[async_trait]
 pub trait BuildRoad {
-    fn add_road(&mut self, edge: &Edge);
+    async fn add_road(&mut self, edge: &Edge);
 
-    fn remove_road(&mut self, edge: &Edge);
+    async fn remove_road(&mut self, edge: &Edge);
 }
 
-impl BuildRoad for Game {
-    fn add_road(&mut self, edge: &Edge) {
-        if self.game_state.world.is_road(edge) {
-            return;
-        }
-        let result = RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Build);
-        self.update_roads(result);
+#[async_trait]
+impl BuildRoad for UpdateRoads {
+    async fn add_road(&mut self, edge: &Edge) {
+        self.add_road(edge).await;
     }
 
-    fn remove_road(&mut self, edge: &Edge) {
-        if !self.game_state.world.is_road(edge) {
-            return;
-        }
-        let result =
-            RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Demolish);
-        self.update_roads(result);
+    async fn remove_road(&mut self, edge: &Edge) {
+        self.remove_road(edge).await;
     }
 }
 
+#[async_trait]
 impl BuildRoad for HashSet<Edge> {
-    fn add_road(&mut self, edge: &Edge) {
+    async fn add_road(&mut self, edge: &Edge) {
         self.insert(*edge);
     }
 
-    fn remove_road(&mut self, edge: &Edge) {
+    async fn remove_road(&mut self, edge: &Edge) {
         self.remove(edge);
     }
 }

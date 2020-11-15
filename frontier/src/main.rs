@@ -34,7 +34,7 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use actors::{PauseGame, PauseSim, Save, Visibility, WorldArtistActor};
+use actors::{PauseGame, PauseSim, Save, UpdateRoads, Visibility, WorldArtistActor};
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
@@ -79,6 +79,46 @@ fn main() {
         AvatarTravelDuration::with_planned_roads_ignored(&game.game_state().params.avatar_travel),
     )));
 
+    let mut event_forwarder = EventForwarder::new();
+    let mut game_event_forwarder = GameEventForwarder::new(thread_pool.clone());
+    let mut pause_game = PauseGame::new(event_forwarder.subscribe(), game.tx());
+
+    let world_artist = WorldArtist::new(
+        &game.game_state().world,
+        WorldArtistParameters {
+            waterfall_gradient: game
+                .game_state()
+                .params
+                .avatar_travel
+                .max_navigable_river_gradient,
+            ..WorldArtistParameters::default()
+        },
+    );
+    let mut world_artist_actor = WorldArtistActor::new(
+        event_forwarder.subscribe(),
+        game_event_forwarder.subscribe(),
+        game.tx(),
+        engine.command_tx(),
+        world_artist,
+    );
+
+    let mut visibility = Visibility::new(
+        event_forwarder.subscribe(),
+        game_event_forwarder.subscribe(),
+        game.tx(),
+    );
+
+    let mut update_roads = UpdateRoads::new(
+        event_forwarder.subscribe(),
+        game.tx(),
+        world_artist_actor.tx(),
+        visibility.tx(),
+        vec![
+            pathfinder_with_planned_roads.clone(),
+            pathfinder_without_planned_roads.clone(),
+        ],
+    );
+
     let territory_updater = TerritoryUpdater::new(
         &game.tx(),
         &pathfinder_without_planned_roads,
@@ -89,7 +129,7 @@ fn main() {
         game.tx(),
         vec![
             Box::new(SettlementBuilder::new(game.tx(), &territory_updater)),
-            Box::new(RoadBuilder::new(game.tx())),
+            Box::new(RoadBuilder::new(update_roads.tx())),
             Box::new(CropsBuilder::new(game.tx())),
         ],
     );
@@ -124,12 +164,16 @@ fn main() {
         Box::new(RefreshPositions::new(&game.tx())),
         Box::new(RefreshEdges::new(
             &game.tx(),
+            &update_roads.tx(),
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
             &pathfinder_with_planned_roads,
         )),
         Box::new(UpdateRouteToPorts::new(game.tx())),
         Box::new(visibility_sim),
     ]);
+
+    let mut pause_sim = PauseSim::new(event_forwarder.subscribe(), sim.tx());
+    let mut save = Save::new(event_forwarder.subscribe(), game.tx(), sim.tx());
 
     game.add_consumer(visibility_sim_consumer);
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
@@ -143,7 +187,6 @@ fn main() {
         &pathfinder_without_planned_roads,
         thread_pool.clone(),
     ));
-    game.add_consumer(BasicRoadBuilder::new(game.tx()));
     game.add_consumer(ObjectBuilder::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(TownBuilder::new(game.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
@@ -170,59 +213,21 @@ fn main() {
         thread_pool.clone(),
     ));
 
-    let mut event_forwarder = EventForwarder::new();
-    let mut game_event_forwarder = GameEventForwarder::new(thread_pool.clone());
-
-    let mut pause_game = PauseGame::new(event_forwarder.subscribe(), game.tx());
-    let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
-    thread_pool.spawn_ok(pause_game_run);
-
-    let mut pause_sim = PauseSim::new(event_forwarder.subscribe(), sim.tx());
-    let (pause_sim_run, pause_sim_handle) = async move { pause_sim.run().await }.remote_handle();
-    thread_pool.spawn_ok(pause_sim_run);
-
-    let mut save = Save::new(event_forwarder.subscribe(), game.tx(), sim.tx());
-    let (save_run, save_handle) = async move { save.run().await }.remote_handle();
-    thread_pool.spawn_ok(save_run);
-
     // Visibility
-    let mut visibility = Visibility::new(
-        event_forwarder.subscribe(),
-        game_event_forwarder.subscribe(),
-        game.tx(),
-    );
     let from_avatar = VisibilityFromAvatar::new(visibility.tx());
     let from_towns = VisibilityFromTowns::new(visibility.tx());
-    let from_roads = VisibilityFromRoads::new(visibility.tx());
     let setup_new_world = SetupNewWorld::new(game.tx(), visibility.tx());
     game.add_consumer(from_avatar);
     game.add_consumer(from_towns);
-    game.add_consumer(from_roads);
     game.add_consumer(setup_new_world);
 
     game.add_consumer(Cheats::new(game.tx(), visibility.tx()));
 
-    let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
-    thread_pool.spawn_ok(visibility_run);
-
-    let world_artist = WorldArtist::new(
-        &game.game_state().world,
-        WorldArtistParameters {
-            waterfall_gradient: game
-                .game_state()
-                .params
-                .avatar_travel
-                .max_navigable_river_gradient,
-            ..WorldArtistParameters::default()
-        },
-    );
-    let mut world_artist_actor = WorldArtistActor::new(
-        event_forwarder.subscribe(),
-        game_event_forwarder.subscribe(),
+    game.add_consumer(BasicRoadBuilder::new(
         game.tx(),
-        engine.command_tx(),
-        world_artist,
-    );
+        update_roads.tx(),
+        thread_pool.clone(),
+    ));
 
     game.add_consumer(game_event_forwarder);
     game.add_consumer(WorldArtistHandler::new(
@@ -230,17 +235,38 @@ fn main() {
         thread_pool.clone(),
     ));
 
+    engine.add_event_consumer(event_forwarder);
+
+    // Run
+
+    let game_handle = thread::spawn(move || game.run());
+
+    let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
+    thread_pool.spawn_ok(pause_game_run);
+
+    let (pause_sim_run, pause_sim_handle) = async move { pause_sim.run().await }.remote_handle();
+    thread_pool.spawn_ok(pause_sim_run);
+
+    let (save_run, save_handle) = async move { save.run().await }.remote_handle();
+    thread_pool.spawn_ok(save_run);
+
+    let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
+    thread_pool.spawn_ok(visibility_run);
+
+    let (update_roads_run, update_roads_handle) =
+        async move { update_roads.run().await }.remote_handle();
+    thread_pool.spawn_ok(update_roads_run);
+
     let (world_artist_actor_run, world_artist_actor_handle) =
         async move { world_artist_actor.run().await }.remote_handle();
     thread_pool.spawn_ok(world_artist_actor_run);
 
-    let game_handle = thread::spawn(move || game.run());
-
     let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
     thread_pool.spawn_ok(sim_run);
 
-    engine.add_event_consumer(event_forwarder);
     engine.run();
+
+    // Wait
 
     println!("Joining actors");
     block_on(async {
@@ -250,6 +276,7 @@ fn main() {
             save_handle,
             sim_handle,
             world_artist_actor_handle,
+            update_roads_handle,
             visibility_handle
         )
     });

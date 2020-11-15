@@ -4,26 +4,30 @@ use crate::game::traits::{BuildRoad, GetRoute, HasWorld};
 use crate::pathfinder::traits::UpdateEdge;
 use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
+use commons::futures::FutureExt;
 use std::collections::HashSet;
 
 const HANDLE: &str = "refresh_edges";
 const BATCH_SIZE: usize = 128;
 
-pub struct RefreshEdges<G, T, P>
+pub struct RefreshEdges<G, R, T, P>
 where
-    G: BuildRoad + GetRoute + HasWorld + Send,
+    G: GetRoute + HasWorld + Send,
+    R: BuildRoad + Send + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     game: FnSender<G>,
+    build_road: FnSender<R>,
     travel_duration: Arc<T>,
     pathfinder: Arc<RwLock<P>>,
 }
 
 #[async_trait]
-impl<G, T, P> Processor for RefreshEdges<G, T, P>
+impl<G, R, T, P> Processor for RefreshEdges<G, R, T, P>
 where
-    G: BuildRoad + GetRoute + HasWorld + Send,
+    G: GetRoute + HasWorld + Send,
+    R: BuildRoad + Send + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -36,19 +40,22 @@ where
     }
 }
 
-impl<G, T, P> RefreshEdges<G, T, P>
+impl<G, R, T, P> RefreshEdges<G, R, T, P>
 where
-    G: BuildRoad + GetRoute + HasWorld + Send,
+    G: GetRoute + HasWorld + Send,
+    R: BuildRoad + Send + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     pub fn new(
         game: &FnSender<G>,
+        build_road: &FnSender<R>,
         travel_duration: T,
         pathfinder: &Arc<RwLock<P>>,
-    ) -> RefreshEdges<G, T, P> {
+    ) -> RefreshEdges<G, R, T, P> {
         RefreshEdges {
             game: game.clone_with_name(HANDLE),
+            build_road: build_road.clone_with_name(HANDLE),
             travel_duration: Arc::new(travel_duration),
             pathfinder: pathfinder.clone(),
         }
@@ -63,52 +70,61 @@ where
     }
 
     async fn refresh_edges(&mut self, state: State, edges: Vec<Edge>) -> State {
+        let build_road = self.build_road.clone();
         let travel_duration = self.travel_duration.clone();
         let pathfinder = self.pathfinder.clone();
         self.game
-            .send(move |game| refresh_edges(game, travel_duration, pathfinder, state, edges))
+            .send_future(move |game| {
+                refresh_edges(game, build_road, travel_duration, pathfinder, state, edges).boxed()
+            })
             .await
     }
 }
 
-fn refresh_edges<G, T, P>(
+async fn refresh_edges<G, R, T, P>(
     game: &mut G,
+    build_road: FnSender<R>,
     travel_duration: Arc<T>,
     pathfinder: Arc<RwLock<P>>,
     mut state: State,
     edges: Vec<Edge>,
 ) -> State
 where
-    G: BuildRoad + GetRoute + HasWorld + Send,
+    G: GetRoute + HasWorld + Send,
+    R: BuildRoad + Send + 'static,
     T: TravelDuration + 'static,
-    P: UpdateEdge + 'static,
+    P: UpdateEdge + Send + Sync + 'static,
 {
     for edge in edges {
         refresh_edge(
             game,
+            &build_road,
             travel_duration.as_ref(),
             &pathfinder,
             &mut state,
             edge,
-        );
+        )
+        .await;
     }
     state
 }
 
-fn refresh_edge<G, T, P>(
+async fn refresh_edge<G, R, T, P>(
     game: &mut G,
+    build_road: &FnSender<R>,
     travel_duration: &T,
     pathfinder: &Arc<RwLock<P>>,
     state: &mut State,
     edge: Edge,
 ) where
-    G: BuildRoad + GetRoute + HasWorld + Send,
+    G: GetRoute + HasWorld + Send,
+    R: BuildRoad + Send + 'static,
     T: TravelDuration + 'static,
-    P: UpdateEdge + 'static,
+    P: UpdateEdge + Send + Sync + 'static,
 {
     let edge_traffic = get_edge_traffic(game, travel_duration, &state, &edge);
     if let Some(instruction) = try_build_road(game, pathfinder, &edge_traffic) {
         state.build_queue.insert(instruction);
     }
-    try_remove_road(state, game, pathfinder, &edge_traffic);
+    try_remove_road(state, game, build_road, pathfinder, &edge_traffic).await;
 }
