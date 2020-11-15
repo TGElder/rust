@@ -27,19 +27,11 @@ pub async fn try_remove_road<G, R, P>(
         RoadStatus::Built => (),
         _ => return,
     };
+
     state.build_queue.remove(&BuildKey::Road(traffic.edge));
-
-    let edge_in_game = traffic.edge;
-    remove_plan(world, edge_in_game);
-
-    let edge_in_build_road = traffic.edge;
-    build_road_tx
-        .send_future(move |build_road| remove_road(build_road, edge_in_build_road).boxed())
-        .await;
-
-    let edge_in_game = traffic.edge;
-    let pathfinder_in_game = pathfinder.clone();
-    update_edge(world, pathfinder_in_game, edge_in_game);
+    remove_plan(world, traffic.edge);
+    send_remove_road(build_road_tx, traffic.edge).await;
+    update_edge(world, pathfinder, traffic.edge);
 }
 
 fn remove_plan<G>(game: &mut G, edge: Edge)
@@ -49,6 +41,15 @@ where
     game.world_mut().plan_road(&edge, None);
 }
 
+async fn send_remove_road<R>(build_road_tx: &FnSender<R>, edge: Edge)
+where
+    R: BuildRoad + Send,
+{
+    build_road_tx
+        .send_future(move |build_road| remove_road(build_road, edge).boxed())
+        .await;
+}
+
 async fn remove_road<R>(build_road: &mut R, edge: Edge)
 where
     R: BuildRoad + Send,
@@ -56,7 +57,7 @@ where
     build_road.remove_road(&edge).await;
 }
 
-fn update_edge<G, P>(game: &mut G, pathfinder: Arc<RwLock<P>>, edge: Edge)
+fn update_edge<G, P>(game: &mut G, pathfinder: &Arc<RwLock<P>>, edge: Edge)
 where
     G: HasWorld + Send,
     P: UpdateEdge,

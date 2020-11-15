@@ -237,6 +237,8 @@ fn main() {
 
     engine.add_event_consumer(event_forwarder);
 
+    // Run
+
     let game_handle = thread::spawn(move || game.run());
 
     let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
@@ -263,6 +265,8 @@ fn main() {
     thread_pool.spawn_ok(sim_run);
 
     engine.run();
+
+    // Wait
 
     println!("Joining actors");
     block_on(async {

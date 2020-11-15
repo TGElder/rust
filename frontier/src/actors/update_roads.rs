@@ -4,7 +4,7 @@ use crate::pathfinder::Pathfinder;
 use crate::road_builder::{RoadBuildMode, RoadBuilderResult};
 use commons::async_channel::{Receiver, RecvError};
 use commons::edge::Edge;
-use commons::fn_sender::{fn_channel, FnMessage, FnMessageExt, FnReceiver, FnSender};
+use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
 use commons::futures::future::FutureExt;
 use isometric::Event;
 use std::sync::{Arc, RwLock};
@@ -52,41 +52,34 @@ impl UpdateRoads {
     pub async fn run(&mut self) {
         while self.run {
             select! {
-                mut message = self.rx.get_message().fuse() => self.handle_message(message).await,
+                mut message = self.rx.get_message().fuse() => message.apply(self).await,
                 event = self.engine_rx.recv().fuse() => self.handle_engine_event(event)
             }
         }
     }
 
-    async fn handle_message(&mut self, mut message: FnMessage<UpdateRoads>) {
-        message.apply(self).await;
-    }
-
     pub async fn update_roads(&mut self, result: RoadBuilderResult) {
         let result = Arc::new(result);
         let micros = self.update_world_get_micros(result.clone()).await;
-        self.redraw(&result, micros).await;
-        self.visit(&result).await;
+        self.redraw(&result, micros);
+        self.visit(&result);
         self.update_pathfinder_with_roads(&result);
     }
 
     async fn update_world_get_micros(&mut self, result: Arc<RoadBuilderResult>) -> u128 {
         self.game_tx
-            .send(move |game| {
-                result.update_roads(&mut game.mut_state().world);
-                game.game_state().game_micros
-            })
+            .send(move |game| update_world_get_micros(game, result))
             .await
     }
 
-    async fn redraw(&mut self, result: &Arc<RoadBuilderResult>, micros: u128) {
+    fn redraw(&mut self, result: &Arc<RoadBuilderResult>, micros: u128) {
         for position in result.path().iter().cloned() {
             self.artist_tx
                 .send_future(move |artist| artist.redraw_tile_at(position, micros).boxed());
         }
     }
 
-    async fn visit(&mut self, result: &Arc<RoadBuilderResult>) {
+    fn visit(&mut self, result: &Arc<RoadBuilderResult>) {
         let visited = result.path().iter().cloned().collect();
         self.visibility_tx
             .send(|visibility| visibility.check_visibility_and_reveal(visited));
@@ -102,12 +95,7 @@ impl UpdateRoads {
     }
 
     pub async fn add_road(&mut self, edge: &Edge) {
-        let edge_in_game = *edge;
-        if self
-            .game_tx
-            .send(move |game| game.game_state().world.is_road(&edge_in_game))
-            .await
-        {
+        if self.is_road(*edge).await {
             return;
         }
         let result = RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Build);
@@ -115,17 +103,16 @@ impl UpdateRoads {
     }
 
     pub async fn remove_road(&mut self, edge: &Edge) {
-        let edge_in_game = *edge;
-        if !self
-            .game_tx
-            .send(move |game| game.game_state().world.is_road(&edge_in_game))
-            .await
-        {
+        if !self.is_road(*edge).await {
             return;
         }
         let result =
             RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Demolish);
         self.update_roads(result).await;
+    }
+
+    pub async fn is_road(&mut self, edge: Edge) -> bool {
+        self.game_tx.send(move |game| is_road(game, edge)).await
     }
 
     fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
@@ -137,4 +124,13 @@ impl UpdateRoads {
     fn shutdown(&mut self) {
         self.run = false;
     }
+}
+
+fn update_world_get_micros(game: &mut Game, result: Arc<RoadBuilderResult>) -> u128 {
+    result.update_roads(&mut game.mut_state().world);
+    game.game_state().game_micros
+}
+
+fn is_road(game: &mut Game, edge: Edge) -> bool {
+    game.game_state().world.is_road(&edge)
 }
