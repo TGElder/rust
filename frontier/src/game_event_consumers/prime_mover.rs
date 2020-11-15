@@ -12,7 +12,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::time::Duration;
 
-const HANDLE: &str = "prime_mover";
+const NAME: &str = "prime_mover";
 
 pub struct PrimeMoverParams {
     max_visible_routes: usize,
@@ -52,7 +52,7 @@ impl PrimeMover {
     pub fn new(seed: u64, game_tx: &FnSender<Game>) -> PrimeMover {
         PrimeMover {
             params: PrimeMoverParams::default(),
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             state: PrimeMoverState::default(),
             active: false,
             rng: SeedableRng::seed_from_u64(seed),
@@ -265,7 +265,7 @@ fn add_avatar(
 
 impl GameEventConsumer for PrimeMover {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

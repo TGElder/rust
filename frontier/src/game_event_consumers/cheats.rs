@@ -5,7 +5,7 @@ use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;
 
-const HANDLE: &str = "cheats";
+const NAME: &str = "cheats";
 
 pub struct CheatBindings {
     reveal_all: Button,
@@ -33,8 +33,8 @@ pub struct Cheats {
 impl Cheats {
     pub fn new(game_tx: &FnSender<Game>, visibility_tx: &FnSender<Visibility>) -> Cheats {
         Cheats {
-            game_tx: game_tx.clone_with_name(HANDLE),
-            visibility_tx: visibility_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
+            visibility_tx: visibility_tx.clone_with_name(NAME),
             bindings: CheatBindings::default(),
             world_coord: None,
         }
@@ -46,7 +46,7 @@ impl Cheats {
 
     fn reveal_all(&mut self, _: &GameState) {
         self.game_tx.send(move |game| {
-            game.reveal_all_cells(HANDLE);
+            game.reveal_all_cells(NAME);
         });
         self.visibility_tx
             .send(move |visibility| visibility.deactive());
@@ -80,7 +80,7 @@ impl Cheats {
 
 impl GameEventConsumer for Cheats {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

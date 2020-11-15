@@ -2,7 +2,7 @@ use super::*;
 use crate::game::traits::{Controlled, RemoveSettlement};
 use std::collections::HashSet;
 
-const HANDLE: &str = "remove_town";
+const NAME: &str = "remove_town";
 
 pub struct RemoveTown<G>
 where
@@ -45,7 +45,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> RemoveTown<G> {
         RemoveTown {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 

@@ -4,7 +4,7 @@ use commons::async_channel::{unbounded, Receiver, Sender};
 use isometric::Event;
 use std::sync::Arc;
 
-const HANDLE: &str = "game_event_forwarder";
+const NAME: &str = "game_event_forwarder";
 
 pub struct GameEventForwarder {
     subscribers: Vec<Sender<GameEvent>>,
@@ -37,7 +37,7 @@ impl GameEventForwarder {
 
 impl GameEventConsumer for GameEventForwarder {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     #[allow(clippy::single_match)]

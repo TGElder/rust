@@ -2,7 +2,7 @@ use super::*;
 
 use crate::simulation::Simulation;
 
-const HANDLE: &str = "shutdown_handler";
+const NAME: &str = "shutdown_handler";
 
 pub struct ShutdownHandler {
     game_tx: FnSender<Game>,
@@ -17,8 +17,8 @@ impl ShutdownHandler {
         pool: ThreadPool,
     ) -> ShutdownHandler {
         ShutdownHandler {
-            game_tx: game_tx.clone_with_name(HANDLE),
-            sim_tx: sim_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
+            sim_tx: sim_tx.clone_with_name(NAME),
             pool,
         }
     }
@@ -37,7 +37,7 @@ impl ShutdownHandler {
 
 impl GameEventConsumer for ShutdownHandler {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

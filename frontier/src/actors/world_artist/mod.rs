@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
-const HANDLE: &str = "world_artist_actor";
+const NAME: &str = "world_artist_actor";
 
 pub struct WorldArtistActorBindings {
     toggle_territory_layer: Button,
@@ -57,7 +57,7 @@ impl WorldArtistActor {
             tx,
             engine_rx,
             game_rx,
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             command_tx,
             bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},

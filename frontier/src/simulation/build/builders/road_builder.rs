@@ -4,7 +4,7 @@ use crate::game::traits::BuildRoad;
 use commons::edge::Edge;
 use commons::futures::FutureExt;
 
-const HANDLE: &str = "road_builder";
+const NAME: &str = "road_builder";
 
 pub struct RoadBuilder<G>
 where
@@ -39,7 +39,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> RoadBuilder<G> {
         RoadBuilder {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 

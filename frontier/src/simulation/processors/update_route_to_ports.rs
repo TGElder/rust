@@ -6,7 +6,7 @@ use crate::route::{Route, RouteKey};
 use commons::edge::Edges;
 use std::collections::HashSet;
 
-const HANDLE: &str = "update_route_to_ports";
+const NAME: &str = "update_route_to_ports";
 
 pub struct UpdateRouteToPorts<G>
 where
@@ -35,7 +35,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> UpdateRouteToPorts<G> {
         UpdateRouteToPorts {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 

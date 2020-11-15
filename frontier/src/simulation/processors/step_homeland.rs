@@ -2,7 +2,7 @@ use super::*;
 use crate::game::traits::Settlements;
 use crate::settlement::{Settlement, SettlementClass::Homeland};
 
-const HANDLE: &str = "step_homeland";
+const NAME: &str = "step_homeland";
 
 pub struct StepHomeland<G>
 where
@@ -27,7 +27,7 @@ where
 {
     pub fn new(game: &FnSender<G>) -> StepHomeland<G> {
         StepHomeland {
-            game: game.clone_with_name(HANDLE),
+            game: game.clone_with_name(NAME),
         }
     }
 

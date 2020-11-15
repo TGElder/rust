@@ -7,7 +7,7 @@ use isometric::drawing::{draw_label, get_house_base_corners};
 use isometric::Font;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
-const HANDLE: &str = "town_labels";
+const NAME: &str = "town_labels";
 const LABEL_FLOAT: f32 = 0.33;
 
 pub struct TownLabels {
@@ -49,7 +49,7 @@ impl TownLabels {
     pub fn new(game_tx: &FnSender<Game>) -> TownLabels {
         TownLabels {
             font: Arc::new(Font::from_file("resources/fonts/roboto_slab_20.fnt")),
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             state: TownLabelState::NameOnly,
             binding: Button::Key(VirtualKeyCode::L),
         }
@@ -147,7 +147,7 @@ fn get_base_z(world: &World, settlement: &Settlement, house_width: f32) -> f32 {
 
 impl GameEventConsumer for TownLabels {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

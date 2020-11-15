@@ -1,7 +1,7 @@
 use super::*;
 use isometric::{Button, ElementState, VirtualKeyCode};
 
-const HANDLE: &str = "select_avatar";
+const NAME: &str = "select_avatar";
 
 pub struct SelectAvatar {
     game_tx: FnSender<Game>,
@@ -10,7 +10,7 @@ pub struct SelectAvatar {
 impl SelectAvatar {
     pub fn new(game_tx: &FnSender<Game>) -> SelectAvatar {
         SelectAvatar {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
         }
     }
 
@@ -23,7 +23,7 @@ impl SelectAvatar {
 
 impl GameEventConsumer for SelectAvatar {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

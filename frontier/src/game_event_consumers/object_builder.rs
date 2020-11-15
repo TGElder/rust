@@ -4,7 +4,7 @@ use commons::rand::rngs::SmallRng;
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 
-const HANDLE: &str = "object_builder_handler";
+const NAME: &str = "object_builder_handler";
 
 pub struct ObjectBuilder {
     game_tx: FnSender<Game>,
@@ -21,7 +21,7 @@ struct ObjectBuilderBindings {
 impl ObjectBuilder {
     pub fn new(seed: u64, game_tx: &FnSender<Game>) -> ObjectBuilder {
         ObjectBuilder {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             rng: SeedableRng::seed_from_u64(seed),
             bindings: ObjectBuilderBindings {
                 build_crop: Button::Key(VirtualKeyCode::F),
@@ -57,7 +57,7 @@ impl ObjectBuilder {
 
 impl GameEventConsumer for ObjectBuilder {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, _: &GameEvent) -> CaptureEvent {

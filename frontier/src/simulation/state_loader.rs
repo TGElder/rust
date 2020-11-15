@@ -7,7 +7,7 @@ use isometric::Event;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-const HANDLE: &str = "simulation_state_loader";
+const NAME: &str = "simulation_state_loader";
 
 pub struct SimulationStateLoader {
     sim_tx: FnSender<Simulation>,
@@ -16,7 +16,7 @@ pub struct SimulationStateLoader {
 impl SimulationStateLoader {
     pub fn new(sim_tx: &FnSender<Simulation>) -> SimulationStateLoader {
         SimulationStateLoader {
-            sim_tx: sim_tx.clone_with_name(HANDLE),
+            sim_tx: sim_tx.clone_with_name(NAME),
         }
     }
 
@@ -44,7 +44,7 @@ impl SimulationStateLoader {
 
 impl GameEventConsumer for SimulationStateLoader {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {

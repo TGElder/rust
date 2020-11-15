@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
-const HANDLE: &str = "label_editor_handler";
+const NAME: &str = "label_editor_handler";
 
 pub struct LabelEditorHandler {
     game_tx: FnSender<Game>,
@@ -19,7 +19,7 @@ pub struct LabelEditorHandler {
 impl LabelEditorHandler {
     pub fn new(game_tx: &FnSender<Game>) -> LabelEditorHandler {
         LabelEditorHandler {
-            game_tx: game_tx.clone_with_name(HANDLE),
+            game_tx: game_tx.clone_with_name(NAME),
             label_editor: LabelEditor::new(HashMap::new()),
             world_coord: None,
             binding: Button::Key(VirtualKeyCode::L),
@@ -79,7 +79,7 @@ fn capture_if_keypress(event: Arc<Event>) -> CaptureEvent {
 
 impl GameEventConsumer for LabelEditorHandler {
     fn name(&self) -> &'static str {
-        HANDLE
+        NAME
     }
 
     fn consume_game_event(&mut self, _: &GameState, event: &GameEvent) -> CaptureEvent {
