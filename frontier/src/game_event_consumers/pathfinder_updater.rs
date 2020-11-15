@@ -33,10 +33,6 @@ where
             self.pathfinder().update_node(&game_state.world, cell);
         }
     }
-
-    fn update_pathfinder_with_roads(&mut self, game_state: &GameState, result: &RoadBuilderResult) {
-        result.update_pathfinder(&game_state.world, &mut self.pathfinder());
-    }
 }
 
 impl<T> GameEventConsumer for PathfinderUpdater<T>
@@ -57,9 +53,6 @@ where
                         self.update_pathfinder_with_cells(game_state, &cells)
                     }
                 };
-            }
-            GameEvent::RoadsUpdated(result) => {
-                self.update_pathfinder_with_roads(game_state, result)
             }
             _ => (),
         }

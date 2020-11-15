@@ -61,7 +61,6 @@ impl GameEventConsumer for WorldArtistHandler {
                     CellSelection::Some(cells) => self.update_cells(game_state, &cells),
                 };
             }
-            GameEvent::RoadsUpdated(result) => self.update_cells(game_state, result.path()),
             GameEvent::TerritoryChanged(changes) => self.draw_territory(game_state, changes),
             GameEvent::ObjectUpdated(position) => self.update_cells(game_state, &[*position]),
             _ => (),

@@ -1,3 +1,6 @@
+use commons::edge::Edge;
+use commons::futures::FutureExt;
+
 use super::*;
 use crate::pathfinder::traits::UpdateEdge;
 
@@ -5,14 +8,16 @@ use crate::game::traits::{BuildRoad, HasWorld};
 
 const ROAD_THRESHOLD: usize = 0;
 
-pub fn try_remove_road<G, P>(
+pub async fn try_remove_road<G, R, P>(
     state: &mut State,
-    game: &mut G,
+    world: &mut G,
+    build_road_tx: &FnSender<R>,
     pathfinder: &Arc<RwLock<P>>,
     traffic: &EdgeTrafficSummary,
 ) where
-    G: BuildRoad + HasWorld,
-    P: UpdateEdge,
+    G: HasWorld + Send,
+    R: BuildRoad + Send,
+    P: UpdateEdge + Send + Sync + 'static,
 {
     if get_traffic(&traffic.routes) > ROAD_THRESHOLD {
         return;
@@ -22,13 +27,45 @@ pub fn try_remove_road<G, P>(
         RoadStatus::Built => (),
         _ => return,
     };
+
     state.build_queue.remove(&BuildKey::Road(traffic.edge));
-    game.remove_road(&traffic.edge);
-    game.world_mut().plan_road(&traffic.edge, None);
+    remove_plan(world, traffic.edge);
+    send_remove_road(build_road_tx, traffic.edge).await;
+    update_edge(world, pathfinder, traffic.edge);
+}
+
+fn remove_plan<G>(game: &mut G, edge: Edge)
+where
+    G: HasWorld + Send,
+{
+    game.world_mut().plan_road(&edge, None);
+}
+
+async fn send_remove_road<R>(build_road_tx: &FnSender<R>, edge: Edge)
+where
+    R: BuildRoad + Send,
+{
+    build_road_tx
+        .send_future(move |build_road| remove_road(build_road, edge).boxed())
+        .await;
+}
+
+async fn remove_road<R>(build_road: &mut R, edge: Edge)
+where
+    R: BuildRoad + Send,
+{
+    build_road.remove_road(&edge).await;
+}
+
+fn update_edge<G, P>(game: &mut G, pathfinder: &Arc<RwLock<P>>, edge: Edge)
+where
+    G: HasWorld + Send,
+    P: UpdateEdge,
+{
     pathfinder
         .write()
         .unwrap()
-        .update_edge(&game.world(), &traffic.edge);
+        .update_edge(&game.world(), &edge);
 }
 
 fn get_traffic(routes: &[EdgeRouteSummary]) -> usize {
@@ -40,7 +77,10 @@ mod tests {
     use super::*;
 
     use crate::world::World;
+    use commons::async_trait::async_trait;
     use commons::edge::Edge;
+    use commons::fn_sender::FnThread;
+    use commons::futures::executor::block_on;
     use commons::{v2, M};
     use std::default::Default;
 
@@ -48,35 +88,24 @@ mod tests {
         World::new(M::zeros(4, 4), 0.5)
     }
 
-    struct MockGame {
-        world: World,
+    struct MockBuildRoads {
         removed_roads: Vec<Edge>,
     }
 
-    impl Default for MockGame {
-        fn default() -> MockGame {
-            MockGame {
-                world: world(),
+    impl Default for MockBuildRoads {
+        fn default() -> MockBuildRoads {
+            MockBuildRoads {
                 removed_roads: vec![],
             }
         }
     }
 
-    impl BuildRoad for MockGame {
-        fn add_road(&mut self, _: &Edge) {}
+    #[async_trait]
+    impl BuildRoad for MockBuildRoads {
+        async fn add_road(&mut self, _: &Edge) {}
 
-        fn remove_road(&mut self, edge: &Edge) {
+        async fn remove_road(&mut self, edge: &Edge) {
             self.removed_roads.push(*edge);
-        }
-    }
-
-    impl HasWorld for MockGame {
-        fn world(&self) -> &World {
-            &self.world
-        }
-
-        fn world_mut(&mut self) -> &mut World {
-            &mut self.world
         }
     }
 
@@ -91,14 +120,18 @@ mod tests {
             when: 10,
         });
 
-        let mut game = MockGame::default();
-        game.world.plan_road(&edge, Some(123));
+        let mut world = world();
+        world.plan_road(&edge, Some(123));
+
+        let build_road = FnThread::new(MockBuildRoads::default());
+
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
-        try_remove_road(
+        block_on(try_remove_road(
             &mut state,
-            &mut game,
+            &mut world,
+            build_road.tx(),
             &pathfinder,
             &EdgeTrafficSummary {
                 edge,
@@ -108,12 +141,12 @@ mod tests {
                     first_visit: 0,
                 }],
             },
-        );
+        ));
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(game.removed_roads, vec![edge]);
-        assert_eq!(game.world().road_planned(&edge), None);
+        assert_eq!(build_road.join().removed_roads, vec![edge]);
+        assert_eq!(world.road_planned(&edge), None);
         assert_eq!(*pathfinder.read().unwrap(), vec![edge]);
     }
 
@@ -128,14 +161,18 @@ mod tests {
             when: 10,
         });
 
-        let mut game = MockGame::default();
-        game.world.plan_road(&edge, Some(123));
+        let mut world = world();
+        world.plan_road(&edge, Some(123));
+
+        let build_road = FnThread::new(MockBuildRoads::default());
+
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
-        try_remove_road(
+        block_on(try_remove_road(
             &mut state,
-            &mut game,
+            &mut world,
+            build_road.tx(),
             &pathfinder,
             &EdgeTrafficSummary {
                 edge,
@@ -145,12 +182,12 @@ mod tests {
                     first_visit: 0,
                 }],
             },
-        );
+        ));
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(game.removed_roads, vec![edge]);
-        assert_eq!(game.world().road_planned(&edge), None);
+        assert_eq!(build_road.join().removed_roads, vec![edge]);
+        assert_eq!(world.road_planned(&edge), None);
         assert_eq!(*pathfinder.read().unwrap(), vec![edge]);
     }
 
@@ -167,14 +204,18 @@ mod tests {
         let mut state = State::default();
         state.build_queue = build_queue.clone();
 
-        let mut game = MockGame::default();
-        game.world.plan_road(&edge, Some(123));
+        let mut world = world();
+        world.plan_road(&edge, Some(123));
+
+        let build_road = FnThread::new(MockBuildRoads::default());
+
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
-        try_remove_road(
+        block_on(try_remove_road(
             &mut state,
-            &mut game,
+            &mut world,
+            build_road.tx(),
             &pathfinder,
             &EdgeTrafficSummary {
                 edge,
@@ -184,12 +225,12 @@ mod tests {
                     first_visit: 0,
                 }],
             },
-        );
+        ));
 
         // Then
         assert_eq!(state.build_queue, build_queue);
-        assert_eq!(game.removed_roads, vec![]);
-        assert_eq!(game.world().road_planned(&edge), Some(123));
+        assert_eq!(build_road.join().removed_roads, vec![]);
+        assert_eq!(world.road_planned(&edge), Some(123));
         assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
 
@@ -197,13 +238,16 @@ mod tests {
     fn should_not_remove_road_if_status_is_suitable() {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
-        let mut game = MockGame::default();
+
+        let mut world = world();
+        let build_road = FnThread::new(MockBuildRoads::default());
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
-        try_remove_road(
+        block_on(try_remove_road(
             &mut State::default(),
-            &mut game,
+            &mut world,
+            build_road.tx(),
             &pathfinder,
             &EdgeTrafficSummary {
                 edge,
@@ -213,10 +257,10 @@ mod tests {
                     first_visit: 0,
                 }],
             },
-        );
+        ));
 
         // Then
-        assert_eq!(game.removed_roads, vec![]);
+        assert_eq!(build_road.join().removed_roads, vec![]);
         assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
 
@@ -224,13 +268,16 @@ mod tests {
     fn should_not_remove_road_if_status_is_unsuitable() {
         // Given
         let edge = Edge::new(v2(1, 2), v2(1, 3));
-        let mut game = MockGame::default();
+
+        let mut world = world();
+        let build_road = FnThread::new(MockBuildRoads::default());
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
-        try_remove_road(
+        block_on(try_remove_road(
             &mut State::default(),
-            &mut game,
+            &mut world,
+            build_road.tx(),
             &pathfinder,
             &EdgeTrafficSummary {
                 edge,
@@ -240,10 +287,10 @@ mod tests {
                     first_visit: 0,
                 }],
             },
-        );
+        ));
 
         // Then
-        assert_eq!(game.removed_roads, vec![]);
+        assert_eq!(build_road.join().removed_roads, vec![]);
         assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
 }
