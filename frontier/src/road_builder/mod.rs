@@ -13,7 +13,7 @@ pub struct RoadBuilderResult {
     mode: RoadBuildMode,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RoadBuildMode {
     Build,
     Demolish,
