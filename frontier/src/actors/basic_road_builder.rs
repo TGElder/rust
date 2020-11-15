@@ -59,10 +59,6 @@ impl BasicRoadBuilder {
         }
     }
 
-    async fn shutdown(&mut self) {
-        self.run = false;
-    }
-
     async fn build_road(&mut self) {
         let plan = unwrap_or!(self.get_plan().await, return);
         let result = plan.get_road_builder_result();
@@ -92,6 +88,10 @@ impl BasicRoadBuilder {
         self.update_roads_tx
             .send_future(|update_roads| update_roads.update_roads(result).boxed())
             .await;
+    }
+
+    async fn shutdown(&mut self) {
+        self.run = false;
     }
 }
 
