@@ -1,6 +1,5 @@
 use crate::avatar::*;
 use crate::game::*;
-use crate::road_builder::*;
 use crate::territory::*;
 use crate::world::*;
 use commons::fn_sender::*;
@@ -13,7 +12,6 @@ use std::sync::Arc;
 
 mod avatar_artist;
 mod basic_avatar_controls;
-mod basic_road_builder;
 mod cheats;
 mod event_handler_adapter;
 mod follow_avatar;
@@ -36,7 +34,6 @@ mod world_artist;
 
 pub use avatar_artist::*;
 pub use basic_avatar_controls::*;
-pub use basic_road_builder::*;
 pub use cheats::*;
 pub use event_handler_adapter::*;
 pub use follow_avatar::*;
