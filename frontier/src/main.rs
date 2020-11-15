@@ -34,7 +34,9 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use actors::{PauseGame, PauseSim, Save, UpdateRoads, Visibility, WorldArtistActor};
+use actors::{
+    BasicRoadBuilder, PauseGame, PauseSim, Save, UpdateRoads, Visibility, WorldArtistActor,
+};
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
@@ -81,6 +83,7 @@ fn main() {
 
     let mut event_forwarder = EventForwarder::new();
     let mut game_event_forwarder = GameEventForwarder::new(thread_pool.clone());
+
     let mut pause_game = PauseGame::new(event_forwarder.subscribe(), game.tx());
 
     let world_artist = WorldArtist::new(
@@ -118,6 +121,9 @@ fn main() {
             pathfinder_without_planned_roads.clone(),
         ],
     );
+
+    let mut basic_road_builder =
+        BasicRoadBuilder::new(event_forwarder.subscribe(), game.tx(), update_roads.tx());
 
     let territory_updater = TerritoryUpdater::new(
         &game.tx(),
@@ -223,12 +229,6 @@ fn main() {
 
     game.add_consumer(Cheats::new(game.tx(), visibility.tx()));
 
-    game.add_consumer(BasicRoadBuilder::new(
-        game.tx(),
-        update_roads.tx(),
-        thread_pool.clone(),
-    ));
-
     game.add_consumer(game_event_forwarder);
     game.add_consumer(WorldArtistHandler::new(
         world_artist_actor.tx(),
@@ -240,6 +240,10 @@ fn main() {
     // Run
 
     let game_handle = thread::spawn(move || game.run());
+
+    let (basic_road_builder_run, basic_road_builder_handle) =
+        async move { basic_road_builder.run().await }.remote_handle();
+    thread_pool.spawn_ok(basic_road_builder_run);
 
     let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
     thread_pool.spawn_ok(pause_game_run);
@@ -271,6 +275,7 @@ fn main() {
     println!("Joining actors");
     block_on(async {
         join!(
+            basic_road_builder_handle,
             pause_game_handle,
             pause_sim_handle,
             save_handle,
