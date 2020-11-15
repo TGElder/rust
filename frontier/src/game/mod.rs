@@ -6,7 +6,6 @@ pub use game_params::*;
 pub use game_state::*;
 
 use crate::avatar::*;
-use crate::road_builder::*;
 use crate::settlement::*;
 use crate::territory::*;
 use crate::world::*;
@@ -47,7 +46,6 @@ pub enum GameEvent {
         selection: CellSelection,
         by: &'static str,
     },
-    RoadsUpdated(RoadBuilderResult),
     ObjectUpdated(V2<usize>),
     SettlementUpdated(Settlement),
     TerritoryChanged(Vec<TerritoryChange>),
@@ -63,7 +61,6 @@ impl GameEvent {
             GameEvent::Load(..) => "save",
             GameEvent::EngineEvent(..) => "engine event",
             GameEvent::CellsRevealed { .. } => "cells revealed",
-            GameEvent::RoadsUpdated(..) => "roads updated",
             GameEvent::ObjectUpdated { .. } => "object updated",
             GameEvent::SettlementUpdated { .. } => "settlement updated",
             GameEvent::TerritoryChanged(..) => "territory changed",
@@ -268,11 +265,6 @@ impl Game {
             .filter(|position| !self.game_state.world.is_sea(position))
             .count();
         self.game_state.visible_land_positions += newly_visible_land;
-    }
-
-    pub fn update_roads(&mut self, result: RoadBuilderResult) {
-        result.update_roads(&mut self.game_state.world);
-        self.consume_event(GameEvent::RoadsUpdated(result));
     }
 
     pub fn add_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {

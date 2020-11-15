@@ -2,6 +2,7 @@ use super::*;
 
 use crate::game::traits::BuildRoad;
 use commons::edge::Edge;
+use commons::futures::FutureExt;
 
 const HANDLE: &str = "road_builder";
 
@@ -43,15 +44,17 @@ where
     }
 
     async fn build_road(&mut self, road: Edge) {
-        self.game.send(move |game| build_road(game, road)).await
+        self.game
+            .send_future(move |game| build_road(game, road).boxed())
+            .await
     }
 }
 
-fn build_road<G>(game: &mut G, road: Edge)
+async fn build_road<G>(game: &mut G, road: Edge)
 where
     G: BuildRoad + Send,
 {
-    game.add_road(&road);
+    game.add_road(&road).await;
 }
 
 #[cfg(test)]
