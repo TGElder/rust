@@ -222,11 +222,12 @@ where
         let (tx, mut rx) = fn_channel();
         let run = Arc::new(Mutex::new(AtomicBool::new(true)));
         let run_in_thread = run.clone();
-        let handle = thread::spawn(move || {
-            while run_in_thread.lock().unwrap().load(Ordering::Relaxed) {
-                block_on(rx.get_messages().apply(&mut t));
+        let handle = thread::spawn(move || loop {
+            let mut messages = rx.get_messages();
+            if messages.is_empty() && !run_in_thread.lock().unwrap().load(Ordering::Relaxed) {
+                return t;
             }
-            t
+            block_on(messages.apply(&mut t));
         });
         FnThread { tx, handle, run }
     }
@@ -327,6 +328,15 @@ mod tests {
         tx.wait(|value| *value += 1);
 
         assert_eq!(tx.wait(|value| *value), 101);
+        assert_eq!(actor.join(), 101);
+    }
+
+    #[test]
+    fn fn_thread_should_get_message_sent_before_join() {
+        let actor = FnThread::new(100usize);
+        let tx = actor.tx().clone();
+
+        tx.send(|value| *value += 1);
         assert_eq!(actor.join(), 101);
     }
 }
