@@ -30,8 +30,8 @@ pub async fn try_remove_road<G, R, P>(
 
     state.build_queue.remove(&BuildKey::Road(traffic.edge));
     remove_plan(world, traffic.edge);
-    send_remove_road(build_road_tx, traffic.edge).await;
     update_edge(world, pathfinder, traffic.edge);
+    send_remove_road(build_road_tx, traffic.edge);
 }
 
 fn remove_plan<G>(game: &mut G, edge: Edge)
@@ -41,13 +41,11 @@ where
     game.world_mut().plan_road(&edge, None);
 }
 
-async fn send_remove_road<R>(build_road_tx: &FnSender<R>, edge: Edge)
+fn send_remove_road<R>(build_road_tx: &FnSender<R>, edge: Edge)
 where
     R: BuildRoad + Send,
 {
-    build_road_tx
-        .send_future(move |build_road| remove_road(build_road, edge).boxed())
-        .await;
+    build_road_tx.send_future(move |build_road| remove_road(build_road, edge).boxed());
 }
 
 async fn remove_road<R>(build_road: &mut R, edge: Edge)
