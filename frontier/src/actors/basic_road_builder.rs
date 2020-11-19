@@ -1,37 +1,31 @@
 use crate::game::{Game, GameState};
+use crate::polysender::Polysender;
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
 use commons::async_channel::{Receiver, RecvError};
 use commons::edge::Edge;
-use commons::fn_sender::FnSender;
 use commons::futures::future::FutureExt;
 use commons::V2;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-use super::UpdateRoads;
+use crate::actors::UpdateRoads;
 
 const NAME: &str = "basic_road_builder";
 
 pub struct BasicRoadBuilder {
     engine_rx: Receiver<Arc<Event>>,
-    game_tx: FnSender<Game>,
-    update_roads_tx: FnSender<UpdateRoads>,
+    tx: Polysender,
     binding: Button,
     run: bool,
 }
 
 impl BasicRoadBuilder {
-    pub fn new(
-        engine_rx: Receiver<Arc<Event>>,
-        game_tx: &FnSender<Game>,
-        update_roads_tx: &FnSender<UpdateRoads>,
-    ) -> BasicRoadBuilder {
+    pub fn new(engine_rx: Receiver<Arc<Event>>, tx: &Polysender) -> BasicRoadBuilder {
         BasicRoadBuilder {
             engine_rx,
-            game_tx: game_tx.clone_with_name(NAME),
-            update_roads_tx: update_roads_tx.clone_with_name(NAME),
+            tx: tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::R),
             run: true,
         }
@@ -67,11 +61,12 @@ impl BasicRoadBuilder {
     }
 
     async fn get_plan(&mut self) -> Option<Plan> {
-        self.game_tx.send(|game| get_plan(game)).await
+        self.tx.game.send(|game| get_plan(game)).await
     }
 
     async fn walk_positions(&mut self, plan: Plan) {
-        self.game_tx
+        self.tx
+            .game
             .send(|game| {
                 game.walk_positions(
                     plan.avatar_name,
@@ -85,9 +80,7 @@ impl BasicRoadBuilder {
     }
 
     async fn update_roads(&mut self, result: RoadBuilderResult) {
-        self.update_roads_tx
-            .send_future(|update_roads| update_roads.update_roads(result).boxed())
-            .await;
+        self.tx.update_roads(result).await;
     }
 
     async fn shutdown(&mut self) {

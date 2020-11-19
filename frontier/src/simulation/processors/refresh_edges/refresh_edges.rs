@@ -13,12 +13,12 @@ const BATCH_SIZE: usize = 128;
 pub struct RefreshEdges<G, R, T, P>
 where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Send + 'static,
+    R: BuildRoad + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     game: FnSender<G>,
-    build_road: FnSender<R>,
+    build_road: R,
     travel_duration: Arc<T>,
     pathfinder: Arc<RwLock<P>>,
 }
@@ -27,7 +27,7 @@ where
 impl<G, R, T, P> Processor for RefreshEdges<G, R, T, P>
 where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Send + 'static,
+    R: BuildRoad + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -43,19 +43,19 @@ where
 impl<G, R, T, P> RefreshEdges<G, R, T, P>
 where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Send + 'static,
+    R: BuildRoad + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     pub fn new(
         game: &FnSender<G>,
-        build_road: &FnSender<R>,
+        build_road: R,
         travel_duration: T,
         pathfinder: &Arc<RwLock<P>>,
     ) -> RefreshEdges<G, R, T, P> {
         RefreshEdges {
             game: game.clone_with_name(NAME),
-            build_road: build_road.clone_with_name(NAME),
+            build_road,
             travel_duration: Arc::new(travel_duration),
             pathfinder: pathfinder.clone(),
         }
@@ -83,7 +83,7 @@ where
 
 async fn refresh_edges<G, R, T, P>(
     game: &mut G,
-    build_road: FnSender<R>,
+    mut build_road: R,
     travel_duration: Arc<T>,
     pathfinder: Arc<RwLock<P>>,
     mut state: State,
@@ -91,14 +91,14 @@ async fn refresh_edges<G, R, T, P>(
 ) -> State
 where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Send + 'static,
+    R: BuildRoad + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     for edge in edges {
         refresh_edge(
             game,
-            &build_road,
+            &mut build_road,
             travel_duration.as_ref(),
             &pathfinder,
             &mut state,
@@ -111,14 +111,14 @@ where
 
 async fn refresh_edge<G, R, T, P>(
     game: &mut G,
-    build_road: &FnSender<R>,
+    build_road: &mut R,
     travel_duration: &T,
     pathfinder: &Arc<RwLock<P>>,
     state: &mut State,
     edge: Edge,
 ) where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Send + 'static,
+    R: BuildRoad + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
