@@ -1,4 +1,5 @@
 use commons::edge::Edge;
+use commons::executor::ThreadPool;
 
 use super::*;
 use crate::pathfinder::traits::UpdateEdge;
@@ -12,10 +13,11 @@ pub async fn try_remove_road<G, R, P>(
     world: &mut G,
     build_road_tx: &mut R,
     pathfinder: &Arc<RwLock<P>>,
+    threadpool: &ThreadPool,
     traffic: &EdgeTrafficSummary,
 ) where
     G: HasWorld + Send,
-    R: BuildRoad + Send,
+    R: BuildRoad + Clone + Send + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     if get_traffic(&traffic.routes) > ROAD_THRESHOLD {
@@ -30,7 +32,7 @@ pub async fn try_remove_road<G, R, P>(
     state.build_queue.remove(&BuildKey::Road(traffic.edge));
     remove_plan(world, traffic.edge);
     update_edge(world, pathfinder, traffic.edge);
-    send_remove_road(build_road_tx, traffic.edge).await;
+    send_remove_road(threadpool, build_road_tx, traffic.edge);
 }
 
 fn remove_plan<G>(game: &mut G, edge: Edge)
@@ -40,11 +42,12 @@ where
     game.world_mut().plan_road(&edge, None);
 }
 
-async fn send_remove_road<R>(build_road_tx: &mut R, edge: Edge)
+fn send_remove_road<R>(threadpool: &ThreadPool, build_road_tx: &mut R, edge: Edge)
 where
-    R: BuildRoad + Send,
+    R: BuildRoad + Clone + Send + 'static,
 {
-    build_road_tx.remove_road(&edge).await;
+    let mut build_road_tx = build_road_tx.clone();
+    threadpool.spawn_ok(async move { build_road_tx.remove_road(&edge).await });
 }
 
 fn update_edge<G, P>(game: &mut G, pathfinder: &Arc<RwLock<P>>, edge: Edge)
@@ -70,21 +73,23 @@ mod tests {
     use commons::async_trait::async_trait;
     use commons::edge::Edge;
     use commons::futures::executor::block_on;
-    use commons::{v2, M};
+    use commons::{v2, Arm, M};
     use std::default::Default;
+    use std::sync::Mutex;
 
     fn world() -> World {
         World::new(M::zeros(4, 4), 0.5)
     }
 
+    #[derive(Clone)]
     struct MockBuildRoads {
-        removed_roads: Vec<Edge>,
+        removed_roads: Arm<Vec<Edge>>,
     }
 
     impl Default for MockBuildRoads {
         fn default() -> MockBuildRoads {
             MockBuildRoads {
-                removed_roads: vec![],
+                removed_roads: Arc::new(Mutex::new(vec![])),
             }
         }
     }
@@ -94,7 +99,7 @@ mod tests {
         async fn add_road(&mut self, _: &Edge) {}
 
         async fn remove_road(&mut self, edge: &Edge) {
-            self.removed_roads.push(*edge);
+            self.removed_roads.lock().unwrap().push(*edge);
         }
     }
 
@@ -122,6 +127,7 @@ mod tests {
             &mut world,
             &mut build_road,
             &pathfinder,
+            &ThreadPool::new().unwrap(),
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Built,
@@ -132,9 +138,11 @@ mod tests {
             },
         ));
 
+        while build_road.removed_roads.lock().unwrap().is_empty() {}
+
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(build_road.removed_roads, vec![edge]);
+        assert_eq!(*build_road.removed_roads.lock().unwrap(), vec![edge]);
         assert_eq!(world.road_planned(&edge), None);
         assert_eq!(*pathfinder.read().unwrap(), vec![edge]);
     }
@@ -163,6 +171,7 @@ mod tests {
             &mut world,
             &mut build_road,
             &pathfinder,
+            &ThreadPool::new().unwrap(),
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Planned(123),
@@ -173,9 +182,11 @@ mod tests {
             },
         ));
 
+        while build_road.removed_roads.lock().unwrap().is_empty() {}
+
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(build_road.removed_roads, vec![edge]);
+        assert_eq!(*build_road.removed_roads.lock().unwrap(), vec![edge]);
         assert_eq!(world.road_planned(&edge), None);
         assert_eq!(*pathfinder.read().unwrap(), vec![edge]);
     }
@@ -206,6 +217,7 @@ mod tests {
             &mut world,
             &mut build_road,
             &pathfinder,
+            &ThreadPool::new().unwrap(),
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Suitable,
@@ -218,7 +230,7 @@ mod tests {
 
         // Then
         assert_eq!(state.build_queue, build_queue);
-        assert_eq!(build_road.removed_roads, vec![]);
+        assert_eq!(*build_road.removed_roads.lock().unwrap(), vec![]);
         assert_eq!(world.road_planned(&edge), Some(123));
         assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
@@ -238,6 +250,7 @@ mod tests {
             &mut world,
             &mut build_road,
             &pathfinder,
+            &ThreadPool::new().unwrap(),
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Suitable,
@@ -249,7 +262,7 @@ mod tests {
         ));
 
         // Then
-        assert_eq!(build_road.removed_roads, vec![]);
+        assert_eq!(*build_road.removed_roads.lock().unwrap(), vec![]);
         assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
 
@@ -268,6 +281,7 @@ mod tests {
             &mut world,
             &mut build_road,
             &pathfinder,
+            &ThreadPool::new().unwrap(),
             &EdgeTrafficSummary {
                 edge,
                 road_status: RoadStatus::Unsuitable,
@@ -279,7 +293,7 @@ mod tests {
         ));
 
         // Then
-        assert_eq!(build_road.removed_roads, vec![]);
+        assert_eq!(*build_road.removed_roads.lock().unwrap(), vec![]);
         assert_eq!(*pathfinder.read().unwrap(), vec![]);
     }
 }

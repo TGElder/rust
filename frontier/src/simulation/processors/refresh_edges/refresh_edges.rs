@@ -4,6 +4,7 @@ use crate::game::traits::{BuildRoad, GetRoute, HasWorld};
 use crate::pathfinder::traits::UpdateEdge;
 use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
+use commons::executor::ThreadPool;
 use commons::futures::FutureExt;
 use std::collections::HashSet;
 
@@ -21,6 +22,7 @@ where
     build_road: R,
     travel_duration: Arc<T>,
     pathfinder: Arc<RwLock<P>>,
+    thread_pool: ThreadPool,
 }
 
 #[async_trait]
@@ -52,12 +54,14 @@ where
         build_road: R,
         travel_duration: T,
         pathfinder: &Arc<RwLock<P>>,
+        thread_pool: ThreadPool,
     ) -> RefreshEdges<G, R, T, P> {
         RefreshEdges {
             game: game.clone_with_name(NAME),
             build_road,
             travel_duration: Arc::new(travel_duration),
             pathfinder: pathfinder.clone(),
+            thread_pool,
         }
     }
 
@@ -73,9 +77,19 @@ where
         let build_road = self.build_road.clone();
         let travel_duration = self.travel_duration.clone();
         let pathfinder = self.pathfinder.clone();
+        let thread_pool = self.thread_pool.clone();
         self.game
             .send_future(move |game| {
-                refresh_edges(game, build_road, travel_duration, pathfinder, state, edges).boxed()
+                refresh_edges(
+                    game,
+                    build_road,
+                    travel_duration,
+                    pathfinder,
+                    thread_pool,
+                    state,
+                    edges,
+                )
+                .boxed()
             })
             .await
     }
@@ -86,6 +100,7 @@ async fn refresh_edges<G, R, T, P>(
     mut build_road: R,
     travel_duration: Arc<T>,
     pathfinder: Arc<RwLock<P>>,
+    thread_pool: ThreadPool,
     mut state: State,
     edges: Vec<Edge>,
 ) -> State
@@ -101,6 +116,7 @@ where
             &mut build_road,
             travel_duration.as_ref(),
             &pathfinder,
+            &thread_pool,
             &mut state,
             edge,
         )
@@ -114,6 +130,7 @@ async fn refresh_edge<G, R, T, P>(
     build_road: &mut R,
     travel_duration: &T,
     pathfinder: &Arc<RwLock<P>>,
+    thread_pool: &ThreadPool,
     state: &mut State,
     edge: Edge,
 ) where
@@ -126,5 +143,13 @@ async fn refresh_edge<G, R, T, P>(
     if let Some(instruction) = try_build_road(game, pathfinder, &edge_traffic) {
         state.build_queue.insert(instruction);
     }
-    try_remove_road(state, game, build_road, pathfinder, &edge_traffic).await;
+    try_remove_road(
+        state,
+        game,
+        build_road,
+        pathfinder,
+        thread_pool,
+        &edge_traffic,
+    )
+    .await;
 }

@@ -172,6 +172,7 @@ fn main() {
             tx.clone_with_name("refresh_edges"),
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
             &pathfinder_with_planned_roads,
+            thread_pool.clone(),
         )),
         Box::new(UpdateRouteToPorts::new(game.tx())),
         Box::new(visibility_sim),
