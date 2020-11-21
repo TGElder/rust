@@ -1,11 +1,11 @@
 use super::*;
 
-use crate::game::traits::BuildRoad;
+use crate::polysender::traits::BuildRoads;
 use commons::edge::Edge;
 
 pub struct RoadBuilder<G>
 where
-    G: BuildRoad + Send,
+    G: BuildRoads + Send,
 {
     game: G,
 }
@@ -13,7 +13,7 @@ where
 #[async_trait]
 impl<G> Builder for RoadBuilder<G>
 where
-    G: BuildRoad + Send,
+    G: BuildRoads + Send,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Road(..) = build {
@@ -32,7 +32,7 @@ where
 
 impl<G> RoadBuilder<G>
 where
-    G: BuildRoad + Send,
+    G: BuildRoads + Send,
 {
     pub fn new(game: G) -> RoadBuilder<G> {
         RoadBuilder { game }

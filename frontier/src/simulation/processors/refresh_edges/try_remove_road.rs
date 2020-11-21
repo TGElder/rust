@@ -4,7 +4,8 @@ use commons::executor::ThreadPool;
 use super::*;
 use crate::pathfinder::traits::UpdateEdge;
 
-use crate::game::traits::{BuildRoad, HasWorld};
+use crate::game::traits::HasWorld;
+use crate::polysender::traits::BuildRoads;
 
 const ROAD_THRESHOLD: usize = 0;
 
@@ -17,7 +18,7 @@ pub async fn try_remove_road<G, R, P>(
     traffic: &EdgeTrafficSummary,
 ) where
     G: HasWorld + Send,
-    R: BuildRoad + Clone + Send + 'static,
+    R: BuildRoads + Clone + Send + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     if get_traffic(&traffic.routes) > ROAD_THRESHOLD {
@@ -44,7 +45,7 @@ where
 
 fn send_remove_road<R>(build_road: &mut R, threadpool: &ThreadPool, edge: Edge)
 where
-    R: BuildRoad + Clone + Send + 'static,
+    R: BuildRoads + Clone + Send + 'static,
 {
     let mut build_road_tx = build_road.clone();
     threadpool.spawn_ok(async move { build_road_tx.remove_road(&edge).await });
@@ -95,7 +96,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl BuildRoad for MockBuildRoads {
+    impl BuildRoads for MockBuildRoads {
         async fn add_road(&mut self, _: &Edge) {}
 
         async fn remove_road(&mut self, edge: &Edge) {
