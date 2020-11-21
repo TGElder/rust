@@ -14,6 +14,7 @@ mod label_editor;
 mod names;
 mod nation;
 mod pathfinder;
+mod polysender;
 mod resource;
 mod road_builder;
 mod route;
@@ -34,9 +35,7 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use actors::{
-    BasicRoadBuilder, PauseGame, PauseSim, Save, UpdateRoads, Visibility, WorldArtistActor,
-};
+use actors::{BasicRoadBuilder, PauseGame, PauseSim, Save, Visibility, WorldArtistActor};
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
@@ -44,6 +43,7 @@ use commons::grid::Grid;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
+use polysender::Polysender;
 use simple_logger::SimpleLogger;
 use simulation::builders::{CropsBuilder, RoadBuilder, SettlementBuilder};
 use simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
@@ -111,19 +111,17 @@ fn main() {
         game.tx(),
     );
 
-    let mut update_roads = UpdateRoads::new(
-        event_forwarder.subscribe(),
-        game.tx(),
-        world_artist_actor.tx(),
-        visibility.tx(),
-        vec![
+    let tx = Polysender {
+        game: game.tx().clone(),
+        world_artist: world_artist_actor.tx().clone(),
+        visibility: visibility.tx().clone(),
+        pathfinders: vec![
             pathfinder_with_planned_roads.clone(),
             pathfinder_without_planned_roads.clone(),
         ],
-    );
+    };
 
-    let mut basic_road_builder =
-        BasicRoadBuilder::new(event_forwarder.subscribe(), game.tx(), update_roads.tx());
+    let mut basic_road_builder = BasicRoadBuilder::new(event_forwarder.subscribe(), &tx);
 
     let territory_updater = TerritoryUpdater::new(
         &game.tx(),
@@ -135,7 +133,7 @@ fn main() {
         game.tx(),
         vec![
             Box::new(SettlementBuilder::new(game.tx(), &territory_updater)),
-            Box::new(RoadBuilder::new(update_roads.tx())),
+            Box::new(RoadBuilder::new(tx.clone_with_name("road_builder"))),
             Box::new(CropsBuilder::new(game.tx())),
         ],
     );
@@ -170,9 +168,10 @@ fn main() {
         Box::new(RefreshPositions::new(&game.tx())),
         Box::new(RefreshEdges::new(
             &game.tx(),
-            &update_roads.tx(),
+            tx.clone_with_name("refresh_edges"),
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
             &pathfinder_with_planned_roads,
+            thread_pool.clone(),
         )),
         Box::new(UpdateRouteToPorts::new(game.tx())),
         Box::new(visibility_sim),
@@ -257,10 +256,6 @@ fn main() {
     let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
     thread_pool.spawn_ok(visibility_run);
 
-    let (update_roads_run, update_roads_handle) =
-        async move { update_roads.run().await }.remote_handle();
-    thread_pool.spawn_ok(update_roads_run);
-
     let (world_artist_actor_run, world_artist_actor_handle) =
         async move { world_artist_actor.run().await }.remote_handle();
     thread_pool.spawn_ok(world_artist_actor_run);
@@ -281,7 +276,6 @@ fn main() {
             save_handle,
             sim_handle,
             world_artist_actor_handle,
-            update_roads_handle,
             visibility_handle
         )
     });
