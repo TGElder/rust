@@ -4,7 +4,8 @@ use commons::executor::ThreadPool;
 use super::*;
 use crate::pathfinder::traits::UpdateEdge;
 
-use crate::game::traits::{BuildRoad, HasWorld};
+use crate::game::traits::HasWorld;
+use crate::polysender::traits::BuildRoads;
 
 const ROAD_THRESHOLD: usize = 0;
 
@@ -17,7 +18,7 @@ pub async fn try_remove_road<G, R, P>(
     traffic: &EdgeTrafficSummary,
 ) where
     G: HasWorld + Send,
-    R: BuildRoad + Clone + Send + 'static,
+    R: BuildRoads + Clone + Send + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     if get_traffic(&traffic.routes) > ROAD_THRESHOLD {
@@ -44,7 +45,7 @@ where
 
 fn send_remove_road<R>(build_road: &mut R, threadpool: &ThreadPool, edge: Edge)
 where
-    R: BuildRoad + Clone + Send + 'static,
+    R: BuildRoads + Clone + Send + 'static,
 {
     let mut build_road_tx = build_road.clone();
     threadpool.spawn_ok(async move { build_road_tx.remove_road(&edge).await });
@@ -82,20 +83,20 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct MockBuildRoads {
+    struct MockBuildRoadss {
         removed_roads: Arm<Vec<Edge>>,
     }
 
-    impl Default for MockBuildRoads {
-        fn default() -> MockBuildRoads {
-            MockBuildRoads {
+    impl Default for MockBuildRoadss {
+        fn default() -> MockBuildRoadss {
+            MockBuildRoadss {
                 removed_roads: Arc::new(Mutex::new(vec![])),
             }
         }
     }
 
     #[async_trait]
-    impl BuildRoad for MockBuildRoads {
+    impl BuildRoads for MockBuildRoadss {
         async fn add_road(&mut self, _: &Edge) {}
 
         async fn remove_road(&mut self, edge: &Edge) {
@@ -117,7 +118,7 @@ mod tests {
         let mut world = world();
         world.plan_road(&edge, Some(123));
 
-        let mut build_road = MockBuildRoads::default();
+        let mut build_road = MockBuildRoadss::default();
 
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
@@ -161,7 +162,7 @@ mod tests {
         let mut world = world();
         world.plan_road(&edge, Some(123));
 
-        let mut build_road = MockBuildRoads::default();
+        let mut build_road = MockBuildRoadss::default();
 
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
@@ -207,7 +208,7 @@ mod tests {
         let mut world = world();
         world.plan_road(&edge, Some(123));
 
-        let mut build_road = MockBuildRoads::default();
+        let mut build_road = MockBuildRoadss::default();
 
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
@@ -241,7 +242,7 @@ mod tests {
         let edge = Edge::new(v2(1, 2), v2(1, 3));
 
         let mut world = world();
-        let mut build_road = MockBuildRoads::default();
+        let mut build_road = MockBuildRoadss::default();
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
@@ -272,7 +273,7 @@ mod tests {
         let edge = Edge::new(v2(1, 2), v2(1, 3));
 
         let mut world = world();
-        let mut build_road = MockBuildRoads::default();
+        let mut build_road = MockBuildRoadss::default();
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
