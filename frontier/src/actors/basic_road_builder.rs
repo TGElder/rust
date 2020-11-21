@@ -1,3 +1,4 @@
+use crate::actors::UpdateRoads;
 use crate::game::{Game, GameState};
 use crate::polysender::Polysender;
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
@@ -9,8 +10,6 @@ use commons::futures::future::FutureExt;
 use commons::V2;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
-
-use crate::actors::UpdateRoads;
 
 const NAME: &str = "basic_road_builder";
 

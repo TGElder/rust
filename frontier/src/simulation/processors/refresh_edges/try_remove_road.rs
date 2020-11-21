@@ -11,7 +11,7 @@ const ROAD_THRESHOLD: usize = 0;
 pub async fn try_remove_road<G, R, P>(
     state: &mut State,
     world: &mut G,
-    build_road_tx: &mut R,
+    build_road: &mut R,
     pathfinder: &Arc<RwLock<P>>,
     threadpool: &ThreadPool,
     traffic: &EdgeTrafficSummary,
@@ -32,7 +32,7 @@ pub async fn try_remove_road<G, R, P>(
     state.build_queue.remove(&BuildKey::Road(traffic.edge));
     remove_plan(world, traffic.edge);
     update_edge(world, pathfinder, traffic.edge);
-    send_remove_road(threadpool, build_road_tx, traffic.edge);
+    send_remove_road(build_road, threadpool, traffic.edge);
 }
 
 fn remove_plan<G>(game: &mut G, edge: Edge)
@@ -42,11 +42,11 @@ where
     game.world_mut().plan_road(&edge, None);
 }
 
-fn send_remove_road<R>(threadpool: &ThreadPool, build_road_tx: &mut R, edge: Edge)
+fn send_remove_road<R>(build_road: &mut R, threadpool: &ThreadPool, edge: Edge)
 where
     R: BuildRoad + Clone + Send + 'static,
 {
-    let mut build_road_tx = build_road_tx.clone();
+    let mut build_road_tx = build_road.clone();
     threadpool.spawn_ok(async move { build_road_tx.remove_road(&edge).await });
 }
 

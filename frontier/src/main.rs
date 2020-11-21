@@ -114,7 +114,6 @@ fn main() {
     let tx = Polysender {
         game: game.tx().clone(),
         world_artist: world_artist_actor.tx().clone(),
-        // sim: sim.tx().clone(),
         visibility: visibility.tx().clone(),
         pathfinders: vec![
             pathfinder_with_planned_roads.clone(),

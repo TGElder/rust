@@ -10,7 +10,6 @@ use crate::pathfinder::Pathfinder;
 #[derive(Clone)]
 pub struct Polysender {
     pub game: FnSender<Game>,
-    // pub sim: FnSender<Simulation>,
     pub visibility: FnSender<Visibility>,
     pub world_artist: FnSender<WorldArtistActor>,
     pub pathfinders: Vec<Arc<RwLock<Pathfinder<AvatarTravelDuration>>>>,
@@ -20,7 +19,6 @@ impl Polysender {
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
             game: self.game.clone_with_name(name),
-            // sim: self.sim.clone_with_name(name),
             visibility: self.visibility.clone_with_name(name),
             world_artist: self.world_artist.clone_with_name(name),
             pathfinders: self.pathfinders.clone(),
