@@ -1,9 +1,7 @@
-use crate::game::traits::BuildRoad;
 use crate::game::Game;
 use crate::polysender::Polysender;
-use crate::road_builder::{RoadBuildMode, RoadBuilderResult};
+use crate::road_builder::RoadBuilderResult;
 use commons::async_trait::async_trait;
-use commons::edge::Edge;
 use commons::futures::future::FutureExt;
 use std::sync::Arc;
 
@@ -54,32 +52,4 @@ fn update_pathfinder_with_roads(tx: &mut Polysender, result: &Arc<RoadBuilderRes
             result.update_pathfinder(&game.game_state().world, &mut pathfinder.write().unwrap())
         });
     }
-}
-
-#[async_trait]
-impl BuildRoad for Polysender {
-    async fn add_road(&mut self, edge: &Edge) {
-        if send_is_road(self, *edge).await {
-            return;
-        }
-        let result = RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Build);
-        self.update_roads(result).await;
-    }
-
-    async fn remove_road(&mut self, edge: &Edge) {
-        if !send_is_road(self, *edge).await {
-            return;
-        }
-        let result =
-            RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Demolish);
-        self.update_roads(result).await;
-    }
-}
-
-pub async fn send_is_road(tx: &mut Polysender, edge: Edge) -> bool {
-    tx.game.send(move |game| is_road(game, edge)).await
-}
-
-fn is_road(game: &mut Game, edge: Edge) -> bool {
-    game.game_state().world.is_road(&edge)
 }

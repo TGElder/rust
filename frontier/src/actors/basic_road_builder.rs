@@ -1,5 +1,5 @@
-use crate::actors::UpdateRoads;
 use crate::game::{Game, GameState};
+use crate::polysender::traits::UpdateRoads;
 use crate::polysender::Polysender;
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
 use crate::travel_duration::TravelDuration;

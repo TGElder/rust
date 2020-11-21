@@ -1,7 +1,8 @@
 use super::*;
 
-use crate::game::traits::{BuildRoad, GetRoute, HasWorld};
+use crate::game::traits::{GetRoute, HasWorld};
 use crate::pathfinder::traits::UpdateEdge;
+use crate::polysender::traits::BuildRoads;
 use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
 use commons::executor::ThreadPool;
@@ -14,7 +15,7 @@ const BATCH_SIZE: usize = 128;
 pub struct RefreshEdges<G, R, T, P>
 where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Clone + Send + Sync + 'static,
+    R: BuildRoads + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -29,7 +30,7 @@ where
 impl<G, R, T, P> Processor for RefreshEdges<G, R, T, P>
 where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Clone + Send + Sync + 'static,
+    R: BuildRoads + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -45,7 +46,7 @@ where
 impl<G, R, T, P> RefreshEdges<G, R, T, P>
 where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Clone + Send + Sync + 'static,
+    R: BuildRoads + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -106,7 +107,7 @@ async fn refresh_edges<G, R, T, P>(
 ) -> State
 where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Clone + Send + Sync + 'static,
+    R: BuildRoads + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
@@ -135,7 +136,7 @@ async fn refresh_edge<G, R, T, P>(
     edge: Edge,
 ) where
     G: GetRoute + HasWorld + Send,
-    R: BuildRoad + Clone + Send + Sync + 'static,
+    R: BuildRoads + Clone + Send + Sync + 'static,
     T: TravelDuration + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
