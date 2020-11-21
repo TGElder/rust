@@ -83,20 +83,20 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct MockBuildRoadss {
+    struct MockBuildRoads {
         removed_roads: Arm<Vec<Edge>>,
     }
 
-    impl Default for MockBuildRoadss {
-        fn default() -> MockBuildRoadss {
-            MockBuildRoadss {
+    impl Default for MockBuildRoads {
+        fn default() -> MockBuildRoads {
+            MockBuildRoads {
                 removed_roads: Arc::new(Mutex::new(vec![])),
             }
         }
     }
 
     #[async_trait]
-    impl BuildRoads for MockBuildRoadss {
+    impl BuildRoads for MockBuildRoads {
         async fn add_road(&mut self, _: &Edge) {}
 
         async fn remove_road(&mut self, edge: &Edge) {
@@ -118,7 +118,7 @@ mod tests {
         let mut world = world();
         world.plan_road(&edge, Some(123));
 
-        let mut build_road = MockBuildRoadss::default();
+        let mut build_road = MockBuildRoads::default();
 
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
@@ -162,7 +162,7 @@ mod tests {
         let mut world = world();
         world.plan_road(&edge, Some(123));
 
-        let mut build_road = MockBuildRoadss::default();
+        let mut build_road = MockBuildRoads::default();
 
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
@@ -208,7 +208,7 @@ mod tests {
         let mut world = world();
         world.plan_road(&edge, Some(123));
 
-        let mut build_road = MockBuildRoadss::default();
+        let mut build_road = MockBuildRoads::default();
 
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
@@ -242,7 +242,7 @@ mod tests {
         let edge = Edge::new(v2(1, 2), v2(1, 3));
 
         let mut world = world();
-        let mut build_road = MockBuildRoadss::default();
+        let mut build_road = MockBuildRoads::default();
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
@@ -273,7 +273,7 @@ mod tests {
         let edge = Edge::new(v2(1, 2), v2(1, 3));
 
         let mut world = world();
-        let mut build_road = MockBuildRoadss::default();
+        let mut build_road = MockBuildRoads::default();
         let pathfinder = Arc::new(RwLock::new(vec![]));
 
         // When
