@@ -206,7 +206,13 @@ fn get_dimensions(game: &Game) -> (usize, usize) {
 
 fn get_elevations(game: &Game) -> M<Elevation> {
     let world = &game.game_state().world;
+    let sea_level = world.sea_level();
     M::from_fn(world.width(), world.height(), |x, y| Elevation {
-        elevation: game.game_state().world.get_cell_unsafe(&v2(x, y)).elevation,
+        elevation: game
+            .game_state()
+            .world
+            .get_cell_unsafe(&v2(x, y))
+            .elevation
+            .max(sea_level),
     })
 }
