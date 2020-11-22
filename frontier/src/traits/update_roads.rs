@@ -1,6 +1,6 @@
 use crate::polysender::Polysender;
 use crate::road_builder::RoadBuilderResult;
-use crate::traits::{Micros, Redraw, Visibility, WithWorld};
+use crate::traits::{Micros, Redraw, SendWorld, Visibility};
 use commons::async_trait::async_trait;
 use std::sync::Arc;
 
@@ -24,12 +24,12 @@ impl UpdateRoads for Polysender
     }
 }
 
-async fn send_update_world<W>(with_world: &mut W, result: Arc<RoadBuilderResult>)
+async fn send_update_world<T>(send_world: &mut T, result: Arc<RoadBuilderResult>)
 where
-    W: WithWorld,
+    T: SendWorld,
 {
-    with_world
-        .with_world(move |world| result.update_roads(world))
+    send_world
+        .send_world(move |world| result.update_roads(world))
         .await
 }
 

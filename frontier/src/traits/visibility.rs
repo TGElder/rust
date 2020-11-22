@@ -13,16 +13,16 @@ pub trait Visibility {
 #[async_trait]
 impl<T> Visibility for T
 where
-    T: WithVisibility,
+    T: SendVisibility,
 {
     fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
-        self.with_visibility_background(move |visibility| {
+        self.send_visibility_background(move |visibility| {
             visibility.check_visibility_and_reveal(visited)
         });
     }
 
     fn disable_visibility_computation(&mut self) {
-        self.with_visibility_background(move |visibility| {
+        self.send_visibility_background(move |visibility| {
             visibility.disable_visibility_computation()
         });
     }

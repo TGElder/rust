@@ -2,7 +2,7 @@ use commons::async_trait::async_trait;
 
 use commons::edge::Edge;
 
-use crate::traits::WithWorld;
+use crate::traits::SendWorld;
 
 #[async_trait]
 pub trait IsRoad {
@@ -12,9 +12,9 @@ pub trait IsRoad {
 #[async_trait]
 impl<T> IsRoad for T
 where
-    T: WithWorld + Send,
+    T: SendWorld + Send,
 {
     async fn is_road(&mut self, edge: Edge) -> bool {
-        self.with_world(move |world| world.is_road(&edge)).await
+        self.send_world(move |world| world.is_road(&edge)).await
     }
 }
