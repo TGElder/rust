@@ -21,6 +21,7 @@ mod route;
 mod settlement;
 mod simulation;
 mod territory;
+mod traits;
 mod travel_duration;
 mod update_territory;
 mod visibility_computer;

@@ -1,7 +1,8 @@
-use super::*;
+use commons::async_trait::async_trait;
 
-use crate::polysender::traits::WithWorld;
 use commons::edge::Edge;
+
+use crate::world::WithWorld;
 
 #[async_trait]
 pub trait IsRoad {

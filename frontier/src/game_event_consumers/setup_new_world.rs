@@ -1,11 +1,11 @@
 use crate::actors::traits::Visibility;
 use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation};
+use crate::game::traits::WithGame;
 use crate::game::{
     CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
 };
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
-use crate::polysender::traits::WithGame;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
 use commons::grid::Grid;
@@ -42,7 +42,6 @@ where
         let avatars = gen_avatars(&mut rng, &homeland_starts, params.avatar_color);
         let nations = gen_nations(&mut rng, &params);
         let settlements = gen_settlements(params, &homeland_starts, &nations);
-
         self.tx
             .with_game_background(move |game| setup_game(game, avatars, nations, settlements));
 

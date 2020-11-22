@@ -1,5 +1,5 @@
 use crate::actors::traits::Visibility;
-use crate::polysender::traits::WithGame;
+use crate::game::traits::WithGame;
 
 use super::*;
 use isometric::coords::*;

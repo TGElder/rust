@@ -2,9 +2,10 @@ use commons::async_trait::async_trait;
 use commons::edge::Edge;
 use std::collections::HashSet;
 
-use crate::polysender::traits::{IsRoad, UpdateRoads};
-use crate::polysender::Polysender;
 use crate::road_builder::{RoadBuildMode, RoadBuilderResult};
+use crate::traits::UpdateRoads;
+
+use crate::traits::IsRoad;
 
 #[async_trait]
 pub trait BuildRoads {
@@ -14,7 +15,10 @@ pub trait BuildRoads {
 }
 
 #[async_trait]
-impl BuildRoads for Polysender {
+impl<T> BuildRoads for T
+where
+    T: IsRoad + UpdateRoads + Send,
+{
     async fn add_road(&mut self, edge: &Edge) {
         if self.is_road(*edge).await {
             return;
