@@ -119,7 +119,6 @@ fn main() {
             pathfinder_with_planned_roads.clone(),
             pathfinder_without_planned_roads.clone(),
         ],
-        thread_pool: thread_pool.clone(),
     };
 
     let mut basic_road_builder = BasicRoadBuilder::new(event_forwarder.subscribe(), &tx);

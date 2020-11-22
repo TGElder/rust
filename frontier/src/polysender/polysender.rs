@@ -3,7 +3,6 @@ use super::*;
 use std::sync::{Arc, RwLock};
 
 use commons::fn_sender::FnSender;
-use commons::futures::executor::ThreadPool;
 
 use crate::actors::traits::WithVisibility;
 use crate::actors::{VisibilityActor, WorldArtistActor};
@@ -17,7 +16,6 @@ pub struct Polysender {
     pub visibility: FnSender<VisibilityActor>,
     pub world_artist: FnSender<WorldArtistActor>,
     pub pathfinders: Vec<Arc<RwLock<Pathfinder<AvatarTravelDuration>>>>,
-    pub thread_pool: ThreadPool,
 }
 
 impl Polysender {
@@ -27,7 +25,6 @@ impl Polysender {
             visibility: self.visibility.clone_with_name(name),
             world_artist: self.world_artist.clone_with_name(name),
             pathfinders: self.pathfinders.clone(),
-            thread_pool: self.thread_pool.clone(),
         }
     }
 }

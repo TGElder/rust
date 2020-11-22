@@ -1,5 +1,3 @@
-use crate::polysender::traits::Parallel;
-
 use super::*;
 
 use commons::async_trait::async_trait;
@@ -26,7 +24,7 @@ pub trait Visibility {
 #[async_trait]
 impl<T> Visibility for T
 where
-    T: Parallel + WithVisibility,
+    T: WithVisibility,
 {
     fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
         self.with_visibility_background(move |visibility| {
