@@ -2,7 +2,7 @@ use super::*;
 
 use crate::game::traits::{GetRoute, HasWorld};
 use crate::pathfinder::traits::UpdateEdge;
-use crate::polysender::traits::BuildRoads;
+use crate::traits::BuildRoads;
 use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
 use commons::executor::ThreadPool;

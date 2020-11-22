@@ -1,12 +1,14 @@
 mod climate;
 mod planned_road;
 mod vegetation;
+mod with_world;
 mod world_cell;
 mod world_object;
 
 pub use climate::*;
 pub use planned_road::*;
 pub use vegetation::*;
+pub use with_world::*;
 pub use world_cell::*;
 pub use world_object::*;
 

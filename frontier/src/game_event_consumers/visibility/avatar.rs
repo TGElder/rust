@@ -1,7 +1,6 @@
-use crate::actors::Visibility;
+use crate::actors::traits::Visibility;
 use crate::avatar::*;
 use crate::game::*;
-use commons::fn_sender::FnSender;
 use commons::V2;
 use isometric::Event;
 use std::sync::Arc;
@@ -10,21 +9,24 @@ use std::iter::{empty, once};
 
 const NAME: &str = "visibility_from_avatar";
 
-pub struct VisibilityFromAvatar {
-    tx: FnSender<Visibility>,
+pub struct VisibilityFromAvatar<T>
+where
+    T: Visibility,
+{
+    visibility: T,
 }
 
-impl VisibilityFromAvatar {
-    pub fn new(tx: &FnSender<Visibility>) -> VisibilityFromAvatar {
-        VisibilityFromAvatar {
-            tx: tx.clone_with_name(NAME),
-        }
+impl<T> VisibilityFromAvatar<T>
+where
+    T: Visibility,
+{
+    pub fn new(visibility: T) -> VisibilityFromAvatar<T> {
+        VisibilityFromAvatar { visibility }
     }
 
     fn tick(&mut self, game_state: &GameState, from: &u128, to: &u128) {
         let visited = avatar_visited(game_state, from, to).collect();
-        self.tx
-            .send(|visibility| visibility.check_visibility_and_reveal(visited));
+        self.visibility.check_visibility_and_reveal(visited);
     }
 }
 
@@ -46,7 +48,10 @@ fn avatar_visited<'a>(
     Box::new(empty())
 }
 
-impl GameEventConsumer for VisibilityFromAvatar {
+impl<T> GameEventConsumer for VisibilityFromAvatar<T>
+where
+    T: Visibility + Send,
+{
     fn name(&self) -> &'static str {
         NAME
     }

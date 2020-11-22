@@ -1,6 +1,7 @@
+use crate::traits::BuildRoads;
+
 use super::*;
 
-use crate::polysender::traits::BuildRoads;
 use commons::edge::Edge;
 
 pub struct RoadBuilder<G>
