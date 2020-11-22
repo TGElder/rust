@@ -102,7 +102,7 @@ impl VisibilityActor {
         }
     }
 
-    fn deactive(&mut self) {
+    fn disable_visibility_computation(&mut self) {
         self.state.active = false;
     }
 
@@ -145,15 +145,15 @@ impl VisibilityActor {
     }
 
     async fn new_game(&mut self) {
-        self.try_deactivate().await;
+        self.try_disable_visibility_computation().await;
         if self.state.active {
             self.init_visited().await;
         }
     }
 
-    async fn try_deactivate(&mut self) {
+    async fn try_disable_visibility_computation(&mut self) {
         if self.game_tx.send(|game| get_reveal_all(game)).await {
-            self.deactive();
+            self.disable_visibility_computation();
         }
     }
 

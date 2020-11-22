@@ -20,7 +20,7 @@ pub trait WithVisibility {
 #[async_trait]
 pub trait Visibility {
     fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>);
-    fn deactive_visibility(&mut self);
+    fn disable_visibility_computation(&mut self);
 }
 
 #[async_trait]
@@ -34,7 +34,9 @@ where
         });
     }
 
-    fn deactive_visibility(&mut self) {
-        self.with_visibility_background(move |visibility| visibility.deactive());
+    fn disable_visibility_computation(&mut self) {
+        self.with_visibility_background(move |visibility| {
+            visibility.disable_visibility_computation()
+        });
     }
 }

@@ -53,7 +53,7 @@ where
         self.tx.with_game_background(move |game| {
             game.reveal_all_cells(NAME);
         });
-        self.tx.deactive_visibility();
+        self.tx.disable_visibility_computation();
     }
 
     fn move_avatar(&mut self, game_state: &GameState) {
