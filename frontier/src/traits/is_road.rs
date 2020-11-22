@@ -2,7 +2,7 @@ use commons::async_trait::async_trait;
 
 use commons::edge::Edge;
 
-use crate::world::WithWorld;
+use crate::traits::WithWorld;
 
 #[async_trait]
 pub trait IsRoad {

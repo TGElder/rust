@@ -1,6 +1,5 @@
-use commons::async_trait::async_trait;
-
 use crate::world::World;
+use commons::async_trait::async_trait;
 
 #[async_trait]
 pub trait WithWorld {
