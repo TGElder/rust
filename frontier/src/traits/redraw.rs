@@ -1,4 +1,4 @@
-use crate::traits::WithWorldArtist;
+use crate::traits::SendWorldArtist;
 use commons::async_trait::async_trait;
 use commons::future::FutureExt;
 use commons::V2;
@@ -12,7 +12,7 @@ pub trait Redraw {
 #[async_trait]
 impl<T> Redraw for T
 where
-    T: WithWorldArtist,
+    T: SendWorldArtist,
 {
     fn redraw_all_at(&mut self, when: u128) {
         self.send_world_artist_future_background(move |world_artist| {

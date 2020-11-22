@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::traits::{Visibility, WithGame};
+use crate::traits::{SendGame, Visibility};
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;
@@ -25,7 +25,7 @@ impl Default for CheatBindings {
 
 pub struct Cheats<T>
 where
-    T: WithGame + Visibility,
+    T: SendGame + Visibility,
 {
     tx: T,
     bindings: CheatBindings,
@@ -34,7 +34,7 @@ where
 
 impl<T> Cheats<T>
 where
-    T: WithGame + Visibility,
+    T: SendGame + Visibility,
 {
     pub fn new(tx: T) -> Cheats<T> {
         Cheats {
@@ -49,7 +49,7 @@ where
     }
 
     fn reveal_all(&mut self, _: &GameState) {
-        self.tx.with_game_background(move |game| {
+        self.tx.send_game_background(move |game| {
             game.reveal_all_cells(NAME);
         });
         self.tx.disable_visibility_computation();
@@ -75,7 +75,7 @@ where
 
     fn send_update_avatar_state_command(&mut self, name: &str, avatar_state: AvatarState) {
         let name = name.to_string();
-        self.tx.with_game_background(move |game| {
+        self.tx.send_game_background(move |game| {
             game.update_avatar_state(name.to_string(), avatar_state);
         });
     }
@@ -83,7 +83,7 @@ where
 
 impl<T> GameEventConsumer for Cheats<T>
 where
-    T: WithGame + Visibility + Send,
+    T: SendGame + Visibility + Send,
 {
     fn name(&self) -> &'static str {
         NAME

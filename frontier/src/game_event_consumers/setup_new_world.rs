@@ -5,7 +5,7 @@ use crate::game::{
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
-use crate::traits::{Visibility, WithGame};
+use crate::traits::{SendGame, Visibility};
 use crate::world::World;
 use commons::grid::Grid;
 use commons::rand::prelude::*;
@@ -19,14 +19,14 @@ const NAME: &str = "setup_homelands";
 
 pub struct SetupNewWorld<T>
 where
-    T: WithGame + Visibility,
+    T: SendGame + Visibility,
 {
     tx: T,
 }
 
 impl<T> SetupNewWorld<T>
 where
-    T: WithGame + Visibility,
+    T: SendGame + Visibility,
 {
     pub fn new(tx: T) -> SetupNewWorld<T> {
         SetupNewWorld { tx }
@@ -42,7 +42,7 @@ where
         let nations = gen_nations(&mut rng, &params);
         let settlements = gen_settlements(params, &homeland_starts, &nations);
         self.tx
-            .with_game_background(move |game| setup_game(game, avatars, nations, settlements));
+            .send_game_background(move |game| setup_game(game, avatars, nations, settlements));
 
         let visited = get_visited_positions(&homeland_starts);
         self.tx.check_visibility_and_reveal(visited);
@@ -168,7 +168,7 @@ fn setup_game(
 
 impl<T> GameEventConsumer for SetupNewWorld<T>
 where
-    T: WithGame + Visibility + Send,
+    T: SendGame + Visibility + Send,
 {
     fn name(&self) -> &'static str {
         NAME
