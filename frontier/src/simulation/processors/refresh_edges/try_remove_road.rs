@@ -5,7 +5,7 @@ use super::*;
 use crate::pathfinder::traits::UpdateEdge;
 
 use crate::game::traits::HasWorld;
-use crate::polysender::traits::BuildRoads;
+use crate::traits::BuildRoads;
 
 const ROAD_THRESHOLD: usize = 0;
 
