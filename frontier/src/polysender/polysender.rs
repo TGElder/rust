@@ -4,7 +4,7 @@ use crate::actors::{VisibilityActor, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
-use crate::traits::{WithGame, WithVisibility, WithWorld, WithWorldArtist};
+use crate::traits::{SendGame, SendVisibility, SendWorld, SendWorldArtist};
 use crate::world::World;
 use commons::fn_sender::FnSender;
 use std::sync::{Arc, RwLock};
@@ -29,8 +29,8 @@ impl Polysender {
 }
 
 #[async_trait]
-impl WithGame for Polysender {
-    async fn with_game<F, O>(&mut self, function: F) -> O
+impl SendGame for Polysender {
+    async fn send_game<F, O>(&mut self, function: F) -> O
     where
         O: Send + 'static,
         F: FnOnce(&mut Game) -> O + Send + 'static,
@@ -38,7 +38,7 @@ impl WithGame for Polysender {
         self.game.send(function).await
     }
 
-    fn with_game_background<F, O>(&mut self, function: F)
+    fn send_game_background<F, O>(&mut self, function: F)
     where
         O: Send + 'static,
         F: FnOnce(&mut Game) -> O + Send + 'static,
@@ -47,19 +47,8 @@ impl WithGame for Polysender {
     }
 }
 
-#[async_trait]
-impl WithVisibility for Polysender {
-    async fn with_visibility<F, O>(&mut self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut VisibilityActor) -> O + Send + 'static,
-    {
-        self.visibility
-            .send(move |mut visibility| function(&mut visibility))
-            .await
-    }
-
-    fn with_visibility_background<F, O>(&mut self, function: F)
+impl SendVisibility for Polysender {
+    fn send_visibility_background<F, O>(&mut self, function: F)
     where
         O: Send + 'static,
         F: FnOnce(&mut VisibilityActor) -> O + Send + 'static,
@@ -70,8 +59,8 @@ impl WithVisibility for Polysender {
 }
 
 #[async_trait]
-impl WithWorld for Polysender {
-    async fn with_world<F, O>(&mut self, function: F) -> O
+impl SendWorld for Polysender {
+    async fn send_world<F, O>(&mut self, function: F) -> O
     where
         O: Send + 'static,
         F: FnOnce(&mut World) -> O + Send + 'static,
@@ -81,7 +70,7 @@ impl WithWorld for Polysender {
             .await
     }
 
-    fn with_world_background<F, O>(&mut self, function: F)
+    fn send_world_background<F, O>(&mut self, function: F)
     where
         O: Send + 'static,
         F: FnOnce(&mut World) -> O + Send + 'static,
@@ -91,18 +80,7 @@ impl WithWorld for Polysender {
     }
 }
 
-#[async_trait]
-impl WithWorldArtist for Polysender {
-    async fn send_world_artist_future<F, O>(&mut self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut WorldArtistActor) -> commons::future::BoxFuture<O> + Send + 'static,
-    {
-        self.world_artist
-            .send_future(move |world_artist| function(world_artist))
-            .await
-    }
-
+impl SendWorldArtist for Polysender {
     fn send_world_artist_future_background<F, O>(&mut self, function: F)
     where
         O: Send + 'static,
