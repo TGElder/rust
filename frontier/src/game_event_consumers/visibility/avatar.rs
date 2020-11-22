@@ -1,6 +1,6 @@
-use crate::actors::traits::Visibility;
 use crate::avatar::*;
 use crate::game::*;
+use crate::traits::Visibility;
 use commons::V2;
 use isometric::Event;
 use std::sync::Arc;

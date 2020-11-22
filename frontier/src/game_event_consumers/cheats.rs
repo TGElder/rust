@@ -1,7 +1,6 @@
-use crate::actors::traits::Visibility;
-use crate::game::traits::WithGame;
-
 use super::*;
+
+use crate::traits::{Visibility, WithGame};
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;

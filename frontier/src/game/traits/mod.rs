@@ -13,7 +13,6 @@ mod settlements;
 mod update_settlement;
 mod visible_positions;
 mod who_controls_tile;
-mod with_game;
 mod world;
 
 pub use add_settlement::*;
@@ -31,5 +30,4 @@ pub use settlements::*;
 pub use update_settlement::*;
 pub use visible_positions::*;
 pub use who_controls_tile::*;
-pub use with_game::*;
 pub use world::*;
