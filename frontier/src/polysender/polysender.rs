@@ -4,7 +4,7 @@ use crate::actors::{VisibilityActor, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
-use crate::traits::{WithGame, WithVisibility, WithWorld};
+use crate::traits::{WithGame, WithVisibility, WithWorld, WithWorldArtist};
 use crate::world::World;
 use commons::fn_sender::FnSender;
 use std::sync::{Arc, RwLock};
@@ -88,5 +88,27 @@ impl WithWorld for Polysender {
     {
         self.game
             .send(move |game| function(&mut game.mut_state().world));
+    }
+}
+
+#[async_trait]
+impl WithWorldArtist for Polysender {
+    async fn send_world_artist_future<F, O>(&mut self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut WorldArtistActor) -> commons::future::BoxFuture<O> + Send + 'static,
+    {
+        self.world_artist
+            .send_future(move |world_artist| function(world_artist))
+            .await
+    }
+
+    fn send_world_artist_future_background<F, O>(&mut self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut WorldArtistActor) -> commons::future::BoxFuture<O> + Send + 'static,
+    {
+        self.world_artist
+            .send_future(move |world_artist| function(world_artist));
     }
 }
