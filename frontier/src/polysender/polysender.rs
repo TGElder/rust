@@ -1,8 +1,12 @@
+use super::*;
+
 use std::sync::{Arc, RwLock};
 
 use commons::fn_sender::FnSender;
+use commons::futures::executor::ThreadPool;
 
-use crate::actors::{Visibility, WorldArtistActor};
+use crate::actors::traits::WithVisibility;
+use crate::actors::{VisibilityActor, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
@@ -10,9 +14,10 @@ use crate::pathfinder::Pathfinder;
 #[derive(Clone)]
 pub struct Polysender {
     pub game: FnSender<Game>,
-    pub visibility: FnSender<Visibility>,
+    pub visibility: FnSender<VisibilityActor>,
     pub world_artist: FnSender<WorldArtistActor>,
     pub pathfinders: Vec<Arc<RwLock<Pathfinder<AvatarTravelDuration>>>>,
+    pub thread_pool: ThreadPool,
 }
 
 impl Polysender {
@@ -22,6 +27,29 @@ impl Polysender {
             visibility: self.visibility.clone_with_name(name),
             world_artist: self.world_artist.clone_with_name(name),
             pathfinders: self.pathfinders.clone(),
+            thread_pool: self.thread_pool.clone(),
         }
+    }
+}
+
+#[async_trait]
+impl WithVisibility for Polysender {
+    async fn with_visibility<F, O>(&mut self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut VisibilityActor) -> O + Send + 'static,
+    {
+        self.visibility
+            .send(move |mut visibility| function(&mut visibility))
+            .await
+    }
+
+    fn with_visibility_background<F, O>(&mut self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut VisibilityActor) -> O + Send + 'static,
+    {
+        self.visibility
+            .send(move |mut visibility| function(&mut visibility));
     }
 }

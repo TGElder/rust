@@ -1,4 +1,5 @@
-use crate::actors::Visibility;
+use crate::actors::traits::Visibility;
+use crate::polysender::traits::WithGame;
 
 use super::*;
 use isometric::coords::*;
@@ -23,18 +24,22 @@ impl Default for CheatBindings {
     }
 }
 
-pub struct Cheats {
-    game_tx: FnSender<Game>,
-    visibility_tx: FnSender<Visibility>,
+pub struct Cheats<T>
+where
+    T: WithGame + Visibility,
+{
+    tx: T,
     bindings: CheatBindings,
     world_coord: Option<WorldCoord>,
 }
 
-impl Cheats {
-    pub fn new(game_tx: &FnSender<Game>, visibility_tx: &FnSender<Visibility>) -> Cheats {
+impl<T> Cheats<T>
+where
+    T: WithGame + Visibility,
+{
+    pub fn new(tx: T) -> Cheats<T> {
         Cheats {
-            game_tx: game_tx.clone_with_name(NAME),
-            visibility_tx: visibility_tx.clone_with_name(NAME),
+            tx,
             bindings: CheatBindings::default(),
             world_coord: None,
         }
@@ -45,11 +50,10 @@ impl Cheats {
     }
 
     fn reveal_all(&mut self, _: &GameState) {
-        self.game_tx.send(move |game| {
+        self.tx.with_game_background(move |game| {
             game.reveal_all_cells(NAME);
         });
-        self.visibility_tx
-            .send(move |visibility| visibility.deactive());
+        self.tx.deactive_visibility();
     }
 
     fn move_avatar(&mut self, game_state: &GameState) {
@@ -72,13 +76,16 @@ impl Cheats {
 
     fn send_update_avatar_state_command(&mut self, name: &str, avatar_state: AvatarState) {
         let name = name.to_string();
-        self.game_tx.send(move |game| {
+        self.tx.with_game_background(move |game| {
             game.update_avatar_state(name.to_string(), avatar_state);
         });
     }
 }
 
-impl GameEventConsumer for Cheats {
+impl<T> GameEventConsumer for Cheats<T>
+where
+    T: WithGame + Visibility + Send,
+{
     fn name(&self) -> &'static str {
         NAME
     }

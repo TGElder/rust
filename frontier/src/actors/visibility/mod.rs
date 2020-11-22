@@ -1,3 +1,5 @@
+pub mod traits;
+
 use crate::game::{Game, GameEvent};
 use crate::visibility_computer::VisibilityComputer;
 use commons::async_channel::{Receiver, RecvError};
@@ -15,9 +17,9 @@ use std::sync::Arc;
 
 const NAME: &str = "world_artist_actor";
 
-pub struct Visibility {
-    tx: FnSender<Visibility>,
-    rx: FnReceiver<Visibility>,
+pub struct VisibilityActor {
+    tx: FnSender<VisibilityActor>,
+    rx: FnReceiver<VisibilityActor>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
     game_tx: FnSender<Game>,
@@ -44,14 +46,14 @@ impl WithElevation for Elevation {
     }
 }
 
-impl Visibility {
+impl VisibilityActor {
     pub fn new(
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
         game_tx: &FnSender<Game>,
-    ) -> Visibility {
+    ) -> VisibilityActor {
         let (tx, rx) = fn_channel();
-        Visibility {
+        VisibilityActor {
             tx,
             rx,
             engine_rx,
@@ -67,7 +69,7 @@ impl Visibility {
         }
     }
 
-    pub fn tx(&self) -> &FnSender<Visibility> {
+    pub fn tx(&self) -> &FnSender<VisibilityActor> {
         &self.tx
     }
 
@@ -88,19 +90,19 @@ impl Visibility {
         }
     }
 
-    async fn handle_message(&mut self, mut message: FnMessage<Visibility>) {
+    async fn handle_message(&mut self, mut message: FnMessage<VisibilityActor>) {
         if self.state.active {
             message.apply(self).await;
         }
     }
 
-    pub fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
+    fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
         for position in visited {
             self.check_visibility_and_reveal_position(position);
         }
     }
 
-    pub fn deactive(&mut self) {
+    fn deactive(&mut self) {
         self.state.active = false;
     }
 

@@ -1,3 +1,4 @@
+use crate::actors::traits::Visibility;
 use crate::game::Game;
 use crate::polysender::Polysender;
 use crate::road_builder::RoadBuilderResult;
@@ -39,10 +40,9 @@ fn redraw(tx: &mut Polysender, result: &Arc<RoadBuilderResult>, micros: u128) {
     }
 }
 
-fn visit(tx: &mut Polysender, result: &Arc<RoadBuilderResult>) {
+fn visit(tx: &mut dyn Visibility, result: &Arc<RoadBuilderResult>) {
     let visited = result.path().iter().cloned().collect();
-    tx.visibility
-        .send(|visibility| visibility.check_visibility_and_reveal(visited));
+    tx.check_visibility_and_reveal(visited);
 }
 
 fn update_pathfinder_with_roads(tx: &mut Polysender, result: &Arc<RoadBuilderResult>) {

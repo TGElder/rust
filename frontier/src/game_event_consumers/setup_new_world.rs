@@ -1,13 +1,13 @@
-use crate::actors::Visibility;
+use crate::actors::traits::Visibility;
 use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation};
 use crate::game::{
     CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
 };
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
+use crate::polysender::traits::WithGame;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::world::World;
-use commons::fn_sender::FnSender;
 use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::V2;
@@ -18,20 +18,22 @@ use std::sync::Arc;
 const AVATAR_NAME: &str = "avatar";
 const NAME: &str = "setup_homelands";
 
-pub struct SetupNewWorld {
-    game_tx: FnSender<Game>,
-    visibility_tx: FnSender<Visibility>,
+pub struct SetupNewWorld<T>
+where
+    T: WithGame + Visibility,
+{
+    tx: T,
 }
 
-impl SetupNewWorld {
-    pub fn new(game_tx: &FnSender<Game>, visibility_tx: &FnSender<Visibility>) -> SetupNewWorld {
-        SetupNewWorld {
-            game_tx: game_tx.clone_with_name(NAME),
-            visibility_tx: visibility_tx.clone_with_name(NAME),
-        }
+impl<T> SetupNewWorld<T>
+where
+    T: WithGame + Visibility,
+{
+    pub fn new(tx: T) -> SetupNewWorld<T> {
+        SetupNewWorld { tx }
     }
 
-    fn new_game(&self, game_state: &GameState) {
+    fn new_game(&mut self, game_state: &GameState) {
         let params = &game_state.params;
         let seed = params.seed;
         let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
@@ -40,12 +42,12 @@ impl SetupNewWorld {
         let avatars = gen_avatars(&mut rng, &homeland_starts, params.avatar_color);
         let nations = gen_nations(&mut rng, &params);
         let settlements = gen_settlements(params, &homeland_starts, &nations);
-        self.game_tx
-            .send(move |game| setup_game(game, avatars, nations, settlements));
+
+        self.tx
+            .with_game_background(move |game| setup_game(game, avatars, nations, settlements));
 
         let visited = get_visited_positions(&homeland_starts);
-        self.visibility_tx
-            .send(|visibility| visibility.check_visibility_and_reveal(visited));
+        self.tx.check_visibility_and_reveal(visited);
     }
 }
 
@@ -166,7 +168,10 @@ fn setup_game(
     game_state.selected_avatar = Some(AVATAR_NAME.to_string());
 }
 
-impl GameEventConsumer for SetupNewWorld {
+impl<T> GameEventConsumer for SetupNewWorld<T>
+where
+    T: WithGame + Visibility + Send,
+{
     fn name(&self) -> &'static str {
         NAME
     }

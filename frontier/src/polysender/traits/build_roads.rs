@@ -2,8 +2,7 @@ use commons::async_trait::async_trait;
 use commons::edge::Edge;
 use std::collections::HashSet;
 
-use crate::game::Game;
-use crate::polysender::traits::UpdateRoads;
+use crate::polysender::traits::{IsRoad, UpdateRoads};
 use crate::polysender::Polysender;
 use crate::road_builder::{RoadBuildMode, RoadBuilderResult};
 
@@ -17,7 +16,7 @@ pub trait BuildRoads {
 #[async_trait]
 impl BuildRoads for Polysender {
     async fn add_road(&mut self, edge: &Edge) {
-        if send_is_road(self, *edge).await {
+        if self.is_road(*edge).await {
             return;
         }
         let result = RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Build);
@@ -25,21 +24,13 @@ impl BuildRoads for Polysender {
     }
 
     async fn remove_road(&mut self, edge: &Edge) {
-        if !send_is_road(self, *edge).await {
+        if self.is_road(*edge).await {
             return;
         }
         let result =
             RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Demolish);
         self.update_roads(result).await;
     }
-}
-
-pub async fn send_is_road(tx: &mut Polysender, edge: Edge) -> bool {
-    tx.game.send(move |game| is_road(game, edge)).await
-}
-
-fn is_road(game: &mut Game, edge: Edge) -> bool {
-    game.game_state().world.is_road(&edge)
 }
 
 #[async_trait]

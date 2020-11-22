@@ -35,7 +35,7 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use actors::{BasicRoadBuilder, PauseGame, PauseSim, Save, Visibility, WorldArtistActor};
+use actors::{BasicRoadBuilder, PauseGame, PauseSim, Save, VisibilityActor, WorldArtistActor};
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
@@ -105,7 +105,7 @@ fn main() {
         world_artist,
     );
 
-    let mut visibility = Visibility::new(
+    let mut visibility = VisibilityActor::new(
         event_forwarder.subscribe(),
         game_event_forwarder.subscribe(),
         game.tx(),
@@ -119,6 +119,7 @@ fn main() {
             pathfinder_with_planned_roads.clone(),
             pathfinder_without_planned_roads.clone(),
         ],
+        thread_pool: thread_pool.clone(),
     };
 
     let mut basic_road_builder = BasicRoadBuilder::new(event_forwarder.subscribe(), &tx);
@@ -219,14 +220,14 @@ fn main() {
     ));
 
     // Visibility
-    let from_avatar = VisibilityFromAvatar::new(visibility.tx());
-    let from_towns = VisibilityFromTowns::new(visibility.tx());
-    let setup_new_world = SetupNewWorld::new(game.tx(), visibility.tx());
+    let from_avatar = VisibilityFromAvatar::new(tx.clone_with_name("visibility_from_avatar"));
+    let from_towns = VisibilityFromTowns::new(tx.clone_with_name("visibility_from_towns"));
+    let setup_new_world = SetupNewWorld::new(tx.clone_with_name("setup_new_world"));
     game.add_consumer(from_avatar);
     game.add_consumer(from_towns);
     game.add_consumer(setup_new_world);
 
-    game.add_consumer(Cheats::new(game.tx(), visibility.tx()));
+    game.add_consumer(Cheats::new(tx.clone_with_name("cheats")));
 
     game.add_consumer(game_event_forwarder);
     game.add_consumer(WorldArtistHandler::new(
