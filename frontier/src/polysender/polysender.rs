@@ -1,9 +1,5 @@
 use super::*;
 
-use std::sync::{Arc, RwLock};
-
-use commons::fn_sender::FnSender;
-
 use crate::actors::traits::WithVisibility;
 use crate::actors::{VisibilityActor, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
@@ -11,6 +7,8 @@ use crate::game::traits::WithGame;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
 use crate::world::{WithWorld, World};
+use commons::fn_sender::FnSender;
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct Polysender {
