@@ -1,5 +1,3 @@
-pub mod traits;
-
 use crate::game::{Game, GameEvent};
 use crate::visibility_computer::VisibilityComputer;
 use commons::async_channel::{Receiver, RecvError};
@@ -96,13 +94,13 @@ impl VisibilityActor {
         }
     }
 
-    fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
+    pub fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
         for position in visited {
             self.check_visibility_and_reveal_position(position);
         }
     }
 
-    fn disable_visibility_computation(&mut self) {
+    pub fn disable_visibility_computation(&mut self) {
         self.state.active = false;
     }
 

@@ -1,12 +1,11 @@
-use crate::actors::traits::Visibility;
 use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation};
-use crate::game::traits::WithGame;
 use crate::game::{
     CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
 };
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation};
 use crate::settlement::{Settlement, SettlementClass};
+use crate::traits::{Visibility, WithGame};
 use crate::world::World;
 use commons::grid::Grid;
 use commons::rand::prelude::*;

@@ -1,6 +1,6 @@
-use crate::actors::traits::Visibility;
 use crate::game::*;
 use crate::settlement::SettlementClass;
+use crate::traits::Visibility;
 use commons::grid::Grid;
 use commons::V2;
 use isometric::Event;

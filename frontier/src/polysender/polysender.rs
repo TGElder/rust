@@ -1,12 +1,11 @@
 use super::*;
 
-use crate::actors::traits::WithVisibility;
 use crate::actors::{VisibilityActor, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
-use crate::game::traits::WithGame;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
-use crate::world::{WithWorld, World};
+use crate::traits::{WithGame, WithVisibility, WithWorld};
+use crate::world::World;
 use commons::fn_sender::FnSender;
 use std::sync::{Arc, RwLock};
 

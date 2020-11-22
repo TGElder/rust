@@ -1,7 +1,7 @@
-use crate::actors::traits::Visibility;
 use crate::game::Game;
 use crate::polysender::Polysender;
 use crate::road_builder::RoadBuilderResult;
+use crate::traits::Visibility;
 use commons::async_trait::async_trait;
 use commons::futures::future::FutureExt;
 use std::sync::Arc;
