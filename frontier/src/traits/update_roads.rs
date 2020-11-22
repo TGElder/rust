@@ -1,9 +1,7 @@
-use crate::game::Game;
 use crate::polysender::Polysender;
 use crate::road_builder::RoadBuilderResult;
-use crate::traits::Visibility;
+use crate::traits::{Micros, Redraw, Visibility, WithWorld};
 use commons::async_trait::async_trait;
-use commons::futures::future::FutureExt;
 use std::sync::Arc;
 
 #[async_trait]
@@ -12,31 +10,32 @@ pub trait UpdateRoads {
 }
 
 #[async_trait]
-impl UpdateRoads for Polysender {
+impl UpdateRoads for Polysender
+// where
+//     T: Micros + Redraw + Visibility + WithPathfinder + WithWorld
+{
     async fn update_roads(&mut self, result: RoadBuilderResult) {
         let result = Arc::new(result);
-        let micros = send_update_world_get_micros(self, result.clone()).await;
+        send_update_world(self, result.clone()).await;
+        let micros = self.micros().await;
         redraw(self, &result, micros);
         check_visibility_and_reveal(self, &result);
         update_pathfinder_with_roads(self, &result);
     }
 }
 
-async fn send_update_world_get_micros(tx: &mut Polysender, result: Arc<RoadBuilderResult>) -> u128 {
-    tx.game
-        .send(move |game| update_world_get_micros(game, result))
+async fn send_update_world<W>(with_world: &mut W, result: Arc<RoadBuilderResult>)
+where
+    W: WithWorld,
+{
+    with_world
+        .with_world(move |world| result.update_roads(world))
         .await
 }
 
-fn update_world_get_micros(game: &mut Game, result: Arc<RoadBuilderResult>) -> u128 {
-    result.update_roads(&mut game.mut_state().world);
-    game.game_state().game_micros
-}
-
-fn redraw(tx: &mut Polysender, result: &Arc<RoadBuilderResult>, micros: u128) {
+fn redraw(redraw: &mut dyn Redraw, result: &Arc<RoadBuilderResult>, micros: u128) {
     for position in result.path().iter().cloned() {
-        tx.world_artist
-            .send_future(move |artist| artist.redraw_tile_at(position, micros).boxed());
+        redraw.redraw_tile_at(position, micros);
     }
 }
 
