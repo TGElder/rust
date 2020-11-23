@@ -1,6 +1,7 @@
+use crate::avatar::AvatarTravelDuration;
 use crate::polysender::Polysender;
 use crate::road_builder::RoadBuilderResult;
-use crate::traits::{Micros, Redraw, SendWorld, Visibility};
+use crate::traits::{Micros, Redraw, SendPathfinder, SendWorld, Visibility};
 use commons::async_trait::async_trait;
 use std::sync::Arc;
 
@@ -44,11 +45,9 @@ fn check_visibility_and_reveal(tx: &mut dyn Visibility, result: &Arc<RoadBuilder
     tx.check_visibility_and_reveal(visited);
 }
 
-fn update_pathfinder_with_roads(tx: &mut Polysender, result: &Arc<RoadBuilderResult>) {
-    for pathfinder in tx.pathfinders.iter().cloned() {
+fn update_pathfinder_with_roads<W, P>(world: &mut W, pathfinder: &mut P, result: &Arc<RoadBuilderResult>) 
+    where W: SendWorld, P: SendPathfinder<AvatarTravelDuration> + Send
+{
         let result = result.clone();
-        tx.game.send(move |game| {
-            result.update_pathfinder(&game.game_state().world, &mut pathfinder.write().unwrap())
-        });
-    }
+        world.send_world_background(move |world| pathfinder.send_pathfinder_background(move |pathfinder| result.update_pathfinder(&world, &mut pathfinder)))
 }
