@@ -692,7 +692,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_positions_within() {
         let pathfinder = pathfinder();

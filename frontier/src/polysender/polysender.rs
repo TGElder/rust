@@ -4,7 +4,10 @@ use crate::actors::{VisibilityActor, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
-use crate::traits::{PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendPathfinder, SendVisibility, SendWorld, SendWorldArtist};
+use crate::traits::{
+    PathfinderWithoutPlannedRoads, SendGame, SendPathfinder, SendVisibility, SendWorld,
+    SendWorldArtist,
+};
 use crate::world::World;
 use commons::fn_sender::FnSender;
 use std::sync::{Arc, RwLock};
@@ -27,7 +30,9 @@ impl Polysender {
             visibility: self.visibility.clone_with_name(name),
             world_artist: self.world_artist.clone_with_name(name),
             pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
-            travel_duration_without_planned_roads: self.travel_duration_without_planned_roads.clone(),
+            travel_duration_without_planned_roads: self
+                .travel_duration_without_planned_roads
+                .clone(),
             pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
             travel_duration_with_planned_roads: self.travel_duration_with_planned_roads.clone(),
         }
@@ -97,39 +102,52 @@ impl SendWorldArtist for Polysender {
     }
 }
 
-impl PathfinderWithPlannedRoads<AvatarTravelDuration>  for Polysender{
-    fn pathfinder_with_planned_roads(&mut self) -> Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
-        self.pathfinder_with_planned_roads
-    }
+// impl PathfinderWithPlannedRoads  for Polysender{
 
-    fn travel_duration_with_planned_roads(&mut self) -> &Arc<AvatarTravelDuration> {
+//     fn travel_duration_with_planned_roadss<> (&mut self) -> &Arc<T> {
+//         &self.travel_duration_with_planned_roads
+//     }
+
+//     fn pathfinder_with_planned_roads<T: crate::travel_duration::TravelDuration, U: SendPathfinder<T>>(&mut self) -> Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
+//         self.pathfinder_with_planned_roads
+//     }
+//     // fn pathfinder_with_planned_roads(&mut self) -> Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
+//     //     self.pathfinder_with_planned_roads
+//     // }
+
+//     // fn travel_duration_with_planned_roads(&mut self) -> &Arc<AvatarTravelDuration> {
+//     //     &self.travel_duration_with_planned_roads
+//     // }
+// }
+
+impl PathfinderWithoutPlannedRoads for Polysender {
+    type T = AvatarTravelDuration;
+    type U = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
+
+    fn travel_duration_without_planned_roads(&self) -> &Arc<Self::T> {
         &self.travel_duration_with_planned_roads
     }
-}
 
-impl PathfinderWithoutPlannedRoads<AvatarTravelDuration>  for Polysender{
-    fn pathfinder_without_planned_roads(&mut self) -> Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
-        self.pathfinder_without_planned_roads
-    }
-
-    fn travel_duration_without_planned_roads(&mut self) -> &Arc<AvatarTravelDuration> {
-        &self.travel_duration_without_planned_roads
+    fn pathfinder_without_planned_roads(&self) -> &Self::U {
+        &self.pathfinder_without_planned_roads
     }
 }
 
 #[async_trait]
 impl SendPathfinder<AvatarTravelDuration> for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
-    async fn send_pathfinder<F, O>(&mut self, function: F) -> O
+    async fn send_pathfinder<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
-        F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static {
+        F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static,
+    {
         function(&mut self.write().unwrap())
     }
 
-    fn send_pathfinder_background<F, O>(&mut self, function: F)
+    fn send_pathfinder_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static {
+        F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static,
+    {
         function(&mut self.write().unwrap());
     }
 }

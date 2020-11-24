@@ -1,8 +1,8 @@
 mod build_roads;
 mod is_road;
 mod micros;
-mod redraw;
 mod pathfinders;
+mod redraw;
 mod send_game;
 mod send_pathfinder;
 mod send_visibility;
