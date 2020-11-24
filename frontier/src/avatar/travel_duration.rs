@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::time::Duration;
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct AvatarTravelParams {
     pub max_walk_gradient: f32,
     pub walk_1_cell_duration_millis_range: (f32, f32),

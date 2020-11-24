@@ -15,7 +15,9 @@ pub struct Polysender {
     pub visibility: FnSender<VisibilityActor>,
     pub world_artist: FnSender<WorldArtistActor>,
     pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub travel_duration_without_planned_roads: Arc<AvatarTravelDuration>,
     pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub travel_duration_with_planned_roads: Arc<AvatarTravelDuration>,
 }
 
 impl Polysender {
@@ -25,7 +27,9 @@ impl Polysender {
             visibility: self.visibility.clone_with_name(name),
             world_artist: self.world_artist.clone_with_name(name),
             pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
+            travel_duration_without_planned_roads: self.travel_duration_without_planned_roads.clone(),
             pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
+            travel_duration_with_planned_roads: self.travel_duration_with_planned_roads.clone(),
         }
     }
 }
@@ -93,15 +97,23 @@ impl SendWorldArtist for Polysender {
     }
 }
 
-impl PathfinderWithPlannedRoads<AvatarTravelDuration, Arc<RwLock<Pathfinder<AvatarTravelDuration>>>>  for Polysender{
+impl PathfinderWithPlannedRoads<AvatarTravelDuration>  for Polysender{
     fn pathfinder_with_planned_roads(&mut self) -> Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
         self.pathfinder_with_planned_roads
     }
+
+    fn travel_duration_with_planned_roads(&mut self) -> &Arc<AvatarTravelDuration> {
+        &self.travel_duration_with_planned_roads
+    }
 }
 
-impl PathfinderWithoutPlannedRoads<AvatarTravelDuration, Arc<RwLock<Pathfinder<AvatarTravelDuration>>>>  for Polysender{
+impl PathfinderWithoutPlannedRoads<AvatarTravelDuration>  for Polysender{
     fn pathfinder_without_planned_roads(&mut self) -> Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
         self.pathfinder_without_planned_roads
+    }
+
+    fn travel_duration_without_planned_roads(&mut self) -> &Arc<AvatarTravelDuration> {
+        &self.travel_duration_without_planned_roads
     }
 }
 
