@@ -6,6 +6,6 @@ pub trait PositionsWithin {
     fn positions_within(
         &self,
         positions: &[V2<usize>],
-        duration: Duration,
+        duration: &Duration,
     ) -> HashMap<V2<usize>, Duration>;
 }

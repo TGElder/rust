@@ -83,7 +83,7 @@ where
         self.pathfinder
             .read()
             .unwrap()
-            .positions_within(&corners, self.duration)
+            .positions_within(&corners, &self.duration)
     }
 
     async fn set_territory(&mut self, states: Vec<TerritoryState>) {
@@ -115,10 +115,10 @@ mod tests {
         fn positions_within(
             &self,
             positions: &[V2<usize>],
-            duration: Duration,
+            duration: &Duration,
         ) -> HashMap<V2<usize>, Duration> {
             assert!(same_elements(positions, &get_corners(&v2(1, 2))));
-            assert_eq!(duration, Duration::from_secs(5));
+            assert_eq!(duration, &Duration::from_secs(5));
             Self::durations()
         }
     }

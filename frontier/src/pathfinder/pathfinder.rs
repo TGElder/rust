@@ -59,7 +59,7 @@ where
             .collect()
     }
 
-    fn get_network_edge(
+    fn compute_network_edge(
         &self,
         world: &World,
         from: &V2<usize>,
@@ -86,7 +86,7 @@ where
                 ]
                 .iter()
                 .filter(|edge| world.in_bounds(&edge.0) && world.in_bounds(&edge.1))
-                .map(|edge| self.get_network_edge(&world, &edge.0, &edge.1))
+                .map(|edge| self.compute_network_edge(&world, &edge.0, &edge.1))
                 .flatten()
                 .for_each(|edge| edges.push(edge));
             }
@@ -107,7 +107,7 @@ where
         let minimum_duration = self.travel_duration.min_duration();
         let minimum_cost = self
             .travel_duration
-            .get_cost_from_duration_u8(minimum_duration) as u32;
+            .get_cost_from_duration_u8(&minimum_duration) as u32;
         move |from| {
             let from = index.get_position(from).unwrap();
             to.iter()
@@ -149,7 +149,7 @@ where
     pub fn update_from_to(&mut self, world: &World, from: &V2<usize>, to: &V2<usize>) {
         self.network
             .remove_edges(self.get_network_index(from), self.get_network_index(to));
-        if let Some(network_edge) = self.get_network_edge(&world, from, to) {
+        if let Some(network_edge) = self.compute_network_edge(&world, from, to) {
             self.network.add_edge(&network_edge);
         }
     }
@@ -161,6 +161,17 @@ where
                 self.update_from_to(world, &other, position);
             }
         }
+    }
+
+    pub fn set_edge_duration(&mut self, from: &V2<usize>, to: &V2<usize>, duration: &Duration) {
+        self.network
+            .remove_edges(self.get_network_index(from), self.get_network_index(to));
+        let network_edge = NetworkEdge::new(
+            self.get_network_index(from),
+            self.get_network_index(to),
+            self.travel_duration.get_cost_from_duration_u8(duration),
+        );
+        self.network.add_edge(&network_edge);
     }
 
     fn as_closest_target_result(&self, result: NetworkClosestTargetResult) -> ClosestTargetResult {
@@ -207,10 +218,10 @@ where
     fn positions_within(
         &self,
         positions: &[V2<usize>],
-        duration: Duration,
+        duration: &Duration,
     ) -> HashMap<V2<usize>, Duration> {
         let indices = self.get_network_indices(positions);
-        let max_cost = self.travel_duration.get_cost_from_duration(duration);
+        let max_cost = self.travel_duration.get_cost_from_duration(&duration);
         self.network
             .nodes_within(&indices, max_cost)
             .into_iter()
@@ -265,6 +276,21 @@ mod tests {
     use commons::M;
     use isometric::cell_traits::*;
     use std::time::Duration;
+
+    fn get_network_edge<'a, T>(
+        pathfinder: &'a Pathfinder<T>,
+        from: &V2<usize>,
+        to: &V2<usize>,
+    ) -> Option<&'a NetworkEdge>
+    where
+        T: TravelDuration,
+    {
+        pathfinder
+            .network
+            .get_out(&pathfinder.get_network_index(from))
+            .iter()
+            .find(|edge| edge.to == pathfinder.get_network_index(to))
+    }
 
     struct TestTravelDuration {
         max: Duration,
@@ -410,25 +436,25 @@ mod tests {
     }
 
     #[test]
-    fn test_get_network_edge() {
+    fn test_compute_network_edge() {
         let pathfinder = pathfinder();
         let world = world();
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(0, 0), &v2(1, 0)),
+            pathfinder.compute_network_edge(&world, &v2(0, 0), &v2(1, 0)),
             Some(NetworkEdge::new(0, 1, 128))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
+            pathfinder.compute_network_edge(&world, &v2(1, 0), &v2(0, 0)),
             Some(NetworkEdge::new(1, 0, 255))
         );
     }
 
     #[test]
-    fn test_get_network_edge_out_of_bounds() {
+    fn test_compute_network_edge_out_of_bounds() {
         let pathfinder = pathfinder();
         let world = world();
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(2, 0), &v2(3, 0)),
+            pathfinder.compute_network_edge(&world, &v2(2, 0), &v2(3, 0)),
             None
         );
     }
@@ -532,14 +558,14 @@ mod tests {
         let mut pathfinder = pathfinder();
         let mut world = world();
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
-            Some(NetworkEdge::new(1, 0, 255))
+            get_network_edge(&pathfinder, &v2(1, 0), &v2(0, 0)),
+            Some(&NetworkEdge::new(1, 0, 255))
         );
         world.set_road(&Edge::new(v2(1, 0), v2(0, 0)), true);
         pathfinder.update_from_to(&world, &v2(1, 0), &v2(0, 0));
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
-            Some(NetworkEdge::new(1, 0, 64))
+            get_network_edge(&pathfinder, &v2(1, 0), &v2(0, 0)),
+            Some(&NetworkEdge::new(1, 0, 64))
         );
     }
 
@@ -548,36 +574,36 @@ mod tests {
         let mut pathfinder = pathfinder();
         let mut world = world();
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 0)),
-            Some(NetworkEdge::new(4, 1, 128))
+            get_network_edge(&pathfinder, &v2(1, 1), &v2(1, 0)),
+            Some(&NetworkEdge::new(4, 1, 128))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(1, 1)),
-            Some(NetworkEdge::new(1, 4, 191))
+            get_network_edge(&pathfinder, &v2(1, 0), &v2(1, 1)),
+            Some(&NetworkEdge::new(1, 4, 191))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(0, 1)),
-            Some(NetworkEdge::new(4, 3, 191))
+            get_network_edge(&pathfinder, &v2(1, 1), &v2(0, 1)),
+            Some(&NetworkEdge::new(4, 3, 191))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(0, 1), &v2(1, 1)),
-            Some(NetworkEdge::new(3, 4, 191))
+            get_network_edge(&pathfinder, &v2(0, 1), &v2(1, 1)),
+            Some(&NetworkEdge::new(3, 4, 191))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(2, 1)),
-            Some(NetworkEdge::new(4, 5, 128))
+            get_network_edge(&pathfinder, &v2(1, 1), &v2(2, 1)),
+            Some(&NetworkEdge::new(4, 5, 128))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(2, 1), &v2(1, 1)),
-            Some(NetworkEdge::new(5, 4, 191))
+            get_network_edge(&pathfinder, &v2(2, 1), &v2(1, 1)),
+            Some(&NetworkEdge::new(5, 4, 191))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 2)),
-            Some(NetworkEdge::new(4, 7, 191))
+            get_network_edge(&pathfinder, &v2(1, 1), &v2(1, 2)),
+            Some(&NetworkEdge::new(4, 7, 191))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 2), &v2(1, 1)),
-            Some(NetworkEdge::new(7, 4, 191))
+            get_network_edge(&pathfinder, &v2(1, 2), &v2(1, 1)),
+            Some(&NetworkEdge::new(7, 4, 191))
         );
         world.set_road(&Edge::new(v2(1, 1), v2(1, 0)), true);
         world.set_road(&Edge::new(v2(1, 1), v2(0, 1)), true);
@@ -585,36 +611,71 @@ mod tests {
         world.set_road(&Edge::new(v2(1, 1), v2(1, 2)), true);
         pathfinder.update_node(&world, &v2(1, 1));
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 0)),
-            Some(NetworkEdge::new(4, 1, 64))
+            get_network_edge(&pathfinder, &v2(1, 1), &v2(1, 0)),
+            Some(&NetworkEdge::new(4, 1, 64))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(1, 1)),
-            Some(NetworkEdge::new(1, 4, 64))
+            get_network_edge(&pathfinder, &v2(1, 0), &v2(1, 1)),
+            Some(&NetworkEdge::new(1, 4, 64))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(0, 1)),
-            Some(NetworkEdge::new(4, 3, 64))
+            get_network_edge(&pathfinder, &v2(1, 1), &v2(0, 1)),
+            Some(&NetworkEdge::new(4, 3, 64))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(0, 1), &v2(1, 1)),
-            Some(NetworkEdge::new(3, 4, 64))
+            get_network_edge(&pathfinder, &v2(0, 1), &v2(1, 1)),
+            Some(&NetworkEdge::new(3, 4, 64))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(2, 1)),
-            Some(NetworkEdge::new(4, 5, 64))
+            get_network_edge(&pathfinder, &v2(1, 1), &v2(2, 1)),
+            Some(&NetworkEdge::new(4, 5, 64))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(2, 1), &v2(1, 1)),
-            Some(NetworkEdge::new(5, 4, 64))
+            get_network_edge(&pathfinder, &v2(2, 1), &v2(1, 1)),
+            Some(&NetworkEdge::new(5, 4, 64))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 1), &v2(1, 2)),
-            Some(NetworkEdge::new(4, 7, 64))
+            get_network_edge(&pathfinder, &v2(1, 1), &v2(1, 2)),
+            Some(&NetworkEdge::new(4, 7, 64))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 2), &v2(1, 1)),
-            Some(NetworkEdge::new(7, 4, 64))
+            get_network_edge(&pathfinder, &v2(1, 2), &v2(1, 1)),
+            Some(&NetworkEdge::new(7, 4, 64))
+        );
+    }
+
+    #[test]
+    fn test_set_edge_duration() {
+        // Given
+        let mut pathfinder = pathfinder();
+
+        // When
+        pathfinder.set_edge_duration(&v2(0, 0), &v2(1, 0), &Duration::from_millis(0));
+
+        // Then
+        assert_eq!(
+            pathfinder
+                .network
+                .get_out(&0)
+                .iter()
+                .find(|edge| edge.to == 1),
+            Some(&NetworkEdge {
+                from: 0,
+                to: 1,
+                cost: 0
+            })
+        );
+        assert_eq!(
+            pathfinder
+                .network
+                .get_in(&1)
+                .iter()
+                .find(|edge| edge.from == 0),
+            Some(&NetworkEdge {
+                from: 0,
+                to: 1,
+                cost: 0
+            })
         );
     }
 
@@ -622,22 +683,19 @@ mod tests {
     fn test_new_edge() {
         let mut pathfinder = pathfinder();
         let mut world = world();
-        assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(2, 0)),
-            None
-        );
+        assert_eq!(get_network_edge(&pathfinder, &v2(1, 0), &v2(2, 0)), None);
         world.set_road(&Edge::new(v2(1, 0), v2(2, 0)), true);
         pathfinder.update_from_to(&world, &v2(1, 0), &v2(2, 0));
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(2, 0)),
-            Some(NetworkEdge::new(1, 2, 64))
+            get_network_edge(&pathfinder, &v2(1, 0), &v2(2, 0)),
+            Some(&NetworkEdge::new(1, 2, 64))
         );
     }
 
     #[test]
     fn test_positions_within() {
         let pathfinder = pathfinder();
-        let actual = pathfinder.positions_within(&[v2(0, 0)], Duration::from_millis(5));
+        let actual = pathfinder.positions_within(&[v2(0, 0)], &Duration::from_millis(5));
         let expected = [
             (v2(0, 0), Duration::from_millis(0)),
             (v2(1, 0), Duration::from_millis(2)),
@@ -700,18 +758,18 @@ mod tests {
         let mut pathfinder = pathfinder();
         let mut world = world();
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
-            Some(NetworkEdge::new(1, 0, 255))
+            get_network_edge(&pathfinder, &v2(1, 0), &v2(0, 0)),
+            Some(&NetworkEdge::new(1, 0, 255))
         );
         world.set_road(&Edge::new(v2(1, 0), v2(0, 0)), true);
         pathfinder.update_edge(&world, &Edge::new(v2(1, 0), v2(0, 0)));
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(1, 0), &v2(0, 0)),
-            Some(NetworkEdge::new(1, 0, 64))
+            get_network_edge(&pathfinder, &v2(1, 0), &v2(0, 0)),
+            Some(&NetworkEdge::new(1, 0, 64))
         );
         assert_eq!(
-            pathfinder.get_network_edge(&world, &v2(0, 0), &v2(1, 0)),
-            Some(NetworkEdge::new(0, 1, 64))
+            get_network_edge(&pathfinder, &v2(0, 0), &v2(1, 0)),
+            Some(&NetworkEdge::new(0, 1, 64))
         );
     }
 
