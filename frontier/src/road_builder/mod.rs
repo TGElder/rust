@@ -1,7 +1,5 @@
 mod travel_duration;
 
-use crate::pathfinder::*;
-use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::*;
 use commons::V2;
@@ -42,16 +40,6 @@ impl RoadBuilderResult {
             }
         }
     }
-
-    pub fn update_pathfinder<T>(&self, world: &World, pathfinder: &mut Pathfinder<T>)
-    where
-        T: TravelDuration,
-    {
-        self.edges().iter().for_each(|edge| {
-            pathfinder.update_from_to(world, &edge.from(), &edge.to());
-            pathfinder.update_from_to(world, &edge.to(), &edge.from());
-        });
-    }
 }
 
 fn build_road(edge: &Edge, world: &mut World) {
@@ -68,6 +56,7 @@ fn demolish_road(edge: &Edge, world: &mut World) {
 mod tests {
 
     use super::*;
+    use crate::travel_duration::TravelDuration;
     use commons::{v2, M};
     use std::time::Duration;
 
@@ -108,13 +97,6 @@ mod tests {
         )
     }
 
-    fn pathfinder() -> Pathfinder<TestDuration> {
-        let world = &world();
-        let mut out = Pathfinder::new(world, TestDuration {});
-        out.reset_edges(world);
-        out
-    }
-
     #[test]
     fn test_result_edges() {
         let result = RoadBuilderResult {
@@ -152,22 +134,5 @@ mod tests {
         assert!(world.is_road(&edge));
         result.update_roads(&mut world);
         assert!(!world.is_road(&edge));
-    }
-
-    #[test]
-    fn test_result_update_pathfinder() {
-        let mut world = world();
-        let mut pathfinder = pathfinder();
-        let result = RoadBuilderResult {
-            path: vec![v2(0, 0), v2(1, 0)],
-            mode: RoadBuildMode::Build,
-        };
-        assert_eq!(pathfinder.find_path(&[v2(1, 0)], &[v2(0, 0)]), None);
-        result.update_roads(&mut world);
-        result.update_pathfinder(&world, &mut pathfinder);
-        assert_eq!(
-            pathfinder.find_path(&[v2(1, 0)], &[v2(0, 0)]),
-            Some(vec![v2(1, 0), v2(0, 0)])
-        );
     }
 }
