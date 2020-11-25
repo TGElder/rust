@@ -1,8 +1,13 @@
-use crate::polysender::Polysender;
 use crate::road_builder::RoadBuilderResult;
-use crate::traits::{Micros, Redraw, SendWorld, Visibility};
+use crate::traits::{
+    Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, Redraw, SendPathfinder,
+    SendWorld, Visibility,
+};
+use crate::travel_duration::TravelDuration;
 use commons::async_trait::async_trait;
+use commons::V2;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[async_trait]
 pub trait UpdateRoads {
@@ -10,9 +15,16 @@ pub trait UpdateRoads {
 }
 
 #[async_trait]
-impl UpdateRoads for Polysender
-// where
-//     T: Micros + Redraw + Visibility + WithPathfinder + WithWorld
+impl<T> UpdateRoads for T
+where
+    T: Micros
+        + Redraw
+        + Visibility
+        + PathfinderWithoutPlannedRoads
+        + PathfinderWithPlannedRoads
+        + SendWorld
+        + Send
+        + 'static,
 {
     async fn update_roads(&mut self, result: RoadBuilderResult) {
         let result = Arc::new(result);
@@ -20,7 +32,12 @@ impl UpdateRoads for Polysender
         let micros = self.micros().await;
         redraw(self, &result, micros);
         check_visibility_and_reveal(self, &result);
-        update_pathfinder_with_roads(self, &result);
+
+        let pathfinder = self.pathfinder_without_planned_roads().clone();
+        update_pathfinder_with_roads(self, pathfinder, &result).await;
+
+        let pathfinder = self.pathfinder_with_planned_roads().clone();
+        update_pathfinder_with_roads(self, pathfinder, &result).await;
     }
 }
 
@@ -44,11 +61,40 @@ fn check_visibility_and_reveal(tx: &mut dyn Visibility, result: &Arc<RoadBuilder
     tx.check_visibility_and_reveal(visited);
 }
 
-fn update_pathfinder_with_roads(tx: &mut Polysender, result: &Arc<RoadBuilderResult>) {
-    for pathfinder in tx.pathfinders.iter().cloned() {
-        let result = result.clone();
-        tx.game.send(move |game| {
-            result.update_pathfinder(&game.game_state().world, &mut pathfinder.write().unwrap())
-        });
-    }
+async fn update_pathfinder_with_roads<T, P>(
+    tx: &mut T,
+    pathfinder: P,
+    result: &Arc<RoadBuilderResult>,
+) where
+    T: SendWorld,
+    P: SendPathfinder + Send,
+{
+    let travel_duration = pathfinder
+        .send_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
+        .await;
+
+    let path = result.path().clone();
+    let durations: Vec<(V2<usize>, V2<usize>, Option<Duration>)> = tx
+        .send_world(move |world| {
+            (0..path.len() - 1)
+                .flat_map(|i| {
+                    let from = path[i];
+                    let to = path[i + 1];
+                    vec![
+                        (from, to, travel_duration.get_duration(world, &from, &to)),
+                        (to, from, travel_duration.get_duration(world, &to, &from)),
+                    ]
+                    .into_iter()
+                })
+                .collect()
+        })
+        .await;
+
+    pathfinder.send_pathfinder_background(move |pathfinder| {
+        for (from, to, duration) in durations {
+            if let Some(duration) = duration {
+                pathfinder.set_edge_duration(&from, &to, &duration)
+            }
+        }
+    });
 }
