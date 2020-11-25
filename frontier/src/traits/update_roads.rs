@@ -3,11 +3,9 @@ use crate::traits::{
     Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, Redraw, SendPathfinder,
     SendWorld, Visibility,
 };
-use crate::travel_duration::TravelDuration;
+use crate::travel_duration::{PathDuration, TravelDuration};
 use commons::async_trait::async_trait;
-use commons::V2;
 use std::sync::Arc;
-use std::time::Duration;
 
 #[async_trait]
 pub trait UpdateRoads {
@@ -34,10 +32,10 @@ where
         check_visibility_and_reveal(self, &result);
 
         let pathfinder = self.pathfinder_without_planned_roads().clone();
-        update_pathfinder_with_roads(self, pathfinder, &result).await;
+        update_path_durations(self, pathfinder, &result).await;
 
         let pathfinder = self.pathfinder_with_planned_roads().clone();
-        update_pathfinder_with_roads(self, pathfinder, &result).await;
+        update_path_durations(self, pathfinder, &result).await;
     }
 }
 
@@ -61,11 +59,8 @@ fn check_visibility_and_reveal(tx: &mut dyn Visibility, result: &Arc<RoadBuilder
     tx.check_visibility_and_reveal(visited);
 }
 
-async fn update_pathfinder_with_roads<T, P>(
-    tx: &mut T,
-    pathfinder: P,
-    result: &Arc<RoadBuilderResult>,
-) where
+async fn update_path_durations<T, P>(tx: &mut T, pathfinder: P, result: &Arc<RoadBuilderResult>)
+where
     T: SendWorld,
     P: SendPathfinder + Send,
 {
@@ -74,24 +69,12 @@ async fn update_pathfinder_with_roads<T, P>(
         .await;
 
     let path = result.path().clone();
-    let durations: Vec<(V2<usize>, V2<usize>, Option<Duration>)> = tx
-        .send_world(move |world| {
-            (0..path.len() - 1)
-                .flat_map(|i| {
-                    let from = path[i];
-                    let to = path[i + 1];
-                    vec![
-                        (from, to, travel_duration.get_duration(world, &from, &to)),
-                        (to, from, travel_duration.get_duration(world, &to, &from)),
-                    ]
-                    .into_iter()
-                })
-                .collect()
-        })
+    let durations: Vec<PathDuration> = tx
+        .send_world(move |world| travel_duration.get_path_durations(world, &path).collect())
         .await;
 
     pathfinder.send_pathfinder_background(move |pathfinder| {
-        for (from, to, duration) in durations {
+        for PathDuration { from, to, duration } in durations {
             if let Some(duration) = duration {
                 pathfinder.set_edge_duration(&from, &to, &duration)
             }
