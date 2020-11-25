@@ -1,9 +1,7 @@
-use crate::avatar::AvatarTravelDuration;
-use crate::pathfinder::Pathfinder;
-use crate::polysender::Polysender;
 use crate::road_builder::RoadBuilderResult;
 use crate::traits::{
-    Micros, PathfinderWithoutPlannedRoads, Redraw, SendGame, SendPathfinder, SendWorld, Visibility,
+    Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, Redraw, SendPathfinder,
+    SendWorld, Visibility,
 };
 use crate::travel_duration::TravelDuration;
 use commons::async_trait::async_trait;
@@ -19,7 +17,14 @@ pub trait UpdateRoads {
 #[async_trait]
 impl<T> UpdateRoads for T
 where
-    T: Micros + Redraw + Visibility + PathfinderWithoutPlannedRoads + SendWorld + Send + 'static,
+    T: Micros
+        + Redraw
+        + Visibility
+        + PathfinderWithoutPlannedRoads
+        + PathfinderWithPlannedRoads
+        + SendWorld
+        + Send
+        + 'static,
 {
     async fn update_roads(&mut self, result: RoadBuilderResult) {
         let result = Arc::new(result);
@@ -28,10 +33,11 @@ where
         redraw(self, &result, micros);
         check_visibility_and_reveal(self, &result);
 
-        let travel_duration = self.travel_duration_without_planned_roads().clone();
         let pathfinder = self.pathfinder_without_planned_roads().clone();
+        update_pathfinder_with_roads(self, pathfinder, &result).await;
 
-        update_pathfinder_with_roads(self, travel_duration, pathfinder, &result);
+        let pathfinder = self.pathfinder_with_planned_roads().clone();
+        update_pathfinder_with_roads(self, pathfinder, &result).await;
     }
 }
 
@@ -57,7 +63,6 @@ fn check_visibility_and_reveal(tx: &mut dyn Visibility, result: &Arc<RoadBuilder
 
 async fn update_pathfinder_with_roads<T, D, P>(
     tx: &mut T,
-    travel_duration: Arc<D>,
     pathfinder: P,
     result: &Arc<RoadBuilderResult>,
 ) where
@@ -65,6 +70,10 @@ async fn update_pathfinder_with_roads<T, D, P>(
     D: TravelDuration + 'static,
     P: SendPathfinder<D> + Send,
 {
+    let travel_duration = pathfinder
+        .send_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
+        .await;
+
     let path = result.path().clone();
     let durations: Vec<(V2<usize>, V2<usize>, Option<Duration>)> = tx
         .send_world(move |world| {

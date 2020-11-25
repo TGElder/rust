@@ -11,6 +11,7 @@ use network::ClosestTargetResult as NetworkClosestTargetResult;
 use network::Edge as NetworkEdge;
 use network::Network;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 pub struct Pathfinder<T>
@@ -18,7 +19,7 @@ where
     T: TravelDuration,
 {
     index: Index2D,
-    travel_duration: T,
+    travel_duration: Arc<T>,
     network: Network,
 }
 
@@ -29,9 +30,13 @@ where
     pub fn new(world: &World, travel_duration: T) -> Pathfinder<T> {
         Pathfinder {
             index: Index2D::new(world.width(), world.height()),
-            travel_duration,
+            travel_duration: Arc::new(travel_duration),
             network: Network::new(world.width() * world.height(), &[]),
         }
+    }
+
+    pub fn travel_duration(&self) -> &Arc<T> {
+        &self.travel_duration
     }
 
     fn get_network_index(&self, position: &V2<usize>) -> usize {
