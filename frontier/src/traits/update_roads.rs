@@ -61,14 +61,13 @@ fn check_visibility_and_reveal(tx: &mut dyn Visibility, result: &Arc<RoadBuilder
     tx.check_visibility_and_reveal(visited);
 }
 
-async fn update_pathfinder_with_roads<T, D, P>(
+async fn update_pathfinder_with_roads<T, P>(
     tx: &mut T,
     pathfinder: P,
     result: &Arc<RoadBuilderResult>,
 ) where
     T: SendWorld,
-    D: TravelDuration + 'static,
-    P: SendPathfinder<D> + Send,
+    P: SendPathfinder + Send,
 {
     let travel_duration = pathfinder
         .send_pathfinder(|pathfinder| pathfinder.travel_duration().clone())

@@ -17,8 +17,8 @@ pub struct Polysender {
     pub game: FnSender<Game>,
     pub visibility: FnSender<VisibilityActor>,
     pub world_artist: FnSender<WorldArtistActor>,
-    pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 }
 
 impl Polysender {
@@ -27,8 +27,8 @@ impl Polysender {
             game: self.game.clone_with_name(name),
             visibility: self.visibility.clone_with_name(name),
             world_artist: self.world_artist.clone_with_name(name),
-            pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
             pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
+            pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
         }
     }
 }
@@ -96,26 +96,26 @@ impl SendWorldArtist for Polysender {
     }
 }
 
-impl PathfinderWithoutPlannedRoads for Polysender {
-    type T = AvatarTravelDuration;
-    type U = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
-
-    fn pathfinder_without_planned_roads(&self) -> &Self::U {
-        &self.pathfinder_without_planned_roads
-    }
-}
-
 impl PathfinderWithPlannedRoads for Polysender {
-    type T = AvatarTravelDuration;
-    type U = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
+    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
-    fn pathfinder_with_planned_roads(&self) -> &Self::U {
+    fn pathfinder_with_planned_roads(&self) -> &Self::T {
         &self.pathfinder_with_planned_roads
     }
 }
 
+impl PathfinderWithoutPlannedRoads for Polysender {
+    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
+
+    fn pathfinder_without_planned_roads(&self) -> &Self::T {
+        &self.pathfinder_without_planned_roads
+    }
+}
+
 #[async_trait]
-impl SendPathfinder<AvatarTravelDuration> for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
+impl SendPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
+    type T = AvatarTravelDuration;
+
     async fn send_pathfinder<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
