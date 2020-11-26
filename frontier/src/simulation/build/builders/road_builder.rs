@@ -6,7 +6,7 @@ use commons::edge::Edge;
 
 pub struct RoadBuilder<G>
 where
-    G: BuildRoads + Send,
+    G: BuildRoads + Send + Sync,
 {
     game: G,
 }
@@ -14,7 +14,7 @@ where
 #[async_trait]
 impl<G> Builder for RoadBuilder<G>
 where
-    G: BuildRoads + Send,
+    G: BuildRoads + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Road(..) = build {
@@ -33,7 +33,7 @@ where
 
 impl<G> RoadBuilder<G>
 where
-    G: BuildRoads + Send,
+    G: BuildRoads + Send + Sync,
 {
     pub fn new(game: G) -> RoadBuilder<G> {
         RoadBuilder { game }
@@ -46,6 +46,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
     use super::*;
 
     use commons::futures::executor::block_on;
@@ -54,7 +56,7 @@ mod tests {
     #[test]
     fn can_build_road() {
         // Given
-        let game = hashset! {};
+        let game = Arc::new(Mutex::new(hashset! {}));
         let builder = RoadBuilder::new(game);
 
         // When
@@ -67,13 +69,16 @@ mod tests {
     #[test]
     fn should_build_road() {
         // Given
-        let game = hashset! {};
+        let game = Arc::new(Mutex::new(hashset! {}));
         let mut builder = RoadBuilder::new(game);
 
         // When
         block_on(builder.build(Build::Road(Edge::new(v2(1, 2), v2(1, 3)))));
 
         // Then
-        assert_eq!(builder.game, hashset! {Edge::new(v2(1, 2), v2(1, 3))});
+        assert_eq!(
+            *builder.game.lock().unwrap(),
+            hashset! {Edge::new(v2(1, 2), v2(1, 3))}
+        );
     }
 }
