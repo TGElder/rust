@@ -6,15 +6,15 @@ use crate::traits::SendWorld;
 
 #[async_trait]
 pub trait IsRoad {
-    async fn is_road(&mut self, edge: Edge) -> bool;
+    async fn is_road(&self, edge: Edge) -> bool;
 }
 
 #[async_trait]
 impl<T> IsRoad for T
 where
-    T: SendWorld + Send,
+    T: SendWorld + Send + Sync,
 {
-    async fn is_road(&mut self, edge: Edge) -> bool {
+    async fn is_road(&self, edge: Edge) -> bool {
         self.send_world(move |world| world.is_road(&edge)).await
     }
 }

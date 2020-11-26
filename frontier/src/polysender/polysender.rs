@@ -35,7 +35,7 @@ impl Polysender {
 
 #[async_trait]
 impl SendGame for Polysender {
-    async fn send_game<F, O>(&mut self, function: F) -> O
+    async fn send_game<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
         F: FnOnce(&mut Game) -> O + Send + 'static,
@@ -43,7 +43,7 @@ impl SendGame for Polysender {
         self.game.send(function).await
     }
 
-    fn send_game_background<F, O>(&mut self, function: F)
+    fn send_game_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
         F: FnOnce(&mut Game) -> O + Send + 'static,
@@ -53,7 +53,7 @@ impl SendGame for Polysender {
 }
 
 impl SendVisibility for Polysender {
-    fn send_visibility_background<F, O>(&mut self, function: F)
+    fn send_visibility_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
         F: FnOnce(&mut VisibilityActor) -> O + Send + 'static,
@@ -65,7 +65,7 @@ impl SendVisibility for Polysender {
 
 #[async_trait]
 impl SendWorld for Polysender {
-    async fn send_world<F, O>(&mut self, function: F) -> O
+    async fn send_world<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
         F: FnOnce(&mut World) -> O + Send + 'static,
@@ -75,7 +75,7 @@ impl SendWorld for Polysender {
             .await
     }
 
-    fn send_world_background<F, O>(&mut self, function: F)
+    fn send_world_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
         F: FnOnce(&mut World) -> O + Send + 'static,
@@ -86,7 +86,7 @@ impl SendWorld for Polysender {
 }
 
 impl SendWorldArtist for Polysender {
-    fn send_world_artist_future_background<F, O>(&mut self, function: F)
+    fn send_world_artist_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
         F: FnOnce(&mut WorldArtistActor) -> commons::future::BoxFuture<O> + Send + 'static,

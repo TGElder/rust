@@ -1,5 +1,6 @@
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
+use commons::Arm;
 use std::collections::HashSet;
 
 use crate::road_builder::{RoadBuildMode, RoadBuilderResult};
@@ -9,17 +10,17 @@ use crate::traits::IsRoad;
 
 #[async_trait]
 pub trait BuildRoads {
-    async fn add_road(&mut self, edge: &Edge);
+    async fn add_road(&self, edge: &Edge);
 
-    async fn remove_road(&mut self, edge: &Edge);
+    async fn remove_road(&self, edge: &Edge);
 }
 
 #[async_trait]
 impl<T> BuildRoads for T
 where
-    T: IsRoad + UpdateRoads + Send,
+    T: IsRoad + UpdateRoads + Send + Sync,
 {
-    async fn add_road(&mut self, edge: &Edge) {
+    async fn add_road(&self, edge: &Edge) {
         if self.is_road(*edge).await {
             return;
         }
@@ -27,7 +28,7 @@ where
         self.update_roads(result).await;
     }
 
-    async fn remove_road(&mut self, edge: &Edge) {
+    async fn remove_road(&self, edge: &Edge) {
         if self.is_road(*edge).await {
             return;
         }
@@ -38,12 +39,12 @@ where
 }
 
 #[async_trait]
-impl BuildRoads for HashSet<Edge> {
-    async fn add_road(&mut self, edge: &Edge) {
-        self.insert(*edge);
+impl BuildRoads for Arm<HashSet<Edge>> {
+    async fn add_road(&self, edge: &Edge) {
+        self.lock().unwrap().insert(*edge);
     }
 
-    async fn remove_road(&mut self, edge: &Edge) {
-        self.remove(edge);
+    async fn remove_road(&self, edge: &Edge) {
+        self.lock().unwrap().remove(edge);
     }
 }
