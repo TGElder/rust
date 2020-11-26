@@ -112,13 +112,10 @@ fn main() {
         game.tx(),
     );
 
-    let tx = Polysender {
-        game: game.tx().clone(),
-        world_artist: world_artist_actor.tx().clone(),
-        visibility: visibility.tx().clone(),
-        pathfinder_with_planned_roads: pathfinder_with_planned_roads.clone(),
-        pathfinder_without_planned_roads: pathfinder_without_planned_roads.clone(),
-    };
+    let tx = Polysender::new(
+        pathfinder_with_planned_roads.clone(),
+        pathfinder_without_planned_roads.clone(),
+    );
 
     let mut basic_road_builder = BasicRoadBuilder::new(event_forwarder.subscribe(), &tx);
 

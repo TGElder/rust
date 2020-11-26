@@ -1,7 +1,7 @@
 use crate::game::{Game, GameState};
 use crate::polysender::Polysender;
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
-use crate::traits::UpdateRoads;
+use crate::traits::{SendGame, UpdateRoads};
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
 use commons::async_channel::{Receiver, RecvError};
@@ -60,13 +60,12 @@ impl BasicRoadBuilder {
     }
 
     async fn get_plan(&mut self) -> Option<Plan> {
-        self.tx.game.send(|game| get_plan(game)).await
+        self.tx.send_game(|game| get_plan(game)).await
     }
 
     async fn walk_positions(&mut self, plan: Plan) {
         self.tx
-            .game
-            .send(|game| {
+            .send_game(|game| {
                 game.walk_positions(
                     plan.avatar_name,
                     plan.forward_path,

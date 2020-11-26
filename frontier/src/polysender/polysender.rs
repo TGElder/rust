@@ -9,19 +9,69 @@ use crate::traits::{
     SendVisibility, SendWorld, SendWorldArtist,
 };
 use crate::world::World;
-use commons::fn_sender::FnSender;
+use commons::fn_sender::{fn_channel, FnReceiver, FnSender};
 use std::sync::{Arc, RwLock};
+
+struct Channel<T>
+where
+    T: Send,
+{
+    rx: FnReceiver<T>,
+    tx: FnSender<T>,
+}
+
+impl<T> Channel<T>
+where
+    T: Send,
+{
+    fn new() -> Channel<T> {
+        let (tx, rx) = fn_channel();
+        Channel { tx, rx }
+    }
+
+    fn clone_with_name(&self, name: &'static str) -> Channel<T> {
+        Channel {
+            tx: self.tx.clone_with_name(name),
+            rx: self.rx.clone(),
+        }
+    }
+}
+
+impl<T> Clone for Channel<T>
+where
+    T: Send,
+{
+    fn clone(&self) -> Self {
+        Channel {
+            tx: self.tx.clone(),
+            rx: self.rx.clone(),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Polysender {
-    pub game: FnSender<Game>,
-    pub visibility: FnSender<VisibilityActor>,
-    pub world_artist: FnSender<WorldArtistActor>,
-    pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
-    pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    game: Channel<Game>,
+    visibility: Channel<VisibilityActor>,
+    world_artist: Channel<WorldArtistActor>,
+    pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 }
 
 impl Polysender {
+    pub fn new(
+        pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+        pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    ) -> Polysender {
+        Polysender {
+            game: Channel::new(),
+            visibility: Channel::new(),
+            world_artist: Channel::new(),
+            pathfinder_with_planned_roads,
+            pathfinder_without_planned_roads,
+        }
+    }
+
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
             game: self.game.clone_with_name(name),
@@ -30,6 +80,18 @@ impl Polysender {
             pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
             pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
         }
+    }
+
+    pub fn game_rx(&self) -> FnReceiver<Game> {
+        self.game_rx().clone()
+    }
+
+    pub fn visibility_rx(&self) -> FnReceiver<VisibilityActor> {
+        self.visibility_rx().clone()
+    }
+
+    pub fn world_artist_rx(&self) -> FnReceiver<WorldArtistActor> {
+        self.world_artist_rx().clone()
     }
 }
 
@@ -40,7 +102,7 @@ impl SendGame for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut Game) -> O + Send + 'static,
     {
-        self.game.send(function).await
+        self.game.tx.send(function).await
     }
 
     fn send_game_background<F, O>(&self, function: F)
@@ -48,7 +110,7 @@ impl SendGame for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut Game) -> O + Send + 'static,
     {
-        self.game.send(function);
+        self.game.tx.send(function);
     }
 }
 
@@ -59,6 +121,7 @@ impl SendVisibility for Polysender {
         F: FnOnce(&mut VisibilityActor) -> O + Send + 'static,
     {
         self.visibility
+            .tx
             .send(move |mut visibility| function(&mut visibility));
     }
 }
@@ -71,6 +134,7 @@ impl SendWorld for Polysender {
         F: FnOnce(&mut World) -> O + Send + 'static,
     {
         self.game
+            .tx
             .send(move |game| function(&mut game.mut_state().world))
             .await
     }
@@ -81,6 +145,7 @@ impl SendWorld for Polysender {
         F: FnOnce(&mut World) -> O + Send + 'static,
     {
         self.game
+            .tx
             .send(move |game| function(&mut game.mut_state().world));
     }
 }
@@ -92,6 +157,7 @@ impl SendWorldArtist for Polysender {
         F: FnOnce(&mut WorldArtistActor) -> commons::future::BoxFuture<O> + Send + 'static,
     {
         self.world_artist
+            .tx
             .send_future(move |world_artist| function(world_artist));
     }
 }

@@ -1,7 +1,10 @@
 use crate::game::{Game, GameEvent};
+use crate::polysender::Polysender;
+use crate::traits::{SendGame, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
+use crate::world::World;
 use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::{fn_channel, FnMessage, FnMessageExt, FnReceiver, FnSender};
+use commons::fn_sender::{FnMessage, FnMessageExt, FnReceiver};
 use commons::futures::future::FutureExt;
 use commons::grid::Grid;
 use commons::{v2, M, V2};
@@ -16,11 +19,10 @@ use std::sync::Arc;
 const NAME: &str = "world_artist_actor";
 
 pub struct VisibilityActor {
-    tx: FnSender<VisibilityActor>,
+    tx: Polysender,
     rx: FnReceiver<VisibilityActor>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
-    game_tx: FnSender<Game>,
     visibility_computer: VisibilityComputer,
     state: VisibilityHandlerState,
     elevations: Option<M<Elevation>>,
@@ -46,17 +48,15 @@ impl WithElevation for Elevation {
 
 impl VisibilityActor {
     pub fn new(
+        tx: Polysender,
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
-        game_tx: &FnSender<Game>,
     ) -> VisibilityActor {
-        let (tx, rx) = fn_channel();
         VisibilityActor {
+            rx: tx.visibility_rx(),
             tx,
-            rx,
             engine_rx,
             game_rx,
-            game_tx: game_tx.clone_with_name(NAME),
             visibility_computer: VisibilityComputer::default(),
             state: VisibilityHandlerState {
                 visited: None,
@@ -65,10 +65,6 @@ impl VisibilityActor {
             elevations: None,
             run: true,
         }
-    }
-
-    pub fn tx(&self) -> &FnSender<VisibilityActor> {
-        &self.tx
     }
 
     pub async fn run(&mut self) {
@@ -116,8 +112,9 @@ impl VisibilityActor {
             .visibility_computer
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
-        self.game_tx
-            .send(move |game: &mut Game| game.reveal_cells(visible.into_iter().collect(), NAME));
+        self.tx.send_game(move |game: &mut Game| {
+            game.reveal_cells(visible.into_iter().collect(), NAME)
+        });
     }
 
     fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {
@@ -150,7 +147,7 @@ impl VisibilityActor {
     }
 
     async fn try_disable_visibility_computation(&mut self) {
-        if self.game_tx.send(|game| get_reveal_all(game)).await {
+        if self.tx.send_game(|game| get_reveal_all(game)).await {
             self.disable_visibility_computation();
         }
     }
@@ -160,12 +157,12 @@ impl VisibilityActor {
     }
 
     async fn init_visited(&mut self) {
-        let (width, height) = self.game_tx.send(|game| get_dimensions(game)).await;
+        let (width, height) = self.tx.send_world(|world| get_dimensions(world)).await;
         self.state.visited = Some(M::from_element(width, height, false));
     }
 
     async fn init_elevations(&mut self) {
-        self.elevations = Some(self.game_tx.send(|game| get_elevations(game)).await);
+        self.elevations = Some(self.tx.send_world(|world| get_elevations(world)).await);
     }
 
     fn get_path(path: &str) -> String {
@@ -199,20 +196,13 @@ fn get_reveal_all(game: &Game) -> bool {
     game.game_state().params.reveal_all
 }
 
-fn get_dimensions(game: &Game) -> (usize, usize) {
-    let world = &game.game_state().world;
+fn get_dimensions(world: &World) -> (usize, usize) {
     (world.width(), world.height())
 }
 
-fn get_elevations(game: &Game) -> M<Elevation> {
-    let world = &game.game_state().world;
+fn get_elevations(world: &World) -> M<Elevation> {
     let sea_level = world.sea_level();
     M::from_fn(world.width(), world.height(), |x, y| Elevation {
-        elevation: game
-            .game_state()
-            .world
-            .get_cell_unsafe(&v2(x, y))
-            .elevation
-            .max(sea_level),
+        elevation: world.get_cell_unsafe(&v2(x, y)).elevation.max(sea_level),
     })
 }

@@ -4,10 +4,11 @@ pub use coloring::WorldColoringParameters;
 
 use crate::artists::{Slab, WorldArtist};
 use crate::game::{Game, GameEvent};
+use crate::polysender::Polysender;
+use crate::traits::{Micros, SendGame};
 use coloring::world_coloring;
 use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::FnSender;
-use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver};
+use commons::fn_sender::{FnMessageExt, FnReceiver};
 use commons::futures::future::FutureExt;
 use commons::V2;
 use isometric::{Button, Command, ElementState, Event, ModifiersState, VirtualKeyCode};
@@ -30,11 +31,10 @@ impl Default for WorldArtistActorBindings {
 }
 
 pub struct WorldArtistActor {
+    tx: Polysender,
     rx: FnReceiver<WorldArtistActor>,
-    tx: FnSender<WorldArtistActor>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
-    game_tx: FnSender<Game>,
     command_tx: Sender<Vec<Command>>,
     bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
@@ -45,19 +45,17 @@ pub struct WorldArtistActor {
 
 impl WorldArtistActor {
     pub fn new(
+        tx: Polysender,
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
-        game_tx: &FnSender<Game>,
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
     ) -> WorldArtistActor {
-        let (tx, rx) = fn_channel();
         WorldArtistActor {
-            rx,
+            rx: tx.world_artist_rx(),
             tx,
             engine_rx,
             game_rx,
-            game_tx: game_tx.clone_with_name(NAME),
             command_tx,
             bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},
@@ -65,10 +63,6 @@ impl WorldArtistActor {
             run: true,
             territory_layer: false,
         }
-    }
-
-    pub fn tx(&self) -> &FnSender<WorldArtistActor> {
-        &self.tx
     }
 
     pub async fn run(&mut self) {
@@ -98,9 +92,7 @@ impl WorldArtistActor {
     }
 
     async fn when(&mut self) -> u128 {
-        self.game_tx
-            .send(|game| game.game_state().game_micros)
-            .await
+        self.tx.micros().await
     }
 
     async fn redraw_slab(&mut self, slab: Slab, when: u128) {
@@ -114,8 +106,8 @@ impl WorldArtistActor {
             generated_at,
             commands,
         } = self
-            .game_tx
-            .send(move |game| draw_slab(&game, world_artist, slab, territory_layer))
+            .tx
+            .send_game(move |game| draw_slab(&game, world_artist, slab, territory_layer))
             .await;
 
         self.last_redraw.insert(slab.from, generated_at);
