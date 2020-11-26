@@ -51,7 +51,7 @@ where
 
 #[derive(Clone)]
 pub struct Polysender {
-    game: Channel<Game>,
+    game_tx: FnSender<Game>,
     visibility: Channel<VisibilityActor>,
     world_artist: Channel<WorldArtistActor>,
     pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
@@ -60,11 +60,12 @@ pub struct Polysender {
 
 impl Polysender {
     pub fn new(
+        game_tx: FnSender<Game>,
         pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
         pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     ) -> Polysender {
         Polysender {
-            game: Channel::new(),
+            game_tx,
             visibility: Channel::new(),
             world_artist: Channel::new(),
             pathfinder_with_planned_roads,
@@ -74,7 +75,7 @@ impl Polysender {
 
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
-            game: self.game.clone_with_name(name),
+            game_tx: self.game_tx.clone_with_name(name),
             visibility: self.visibility.clone_with_name(name),
             world_artist: self.world_artist.clone_with_name(name),
             pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
@@ -82,16 +83,12 @@ impl Polysender {
         }
     }
 
-    pub fn game_rx(&self) -> FnReceiver<Game> {
-        self.game_rx().clone()
-    }
-
     pub fn visibility_rx(&self) -> FnReceiver<VisibilityActor> {
-        self.visibility_rx().clone()
+        self.visibility.rx.clone()
     }
 
     pub fn world_artist_rx(&self) -> FnReceiver<WorldArtistActor> {
-        self.world_artist_rx().clone()
+        self.world_artist.rx.clone()
     }
 }
 
@@ -102,7 +99,7 @@ impl SendGame for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut Game) -> O + Send + 'static,
     {
-        self.game.tx.send(function).await
+        self.game_tx.send(function).await
     }
 
     fn send_game_background<F, O>(&self, function: F)
@@ -110,7 +107,7 @@ impl SendGame for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut Game) -> O + Send + 'static,
     {
-        self.game.tx.send(function);
+        self.game_tx.send(function);
     }
 }
 
@@ -133,8 +130,7 @@ impl SendWorld for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut World) -> O + Send + 'static,
     {
-        self.game
-            .tx
+        self.game_tx
             .send(move |game| function(&mut game.mut_state().world))
             .await
     }
@@ -144,8 +140,7 @@ impl SendWorld for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut World) -> O + Send + 'static,
     {
-        self.game
-            .tx
+        self.game_tx
             .send(move |game| function(&mut game.mut_state().world));
     }
 }

@@ -19,7 +19,7 @@ use std::sync::Arc;
 const NAME: &str = "world_artist_actor";
 
 pub struct VisibilityActor {
-    tx: Polysender,
+    x: Polysender,
     rx: FnReceiver<VisibilityActor>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
@@ -48,13 +48,13 @@ impl WithElevation for Elevation {
 
 impl VisibilityActor {
     pub fn new(
-        tx: Polysender,
+        x: Polysender,
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
     ) -> VisibilityActor {
         VisibilityActor {
-            rx: tx.visibility_rx(),
-            tx,
+            rx: x.visibility_rx(),
+            x,
             engine_rx,
             game_rx,
             visibility_computer: VisibilityComputer::default(),
@@ -112,7 +112,7 @@ impl VisibilityActor {
             .visibility_computer
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
-        self.tx.send_game(move |game: &mut Game| {
+        self.x.send_game_background(move |game: &mut Game| {
             game.reveal_cells(visible.into_iter().collect(), NAME)
         });
     }
@@ -147,7 +147,7 @@ impl VisibilityActor {
     }
 
     async fn try_disable_visibility_computation(&mut self) {
-        if self.tx.send_game(|game| get_reveal_all(game)).await {
+        if self.x.send_game(|game| get_reveal_all(game)).await {
             self.disable_visibility_computation();
         }
     }
@@ -157,12 +157,12 @@ impl VisibilityActor {
     }
 
     async fn init_visited(&mut self) {
-        let (width, height) = self.tx.send_world(|world| get_dimensions(world)).await;
+        let (width, height) = self.x.send_world(|world| get_dimensions(world)).await;
         self.state.visited = Some(M::from_element(width, height, false));
     }
 
     async fn init_elevations(&mut self) {
-        self.elevations = Some(self.tx.send_world(|world| get_elevations(world)).await);
+        self.elevations = Some(self.x.send_world(|world| get_elevations(world)).await);
     }
 
     fn get_path(path: &str) -> String {

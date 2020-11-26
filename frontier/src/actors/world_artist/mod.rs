@@ -16,8 +16,6 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
-const NAME: &str = "world_artist_actor";
-
 pub struct WorldArtistActorBindings {
     toggle_territory_layer: Button,
 }
@@ -31,7 +29,7 @@ impl Default for WorldArtistActorBindings {
 }
 
 pub struct WorldArtistActor {
-    tx: Polysender,
+    x: Polysender,
     rx: FnReceiver<WorldArtistActor>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
@@ -45,15 +43,15 @@ pub struct WorldArtistActor {
 
 impl WorldArtistActor {
     pub fn new(
-        tx: Polysender,
+        x: Polysender,
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
     ) -> WorldArtistActor {
         WorldArtistActor {
-            rx: tx.world_artist_rx(),
-            tx,
+            rx: x.world_artist_rx(),
+            x,
             engine_rx,
             game_rx,
             command_tx,
@@ -92,7 +90,7 @@ impl WorldArtistActor {
     }
 
     async fn when(&mut self) -> u128 {
-        self.tx.micros().await
+        self.x.micros().await
     }
 
     async fn redraw_slab(&mut self, slab: Slab, when: u128) {
@@ -106,7 +104,7 @@ impl WorldArtistActor {
             generated_at,
             commands,
         } = self
-            .tx
+            .x
             .send_game(move |game| draw_slab(&game, world_artist, slab, territory_layer))
             .await;
 

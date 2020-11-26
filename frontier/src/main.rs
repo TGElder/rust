@@ -82,6 +82,12 @@ fn main() {
         AvatarTravelDuration::with_planned_roads_ignored(&game.game_state().params.avatar_travel),
     )));
 
+    let x = Polysender::new(
+        game.tx().clone_with_name("polysender"),
+        pathfinder_with_planned_roads.clone(),
+        pathfinder_without_planned_roads.clone(),
+    );
+
     let mut event_forwarder = EventForwarder::new();
     let mut game_event_forwarder = GameEventForwarder::new(thread_pool.clone());
 
@@ -99,25 +105,20 @@ fn main() {
         },
     );
     let mut world_artist_actor = WorldArtistActor::new(
+        x.clone_with_name("world_artist_actor"),
         event_forwarder.subscribe(),
         game_event_forwarder.subscribe(),
-        game.tx(),
         engine.command_tx(),
         world_artist,
     );
 
     let mut visibility = VisibilityActor::new(
+        x.clone_with_name("visibility"),
         event_forwarder.subscribe(),
         game_event_forwarder.subscribe(),
-        game.tx(),
     );
 
-    let tx = Polysender::new(
-        pathfinder_with_planned_roads.clone(),
-        pathfinder_without_planned_roads.clone(),
-    );
-
-    let mut basic_road_builder = BasicRoadBuilder::new(event_forwarder.subscribe(), &tx);
+    let mut basic_road_builder = BasicRoadBuilder::new(event_forwarder.subscribe(), &x);
 
     let territory_updater = TerritoryUpdater::new(
         &game.tx(),
@@ -129,7 +130,7 @@ fn main() {
         game.tx(),
         vec![
             Box::new(SettlementBuilder::new(game.tx(), &territory_updater)),
-            Box::new(RoadBuilder::new(tx.clone_with_name("road_builder"))),
+            Box::new(RoadBuilder::new(x.clone_with_name("road_builder"))),
             Box::new(CropsBuilder::new(game.tx())),
         ],
     );
@@ -164,7 +165,7 @@ fn main() {
         Box::new(RefreshPositions::new(&game.tx())),
         Box::new(RefreshEdges::new(
             &game.tx(),
-            tx.clone_with_name("refresh_edges"),
+            x.clone_with_name("refresh_edges"),
             AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
             &pathfinder_with_planned_roads,
             thread_pool.clone(),
@@ -215,19 +216,18 @@ fn main() {
     ));
 
     // Visibility
-    let from_avatar = VisibilityFromAvatar::new(tx.clone_with_name("visibility_from_avatar"));
-    let from_towns = VisibilityFromTowns::new(tx.clone_with_name("visibility_from_towns"));
-    let setup_new_world = SetupNewWorld::new(tx.clone_with_name("setup_new_world"));
+    let from_avatar = VisibilityFromAvatar::new(x.clone_with_name("visibility_from_avatar"));
+    let from_towns = VisibilityFromTowns::new(x.clone_with_name("visibility_from_towns"));
+    let setup_new_world = SetupNewWorld::new(x.clone_with_name("setup_new_world"));
     game.add_consumer(from_avatar);
     game.add_consumer(from_towns);
     game.add_consumer(setup_new_world);
 
-    game.add_consumer(Cheats::new(tx.clone_with_name("cheats")));
+    game.add_consumer(Cheats::new(x.clone_with_name("cheats")));
 
     game.add_consumer(game_event_forwarder);
     game.add_consumer(WorldArtistHandler::new(
-        world_artist_actor.tx(),
-        thread_pool.clone(),
+        x.clone_with_name("world_artist_handler"),
     ));
 
     engine.add_event_consumer(event_forwarder);

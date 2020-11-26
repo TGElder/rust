@@ -1,4 +1,5 @@
-use crate::actors::WorldArtistActor;
+use crate::polysender::Polysender;
+use crate::traits::SendWorldArtist;
 use futures::FutureExt;
 
 use super::*;
@@ -6,36 +7,27 @@ use super::*;
 const NAME: &str = "world_artist_handler";
 
 pub struct WorldArtistHandler {
-    actor_tx: FnSender<WorldArtistActor>,
-    thread_pool: ThreadPool,
+    x: Polysender,
 }
 
 impl WorldArtistHandler {
-    pub fn new(
-        actor_tx: &FnSender<WorldArtistActor>,
-        thread_pool: ThreadPool,
-    ) -> WorldArtistHandler {
-        WorldArtistHandler {
-            actor_tx: actor_tx.clone_with_name(NAME),
-            thread_pool,
-        }
+    pub fn new(x: Polysender) -> WorldArtistHandler {
+        WorldArtistHandler { x }
     }
 
     fn draw_all(&mut self, game_state: &GameState) {
-        let actor_tx = self.actor_tx.clone();
         let when = game_state.game_micros;
-        self.thread_pool
-            .spawn_ok(actor_tx.send_future(move |artist| artist.redraw_all_at(when).boxed()))
+        self.x
+            .send_world_artist_future_background(move |artist| artist.redraw_all_at(when).boxed())
     }
 
     fn update_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
         for cell in cells {
-            let actor_tx = self.actor_tx.clone();
             let cell = *cell;
             let when = game_state.game_micros;
-            self.thread_pool.spawn_ok(
-                actor_tx.send_future(move |artist| artist.redraw_tile_at(cell, when).boxed()),
-            );
+            self.x.send_world_artist_future_background(move |artist| {
+                artist.redraw_tile_at(cell, when).boxed()
+            });
         }
     }
 
