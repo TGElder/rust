@@ -18,7 +18,7 @@ pub async fn try_remove_road<G, R, P>(
     traffic: &EdgeTrafficSummary,
 ) where
     G: HasWorld + Send,
-    R: BuildRoads + Clone + Send + 'static,
+    R: BuildRoads + Clone + Send + Sync + 'static,
     P: UpdateEdge + Send + Sync + 'static,
 {
     if get_traffic(&traffic.routes) > ROAD_THRESHOLD {
@@ -45,9 +45,9 @@ where
 
 fn send_remove_road<R>(build_road: &mut R, threadpool: &ThreadPool, edge: Edge)
 where
-    R: BuildRoads + Clone + Send + 'static,
+    R: BuildRoads + Clone + Send + Sync + 'static,
 {
-    let mut build_road_tx = build_road.clone();
+    let build_road_tx = build_road.clone();
     threadpool.spawn_ok(async move { build_road_tx.remove_road(&edge).await });
 }
 
@@ -97,9 +97,9 @@ mod tests {
 
     #[async_trait]
     impl BuildRoads for MockBuildRoads {
-        async fn add_road(&mut self, _: &Edge) {}
+        async fn add_road(&self, _: &Edge) {}
 
-        async fn remove_road(&mut self, edge: &Edge) {
+        async fn remove_road(&self, edge: &Edge) {
             self.removed_roads.lock().unwrap().push(*edge);
         }
     }
