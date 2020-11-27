@@ -1,3 +1,5 @@
+use crate::polysender::Polysender;
+
 use super::*;
 
 use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
@@ -7,20 +9,16 @@ use std::io::{BufReader, BufWriter};
 pub struct Simulation {
     processors: Vec<Box<dyn Processor + Send>>,
     state: Option<State>,
-    tx: FnSender<Simulation>,
     rx: FnReceiver<Simulation>,
     paused: bool,
     run: bool,
 }
 
 impl Simulation {
-    pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> Simulation {
-        let (tx, rx) = fn_channel();
-
+    pub fn new(x: Polysender, processors: Vec<Box<dyn Processor + Send>>) -> Simulation {
         Simulation {
             processors,
-            tx,
-            rx,
+            rx:,
             paused: true,
             run: true,
             state: None,
