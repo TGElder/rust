@@ -1,41 +1,37 @@
 use super::*;
 
-use crate::simulation::Simulation;
+use crate::traits::{SendGame, SendSim};
 
 const NAME: &str = "shutdown_handler";
 
-pub struct ShutdownHandler {
-    game_tx: FnSender<Game>,
-    sim_tx: FnSender<Simulation>,
+pub struct ShutdownHandler<T> {
+    x: T,
     pool: ThreadPool,
 }
 
-impl ShutdownHandler {
-    pub fn new(
-        game_tx: &FnSender<Game>,
-        sim_tx: &FnSender<Simulation>,
-        pool: ThreadPool,
-    ) -> ShutdownHandler {
-        ShutdownHandler {
-            game_tx: game_tx.clone_with_name(NAME),
-            sim_tx: sim_tx.clone_with_name(NAME),
-            pool,
-        }
+impl<T> ShutdownHandler<T>
+where
+    T: SendGame + SendSim + Clone + Send + Sync + 'static,
+{
+    pub fn new(x: T, pool: ThreadPool) -> ShutdownHandler<T> {
+        ShutdownHandler { x, pool }
     }
 
     fn shutdown(&mut self) {
-        let game_tx = self.game_tx.clone();
-        let sim_tx = self.sim_tx.clone();
+        let x = self.x.clone();
         self.pool.spawn_ok(async move {
             println!("Waiting for simulation to shutdown...");
-            sim_tx.send(|sim| sim.shutdown()).await;
+            x.send_sim(|sim| sim.shutdown()).await;
             println!("Waiting for game to shutdown...");
-            game_tx.send(|game| game.shutdown());
+            x.send_game(|game| game.shutdown()).await;
         });
     }
 }
 
-impl GameEventConsumer for ShutdownHandler {
+impl<T> GameEventConsumer for ShutdownHandler<T>
+where
+    T: SendGame + SendSim + Clone + Send + Sync + 'static,
+{
     fn name(&self) -> &'static str {
         NAME
     }

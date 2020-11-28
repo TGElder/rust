@@ -1,34 +1,29 @@
 use super::*;
 
-use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
+use commons::fn_sender::{FnMessageExt, FnReceiver};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
 pub struct Simulation {
     processors: Vec<Box<dyn Processor + Send>>,
     state: Option<State>,
-    tx: FnSender<Simulation>,
     rx: FnReceiver<Simulation>,
     paused: bool,
     run: bool,
 }
 
 impl Simulation {
-    pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> Simulation {
-        let (tx, rx) = fn_channel();
-
+    pub fn new(
+        rx: FnReceiver<Simulation>,
+        processors: Vec<Box<dyn Processor + Send>>,
+    ) -> Simulation {
         Simulation {
-            processors,
-            tx,
             rx,
+            processors,
             paused: true,
             run: true,
             state: None,
         }
-    }
-
-    pub fn tx(&self) -> &FnSender<Simulation> {
-        &self.tx
     }
 
     pub fn set_state(&mut self, state: State) {
@@ -117,6 +112,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::RouteKey;
     use commons::edge::Edge;
+    use commons::fn_sender::fn_channel;
     use commons::futures::executor::block_on;
     use commons::index2d::Vec2D;
     use commons::v2;
@@ -150,11 +146,11 @@ mod tests {
     fn should_shutdown() {
         let done = Arc::new(AtomicBool::new(false));
         let done_2 = done.clone();
+        let (tx, rx) = fn_channel();
         thread::spawn(move || {
-            let mut sim = Simulation::new(vec![]);
+            let mut sim = Simulation::new(rx, vec![]);
             sim.resume();
             sim.set_state(State::default());
-            let tx = sim.tx().clone();
             let handle = thread::spawn(move || block_on(sim.run()));
             tx.wait(|sim| sim.shutdown());
             handle.join().unwrap();
@@ -173,10 +169,10 @@ mod tests {
     fn should_add_step_to_instructions() {
         let processor = InstructionRetriever::new();
         let instructions = processor.instructions.clone();
-        let mut sim = Simulation::new(vec![Box::new(processor)]);
+        let (tx, rx) = fn_channel();
+        let mut sim = Simulation::new(rx, vec![Box::new(processor)]);
         sim.resume();
         sim.set_state(State::default());
-        let tx = sim.tx().clone();
 
         let handle = thread::spawn(move || block_on(sim.run()));
         let start = Instant::now();
@@ -214,10 +210,10 @@ mod tests {
         let introducer = InstructionIntroducer::new();
         let receiver = InstructionRetriever::new();
         let instructions = receiver.instructions.clone();
-        let mut sim = Simulation::new(vec![Box::new(introducer), Box::new(receiver)]);
+        let (tx, rx) = fn_channel();
+        let mut sim = Simulation::new(rx, vec![Box::new(introducer), Box::new(receiver)]);
         sim.resume();
         sim.set_state(State::default());
-        let tx = sim.tx().clone();
 
         let handle = thread::spawn(move || block_on(sim.run()));
         let start = Instant::now();
@@ -240,10 +236,10 @@ mod tests {
         let instructions_1 = processor_1.instructions.clone();
         let processor_2 = InstructionRetriever::new();
         let instructions_2 = processor_2.instructions.clone();
-        let mut sim = Simulation::new(vec![Box::new(processor_1), Box::new(processor_2)]);
+        let (tx, rx) = fn_channel();
+        let mut sim = Simulation::new(rx, vec![Box::new(processor_1), Box::new(processor_2)]);
         sim.resume();
         sim.set_state(State::default());
-        let tx = sim.tx().clone();
 
         let handle = thread::spawn(move || block_on(sim.run()));
         let start = Instant::now();
@@ -262,10 +258,10 @@ mod tests {
     fn should_process_updates_before_instructions() {
         let processor = InstructionRetriever::new();
         let instructions = processor.instructions.clone();
-        let mut sim = Simulation::new(vec![Box::new(processor)]);
+        let (tx, rx) = fn_channel();
+        let mut sim = Simulation::new(rx, vec![Box::new(processor)]);
         sim.resume();
         sim.set_state(State::default());
-        let tx = sim.tx().clone();
 
         tx.send(|sim| sim.shutdown());
         let handle = thread::spawn(move || block_on(sim.run()));
@@ -279,7 +275,8 @@ mod tests {
         // Given
         let file_name = "test_save.simulation.round_trip";
 
-        let mut sim_1 = Simulation::new(vec![]);
+        let (_, rx) = fn_channel();
+        let mut sim_1 = Simulation::new(rx, vec![]);
         let route_key = RouteKey {
             settlement: v2(1, 2),
             resource: Resource::Crabs,
@@ -311,7 +308,8 @@ mod tests {
         sim_1.save(file_name);
 
         // When
-        let mut sim_2 = Simulation::new(vec![]);
+        let (_, rx) = fn_channel();
+        let mut sim_2 = Simulation::new(rx, vec![]);
         sim_2.load(file_name);
 
         // Then
@@ -326,7 +324,8 @@ mod tests {
         // Given
         let file_name = "test_save.simulation.should_not_step";
 
-        let mut sim_1 = Simulation::new(vec![]);
+        let (_, rx) = fn_channel();
+        let mut sim_1 = Simulation::new(rx, vec![]);
         sim_1.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
             ..State::default()
@@ -337,10 +336,10 @@ mod tests {
         let instructions = receiver.instructions.clone();
 
         // When
-        let mut sim_2 = Simulation::new(vec![Box::new(receiver)]);
+        let (tx, rx) = fn_channel();
+        let mut sim_2 = Simulation::new(rx, vec![Box::new(receiver)]);
         sim_2.resume();
         sim_2.load(file_name);
-        let tx = sim_2.tx().clone();
 
         let handle = thread::spawn(move || block_on(sim_2.run()));
         let start = Instant::now();
@@ -391,11 +390,11 @@ mod tests {
             let repeater = InstructionRepeater::new();
             let receiver = InstructionRetriever::new();
             let instructions = receiver.instructions.clone();
-            let mut sim = Simulation::new(vec![Box::new(repeater), Box::new(receiver)]);
+            let (tx, rx) = fn_channel();
+            let mut sim = Simulation::new(rx, vec![Box::new(repeater), Box::new(receiver)]);
             sim.resume();
             sim.set_state(State::default());
 
-            let tx = sim.tx().clone();
             let start = Instant::now();
             let handle = thread::spawn(move || block_on(sim.run()));
             while instructions.lock().unwrap().is_empty() {
@@ -420,12 +419,12 @@ mod tests {
     #[test]
     fn should_not_process_instruction_by_default() {
         // Given
-        let mut sim = Simulation::new(vec![]);
+        let (tx, rx) = fn_channel();
+        let mut sim = Simulation::new(rx, vec![]);
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
             ..State::default()
         });
-        let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
             block_on(sim.run());
             sim
@@ -446,14 +445,14 @@ mod tests {
     #[test]
     fn should_not_process_instruction_while_paused() {
         // Given
-        let mut sim = Simulation::new(vec![]);
+        let (tx, rx) = fn_channel();
+        let mut sim = Simulation::new(rx, vec![]);
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
             ..State::default()
         });
         sim.resume();
         sim.pause();
-        let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
             block_on(sim.run());
             sim
@@ -475,7 +474,8 @@ mod tests {
     fn should_process_instruction_when_resumed() {
         let receiver = InstructionRetriever::new();
         let instructions = receiver.instructions.clone();
-        let mut sim = Simulation::new(vec![Box::new(receiver)]);
+        let (tx, rx) = fn_channel();
+        let mut sim = Simulation::new(rx, vec![Box::new(receiver)]);
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
             ..State::default()
@@ -483,7 +483,6 @@ mod tests {
         sim.pause();
         sim.resume();
 
-        let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
             block_on(sim.run());
             sim
@@ -507,7 +506,8 @@ mod tests {
     #[test]
     fn should_not_process_instruction_while_paused_persistent() {
         // Given
-        let mut sim = Simulation::new(vec![]);
+        let (tx, rx) = fn_channel();
+        let mut sim = Simulation::new(rx, vec![]);
         sim.resume();
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
@@ -515,7 +515,6 @@ mod tests {
             ..State::default()
         });
         sim.toggle_paused_persistent();
-        let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
             block_on(sim.run());
             sim
@@ -537,7 +536,8 @@ mod tests {
     fn should_process_instruction_when_resumed_persistent() {
         let receiver = InstructionRetriever::new();
         let instructions = receiver.instructions.clone();
-        let mut sim = Simulation::new(vec![Box::new(receiver)]);
+        let (tx, rx) = fn_channel();
+        let mut sim = Simulation::new(rx, vec![Box::new(receiver)]);
         sim.resume();
         sim.set_state(State {
             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
@@ -546,7 +546,6 @@ mod tests {
         });
         sim.toggle_paused_persistent();
 
-        let tx = sim.tx().clone();
         let handle = thread::spawn(move || {
             block_on(sim.run());
             sim
