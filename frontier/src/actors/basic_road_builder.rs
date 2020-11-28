@@ -10,10 +10,7 @@ use commons::V2;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-pub struct BasicRoadBuilder<T>
-where
-    T: SendGame + UpdateRoads,
-{
+pub struct BasicRoadBuilder<T> {
     x: T,
     engine_rx: Receiver<Arc<Event>>,
     binding: Button,

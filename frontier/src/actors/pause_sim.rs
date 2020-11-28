@@ -5,10 +5,7 @@ use commons::log::debug;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-pub struct PauseSim<T>
-where
-    T: SendSim,
-{
+pub struct PauseSim<T> {
     x: T,
     engine_rx: Receiver<Arc<Event>>,
     binding: Button,

@@ -9,10 +9,7 @@ use std::sync::Arc;
 
 const NAME: &str = "simulation_state_loader";
 
-pub struct SimulationStateLoader<T>
-where
-    T: SendSim,
-{
+pub struct SimulationStateLoader<T> {
     x: T,
 }
 
