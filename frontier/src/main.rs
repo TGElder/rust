@@ -128,7 +128,10 @@ fn main() {
         game_event_forwarder.subscribe(),
     );
 
-    let mut basic_road_builder = BasicRoadBuilder::new(event_forwarder.subscribe(), &x);
+    let mut basic_road_builder = BasicRoadBuilder::new(
+        x.clone_with_name("basic_road_builder"),
+        event_forwarder.subscribe(),
+    );
 
     let territory_updater = TerritoryUpdater::new(
         &game.tx(),

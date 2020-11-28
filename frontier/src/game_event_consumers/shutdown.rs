@@ -1,17 +1,19 @@
 use super::*;
 
-use crate::polysender::Polysender;
 use crate::traits::{SendGame, SendSim};
 
 const NAME: &str = "shutdown_handler";
 
-pub struct ShutdownHandler {
-    x: Polysender,
+pub struct ShutdownHandler<T> {
+    x: T,
     pool: ThreadPool,
 }
 
-impl ShutdownHandler {
-    pub fn new(x: Polysender, pool: ThreadPool) -> ShutdownHandler {
+impl<T> ShutdownHandler<T>
+where
+    T: SendGame + SendSim + Clone + Send + Sync + 'static,
+{
+    pub fn new(x: T, pool: ThreadPool) -> ShutdownHandler<T> {
         ShutdownHandler { x, pool }
     }
 
@@ -26,7 +28,10 @@ impl ShutdownHandler {
     }
 }
 
-impl GameEventConsumer for ShutdownHandler {
+impl<T> GameEventConsumer for ShutdownHandler<T>
+where
+    T: SendGame + SendSim + Clone + Send + Sync + 'static,
+{
     fn name(&self) -> &'static str {
         NAME
     }

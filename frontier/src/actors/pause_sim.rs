@@ -1,4 +1,3 @@
-use crate::polysender::Polysender;
 use crate::traits::SendSim;
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
@@ -6,15 +5,21 @@ use commons::log::debug;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-pub struct PauseSim {
-    x: Polysender,
+pub struct PauseSim<T>
+where
+    T: SendSim,
+{
+    x: T,
     engine_rx: Receiver<Arc<Event>>,
     binding: Button,
     run: bool,
 }
 
-impl PauseSim {
-    pub fn new(x: Polysender, engine_rx: Receiver<Arc<Event>>) -> PauseSim {
+impl<T> PauseSim<T>
+where
+    T: SendSim,
+{
+    pub fn new(x: T, engine_rx: Receiver<Arc<Event>>) -> PauseSim<T> {
         PauseSim {
             x,
             engine_rx,

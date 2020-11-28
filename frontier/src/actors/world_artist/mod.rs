@@ -4,7 +4,6 @@ pub use coloring::WorldColoringParameters;
 
 use crate::artists::{Slab, WorldArtist};
 use crate::game::{Game, GameEvent};
-use crate::polysender::Polysender;
 use crate::traits::{Micros, SendGame};
 use coloring::world_coloring;
 use commons::async_channel::{Receiver, RecvError};
@@ -28,9 +27,9 @@ impl Default for WorldArtistActorBindings {
     }
 }
 
-pub struct WorldArtistActor {
-    x: Polysender,
-    rx: FnReceiver<WorldArtistActor>,
+pub struct WorldArtistActor<T> {
+    x: T,
+    rx: FnReceiver<WorldArtistActor<T>>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
     command_tx: Sender<Vec<Command>>,
@@ -41,15 +40,18 @@ pub struct WorldArtistActor {
     territory_layer: bool,
 }
 
-impl WorldArtistActor {
+impl<T> WorldArtistActor<T>
+where
+    T: Micros + SendGame + Send,
+{
     pub fn new(
-        x: Polysender,
-        rx: FnReceiver<WorldArtistActor>,
+        x: T,
+        rx: FnReceiver<WorldArtistActor<T>>,
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
-    ) -> WorldArtistActor {
+    ) -> WorldArtistActor<T> {
         WorldArtistActor {
             x,
             rx,

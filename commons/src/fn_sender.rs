@@ -197,14 +197,6 @@ impl<I> FnReceiver<I> {
     }
 }
 
-impl<I> Clone for FnReceiver<I> {
-    fn clone(&self) -> Self {
-        FnReceiver {
-            rx: self.rx.clone(),
-        }
-    }
-}
-
 pub fn fn_channel<I>() -> (FnSender<I>, FnReceiver<I>)
 where
     I: Send,

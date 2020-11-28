@@ -16,8 +16,8 @@ use std::sync::{Arc, RwLock};
 #[derive(Clone)]
 pub struct Polysender {
     game_tx: FnSender<Game>,
-    visibility_tx: FnSender<VisibilityActor>,
-    world_artist_tx: FnSender<WorldArtistActor>,
+    visibility_tx: FnSender<VisibilityActor<Polysender>>,
+    world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
     simulation_tx: FnSender<Simulation>,
     pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
@@ -26,8 +26,8 @@ pub struct Polysender {
 impl Polysender {
     pub fn new(
         game_tx: FnSender<Game>,
-        visibility_tx: FnSender<VisibilityActor>,
-        world_artist_tx: FnSender<WorldArtistActor>,
+        visibility_tx: FnSender<VisibilityActor<Polysender>>,
+        world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
         simulation_tx: FnSender<Simulation>,
         pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
         pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
@@ -77,7 +77,7 @@ impl SendVisibility for Polysender {
     fn send_visibility_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut VisibilityActor) -> O + Send + 'static,
+        F: FnOnce(&mut VisibilityActor<Polysender>) -> O + Send + 'static,
     {
         self.visibility_tx
             .send(move |mut visibility| function(&mut visibility));
@@ -110,7 +110,9 @@ impl SendWorldArtist for Polysender {
     fn send_world_artist_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut WorldArtistActor) -> commons::future::BoxFuture<O> + Send + 'static,
+        F: FnOnce(&mut WorldArtistActor<Polysender>) -> commons::future::BoxFuture<O>
+            + Send
+            + 'static,
     {
         self.world_artist_tx
             .send_future(move |world_artist| function(world_artist));

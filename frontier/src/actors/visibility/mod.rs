@@ -1,5 +1,4 @@
 use crate::game::{Game, GameEvent};
-use crate::polysender::Polysender;
 use crate::traits::{SendGame, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
@@ -18,9 +17,9 @@ use std::sync::Arc;
 
 const NAME: &str = "world_artist_actor";
 
-pub struct VisibilityActor {
-    x: Polysender,
-    rx: FnReceiver<VisibilityActor>,
+pub struct VisibilityActor<T> {
+    x: T,
+    rx: FnReceiver<VisibilityActor<T>>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
     visibility_computer: VisibilityComputer,
@@ -46,13 +45,16 @@ impl WithElevation for Elevation {
     }
 }
 
-impl VisibilityActor {
+impl<T> VisibilityActor<T>
+where
+    T: SendGame + SendWorld + Send,
+{
     pub fn new(
-        x: Polysender,
-        rx: FnReceiver<VisibilityActor>,
+        x: T,
+        rx: FnReceiver<VisibilityActor<T>>,
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
-    ) -> VisibilityActor {
+    ) -> VisibilityActor<T> {
         VisibilityActor {
             x,
             rx,
@@ -85,7 +87,7 @@ impl VisibilityActor {
         }
     }
 
-    async fn handle_message(&mut self, mut message: FnMessage<VisibilityActor>) {
+    async fn handle_message(&mut self, mut message: FnMessage<VisibilityActor<T>>) {
         if self.state.active {
             message.apply(self).await;
         }
