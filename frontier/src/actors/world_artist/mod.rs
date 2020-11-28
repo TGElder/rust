@@ -4,18 +4,16 @@ pub use coloring::WorldColoringParameters;
 
 use crate::artists::{Slab, WorldArtist};
 use crate::game::{Game, GameEvent};
+use crate::traits::{Micros, SendGame};
 use coloring::world_coloring;
 use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::FnSender;
-use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver};
+use commons::fn_sender::{FnMessageExt, FnReceiver};
 use commons::futures::future::FutureExt;
 use commons::V2;
 use isometric::{Button, Command, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
-
-const NAME: &str = "world_artist_actor";
 
 pub struct WorldArtistActorBindings {
     toggle_territory_layer: Button,
@@ -29,12 +27,11 @@ impl Default for WorldArtistActorBindings {
     }
 }
 
-pub struct WorldArtistActor {
-    rx: FnReceiver<WorldArtistActor>,
-    tx: FnSender<WorldArtistActor>,
+pub struct WorldArtistActor<T> {
+    x: T,
+    rx: FnReceiver<WorldArtistActor<T>>,
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
-    game_tx: FnSender<Game>,
     command_tx: Sender<Vec<Command>>,
     bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
@@ -43,21 +40,23 @@ pub struct WorldArtistActor {
     territory_layer: bool,
 }
 
-impl WorldArtistActor {
+impl<T> WorldArtistActor<T>
+where
+    T: Micros + SendGame + Send,
+{
     pub fn new(
+        x: T,
+        rx: FnReceiver<WorldArtistActor<T>>,
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
-        game_tx: &FnSender<Game>,
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
-    ) -> WorldArtistActor {
-        let (tx, rx) = fn_channel();
+    ) -> WorldArtistActor<T> {
         WorldArtistActor {
+            x,
             rx,
-            tx,
             engine_rx,
             game_rx,
-            game_tx: game_tx.clone_with_name(NAME),
             command_tx,
             bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},
@@ -65,10 +64,6 @@ impl WorldArtistActor {
             run: true,
             territory_layer: false,
         }
-    }
-
-    pub fn tx(&self) -> &FnSender<WorldArtistActor> {
-        &self.tx
     }
 
     pub async fn run(&mut self) {
@@ -98,9 +93,7 @@ impl WorldArtistActor {
     }
 
     async fn when(&mut self) -> u128 {
-        self.game_tx
-            .send(|game| game.game_state().game_micros)
-            .await
+        self.x.micros().await
     }
 
     async fn redraw_slab(&mut self, slab: Slab, when: u128) {
@@ -114,8 +107,8 @@ impl WorldArtistActor {
             generated_at,
             commands,
         } = self
-            .game_tx
-            .send(move |game| draw_slab(&game, world_artist, slab, territory_layer))
+            .x
+            .send_game(move |game| draw_slab(&game, world_artist, slab, territory_layer))
             .await;
 
         self.last_redraw.insert(slab.from, generated_at);
