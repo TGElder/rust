@@ -1,34 +1,28 @@
-use crate::game::Game;
-use crate::simulation::Simulation;
+use crate::traits::{SendGame, SendSim};
 use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::FnSender;
 use commons::futures::future::FutureExt;
 use commons::log::debug;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-const NAME: &str = "save";
 const PATH: &str = "save";
 
-pub struct Save {
+pub struct Save<T> {
+    x: T,
     engine_rx: Receiver<Arc<Event>>,
-    game_tx: FnSender<Game>,
-    sim_tx: FnSender<Simulation>,
     binding: Button,
     path: String,
     run: bool,
 }
 
-impl Save {
-    pub fn new(
-        engine_rx: Receiver<Arc<Event>>,
-        game_tx: &FnSender<Game>,
-        sim_tx: &FnSender<Simulation>,
-    ) -> Save {
+impl<T> Save<T>
+where
+    T: SendGame + SendSim,
+{
+    pub fn new(x: T, engine_rx: Receiver<Arc<Event>>) -> Save<T> {
         Save {
+            x,
             engine_rx,
-            game_tx: game_tx.clone_with_name(NAME),
-            sim_tx: sim_tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::P),
             path: PATH.to_string(),
             run: true,
@@ -64,13 +58,13 @@ impl Save {
     async fn save(&mut self) {
         let path_for_sim = self.path.clone();
         let path_for_game = self.path.clone();
-        self.sim_tx.send(move |sim| sim.pause()).await;
+        self.x.send_sim(move |sim| sim.pause()).await;
         debug!("Paused simulation");
-        self.sim_tx.send(move |sim| sim.save(&path_for_sim)).await;
+        self.x.send_sim(move |sim| sim.save(&path_for_sim)).await;
         debug!("Saved simulation state");
-        self.game_tx.send(|game| game.save(path_for_game)).await;
+        self.x.send_game(|game| game.save(path_for_game)).await;
         debug!("Saved game state");
-        self.sim_tx.send(move |sim| sim.resume()).await;
+        self.x.send_sim(move |sim| sim.resume()).await;
         debug!("Resumed simulation");
     }
 }

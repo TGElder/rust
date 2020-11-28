@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::game::*;
-use commons::fn_sender::FnSender;
+use crate::traits::SendSim;
 use commons::index2d::Vec2D;
 use isometric::Event;
 use std::collections::HashSet;
@@ -9,15 +9,16 @@ use std::sync::Arc;
 
 const NAME: &str = "simulation_state_loader";
 
-pub struct SimulationStateLoader {
-    sim_tx: FnSender<Simulation>,
+pub struct SimulationStateLoader<T> {
+    x: T,
 }
 
-impl SimulationStateLoader {
-    pub fn new(sim_tx: &FnSender<Simulation>) -> SimulationStateLoader {
-        SimulationStateLoader {
-            sim_tx: sim_tx.clone_with_name(NAME),
-        }
+impl<T> SimulationStateLoader<T>
+where
+    T: SendSim,
+{
+    pub fn new(x: T) -> SimulationStateLoader<T> {
+        SimulationStateLoader { x }
     }
 
     fn new_game(&mut self, game_state: &GameState) {
@@ -30,19 +31,22 @@ impl SimulationStateLoader {
             build_queue: BuildQueue::default(),
             paused: false,
         };
-        self.sim_tx.send(move |sim| sim.set_state(state));
+        self.x.send_sim_background(move |sim| sim.set_state(state));
     }
 
     fn load(&mut self, path: String) {
-        self.sim_tx.send(move |sim| sim.load(&path));
+        self.x.send_sim_background(move |sim| sim.load(&path));
     }
 
     fn init(&mut self) {
-        self.sim_tx.send(move |sim| sim.resume());
+        self.x.send_sim_background(move |sim| sim.resume());
     }
 }
 
-impl GameEventConsumer for SimulationStateLoader {
+impl<T> GameEventConsumer for SimulationStateLoader<T>
+where
+    T: SendSim + Send,
+{
     fn name(&self) -> &'static str {
         NAME
     }
@@ -70,6 +74,7 @@ mod tests {
     use crate::route::RouteKey;
     use crate::world::World;
     use commons::edge::Edge;
+    use commons::fn_sender::fn_channel;
     use commons::futures::executor::block_on;
     use commons::{v2, M};
     use std::collections::HashSet;
@@ -102,15 +107,15 @@ mod tests {
         // Given
         let (state_tx, state_rx) = channel();
         let retriever = StateRetriever::new(state_tx);
-        let mut sim = Simulation::new(vec![Box::new(retriever)]);
-        let mut consumer = SimulationStateLoader::new(&sim.tx());
+        let (sim_tx, sim_rx) = fn_channel();
+        let mut sim = Simulation::new(sim_rx, vec![Box::new(retriever)]);
+        let mut consumer = SimulationStateLoader::new(sim_tx.clone());
         let game_state = GameState {
             world: World::new(M::zeros(3, 7), 0.5),
             ..GameState::default()
         };
 
         // When
-        let sim_tx = sim.tx().clone();
         let handle = thread::spawn(move || block_on(sim.run()));
         consumer.consume_game_event(&game_state, &GameEvent::NewGame);
         consumer.consume_game_event(&game_state, &GameEvent::Init);
@@ -140,7 +145,8 @@ mod tests {
         // Given
         let file_name = "test_save.state_loader";
 
-        let mut sim_1 = Simulation::new(vec![]);
+        let (_, sim_rx) = fn_channel();
+        let mut sim_1 = Simulation::new(sim_rx, vec![]);
         let route_key = RouteKey {
             settlement: v2(1, 2),
             resource: Resource::Crabs,
@@ -174,11 +180,11 @@ mod tests {
 
         let (state_tx, state_rx) = channel();
         let retriever = StateRetriever::new(state_tx);
-        let mut sim_2 = Simulation::new(vec![Box::new(retriever)]);
-        let mut consumer = SimulationStateLoader::new(&sim_2.tx());
+        let (sim_tx, sim_rx) = fn_channel();
+        let mut sim_2 = Simulation::new(sim_rx, vec![Box::new(retriever)]);
+        let mut consumer = SimulationStateLoader::new(sim_tx.clone());
 
         // When
-        let sim_tx = sim_2.tx().clone();
         let handle = thread::spawn(move || block_on(sim_2.run()));
         let game_state = GameState::default();
         consumer.consume_game_event(&game_state, &GameEvent::Load(file_name.to_string()));

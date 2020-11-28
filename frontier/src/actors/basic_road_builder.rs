@@ -1,7 +1,6 @@
 use crate::game::{Game, GameState};
-use crate::polysender::Polysender;
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
-use crate::traits::UpdateRoads;
+use crate::traits::{SendGame, UpdateRoads};
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
 use commons::async_channel::{Receiver, RecvError};
@@ -11,20 +10,21 @@ use commons::V2;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-const NAME: &str = "basic_road_builder";
-
-pub struct BasicRoadBuilder {
+pub struct BasicRoadBuilder<T> {
+    x: T,
     engine_rx: Receiver<Arc<Event>>,
-    tx: Polysender,
     binding: Button,
     run: bool,
 }
 
-impl BasicRoadBuilder {
-    pub fn new(engine_rx: Receiver<Arc<Event>>, tx: &Polysender) -> BasicRoadBuilder {
+impl<T> BasicRoadBuilder<T>
+where
+    T: SendGame + UpdateRoads,
+{
+    pub fn new(x: T, engine_rx: Receiver<Arc<Event>>) -> BasicRoadBuilder<T> {
         BasicRoadBuilder {
+            x,
             engine_rx,
-            tx: tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::R),
             run: true,
         }
@@ -60,13 +60,12 @@ impl BasicRoadBuilder {
     }
 
     async fn get_plan(&mut self) -> Option<Plan> {
-        self.tx.game.send(|game| get_plan(game)).await
+        self.x.send_game(|game| get_plan(game)).await
     }
 
     async fn walk_positions(&mut self, plan: Plan) {
-        self.tx
-            .game
-            .send(|game| {
+        self.x
+            .send_game(|game| {
                 game.walk_positions(
                     plan.avatar_name,
                     plan.forward_path,
@@ -79,7 +78,7 @@ impl BasicRoadBuilder {
     }
 
     async fn update_roads(&mut self, result: RoadBuilderResult) {
-        self.tx.update_roads(result).await;
+        self.x.update_roads(result).await;
     }
 
     async fn shutdown(&mut self) {
