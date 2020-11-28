@@ -1,25 +1,23 @@
-use crate::simulation::Simulation;
+use crate::polysender::Polysender;
+use crate::traits::SendSim;
 use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::FnSender;
 use commons::futures::future::FutureExt;
 use commons::log::debug;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-const NAME: &str = "pause_sim";
-
 pub struct PauseSim {
+    x: Polysender,
     engine_rx: Receiver<Arc<Event>>,
-    sim_tx: FnSender<Simulation>,
     binding: Button,
     run: bool,
 }
 
 impl PauseSim {
-    pub fn new(engine_rx: Receiver<Arc<Event>>, sim_tx: &FnSender<Simulation>) -> PauseSim {
+    pub fn new(x: Polysender, engine_rx: Receiver<Arc<Event>>) -> PauseSim {
         PauseSim {
+            x,
             engine_rx,
-            sim_tx: sim_tx.clone_with_name(NAME),
             binding: Button::Key(VirtualKeyCode::Space),
             run: true,
         }
@@ -53,8 +51,8 @@ impl PauseSim {
 
     async fn pause(&mut self) {
         debug!("Pausing/resuming simulation");
-        self.sim_tx
-            .send(move |sim| sim.toggle_paused_persistent())
+        self.x
+            .send_sim(move |sim| sim.toggle_paused_persistent())
             .await;
         debug!("Paused/resumed simulation");
     }

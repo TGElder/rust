@@ -49,12 +49,13 @@ impl WithElevation for Elevation {
 impl VisibilityActor {
     pub fn new(
         x: Polysender,
+        rx: FnReceiver<VisibilityActor>,
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
     ) -> VisibilityActor {
         VisibilityActor {
-            rx: x.visibility_rx(),
             x,
+            rx,
             engine_rx,
             game_rx,
             visibility_computer: VisibilityComputer::default(),

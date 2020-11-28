@@ -4,56 +4,21 @@ use crate::actors::{VisibilityActor, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
+use crate::simulation::Simulation;
 use crate::traits::{
-    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendPathfinder,
+    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendPathfinder, SendSim,
     SendVisibility, SendWorld, SendWorldArtist,
 };
 use crate::world::World;
-use commons::fn_sender::{fn_channel, FnReceiver, FnSender};
+use commons::fn_sender::FnSender;
 use std::sync::{Arc, RwLock};
-
-struct Channel<T>
-where
-    T: Send,
-{
-    rx: FnReceiver<T>,
-    tx: FnSender<T>,
-}
-
-impl<T> Channel<T>
-where
-    T: Send,
-{
-    fn new() -> Channel<T> {
-        let (tx, rx) = fn_channel();
-        Channel { tx, rx }
-    }
-
-    fn clone_with_name(&self, name: &'static str) -> Channel<T> {
-        Channel {
-            tx: self.tx.clone_with_name(name),
-            rx: self.rx.clone(),
-        }
-    }
-}
-
-impl<T> Clone for Channel<T>
-where
-    T: Send,
-{
-    fn clone(&self) -> Self {
-        Channel {
-            tx: self.tx.clone(),
-            rx: self.rx.clone(),
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct Polysender {
     game_tx: FnSender<Game>,
-    visibility: Channel<VisibilityActor>,
-    world_artist: Channel<WorldArtistActor>,
+    visibility_tx: FnSender<VisibilityActor>,
+    world_artist_tx: FnSender<WorldArtistActor>,
+    simulation_tx: FnSender<Simulation>,
     pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 }
@@ -61,13 +26,17 @@ pub struct Polysender {
 impl Polysender {
     pub fn new(
         game_tx: FnSender<Game>,
+        visibility_tx: FnSender<VisibilityActor>,
+        world_artist_tx: FnSender<WorldArtistActor>,
+        simulation_tx: FnSender<Simulation>,
         pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
         pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     ) -> Polysender {
         Polysender {
             game_tx,
-            visibility: Channel::new(),
-            world_artist: Channel::new(),
+            visibility_tx,
+            world_artist_tx,
+            simulation_tx,
             pathfinder_with_planned_roads,
             pathfinder_without_planned_roads,
         }
@@ -76,19 +45,12 @@ impl Polysender {
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
             game_tx: self.game_tx.clone_with_name(name),
-            visibility: self.visibility.clone_with_name(name),
-            world_artist: self.world_artist.clone_with_name(name),
+            visibility_tx: self.visibility_tx.clone_with_name(name),
+            world_artist_tx: self.world_artist_tx.clone_with_name(name),
+            simulation_tx: self.simulation_tx.clone_with_name(name),
             pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
             pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
         }
-    }
-
-    pub fn visibility_rx(&self) -> FnReceiver<VisibilityActor> {
-        self.visibility.rx.clone()
-    }
-
-    pub fn world_artist_rx(&self) -> FnReceiver<WorldArtistActor> {
-        self.world_artist.rx.clone()
     }
 }
 
@@ -117,8 +79,7 @@ impl SendVisibility for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut VisibilityActor) -> O + Send + 'static,
     {
-        self.visibility
-            .tx
+        self.visibility_tx
             .send(move |mut visibility| function(&mut visibility));
     }
 }
@@ -151,9 +112,27 @@ impl SendWorldArtist for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut WorldArtistActor) -> commons::future::BoxFuture<O> + Send + 'static,
     {
-        self.world_artist
-            .tx
+        self.world_artist_tx
             .send_future(move |world_artist| function(world_artist));
+    }
+}
+
+#[async_trait]
+impl SendSim for Polysender {
+    async fn send_sim<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Simulation) -> O + Send + 'static,
+    {
+        self.simulation_tx.send(function).await
+    }
+
+    fn send_sim_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Simulation) -> O + Send + 'static,
+    {
+        self.simulation_tx.send(function);
     }
 }
 

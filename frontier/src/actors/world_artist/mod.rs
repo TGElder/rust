@@ -44,14 +44,15 @@ pub struct WorldArtistActor {
 impl WorldArtistActor {
     pub fn new(
         x: Polysender,
+        rx: FnReceiver<WorldArtistActor>,
         engine_rx: Receiver<Arc<Event>>,
         game_rx: Receiver<GameEvent>,
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
     ) -> WorldArtistActor {
         WorldArtistActor {
-            rx: x.world_artist_rx(),
             x,
+            rx,
             engine_rx,
             game_rx,
             command_tx,
