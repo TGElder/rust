@@ -1,4 +1,3 @@
-use crate::polysender::Polysender;
 use crate::traits::{SendGame, SendSim};
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
@@ -8,16 +7,19 @@ use std::sync::Arc;
 
 const PATH: &str = "save";
 
-pub struct Save {
-    x: Polysender,
+pub struct Save<T> {
+    x: T,
     engine_rx: Receiver<Arc<Event>>,
     binding: Button,
     path: String,
     run: bool,
 }
 
-impl Save {
-    pub fn new(x: Polysender, engine_rx: Receiver<Arc<Event>>) -> Save {
+impl<T> Save<T>
+where
+    T: SendGame + SendSim,
+{
+    pub fn new(x: T, engine_rx: Receiver<Arc<Event>>) -> Save<T> {
         Save {
             x,
             engine_rx,

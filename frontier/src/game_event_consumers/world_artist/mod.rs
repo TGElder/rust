@@ -1,17 +1,20 @@
-use crate::polysender::Polysender;
-use crate::traits::SendWorldArtist;
 use futures::FutureExt;
+
+use crate::traits::SendWorldArtist;
 
 use super::*;
 
 const NAME: &str = "world_artist_handler";
 
-pub struct WorldArtistHandler {
-    x: Polysender,
+pub struct WorldArtistHandler<T> {
+    x: T,
 }
 
-impl WorldArtistHandler {
-    pub fn new(x: Polysender) -> WorldArtistHandler {
+impl<T> WorldArtistHandler<T>
+where
+    T: SendWorldArtist,
+{
+    pub fn new(x: T) -> WorldArtistHandler<T> {
         WorldArtistHandler { x }
     }
 
@@ -40,7 +43,10 @@ impl WorldArtistHandler {
     }
 }
 
-impl GameEventConsumer for WorldArtistHandler {
+impl<T> GameEventConsumer for WorldArtistHandler<T>
+where
+    T: SendWorldArtist,
+{
     fn name(&self) -> &'static str {
         NAME
     }
