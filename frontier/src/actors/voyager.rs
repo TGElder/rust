@@ -45,7 +45,7 @@ where
         message.apply(self).await;
     }
 
-    pub async fn voyage_to(&mut self, positions: Vec<V2<usize>>, by: &'static str) {
+    pub async fn voyage_to(&mut self, positions: HashSet<V2<usize>>, by: &'static str) {
         if by == NAME {
             return;
         } // avoid chain reaction
@@ -57,7 +57,7 @@ where
         }
     }
 
-    async fn filter_coastal(&self, positions: Vec<V2<usize>>) -> Vec<V2<usize>>
+    async fn filter_coastal(&self, positions: HashSet<V2<usize>>) -> HashSet<V2<usize>>
     where
         T: SendWorld,
     {
@@ -95,7 +95,7 @@ where
     }
 }
 
-fn filter_coastal(world: &World, mut positions: Vec<V2<usize>>) -> Vec<V2<usize>> {
+fn filter_coastal(world: &World, mut positions: HashSet<V2<usize>>) -> HashSet<V2<usize>> {
     positions
         .retain(|position| world.get_cell_unsafe(&position).visible && is_coastal(world, position));
     positions

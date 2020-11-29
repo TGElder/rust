@@ -158,9 +158,6 @@ fn main() {
         ],
     );
 
-    let visibility_sim = VisibilitySim::new();
-    let visibility_sim_consumer = visibility_sim.consumer();
-
     let mut sim = Simulation::new(
         simulation_rx,
         vec![
@@ -196,14 +193,12 @@ fn main() {
                 thread_pool.clone(),
             )),
             Box::new(UpdateRouteToPorts::new(game.tx())),
-            Box::new(visibility_sim),
         ],
     );
 
     let mut pause_sim = PauseSim::new(x.clone_with_name("pause_sim"), event_forwarder.subscribe());
     let mut save = Save::new(x.clone_with_name("save"), event_forwarder.subscribe());
 
-    game.add_consumer(visibility_sim_consumer);
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
     // Controls

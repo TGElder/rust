@@ -239,14 +239,6 @@ impl Game {
         });
     }
 
-    // fn update_visible_land_positions(&mut self, newly_visible: &[V2<usize>]) {
-    //     let newly_visible_land = newly_visible
-    //         .iter()
-    //         .filter(|position| !self.game_state.world.is_sea(position))
-    //         .count();
-    //     self.game_state.visible_land_positions += newly_visible_land;
-    // }
-
     pub fn add_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
         let cell = unwrap_or!(self.game_state.world.mut_cell(&position), return false);
         if cell.object != WorldObject::None {

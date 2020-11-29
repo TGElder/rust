@@ -32,7 +32,7 @@ where
         let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
         update_visible_land_positions(self, newly_visible.len()).await;
         voyage(self, newly_visible.clone(), revealed_by);
-        self.send_sim_background(|sim| sim.reveal_cells());
+        update_sim(self, newly_visible.clone());
         join!(
             redraw(self, &newly_visible),
             update_pathfinders(self, &newly_visible),
@@ -43,7 +43,7 @@ where
 async fn send_set_visible_get_newly_visible<T>(
     x: &T,
     positions: HashSet<V2<usize>>,
-) -> Vec<V2<usize>>
+) -> HashSet<V2<usize>>
 where
     T: SendWorld,
 {
@@ -54,13 +54,13 @@ where
 fn set_visible_get_newly_visible(
     world: &mut World,
     positions: HashSet<V2<usize>>,
-) -> Vec<V2<usize>> {
-    let mut out = vec![];
+) -> HashSet<V2<usize>> {
+    let mut out = hashset! {};
     for position in positions {
         if let Some(world_cell) = world.mut_cell(&position) {
             if !world_cell.visible {
                 world_cell.visible = true;
-                out.push(position);
+                out.insert(position);
             }
         }
     }
@@ -75,7 +75,23 @@ where
         .await
 }
 
-async fn redraw<T>(x: &T, positions: &[V2<usize>])
+fn voyage<T>(x: &T, positions: HashSet<V2<usize>>, revealed_by: &'static str)
+where
+    T: SendVoyager + Sync,
+{
+    x.send_voyager_future_background(move |voyager| {
+        voyager.voyage_to(positions, revealed_by).boxed()
+    });
+}
+
+fn update_sim<T>(x: &T, positions: HashSet<V2<usize>>)
+where
+    T: SendSim,
+{
+    x.send_sim_background(move |sim| sim.reveal_positions(positions));
+}
+
+async fn redraw<T>(x: &T, positions: &HashSet<V2<usize>>)
 where
     T: Micros + Redraw,
 {
@@ -85,17 +101,7 @@ where
     }
 }
 
-fn voyage<T>(x: &T, positions: Vec<V2<usize>>, revealed_by: &'static str)
-where
-    T: SendVoyager + Sync,
-{
-    x.send_voyager_future_background(move |voyager| {
-        voyager.voyage_to(positions, revealed_by).boxed()
-    });
-}
-
-#[allow(clippy::ptr_arg)]
-async fn update_pathfinders<T>(x: &T, positions: &[V2<usize>])
+async fn update_pathfinders<T>(x: &T, positions: &HashSet<V2<usize>>)
 where
     T: PathfinderWithPlannedRoads + PathfinderWithoutPlannedRoads + SendWorld,
 {
@@ -103,12 +109,12 @@ where
     let pathfinder_without = x.pathfinder_without_planned_roads().clone();
 
     join!(
-        update_pathfinder(x, pathfinder_with, positions.to_vec()),
-        update_pathfinder(x, pathfinder_without, positions.to_vec()),
+        update_pathfinder(x, pathfinder_with, positions.clone()),
+        update_pathfinder(x, pathfinder_without, positions.clone()),
     );
 }
 
-async fn update_pathfinder<T, P>(tx: &T, pathfinder: P, positions: Vec<V2<usize>>)
+async fn update_pathfinder<T, P>(tx: &T, pathfinder: P, positions: HashSet<V2<usize>>)
 where
     T: SendWorld,
     P: SendPathfinder + Send,
