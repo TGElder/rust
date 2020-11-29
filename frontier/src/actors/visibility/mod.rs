@@ -1,5 +1,5 @@
 use crate::game::{Game, GameEvent};
-use crate::traits::{RevealCells, SendGame, SendWorld};
+use crate::traits::{RevealPositions, SendGame, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
 use commons::async_channel::{Receiver, RecvError};
@@ -47,7 +47,7 @@ impl WithElevation for Elevation {
 
 impl<T> VisibilityActor<T>
 where
-    T: RevealCells + SendGame + SendWorld + Send,
+    T: RevealPositions + SendGame + SendWorld + Send,
 {
     pub fn new(
         x: T,
@@ -117,7 +117,7 @@ where
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
         self.x
-            .reveal_cells(visible.iter().cloned().collect(), NAME)
+            .reveal_positions(visible.iter().cloned().collect(), NAME)
             .await;
     }
 

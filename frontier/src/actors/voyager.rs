@@ -1,6 +1,6 @@
 use crate::game::GameState;
 use crate::settlement::SettlementClass;
-use crate::traits::{RevealCells, SendGame, SendWorld};
+use crate::traits::{RevealPositions, SendGame, SendWorld};
 use crate::world::World;
 use commons::async_channel::{Receiver, RecvError};
 use commons::fn_sender::{FnMessage, FnMessageExt, FnReceiver};
@@ -22,7 +22,7 @@ pub struct Voyager<T> {
 
 impl<T> Voyager<T>
 where
-    T: RevealCells + SendGame + SendWorld + Send,
+    T: RevealPositions + SendGame + SendWorld + Send,
 {
     pub fn new(x: T, rx: FnReceiver<Voyager<T>>, engine_rx: Receiver<Arc<Event>>) -> Voyager<T> {
         Voyager {
@@ -46,26 +46,31 @@ where
         message.apply(self).await;
     }
 
-    pub async fn voyage_to(&mut self, cells: Vec<V2<usize>>, by: &'static str) {
+    pub async fn voyage_to(&mut self, positions: Vec<V2<usize>>, by: &'static str) {
         if by == NAME {
             return;
         } // avoid chain reaction
+        let positions = self
+            .x
+            .send_world(move |world| filter_coastal(world, positions))
+            .await;
         let homeland_positions = self
             .x
             .send_game(|game| homeland_positions(game.game_state()))
             .await;
-        let mut to_reveal = self
-            .x
-            .send_world(move |world| {
-                let voyaged = get_all_voyaged(world, homeland_positions, cells);
-                extend_all(world, &voyaged)
-            })
-            .await;
-        self.reveal_cells(to_reveal.drain().collect()).await;
+        for homeland in homeland_positions {
+            for position in positions.iter().cloned() {
+                let mut to_reveal = self
+                    .x
+                    .send_world(move |world| get_positions_to_reveal(world, homeland, position))
+                    .await;
+                self.reveal_cells(to_reveal.drain().collect()).await
+            }
+        }
     }
 
     async fn reveal_cells(&mut self, revealed: Vec<V2<usize>>) {
-        self.x.reveal_cells(revealed, NAME).await;
+        self.x.reveal_positions(revealed, NAME).await;
     }
 
     fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
@@ -79,6 +84,12 @@ where
     }
 }
 
+fn filter_coastal(world: &World, mut positions: Vec<V2<usize>>) -> Vec<V2<usize>> {
+    positions
+        .retain(|position| world.get_cell_unsafe(&position).visible && is_coastal(world, position));
+    positions
+}
+
 fn homeland_positions(game_state: &GameState) -> Vec<V2<usize>> {
     game_state
         .settlements
@@ -88,21 +99,11 @@ fn homeland_positions(game_state: &GameState) -> Vec<V2<usize>> {
         .collect()
 }
 
-fn extend_all(world: &World, positions: &HashSet<V2<usize>>) -> HashSet<V2<usize>> {
-    positions
-        .iter()
-        .flat_map(|position| world.expand_position(position))
-        .collect()
-}
-
-fn get_all_voyaged(world: &World, from: Vec<V2<usize>>, to: Vec<V2<usize>>) -> HashSet<V2<usize>> {
-    let mut out = HashSet::new();
-    for from in from {
-        for to in to.iter() {
-            out.extend(unwrap_or!(get_voyage(world, &from, &to), continue));
-        }
-    }
-    out
+fn get_positions_to_reveal(world: &World, from: V2<usize>, to: V2<usize>) -> HashSet<V2<usize>> {
+    extend_all(
+        world,
+        unwrap_or!(get_voyage(world, &from, &to), return hashset! {}),
+    )
 }
 
 fn get_voyage(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Vec<V2<usize>>> {
@@ -147,6 +148,13 @@ fn is_coastal(world: &World, position: &V2<usize>) -> bool {
         .neighbours(position)
         .iter()
         .any(|position| !world.is_sea(position) && world.get_cell_unsafe(position).visible)
+}
+
+fn extend_all(world: &World, positions: Vec<V2<usize>>) -> HashSet<V2<usize>> {
+    positions
+        .into_iter()
+        .flat_map(|position| world.expand_position(&position))
+        .collect()
 }
 
 #[cfg(test)]
@@ -272,23 +280,5 @@ mod tests {
         let mut world = world();
         world.mut_cell_unsafe(&v2(2, 4)).visible = true;
         assert_eq!(get_voyage(&world, &v2(4, 4), &v2(2, 4)), None)
-    }
-
-    #[test]
-    fn test_get_all_voyaged() {
-        let mut world = world();
-        world.mut_cell_unsafe(&v2(1, 1)).visible = true;
-        world.mut_cell_unsafe(&v2(2, 1)).visible = true;
-        world.mut_cell_unsafe(&v2(1, 3)).visible = true;
-        world.mut_cell_unsafe(&v2(2, 3)).visible = true;
-
-        let actual = get_all_voyaged(&world, vec![v2(4, 1), v2(4, 3)], vec![v2(2, 1), v2(2, 3)]);
-        let mut expected = vec![];
-        expected.append(&mut get_voyage(&world, &v2(4, 1), &v2(2, 1)).unwrap());
-        expected.append(&mut get_voyage(&world, &v2(4, 1), &v2(2, 3)).unwrap());
-        expected.append(&mut get_voyage(&world, &v2(4, 3), &v2(2, 1)).unwrap());
-        expected.append(&mut get_voyage(&world, &v2(4, 3), &v2(2, 3)).unwrap());
-        let expected = expected.drain(..).collect();
-        assert_eq!(actual, expected);
     }
 }

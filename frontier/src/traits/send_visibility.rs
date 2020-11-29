@@ -1,9 +1,9 @@
 use commons::future::BoxFuture;
 
 use crate::actors::VisibilityActor;
-use crate::traits::{RevealCells, SendGame, SendWorld};
+use crate::traits::{RevealPositions, SendGame, SendWorld};
 
-pub trait SendVisibility: RevealCells + SendGame + SendWorld + Send {
+pub trait SendVisibility: RevealPositions + SendGame + SendWorld + Send {
     fn send_visibility_background<F, O>(&self, function: F)
     where
         O: Send + 'static,

@@ -1,9 +1,9 @@
 use commons::future::BoxFuture;
 
 use crate::actors::Voyager;
-use crate::traits::{RevealCells, SendGame, SendWorld};
+use crate::traits::{RevealPositions, SendGame, SendWorld};
 
-pub trait SendVoyager: RevealCells + SendGame + SendWorld + Send {
+pub trait SendVoyager: RevealPositions + SendGame + SendWorld + Send {
     fn send_voyager_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
