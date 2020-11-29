@@ -29,7 +29,6 @@ mod speed_control;
 mod town_artist;
 mod town_builder;
 mod visibility;
-mod voyager;
 mod world_artist;
 
 pub use avatar_artist::*;
@@ -51,5 +50,4 @@ pub use speed_control::*;
 pub use town_artist::*;
 pub use town_builder::*;
 pub use visibility::*;
-pub use voyager::*;
 pub use world_artist::*;

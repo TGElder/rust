@@ -1,6 +1,7 @@
 use super::*;
 
 use commons::async_trait::async_trait;
+use commons::future::FutureExt;
 use commons::V2;
 use std::collections::HashSet;
 
@@ -16,8 +17,8 @@ where
     T: SendVisibility,
 {
     fn check_visibility_and_reveal(&self, visited: HashSet<V2<usize>>) {
-        self.send_visibility_background(move |visibility| {
-            visibility.check_visibility_and_reveal(visited)
+        self.send_visibility_future_background(move |visibility| {
+            visibility.check_visibility_and_reveal(visited).boxed()
         });
     }
 

@@ -18,7 +18,6 @@ mod update_homeland_population;
 mod update_position_traffic;
 mod update_route_to_ports;
 mod update_town;
-mod visibility_sim;
 
 pub use build_sim::BuildSim;
 pub use get_demand::GetDemand;
@@ -38,4 +37,3 @@ pub use update_homeland_population::UpdateHomelandPopulation;
 pub use update_position_traffic::UpdatePositionTraffic;
 pub use update_route_to_ports::UpdateRouteToPorts;
 pub use update_town::UpdateTown;
-pub use visibility_sim::{VisibilitySim, VisibilitySimConsumer};

@@ -3,7 +3,7 @@ use crate::traits::{
     Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, Redraw, SendPathfinder,
     SendWorld, Visibility,
 };
-use crate::travel_duration::{PathDuration, TravelDuration};
+use crate::travel_duration::{EdgeDuration, TravelDuration};
 use commons::async_trait::async_trait;
 use std::sync::Arc;
 
@@ -28,17 +28,10 @@ where
     async fn update_roads(&self, result: RoadBuilderResult) {
         let result = Arc::new(result);
         send_update_world(self, result.clone()).await;
-        let micros = self.micros().await;
-        redraw(self, &result, micros);
+
         check_visibility_and_reveal(self, &result);
 
-        let pathfinder_with = self.pathfinder_with_planned_roads().clone();
-        let pathfinder_without = self.pathfinder_without_planned_roads().clone();
-
-        join!(
-            update_path_durations(self, pathfinder_with, &result),
-            update_path_durations(self, pathfinder_without, &result),
-        );
+        join!(redraw(self, &result), update_pathfinders(self, &result));
     }
 }
 
@@ -51,9 +44,13 @@ where
         .await
 }
 
-fn redraw(redraw: &dyn Redraw, result: &Arc<RoadBuilderResult>, micros: u128) {
+async fn redraw<T>(x: &T, result: &Arc<RoadBuilderResult>)
+where
+    T: Micros + Redraw,
+{
+    let micros = x.micros().await;
     for position in result.path().iter().cloned() {
-        redraw.redraw_tile_at(position, micros);
+        x.redraw_tile_at(position, micros);
     }
 }
 
@@ -62,7 +59,20 @@ fn check_visibility_and_reveal(tx: &dyn Visibility, result: &Arc<RoadBuilderResu
     tx.check_visibility_and_reveal(visited);
 }
 
-async fn update_path_durations<T, P>(tx: &T, pathfinder: P, result: &Arc<RoadBuilderResult>)
+async fn update_pathfinders<T>(x: &T, result: &Arc<RoadBuilderResult>)
+where
+    T: PathfinderWithPlannedRoads + PathfinderWithoutPlannedRoads + SendWorld,
+{
+    let pathfinder_with = x.pathfinder_with_planned_roads().clone();
+    let pathfinder_without = x.pathfinder_without_planned_roads().clone();
+
+    join!(
+        update_pathfinder(x, pathfinder_with, result),
+        update_pathfinder(x, pathfinder_without, result),
+    );
+}
+
+async fn update_pathfinder<T, P>(x: &T, pathfinder: P, result: &Arc<RoadBuilderResult>)
 where
     T: SendWorld,
     P: SendPathfinder + Send,
@@ -72,12 +82,16 @@ where
         .await;
 
     let path = result.path().clone();
-    let durations: Vec<PathDuration> = tx
-        .send_world(move |world| travel_duration.get_path_durations(world, &path).collect())
+    let durations: Vec<EdgeDuration> = x
+        .send_world(move |world| {
+            travel_duration
+                .get_durations_for_path(world, &path)
+                .collect()
+        })
         .await;
 
     pathfinder.send_pathfinder_background(move |pathfinder| {
-        for PathDuration { from, to, duration } in durations {
+        for EdgeDuration { from, to, duration } in durations {
             if let Some(duration) = duration {
                 pathfinder.set_edge_duration(&from, &to, &duration)
             }
