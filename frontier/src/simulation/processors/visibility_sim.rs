@@ -1,5 +1,4 @@
 use super::*;
-use crate::game::traits::VisiblePositions;
 use crate::game::{CaptureEvent, CellSelection, GameEvent, GameEventConsumer, GameState};
 use commons::grid::Grid;
 use isometric::Event;
@@ -10,20 +9,13 @@ pub enum VisibilityMessage {
     All,
 }
 
-pub struct VisibilitySim<G>
-where
-    G: VisiblePositions + Send,
-{
+pub struct VisibilitySim {
     tx: Sender<VisibilityMessage>,
     rx: Receiver<VisibilityMessage>,
-    game: FnSender<G>,
 }
 
 #[async_trait]
-impl<G> Processor for VisibilitySim<G>
-where
-    G: VisiblePositions + Send,
-{
+impl Processor for VisibilitySim {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::Step => (),
@@ -31,9 +23,7 @@ where
         };
         let messages = self.get_messages();
         if !messages.is_empty() {
-            state.instructions.push(Instruction::VisibleLandPositions(
-                self.visible_land_positions().await,
-            ));
+            state.instructions.push(Instruction::VisibleLandPositions)
         }
         let positions_to_refresh = get_traffic_positions(&state, &messages);
         if !positions_to_refresh.is_empty() {
@@ -45,17 +35,10 @@ where
     }
 }
 
-impl<G> VisibilitySim<G>
-where
-    G: VisiblePositions + Send,
-{
-    pub fn new(game: &FnSender<G>) -> VisibilitySim<G> {
+impl VisibilitySim {
+    pub fn new() -> VisibilitySim {
         let (tx, rx) = channel();
-        VisibilitySim {
-            tx,
-            rx,
-            game: game.clone_with_name(NAME),
-        }
+        VisibilitySim { tx, rx }
     }
 
     pub fn consumer(&self) -> VisibilitySimConsumer {
@@ -69,17 +52,6 @@ where
         }
         out
     }
-
-    async fn visible_land_positions(&mut self) -> usize {
-        self.game.send(|game| visible_land_positions(game)).await
-    }
-}
-
-fn visible_land_positions<G>(game: &mut G) -> usize
-where
-    G: VisiblePositions + Send,
-{
-    game.visible_land_positions()
 }
 
 fn get_traffic_positions(state: &State, messages: &[VisibilityMessage]) -> HashSet<V2<usize>> {
@@ -140,135 +112,12 @@ impl GameEventConsumer for VisibilitySimConsumer {
 mod tests {
     use super::*;
 
-    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-
-    // #[test]
-    // fn should_refresh_positions_surrounding_revealed_cell_with_traffic() {
-    //     // Given
-    //     let game = FnThread::new(0);
-    //     let mut processor = VisibilitySim::new(&game.tx());
-    //     let mut consumer = processor.consumer();
-
-    //     let mut traffic = Traffic::new(4, 4, HashSet::with_capacity(0));
-    //     let route_key = RouteKey {
-    //         settlement: v2(0, 0),
-    //         resource: Resource::Stone,
-    //         destination: v2(2, 2),
-    //     };
-    //     traffic.mut_cell_unsafe(&v2(0, 1)).insert(route_key);
-    //     traffic.mut_cell_unsafe(&v2(1, 1)).insert(route_key);
-    //     traffic.mut_cell_unsafe(&v2(2, 1)).insert(route_key);
-    //     traffic.mut_cell_unsafe(&v2(0, 2)).insert(route_key);
-    //     traffic.mut_cell_unsafe(&v2(1, 2)).insert(route_key);
-    //     traffic.mut_cell_unsafe(&v2(2, 2)).insert(route_key);
-    //     traffic.mut_cell_unsafe(&v2(0, 3)).insert(route_key);
-    //     traffic.mut_cell_unsafe(&v2(1, 3)).insert(route_key);
-    //     traffic.mut_cell_unsafe(&v2(2, 3)).insert(route_key);
-    //     let state = State {
-    //         traffic,
-    //         ..State::default()
-    //     };
-
-    //     // When
-    //     consumer.consume_game_event(
-    //         &GameState::default(),
-    //         &GameEvent::CellsRevealed {
-    //             selection: CellSelection::Some(vec![v2(1, 2)]),
-    //             by: "",
-    //         },
-    //     );
-    //     let state = block_on(processor.process(state, &Instruction::Step));
-
-    //     // Then
-    //     assert!(same_elements(
-    //         &state.instructions,
-    //         &[
-    //             Instruction::VisibleLandPositions(0),
-    //             Instruction::RefreshPositions(hashset! {
-    //                 v2(0, 1),
-    //                 v2(1, 1),
-    //                 v2(2, 1),
-    //                 v2(0, 2),
-    //                 v2(1, 2),
-    //                 v2(2, 2),
-    //                 v2(0, 3),
-    //                 v2(1, 3),
-    //                 v2(2, 3)
-    //             })
-    //         ]
-    //     ));
-
-    //     // Finally
-    //     game.join();
-    // }
-
-    // #[test]
-    // fn should_not_refresh_positions_surrounding_revealed_cell_without_traffic() {
-    //     // Given
-    //     let game = FnThread::new(0);
-    //     let mut processor = VisibilitySim::new(&game.tx());
-    //     let mut consumer = processor.consumer();
-
-    //     let state = State {
-    //         traffic: Traffic::new(4, 4, HashSet::with_capacity(0)),
-    //         ..State::default()
-    //     };
-
-    //     // When
-    //     consumer.consume_game_event(
-    //         &GameState::default(),
-    //         &GameEvent::CellsRevealed {
-    //             selection: CellSelection::Some(vec![v2(1, 2)]),
-    //             by: "",
-    //         },
-    //     );
-    //     let state = block_on(processor.process(state, &Instruction::Step));
-
-    //     // Then
-    //     assert_eq!(
-    //         state.instructions,
-    //         vec![Instruction::VisibleLandPositions(0)]
-    //     );
-
-    //     // Finally
-    //     game.join();
-    // }
-
-    // #[test]
-    // fn should_append_visible_land_positions_instruction_for_some_cell_selection() {
-    //     // Given
-    //     let visible_land_positions = 404;
-    //     let game = FnThread::new(visible_land_positions);
-    //     let mut processor = VisibilitySim::new(&game.tx());
-    //     let mut consumer = processor.consumer();
-
-    //     // When
-    //     consumer.consume_game_event(
-    //         &GameState::default(),
-    //         &GameEvent::CellsRevealed {
-    //             selection: CellSelection::Some(vec![v2(1, 2), v2(3, 2)]),
-    //             by: "",
-    //         },
-    //     );
-    //     let state = block_on(processor.process(State::default(), &Instruction::Step));
-
-    //     // Then
-    //     assert_eq!(
-    //         state.instructions,
-    //         vec![Instruction::VisibleLandPositions(visible_land_positions)]
-    //     );
-
-    //     // Finally
-    //     game.join();
-    // }
 
     #[test]
     fn should_append_visible_land_positions_instruction_for_all_cell_selection() {
         // Given
-        let visible_land_positions = 404;
-        let game = FnThread::new(visible_land_positions);
-        let mut processor = VisibilitySim::new(&game.tx());
+        let mut processor = VisibilitySim::new();
         let mut consumer = processor.consumer();
 
         // When
@@ -282,28 +131,18 @@ mod tests {
         let state = block_on(processor.process(State::default(), &Instruction::Step));
 
         // Then
-        assert_eq!(
-            state.instructions,
-            vec![Instruction::VisibleLandPositions(visible_land_positions)]
-        );
-
-        // Finally
-        game.join();
+        assert_eq!(state.instructions, vec![Instruction::VisibleLandPositions]);
     }
 
     #[test]
     fn should_do_nothing_if_no_messages() {
         // Given
-        let game = FnThread::new(0);
-        let mut processor = VisibilitySim::new(&game.tx());
+        let mut processor = VisibilitySim::new();
 
         // When
         let state = block_on(processor.process(State::default(), &Instruction::Step));
 
         // Then
         assert_eq!(state.instructions, vec![]);
-
-        // Finally
-        game.join();
     }
 }

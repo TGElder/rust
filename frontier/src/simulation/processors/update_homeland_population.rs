@@ -1,12 +1,12 @@
 use super::*;
-use crate::game::traits::{Settlements, UpdateSettlement};
+use crate::game::traits::{Settlements, UpdateSettlement, VisiblePositions};
 use crate::settlement::{Settlement, SettlementClass::Homeland};
 
 const NAME: &str = "update_homeland_population";
 
 pub struct UpdateHomelandPopulation<G>
 where
-    G: Settlements + UpdateSettlement + Send,
+    G: Settlements + UpdateSettlement + VisiblePositions + Send,
 {
     game: FnSender<G>,
 }
@@ -14,21 +14,22 @@ where
 #[async_trait]
 impl<G> Processor for UpdateHomelandPopulation<G>
 where
-    G: Settlements + UpdateSettlement + Send,
+    G: Settlements + UpdateSettlement + VisiblePositions + Send,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let visible_land = match instruction {
-            Instruction::VisibleLandPositions(visible_land) => visible_land,
+        match instruction {
+            Instruction::VisibleLandPositions => (),
             _ => return state,
         };
-        self.update_homelands(*visible_land as f64).await;
+        let visibile_land_positions = self.visibile_land_positions().await;
+        self.update_homelands(visibile_land_positions as f64).await;
         state
     }
 }
 
 impl<G> UpdateHomelandPopulation<G>
 where
-    G: Settlements + UpdateSettlement + Send,
+    G: Settlements + UpdateSettlement + VisiblePositions + Send,
 {
     pub fn new(game: &FnSender<G>) -> UpdateHomelandPopulation<G> {
         UpdateHomelandPopulation {
@@ -36,11 +37,22 @@ where
         }
     }
 
+    async fn visibile_land_positions(&mut self) -> usize {
+        self.game.send(|game| visible_land_positions(game)).await
+    }
+
     async fn update_homelands(&mut self, total_population: f64) {
         self.game
             .send(move |game| update_homelands(game, total_population))
             .await
     }
+}
+
+fn visible_land_positions<G>(game: &mut G) -> usize
+where
+    G: VisiblePositions + Send,
+{
+    game.visible_land_positions()
 }
 
 fn update_homelands<G>(game: &mut G, total_population: f64)
@@ -78,11 +90,36 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
 
     use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
     use commons::v2;
+
+    struct MockGame {
+        settlements: HashMap<V2<usize>, Settlement>,
+        visible_land_positions: usize,
+    }
+
+    impl Settlements for MockGame {
+        fn settlements(&self) -> &HashMap<V2<usize>, Settlement> {
+            &self.settlements
+        }
+    }
+
+    impl UpdateSettlement for MockGame {
+        fn update_settlement(&mut self, settlement: Settlement) {
+            self.settlements.insert(settlement.position, settlement);
+        }
+    }
+
+    impl VisiblePositions for MockGame {
+        fn visible_land_positions(&self) -> usize {
+            self.visible_land_positions
+        }
+    }
 
     #[test]
     fn each_homeland_population_should_be_equal_share_of_visible_land() {
@@ -99,14 +136,17 @@ mod tests {
                 ..Settlement::default()
             },
         };
-        let game = FnThread::new(settlements);
+        let game = FnThread::new(MockGame {
+            settlements,
+            visible_land_positions: 202,
+        });
         let mut processor = UpdateHomelandPopulation::new(&game.tx());
 
         // When
-        block_on(processor.process(State::default(), &Instruction::VisibleLandPositions(202)));
+        block_on(processor.process(State::default(), &Instruction::VisibleLandPositions));
 
         // Then
-        let actual = game.join();
+        let actual = game.join().settlements;
         let expected = hashmap! {
             v2(0, 1) => Settlement{
                 position: v2(0, 1),

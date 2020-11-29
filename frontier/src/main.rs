@@ -158,7 +158,7 @@ fn main() {
         ],
     );
 
-    let visibility_sim = VisibilitySim::new(game.tx());
+    let visibility_sim = VisibilitySim::new();
     let visibility_sim_consumer = visibility_sim.consumer();
 
     let mut sim = Simulation::new(

@@ -44,6 +44,12 @@ impl Simulation {
             .for_each(|state| state.paused = !state.paused);
     }
 
+    pub fn reveal_cells(&mut self) {
+        if let Some(state) = &mut self.state {
+            state.instructions.push(Instruction::VisibleLandPositions);
+        }
+    }
+
     pub async fn run(&mut self) {
         while self.run {
             self.process_updates().await;

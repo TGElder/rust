@@ -4,8 +4,8 @@ use commons::async_trait::async_trait;
 use commons::{FutureExt, Grid, V2};
 
 use crate::traits::{
-    Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendPathfinder, SendVoyager,
-    SendWorld, SendWorldArtist,
+    Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendPathfinder,
+    SendSim, SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::travel_duration::{EdgeDuration, TravelDuration};
 use crate::world::World;
@@ -19,6 +19,8 @@ pub trait RevealCells {
 impl<T> RevealCells for T
 where
     T: Micros
+        + SendGame
+        + SendSim
         + SendVoyager
         + SendWorld
         + SendWorldArtist
@@ -29,6 +31,11 @@ where
         let newly_visible = self
             .send_world(move |world| set_visible_get_newly_visible(world, cells))
             .await;
+
+        let newly_visible_count = newly_visible.len();
+        self.send_game(move |game| game.mut_state().visible_land_positions += newly_visible_count)
+            .await;
+
         let micros = self.micros().await;
         for cell in newly_visible.clone() {
             self.send_world_artist_future_background(move |artist| {
@@ -40,6 +47,8 @@ where
         self.send_voyager_future_background(move |voyager| {
             voyager.voyage_to(voyager_positions, revealed_by).boxed()
         });
+
+        self.send_sim_background(|sim| sim.reveal_cells());
 
         let pathfinder_with = self.pathfinder_with_planned_roads().clone();
         let pathfinder_without = self.pathfinder_without_planned_roads().clone();
