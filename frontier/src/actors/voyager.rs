@@ -1,6 +1,5 @@
-use crate::game::GameState;
-use crate::settlement::SettlementClass;
-use crate::traits::{RevealPositions, SendGame, SendWorld};
+use crate::settlement::{Settlement, SettlementClass};
+use crate::traits::{RevealPositions, SendSettlements, SendWorld};
 use crate::world::World;
 use commons::async_channel::{Receiver, RecvError};
 use commons::fn_sender::{FnMessage, FnMessageExt, FnReceiver};
@@ -8,7 +7,7 @@ use commons::futures::future::FutureExt;
 use commons::{v2, Grid, V2};
 use isometric::Event;
 use line_drawing::WalkGrid;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 const NAME: &str = "voyager";
@@ -22,7 +21,7 @@ pub struct Voyager<T> {
 
 impl<T> Voyager<T>
 where
-    T: RevealPositions + SendGame + SendWorld + Send,
+    T: RevealPositions + SendSettlements + SendWorld + Send,
 {
     pub fn new(x: T, rx: FnReceiver<Voyager<T>>, engine_rx: Receiver<Arc<Event>>) -> Voyager<T> {
         Voyager {
@@ -50,26 +49,38 @@ where
         if by == NAME {
             return;
         } // avoid chain reaction
-        let positions = self
-            .x
-            .send_world(move |world| filter_coastal(world, positions))
-            .await;
-        let homeland_positions = self
-            .x
-            .send_game(|game| homeland_positions(game.game_state()))
-            .await;
-        for homeland in homeland_positions {
+        let positions = self.filter_coastal(positions).await;
+        for homeland in self.homeland_positions().await {
             for position in positions.iter().cloned() {
-                let mut to_reveal = self
-                    .x
-                    .send_world(move |world| get_positions_to_reveal(world, homeland, position))
-                    .await;
-                self.reveal_cells(to_reveal.drain().collect()).await
+                self.voyage_between(homeland, position).await;
             }
         }
     }
 
-    async fn reveal_cells(&mut self, revealed: Vec<V2<usize>>) {
+    async fn filter_coastal(&self, positions: Vec<V2<usize>>) -> Vec<V2<usize>>
+    where
+        T: SendWorld,
+    {
+        self.x
+            .send_world(move |world| filter_coastal(world, positions))
+            .await
+    }
+
+    async fn homeland_positions(&self) -> HashSet<V2<usize>> {
+        self.x
+            .send_settlements(|settlements| homeland_positions(settlements))
+            .await
+    }
+
+    async fn voyage_between(&self, from: V2<usize>, to: V2<usize>) {
+        let mut to_reveal = self
+            .x
+            .send_world(move |world| get_positions_to_reveal(world, from, to))
+            .await;
+        self.reveal_cells(to_reveal.drain().collect()).await
+    }
+
+    async fn reveal_cells(&self, revealed: Vec<V2<usize>>) {
         self.x.reveal_positions(revealed, NAME).await;
     }
 
@@ -90,9 +101,8 @@ fn filter_coastal(world: &World, mut positions: Vec<V2<usize>>) -> Vec<V2<usize>
     positions
 }
 
-fn homeland_positions(game_state: &GameState) -> Vec<V2<usize>> {
-    game_state
-        .settlements
+fn homeland_positions(settlements: &mut HashMap<V2<usize>, Settlement>) -> HashSet<V2<usize>> {
+    settlements
         .values()
         .filter(|settlement| settlement.class == SettlementClass::Homeland)
         .map(|homeland| homeland.position)

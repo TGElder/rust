@@ -12,7 +12,7 @@ use crate::world::World;
 
 #[async_trait]
 pub trait RevealPositions {
-    async fn reveal_positions(&mut self, cells: Vec<V2<usize>>, revealed_by: &'static str);
+    async fn reveal_positions(&self, cells: Vec<V2<usize>>, revealed_by: &'static str);
 }
 
 #[async_trait]
@@ -28,7 +28,7 @@ where
         + PathfinderWithoutPlannedRoads
         + Sync,
 {
-    async fn reveal_positions(&mut self, positions: Vec<V2<usize>>, revealed_by: &'static str) {
+    async fn reveal_positions(&self, positions: Vec<V2<usize>>, revealed_by: &'static str) {
         let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
         update_visible_land_positions(self, newly_visible.len()).await;
         voyage(self, newly_visible.clone(), revealed_by);

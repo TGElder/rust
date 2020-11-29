@@ -4,14 +4,17 @@ use crate::actors::{VisibilityActor, Voyager, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
+use crate::settlement::Settlement;
 use crate::simulation::Simulation;
 use crate::traits::{
-    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendPathfinder, SendSim,
-    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
+    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendPathfinder,
+    SendSettlements, SendSim, SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::world::World;
 use commons::fn_sender::FnSender;
 use commons::futures::future::BoxFuture;
+use commons::V2;
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
@@ -195,5 +198,18 @@ impl SendVoyager for Polysender {
     {
         self.voyager_tx
             .send_future(move |voyager| function(voyager));
+    }
+}
+
+#[async_trait]
+impl SendSettlements for Polysender {
+    async fn send_settlements<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut HashMap<V2<usize>, Settlement>) -> O + Send + 'static,
+    {
+        self.game_tx
+            .send(move |game| function(&mut game.mut_state().settlements))
+            .await
     }
 }
