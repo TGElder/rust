@@ -27,12 +27,6 @@ where
     fn reset_pathfinder(&mut self, game_state: &GameState) {
         self.pathfinder().reset_edges(&game_state.world);
     }
-
-    fn update_pathfinder_with_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
-        for cell in cells {
-            self.pathfinder().update_node(&game_state.world, cell);
-        }
-    }
 }
 
 impl<T> GameEventConsumer for PathfinderUpdater<T>
@@ -49,9 +43,6 @@ where
             GameEvent::CellsRevealed { selection, .. } => {
                 match selection {
                     CellSelection::All => self.reset_pathfinder(game_state),
-                    CellSelection::Some(cells) => {
-                        self.update_pathfinder_with_cells(game_state, &cells)
-                    }
                 };
             }
             _ => (),

@@ -56,7 +56,6 @@ where
             GameEvent::CellsRevealed { selection, .. } => {
                 match selection {
                     CellSelection::All => self.draw_all(game_state),
-                    CellSelection::Some(cells) => self.update_cells(game_state, &cells),
                 };
             }
             GameEvent::TerritoryChanged(changes) => self.draw_territory(game_state, changes),

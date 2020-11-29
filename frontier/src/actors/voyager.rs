@@ -1,90 +1,119 @@
-use crate::game::{CaptureEvent, CellSelection, Game, GameEvent, GameEventConsumer, GameState};
-use crate::settlement::SettlementClass;
+use crate::settlement::{Settlement, SettlementClass};
+use crate::traits::{RevealPositions, SendSettlements, SendWorld};
 use crate::world::World;
-use commons::fn_sender::FnSender;
-use commons::grid::Grid;
-use commons::{v2, V2};
+use commons::async_channel::{Receiver, RecvError};
+use commons::fn_sender::{FnMessage, FnMessageExt, FnReceiver};
+use commons::futures::future::FutureExt;
+use commons::{v2, Grid, V2};
 use isometric::Event;
 use line_drawing::WalkGrid;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 const NAME: &str = "voyager";
 
-pub struct Voyager {
-    game_tx: FnSender<Game>,
+pub struct Voyager<T> {
+    x: T,
+    rx: FnReceiver<Voyager<T>>,
+    engine_rx: Receiver<Arc<Event>>,
+    run: bool,
 }
 
-impl Voyager {
-    pub fn new(game_tx: &FnSender<Game>) -> Voyager {
+impl<T> Voyager<T>
+where
+    T: RevealPositions + SendSettlements + SendWorld + Send,
+{
+    pub fn new(x: T, rx: FnReceiver<Voyager<T>>, engine_rx: Receiver<Arc<Event>>) -> Voyager<T> {
         Voyager {
-            game_tx: game_tx.clone_with_name(NAME),
+            x,
+            rx,
+            engine_rx,
+            run: true,
         }
     }
 
-    fn cells_revealed(&mut self, game_state: &GameState, cells: &[V2<usize>], by: &'static str) {
+    pub async fn run(&mut self) {
+        while self.run {
+            select! {
+                mut message = self.rx.get_message().fuse() => self.handle_message(message).await,
+                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event)
+            }
+        }
+    }
+
+    async fn handle_message(&mut self, mut message: FnMessage<Voyager<T>>) {
+        message.apply(self).await;
+    }
+
+    pub async fn voyage_to(&mut self, positions: HashSet<V2<usize>>, by: &'static str) {
         if by == NAME {
             return;
         } // avoid chain reaction
-        let world = &game_state.world;
-        let homeland_positions = homeland_positions(game_state);
-        let voyaged = get_all_voyaged(world, &homeland_positions, cells);
-        let mut to_reveal = extend_all(world, &voyaged);
-        self.reveal_cells(to_reveal.drain().collect());
+        let positions = self.filter_coastal(positions).await;
+        for homeland in self.homeland_positions().await {
+            for position in positions.iter().cloned() {
+                self.voyage_between(homeland, position).await;
+            }
+        }
     }
 
-    fn reveal_cells(&mut self, revealed: Vec<V2<usize>>) {
-        self.game_tx.send(move |game| {
-            game.reveal_cells(revealed, NAME);
-        });
+    async fn filter_coastal(&self, positions: HashSet<V2<usize>>) -> HashSet<V2<usize>>
+    where
+        T: SendWorld,
+    {
+        self.x
+            .send_world(move |world| filter_coastal(world, positions))
+            .await
+    }
+
+    async fn homeland_positions(&self) -> HashSet<V2<usize>> {
+        self.x
+            .send_settlements(|settlements| homeland_positions(settlements))
+            .await
+    }
+
+    async fn voyage_between(&self, from: V2<usize>, to: V2<usize>) {
+        let to_reveal = self
+            .x
+            .send_world(move |world| get_positions_to_reveal(world, from, to))
+            .await;
+        self.reveal_cells(to_reveal).await
+    }
+
+    async fn reveal_cells(&self, to_reveal: HashSet<V2<usize>>) {
+        self.x.reveal_positions(to_reveal, NAME).await;
+    }
+
+    fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
+        if let Event::Shutdown = *event.unwrap() {
+            self.shutdown();
+        }
+    }
+
+    fn shutdown(&mut self) {
+        self.run = false;
     }
 }
 
-impl GameEventConsumer for Voyager {
-    fn name(&self) -> &'static str {
-        NAME
-    }
-
-    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        if let GameEvent::CellsRevealed {
-            selection: CellSelection::Some(cells),
-            by,
-        } = event
-        {
-            self.cells_revealed(game_state, cells, by)
-        };
-        CaptureEvent::No
-    }
-
-    fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
-        CaptureEvent::No
-    }
+fn filter_coastal(world: &World, mut positions: HashSet<V2<usize>>) -> HashSet<V2<usize>> {
+    positions
+        .retain(|position| world.get_cell_unsafe(&position).visible && is_coastal(world, position));
+    positions
 }
 
-fn homeland_positions(game_state: &GameState) -> Vec<V2<usize>> {
-    game_state
-        .settlements
+fn homeland_positions(settlements: &mut HashMap<V2<usize>, Settlement>) -> HashSet<V2<usize>> {
+    settlements
         .values()
         .filter(|settlement| settlement.class == SettlementClass::Homeland)
         .map(|homeland| homeland.position)
         .collect()
 }
 
-fn extend_all(world: &World, positions: &HashSet<V2<usize>>) -> HashSet<V2<usize>> {
-    positions
-        .iter()
-        .flat_map(|position| world.expand_position(position))
-        .collect()
-}
-
-fn get_all_voyaged(world: &World, from: &[V2<usize>], to: &[V2<usize>]) -> HashSet<V2<usize>> {
-    let mut out = HashSet::new();
-    for from in from {
-        for to in to {
-            out.extend(unwrap_or!(get_voyage(world, &from, to), continue));
-        }
-    }
-    out
+fn get_positions_to_reveal(world: &World, from: V2<usize>, to: V2<usize>) -> HashSet<V2<usize>> {
+    extend_all(
+        world,
+        unwrap_or!(get_voyage(world, &from, &to), return hashset! {}),
+    )
 }
 
 fn get_voyage(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Vec<V2<usize>>> {
@@ -129,6 +158,13 @@ fn is_coastal(world: &World, position: &V2<usize>) -> bool {
         .neighbours(position)
         .iter()
         .any(|position| !world.is_sea(position) && world.get_cell_unsafe(position).visible)
+}
+
+fn extend_all(world: &World, positions: Vec<V2<usize>>) -> HashSet<V2<usize>> {
+    positions
+        .into_iter()
+        .flat_map(|position| world.expand_position(&position))
+        .collect()
 }
 
 #[cfg(test)]
@@ -254,23 +290,5 @@ mod tests {
         let mut world = world();
         world.mut_cell_unsafe(&v2(2, 4)).visible = true;
         assert_eq!(get_voyage(&world, &v2(4, 4), &v2(2, 4)), None)
-    }
-
-    #[test]
-    fn test_get_all_voyaged() {
-        let mut world = world();
-        world.mut_cell_unsafe(&v2(1, 1)).visible = true;
-        world.mut_cell_unsafe(&v2(2, 1)).visible = true;
-        world.mut_cell_unsafe(&v2(1, 3)).visible = true;
-        world.mut_cell_unsafe(&v2(2, 3)).visible = true;
-
-        let actual = get_all_voyaged(&world, &[v2(4, 1), v2(4, 3)], &[v2(2, 1), v2(2, 3)]);
-        let mut expected = vec![];
-        expected.append(&mut get_voyage(&world, &v2(4, 1), &v2(2, 1)).unwrap());
-        expected.append(&mut get_voyage(&world, &v2(4, 1), &v2(2, 3)).unwrap());
-        expected.append(&mut get_voyage(&world, &v2(4, 3), &v2(2, 1)).unwrap());
-        expected.append(&mut get_voyage(&world, &v2(4, 3), &v2(2, 3)).unwrap());
-        let expected = expected.drain(..).collect();
-        assert_eq!(actual, expected);
     }
 }

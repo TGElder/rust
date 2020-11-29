@@ -1,6 +1,7 @@
 use super::*;
 
 use commons::fn_sender::{FnMessageExt, FnReceiver};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
@@ -42,6 +43,15 @@ impl Simulation {
         self.state
             .iter_mut()
             .for_each(|state| state.paused = !state.paused);
+    }
+
+    pub fn reveal_positions(&mut self, positions: HashSet<V2<usize>>) {
+        if let Some(state) = &mut self.state {
+            state.instructions.push(Instruction::VisibleLandPositions);
+            state
+                .instructions
+                .push(Instruction::RefreshPositions(positions));
+        }
     }
 
     pub async fn run(&mut self) {

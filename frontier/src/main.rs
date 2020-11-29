@@ -36,7 +36,9 @@ use crate::road_builder::*;
 use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
-use actors::{BasicRoadBuilder, PauseGame, PauseSim, Save, VisibilityActor, WorldArtistActor};
+use actors::{
+    BasicRoadBuilder, PauseGame, PauseSim, Save, VisibilityActor, Voyager, WorldArtistActor,
+};
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::fn_sender::fn_channel;
 use commons::future::FutureExt;
@@ -77,6 +79,7 @@ fn main() {
     let (visibility_tx, visibility_rx) = fn_channel();
     let (world_artist_tx, world_artist_rx) = fn_channel();
     let (simulation_tx, simulation_rx) = fn_channel();
+    let (voyager_tx, voyager_rx) = fn_channel();
 
     let pathfinder_with_planned_roads = Arc::new(RwLock::new(Pathfinder::new(
         &game.game_state().world,
@@ -92,6 +95,7 @@ fn main() {
         visibility_tx,
         world_artist_tx,
         simulation_tx,
+        voyager_tx,
         pathfinder_with_planned_roads.clone(),
         pathfinder_without_planned_roads.clone(),
     );
@@ -133,6 +137,12 @@ fn main() {
         event_forwarder.subscribe(),
     );
 
+    let mut voyager = Voyager::new(
+        x.clone_with_name("voyager"),
+        voyager_rx,
+        event_forwarder.subscribe(),
+    );
+
     let territory_updater = TerritoryUpdater::new(
         &game.tx(),
         &pathfinder_without_planned_roads,
@@ -147,9 +157,6 @@ fn main() {
             Box::new(CropsBuilder::new(game.tx())),
         ],
     );
-
-    let visibility_sim = VisibilitySim::new(game.tx());
-    let visibility_sim_consumer = visibility_sim.consumer();
 
     let mut sim = Simulation::new(
         simulation_rx,
@@ -186,14 +193,12 @@ fn main() {
                 thread_pool.clone(),
             )),
             Box::new(UpdateRouteToPorts::new(game.tx())),
-            Box::new(visibility_sim),
         ],
     );
 
     let mut pause_sim = PauseSim::new(x.clone_with_name("pause_sim"), event_forwarder.subscribe());
     let mut save = Save::new(x.clone_with_name("save"), event_forwarder.subscribe());
 
-    game.add_consumer(visibility_sim_consumer);
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
     // Controls
@@ -220,7 +225,6 @@ fn main() {
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.tx()));
 
     game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
-    game.add_consumer(Voyager::new(game.tx()));
     game.add_consumer(PathfinderUpdater::new(&pathfinder_with_planned_roads));
     game.add_consumer(PathfinderUpdater::new(&pathfinder_without_planned_roads));
     game.add_consumer(SimulationStateLoader::new(
@@ -269,6 +273,9 @@ fn main() {
     let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
     thread_pool.spawn_ok(visibility_run);
 
+    let (voyager_run, voyager_handle) = async move { voyager.run().await }.remote_handle();
+    thread_pool.spawn_ok(voyager_run);
+
     let (world_artist_actor_run, world_artist_actor_handle) =
         async move { world_artist_actor.run().await }.remote_handle();
     thread_pool.spawn_ok(world_artist_actor_run);
@@ -289,7 +296,8 @@ fn main() {
             save_handle,
             sim_handle,
             world_artist_actor_handle,
-            visibility_handle
+            visibility_handle,
+            voyager_handle
         )
     });
     println!("Joining game");
