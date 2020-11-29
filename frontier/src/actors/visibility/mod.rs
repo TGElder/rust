@@ -23,13 +23,13 @@ pub struct VisibilityActor<T> {
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
     visibility_computer: VisibilityComputer,
-    state: VisibilityHandlerState,
+    state: VisibilityActorState,
     elevations: Option<M<Elevation>>,
     run: bool,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct VisibilityHandlerState {
+pub struct VisibilityActorState {
     visited: Option<M<bool>>,
     active: bool,
 }
@@ -61,7 +61,7 @@ where
             engine_rx,
             game_rx,
             visibility_computer: VisibilityComputer::default(),
-            state: VisibilityHandlerState {
+            state: VisibilityActorState {
                 visited: None,
                 active: true,
             },
@@ -116,9 +116,7 @@ where
             .visibility_computer
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
-        self.x
-            .reveal_positions(visible.iter().cloned().collect(), NAME)
-            .await;
+        self.x.reveal_positions(visible, NAME).await;
     }
 
     fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {

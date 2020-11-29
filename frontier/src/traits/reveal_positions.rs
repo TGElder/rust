@@ -12,7 +12,7 @@ use crate::world::World;
 
 #[async_trait]
 pub trait RevealPositions {
-    async fn reveal_positions(&self, cells: Vec<V2<usize>>, revealed_by: &'static str);
+    async fn reveal_positions(&self, cells: HashSet<V2<usize>>, revealed_by: &'static str);
 }
 
 #[async_trait]
@@ -28,7 +28,7 @@ where
         + PathfinderWithoutPlannedRoads
         + Sync,
 {
-    async fn reveal_positions(&self, positions: Vec<V2<usize>>, revealed_by: &'static str) {
+    async fn reveal_positions(&self, positions: HashSet<V2<usize>>, revealed_by: &'static str) {
         let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
         update_visible_land_positions(self, newly_visible.len()).await;
         voyage(self, newly_visible.clone(), revealed_by);
@@ -40,7 +40,10 @@ where
     }
 }
 
-async fn send_set_visible_get_newly_visible<T>(x: &T, positions: Vec<V2<usize>>) -> Vec<V2<usize>>
+async fn send_set_visible_get_newly_visible<T>(
+    x: &T,
+    positions: HashSet<V2<usize>>,
+) -> Vec<V2<usize>>
 where
     T: SendWorld,
 {
@@ -48,7 +51,10 @@ where
         .await
 }
 
-fn set_visible_get_newly_visible(world: &mut World, positions: Vec<V2<usize>>) -> Vec<V2<usize>> {
+fn set_visible_get_newly_visible(
+    world: &mut World,
+    positions: HashSet<V2<usize>>,
+) -> Vec<V2<usize>> {
     let mut out = vec![];
     for position in positions {
         if let Some(world_cell) = world.mut_cell(&position) {

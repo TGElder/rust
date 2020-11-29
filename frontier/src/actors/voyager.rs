@@ -73,15 +73,15 @@ where
     }
 
     async fn voyage_between(&self, from: V2<usize>, to: V2<usize>) {
-        let mut to_reveal = self
+        let to_reveal = self
             .x
             .send_world(move |world| get_positions_to_reveal(world, from, to))
             .await;
-        self.reveal_cells(to_reveal.drain().collect()).await
+        self.reveal_cells(to_reveal).await
     }
 
-    async fn reveal_cells(&self, revealed: Vec<V2<usize>>) {
-        self.x.reveal_positions(revealed, NAME).await;
+    async fn reveal_cells(&self, to_reveal: HashSet<V2<usize>>) {
+        self.x.reveal_positions(to_reveal, NAME).await;
     }
 
     fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
