@@ -19,14 +19,13 @@ pub trait RevealPositions {
 impl<T> RevealPositions for T
 where
     T: Micros
+        + PathfinderWithPlannedRoads
+        + PathfinderWithoutPlannedRoads
         + Redraw
         + SendGame
         + SendSim
         + SendVoyager
-        + SendWorld
-        + PathfinderWithPlannedRoads
-        + PathfinderWithoutPlannedRoads
-        + Sync,
+        + SendWorld,
 {
     async fn reveal_positions(&self, positions: HashSet<V2<usize>>, revealed_by: &'static str) {
         let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
@@ -77,7 +76,7 @@ where
 
 fn voyage<T>(x: &T, positions: HashSet<V2<usize>>, revealed_by: &'static str)
 where
-    T: SendVoyager + Sync,
+    T: SendVoyager,
 {
     x.send_voyager_future_background(move |voyager| {
         voyager.voyage_to(positions, revealed_by).boxed()

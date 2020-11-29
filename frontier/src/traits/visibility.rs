@@ -14,7 +14,7 @@ pub trait Visibility {
 #[async_trait]
 impl<T> Visibility for T
 where
-    T: SendVisibility + Sync,
+    T: SendVisibility,
 {
     fn check_visibility_and_reveal(&self, visited: HashSet<V2<usize>>) {
         self.send_visibility_future_background(move |visibility| {
