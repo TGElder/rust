@@ -29,7 +29,7 @@ where
     }
 
     async fn remove_road(&self, edge: &Edge) {
-        if self.is_road(*edge).await {
+        if !self.is_road(*edge).await {
             return;
         }
         let result =
