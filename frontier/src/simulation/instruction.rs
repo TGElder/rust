@@ -27,7 +27,7 @@ pub enum Instruction {
     RefreshPositions(HashSet<V2<usize>>),
     RefreshEdges(HashSet<Edge>),
     Build,
-    VisibleLandPositions(usize),
+    VisibleLandPositions,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

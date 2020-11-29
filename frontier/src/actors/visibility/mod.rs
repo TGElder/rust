@@ -1,5 +1,5 @@
 use crate::game::{Game, GameEvent};
-use crate::traits::{SendGame, SendWorld};
+use crate::traits::{RevealPositions, SendGame, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
 use commons::async_channel::{Receiver, RecvError};
@@ -23,13 +23,13 @@ pub struct VisibilityActor<T> {
     engine_rx: Receiver<Arc<Event>>,
     game_rx: Receiver<GameEvent>,
     visibility_computer: VisibilityComputer,
-    state: VisibilityHandlerState,
+    state: VisibilityActorState,
     elevations: Option<M<Elevation>>,
     run: bool,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct VisibilityHandlerState {
+pub struct VisibilityActorState {
     visited: Option<M<bool>>,
     active: bool,
 }
@@ -47,7 +47,7 @@ impl WithElevation for Elevation {
 
 impl<T> VisibilityActor<T>
 where
-    T: SendGame + SendWorld + Send,
+    T: RevealPositions + SendGame + SendWorld + Send,
 {
     pub fn new(
         x: T,
@@ -61,7 +61,7 @@ where
             engine_rx,
             game_rx,
             visibility_computer: VisibilityComputer::default(),
-            state: VisibilityHandlerState {
+            state: VisibilityActorState {
                 visited: None,
                 active: true,
             },
@@ -93,9 +93,10 @@ where
         }
     }
 
-    pub fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
+    pub async fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
         for position in visited {
-            self.check_visibility_and_reveal_for_position(position);
+            self.check_visibility_and_reveal_for_position(position)
+                .await;
         }
     }
 
@@ -103,7 +104,7 @@ where
         self.state.active = false;
     }
 
-    fn check_visibility_and_reveal_for_position(&mut self, position: V2<usize>) {
+    async fn check_visibility_and_reveal_for_position(&mut self, position: V2<usize>) {
         let already_visited = ok_or!(self.already_visited(&position), return);
         if *already_visited {
             return;
@@ -115,10 +116,7 @@ where
             .visibility_computer
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
-        for cell in visible {
-            self.x
-                .send_game_background(move |game: &mut Game| game.reveal_cells(vec![cell], NAME));
-        }
+        self.x.reveal_positions(visible, NAME).await;
     }
 
     fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {
