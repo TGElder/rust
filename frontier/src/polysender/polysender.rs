@@ -1,16 +1,17 @@
 use super::*;
 
-use crate::actors::{VisibilityActor, WorldArtistActor};
+use crate::actors::{VisibilityActor, Voyager, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
 use crate::simulation::Simulation;
 use crate::traits::{
     PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendPathfinder, SendSim,
-    SendVisibility, SendWorld, SendWorldArtist,
+    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::world::World;
 use commons::fn_sender::FnSender;
+use commons::futures::future::BoxFuture;
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
@@ -19,6 +20,7 @@ pub struct Polysender {
     visibility_tx: FnSender<VisibilityActor<Polysender>>,
     world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
     simulation_tx: FnSender<Simulation>,
+    voyager_tx: FnSender<Voyager<Polysender>>,
     pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 }
@@ -29,6 +31,7 @@ impl Polysender {
         visibility_tx: FnSender<VisibilityActor<Polysender>>,
         world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
         simulation_tx: FnSender<Simulation>,
+        voyager_tx: FnSender<Voyager<Polysender>>,
         pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
         pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     ) -> Polysender {
@@ -37,6 +40,7 @@ impl Polysender {
             visibility_tx,
             world_artist_tx,
             simulation_tx,
+            voyager_tx,
             pathfinder_with_planned_roads,
             pathfinder_without_planned_roads,
         }
@@ -48,6 +52,7 @@ impl Polysender {
             visibility_tx: self.visibility_tx.clone_with_name(name),
             world_artist_tx: self.world_artist_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
+            voyager_tx: self.voyager_tx.clone_with_name(name),
             pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
             pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
         }
@@ -82,6 +87,15 @@ impl SendVisibility for Polysender {
         self.visibility_tx
             .send(move |mut visibility| function(&mut visibility));
     }
+
+    fn send_visibility_future_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut VisibilityActor<Self>) -> BoxFuture<O> + Send + 'static,
+    {
+        self.visibility_tx
+            .send_future(move |visibility| function(visibility));
+    }
 }
 
 #[async_trait]
@@ -110,9 +124,7 @@ impl SendWorldArtist for Polysender {
     fn send_world_artist_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut WorldArtistActor<Polysender>) -> commons::future::BoxFuture<O>
-            + Send
-            + 'static,
+        F: FnOnce(&mut WorldArtistActor<Polysender>) -> BoxFuture<O> + Send + 'static,
     {
         self.world_artist_tx
             .send_future(move |world_artist| function(world_artist));
@@ -172,5 +184,16 @@ impl SendPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
         F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static,
     {
         function(&mut self.write().unwrap());
+    }
+}
+
+impl SendVoyager for Polysender {
+    fn send_voyager_future_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Voyager<Polysender>) -> BoxFuture<O> + Send + 'static,
+    {
+        self.voyager_tx
+            .send_future(move |voyager| function(voyager));
     }
 }

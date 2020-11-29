@@ -24,7 +24,6 @@ use std::time::{Duration, Instant};
 
 pub enum CellSelection {
     All,
-    Some(Vec<V2<usize>>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -240,33 +239,13 @@ impl Game {
         });
     }
 
-    pub fn reveal_cells(&mut self, cells: Vec<V2<usize>>, revealed_by: &'static str) {
-        let mut newly_visible = vec![];
-        for position in cells {
-            if let Some(world_cell) = self.game_state.world.mut_cell(&position) {
-                if !world_cell.visible {
-                    world_cell.visible = true;
-                    newly_visible.push(position);
-                }
-            }
-        }
-        if newly_visible.is_empty() {
-            return;
-        }
-        self.update_visible_land_positions(&newly_visible);
-        self.consume_event(GameEvent::CellsRevealed {
-            selection: CellSelection::Some(newly_visible),
-            by: revealed_by,
-        });
-    }
-
-    fn update_visible_land_positions(&mut self, newly_visible: &[V2<usize>]) {
-        let newly_visible_land = newly_visible
-            .iter()
-            .filter(|position| !self.game_state.world.is_sea(position))
-            .count();
-        self.game_state.visible_land_positions += newly_visible_land;
-    }
+    // fn update_visible_land_positions(&mut self, newly_visible: &[V2<usize>]) {
+    //     let newly_visible_land = newly_visible
+    //         .iter()
+    //         .filter(|position| !self.game_state.world.is_sea(position))
+    //         .count();
+    //     self.game_state.visible_land_positions += newly_visible_land;
+    // }
 
     pub fn add_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
         let cell = unwrap_or!(self.game_state.world.mut_cell(&position), return false);

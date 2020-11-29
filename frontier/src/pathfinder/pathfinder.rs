@@ -159,15 +159,6 @@ where
         }
     }
 
-    pub fn update_node(&mut self, world: &World, position: &V2<usize>) {
-        for other in world.expand_position(position) {
-            if other.x == position.x || other.y == position.y {
-                self.update_from_to(world, position, &other);
-                self.update_from_to(world, &other, position);
-            }
-        }
-    }
-
     pub fn set_edge_duration(&mut self, from: &V2<usize>, to: &V2<usize>, duration: &Duration) {
         self.network
             .remove_edges(self.get_network_index(from), self.get_network_index(to));
@@ -584,81 +575,6 @@ mod tests {
         assert_eq!(
             get_network_edge(&pathfinder, &v2(1, 0), &v2(2, 0)),
             Some(&NetworkEdge::new(1, 2, 64))
-        );
-    }
-
-    #[test]
-    fn test_update_node() {
-        let mut pathfinder = pathfinder();
-        let mut world = world();
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 1), &v2(1, 0)),
-            Some(&NetworkEdge::new(4, 1, 128))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 0), &v2(1, 1)),
-            Some(&NetworkEdge::new(1, 4, 191))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 1), &v2(0, 1)),
-            Some(&NetworkEdge::new(4, 3, 191))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(0, 1), &v2(1, 1)),
-            Some(&NetworkEdge::new(3, 4, 191))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 1), &v2(2, 1)),
-            Some(&NetworkEdge::new(4, 5, 128))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(2, 1), &v2(1, 1)),
-            Some(&NetworkEdge::new(5, 4, 191))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 1), &v2(1, 2)),
-            Some(&NetworkEdge::new(4, 7, 191))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 2), &v2(1, 1)),
-            Some(&NetworkEdge::new(7, 4, 191))
-        );
-        world.set_road(&Edge::new(v2(1, 1), v2(1, 0)), true);
-        world.set_road(&Edge::new(v2(1, 1), v2(0, 1)), true);
-        world.set_road(&Edge::new(v2(1, 1), v2(2, 1)), true);
-        world.set_road(&Edge::new(v2(1, 1), v2(1, 2)), true);
-        pathfinder.update_node(&world, &v2(1, 1));
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 1), &v2(1, 0)),
-            Some(&NetworkEdge::new(4, 1, 64))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 0), &v2(1, 1)),
-            Some(&NetworkEdge::new(1, 4, 64))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 1), &v2(0, 1)),
-            Some(&NetworkEdge::new(4, 3, 64))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(0, 1), &v2(1, 1)),
-            Some(&NetworkEdge::new(3, 4, 64))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 1), &v2(2, 1)),
-            Some(&NetworkEdge::new(4, 5, 64))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(2, 1), &v2(1, 1)),
-            Some(&NetworkEdge::new(5, 4, 64))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 1), &v2(1, 2)),
-            Some(&NetworkEdge::new(4, 7, 64))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 2), &v2(1, 1)),
-            Some(&NetworkEdge::new(7, 4, 64))
         );
     }
 

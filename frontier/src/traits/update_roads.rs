@@ -3,7 +3,7 @@ use crate::traits::{
     Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, Redraw, SendPathfinder,
     SendWorld, Visibility,
 };
-use crate::travel_duration::{PathDuration, TravelDuration};
+use crate::travel_duration::{EdgeDuration, TravelDuration};
 use commons::async_trait::async_trait;
 use std::sync::Arc;
 
@@ -72,12 +72,16 @@ where
         .await;
 
     let path = result.path().clone();
-    let durations: Vec<PathDuration> = tx
-        .send_world(move |world| travel_duration.get_path_durations(world, &path).collect())
+    let durations: Vec<EdgeDuration> = tx
+        .send_world(move |world| {
+            travel_duration
+                .get_durations_for_path(world, &path)
+                .collect()
+        })
         .await;
 
     pathfinder.send_pathfinder_background(move |pathfinder| {
-        for PathDuration { from, to, duration } in durations {
+        for EdgeDuration { from, to, duration } in durations {
             if let Some(duration) = duration {
                 pathfinder.set_edge_duration(&from, &to, &duration)
             }
