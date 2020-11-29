@@ -95,7 +95,7 @@ where
 
     pub fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
         for position in visited {
-            self.check_visibility_and_reveal_position(position);
+            self.check_visibility_and_reveal_for_position(position);
         }
     }
 
@@ -103,7 +103,7 @@ where
         self.state.active = false;
     }
 
-    fn check_visibility_and_reveal_position(&mut self, position: V2<usize>) {
+    fn check_visibility_and_reveal_for_position(&mut self, position: V2<usize>) {
         let already_visited = ok_or!(self.already_visited(&position), return);
         if *already_visited {
             return;
@@ -115,9 +115,10 @@ where
             .visibility_computer
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
-        self.x.send_game_background(move |game: &mut Game| {
-            game.reveal_cells(visible.into_iter().collect(), NAME)
-        });
+        for cell in visible {
+            self.x
+                .send_game_background(move |game: &mut Game| game.reveal_cells(vec![cell], NAME));
+        }
     }
 
     fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {

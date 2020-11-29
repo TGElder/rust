@@ -2,6 +2,7 @@ mod game_params;
 mod game_state;
 pub mod traits;
 
+use commons::log::warn;
 pub use game_params::*;
 pub use game_state::*;
 
@@ -403,7 +404,7 @@ impl Game {
 fn log_time(description: String, duration: Duration, threshold: &Option<Duration>) {
     if let Some(threshold) = threshold {
         if duration >= *threshold {
-            println!("{},{}ms", description, duration.as_millis());
+            warn!("{},{}ms", description, duration.as_millis());
         }
     }
 }
