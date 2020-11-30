@@ -4,8 +4,7 @@ use commons::async_trait::async_trait;
 use commons::{FutureExt, Grid, V2};
 
 use crate::traits::{
-    Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, Redraw, SendGame, SendSim,
-    SendVoyager, SendWorld, UpdatePathfinderPositions,
+    Micros, Redraw, SendGame, SendSim, SendVoyager, SendWorld, UpdatePathfinderPositions,
 };
 use crate::world::World;
 
@@ -17,14 +16,7 @@ pub trait RevealPositions {
 #[async_trait]
 impl<T> RevealPositions for T
 where
-    T: Micros
-        + PathfinderWithPlannedRoads
-        + PathfinderWithoutPlannedRoads
-        + Redraw
-        + SendGame
-        + SendSim
-        + SendVoyager
-        + SendWorld,
+    T: Micros + Redraw + SendGame + SendSim + SendVoyager + SendWorld + UpdatePathfinderPositions,
 {
     async fn reveal_positions(&self, positions: HashSet<V2<usize>>, revealed_by: &'static str) {
         let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
