@@ -18,7 +18,7 @@ where
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         match instruction {
-            Instruction::VisibleLandPositions => (),
+            Instruction::UpdateHomelandPopulation => (),
             _ => return state,
         };
         let visibile_land_positions = self.visibile_land_positions().await;
@@ -143,7 +143,7 @@ mod tests {
         let mut processor = UpdateHomelandPopulation::new(&game.tx());
 
         // When
-        block_on(processor.process(State::default(), &Instruction::VisibleLandPositions));
+        block_on(processor.process(State::default(), &Instruction::UpdateHomelandPopulation));
 
         // Then
         let actual = game.join().settlements;
