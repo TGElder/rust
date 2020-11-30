@@ -45,12 +45,19 @@ impl Simulation {
             .for_each(|state| state.paused = !state.paused);
     }
 
-    pub fn reveal_positions(&mut self, positions: HashSet<V2<usize>>) {
+    pub fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
         if let Some(state) = &mut self.state {
-            state.instructions.push(Instruction::VisibleLandPositions);
             state
                 .instructions
                 .push(Instruction::RefreshPositions(positions));
+        }
+    }
+
+    pub fn update_homeland_population(&mut self) {
+        if let Some(state) = &mut self.state {
+            state
+                .instructions
+                .push(Instruction::UpdateHomelandPopulation);
         }
     }
 

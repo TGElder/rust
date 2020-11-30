@@ -12,6 +12,7 @@ pub enum Instruction {
         settlement: Settlement,
         territory: HashSet<V2<usize>>,
     },
+    UpdateHomelandPopulation,
     UpdateTown {
         settlement: Settlement,
         traffic: Vec<TownTrafficSummary>,
@@ -27,7 +28,6 @@ pub enum Instruction {
     RefreshPositions(HashSet<V2<usize>>),
     RefreshEdges(HashSet<Edge>),
     Build,
-    VisibleLandPositions,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
