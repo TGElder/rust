@@ -38,14 +38,8 @@ where
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        match event {
-            GameEvent::Init => self.reset_pathfinder(game_state),
-            GameEvent::CellsRevealed { selection, .. } => {
-                match selection {
-                    CellSelection::All => self.reset_pathfinder(game_state),
-                };
-            }
-            _ => (),
+        if let GameEvent::Init = event {
+            self.reset_pathfinder(game_state);
         }
         CaptureEvent::No
     }

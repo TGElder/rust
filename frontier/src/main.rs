@@ -244,7 +244,10 @@ fn main() {
     game.add_consumer(from_towns);
     game.add_consumer(setup_new_world);
 
-    game.add_consumer(Cheats::new(x.clone_with_name("cheats")));
+    game.add_consumer(Cheats::new(
+        x.clone_with_name("cheats"),
+        thread_pool.clone(),
+    ));
 
     game.add_consumer(game_event_forwarder);
     game.add_consumer(WorldArtistHandler::new(
@@ -312,14 +315,10 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(power as f32)) as u64),
         ..GameParams::default()
     };
-    let mut init_events = vec![GameEvent::NewGame, GameEvent::Init];
+    let init_events = vec![GameEvent::NewGame, GameEvent::Init];
     let mut world = generate_world(power, &mut rng, &params.world_gen);
     if reveal_all {
         world.reveal_all();
-        init_events.push(GameEvent::CellsRevealed {
-            selection: CellSelection::All,
-            by: "init",
-        });
     }
     let visible_land_positions = if reveal_all {
         world.width() * world.height()

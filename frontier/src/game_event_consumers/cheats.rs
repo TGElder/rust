@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::traits::{SendGame, Visibility};
+use crate::traits::{RevealAll, SendGame, Visibility};
 use isometric::coords::*;
 use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
 use std::default::Default;
@@ -23,22 +23,21 @@ impl Default for CheatBindings {
     }
 }
 
-pub struct Cheats<T>
-where
-    T: SendGame + Visibility,
-{
-    tx: T,
+pub struct Cheats<T> {
+    x: T,
+    pool: ThreadPool,
     bindings: CheatBindings,
     world_coord: Option<WorldCoord>,
 }
 
 impl<T> Cheats<T>
 where
-    T: SendGame + Visibility,
+    T: RevealAll + SendGame + Visibility + Clone + Send + Sync + 'static,
 {
-    pub fn new(tx: T) -> Cheats<T> {
+    pub fn new(tx: T, thread_pool: ThreadPool) -> Cheats<T> {
         Cheats {
-            tx,
+            x: tx,
+            pool: thread_pool,
             bindings: CheatBindings::default(),
             world_coord: None,
         }
@@ -49,10 +48,10 @@ where
     }
 
     fn reveal_all(&mut self, _: &GameState) {
-        self.tx.send_game_background(move |game| {
-            game.reveal_all_cells(NAME);
-        });
-        self.tx.disable_visibility_computation();
+        let x_in_thread = self.x.clone();
+        self.pool
+            .spawn_ok(async move { x_in_thread.reveal_all().await });
+        self.x.disable_visibility_computation();
     }
 
     fn move_avatar(&mut self, game_state: &GameState) {
@@ -75,7 +74,7 @@ where
 
     fn send_update_avatar_state_command(&mut self, name: &str, avatar_state: AvatarState) {
         let name = name.to_string();
-        self.tx.send_game_background(move |game| {
+        self.x.send_game_background(move |game| {
             game.update_avatar_state(name.to_string(), avatar_state);
         });
     }
@@ -83,7 +82,7 @@ where
 
 impl<T> GameEventConsumer for Cheats<T>
 where
-    T: SendGame + Visibility + Send,
+    T: RevealAll + SendGame + Visibility + Clone + Send + Sync + 'static,
 {
     fn name(&self) -> &'static str {
         NAME
