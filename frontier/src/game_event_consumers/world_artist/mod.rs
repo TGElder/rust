@@ -18,12 +18,6 @@ where
         WorldArtistHandler { x }
     }
 
-    fn draw_all(&mut self, game_state: &GameState) {
-        let when = game_state.game_micros;
-        self.x
-            .send_world_artist_future_background(move |artist| artist.redraw_all_at(when).boxed())
-    }
-
     fn update_cells(&mut self, game_state: &GameState, cells: &[V2<usize>]) {
         for cell in cells {
             let cell = *cell;
@@ -53,11 +47,6 @@ where
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
         match event {
-            GameEvent::CellsRevealed { selection, .. } => {
-                match selection {
-                    CellSelection::All => self.draw_all(game_state),
-                };
-            }
             GameEvent::TerritoryChanged(changes) => self.draw_territory(game_state, changes),
             GameEvent::ObjectUpdated(position) => self.update_cells(game_state, &[*position]),
             _ => (),

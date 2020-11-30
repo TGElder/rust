@@ -22,10 +22,6 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-pub enum CellSelection {
-    All,
-}
-
 #[derive(Debug, PartialEq)]
 pub struct TerritoryState {
     pub controller: V2<usize>,
@@ -35,17 +31,10 @@ pub struct TerritoryState {
 pub enum GameEvent {
     NewGame,
     Init,
-    Tick {
-        from_micros: u128,
-        to_micros: u128,
-    },
+    Tick { from_micros: u128, to_micros: u128 },
     Save(String),
     Load(String),
     EngineEvent(Arc<Event>),
-    CellsRevealed {
-        selection: CellSelection,
-        by: &'static str,
-    },
     ObjectUpdated(V2<usize>),
     SettlementUpdated(Settlement),
     TerritoryChanged(Vec<TerritoryChange>),
@@ -60,7 +49,6 @@ impl GameEvent {
             GameEvent::Save(..) => "save",
             GameEvent::Load(..) => "save",
             GameEvent::EngineEvent(..) => "engine event",
-            GameEvent::CellsRevealed { .. } => "cells revealed",
             GameEvent::ObjectUpdated { .. } => "object updated",
             GameEvent::SettlementUpdated { .. } => "settlement updated",
             GameEvent::TerritoryChanged(..) => "territory changed",
@@ -226,16 +214,6 @@ impl Game {
                 ..
             } if Some(name) != selected_avatar_name.as_ref() => false,
             _ => true,
-        });
-    }
-
-    pub fn reveal_all_cells(&mut self, revealed_by: &'static str) {
-        let world = &mut self.game_state.world;
-        world.reveal_all();
-        self.game_state.visible_land_positions = world.width() * world.height();
-        self.consume_event(GameEvent::CellsRevealed {
-            selection: CellSelection::All,
-            by: revealed_by,
         });
     }
 

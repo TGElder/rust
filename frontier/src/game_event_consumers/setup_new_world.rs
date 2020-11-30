@@ -40,7 +40,8 @@ where
         let homeland_starts = gen_homeland_starts(world, &mut rng, &params.homeland);
         let avatars = gen_avatars(&mut rng, &homeland_starts, params.avatar_color);
         let nations = gen_nations(&mut rng, &params);
-        let settlements = gen_settlements(params, &homeland_starts, &nations);
+        let initial_population = initial_population(&game_state.visible_land_positions, params);
+        let settlements = gen_settlements(params, &homeland_starts, &nations, &initial_population);
         self.tx
             .send_game_background(move |game| setup_game(game, avatars, nations, settlements));
 
@@ -123,15 +124,27 @@ fn gen_nations<R: Rng>(rng: &mut R, params: &GameParams) -> HashMap<String, Nati
         .collect()
 }
 
+fn initial_population(visible_land_positions: &usize, params: &GameParams) -> f64 {
+    *visible_land_positions as f64 / params.homeland.count as f64
+}
+
 fn gen_settlements(
     params: &GameParams,
     homeland_starts: &[HomelandStart],
     nations: &HashMap<String, Nation>,
+    initial_population: &f64,
 ) -> HashMap<V2<usize>, Settlement> {
     nations
         .keys()
         .enumerate()
-        .map(|(i, nation)| get_settlement(params, &homeland_starts[i], nation.to_string()))
+        .map(|(i, nation)| {
+            get_settlement(
+                params,
+                &homeland_starts[i],
+                nation.to_string(),
+                *initial_population,
+            )
+        })
         .map(|settlement| (settlement.position, settlement))
         .collect()
 }
@@ -140,13 +153,14 @@ fn get_settlement(
     params: &GameParams,
     homeland_start: &HomelandStart,
     nation: String,
+    initial_population: f64,
 ) -> Settlement {
     Settlement {
         class: SettlementClass::Homeland,
         position: homeland_start.homeland,
         name: nation.clone(),
         nation,
-        current_population: 0.0,
+        current_population: initial_population,
         target_population: 0.0,
         gap_half_life: params.homeland_distance.mul_f32(5.19), // 5.19 makes half life equivalent to '7/8th life'
         last_population_update_micros: 0,
