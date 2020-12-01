@@ -47,15 +47,15 @@ where
         }
     }
 
-    async fn shutdown(&mut self) {
-        self.run = false;
-    }
-
     async fn pause(&mut self) {
         debug!("Pausing/resuming simulation");
         self.x
             .send_sim(move |sim| sim.toggle_paused_persistent())
             .await;
         debug!("Paused/resumed simulation");
+    }
+
+    async fn shutdown(&mut self) {
+        self.run = false;
     }
 }

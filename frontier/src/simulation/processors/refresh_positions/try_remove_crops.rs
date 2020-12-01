@@ -1,15 +1,23 @@
 use super::*;
 
-use crate::game::traits::{HasWorld, RemoveObject};
+use crate::game::traits::HasWorld;
 use crate::resource::Resource;
+use crate::traits::SetWorldObject;
 use crate::world::{WorldCell, WorldObject};
+use commons::executor::ThreadPool;
 use commons::grid::Grid;
 
 const FARM_RESOURCE: Resource = Resource::Crops;
 
-pub fn try_remove_crops<G>(state: &mut State, game: &mut G, traffic: &PositionTrafficSummary)
-where
-    G: HasWorld + RemoveObject,
+pub fn try_remove_crops<G, X>(
+    state: &mut State,
+    game: &mut G,
+    x: &X,
+    pool: &ThreadPool,
+    traffic: &PositionTrafficSummary,
+) where
+    G: HasWorld,
+    X: SetWorldObject + Clone + Send + Sync + 'static,
 {
     let crop_routes = get_crop_routes(&traffic);
     if !crop_routes.is_empty() {
@@ -19,7 +27,9 @@ where
     state.build_queue.remove(&BuildKey::Crops(traffic.position));
 
     if cell_has_crops(game, &traffic.position) {
-        game.remove_object(&traffic.position);
+        let x = x.clone();
+        let position = traffic.position;
+        pool.spawn_ok(async move { x.force_world_object(WorldObject::None, position).await })
     }
 }
 
@@ -50,7 +60,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::world::World;
     use commons::grid::Grid;
-    use commons::{v2, M};
+    use commons::{v2, Arm, M};
     use std::collections::HashSet;
     use std::time::Duration;
 
@@ -58,33 +68,19 @@ mod tests {
         World::new(M::zeros(3, 3), 0.0)
     }
 
-    struct MockGame {
-        world: World,
-        removed_objects: HashSet<V2<usize>>,
+    #[derive(Clone, Default)]
+    struct MockX {
+        removed_objects: Arm<HashSet<V2<usize>>>,
     }
 
-    impl Default for MockGame {
-        fn default() -> MockGame {
-            MockGame {
-                world: world(),
-                removed_objects: hashset! {},
-            }
-        }
-    }
-
-    impl HasWorld for MockGame {
-        fn world(&self) -> &World {
-            &self.world
+    #[async_trait]
+    impl SetWorldObject for MockX {
+        async fn set_world_object(&self, _: WorldObject, _: V2<usize>) -> bool {
+            todo!()
         }
 
-        fn world_mut(&mut self) -> &mut World {
-            &mut self.world
-        }
-    }
-
-    impl RemoveObject for MockGame {
-        fn remove_object(&mut self, position: &V2<usize>) {
-            self.removed_objects.insert(*position);
+        async fn force_world_object(&self, _: WorldObject, position: V2<usize>) {
+            self.removed_objects.lock().unwrap().insert(position);
         }
     }
 
@@ -107,15 +103,26 @@ mod tests {
             when: 10,
         });
 
-        let mut game = MockGame::default();
-        game.world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
+        let mut world = world();
+        world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
+        let x = MockX::default();
 
         // When
-        try_remove_crops(&mut state, &mut game, &traffic);
+        try_remove_crops(
+            &mut state,
+            &mut world,
+            &x,
+            &ThreadPool::new().unwrap(),
+            &traffic,
+        );
+        while x.removed_objects.lock().unwrap().is_empty() {}
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(game.removed_objects, hashset! {traffic.position});
+        assert_eq!(
+            *x.removed_objects.lock().unwrap(),
+            hashset! {traffic.position}
+        );
     }
 
     #[test]
@@ -146,15 +153,26 @@ mod tests {
             when: 10,
         });
 
-        let mut game = MockGame::default();
-        game.world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
+        let mut world = world();
+        world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
+        let x = MockX::default();
 
         // When
-        try_remove_crops(&mut state, &mut game, &traffic);
+        try_remove_crops(
+            &mut state,
+            &mut world,
+            &x,
+            &ThreadPool::new().unwrap(),
+            &traffic,
+        );
+        while x.removed_objects.lock().unwrap().is_empty() {}
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(game.removed_objects, hashset! {traffic.position});
+        assert_eq!(
+            *x.removed_objects.lock().unwrap(),
+            hashset! {traffic.position}
+        );
     }
 
     #[test]
@@ -185,15 +203,26 @@ mod tests {
             when: 10,
         });
 
-        let mut game = MockGame::default();
-        game.world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
+        let mut world = world();
+        world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
+        let x = MockX::default();
 
         // When
-        try_remove_crops(&mut state, &mut game, &traffic);
+        try_remove_crops(
+            &mut state,
+            &mut world,
+            &x,
+            &ThreadPool::new().unwrap(),
+            &traffic,
+        );
+        while x.removed_objects.lock().unwrap().is_empty() {}
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
-        assert_eq!(game.removed_objects, hashset! {traffic.position});
+        assert_eq!(
+            *x.removed_objects.lock().unwrap(),
+            hashset! {traffic.position}
+        );
     }
 
     #[test]
@@ -226,15 +255,22 @@ mod tests {
         let mut state = State::default();
         state.build_queue = build_queue.clone();
 
-        let mut game = MockGame::default();
-        game.world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
+        let mut world = world();
+        world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
+        let x = MockX::default();
 
         // When
-        try_remove_crops(&mut state, &mut game, &traffic);
+        try_remove_crops(
+            &mut state,
+            &mut world,
+            &x,
+            &ThreadPool::new().unwrap(),
+            &traffic,
+        );
 
         // Then
         assert_eq!(state.build_queue, build_queue);
-        assert_eq!(game.removed_objects, hashset! {});
+        assert_eq!(*x.removed_objects.lock().unwrap(), hashset! {});
     }
 
     #[test]
@@ -256,13 +292,21 @@ mod tests {
             when: 10,
         });
 
-        let mut game = MockGame::default();
+        let mut world = world();
+        world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
+        let x = MockX::default();
 
         // When
-        try_remove_crops(&mut state, &mut game, &traffic);
+        try_remove_crops(
+            &mut state,
+            &mut world,
+            &x,
+            &ThreadPool::new().unwrap(),
+            &traffic,
+        );
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default()); // Should still remove build instruction
-        assert_eq!(game.removed_objects, hashset! {});
+        assert_eq!(*x.removed_objects.lock().unwrap(), hashset! {});
     }
 }

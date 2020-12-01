@@ -1,24 +1,28 @@
+use commons::executor::ThreadPool;
+
 use super::*;
 
-use crate::game::traits::{
-    GetRoute, HasWorld, Nations, RemoveObject, Settlements, WhoControlsTile,
-};
+use crate::game::traits::{GetRoute, HasWorld, Nations, Settlements, WhoControlsTile};
+use crate::traits::SetWorldObject;
 use std::collections::HashSet;
 
 const NAME: &str = "refresh_positions";
 const BATCH_SIZE: usize = 128;
 
-pub struct RefreshPositions<G>
+pub struct RefreshPositions<G, X>
 where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
+    G: Send,
 {
     game: FnSender<G>,
+    x: X,
+    pool: ThreadPool,
 }
 
 #[async_trait]
-impl<G> Processor for RefreshPositions<G>
+impl<G, X> Processor for RefreshPositions<G, X>
 where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
+    G: GetRoute + HasWorld + Nations + Settlements + WhoControlsTile + Send,
+    X: SetWorldObject + Clone + Send + Sync + 'static,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let positions = match instruction {
@@ -29,13 +33,16 @@ where
     }
 }
 
-impl<G> RefreshPositions<G>
+impl<G, X> RefreshPositions<G, X>
 where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
+    G: GetRoute + HasWorld + Nations + Settlements + WhoControlsTile + Send,
+    X: SetWorldObject + Clone + Send + Sync + 'static,
 {
-    pub fn new(game: &FnSender<G>) -> RefreshPositions<G> {
+    pub fn new(game: &FnSender<G>, x: X, pool: ThreadPool) -> RefreshPositions<G, X> {
         RefreshPositions {
             game: game.clone_with_name(NAME),
+            x,
+            pool,
         }
     }
 
@@ -53,34 +60,51 @@ where
 
     async fn refresh_positions(&mut self, state: State, positions: Vec<V2<usize>>) -> State {
         let initial_town_population = state.params.initial_town_population;
+        let x = self.x.clone();
+        let pool = self.pool.clone();
         self.game
-            .send(move |game| refresh_positions(game, state, positions, initial_town_population))
+            .send(move |game| {
+                refresh_positions(game, x, pool, state, positions, initial_town_population)
+            })
             .await
     }
 }
 
-fn refresh_positions<G>(
+fn refresh_positions<G, X>(
     game: &mut G,
+    x: X,
+    pool: ThreadPool,
     mut state: State,
     positions: Vec<V2<usize>>,
     initial_town_population: f64,
 ) -> State
 where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
+    G: GetRoute + HasWorld + Nations + Settlements + WhoControlsTile + Send,
+    X: SetWorldObject + Clone + Send + Sync + 'static,
 {
     for position in positions {
-        refresh_position(game, &mut state, position, &initial_town_population);
+        refresh_position(
+            game,
+            &x,
+            &pool,
+            &mut state,
+            position,
+            &initial_town_population,
+        );
     }
     state
 }
 
-fn refresh_position<G>(
+fn refresh_position<G, X>(
     game: &mut G,
+    x: &X,
+    pool: &ThreadPool,
     state: &mut State,
     position: V2<usize>,
     initial_town_population: &f64,
 ) where
-    G: GetRoute + HasWorld + Nations + RemoveObject + Settlements + WhoControlsTile + Send,
+    G: GetRoute + HasWorld + Nations + Settlements + WhoControlsTile + Send,
+    X: SetWorldObject + Clone + Send + Sync + 'static,
 {
     let traffic = get_position_traffic(game, &state, &position);
     for instruction in try_build_town(game, &traffic, &initial_town_population) {
@@ -89,5 +113,5 @@ fn refresh_position<G>(
     if let Some(instruction) = try_build_crops(game, &traffic) {
         state.build_queue.insert(instruction);
     }
-    try_remove_crops(state, game, &traffic);
+    try_remove_crops(state, game, x, pool, &traffic);
 }
