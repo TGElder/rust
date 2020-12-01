@@ -52,7 +52,7 @@ fn set_world_object(
     force: bool,
 ) -> bool {
     let cell = unwrap_or!(world.mut_cell(&position), return false);
-    if force || cell.object != WorldObject::None {
+    if !force && cell.object != WorldObject::None {
         return false;
     }
     cell.object = object;

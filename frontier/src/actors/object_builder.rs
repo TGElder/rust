@@ -91,7 +91,7 @@ where
 
     async fn clear_object_at_cursor(&mut self) {
         if let Some(position) = self.get_position() {
-            self.x.set_world_object(WorldObject::None, position).await;
+            self.x.force_world_object(WorldObject::None, position).await;
         }
     }
 
