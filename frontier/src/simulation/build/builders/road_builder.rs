@@ -1,4 +1,4 @@
-use crate::traits::BuildRoads;
+use crate::traits::AddRoad;
 
 use super::*;
 
@@ -6,7 +6,7 @@ use commons::edge::Edge;
 
 pub struct RoadBuilder<G>
 where
-    G: BuildRoads + Send + Sync,
+    G: AddRoad + Send + Sync,
 {
     game: G,
 }
@@ -14,7 +14,7 @@ where
 #[async_trait]
 impl<G> Builder for RoadBuilder<G>
 where
-    G: BuildRoads + Send + Sync,
+    G: AddRoad + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Road(..) = build {
@@ -33,7 +33,7 @@ where
 
 impl<G> RoadBuilder<G>
 where
-    G: BuildRoads + Send + Sync,
+    G: AddRoad + Send + Sync,
 {
     pub fn new(game: G) -> RoadBuilder<G> {
         RoadBuilder { game }
@@ -46,12 +46,20 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use std::sync::{Arc, Mutex};
 
     use super::*;
 
     use commons::futures::executor::block_on;
-    use commons::v2;
+    use commons::{v2, Arm};
+
+    #[async_trait]
+    impl AddRoad for Arm<HashSet<Edge>> {
+        async fn add_road(&self, edge: &Edge) {
+            self.lock().unwrap().insert(*edge);
+        }
+    }
 
     #[test]
     fn can_build_road() {
