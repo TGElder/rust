@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::settlement::{Settlement, SettlementClass::Town};
-use crate::traits::{BuildCrops, GetSettlement};
+use crate::traits::{AddCrops, GetSettlement};
 use commons::V2;
 
 pub struct CropsBuilder<T> {
@@ -11,7 +11,7 @@ pub struct CropsBuilder<T> {
 #[async_trait]
 impl<T> Builder for CropsBuilder<T>
 where
-    T: BuildCrops + GetSettlement + Send + Sync,
+    T: AddCrops + GetSettlement + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Crops { .. } = build {
@@ -30,7 +30,7 @@ where
 
 impl<T> CropsBuilder<T>
 where
-    T: BuildCrops + GetSettlement + Send + Sync,
+    T: AddCrops + GetSettlement + Send + Sync,
 {
     pub fn new(x: T) -> CropsBuilder<T> {
         CropsBuilder { x }
@@ -40,7 +40,7 @@ where
         if let Some(Settlement { class: Town, .. }) = self.x.get_settlement(position).await {
             return;
         }
-        self.x.build_crops(position, rotated).await;
+        self.x.add_crops(position, rotated).await;
     }
 }
 
@@ -59,8 +59,8 @@ mod tests {
     }
 
     #[async_trait]
-    impl BuildCrops for X {
-        async fn build_crops(&self, position: V2<usize>, rotated: bool) -> bool {
+    impl AddCrops for X {
+        async fn add_crops(&self, position: V2<usize>, rotated: bool) -> bool {
             self.crops.lock().unwrap().insert(position, rotated);
             true
         }

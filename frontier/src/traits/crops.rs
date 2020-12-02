@@ -5,16 +5,16 @@ use crate::traits::SetWorldObject;
 use crate::world::WorldObject;
 
 #[async_trait]
-pub trait BuildCrops {
-    async fn build_crops(&self, position: V2<usize>, rotated: bool) -> bool;
+pub trait AddCrops {
+    async fn add_crops(&self, position: V2<usize>, rotated: bool) -> bool;
 }
 
 #[async_trait]
-impl<T> BuildCrops for T
+impl<T> AddCrops for T
 where
     T: SetWorldObject + Send + Sync,
 {
-    async fn build_crops(&self, position: V2<usize>, rotated: bool) -> bool {
+    async fn add_crops(&self, position: V2<usize>, rotated: bool) -> bool {
         self.set_world_object(WorldObject::Crop { rotated }, position)
             .await
     }

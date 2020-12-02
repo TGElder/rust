@@ -1,4 +1,4 @@
-mod build_crops;
+mod crops;
 mod build_roads;
 mod is_road;
 mod micros;
@@ -20,7 +20,7 @@ mod update_roads;
 mod visibility;
 mod world_object;
 
-pub use build_crops::*;
+pub use crops::*;
 pub use build_roads::*;
 pub use is_road::*;
 pub use micros::*;
