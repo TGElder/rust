@@ -53,13 +53,13 @@ mod tests {
     use std::collections::HashMap;
 
     #[derive(Default)]
-    struct MockX {
+    struct X {
         crops: Arm<HashMap<V2<usize>, bool>>,
         settlements: HashMap<V2<usize>, Settlement>,
     }
 
     #[async_trait]
-    impl BuildCrops for MockX {
+    impl BuildCrops for X {
         async fn build_crops(&self, position: V2<usize>, rotated: bool) -> bool {
             self.crops.lock().unwrap().insert(position, rotated);
             true
@@ -67,7 +67,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl GetSettlement for MockX {
+    impl GetSettlement for X {
         async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
             self.settlements.get(&position).cloned()
         }
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn can_build_crops() {
         // Given
-        let x = MockX::default();
+        let x = X::default();
         let builder = CropsBuilder::new(x);
 
         // When
@@ -92,7 +92,7 @@ mod tests {
     #[test]
     fn should_build_crops_if_no_town_on_tile() {
         // Given
-        let x = MockX::default();
+        let x = X::default();
         let mut builder = CropsBuilder::new(x);
 
         // When
@@ -116,9 +116,9 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let x = MockX {
+        let x = X {
             settlements: hashmap! {v2(1, 2) => settlement},
-            ..MockX::default()
+            ..X::default()
         };
         let mut builder = CropsBuilder::new(x);
 

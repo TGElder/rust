@@ -7,7 +7,16 @@ use crate::world::{World, WorldObject};
 #[async_trait]
 pub trait SetWorldObject {
     async fn set_world_object(&self, object: WorldObject, position: V2<usize>) -> bool;
+}
+
+#[async_trait]
+pub trait ForceWorldObject {
     async fn force_world_object(&self, object: WorldObject, position: V2<usize>);
+}
+
+#[async_trait]
+pub trait RemoveWorldObject {
+    async fn remove_world_object(&self, position: V2<usize>);
 }
 
 #[async_trait]
@@ -24,11 +33,27 @@ where
             false
         }
     }
+}
 
+#[async_trait]
+impl<T> ForceWorldObject for T
+where
+    T: Micros + Redraw + SendWorld + Sync,
+{
     async fn force_world_object(&self, object: WorldObject, position: V2<usize>) {
         send_set_world_object(self, object, position, true).await;
         let when = self.micros().await;
         self.redraw_tile_at(position, when);
+    }
+}
+
+#[async_trait]
+impl<T> RemoveWorldObject for T
+where
+    T: Micros + Redraw + SendWorld + Sync,
+{
+    async fn remove_world_object(&self, position: V2<usize>) {
+        self.force_world_object(WorldObject::None, position).await;
     }
 }
 

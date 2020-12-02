@@ -2,7 +2,7 @@ use super::*;
 
 use crate::game::traits::HasWorld;
 use crate::resource::Resource;
-use crate::traits::SetWorldObject;
+use crate::traits::RemoveWorldObject;
 use crate::world::{WorldCell, WorldObject};
 use commons::executor::ThreadPool;
 use commons::grid::Grid;
@@ -17,7 +17,7 @@ pub fn try_remove_crops<G, X>(
     traffic: &PositionTrafficSummary,
 ) where
     G: HasWorld,
-    X: SetWorldObject + Clone + Send + Sync + 'static,
+    X: RemoveWorldObject + Clone + Send + Sync + 'static,
 {
     let crop_routes = get_crop_routes(&traffic);
     if !crop_routes.is_empty() {
@@ -27,9 +27,7 @@ pub fn try_remove_crops<G, X>(
     state.build_queue.remove(&BuildKey::Crops(traffic.position));
 
     if cell_has_crops(game, &traffic.position) {
-        let x = x.clone();
-        let position = traffic.position;
-        pool.spawn_ok(async move { x.force_world_object(WorldObject::None, position).await })
+        remove_crops(x, pool, traffic.position);
     }
 }
 
@@ -53,6 +51,14 @@ fn cell_has_crops(world: &dyn HasWorld, position: &V2<usize>) -> bool {
     }
 }
 
+fn remove_crops<X>(x: &X, pool: &ThreadPool, position: V2<usize>)
+where
+    X: RemoveWorldObject + Clone + Send + Sync + 'static,
+{
+    let x = x.clone();
+    pool.spawn_ok(async move { x.remove_world_object(position).await });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -69,17 +75,13 @@ mod tests {
     }
 
     #[derive(Clone, Default)]
-    struct MockX {
+    struct X {
         removed_objects: Arm<HashSet<V2<usize>>>,
     }
 
     #[async_trait]
-    impl SetWorldObject for MockX {
-        async fn set_world_object(&self, _: WorldObject, _: V2<usize>) -> bool {
-            todo!()
-        }
-
-        async fn force_world_object(&self, _: WorldObject, position: V2<usize>) {
+    impl RemoveWorldObject for X {
+        async fn remove_world_object(&self, position: V2<usize>) {
             self.removed_objects.lock().unwrap().insert(position);
         }
     }
@@ -105,7 +107,7 @@ mod tests {
 
         let mut world = world();
         world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
-        let x = MockX::default();
+        let x = X::default();
 
         // When
         try_remove_crops(
@@ -155,7 +157,7 @@ mod tests {
 
         let mut world = world();
         world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
-        let x = MockX::default();
+        let x = X::default();
 
         // When
         try_remove_crops(
@@ -205,7 +207,7 @@ mod tests {
 
         let mut world = world();
         world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
-        let x = MockX::default();
+        let x = X::default();
 
         // When
         try_remove_crops(
@@ -257,7 +259,7 @@ mod tests {
 
         let mut world = world();
         world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
-        let x = MockX::default();
+        let x = X::default();
 
         // When
         try_remove_crops(
@@ -294,7 +296,7 @@ mod tests {
 
         let mut world = world();
         world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
-        let x = MockX::default();
+        let x = X::default();
 
         // When
         try_remove_crops(

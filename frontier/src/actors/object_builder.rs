@@ -1,4 +1,4 @@
-use crate::traits::SetWorldObject;
+use crate::traits::{RemoveWorldObject, SetWorldObject};
 use crate::world::WorldObject;
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
@@ -25,7 +25,7 @@ struct ObjectBuilderBindings {
 
 impl<T> ObjectBuilder<T>
 where
-    T: SetWorldObject,
+    T: RemoveWorldObject + SetWorldObject,
 {
     pub fn new(x: T, engine_rx: Receiver<Arc<Event>>, seed: u64) -> ObjectBuilder<T> {
         ObjectBuilder {
@@ -51,9 +51,11 @@ where
 
     async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
         let event: Arc<Event> = event.unwrap();
+
         if let Event::WorldPositionChanged(world_coord) = *event {
             self.update_world_coord(world_coord);
         }
+
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
@@ -62,13 +64,12 @@ where
         } = *event
         {
             if button == &self.bindings.build_crop {
-                let rotated = self.rng.gen();
-                self.build_object_at_cursor(WorldObject::Crop { rotated })
-                    .await;
+                self.build_farm_at_cursor().await;
             } else if button == &self.bindings.demolish {
                 self.clear_object_at_cursor().await;
             }
         }
+
         if let Event::Shutdown = *event {
             self.shutdown();
         }
@@ -78,21 +79,27 @@ where
         self.world_coord = world_coord;
     }
 
-    fn get_position(&self) -> Option<V2<usize>> {
-        self.world_coord
-            .map(|world_coord| world_coord.to_v2_floor())
+    async fn build_farm_at_cursor(&mut self) {
+        let rotated = self.rng.gen();
+        self.build_object_at_cursor(WorldObject::Crop { rotated })
+            .await;
     }
 
-    async fn build_object_at_cursor(&mut self, object: WorldObject) {
+    async fn build_object_at_cursor(&self, object: WorldObject) {
         if let Some(position) = self.get_position() {
             self.x.set_world_object(object, position).await;
         }
     }
 
-    async fn clear_object_at_cursor(&mut self) {
+    async fn clear_object_at_cursor(&self) {
         if let Some(position) = self.get_position() {
-            self.x.force_world_object(WorldObject::None, position).await;
+            self.x.remove_world_object(position).await;
         }
+    }
+
+    fn get_position(&self) -> Option<V2<usize>> {
+        self.world_coord
+            .map(|world_coord| world_coord.to_v2_floor())
     }
 
     fn shutdown(&mut self) {

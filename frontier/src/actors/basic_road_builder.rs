@@ -47,7 +47,7 @@ where
                 modifiers: ModifiersState { alt: false, .. },
                 ..
             } if *button == self.binding => self.build_road().await,
-            Event::Shutdown => self.shutdown().await,
+            Event::Shutdown => self.shutdown(),
             _ => (),
         }
     }
@@ -81,7 +81,7 @@ where
         self.x.update_roads(result).await;
     }
 
-    async fn shutdown(&mut self) {
+    fn shutdown(&mut self) {
         self.run = false;
     }
 }

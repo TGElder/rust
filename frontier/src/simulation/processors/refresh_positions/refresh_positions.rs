@@ -3,7 +3,7 @@ use commons::executor::ThreadPool;
 use super::*;
 
 use crate::game::traits::{GetRoute, HasWorld, Nations, Settlements, WhoControlsTile};
-use crate::traits::SetWorldObject;
+use crate::traits::RemoveWorldObject;
 use std::collections::HashSet;
 
 const NAME: &str = "refresh_positions";
@@ -22,7 +22,7 @@ where
 impl<G, X> Processor for RefreshPositions<G, X>
 where
     G: GetRoute + HasWorld + Nations + Settlements + WhoControlsTile + Send,
-    X: SetWorldObject + Clone + Send + Sync + 'static,
+    X: RemoveWorldObject + Clone + Send + Sync + 'static,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let positions = match instruction {
@@ -36,7 +36,7 @@ where
 impl<G, X> RefreshPositions<G, X>
 where
     G: GetRoute + HasWorld + Nations + Settlements + WhoControlsTile + Send,
-    X: SetWorldObject + Clone + Send + Sync + 'static,
+    X: RemoveWorldObject + Clone + Send + Sync + 'static,
 {
     pub fn new(game: &FnSender<G>, x: X, pool: ThreadPool) -> RefreshPositions<G, X> {
         RefreshPositions {
@@ -80,7 +80,7 @@ fn refresh_positions<G, X>(
 ) -> State
 where
     G: GetRoute + HasWorld + Nations + Settlements + WhoControlsTile + Send,
-    X: SetWorldObject + Clone + Send + Sync + 'static,
+    X: RemoveWorldObject + Clone + Send + Sync + 'static,
 {
     for position in positions {
         refresh_position(
@@ -104,7 +104,7 @@ fn refresh_position<G, X>(
     initial_town_population: &f64,
 ) where
     G: GetRoute + HasWorld + Nations + Settlements + WhoControlsTile + Send,
-    X: SetWorldObject + Clone + Send + Sync + 'static,
+    X: RemoveWorldObject + Clone + Send + Sync + 'static,
 {
     let traffic = get_position_traffic(game, &state, &position);
     for instruction in try_build_town(game, &traffic, &initial_town_population) {
