@@ -1,3 +1,4 @@
+mod crops;
 mod micros;
 mod pathfinders;
 mod redraw;
@@ -12,10 +13,13 @@ mod send_visibility;
 mod send_voyager;
 mod send_world;
 mod send_world_artist;
+mod settlements;
 mod update_pathfinder_positions;
 mod update_roads;
 mod visibility;
+mod world_object;
 
+pub use crops::*;
 pub use micros::*;
 pub use pathfinders::*;
 pub use redraw::*;
@@ -30,6 +34,8 @@ pub use send_visibility::*;
 pub use send_voyager::*;
 pub use send_world::*;
 pub use send_world_artist::*;
+pub use settlements::*;
 pub use update_pathfinder_positions::*;
 pub use update_roads::*;
 pub use visibility::*;
+pub use world_object::*;

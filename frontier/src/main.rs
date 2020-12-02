@@ -37,7 +37,8 @@ use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
 use actors::{
-    BasicRoadBuilder, PauseGame, PauseSim, Save, VisibilityActor, Voyager, WorldArtistActor,
+    BasicRoadBuilder, ObjectBuilder, PauseGame, PauseSim, Save, VisibilityActor, Voyager,
+    WorldArtistActor,
 };
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::fn_sender::fn_channel;
@@ -143,6 +144,12 @@ fn main() {
         event_forwarder.subscribe(),
     );
 
+    let mut object_builder = ObjectBuilder::new(
+        x.clone_with_name("object_builder"),
+        event_forwarder.subscribe(),
+        game.game_state().params.seed,
+    );
+
     let territory_updater = TerritoryUpdater::new(
         &game.tx(),
         &pathfinder_without_planned_roads,
@@ -154,7 +161,7 @@ fn main() {
         vec![
             Box::new(SettlementBuilder::new(game.tx(), &territory_updater)),
             Box::new(RoadBuilder::new(x.clone_with_name("road_builder"))),
-            Box::new(CropsBuilder::new(game.tx())),
+            Box::new(CropsBuilder::new(x.clone_with_name("crops_builder"))),
         ],
     );
 
@@ -184,7 +191,11 @@ fn main() {
             Box::new(GetRouteChanges::new(game.tx())),
             Box::new(UpdatePositionTraffic::new()),
             Box::new(UpdateEdgeTraffic::new()),
-            Box::new(RefreshPositions::new(&game.tx())),
+            Box::new(RefreshPositions::new(
+                &game.tx(),
+                x.clone_with_name("refresh_positions"),
+                thread_pool.clone(),
+            )),
             Box::new(RefreshEdges::new(
                 &game.tx(),
                 x.clone_with_name("refresh_edges"),
@@ -210,7 +221,6 @@ fn main() {
         &pathfinder_without_planned_roads,
         thread_pool.clone(),
     ));
-    game.add_consumer(ObjectBuilder::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(TownBuilder::new(game.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
@@ -264,6 +274,10 @@ fn main() {
         async move { basic_road_builder.run().await }.remote_handle();
     thread_pool.spawn_ok(basic_road_builder_run);
 
+    let (object_builder_run, object_builder_handle) =
+        async move { object_builder.run().await }.remote_handle();
+    thread_pool.spawn_ok(object_builder_run);
+
     let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
     thread_pool.spawn_ok(pause_game_run);
 
@@ -294,6 +308,7 @@ fn main() {
     block_on(async {
         join!(
             basic_road_builder_handle,
+            object_builder_handle,
             pause_game_handle,
             pause_sim_handle,
             save_handle,
