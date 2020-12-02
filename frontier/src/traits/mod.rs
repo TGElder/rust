@@ -1,10 +1,9 @@
-mod build_roads;
-mod is_road;
 mod micros;
 mod pathfinders;
 mod redraw;
 mod reveal_all;
 mod reveal_positions;
+mod roads;
 mod send_game;
 mod send_pathfinder;
 mod send_settlements;
@@ -17,13 +16,12 @@ mod update_pathfinder_positions;
 mod update_roads;
 mod visibility;
 
-pub use build_roads::*;
-pub use is_road::*;
 pub use micros::*;
 pub use pathfinders::*;
 pub use redraw::*;
 pub use reveal_all::*;
 pub use reveal_positions::*;
+pub use roads::*;
 pub use send_game::*;
 pub use send_pathfinder::*;
 pub use send_settlements::*;
