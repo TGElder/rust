@@ -132,7 +132,7 @@ where
             } if *button == self.bindings.toggle_territory_layer => {
                 self.toggle_territory_layer().await
             }
-            Event::Shutdown => self.shutdown().await,
+            Event::Shutdown => self.shutdown(),
             _ => (),
         }
     }
@@ -142,7 +142,7 @@ where
         self.redraw_all().await;
     }
 
-    async fn shutdown(&mut self) {
+    fn shutdown(&mut self) {
         self.run = false;
     }
 
