@@ -25,7 +25,7 @@ where
     T: Micros + Redraw + SendWorld + Sync,
 {
     async fn set_world_object(&self, object: WorldObject, position: V2<usize>) -> bool {
-        if send_set_world_object(self, object, position, false).await {
+        if send_set_world_object(self, object, position, true).await {
             let when = self.micros().await;
             self.redraw_tile_at(position, when);
             true
@@ -41,7 +41,7 @@ where
     T: Micros + Redraw + SendWorld + Sync,
 {
     async fn force_world_object(&self, object: WorldObject, position: V2<usize>) {
-        send_set_world_object(self, object, position, true).await;
+        send_set_world_object(self, object, position, false).await;
         let when = self.micros().await;
         self.redraw_tile_at(position, when);
     }
@@ -74,10 +74,10 @@ fn set_world_object(
     world: &mut World,
     object: WorldObject,
     position: V2<usize>,
-    force: bool,
+    check_is_empty: bool,
 ) -> bool {
     let cell = unwrap_or!(world.mut_cell(&position), return false);
-    if !force && cell.object != WorldObject::None {
+    if check_is_empty && cell.object != WorldObject::None {
         return false;
     }
     cell.object = object;
