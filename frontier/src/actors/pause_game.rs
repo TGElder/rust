@@ -42,12 +42,12 @@ impl PauseGame {
                 modifiers: ModifiersState { alt: false, .. },
                 ..
             } if *button == self.binding => self.pause().await,
-            Event::Shutdown => self.shutdown().await,
+            Event::Shutdown => self.shutdown(),
             _ => (),
         }
     }
 
-    async fn shutdown(&mut self) {
+    fn shutdown(&mut self) {
         self.run = false;
     }
 

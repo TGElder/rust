@@ -1,22 +1,17 @@
 use super::*;
 
-use crate::game::traits::{BuildCrops, Settlements};
 use crate::settlement::{Settlement, SettlementClass::Town};
+use crate::traits::{AddCrops, GetSettlement};
 use commons::V2;
 
-const NAME: &str = "crops_builder";
-
-pub struct CropsBuilder<G>
-where
-    G: BuildCrops + Settlements + Send,
-{
-    game: FnSender<G>,
+pub struct CropsBuilder<T> {
+    x: T,
 }
 
 #[async_trait]
-impl<G> Builder for CropsBuilder<G>
+impl<T> Builder for CropsBuilder<T>
 where
-    G: BuildCrops + Settlements + Send,
+    T: AddCrops + GetSettlement + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Crops { .. } = build {
@@ -33,74 +28,56 @@ where
     }
 }
 
-impl<G> CropsBuilder<G>
+impl<T> CropsBuilder<T>
 where
-    G: BuildCrops + Settlements + Send,
+    T: AddCrops + GetSettlement + Send + Sync,
 {
-    pub fn new(game: &FnSender<G>) -> CropsBuilder<G> {
-        CropsBuilder {
-            game: game.clone_with_name(NAME),
-        }
+    pub fn new(x: T) -> CropsBuilder<T> {
+        CropsBuilder { x }
     }
 
     async fn try_build_crops(&mut self, position: V2<usize>, rotated: bool) {
-        self.game
-            .send(move |game| try_build_crops(game, position, rotated))
-            .await
+        if let Some(Settlement { class: Town, .. }) = self.x.get_settlement(position).await {
+            return;
+        }
+        self.x.add_crops(position, rotated).await;
     }
-}
-
-fn try_build_crops<G>(game: &mut G, position: V2<usize>, rotated: bool)
-where
-    G: BuildCrops + Settlements + Send,
-{
-    if let Some(Settlement { class: Town, .. }) = game.get_settlement(&position) {
-        return;
-    }
-    game.build_crops(&position, rotated);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::v2;
+    use commons::{v2, Arm};
     use std::collections::HashMap;
 
-    struct MockGame {
-        crops: HashMap<V2<usize>, bool>,
+    #[derive(Default)]
+    struct X {
+        crops: Arm<HashMap<V2<usize>, bool>>,
         settlements: HashMap<V2<usize>, Settlement>,
     }
 
-    impl Default for MockGame {
-        fn default() -> MockGame {
-            MockGame {
-                crops: hashmap! {},
-                settlements: hashmap! {},
-            }
-        }
-    }
-
-    impl BuildCrops for MockGame {
-        fn build_crops(&mut self, position: &V2<usize>, rotated: bool) -> bool {
-            self.crops.insert(*position, rotated);
+    #[async_trait]
+    impl AddCrops for X {
+        async fn add_crops(&self, position: V2<usize>, rotated: bool) -> bool {
+            self.crops.lock().unwrap().insert(position, rotated);
             true
         }
     }
 
-    impl Settlements for MockGame {
-        fn settlements(&self) -> &HashMap<V2<usize>, Settlement> {
-            &self.settlements
+    #[async_trait]
+    impl GetSettlement for X {
+        async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
+            self.settlements.get(&position).cloned()
         }
     }
 
     #[test]
     fn can_build_crops() {
         // Given
-        let game = FnThread::new(MockGame::default());
-        let builder = CropsBuilder::new(&game.tx());
+        let x = X::default();
+        let builder = CropsBuilder::new(x);
 
         // When
         let can_build = builder.can_build(&Build::Crops {
@@ -110,16 +87,13 @@ mod tests {
 
         // Then
         assert!(can_build);
-
-        // Finally
-        game.join();
     }
 
     #[test]
     fn should_build_crops_if_no_town_on_tile() {
         // Given
-        let game = FnThread::new(MockGame::default());
-        let mut builder = CropsBuilder::new(&game.tx());
+        let x = X::default();
+        let mut builder = CropsBuilder::new(x);
 
         // When
         block_on(builder.build(Build::Crops {
@@ -128,8 +102,10 @@ mod tests {
         }));
 
         // Then
-        let game = game.join();
-        assert_eq!(game.crops, hashmap! {v2(1, 2) => true});
+        assert_eq!(
+            *builder.x.crops.lock().unwrap(),
+            hashmap! {v2(1, 2) => true}
+        );
     }
 
     #[test]
@@ -140,12 +116,11 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let game = MockGame {
+        let x = X {
             settlements: hashmap! {v2(1, 2) => settlement},
-            ..MockGame::default()
+            ..X::default()
         };
-        let game = FnThread::new(game);
-        let mut builder = CropsBuilder::new(&game.tx());
+        let mut builder = CropsBuilder::new(x);
 
         // When
         block_on(builder.build(Build::Crops {
@@ -154,7 +129,6 @@ mod tests {
         }));
 
         // Then
-        let game = game.join();
-        assert_eq!(game.crops, hashmap! {});
+        assert_eq!(*builder.x.crops.lock().unwrap(), hashmap! {});
     }
 }

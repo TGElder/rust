@@ -42,13 +42,9 @@ where
                 modifiers: ModifiersState { alt: false, .. },
                 ..
             } if *button == self.binding => self.pause().await,
-            Event::Shutdown => self.shutdown().await,
+            Event::Shutdown => self.shutdown(),
             _ => (),
         }
-    }
-
-    async fn shutdown(&mut self) {
-        self.run = false;
     }
 
     async fn pause(&mut self) {
@@ -57,5 +53,9 @@ where
             .send_sim(move |sim| sim.toggle_paused_persistent())
             .await;
         debug!("Paused/resumed simulation");
+    }
+
+    fn shutdown(&mut self) {
+        self.run = false;
     }
 }
