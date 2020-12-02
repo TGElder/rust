@@ -9,10 +9,8 @@ pub use game_state::*;
 use crate::avatar::*;
 use crate::settlement::*;
 use crate::territory::*;
-use crate::world::*;
 use commons::fn_sender::*;
 use commons::futures::executor::block_on;
-use commons::grid::Grid;
 use commons::V2;
 use commons::*;
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
@@ -35,7 +33,6 @@ pub enum GameEvent {
     Save(String),
     Load(String),
     EngineEvent(Arc<Event>),
-    ObjectUpdated(V2<usize>),
     SettlementUpdated(Settlement),
     TerritoryChanged(Vec<TerritoryChange>),
 }
@@ -49,7 +46,6 @@ impl GameEvent {
             GameEvent::Save(..) => "save",
             GameEvent::Load(..) => "save",
             GameEvent::EngineEvent(..) => "engine event",
-            GameEvent::ObjectUpdated { .. } => "object updated",
             GameEvent::SettlementUpdated { .. } => "settlement updated",
             GameEvent::TerritoryChanged(..) => "territory changed",
         }
@@ -217,23 +213,6 @@ impl Game {
         });
     }
 
-    pub fn add_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
-        let cell = unwrap_or!(self.game_state.world.mut_cell(&position), return false);
-        if cell.object != WorldObject::None {
-            return false;
-        }
-        cell.object = object;
-        self.consume_event(GameEvent::ObjectUpdated(position));
-        true
-    }
-
-    pub fn force_object(&mut self, object: WorldObject, position: V2<usize>) -> bool {
-        let cell = unwrap_or!(self.game_state.world.mut_cell(&position), return false);
-        cell.object = object;
-        self.consume_event(GameEvent::ObjectUpdated(position));
-        true
-    }
-
     pub fn add_settlement(&mut self, settlement: Settlement) -> bool {
         if self
             .game_state
@@ -246,7 +225,7 @@ impl Game {
             self.game_state
                 .territory
                 .add_controller(settlement.position);
-            self.force_object(WorldObject::None, settlement.position);
+            // self.force_object(WorldObject::None, settlement.position);
         };
         self.game_state
             .settlements

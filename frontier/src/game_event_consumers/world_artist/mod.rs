@@ -46,10 +46,8 @@ where
     }
 
     fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        match event {
-            GameEvent::TerritoryChanged(changes) => self.draw_territory(game_state, changes),
-            GameEvent::ObjectUpdated(position) => self.update_cells(game_state, &[*position]),
-            _ => (),
+        if let GameEvent::TerritoryChanged(changes) = event {
+            self.draw_territory(game_state, changes)
         }
         CaptureEvent::No
     }
