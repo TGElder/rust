@@ -8,6 +8,7 @@ use crate::world::World;
 use commons::async_channel::{Receiver, RecvError};
 use commons::fn_sender::{FnMessageExt, FnReceiver};
 use commons::futures::future::FutureExt;
+use commons::log::info;
 use commons::V2;
 use isometric::drawing::{draw_house, DrawHouseParams};
 use isometric::{Command, Event};

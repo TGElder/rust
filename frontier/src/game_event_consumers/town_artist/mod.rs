@@ -9,7 +9,7 @@ use crate::traits::SendTownHouses;
 const NAME: &str = "town_artist_forwarder";
 
 pub struct TownArtistForwarder<X> {
-    x: X,
+    pub x: X,
 }
 
 impl<X> GameEventConsumer for TownArtistForwarder<X>

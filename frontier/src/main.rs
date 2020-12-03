@@ -272,6 +272,9 @@ fn main() {
     game.add_consumer(WorldArtistHandler::new(
         x.clone_with_name("world_artist_handler"),
     ));
+    game.add_consumer(TownArtistForwarder {
+        x: x.clone_with_name("town_artist_forwarder"),
+    });
 
     engine.add_event_consumer(event_forwarder);
 
