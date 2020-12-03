@@ -1,5 +1,6 @@
 mod crops;
 mod micros;
+mod nations;
 mod pathfinders;
 mod redraw;
 mod reveal_all;
@@ -14,6 +15,7 @@ mod world_object;
 
 pub use crops::*;
 pub use micros::*;
+pub use nations::*;
 pub use pathfinders::*;
 pub use redraw::*;
 pub use reveal_all::*;
