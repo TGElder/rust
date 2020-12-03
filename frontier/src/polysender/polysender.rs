@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::actors::{VisibilityActor, Voyager, WorldArtistActor};
+use crate::actors::{TownHouses, VisibilityActor, Voyager, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
@@ -8,8 +8,8 @@ use crate::settlement::Settlement;
 use crate::simulation::Simulation;
 use crate::traits::{
     PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendNations,
-    SendParameters, SendPathfinder, SendSettlements, SendSim, SendVisibility, SendVoyager,
-    SendWorld, SendWorldArtist,
+    SendParameters, SendPathfinder, SendSettlements, SendSim, SendTownHouses, SendVisibility,
+    SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::world::World;
 use commons::fn_sender::FnSender;
@@ -22,6 +22,7 @@ use std::sync::{Arc, RwLock};
 pub struct Polysender {
     game_tx: FnSender<Game>,
     simulation_tx: FnSender<Simulation>,
+    town_houses_tx: FnSender<TownHouses<Polysender>>,
     visibility_tx: FnSender<VisibilityActor<Polysender>>,
     voyager_tx: FnSender<Voyager<Polysender>>,
     world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
@@ -33,6 +34,7 @@ impl Polysender {
     pub fn new(
         game_tx: FnSender<Game>,
         simulation_tx: FnSender<Simulation>,
+        town_houses_tx: FnSender<TownHouses<Polysender>>,
         visibility_tx: FnSender<VisibilityActor<Polysender>>,
         voyager_tx: FnSender<Voyager<Polysender>>,
         world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
@@ -41,10 +43,11 @@ impl Polysender {
     ) -> Polysender {
         Polysender {
             game_tx,
-            visibility_tx,
-            world_artist_tx,
             simulation_tx,
+            town_houses_tx,
+            visibility_tx,
             voyager_tx,
+            world_artist_tx,
             pathfinder_with_planned_roads,
             pathfinder_without_planned_roads,
         }
@@ -54,6 +57,7 @@ impl Polysender {
         Polysender {
             game_tx: self.game_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
+            town_houses_tx: self.town_houses_tx.clone_with_name(name),
             visibility_tx: self.visibility_tx.clone_with_name(name),
             voyager_tx: self.voyager_tx.clone_with_name(name),
             world_artist_tx: self.world_artist_tx.clone_with_name(name),
@@ -137,6 +141,18 @@ impl SendSim for Polysender {
         F: FnOnce(&mut Simulation) -> O + Send + 'static,
     {
         self.simulation_tx.send(function);
+    }
+}
+
+#[async_trait]
+impl SendTownHouses for Polysender {
+    fn send_town_houses_future_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut TownHouses<Self>) -> BoxFuture<O> + Send + 'static,
+    {
+        self.town_houses_tx
+            .send_future(move |town_houses| function(town_houses));
     }
 }
 

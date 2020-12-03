@@ -28,6 +28,7 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
+use crate::actors::TownHouses;
 use crate::avatar::*;
 use crate::event_forwarder::EventForwarder;
 use crate::game::*;
@@ -78,6 +79,7 @@ fn main() {
     let thread_pool = ThreadPool::new().unwrap();
 
     let (simulation_tx, simulation_rx) = fn_channel();
+    let (town_houses_tx, town_houses_rx) = fn_channel();
     let (visibility_tx, visibility_rx) = fn_channel();
     let (voyager_tx, voyager_rx) = fn_channel();
     let (world_artist_tx, world_artist_rx) = fn_channel();
@@ -94,6 +96,7 @@ fn main() {
     let x = Polysender::new(
         game.tx().clone_with_name("polysender"),
         simulation_tx,
+        town_houses_tx,
         visibility_tx,
         voyager_tx,
         world_artist_tx,
@@ -124,6 +127,14 @@ fn main() {
         game_event_forwarder.subscribe(),
         engine.command_tx(),
         world_artist,
+    );
+
+    let mut town_houses = TownHouses::new(
+        x.clone_with_name("town_houses"),
+        town_houses_rx,
+        event_forwarder.subscribe(),
+        game_event_forwarder.subscribe(),
+        engine.command_tx(),
     );
 
     let mut visibility = VisibilityActor::new(
@@ -229,8 +240,6 @@ fn main() {
     // Drawing
 
     game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
-    game.add_consumer(TownHouses::new(game.tx()));
-    game.add_consumer(TownLabels::new(game.tx()));
 
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.tx()));
 
@@ -287,6 +296,10 @@ fn main() {
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
 
+    let (town_houses_run, town_houses_handle) =
+        async move { town_houses.run().await }.remote_handle();
+    thread_pool.spawn_ok(town_houses_run);
+
     let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
     thread_pool.spawn_ok(visibility_run);
 
@@ -313,6 +326,7 @@ fn main() {
             pause_sim_handle,
             save_handle,
             sim_handle,
+            town_houses_handle,
             world_artist_actor_handle,
             visibility_handle,
             voyager_handle

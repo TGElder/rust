@@ -1,21 +1,40 @@
-use super::*;
+use std::sync::Arc;
 
-mod forwarder;
-mod params;
-mod town_houses;
-mod town_labels;
+use commons::futures::FutureExt;
+use isometric::Event;
 
-pub use forwarder::*;
-pub use params::*;
-pub use town_houses::*;
-pub use town_labels::*;
+use crate::game::{CaptureEvent, GameEvent, GameEventConsumer, GameState};
+use crate::traits::SendTownHouses;
 
-use crate::settlement::Settlement;
+const NAME: &str = "town_artist_forwarder";
 
-fn get_house_height_with_roof(params: &TownArtistParameters, settlement: &Settlement) -> f32 {
-    get_house_height_without_roof(params, settlement) + params.house_roof_height
+pub struct TownArtistForwarder<X> {
+    x: X,
 }
 
-fn get_house_height_without_roof(params: &TownArtistParameters, settlement: &Settlement) -> f32 {
-    (settlement.current_population + 1.0).log(params.house_height_log_base) as f32
+impl<X> GameEventConsumer for TownArtistForwarder<X>
+where
+    X: SendTownHouses,
+{
+    fn name(&self) -> &'static str {
+        NAME
+    }
+
+    fn consume_game_event(&mut self, _: &GameState, event: &GameEvent) -> CaptureEvent {
+        match event {
+            GameEvent::SettlementUpdated(settlement) => {
+                let settlement = settlement.clone();
+                self.x
+                    .send_town_houses_future_background(move |town_houses| {
+                        town_houses.update_settlement(settlement).boxed()
+                    })
+            }
+            _ => (),
+        }
+        CaptureEvent::No
+    }
+
+    fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
+        CaptureEvent::No
+    }
 }

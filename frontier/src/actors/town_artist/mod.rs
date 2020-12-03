@@ -1,10 +1,10 @@
 mod params;
 mod town_houses;
-mod town_labels;
+// mod town_labels;
 
 pub use params::*;
 pub use town_houses::*;
-pub use town_labels::*;
+// pub use town_labels::*;
 
 use crate::settlement::Settlement;
 

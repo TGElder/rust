@@ -1,40 +1,87 @@
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
-use super::*;
-
-use crate::game::{CaptureEvent, Game, GameEvent, GameEventConsumer, GameState};
+use crate::game::GameEvent;
 use crate::settlement::*;
-use commons::fn_sender::FnSender;
-use isometric::{Command, Event};
+use crate::traits::{GetNationDescription, GetSettlement, SendParameters, SendWorld, Settlements};
+use crate::world::World;
+use commons::async_channel::{Receiver, RecvError};
+use commons::fn_sender::{FnMessageExt, FnReceiver};
+use commons::futures::future::FutureExt;
+use commons::V2;
 use isometric::drawing::{draw_house, DrawHouseParams};
+use isometric::{Command, Event};
 
-const NAME: &str = "town_houses";
-
-pub struct TownHouses<X>
- {
-    game_tx: FnSender<Game>,
+pub struct TownHouses<X> {
+    x: X,
+    rx: FnReceiver<TownHouses<X>>,
+    engine_rx: Receiver<Arc<Event>>,
+    game_rx: Receiver<GameEvent>,
+    command_tx: Sender<Vec<Command>>,
+    run: bool,
 }
 
-impl TownHouses {
-    pub fn new(game_tx: &FnSender<Game>) -> TownHouses {
+impl<X> TownHouses<X>
+where
+    X: GetNationDescription + GetSettlement + SendWorld + SendParameters + Settlements + Send,
+{
+    pub fn new(
+        x: X,
+        rx: FnReceiver<TownHouses<X>>,
+        engine_rx: Receiver<Arc<Event>>,
+        game_rx: Receiver<GameEvent>,
+        command_tx: Sender<Vec<Command>>,
+    ) -> TownHouses<X> {
         TownHouses {
-            game_tx: game_tx.clone_with_name(NAME),
+            x,
+            rx,
+            engine_rx,
+            game_rx,
+            command_tx,
+            run: true,
         }
     }
 
-    fn init(&mut self, game_state: &GameState) {
-        self.draw_all(game_state);
+    pub async fn run(&mut self) {
+        while self.run {
+            select! {
+                mut message = self.rx.get_message().fuse() => message.apply(self).await,
+                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await,
+                event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
+            }
+        }
     }
 
-    fn update_settlement(&mut self, game_state: &GameState, settlement: &Settlement) {
-        if game_state.settlements.contains_key(&settlement.position) {
-            self.draw_settlement(game_state, settlement)
+    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
+        match *event.unwrap() {
+            Event::Shutdown => self.shutdown(),
+            _ => (),
+        }
+    }
+
+    async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
+        if let GameEvent::Init = event.unwrap() {
+            self.init().await;
+        }
+    }
+
+    fn shutdown(&mut self) {
+        self.run = false;
+    }
+
+    async fn init(&mut self) {
+        self.draw_all().await;
+    }
+
+    pub async fn update_settlement(&mut self, settlement: Settlement) {
+        if self.x.get_settlement(settlement.position).await.is_some() {
+            self.draw_settlement(settlement).await
         } else {
             self.erase_settlement(settlement)
         }
     }
 
-    fn draw_settlement(&mut self, game_state: &GameState, settlement: &Settlement) {
+    async fn draw_settlement(&mut self, settlement: Settlement) {
         if let Settlement {
             class: SettlementClass::Town,
             position,
@@ -42,64 +89,51 @@ impl TownHouses {
             ..
         } = settlement
         {
-            let params = game_state.params.town_artist;
-            let nation = game_state
-                .nations
-                .get(nation)
+            let (params, light_direction) = self
+                .x
+                .send_parameters(|params| (params.town_artist, params.light_direction))
+                .await;
+            let nation = self
+                .x
+                .get_nation_description(nation.clone())
+                .await
                 .unwrap_or_else(|| panic!("Unknown nation {}", &nation));
             let draw_house_params = DrawHouseParams {
                 width: params.house_width,
-                height: get_house_height_without_roof(&params, settlement),
+                height: 1.0,
                 roof_height: params.house_roof_height,
-                base_color: *nation.color(),
-                light_direction: game_state.params.light_direction,
+                base_color: nation.color,
+                light_direction,
             };
-            let commands = draw_house(
-                get_name(settlement),
-                &game_state.world,
-                &position,
-                &draw_house_params,
-            );
-            self.game_tx.send(move |game| {
-                game.send_engine_commands(commands);
-            });
+
+            let commands = self
+                .x
+                .send_world(move |world| draw_house_at_position(world, position, draw_house_params))
+                .await;
+            self.command_tx.send(commands).unwrap();
         }
     }
 
-    fn erase_settlement(&mut self, settlement: &Settlement) {
-        let command = Command::Erase(get_name(settlement));
-        self.game_tx
-            .send(move |game| game.send_engine_commands(vec![command]));
+    fn erase_settlement(&mut self, settlement: Settlement) {
+        let command = Command::Erase(get_name(&settlement.position));
+        self.command_tx.send(vec![command]).unwrap();
     }
 
-    fn draw_all(&mut self, game_state: &GameState) {
-        for settlement in game_state.settlements.values() {
-            self.draw_settlement(&game_state, &settlement);
+    async fn draw_all(&mut self) {
+        for settlement in self.x.settlements().await {
+            self.draw_settlement(settlement).await;
         }
     }
 }
 
-fn get_name(settlement: &Settlement) -> String {
-    format!("house-{:?}", settlement.position)
+pub fn draw_house_at_position(
+    world: &World,
+    position: V2<usize>,
+    params: DrawHouseParams,
+) -> Vec<Command> {
+    draw_house(get_name(&position), world, &position, &params)
 }
 
-impl GameEventConsumer for TownHouses {
-    fn name(&self) -> &'static str {
-        NAME
-    }
-
-    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        match event {
-            GameEvent::Init => self.init(&game_state),
-            GameEvent::SettlementUpdated(settlement) => {
-                self.update_settlement(game_state, settlement)
-            }
-            _ => (),
-        }
-        CaptureEvent::No
-    }
-
-    fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
-        CaptureEvent::No
-    }
+fn get_name(position: &V2<usize>) -> String {
+    format!("house-{:?}", position)
 }
