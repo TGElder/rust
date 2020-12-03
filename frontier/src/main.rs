@@ -77,10 +77,10 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let (visibility_tx, visibility_rx) = fn_channel();
-    let (world_artist_tx, world_artist_rx) = fn_channel();
     let (simulation_tx, simulation_rx) = fn_channel();
+    let (visibility_tx, visibility_rx) = fn_channel();
     let (voyager_tx, voyager_rx) = fn_channel();
+    let (world_artist_tx, world_artist_rx) = fn_channel();
 
     let pathfinder_with_planned_roads = Arc::new(RwLock::new(Pathfinder::new(
         &game.game_state().world,
@@ -93,10 +93,10 @@ fn main() {
 
     let x = Polysender::new(
         game.tx().clone_with_name("polysender"),
-        visibility_tx,
-        world_artist_tx,
         simulation_tx,
+        visibility_tx,
         voyager_tx,
+        world_artist_tx,
         pathfinder_with_planned_roads.clone(),
         pathfinder_without_planned_roads.clone(),
     );
