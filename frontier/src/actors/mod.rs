@@ -3,6 +3,7 @@ mod object_builder;
 mod pause_game;
 mod pause_sim;
 mod save;
+mod town_artist;
 mod visibility;
 mod voyager;
 mod world_artist;
