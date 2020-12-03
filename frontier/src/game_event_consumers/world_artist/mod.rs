@@ -1,6 +1,6 @@
 use futures::FutureExt;
 
-use crate::traits::SendWorldArtist;
+use crate::traits::send::SendWorldArtist;
 
 use super::*;
 
