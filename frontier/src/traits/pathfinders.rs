@@ -1,4 +1,4 @@
-use crate::traits::SendPathfinder;
+use crate::traits::send::SendPathfinder;
 
 pub trait PathfinderWithPlannedRoads {
     type T: SendPathfinder + Clone + Send + Sync;

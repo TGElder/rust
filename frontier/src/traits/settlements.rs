@@ -1,5 +1,5 @@
 use crate::settlement::Settlement;
-use crate::traits::SendSettlements;
+use crate::traits::send::SendSettlements;
 use commons::async_trait::async_trait;
 use commons::V2;
 
