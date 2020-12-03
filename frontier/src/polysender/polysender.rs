@@ -7,8 +7,9 @@ use crate::pathfinder::Pathfinder;
 use crate::settlement::Settlement;
 use crate::simulation::Simulation;
 use crate::traits::{
-    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendPathfinder,
-    SendSettlements, SendSim, SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
+    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendNations,
+    SendParameters, SendPathfinder, SendSettlements, SendSim, SendVisibility, SendVoyager,
+    SendWorld, SendWorldArtist,
 };
 use crate::world::World;
 use commons::fn_sender::FnSender;
@@ -20,10 +21,10 @@ use std::sync::{Arc, RwLock};
 #[derive(Clone)]
 pub struct Polysender {
     game_tx: FnSender<Game>,
-    visibility_tx: FnSender<VisibilityActor<Polysender>>,
-    world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
     simulation_tx: FnSender<Simulation>,
+    visibility_tx: FnSender<VisibilityActor<Polysender>>,
     voyager_tx: FnSender<Voyager<Polysender>>,
+    world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
     pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 }
@@ -31,10 +32,10 @@ pub struct Polysender {
 impl Polysender {
     pub fn new(
         game_tx: FnSender<Game>,
-        visibility_tx: FnSender<VisibilityActor<Polysender>>,
-        world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
         simulation_tx: FnSender<Simulation>,
+        visibility_tx: FnSender<VisibilityActor<Polysender>>,
         voyager_tx: FnSender<Voyager<Polysender>>,
+        world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
         pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
         pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     ) -> Polysender {
@@ -52,10 +53,10 @@ impl Polysender {
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
             game_tx: self.game_tx.clone_with_name(name),
-            visibility_tx: self.visibility_tx.clone_with_name(name),
-            world_artist_tx: self.world_artist_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
+            visibility_tx: self.visibility_tx.clone_with_name(name),
             voyager_tx: self.voyager_tx.clone_with_name(name),
+            world_artist_tx: self.world_artist_tx.clone_with_name(name),
             pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
             pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
         }
@@ -78,6 +79,75 @@ impl SendGame for Polysender {
         F: FnOnce(&mut Game) -> O + Send + 'static,
     {
         self.game_tx.send(function);
+    }
+}
+
+#[async_trait]
+impl SendNations for Polysender {
+    async fn send_nations<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut HashMap<String, crate::nation::Nation>) -> O + Send + 'static,
+    {
+        self.game_tx
+            .send(move |game| function(&mut game.mut_state().nations))
+            .await
+    }
+}
+
+#[async_trait]
+impl SendParameters for Polysender {
+    async fn send_parameters<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&crate::game::GameParams) -> O + Send + 'static,
+    {
+        self.game_tx
+            .send(move |game| function(&game.game_state().params))
+            .await
+    }
+}
+
+#[async_trait]
+impl SendSettlements for Polysender {
+    async fn send_settlements<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut HashMap<V2<usize>, Settlement>) -> O + Send + 'static,
+    {
+        self.game_tx
+            .send(move |game| function(&mut game.mut_state().settlements))
+            .await
+    }
+}
+
+#[async_trait]
+impl SendSim for Polysender {
+    async fn send_sim<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Simulation) -> O + Send + 'static,
+    {
+        self.simulation_tx.send(function).await
+    }
+
+    fn send_sim_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Simulation) -> O + Send + 'static,
+    {
+        self.simulation_tx.send(function);
+    }
+}
+
+impl SendVoyager for Polysender {
+    fn send_voyager_future_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Voyager<Polysender>) -> BoxFuture<O> + Send + 'static,
+    {
+        self.voyager_tx
+            .send_future(move |voyager| function(voyager));
     }
 }
 
@@ -134,25 +204,6 @@ impl SendWorldArtist for Polysender {
     }
 }
 
-#[async_trait]
-impl SendSim for Polysender {
-    async fn send_sim<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut Simulation) -> O + Send + 'static,
-    {
-        self.simulation_tx.send(function).await
-    }
-
-    fn send_sim_background<F, O>(&self, function: F)
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut Simulation) -> O + Send + 'static,
-    {
-        self.simulation_tx.send(function);
-    }
-}
-
 impl PathfinderWithPlannedRoads for Polysender {
     type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
@@ -187,29 +238,5 @@ impl SendPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
         F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static,
     {
         function(&mut self.write().unwrap());
-    }
-}
-
-impl SendVoyager for Polysender {
-    fn send_voyager_future_background<F, O>(&self, function: F)
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut Voyager<Polysender>) -> BoxFuture<O> + Send + 'static,
-    {
-        self.voyager_tx
-            .send_future(move |voyager| function(voyager));
-    }
-}
-
-#[async_trait]
-impl SendSettlements for Polysender {
-    async fn send_settlements<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut HashMap<V2<usize>, Settlement>) -> O + Send + 'static,
-    {
-        self.game_tx
-            .send(move |game| function(&mut game.mut_state().settlements))
-            .await
     }
 }
