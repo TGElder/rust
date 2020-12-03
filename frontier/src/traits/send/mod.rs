@@ -1,4 +1,6 @@
 mod send_game;
+mod send_nations;
+mod send_parameters;
 mod send_pathfinder;
 mod send_settlements;
 mod send_sim;
@@ -8,6 +10,8 @@ mod send_world;
 mod send_world_artist;
 
 pub use send_game::*;
+pub use send_nations::*;
+pub use send_parameters::*;
 pub use send_pathfinder::*;
 pub use send_settlements::*;
 pub use send_sim::*;
