@@ -1,6 +1,6 @@
 use crate::actors::WorldArtistActor;
+use crate::traits::send::SendGame;
 use crate::traits::Micros;
-use crate::traits::SendGame;
 use commons::futures::future::BoxFuture;
 
 pub trait SendWorldArtist: Micros + SendGame + Send + Sync {

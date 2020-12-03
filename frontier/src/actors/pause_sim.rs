@@ -1,4 +1,4 @@
-use crate::traits::SendSim;
+use crate::traits::send::SendSim;
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
 use commons::log::debug;

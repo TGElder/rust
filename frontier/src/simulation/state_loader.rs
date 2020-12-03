@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::game::*;
-use crate::traits::SendSim;
+use crate::traits::send::SendSim;
 use commons::index2d::Vec2D;
 use isometric::Event;
 use std::collections::HashSet;

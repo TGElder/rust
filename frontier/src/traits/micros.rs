@@ -1,4 +1,4 @@
-use crate::traits::SendGame;
+use crate::traits::send::SendGame;
 use commons::async_trait::async_trait;
 
 #[async_trait]
