@@ -1,7 +1,6 @@
 use crate::avatar::*;
 use crate::game::*;
 use crate::territory::*;
-use crate::world::*;
 use commons::fn_sender::*;
 use commons::futures::executor::ThreadPool;
 use commons::grid::Grid;
