@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use commons::async_trait::async_trait;
 use commons::{v2, Grid, V2};
 
-use crate::traits::{Micros, Redraw, SendGame, SendSim, SendWorld, UpdatePathfinderPositions};
+use crate::traits::{DrawWorld, Micros, SendGame, SendSim, SendWorld, UpdatePathfinderPositions};
 
 #[async_trait]
 pub trait RevealAll {
@@ -13,7 +13,7 @@ pub trait RevealAll {
 #[async_trait]
 impl<T> RevealAll for T
 where
-    T: Micros + Redraw + SendGame + SendSim + SendWorld + UpdatePathfinderPositions + Sync,
+    T: DrawWorld + Micros + SendGame + SendSim + SendWorld + UpdatePathfinderPositions + Sync,
 {
     async fn reveal_all(&self) {
         let (width, height) = reveal_all_get_dimensions(self).await;
@@ -64,8 +64,8 @@ where
 
 async fn redraw_all<T>(x: &T)
 where
-    T: Micros + Redraw,
+    T: DrawWorld + Micros,
 {
     let micros = x.micros().await;
-    x.redraw_all_at(micros);
+    x.draw_world(micros);
 }

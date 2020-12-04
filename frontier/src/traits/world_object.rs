@@ -1,7 +1,7 @@
 use commons::async_trait::async_trait;
 use commons::{Grid, V2};
 
-use crate::traits::{Micros, Redraw, SendWorld};
+use crate::traits::{DrawWorld, Micros, SendWorld};
 use crate::world::{World, WorldObject};
 
 #[async_trait]
@@ -22,12 +22,12 @@ pub trait RemoveWorldObject {
 #[async_trait]
 impl<T> SetWorldObject for T
 where
-    T: Micros + Redraw + SendWorld + Sync,
+    T: DrawWorld + Micros + SendWorld + Sync,
 {
     async fn set_world_object(&self, object: WorldObject, position: V2<usize>) -> bool {
         if send_set_world_object(self, object, position, true).await {
             let when = self.micros().await;
-            self.redraw_tile_at(position, when);
+            self.draw_world_tile(position, when);
             true
         } else {
             false
@@ -38,19 +38,19 @@ where
 #[async_trait]
 impl<T> ForceWorldObject for T
 where
-    T: Micros + Redraw + SendWorld + Sync,
+    T: DrawWorld + Micros + SendWorld + Sync,
 {
     async fn force_world_object(&self, object: WorldObject, position: V2<usize>) {
         send_set_world_object(self, object, position, false).await;
         let when = self.micros().await;
-        self.redraw_tile_at(position, when);
+        self.draw_world_tile(position, when);
     }
 }
 
 #[async_trait]
 impl<T> RemoveWorldObject for T
 where
-    T: Micros + Redraw + SendWorld + Sync,
+    T: DrawWorld + Micros + SendWorld + Sync,
 {
     async fn remove_world_object(&self, position: V2<usize>) {
         self.force_world_object(WorldObject::None, position).await;
