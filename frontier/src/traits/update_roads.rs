@@ -1,6 +1,6 @@
 use crate::road_builder::RoadBuilderResult;
 use crate::traits::{
-    Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, Redraw, SendPathfinder,
+    DrawWorld, Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendPathfinder,
     SendWorld, Visibility,
 };
 use crate::travel_duration::{EdgeDuration, TravelDuration};
@@ -15,8 +15,8 @@ pub trait UpdateRoads {
 #[async_trait]
 impl<T> UpdateRoads for T
 where
-    T: Micros
-        + Redraw
+    T: DrawWorld
+        + Micros
         + Visibility
         + PathfinderWithoutPlannedRoads
         + PathfinderWithPlannedRoads
@@ -46,11 +46,11 @@ where
 
 async fn redraw<T>(x: &T, result: &Arc<RoadBuilderResult>)
 where
-    T: Micros + Redraw,
+    T: DrawWorld + Micros,
 {
     let micros = x.micros().await;
     for position in result.path().iter().cloned() {
-        x.redraw_tile_at(position, micros);
+        x.draw_world_tile(position, micros);
     }
 }
 
