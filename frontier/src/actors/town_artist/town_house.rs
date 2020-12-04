@@ -72,6 +72,9 @@ where
     }
 
     async fn draw_settlement(&mut self, settlement: Settlement) {
+        if settlement.class != SettlementClass::Town {
+            return;
+        }
         let params = DrawHouseParams {
             width: self.params.house_width,
             height: get_house_height_without_roof(&self.params, &settlement),
