@@ -57,12 +57,6 @@ where
         }
     }
 
-    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
-        if let Event::Shutdown = *event.unwrap() {
-            self.shutdown()
-        }
-    }
-
     pub async fn update_settlement(&mut self, settlement: Settlement) {
         if self.x.get_settlement(settlement.position).await.is_some() {
             self.draw_settlement(settlement).await
@@ -95,9 +89,11 @@ where
     }
 
     async fn draw_house(&mut self, params: DrawHouseParams, settlement: Settlement) {
+        let name = get_name(&settlement.position);
+        let position = settlement.position;
         let commands = self
             .x
-            .send_world(move |world| draw_house_at_position(world, settlement.position, params))
+            .send_world(move |world| get_draw_commands(name, world, position, params))
             .await;
         self.command_tx.send(commands).unwrap();
     }
@@ -107,14 +103,20 @@ where
         self.command_tx.send(vec![command]).unwrap();
     }
 
-    async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
-        if let GameEvent::Init = event.unwrap() {
-            self.init().await;
+    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
+        if let Event::Shutdown = *event.unwrap() {
+            self.shutdown()
         }
     }
 
     fn shutdown(&mut self) {
         self.run = false;
+    }
+
+    async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
+        if let GameEvent::Init = event.unwrap() {
+            self.init().await;
+        }
     }
 
     async fn init(&mut self) {
@@ -128,12 +130,13 @@ where
     }
 }
 
-pub fn draw_house_at_position(
+pub fn get_draw_commands(
+    name: String,
     world: &World,
     position: V2<usize>,
     params: DrawHouseParams,
 ) -> Vec<Command> {
-    draw_house(get_name(&position), world, &position, &params)
+    draw_house(name, world, &position, &params)
 }
 
 fn get_name(position: &V2<usize>) -> String {
