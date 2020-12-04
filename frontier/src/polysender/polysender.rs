@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::actors::{VisibilityActor, Voyager, WorldArtistActor};
+use crate::actors::{TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::Game;
 use crate::pathfinder::Pathfinder;
@@ -8,8 +8,8 @@ use crate::settlement::Settlement;
 use crate::simulation::Simulation;
 use crate::traits::{
     PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendNations,
-    SendParameters, SendPathfinder, SendSettlements, SendSim, SendVisibility, SendVoyager,
-    SendWorld, SendWorldArtist,
+    SendParameters, SendPathfinder, SendSettlements, SendSim, SendTownHouseArtist,
+    SendTownLabelArtist, SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::world::World;
 use commons::fn_sender::FnSender;
@@ -20,40 +20,24 @@ use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct Polysender {
-    game_tx: FnSender<Game>,
-    simulation_tx: FnSender<Simulation>,
-    visibility_tx: FnSender<VisibilityActor<Polysender>>,
-    voyager_tx: FnSender<Voyager<Polysender>>,
-    world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
-    pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
-    pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub game_tx: FnSender<Game>,
+    pub simulation_tx: FnSender<Simulation>,
+    pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
+    pub town_label_artist_tx: FnSender<TownLabelArtist<Polysender>>,
+    pub visibility_tx: FnSender<VisibilityActor<Polysender>>,
+    pub voyager_tx: FnSender<Voyager<Polysender>>,
+    pub world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
+    pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 }
 
 impl Polysender {
-    pub fn new(
-        game_tx: FnSender<Game>,
-        simulation_tx: FnSender<Simulation>,
-        visibility_tx: FnSender<VisibilityActor<Polysender>>,
-        voyager_tx: FnSender<Voyager<Polysender>>,
-        world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
-        pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
-        pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
-    ) -> Polysender {
-        Polysender {
-            game_tx,
-            visibility_tx,
-            world_artist_tx,
-            simulation_tx,
-            voyager_tx,
-            pathfinder_with_planned_roads,
-            pathfinder_without_planned_roads,
-        }
-    }
-
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
             game_tx: self.game_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
+            town_house_artist_tx: self.town_house_artist_tx.clone_with_name(name),
+            town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
             visibility_tx: self.visibility_tx.clone_with_name(name),
             voyager_tx: self.voyager_tx.clone_with_name(name),
             world_artist_tx: self.world_artist_tx.clone_with_name(name),
@@ -137,6 +121,30 @@ impl SendSim for Polysender {
         F: FnOnce(&mut Simulation) -> O + Send + 'static,
     {
         self.simulation_tx.send(function);
+    }
+}
+
+#[async_trait]
+impl SendTownHouseArtist for Polysender {
+    fn send_town_house_artist_future_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut TownHouseArtist<Self>) -> BoxFuture<O> + Send + 'static,
+    {
+        self.town_house_artist_tx
+            .send_future(move |town_house_artist| function(town_house_artist));
+    }
+}
+
+#[async_trait]
+impl SendTownLabelArtist for Polysender {
+    fn send_town_label_artist_future_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut TownLabelArtist<Self>) -> BoxFuture<O> + Send + 'static,
+    {
+        self.town_label_artist_tx
+            .send_future(move |town_label_artist| function(town_label_artist));
     }
 }
 

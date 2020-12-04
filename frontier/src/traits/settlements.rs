@@ -18,3 +18,19 @@ where
             .await
     }
 }
+
+#[async_trait]
+pub trait Settlements {
+    async fn settlements(&self) -> Vec<Settlement>;
+}
+
+#[async_trait]
+impl<T> Settlements for T
+where
+    T: SendSettlements + Sync,
+{
+    async fn settlements(&self) -> Vec<Settlement> {
+        self.send_settlements(move |settlements| settlements.values().cloned().collect())
+            .await
+    }
+}
