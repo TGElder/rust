@@ -15,8 +15,6 @@ use isometric::coords::WorldCoord;
 use isometric::drawing::{draw_label, get_house_base_corners};
 use isometric::{Button, Command, ElementState, Event, Font, ModifiersState, VirtualKeyCode};
 
-const LABEL_FLOAT: f32 = 0.33;
-
 pub struct TownLabelArtist<X> {
     x: X,
     rx: FnReceiver<TownLabelArtist<X>>,
@@ -87,18 +85,21 @@ where
         }
         let name = get_name(&settlement);
         let text = self.state.get_label(settlement);
+        let world_coord = self.get_world_coord(settlement).await;
+        let draw_order = -settlement.current_population as i32;
+        let commands = draw_label(name, &text, world_coord, &self.font, draw_order);
+        self.command_tx.send(commands).unwrap();
+    }
+
+    async fn get_world_coord(&mut self, settlement: &Settlement) -> WorldCoord {
         let params = self.params;
         let position = settlement.position;
         let mut world_coord = self
             .x
             .send_world(move |world| get_house_base_coord(world, position, params))
             .await;
-        world_coord.z += get_house_height_with_roof(&params, settlement) + LABEL_FLOAT;
-        let draw_order = -settlement.current_population as i32;
-
-        let commands = draw_label(name, &text, world_coord, &self.font, draw_order);
-
-        self.command_tx.send(commands).unwrap();
+        world_coord.z += get_house_height_with_roof(&params, settlement) + params.label_float;
+        world_coord
     }
 
     fn erase_settlement(&mut self, settlement: &Settlement) {
