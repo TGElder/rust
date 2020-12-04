@@ -109,19 +109,15 @@ where
 
     async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
         match *event.unwrap() {
-            Event::Shutdown => self.shutdown(),
             Event::Button {
                 ref button,
                 state: ElementState::Pressed,
                 modifiers: ModifiersState { alt: true, .. },
                 ..
             } if *button == self.binding => self.change_state().await,
+            Event::Shutdown => self.shutdown(),
             _ => (),
         }
-    }
-
-    fn shutdown(&mut self) {
-        self.run = false;
     }
 
     async fn change_state(&mut self) {
@@ -136,16 +132,20 @@ where
         }
     }
 
+    async fn erase_all(&mut self) {
+        for settlement in self.x.settlements().await {
+            self.erase_settlement(&settlement);
+        }
+    }
+
     async fn draw_all(&mut self) {
         for settlement in self.x.settlements().await {
             self.draw_settlement(&settlement).await;
         }
     }
 
-    async fn erase_all(&mut self) {
-        for settlement in self.x.settlements().await {
-            self.erase_settlement(&settlement);
-        }
+    fn shutdown(&mut self) {
+        self.run = false;
     }
 
     async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
@@ -168,11 +168,10 @@ fn get_house_base_coord(
     house_position: V2<usize>,
     params: TownArtistParameters,
 ) -> WorldCoord {
-    let z = get_base_z(world, &house_position, params.house_width);
     WorldCoord::new(
         house_position.x as f32 + 0.5,
         house_position.y as f32 + 0.5,
-        z,
+        get_base_z(world, &house_position, params.house_width),
     )
 }
 
