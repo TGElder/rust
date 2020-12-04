@@ -13,7 +13,7 @@ pub use object_builder::ObjectBuilder;
 pub use pause_game::PauseGame;
 pub use pause_sim::PauseSim;
 pub use save::Save;
-pub use town_artist::{TownArtistParameters, TownHouses};
+pub use town_artist::{TownArtistParameters, TownHouseArtist, TownLabelArtist};
 pub use visibility::*;
 pub use voyager::*;
 pub use world_artist::WorldArtistActor;

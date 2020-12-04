@@ -1,131 +1,160 @@
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
-use super::*;
-
-use crate::game::{CaptureEvent, Game, GameEvent, GameEventConsumer, GameState};
+use crate::actors::town_artist::get_house_height_with_roof;
+use crate::actors::TownArtistParameters;
+use crate::game::GameEvent;
 use crate::settlement::*;
+use crate::traits::{GetNationDescription, GetSettlement, SendWorld, Settlements};
 use crate::world::World;
-use commons::fn_sender::FnSender;
-use commons::unsafe_ordering;
+use commons::async_channel::{Receiver, RecvError};
+use commons::fn_sender::{FnMessageExt, FnReceiver};
+use commons::futures::future::FutureExt;
+use commons::{unsafe_ordering, V2};
 use isometric::coords::WorldCoord;
 use isometric::drawing::{draw_label, get_house_base_corners};
-use isometric::{Command, Event, Font};
-use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
+use isometric::{Button, Command, ElementState, Event, Font, ModifiersState, VirtualKeyCode};
 
-const NAME: &str = "town_labels";
 const LABEL_FLOAT: f32 = 0.33;
 
-pub struct TownLabels {
-    game_tx: FnSender<Game>,
+pub struct TownLabelArtist<X> {
+    x: X,
+    rx: FnReceiver<TownLabelArtist<X>>,
+    engine_rx: Receiver<Arc<Event>>,
+    game_rx: Receiver<GameEvent>,
+    command_tx: Sender<Vec<Command>>,
+    params: TownArtistParameters,
     font: Arc<Font>,
-    state: TownLabelState,
+    state: TownLabelArtistState,
     binding: Button,
+    run: bool,
 }
 
-enum TownLabelState {
-    NoLabels,
-    NameOnly,
-    NameAndPopulation,
-}
-
-impl TownLabelState {
-    fn get_label(&self, settlement: &Settlement) -> String {
-        match self {
-            TownLabelState::NoLabels => String::new(),
-            TownLabelState::NameOnly => settlement.name.to_string(),
-            TownLabelState::NameAndPopulation => format!(
-                "{} ({})",
-                settlement.name,
-                settlement.current_population.round() as usize
-            ),
-        }
-    }
-
-    fn next(&self) -> TownLabelState {
-        match self {
-            TownLabelState::NoLabels => TownLabelState::NameOnly,
-            TownLabelState::NameOnly => TownLabelState::NameAndPopulation,
-            TownLabelState::NameAndPopulation => TownLabelState::NoLabels,
-        }
-    }
-}
-
-impl TownLabels {
-    pub fn new(game_tx: &FnSender<Game>) -> TownLabels {
-        TownLabels {
+impl<X> TownLabelArtist<X>
+where
+    X: GetNationDescription + GetSettlement + SendWorld + Settlements + Send,
+{
+    pub fn new(
+        x: X,
+        rx: FnReceiver<TownLabelArtist<X>>,
+        engine_rx: Receiver<Arc<Event>>,
+        game_rx: Receiver<GameEvent>,
+        command_tx: Sender<Vec<Command>>,
+        params: TownArtistParameters,
+    ) -> TownLabelArtist<X> {
+        TownLabelArtist {
+            x,
+            rx,
+            engine_rx,
+            game_rx,
+            command_tx,
+            params,
             font: Arc::new(Font::from_file("resources/fonts/roboto_slab_20.fnt")),
-            game_tx: game_tx.clone_with_name(NAME),
-            state: TownLabelState::NameOnly,
+            state: TownLabelArtistState::NameOnly,
             binding: Button::Key(VirtualKeyCode::L),
+            run: true,
         }
     }
 
-    fn init(&mut self, game_state: &GameState) {
-        self.on_switch(game_state);
+    pub async fn run(&mut self) {
+        while self.run {
+            select! {
+                mut message = self.rx.get_message().fuse() => message.apply(self).await,
+                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await,
+                event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
+            }
+        }
     }
 
-    fn change_state(&mut self, game_state: &GameState) {
-        self.state = self.state.next();
-        self.on_switch(game_state);
-    }
-
-    fn on_switch(&mut self, game_state: &GameState) {
+    pub async fn update_label(&mut self, settlement: Settlement) {
         match self.state {
-            TownLabelState::NoLabels => self.erase_all(game_state),
-            _ => self.draw_all(game_state),
+            TownLabelArtistState::NoLabels => (),
+            _ => self.update_settlement(&settlement).await,
         }
     }
 
-    fn on_update(&mut self, game_state: &GameState, settlement: &Settlement) {
-        match self.state {
-            TownLabelState::NoLabels => (),
-            _ => self.update_settlement(game_state, settlement),
-        }
-    }
-
-    fn update_settlement(&mut self, game_state: &GameState, settlement: &Settlement) {
-        if game_state.settlements.contains_key(&settlement.position) {
-            self.draw_settlement(game_state, settlement)
+    async fn update_settlement(&mut self, settlement: &Settlement) {
+        if self.x.get_settlement(settlement.position).await.is_some() {
+            self.draw_settlement(settlement).await;
         } else {
-            self.erase_settlement(settlement)
+            self.erase_settlement(settlement);
         }
     }
 
-    fn draw_settlement(&mut self, game_state: &GameState, settlement: &Settlement) {
+    async fn draw_settlement(&mut self, settlement: &Settlement) {
         if settlement.class != SettlementClass::Town {
             return;
         }
-        let commands = draw_label(
-            get_name(settlement),
-            &self.state.get_label(settlement),
-            get_label_position(
-                &game_state.world,
-                settlement,
-                &game_state.params.town_artist,
-            ),
-            &self.font,
-            -settlement.current_population as i32,
-        );
-        self.game_tx
-            .send(move |game| game.send_engine_commands(commands));
+        let name = get_name(&settlement);
+        let text = self.state.get_label(settlement);
+        let params = self.params;
+        let position = settlement.position;
+        let mut world_coord = self
+            .x
+            .send_world(move |world| get_house_base_coord(world, position, params))
+            .await;
+        world_coord.z += get_house_height_with_roof(&params, settlement) + LABEL_FLOAT;
+        let draw_order = -settlement.current_population as i32;
+
+        let commands = draw_label(name, &text, world_coord, &self.font, draw_order);
+
+        self.command_tx.send(commands).unwrap();
     }
 
     fn erase_settlement(&mut self, settlement: &Settlement) {
         let command = Command::Erase(get_name(settlement));
-        self.game_tx
-            .send(move |game| game.send_engine_commands(vec![command]));
+        self.command_tx.send(vec![command]).unwrap();
     }
 
-    fn draw_all(&mut self, game_state: &GameState) {
-        for settlement in game_state.settlements.values() {
-            self.draw_settlement(&game_state, &settlement);
+    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
+        match *event.unwrap() {
+            Event::Shutdown => self.shutdown(),
+            Event::Button {
+                ref button,
+                state: ElementState::Pressed,
+                modifiers: ModifiersState { alt: true, .. },
+                ..
+            } if *button == self.binding => self.change_state().await,
+            _ => (),
         }
     }
 
-    fn erase_all(&mut self, game_state: &GameState) {
-        for settlement in game_state.settlements.values() {
+    fn shutdown(&mut self) {
+        self.run = false;
+    }
+
+    async fn change_state(&mut self) {
+        self.state = self.state.next();
+        self.on_switch().await;
+    }
+
+    async fn on_switch(&mut self) {
+        match self.state {
+            TownLabelArtistState::NoLabels => self.erase_all().await,
+            _ => self.draw_all().await,
+        }
+    }
+
+    async fn draw_all(&mut self) {
+        for settlement in self.x.settlements().await {
+            self.draw_settlement(&settlement).await;
+        }
+    }
+
+    async fn erase_all(&mut self) {
+        for settlement in self.x.settlements().await {
             self.erase_settlement(&settlement);
         }
+    }
+
+    async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
+        if let GameEvent::Init = event.unwrap() {
+            self.init().await;
+        }
+    }
+
+    async fn init(&mut self) {
+        self.on_switch().await;
     }
 }
 
@@ -133,49 +162,49 @@ fn get_name(settlement: &Settlement) -> String {
     format!("settlement-label-{:?}", settlement.position)
 }
 
-fn get_label_position(
+fn get_house_base_coord(
     world: &World,
-    settlement: &Settlement,
-    params: &TownArtistParameters,
+    house_position: V2<usize>,
+    params: TownArtistParameters,
 ) -> WorldCoord {
-    let position = &settlement.position;
-    let base_z = get_base_z(world, settlement, params.house_width);
-    let z = base_z + get_house_height_with_roof(params, settlement) + LABEL_FLOAT;
-    WorldCoord::new(position.x as f32 + 0.5, position.y as f32 + 0.5, z)
+    let z = get_base_z(world, &house_position, params.house_width);
+    WorldCoord::new(
+        house_position.x as f32 + 0.5,
+        house_position.y as f32 + 0.5,
+        z,
+    )
 }
 
-fn get_base_z(world: &World, settlement: &Settlement, house_width: f32) -> f32 {
-    let [a, b, c, d] = get_house_base_corners(world, &settlement.position, house_width);
+fn get_base_z(world: &World, house_position: &V2<usize>, house_width: f32) -> f32 {
+    let [a, b, c, d] = get_house_base_corners(world, house_position, house_width);
     let zs = [a.z, b.z, c.z, d.z];
     *zs.iter().max_by(unsafe_ordering).unwrap()
 }
 
-impl GameEventConsumer for TownLabels {
-    fn name(&self) -> &'static str {
-        NAME
+enum TownLabelArtistState {
+    NoLabels,
+    NameOnly,
+    NameAndPopulation,
+}
+
+impl TownLabelArtistState {
+    fn get_label(&self, settlement: &Settlement) -> String {
+        match self {
+            TownLabelArtistState::NoLabels => String::new(),
+            TownLabelArtistState::NameOnly => settlement.name.to_string(),
+            TownLabelArtistState::NameAndPopulation => format!(
+                "{} ({})",
+                settlement.name,
+                settlement.current_population.round() as usize
+            ),
+        }
     }
 
-    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        match event {
-            GameEvent::Init => self.init(&game_state),
-            GameEvent::SettlementUpdated(settlement) => self.on_update(game_state, settlement),
-            _ => (),
+    fn next(&self) -> TownLabelArtistState {
+        match self {
+            TownLabelArtistState::NoLabels => TownLabelArtistState::NameOnly,
+            TownLabelArtistState::NameOnly => TownLabelArtistState::NameAndPopulation,
+            TownLabelArtistState::NameAndPopulation => TownLabelArtistState::NoLabels,
         }
-        CaptureEvent::No
-    }
-
-    fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent {
-        if let Event::Button {
-            ref button,
-            state: ElementState::Pressed,
-            modifiers: ModifiersState { alt: true, .. },
-            ..
-        } = *event
-        {
-            if *button == self.binding {
-                self.change_state(game_state);
-            }
-        }
-        CaptureEvent::No
     }
 }

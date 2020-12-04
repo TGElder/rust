@@ -28,7 +28,6 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
-use crate::actors::TownHouses;
 use crate::avatar::*;
 use crate::event_forwarder::EventForwarder;
 use crate::game::*;
@@ -38,8 +37,8 @@ use crate::territory::*;
 use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
 use actors::{
-    BasicRoadBuilder, ObjectBuilder, PauseGame, PauseSim, Save, VisibilityActor, Voyager,
-    WorldArtistActor,
+    BasicRoadBuilder, ObjectBuilder, PauseGame, PauseSim, Save, TownHouseArtist, TownLabelArtist,
+    VisibilityActor, Voyager, WorldArtistActor,
 };
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::fn_sender::fn_channel;
@@ -79,7 +78,8 @@ fn main() {
     let thread_pool = ThreadPool::new().unwrap();
 
     let (simulation_tx, simulation_rx) = fn_channel();
-    let (town_houses_tx, town_houses_rx) = fn_channel();
+    let (town_house_artist_tx, town_house_artist_rx) = fn_channel();
+    let (town_label_artist_tx, town_label_artist_rx) = fn_channel();
     let (visibility_tx, visibility_rx) = fn_channel();
     let (voyager_tx, voyager_rx) = fn_channel();
     let (world_artist_tx, world_artist_rx) = fn_channel();
@@ -93,16 +93,17 @@ fn main() {
         AvatarTravelDuration::with_planned_roads_ignored(&game.game_state().params.avatar_travel),
     )));
 
-    let x = Polysender::new(
-        game.tx().clone_with_name("polysender"),
+    let x = Polysender {
+        game_tx: game.tx().clone_with_name("polysender"),
         simulation_tx,
-        town_houses_tx,
+        town_house_artist_tx,
+        town_label_artist_tx,
         visibility_tx,
         voyager_tx,
         world_artist_tx,
-        pathfinder_with_planned_roads.clone(),
-        pathfinder_without_planned_roads.clone(),
-    );
+        pathfinder_with_planned_roads: pathfinder_with_planned_roads.clone(),
+        pathfinder_without_planned_roads: pathfinder_without_planned_roads.clone(),
+    };
 
     let mut event_forwarder = EventForwarder::new();
     let mut game_event_forwarder = GameEventForwarder::new(thread_pool.clone());
@@ -129,12 +130,22 @@ fn main() {
         world_artist,
     );
 
-    let mut town_houses = TownHouses::new(
+    let mut town_house_artist = TownHouseArtist::new(
         x.clone_with_name("town_houses"),
-        town_houses_rx,
+        town_house_artist_rx,
         event_forwarder.subscribe(),
         game_event_forwarder.subscribe(),
         engine.command_tx(),
+        game.game_state().params.town_artist,
+    );
+
+    let mut town_label_artist = TownLabelArtist::new(
+        x.clone_with_name("town_labels"),
+        town_label_artist_rx,
+        event_forwarder.subscribe(),
+        game_event_forwarder.subscribe(),
+        engine.command_tx(),
+        game.game_state().params.town_artist,
     );
 
     let mut visibility = VisibilityActor::new(
@@ -299,9 +310,13 @@ fn main() {
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
 
-    let (town_houses_run, town_houses_handle) =
-        async move { town_houses.run().await }.remote_handle();
-    thread_pool.spawn_ok(town_houses_run);
+    let (town_house_artist_run, town_house_artist_handle) =
+        async move { town_house_artist.run().await }.remote_handle();
+    thread_pool.spawn_ok(town_house_artist_run);
+
+    let (town_label_artist_run, town_label_artist_handle) =
+        async move { town_label_artist.run().await }.remote_handle();
+    thread_pool.spawn_ok(town_label_artist_run);
 
     let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
     thread_pool.spawn_ok(visibility_run);
@@ -329,7 +344,8 @@ fn main() {
             pause_sim_handle,
             save_handle,
             sim_handle,
-            town_houses_handle,
+            town_house_artist_handle,
+            town_label_artist_handle,
             world_artist_actor_handle,
             visibility_handle,
             voyager_handle
