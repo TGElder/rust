@@ -1,19 +1,44 @@
-use super::*;
+use std::sync::Arc;
 
-mod params;
-mod town_houses;
-mod town_labels;
+use commons::futures::FutureExt;
+use isometric::Event;
 
-pub use params::*;
-pub use town_houses::*;
-pub use town_labels::*;
+use crate::game::{CaptureEvent, GameEvent, GameEventConsumer, GameState};
+use crate::traits::{SendTownHouseArtist, SendTownLabelArtist};
 
-use crate::settlement::Settlement;
+const NAME: &str = "town_artist_forwarder";
 
-fn get_house_height_with_roof(params: &TownArtistParameters, settlement: &Settlement) -> f32 {
-    get_house_height_without_roof(params, settlement) + params.house_roof_height
+pub struct TownArtistForwarder<X> {
+    pub x: X,
 }
 
-fn get_house_height_without_roof(params: &TownArtistParameters, settlement: &Settlement) -> f32 {
-    (settlement.current_population + 1.0).log(params.house_height_log_base) as f32
+impl<X> GameEventConsumer for TownArtistForwarder<X>
+where
+    X: SendTownHouseArtist + SendTownLabelArtist,
+{
+    fn name(&self) -> &'static str {
+        NAME
+    }
+
+    fn consume_game_event(&mut self, _: &GameState, event: &GameEvent) -> CaptureEvent {
+        if let GameEvent::SettlementUpdated(settlement) = event {
+            let house_settlement = settlement.clone();
+            self.x
+                .send_town_house_artist_future_background(move |town_house_artist| {
+                    town_house_artist
+                        .update_settlement(house_settlement)
+                        .boxed()
+                });
+            let label_settlement = settlement.clone();
+            self.x
+                .send_town_label_artist_future_background(move |town_label_artist| {
+                    town_label_artist.update_label(label_settlement).boxed()
+                });
+        }
+        CaptureEvent::No
+    }
+
+    fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
+        CaptureEvent::No
+    }
 }
