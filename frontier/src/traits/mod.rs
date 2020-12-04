@@ -1,8 +1,9 @@
 mod crops;
+mod draw_town;
+mod draw_world;
 mod micros;
 mod nations;
 mod pathfinders;
-mod redraw;
 mod reveal_all;
 mod reveal_positions;
 mod roads;
@@ -14,10 +15,11 @@ mod visibility;
 mod world_object;
 
 pub use crops::*;
+pub use draw_town::*;
+pub use draw_world::*;
 pub use micros::*;
 pub use nations::*;
 pub use pathfinders::*;
-pub use redraw::*;
 pub use reveal_all::*;
 pub use reveal_positions::*;
 pub use roads::*;
