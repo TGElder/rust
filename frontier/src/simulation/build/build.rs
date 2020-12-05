@@ -7,14 +7,14 @@ use commons::V2;
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Build {
     Road(Edge),
-    Settlement(Settlement),
+    Town(Settlement),
     Crops { position: V2<usize>, rotated: bool },
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum BuildKey {
     Road(Edge),
-    Settlement(V2<usize>),
+    Town(V2<usize>),
     Crops(V2<usize>),
 }
 
@@ -22,7 +22,7 @@ impl Build {
     pub fn key(&self) -> BuildKey {
         match self {
             Build::Road(edge) => BuildKey::Road(*edge),
-            Build::Settlement(Settlement { position, .. }) => BuildKey::Settlement(*position),
+            Build::Town(Settlement { position, .. }) => BuildKey::Town(*position),
             Build::Crops { position, .. } => BuildKey::Crops(*position),
         }
     }
@@ -45,17 +45,17 @@ mod tests {
     }
 
     #[test]
-    fn settlement_build_key() {
+    fn town_build_key() {
         // Given
         let position = v2(1, 2);
-        let settlement = Settlement {
+        let town = Settlement {
             position,
             ..Settlement::default()
         };
-        let build = Build::Settlement(settlement);
+        let build = Build::Town(town);
 
         // Then
-        assert_eq!(build.key(), BuildKey::Settlement(position));
+        assert_eq!(build.key(), BuildKey::Town(position));
     }
 
     #[test]
