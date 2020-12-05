@@ -66,7 +66,7 @@ fn add_settlement(game: &mut Game, position: V2<usize>) {
         last_population_update_micros: game.game_state().game_micros,
     };
 
-    game.add_settlement(settlement);
+    // game.add_settlement(settlement);
 }
 
 fn random_nation_name(game: &Game) -> String {

@@ -1,4 +1,3 @@
-mod add_settlement;
 mod check_for_port;
 mod controlled;
 mod get_route;
@@ -13,7 +12,6 @@ mod visible_positions;
 mod who_controls_tile;
 mod world;
 
-pub use add_settlement::*;
 pub use check_for_port::*;
 pub use controlled::*;
 pub use get_route::*;

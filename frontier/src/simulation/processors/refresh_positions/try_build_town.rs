@@ -23,15 +23,15 @@ where
         return vec![];
     }
 
-    let settlement = get_settlement(game, &traffic.routes, *initial_population);
+    let town = get_town(game, &traffic.routes, *initial_population);
     let when = get_when(&traffic.routes);
     candidate_positions
         .into_iter()
         .map(|position| Settlement {
             position,
-            ..settlement.clone()
+            ..town.clone()
         })
-        .map(Build::Settlement)
+        .map(Build::Town)
         .map(|what| BuildInstruction { what, when })
         .collect()
 }
@@ -57,7 +57,7 @@ fn get_candidate_positions(tiles: &[Tile]) -> Vec<V2<usize>> {
         .collect()
 }
 
-fn get_settlement<G>(game: &mut G, routes: &[RouteSummary], initial_population: f64) -> Settlement
+fn get_town<G>(game: &mut G, routes: &[RouteSummary], initial_population: f64) -> Settlement
 where
     G: Nations,
 {
@@ -157,25 +157,22 @@ mod tests {
         // Then
         if let Some(BuildInstruction {
             when,
-            what: Build::Settlement(settlement),
+            what: Build::Town(town),
         }) = instructions.get(0)
         {
             // When is first visit
             assert_eq!(*when, 101);
-            assert_eq!(settlement.class, Town);
-            assert_eq!(settlement.nation, "Scotland".to_string());
-            assert_eq!(settlement.name, "Edinburgh".to_string());
-            assert!(settlement.current_population.almost(&0.5));
-            assert!(settlement.target_population.almost(&0.0));
+            assert_eq!(town.class, Town);
+            assert_eq!(town.nation, "Scotland".to_string());
+            assert_eq!(town.name, "Edinburgh".to_string());
+            assert!(town.current_population.almost(&0.5));
+            assert!(town.target_population.almost(&0.0));
             // Gap half life is average round-trip duration of routes to position
-            assert_eq!(
-                settlement.gap_half_life,
-                Duration::from_micros(202).mul_f32(5.19)
-            );
+            assert_eq!(town.gap_half_life, Duration::from_micros(202).mul_f32(5.19));
             // Last population update is same as when (build time)
-            assert_eq!(settlement.last_population_update_micros, 101);
+            assert_eq!(town.last_population_update_micros, 101);
         } else {
-            panic!("No settlement build instruction!");
+            panic!("No town build instruction!");
         }
     }
 
@@ -229,23 +226,20 @@ mod tests {
         // Then
         if let Some(BuildInstruction {
             when,
-            what: Build::Settlement(settlement),
+            what: Build::Town(town),
         }) = instructions.get(0)
         {
             // When is first visit in any route
             assert_eq!(*when, 101);
             // Settlement nation is nation with lowest first visit
-            assert_eq!(settlement.nation, "Wales".to_string());
-            assert_eq!(settlement.name, "Swansea".to_string());
+            assert_eq!(town.nation, "Wales".to_string());
+            assert_eq!(town.name, "Swansea".to_string());
             // Gap half life is average round-trip duration of routes to position
-            assert_eq!(
-                settlement.gap_half_life,
-                Duration::from_micros(303).mul_f32(5.19)
-            );
+            assert_eq!(town.gap_half_life, Duration::from_micros(303).mul_f32(5.19));
             // Last population update is same as when (build time)
-            assert_eq!(settlement.last_population_update_micros, 101);
+            assert_eq!(town.last_population_update_micros, 101);
         } else {
-            panic!("No settlement build instruction!");
+            panic!("No town build instruction!");
         }
     }
 
@@ -279,10 +273,10 @@ mod tests {
 
         match instructions.get(0) {
             Some(BuildInstruction {
-                what: Build::Settlement { .. },
+                what: Build::Town { .. },
                 ..
             }) => (),
-            _ => panic!("No settlement build instruction!"),
+            _ => panic!("No town build instruction!"),
         }
     }
 
@@ -325,7 +319,7 @@ mod tests {
             .into_iter()
             .flat_map(|instruction| match instruction {
                 BuildInstruction {
-                    what: Build::Settlement(Settlement { position, .. }),
+                    what: Build::Town(Settlement { position, .. }),
                     ..
                 } => Some(position),
                 _ => None,
