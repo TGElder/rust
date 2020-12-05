@@ -81,6 +81,7 @@ mod tests {
     use commons::v2;
     use std::collections::HashSet;
     use std::default::Default;
+    use std::time::Duration;
 
     struct MockGame {
         controlled: HashSet<V2<usize>>,
@@ -160,6 +161,7 @@ mod tests {
             traffic: vec![TownTrafficSummary {
                 nation: "A".to_string(),
                 traffic_share: 1.0,
+                total_duration: Duration::default(),
             }],
         };
         block_on(processor.process(state, &instruction));

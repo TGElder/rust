@@ -3,6 +3,7 @@ use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::settlement::Settlement;
 use commons::edge::Edge;
 use std::collections::HashSet;
+use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
@@ -34,6 +35,7 @@ pub enum Instruction {
 pub struct TownTrafficSummary {
     pub nation: String,
     pub traffic_share: f64,
+    pub total_duration: Duration,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
