@@ -233,7 +233,7 @@ impl Game {
         true
     }
 
-    pub fn set_territory(&mut self, states: Vec<TerritoryState>) {
+    fn set_territory(&mut self, states: Vec<TerritoryState>) {
         let mut changes = vec![];
         for TerritoryState {
             controller,

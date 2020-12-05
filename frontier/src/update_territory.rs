@@ -1,6 +1,5 @@
 use super::*;
 
-use crate::game::traits::SetTerritory;
 use crate::pathfinder::traits::PositionsWithin;
 use commons::async_trait::async_trait;
 use commons::fn_sender::FnSender;
