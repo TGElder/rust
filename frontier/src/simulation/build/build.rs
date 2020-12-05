@@ -14,7 +14,7 @@ pub enum Build {
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum BuildKey {
     Road(Edge),
-    Settlement(V2<usize>),
+    Town(V2<usize>),
     Crops(V2<usize>),
 }
 
@@ -22,7 +22,7 @@ impl Build {
     pub fn key(&self) -> BuildKey {
         match self {
             Build::Road(edge) => BuildKey::Road(*edge),
-            Build::Town(Settlement { position, .. }) => BuildKey::Settlement(*position),
+            Build::Town(Settlement { position, .. }) => BuildKey::Town(*position),
             Build::Crops { position, .. } => BuildKey::Crops(*position),
         }
     }
@@ -55,7 +55,7 @@ mod tests {
         let build = Build::Town(settlement);
 
         // Then
-        assert_eq!(build.key(), BuildKey::Settlement(position));
+        assert_eq!(build.key(), BuildKey::Town(position));
     }
 
     #[test]
