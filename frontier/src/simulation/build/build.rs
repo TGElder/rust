@@ -45,14 +45,14 @@ mod tests {
     }
 
     #[test]
-    fn settlement_build_key() {
+    fn town_build_key() {
         // Given
         let position = v2(1, 2);
-        let settlement = Settlement {
+        let town = Settlement {
             position,
             ..Settlement::default()
         };
-        let build = Build::Town(settlement);
+        let build = Build::Town(town);
 
         // Then
         assert_eq!(build.key(), BuildKey::Town(position));

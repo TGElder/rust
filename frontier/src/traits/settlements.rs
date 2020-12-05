@@ -12,7 +12,7 @@ pub trait AddTown {
 #[async_trait]
 impl<T> AddTown for T
 where
-    T: AddController + DrawTown + RemoveWorldObject + GetSettlement + InsertSettlement + Sync,
+    T: AddController + GetSettlement + InsertSettlement + DrawTown + RemoveWorldObject + Sync,
 {
     async fn add_town(&self, town: Settlement) -> bool {
         if town.class != SettlementClass::Town {
