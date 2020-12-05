@@ -6,9 +6,10 @@ use crate::game::Game;
 use crate::pathfinder::Pathfinder;
 use crate::settlement::Settlement;
 use crate::simulation::Simulation;
+use crate::territory::Territory;
 use crate::traits::{
     PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendNations,
-    SendParameters, SendPathfinder, SendSettlements, SendSim, SendTownHouseArtist,
+    SendParameters, SendPathfinder, SendSettlements, SendSim, SendTerritory, SendTownHouseArtist,
     SendTownLabelArtist, SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::world::World;
@@ -121,6 +122,19 @@ impl SendSim for Polysender {
         F: FnOnce(&mut Simulation) -> O + Send + 'static,
     {
         self.simulation_tx.send(function);
+    }
+}
+
+#[async_trait]
+impl SendTerritory for Polysender {
+    async fn send_territory<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Territory) -> O + Send + 'static,
+    {
+        self.game_tx
+            .send(move |game| function(&mut game.mut_state().territory))
+            .await
     }
 }
 

@@ -213,27 +213,6 @@ impl Game {
         });
     }
 
-    pub fn add_settlement(&mut self, settlement: Settlement) -> bool {
-        if self
-            .game_state
-            .settlements
-            .contains_key(&settlement.position)
-        {
-            return false;
-        }
-        if let SettlementClass::Town = settlement.class {
-            self.game_state
-                .territory
-                .add_controller(settlement.position);
-            // self.force_object(WorldObject::None, settlement.position);
-        };
-        self.game_state
-            .settlements
-            .insert(settlement.position, settlement.clone());
-        self.consume_event(GameEvent::SettlementUpdated(settlement));
-        true
-    }
-
     pub fn update_settlement(&mut self, settlement: Settlement) {
         self.game_state
             .settlements

@@ -6,7 +6,6 @@ mod builder;
 pub mod builders;
 
 use commons::async_trait::async_trait;
-use commons::fn_sender::FnSender;
 use serde::{Deserialize, Serialize};
 
 pub use build::*;

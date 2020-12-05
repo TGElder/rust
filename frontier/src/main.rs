@@ -50,7 +50,7 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use polysender::Polysender;
 use simple_logger::SimpleLogger;
-use simulation::builders::{CropsBuilder, RoadBuilder, SettlementBuilder};
+use simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation::game_event_consumers::ResourceTargets;
 use simulation::processors::*;
@@ -181,7 +181,10 @@ fn main() {
     let builder = BuildSim::new(
         game.tx(),
         vec![
-            Box::new(SettlementBuilder::new(game.tx(), &territory_updater)),
+            Box::new(TownBuilder::new(
+                x.clone_with_name("town_builder"),
+                &territory_updater,
+            )),
             Box::new(RoadBuilder::new(x.clone_with_name("road_builder"))),
             Box::new(CropsBuilder::new(x.clone_with_name("crops_builder"))),
         ],
@@ -243,7 +246,7 @@ fn main() {
         &pathfinder_without_planned_roads,
         thread_pool.clone(),
     ));
-    game.add_consumer(TownBuilder::new(game.tx()));
+    // game.add_consumer(TownBuilder::new(game.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(&pathfinder_with_planned_roads));
