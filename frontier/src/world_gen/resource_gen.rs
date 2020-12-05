@@ -241,7 +241,8 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                         || self
                             .has_vegetation_type_adjacent(position, VegetationType::DeciduousTree)
                         || self
-                            .has_vegetation_type_adjacent(position, VegetationType::EvergreenTree))
+                            .has_vegetation_type_adjacent(position, VegetationType::EvergreenTree)
+                        || self.has_vegetation_type_adjacent(position, VegetationType::SnowTree))
             }
             Resource::None => false,
         }
