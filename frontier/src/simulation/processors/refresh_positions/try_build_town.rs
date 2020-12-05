@@ -31,7 +31,7 @@ where
             position,
             ..settlement.clone()
         })
-        .map(Build::Settlement)
+        .map(Build::Town)
         .map(|what| BuildInstruction { what, when })
         .collect()
 }
@@ -157,7 +157,7 @@ mod tests {
         // Then
         if let Some(BuildInstruction {
             when,
-            what: Build::Settlement(settlement),
+            what: Build::Town(settlement),
         }) = instructions.get(0)
         {
             // When is first visit
@@ -229,7 +229,7 @@ mod tests {
         // Then
         if let Some(BuildInstruction {
             when,
-            what: Build::Settlement(settlement),
+            what: Build::Town(settlement),
         }) = instructions.get(0)
         {
             // When is first visit in any route
@@ -279,7 +279,7 @@ mod tests {
 
         match instructions.get(0) {
             Some(BuildInstruction {
-                what: Build::Settlement { .. },
+                what: Build::Town { .. },
                 ..
             }) => (),
             _ => panic!("No settlement build instruction!"),
@@ -325,7 +325,7 @@ mod tests {
             .into_iter()
             .flat_map(|instruction| match instruction {
                 BuildInstruction {
-                    what: Build::Settlement(Settlement { position, .. }),
+                    what: Build::Town(Settlement { position, .. }),
                     ..
                 } => Some(position),
                 _ => None,

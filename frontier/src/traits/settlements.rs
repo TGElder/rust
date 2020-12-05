@@ -1,7 +1,55 @@
-use crate::settlement::Settlement;
+use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::send::SendSettlements;
+use crate::traits::{AddController, DrawTown, RemoveWorldObject};
 use commons::async_trait::async_trait;
 use commons::V2;
+
+#[async_trait]
+pub trait AddTown {
+    async fn add_town(&self, town: Settlement) -> bool;
+}
+
+#[async_trait]
+impl<T> AddTown for T
+where
+    T: AddController + DrawTown + RemoveWorldObject + GetSettlement + InsertSettlement + Sync,
+{
+    async fn add_town(&self, town: Settlement) -> bool {
+        if town.class != SettlementClass::Town {
+            return false;
+        }
+        if self.get_settlement(town.position).await.is_some() {
+            return false;
+        }
+        let controller = town.position;
+        let remove = town.position;
+        let to_insert = town.clone();
+        join!(self.add_controller(&controller), async {
+            self.remove_world_object(remove).await;
+            self.insert_settlement(to_insert).await;
+            self.draw_town(town);
+        });
+        true
+    }
+}
+
+#[async_trait]
+pub trait InsertSettlement {
+    async fn insert_settlement(&self, settlement: Settlement);
+}
+
+#[async_trait]
+impl<T> InsertSettlement for T
+where
+    T: SendSettlements + Sync,
+{
+    async fn insert_settlement(&self, settlement: Settlement) {
+        self.send_settlements(move |settlements| {
+            settlements.insert(settlement.position, settlement)
+        })
+        .await;
+    }
+}
 
 #[async_trait]
 pub trait GetSettlement {
