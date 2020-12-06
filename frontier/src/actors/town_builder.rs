@@ -1,6 +1,6 @@
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{
-    AddTown, GetSettlement, NationDescriptions, RandomTownName, RemoveTown, SetWorldObject,
+    AddTown, GetSettlement, Micros, NationDescriptions, RandomTownName, RemoveTown, SetWorldObject,
 };
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
@@ -20,7 +20,13 @@ pub struct TownBuilderActor<T> {
 
 impl<T> TownBuilderActor<T>
 where
-    T: AddTown + GetSettlement + NationDescriptions + RandomTownName + RemoveTown + SetWorldObject,
+    T: AddTown
+        + GetSettlement
+        + Micros
+        + NationDescriptions
+        + RandomTownName
+        + RemoveTown
+        + SetWorldObject,
 {
     pub fn new(x: T, engine_rx: Receiver<Arc<Event>>) -> TownBuilderActor<T> {
         TownBuilderActor {
@@ -84,16 +90,17 @@ where
             .unwrap()
             .name;
         let name = self.x.random_town_name(nation.clone()).await.unwrap();
+        let last_population_update_micros = self.x.micros().await;
 
         let town = Settlement {
             position,
             class: SettlementClass::Town,
             name,
             nation,
-            current_population: 0.0,
+            current_population: 10.0,
             target_population: 0.0,
             gap_half_life: Duration::from_secs(0),
-            last_population_update_micros: 0,
+            last_population_update_micros,
         };
 
         self.x.add_town(town).await;
