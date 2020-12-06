@@ -8,7 +8,6 @@ pub use game_state::*;
 
 use crate::avatar::*;
 use crate::settlement::*;
-use crate::territory::*;
 use commons::fn_sender::*;
 use commons::futures::executor::block_on;
 use commons::V2;
@@ -34,7 +33,6 @@ pub enum GameEvent {
     Load(String),
     EngineEvent(Arc<Event>),
     SettlementUpdated(Settlement),
-    TerritoryChanged(Vec<TerritoryChange>),
 }
 
 impl GameEvent {
@@ -47,7 +45,6 @@ impl GameEvent {
             GameEvent::Load(..) => "save",
             GameEvent::EngineEvent(..) => "engine event",
             GameEvent::SettlementUpdated { .. } => "settlement updated",
-            GameEvent::TerritoryChanged(..) => "territory changed",
         }
     }
 }
@@ -218,35 +215,6 @@ impl Game {
             .settlements
             .insert(settlement.position, settlement.clone());
         self.consume_event(GameEvent::SettlementUpdated(settlement));
-    }
-
-    pub fn remove_settlement(&mut self, position: V2<usize>) -> bool {
-        let settlement = unwrap_or!(self.game_state.settlements.remove(&position), return false);
-        if let SettlementClass::Town = settlement.class {
-            self.set_territory(vec![TerritoryState {
-                controller: position,
-                durations: HashMap::new(),
-            }]);
-            self.game_state.territory.remove_controller(&position)
-        }
-        self.consume_event(GameEvent::SettlementUpdated(settlement));
-        true
-    }
-
-    fn set_territory(&mut self, states: Vec<TerritoryState>) {
-        let mut changes = vec![];
-        for TerritoryState {
-            controller,
-            durations,
-        } in states
-        {
-            changes.append(&mut self.game_state.territory.set_durations(
-                controller,
-                &durations,
-                &self.game_state.game_micros,
-            ));
-        }
-        self.consume_event(GameEvent::TerritoryChanged(changes));
     }
 
     pub fn update_avatar_state(&mut self, name: String, new_state: AvatarState) {

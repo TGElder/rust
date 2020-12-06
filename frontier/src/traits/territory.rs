@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use commons::async_trait::async_trait;
@@ -28,7 +28,7 @@ where
 
 #[async_trait]
 pub trait RemoveController {
-    async fn remove_controller(&self, controller: &V2<usize>);
+    async fn remove_controller(&self, controller: V2<usize>);
 }
 
 #[async_trait]
@@ -36,15 +36,30 @@ impl<T> RemoveController for T
 where
     T: SendTerritory + Sync,
 {
-    async fn remove_controller(&self, controller: &V2<usize>) {
-        let controller = *controller;
+    async fn remove_controller(&self, controller: V2<usize>) {
         self.send_territory(move |territory| territory.remove_controller(&controller))
             .await;
     }
 }
 
 #[async_trait]
-pub trait SetDurations {
+pub trait Controlled {
+    async fn controlled(&self, controller: V2<usize>) -> HashSet<V2<usize>>;
+}
+
+#[async_trait]
+impl<T> Controlled for T
+where
+    T: SendTerritory + Sync,
+{
+    async fn controlled(&self, controller: V2<usize>) -> HashSet<V2<usize>> {
+        self.send_territory(move |territory| territory.controlled(&controller))
+            .await
+    }
+}
+
+#[async_trait]
+pub trait SetControlDurations {
     async fn set_control_durations(
         &self,
         controller: V2<usize>,
@@ -54,7 +69,7 @@ pub trait SetDurations {
 }
 
 #[async_trait]
-impl<T> SetDurations for T
+impl<T> SetControlDurations for T
 where
     T: DrawWorld + Micros + SendTerritory + SendWorld + Sync,
 {
@@ -95,7 +110,13 @@ pub trait UpdateTerritory {
 #[async_trait]
 impl<X> UpdateTerritory for X
 where
-    X: Micros + PathfinderWithoutPlannedRoads + SendParameters + SetDurations + Clone + Send + Sync,
+    X: Micros
+        + PathfinderWithoutPlannedRoads
+        + SendParameters
+        + SetControlDurations
+        + Clone
+        + Send
+        + Sync,
 {
     async fn update_territory(&mut self, controller: V2<usize>) {
         let duration = self
