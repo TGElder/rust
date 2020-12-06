@@ -46,8 +46,8 @@ impl TownBuilder {
     }
 
     fn remove_town(&mut self, position: V2<usize>) {
-        self.game_tx
-            .send(move |game| game.remove_settlement(position));
+        // self.game_tx
+        // .send(move |game| game.remove_settlement(position));
     }
 }
 

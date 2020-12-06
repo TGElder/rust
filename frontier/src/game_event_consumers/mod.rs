@@ -1,6 +1,5 @@
 use crate::avatar::*;
 use crate::game::*;
-use crate::territory::*;
 use commons::fn_sender::*;
 use commons::futures::executor::ThreadPool;
 use commons::grid::Grid;
@@ -27,7 +26,6 @@ mod speed_control;
 mod town_artist;
 mod town_builder;
 mod visibility;
-mod world_artist;
 
 pub use avatar_artist::*;
 pub use basic_avatar_controls::*;
@@ -47,4 +45,3 @@ pub use speed_control::*;
 pub use town_artist::*;
 pub use town_builder::*;
 pub use visibility::*;
-pub use world_artist::*;
