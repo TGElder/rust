@@ -47,19 +47,6 @@ where
     }
 }
 
-#[derive(Debug)]
-pub struct NationNotFound {
-    nation: String,
-}
-
-impl Display for NationNotFound {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Unknown nation: {}", self.nation)
-    }
-}
-
-impl Error for NationNotFound {}
-
 #[async_trait]
 pub trait RandomTownName {
     async fn random_town_name(&self, nation: String) -> Result<String, NationNotFound>;
@@ -80,3 +67,16 @@ where
         .await
     }
 }
+
+#[derive(Debug)]
+pub struct NationNotFound {
+    nation: String,
+}
+
+impl Display for NationNotFound {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Unknown nation: {}", self.nation)
+    }
+}
+
+impl Error for NationNotFound {}
