@@ -8,8 +8,7 @@ const NAME: &str = "get_territory";
 
 pub struct GetTerritory<G, X>
 where
-    G: Controlled + Settlements + Send,
-    X: UpdateTerritory,
+    G: Send,
 {
     game: FnSender<G>,
     x: X,
