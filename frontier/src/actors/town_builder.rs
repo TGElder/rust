@@ -81,14 +81,7 @@ where
     }
 
     async fn add_town(&mut self, position: V2<usize>) {
-        let nation = self
-            .x
-            .nation_descriptions()
-            .await
-            .into_iter()
-            .next()
-            .unwrap()
-            .name;
+        let nation = self.random_nation().await;
         let name = self.x.random_town_name(nation.clone()).await.unwrap();
         let last_population_update_micros = self.x.micros().await;
 
@@ -104,6 +97,16 @@ where
         };
 
         self.x.add_town(town).await;
+    }
+
+    async fn random_nation(&self) -> String {
+        self.x
+            .nation_descriptions()
+            .await
+            .into_iter()
+            .next()
+            .unwrap()
+            .name
     }
 
     async fn remove_town(&mut self, position: V2<usize>) {

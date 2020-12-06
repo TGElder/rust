@@ -324,9 +324,9 @@ fn main() {
     let (voyager_run, voyager_handle) = async move { voyager.run().await }.remote_handle();
     thread_pool.spawn_ok(voyager_run);
 
-    let (world_artist_actor_run, world_artist_actor_handle) =
+    let (world_artist_run, world_artist_handle) =
         async move { world_artist.run().await }.remote_handle();
-    thread_pool.spawn_ok(world_artist_actor_run);
+    thread_pool.spawn_ok(world_artist_run);
 
     let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
     thread_pool.spawn_ok(sim_run);
@@ -347,7 +347,7 @@ fn main() {
             town_builder_handle,
             town_house_artist_handle,
             town_label_artist_handle,
-            world_artist_actor_handle,
+            world_artist_handle,
             visibility_handle,
             voyager_handle
         )
