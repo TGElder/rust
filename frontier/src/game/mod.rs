@@ -7,7 +7,6 @@ pub use game_params::*;
 pub use game_state::*;
 
 use crate::avatar::*;
-use crate::settlement::*;
 use commons::fn_sender::*;
 use commons::futures::executor::block_on;
 use commons::V2;
@@ -32,7 +31,6 @@ pub enum GameEvent {
     Save(String),
     Load(String),
     EngineEvent(Arc<Event>),
-    SettlementUpdated(Settlement),
 }
 
 impl GameEvent {
@@ -44,7 +42,6 @@ impl GameEvent {
             GameEvent::Save(..) => "save",
             GameEvent::Load(..) => "save",
             GameEvent::EngineEvent(..) => "engine event",
-            GameEvent::SettlementUpdated { .. } => "settlement updated",
         }
     }
 }
@@ -208,13 +205,6 @@ impl Game {
             } if Some(name) != selected_avatar_name.as_ref() => false,
             _ => true,
         });
-    }
-
-    pub fn update_settlement(&mut self, settlement: Settlement) {
-        self.game_state
-            .settlements
-            .insert(settlement.position, settlement.clone());
-        self.consume_event(GameEvent::SettlementUpdated(settlement));
     }
 
     pub fn update_avatar_state(&mut self, name: String, new_state: AvatarState) {

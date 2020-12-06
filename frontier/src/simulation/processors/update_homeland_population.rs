@@ -1,20 +1,15 @@
 use super::*;
-use crate::game::traits::{Settlements, UpdateSettlement, VisiblePositions};
 use crate::settlement::{Settlement, SettlementClass::Homeland};
+use crate::traits::{SendGameState, Settlements, UpdateSettlement};
 
-const NAME: &str = "update_homeland_population";
-
-pub struct UpdateHomelandPopulation<G>
-where
-    G: Settlements + UpdateSettlement + VisiblePositions + Send,
-{
-    game: FnSender<G>,
+pub struct UpdateHomelandPopulation<X> {
+    x: X,
 }
 
 #[async_trait]
-impl<G> Processor for UpdateHomelandPopulation<G>
+impl<X> Processor for UpdateHomelandPopulation<X>
 where
-    G: Settlements + UpdateSettlement + VisiblePositions + Send,
+    X: SendGameState + Settlements + UpdateSettlement + Send + Sync + 'static,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         match instruction {
@@ -27,104 +22,92 @@ where
     }
 }
 
-impl<G> UpdateHomelandPopulation<G>
+impl<X> UpdateHomelandPopulation<X>
 where
-    G: Settlements + UpdateSettlement + VisiblePositions + Send,
+    X: SendGameState + Settlements + UpdateSettlement + Send + Sync + 'static,
 {
-    pub fn new(game: &FnSender<G>) -> UpdateHomelandPopulation<G> {
-        UpdateHomelandPopulation {
-            game: game.clone_with_name(NAME),
+    pub fn new(x: X) -> UpdateHomelandPopulation<X> {
+        UpdateHomelandPopulation { x }
+    }
+
+    async fn visibile_land_positions(&self) -> usize {
+        self.x
+            .send_game_state(|state| state.visible_land_positions)
+            .await
+    }
+
+    async fn update_homelands(&self, total_population: f64) {
+        let homelands = self.get_homelands().await;
+        let target_population = total_population / homelands.len() as f64;
+        for homeland in homelands {
+            self.update_homeland(homeland, target_population).await;
         }
     }
 
-    async fn visibile_land_positions(&mut self) -> usize {
-        self.game.send(|game| visible_land_positions(game)).await
-    }
-
-    async fn update_homelands(&mut self, total_population: f64) {
-        self.game
-            .send(move |game| update_homelands(game, total_population))
+    async fn get_homelands(&self) -> Vec<Settlement> {
+        self.x
+            .settlements()
             .await
+            .into_iter()
+            .filter(|settlement| settlement.class == Homeland)
+            .collect()
     }
-}
 
-fn visible_land_positions<G>(game: &mut G) -> usize
-where
-    G: VisiblePositions + Send,
-{
-    game.visible_land_positions()
-}
-
-fn update_homelands<G>(game: &mut G, total_population: f64)
-where
-    G: Settlements + UpdateSettlement + Send,
-{
-    let homelands = get_homelands(game);
-    let target_population = total_population / homelands.len() as f64;
-    for homeland in homelands {
-        update_homeland(game, homeland, target_population);
+    async fn update_homeland(&self, settlement: Settlement, target_population: f64) {
+        let settlement = Settlement {
+            target_population,
+            ..settlement
+        };
+        self.x.update_settlement(settlement).await;
     }
-}
-
-fn get_homelands<G>(game: &mut G) -> Vec<Settlement>
-where
-    G: Settlements,
-{
-    game.settlements()
-        .values()
-        .filter(|settlement| settlement.class == Homeland)
-        .cloned()
-        .collect()
-}
-
-fn update_homeland<G>(game: &mut G, settlement: Settlement, target_population: f64)
-where
-    G: UpdateSettlement,
-{
-    let settlement = Settlement {
-        target_population,
-        ..settlement
-    };
-    game.update_settlement(settlement);
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::*;
-
-    use commons::fn_sender::FnThread;
+    use crate::game::GameState;
     use commons::futures::executor::block_on;
-    use commons::v2;
+    use commons::{v2, Arm};
+    use std::collections::HashMap;
+    use std::sync::Mutex;
 
-    struct MockGame {
-        settlements: HashMap<V2<usize>, Settlement>,
-        visible_land_positions: usize,
+    struct X {
+        settlements: Arm<HashMap<V2<usize>, Settlement>>,
+        game_state: Arm<GameState>,
     }
 
-    impl Settlements for MockGame {
-        fn settlements(&self) -> &HashMap<V2<usize>, Settlement> {
-            &self.settlements
+    #[async_trait]
+    impl SendGameState for X {
+        async fn send_game_state<F, O>(&self, function: F) -> O
+        where
+            O: Send + 'static,
+            F: FnOnce(&mut GameState) -> O + Send + 'static,
+        {
+            function(&mut self.game_state.lock().unwrap())
         }
     }
 
-    impl UpdateSettlement for MockGame {
-        fn update_settlement(&mut self, settlement: Settlement) {
-            self.settlements.insert(settlement.position, settlement);
+    #[async_trait]
+    impl Settlements for X {
+        async fn settlements(&self) -> Vec<Settlement> {
+            self.settlements.lock().unwrap().values().cloned().collect()
         }
     }
 
-    impl VisiblePositions for MockGame {
-        fn visible_land_positions(&self) -> usize {
-            self.visible_land_positions
+    #[async_trait]
+    impl UpdateSettlement for X {
+        async fn update_settlement(&self, settlement: Settlement) {
+            self.settlements
+                .lock()
+                .unwrap()
+                .insert(settlement.position, settlement);
         }
     }
 
     #[test]
     fn each_homeland_population_should_be_equal_share_of_visible_land() {
         // Given
-        let settlements = hashmap! {
+        let settlements = Arc::new(Mutex::new(hashmap! {
             v2(0, 1) => Settlement{
                 position: v2(0, 1),
                 class: Homeland,
@@ -135,18 +118,21 @@ mod tests {
                 class: Homeland,
                 ..Settlement::default()
             },
-        };
-        let game = FnThread::new(MockGame {
+        }));
+        let x = X {
             settlements,
-            visible_land_positions: 202,
-        });
-        let mut processor = UpdateHomelandPopulation::new(&game.tx());
+            game_state: Arc::new(Mutex::new(GameState {
+                visible_land_positions: 202,
+                ..GameState::default()
+            })),
+        };
+        let mut processor = UpdateHomelandPopulation::new(x);
 
         // When
         block_on(processor.process(State::default(), &Instruction::UpdateHomelandPopulation));
 
         // Then
-        let actual = game.join().settlements;
+        let actual = processor.x.settlements.lock().unwrap();
         let expected = hashmap! {
             v2(0, 1) => Settlement{
                 position: v2(0, 1),
@@ -161,6 +147,6 @@ mod tests {
                 ..Settlement::default()
             },
         };
-        assert_eq!(actual, expected);
+        assert_eq!(*actual, expected);
     }
 }
