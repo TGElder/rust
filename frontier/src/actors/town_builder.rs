@@ -54,7 +54,12 @@ where
             Event::Button {
                 ref button,
                 state: ElementState::Pressed,
-                modifiers: ModifiersState { alt: false, .. },
+                modifiers:
+                    ModifiersState {
+                        alt: false,
+                        ctrl: true,
+                        ..
+                    },
                 ..
             } if *button == self.binding => self.toggle_town().await,
             Event::Shutdown => self.shutdown(),

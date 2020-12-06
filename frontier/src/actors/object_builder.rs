@@ -59,7 +59,12 @@ where
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers: ModifiersState { alt: false, .. },
+            modifiers:
+                ModifiersState {
+                    alt: false,
+                    ctrl: true,
+                    ..
+                },
             ..
         } = *event
         {
