@@ -2,11 +2,11 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use commons::async_trait::async_trait;
-use commons::{get_corners, Grid, V2};
+use commons::{get_corners, V2};
 
 use crate::traits::{
-    DrawWorld, Micros, PathfinderWithoutPlannedRoads, PositionsWithin, SendParameters,
-    SendTerritory, SendWorld,
+    DrawWorld, ExpandPositions, Micros, PathfinderWithoutPlannedRoads, PositionsWithin,
+    SendParameters, SendTerritory, SendWorld,
 };
 
 #[async_trait]
@@ -71,7 +71,7 @@ pub trait SetControlDurations {
 #[async_trait]
 impl<T> SetControlDurations for T
 where
-    T: DrawWorld + Micros + SendTerritory + SendWorld + Sync,
+    T: DrawWorld + ExpandPositions + Micros + SendTerritory + SendWorld + Sync,
 {
     async fn set_control_durations(
         &self,
@@ -79,24 +79,18 @@ where
         durations: HashMap<V2<usize>, Duration>,
         game_micros: u128,
     ) {
-        let changes = self
+        let positions = self
             .send_territory(move |territory| {
                 territory.set_durations(controller, &durations, &game_micros)
             })
-            .await;
+            .await
+            .into_iter()
+            .map(|change| change.position)
+            .collect();
 
         let when = self.micros().await;
 
-        let affected: Vec<V2<usize>> = self
-            .send_world(move |world| {
-                changes
-                    .iter()
-                    .flat_map(|change| world.expand_position(&change.position))
-                    .collect()
-            })
-            .await;
-
-        for tile in affected {
+        for tile in self.expand_positions(positions).await {
             self.draw_world_tile(tile, when)
         }
     }

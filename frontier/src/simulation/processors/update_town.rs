@@ -1,23 +1,18 @@
 use std::time::Duration;
 
 use super::*;
-use crate::game::traits::UpdateSettlement;
 use crate::settlement::Settlement;
+use crate::traits::UpdateSettlement;
 use commons::unsafe_ordering;
 
-const NAME: &str = "update_town";
-
-pub struct UpdateTown<G>
-where
-    G: UpdateSettlement + Send,
-{
-    game: FnSender<G>,
+pub struct UpdateTown<X> {
+    x: X,
 }
 
 #[async_trait]
-impl<G> Processor for UpdateTown<G>
+impl<X> Processor for UpdateTown<X>
 where
-    G: UpdateSettlement + Send,
+    X: UpdateSettlement + Send + Sync + 'static,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
@@ -28,17 +23,21 @@ where
             _ => return state,
         };
 
-        self.update_settlement(Settlement {
-            target_population: get_target_population(traffic, state.params.traffic_to_population),
-            nation: get_nation(
-                &settlement.nation,
-                traffic,
-                state.params.nation_flip_traffic_pc,
-            ),
-            gap_half_life: get_gap_half_life(settlement.gap_half_life, traffic),
-            ..settlement.clone()
-        })
-        .await;
+        self.x
+            .update_settlement(Settlement {
+                target_population: get_target_population(
+                    traffic,
+                    state.params.traffic_to_population,
+                ),
+                nation: get_nation(
+                    &settlement.nation,
+                    traffic,
+                    state.params.nation_flip_traffic_pc,
+                ),
+                gap_half_life: get_gap_half_life(settlement.gap_half_life, traffic),
+                ..settlement.clone()
+            })
+            .await;
 
         state
             .instructions
@@ -48,20 +47,12 @@ where
     }
 }
 
-impl<G> UpdateTown<G>
+impl<X> UpdateTown<X>
 where
-    G: UpdateSettlement + Send,
+    X: UpdateSettlement + Send + Sync + 'static,
 {
-    pub fn new(game: &FnSender<G>) -> UpdateTown<G> {
-        UpdateTown {
-            game: game.clone_with_name(NAME),
-        }
-    }
-
-    async fn update_settlement(&mut self, settlement: Settlement) {
-        self.game
-            .send(move |game| game.update_settlement(settlement))
-            .await
+    pub fn new(x: X) -> UpdateTown<X> {
+        UpdateTown { x }
     }
 }
 
@@ -119,18 +110,25 @@ mod tests {
     use super::*;
 
     use commons::almost::Almost;
-    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::v2;
+    use commons::{v2, Arm};
 
+    use std::collections::HashMap;
     use std::default::Default;
+    use std::sync::Mutex;
+
+    #[async_trait]
+    impl UpdateSettlement for Arm<HashMap<V2<usize>, Settlement>> {
+        async fn update_settlement(&self, settlement: Settlement) {
+            self.lock().unwrap().insert(settlement.position, settlement);
+        }
+    }
 
     #[test]
     fn should_update_target_population_based_on_total_traffic_share() {
         // Given
         let settlement = Settlement::default();
-        let game = FnThread::new(hashmap! {});
-        let mut processor = UpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -158,7 +156,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = game.join();
+        let updated_settlements = processor.x.lock().unwrap();
         assert!(updated_settlements[&v2(0, 0)]
             .target_population
             .almost(&28.0));
@@ -171,8 +169,7 @@ mod tests {
             target_population: 0.5,
             ..Settlement::default()
         };
-        let game = FnThread::new(hashmap! {});
-        let mut processor = UpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -182,7 +179,7 @@ mod tests {
         block_on(processor.process(State::default(), &instruction));
 
         // Then
-        let updated_settlements = game.join();
+        let updated_settlements = processor.x.lock().unwrap();
         assert!(updated_settlements[&v2(0, 0)]
             .target_population
             .almost(&0.0));
@@ -195,8 +192,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let game = FnThread::new(hashmap! {});
-        let mut processor = UpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -224,7 +220,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = game.join();
+        let updated_settlements = processor.x.lock().unwrap();
         assert_eq!(updated_settlements[&v2(0, 0)].nation, "C".to_string(),);
     }
 
@@ -235,8 +231,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let game = FnThread::new(hashmap! {});
-        let mut processor = UpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -264,7 +259,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = game.join();
+        let updated_settlements = processor.x.lock().unwrap();
         assert_eq!(updated_settlements[&v2(0, 0)].nation, "A".to_string());
     }
 
@@ -272,8 +267,7 @@ mod tests {
     fn should_add_update_current_population_instruction() {
         // Given
         let settlement = Settlement::default();
-        let game = FnThread::new(hashmap! {});
-        let mut processor = UpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -291,17 +285,13 @@ mod tests {
             state.instructions,
             vec![Instruction::UpdateCurrentPopulation(settlement.position)]
         );
-
-        // Finally
-        game.join();
     }
 
     #[test]
     fn should_set_gap_half_life_to_duration_divided_by_traffic() {
         // Given
         let settlement = Settlement::default();
-        let game = FnThread::new(hashmap! {});
-        let mut processor = UpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -329,7 +319,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = game.join();
+        let updated_settlements = processor.x.lock().unwrap();
         let gap_half_life_millis =
             updated_settlements[&v2(0, 0)].gap_half_life.as_nanos() as f32 / 1000000.0;
         assert!(gap_half_life_millis.almost(&3.0));
@@ -343,8 +333,7 @@ mod tests {
             gap_half_life: Duration::from_millis(4),
             ..Settlement::default()
         };
-        let game = FnThread::new(hashmap! {});
-        let mut processor = UpdateTown::new(&game.tx());
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -354,7 +343,7 @@ mod tests {
         block_on(processor.process(State::default(), &instruction));
 
         // Then
-        let updated_settlements = game.join();
+        let updated_settlements = processor.x.lock().unwrap();
         assert_eq!(
             updated_settlements[&v2(0, 0)].gap_half_life,
             Duration::from_millis(4)
