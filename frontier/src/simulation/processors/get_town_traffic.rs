@@ -4,6 +4,7 @@ use crate::route::RouteKey;
 use crate::settlement::Settlement;
 use commons::get_corners;
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 
 const NAME: &str = "get_town_traffic";
 
@@ -137,6 +138,7 @@ where
     Some(TownTrafficSummary {
         nation: nation.clone(),
         traffic_share,
+        total_duration: route.duration,
     })
 }
 
@@ -152,13 +154,15 @@ where
 fn aggregate_by_nation(traffic_summaries: Vec<TownTrafficSummary>) -> Vec<TownTrafficSummary> {
     let mut nation_to_summary = hashmap! {};
     for summary in traffic_summaries {
-        nation_to_summary
+        let aggregate = nation_to_summary
             .entry(summary.nation.clone())
             .or_insert_with(|| TownTrafficSummary {
-                nation: summary.nation,
+                nation: summary.nation.clone(),
                 traffic_share: 0.0,
-            })
-            .traffic_share += summary.traffic_share;
+                total_duration: Duration::from_millis(0),
+            });
+        aggregate.traffic_share += summary.traffic_share;
+        aggregate.total_duration += summary.total_duration.mul_f64(summary.traffic_share);
     }
     nation_to_summary
         .into_iter()
@@ -264,7 +268,7 @@ mod tests {
             path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
             traffic: 39,
             start_micros: 0,
-            duration: Duration::default(),
+            duration: Duration::from_millis(2),
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
@@ -290,7 +294,8 @@ mod tests {
                 settlement,
                 traffic: vec![TownTrafficSummary {
                     nation: "A".to_string(),
-                    traffic_share: 39.0
+                    traffic_share: 39.0,
+                    total_duration: Duration::from_millis(78)
                 }]
             }]
         );
@@ -329,7 +334,7 @@ mod tests {
             path: vec![v2(2, 0), v2(2, 1), v2(2, 2), v2(2, 3)],
             traffic: 14,
             start_micros: 0,
-            duration: Duration::default(),
+            duration: Duration::from_millis(2),
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
@@ -356,7 +361,8 @@ mod tests {
                 settlement,
                 traffic: vec![TownTrafficSummary {
                     nation: "A".to_string(),
-                    traffic_share: 7.0 // half because destination not in territory
+                    traffic_share: 7.0, // half because destination not in territory,
+                    total_duration: Duration::from_millis(14)
                 }]
             }]
         );
@@ -395,7 +401,7 @@ mod tests {
             path: vec![v2(2, 0), v2(2, 1), v2(2, 2)],
             traffic: 14,
             start_micros: 0,
-            duration: Duration::default(),
+            duration: Duration::from_millis(2),
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
@@ -422,7 +428,8 @@ mod tests {
                 settlement,
                 traffic: vec![TownTrafficSummary {
                     nation: "A".to_string(),
-                    traffic_share: 14.0
+                    traffic_share: 14.0,
+                    total_duration: Duration::from_millis(28)
                 }]
             }]
         );
@@ -461,7 +468,7 @@ mod tests {
             path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
             traffic: 14,
             start_micros: 0,
-            duration: Duration::default(),
+            duration: Duration::from_millis(2),
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
@@ -488,7 +495,8 @@ mod tests {
                 settlement,
                 traffic: vec![TownTrafficSummary {
                     nation: "A".to_string(),
-                    traffic_share: 7.0 // half because port not in territory
+                    traffic_share: 7.0, // half because port not in territory,
+                    total_duration: Duration::from_millis(14)
                 }]
             }]
         );
@@ -532,7 +540,7 @@ mod tests {
             path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
             traffic: 3,
             start_micros: 0,
-            duration: Duration::default(),
+            duration: Duration::from_millis(2),
         };
         add_route(route_key_1, route_1, &mut game.routes, &mut traffic);
 
@@ -545,7 +553,7 @@ mod tests {
             path: vec![v2(3, 3), v2(3, 2), v2(2, 2)],
             traffic: 7,
             start_micros: 0,
-            duration: Duration::default(),
+            duration: Duration::from_millis(3),
         };
         add_route(route_key_2, route_2, &mut game.routes, &mut traffic);
 
@@ -571,7 +579,8 @@ mod tests {
                 settlement,
                 traffic: vec![TownTrafficSummary {
                     nation: "A".to_string(),
-                    traffic_share: 10.0
+                    traffic_share: 10.0,
+                    total_duration: Duration::from_millis(27)
                 }]
             }]
         );
@@ -615,7 +624,7 @@ mod tests {
             path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
             traffic: 3,
             start_micros: 0,
-            duration: Duration::default(),
+            duration: Duration::from_millis(2),
         };
         add_route(route_key_1, route_1, &mut game.routes, &mut traffic);
 
@@ -628,7 +637,7 @@ mod tests {
             path: vec![v2(3, 3), v2(3, 2), v2(2, 2)],
             traffic: 7,
             start_micros: 0,
-            duration: Duration::default(),
+            duration: Duration::from_millis(3),
         };
         add_route(route_key_2, route_2, &mut game.routes, &mut traffic);
 
@@ -657,11 +666,13 @@ mod tests {
                 &[
                     TownTrafficSummary {
                         nation: "A".to_string(),
-                        traffic_share: 3.0
+                        traffic_share: 3.0,
+                        total_duration: Duration::from_millis(6),
                     },
                     TownTrafficSummary {
                         nation: "B".to_string(),
-                        traffic_share: 7.0
+                        traffic_share: 7.0,
+                        total_duration: Duration::from_millis(21),
                     }
                 ]
             ));
@@ -959,7 +970,7 @@ mod tests {
             path: vec![v2(1, 1), v2(2, 1), v2(2, 2)],
             traffic: 10,
             start_micros: 0,
-            duration: Duration::default(),
+            duration: Duration::from_millis(2),
         };
         add_route(route_key, route, &mut game.routes, &mut traffic);
 
@@ -985,7 +996,8 @@ mod tests {
                 settlement,
                 traffic: vec![TownTrafficSummary {
                     nation: "A".to_string(),
-                    traffic_share: 10.0
+                    traffic_share: 10.0,
+                    total_duration: Duration::from_millis(20),
                 }]
             }]
         );
