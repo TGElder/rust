@@ -23,7 +23,6 @@ mod simulation;
 mod territory;
 mod traits;
 mod travel_duration;
-mod update_territory;
 mod visibility_computer;
 mod world;
 mod world_gen;
@@ -34,7 +33,6 @@ use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::territory::*;
-use crate::update_territory::TerritoryUpdater;
 use crate::world_gen::*;
 use actors::{
     BasicRoadBuilder, ObjectBuilder, PauseGame, PauseSim, Save, TownHouseArtist, TownLabelArtist,
@@ -172,19 +170,10 @@ fn main() {
         game.game_state().params.seed,
     );
 
-    let territory_updater = TerritoryUpdater::new(
-        &game.tx(),
-        &pathfinder_without_planned_roads,
-        game.game_state().params.town_travel_duration,
-    );
-
     let builder = BuildSim::new(
         game.tx(),
         vec![
-            Box::new(TownBuilder::new(
-                x.clone_with_name("town_builder"),
-                &territory_updater,
-            )),
+            Box::new(TownBuilder::new(x.clone_with_name("town_builder"))),
             Box::new(RoadBuilder::new(x.clone_with_name("road_builder"))),
             Box::new(CropsBuilder::new(x.clone_with_name("crops_builder"))),
         ],
@@ -197,7 +186,10 @@ fn main() {
             Box::new(builder),
             Box::new(StepHomeland::new(game.tx())),
             Box::new(StepTown::new(game.tx())),
-            Box::new(GetTerritory::new(game.tx(), &territory_updater)),
+            Box::new(GetTerritory::new(
+                game.tx(),
+                x.clone_with_name("get_territory"),
+            )),
             Box::new(GetTownTraffic::new(game.tx())),
             Box::new(UpdateTown::new(game.tx())),
             Box::new(RemoveTown::new(game.tx())),
