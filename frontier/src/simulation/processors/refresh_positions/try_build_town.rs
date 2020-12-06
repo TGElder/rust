@@ -3,7 +3,6 @@ use super::*;
 use crate::game::traits::Nations;
 use crate::settlement::{Settlement, SettlementClass::Town};
 use commons::v2;
-use std::convert::TryInto;
 use std::time::Duration;
 
 pub fn try_build_town<G>(
@@ -70,20 +69,14 @@ where
         name: nation.get_town_name(),
         nation: first_visit_route.nation.clone(),
         current_population: initial_population,
-        target_population: 0.0,
-        gap_half_life: get_gap_half_life(routes),
+        target_population: initial_population,
+        gap_half_life: Duration::from_millis(0),
         last_population_update_micros: get_when(routes),
     }
 }
 
 fn get_first_visit_route(routes: &[RouteSummary]) -> &RouteSummary {
     routes.iter().min_by_key(|route| route.first_visit).unwrap()
-}
-
-fn get_gap_half_life(routes: &[RouteSummary]) -> Duration {
-    let total: Duration = routes.iter().map(|route| route.duration).sum();
-    let count: u32 = routes.iter().count().try_into().unwrap();
-    ((total / count) * 2).mul_f32(5.19) // 5.19 makes half life equivalent to '7/8th life'
 }
 
 fn get_when(routes: &[RouteSummary]) -> u128 {
@@ -166,9 +159,8 @@ mod tests {
             assert_eq!(town.nation, "Scotland".to_string());
             assert_eq!(town.name, "Edinburgh".to_string());
             assert!(town.current_population.almost(&0.5));
-            assert!(town.target_population.almost(&0.0));
-            // Gap half life is average round-trip duration of routes to position
-            assert_eq!(town.gap_half_life, Duration::from_micros(202).mul_f32(5.19));
+            assert!(town.target_population.almost(&0.5));
+            assert_eq!(town.gap_half_life, Duration::from_millis(0));
             // Last population update is same as when (build time)
             assert_eq!(town.last_population_update_micros, 101);
         } else {
@@ -234,8 +226,6 @@ mod tests {
             // Settlement nation is nation with lowest first visit
             assert_eq!(town.nation, "Wales".to_string());
             assert_eq!(town.name, "Swansea".to_string());
-            // Gap half life is average round-trip duration of routes to position
-            assert_eq!(town.gap_half_life, Duration::from_micros(303).mul_f32(5.19));
             // Last population update is same as when (build time)
             assert_eq!(town.last_population_update_micros, 101);
         } else {
