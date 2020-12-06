@@ -102,7 +102,7 @@ fn get_gap_half_life(original: Duration, traffic_summaries: &[TownTrafficSummary
         .iter()
         .map(|summary| summary.traffic_share)
         .sum::<f64>();
-    numerator.div_f64(denominator)
+    numerator.div_f64(denominator).mul_f64(2.0)
 }
 
 #[cfg(test)]
@@ -288,7 +288,7 @@ mod tests {
     }
 
     #[test]
-    fn should_set_gap_half_life_to_duration_divided_by_traffic() {
+    fn should_set_gap_half_life_to_duration_divided_by_traffic_multiplied_by_two() {
         // Given
         let settlement = Settlement::default();
         let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
@@ -322,7 +322,7 @@ mod tests {
         let updated_settlements = processor.x.lock().unwrap();
         let gap_half_life_millis =
             updated_settlements[&v2(0, 0)].gap_half_life.as_nanos() as f32 / 1000000.0;
-        assert!(gap_half_life_millis.almost(&3.0));
+        assert!(gap_half_life_millis.almost(&6.0));
     }
 
     #[test]
