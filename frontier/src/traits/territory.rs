@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use commons::async_trait::async_trait;
-use commons::{Grid, V2};
+use commons::{get_corners, Grid, V2};
 
-use crate::traits::{DrawWorld, Micros, SendTerritory, SendWorld};
+use crate::traits::{
+    DrawWorld, Micros, PathfinderWithoutPlannedRoads, PositionsWithin, SendParameters,
+    SendTerritory, SendWorld,
+};
 
 #[async_trait]
 pub trait AddController {
@@ -39,23 +42,6 @@ where
             .await;
     }
 }
-
-// pub trait SetTerritory {
-//     fn set_territory(&mut self, states: Vec<TerritoryState>);
-// }
-
-// impl<T> SetTerritory
-//     where T: SendTerritory + Sync
-// {
-//     fn set_territory(&mut self, mut states: Vec<TerritoryState>) {
-//         let mut changes = vec![];
-//         for TerritoryState {
-//             controller,
-//             durations,
-//         } in states
-//         {
-//     }
-// }
 
 #[async_trait]
 pub trait SetDurations {
@@ -98,6 +84,29 @@ where
         for tile in affected {
             self.draw_world_tile(tile, when)
         }
+    }
+}
+
+#[async_trait]
+pub trait UpdateTerritory {
+    async fn update_territory(&mut self, controller: V2<usize>);
+}
+
+#[async_trait]
+impl<X> UpdateTerritory for X
+where
+    X: Micros + PathfinderWithoutPlannedRoads + SendParameters + SetDurations + Clone + Send + Sync,
+{
+    async fn update_territory(&mut self, controller: V2<usize>) {
+        let duration = self
+            .send_parameters(|parameters| parameters.town_travel_duration)
+            .await;
+        let corners = get_corners(&controller);
+        let pathfinder = self.pathfinder_without_planned_roads();
+        let durations = pathfinder.positions_within(corners, duration).await;
+        let micros = self.micros().await;
+        self.set_control_durations(controller, durations, micros)
+            .await
     }
 }
 

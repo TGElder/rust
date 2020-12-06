@@ -1,24 +1,17 @@
 use super::*;
 
 use crate::settlement::Settlement;
-use crate::traits::{AddTown, WhoControlsTile};
-use crate::update_territory::UpdateTerritory;
+use crate::traits::{AddTown, UpdateTerritory, WhoControlsTile};
 use commons::async_trait::async_trait;
 
-pub struct TownBuilder<X, T>
-where
-    X: AddTown + WhoControlsTile + Send,
-    T: UpdateTerritory,
-{
+pub struct TownBuilder<X> {
     x: X,
-    territory: T,
 }
 
 #[async_trait]
-impl<X, T> Builder for TownBuilder<X, T>
+impl<X> Builder for TownBuilder<X>
 where
-    X: AddTown + WhoControlsTile + Send + Sync,
-    T: UpdateTerritory + Send,
+    X: AddTown + UpdateTerritory + WhoControlsTile + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
         if let Build::Town { .. } = build {
@@ -32,22 +25,18 @@ where
         if let Build::Town(town) = build {
             let position = town.position;
             if self.try_add_town(town).await {
-                self.territory.update_territory(position).await;
+                self.x.update_territory(position).await;
             }
         }
     }
 }
 
-impl<X, T> TownBuilder<X, T>
+impl<X> TownBuilder<X>
 where
-    X: AddTown + WhoControlsTile + Send + Sync,
-    T: UpdateTerritory,
+    X: AddTown + UpdateTerritory + WhoControlsTile + Send + Sync,
 {
-    pub fn new(x: X, territory: &T) -> TownBuilder<X, T> {
-        TownBuilder {
-            x,
-            territory: territory.clone(),
-        }
+    pub fn new(x: X) -> TownBuilder<X> {
+        TownBuilder { x }
     }
 
     async fn try_add_town(&mut self, town: Settlement) -> bool {
@@ -72,6 +61,7 @@ mod tests {
         towns: Arm<HashMap<V2<usize>, Settlement>>,
         add_town_return: bool,
         control: HashMap<V2<usize>, V2<usize>>,
+        update_territory: Arc<Mutex<Vec<V2<usize>>>>,
     }
 
     #[async_trait]
@@ -83,21 +73,24 @@ mod tests {
     }
 
     #[async_trait]
+    impl UpdateTerritory for X {
+        async fn update_territory(&mut self, controller: V2<usize>) {
+            self.update_territory.lock().unwrap().push(controller);
+        }
+    }
+
+    #[async_trait]
     impl WhoControlsTile for X {
         async fn who_controls_tile(&self, position: &V2<usize>) -> Option<V2<usize>> {
             self.control.get(position).cloned()
         }
     }
 
-    fn update_territory() -> Arc<Mutex<Vec<V2<usize>>>> {
-        Arc::new(Mutex::new(vec![]))
-    }
-
     #[test]
     fn can_build_town() {
         // Given
         let x = X::default();
-        let builder = TownBuilder::new(x, &update_territory());
+        let builder = TownBuilder::new(x);
 
         // When
         let can_build = builder.can_build(&Build::Town(Settlement::default()));
@@ -114,7 +107,7 @@ mod tests {
             ..Settlement::default()
         };
         let x = X::default();
-        let mut builder = TownBuilder::new(x, &update_territory());
+        let mut builder = TownBuilder::new(x);
 
         // When
         block_on(builder.build(Build::Town(town.clone())));
@@ -138,7 +131,7 @@ mod tests {
             control,
             ..X::default()
         };
-        let mut builder = TownBuilder::new(x, &update_territory());
+        let mut builder = TownBuilder::new(x);
 
         // When
         block_on(builder.build(Build::Town(town)));
@@ -158,14 +151,13 @@ mod tests {
             add_town_return: true,
             ..X::default()
         };
-        let update_territory = update_territory();
-        let mut builder = TownBuilder::new(x, &update_territory);
+        let mut builder = TownBuilder::new(x);
 
         // When
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert_eq!(*update_territory.lock().unwrap(), vec![v2(1, 2)]);
+        assert_eq!(*builder.x.update_territory.lock().unwrap(), vec![v2(1, 2)]);
     }
 
     #[test]
@@ -179,14 +171,13 @@ mod tests {
             add_town_return: false,
             ..X::default()
         };
-        let update_territory = update_territory();
-        let mut builder = TownBuilder::new(x, &update_territory);
+        let mut builder = TownBuilder::new(x);
 
         // When
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert_eq!(*update_territory.lock().unwrap(), vec![]);
+        assert_eq!(*builder.x.update_territory.lock().unwrap(), vec![]);
     }
 
     #[test]
@@ -201,13 +192,12 @@ mod tests {
             control,
             ..X::default()
         };
-        let update_territory = update_territory();
-        let mut builder = TownBuilder::new(x, &update_territory);
+        let mut builder = TownBuilder::new(x);
 
         // When
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert_eq!(*update_territory.lock().unwrap(), vec![]);
+        assert_eq!(*builder.x.update_territory.lock().unwrap(), vec![]);
     }
 }
