@@ -55,19 +55,20 @@ where
                 let new_nation = settlement_to_send.nation.clone();
                 settlements
                     .insert(settlement_to_send.position, settlement_to_send)
-                    .map(|old| old.nation == new_nation)
-                    .unwrap_or(false)
+                    .map(|old| old.nation != new_nation)
+                    .unwrap_or(true)
             })
             .await;
 
-        if nation_changed {
-            let (controlled, micros) = join!(self.controlled(settlement.position), self.micros(),);
-            for tile in self.expand_positions(controlled).await {
-                self.draw_world_tile(tile, micros);
-            }
-        }
-
         if let SettlementClass::Town = settlement.class {
+            if nation_changed {
+                let (controlled, micros) =
+                    join!(self.controlled(settlement.position), self.micros(),);
+                for tile in self.expand_positions(controlled).await {
+                    self.draw_world_tile(tile, micros);
+                }
+            }
+
             self.draw_town(settlement);
         }
     }

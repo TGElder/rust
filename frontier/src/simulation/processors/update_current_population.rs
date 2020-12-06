@@ -42,8 +42,8 @@ where
 
     async fn try_update_settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
         let max_abs_population_change = self.max_abs_population_change;
-        let game_micros = self.x.micros().await;
         let settlement = self.x.get_settlement(position).await?;
+        let game_micros = self.x.micros().await;
 
         if settlement.last_population_update_micros >= game_micros {
             return Some(settlement.clone());
@@ -108,16 +108,16 @@ mod tests {
     }
 
     #[async_trait]
-    impl Micros for X {
-        async fn micros(&self) -> u128 {
-            self.micros
+    impl GetSettlement for X {
+        async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
+            self.settlements.lock().unwrap().get(&position).cloned()
         }
     }
 
     #[async_trait]
-    impl GetSettlement for X {
-        async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
-            self.settlements.lock().unwrap().get(&position).cloned()
+    impl Micros for X {
+        async fn micros(&self) -> u128 {
+            self.micros
         }
     }
 

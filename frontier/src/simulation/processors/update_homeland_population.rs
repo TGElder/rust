@@ -64,19 +64,27 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::sync::Mutex;
-
-    use crate::game::GameState;
-
     use super::*;
-
+    use crate::game::GameState;
     use commons::futures::executor::block_on;
     use commons::{v2, Arm};
+    use std::collections::HashMap;
+    use std::sync::Mutex;
 
     struct X {
         settlements: Arm<HashMap<V2<usize>, Settlement>>,
         game_state: Arm<GameState>,
+    }
+
+    #[async_trait]
+    impl SendGameState for X {
+        async fn send_game_state<F, O>(&self, function: F) -> O
+        where
+            O: Send + 'static,
+            F: FnOnce(&mut GameState) -> O + Send + 'static,
+        {
+            function(&mut self.game_state.lock().unwrap())
+        }
     }
 
     #[async_trait]
@@ -93,17 +101,6 @@ mod tests {
                 .lock()
                 .unwrap()
                 .insert(settlement.position, settlement);
-        }
-    }
-
-    #[async_trait]
-    impl SendGameState for X {
-        async fn send_game_state<F, O>(&self, function: F) -> O
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut GameState) -> O + Send + 'static,
-        {
-            function(&mut self.game_state.lock().unwrap())
         }
     }
 

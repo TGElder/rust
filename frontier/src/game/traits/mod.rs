@@ -5,7 +5,6 @@ mod micros;
 mod nations;
 mod routes;
 mod settlements;
-mod visible_positions;
 mod who_controls_tile;
 mod world;
 
@@ -16,6 +15,5 @@ pub use micros::*;
 pub use nations::*;
 pub use routes::*;
 pub use settlements::*;
-pub use visible_positions::*;
 pub use who_controls_tile::*;
 pub use world::*;
