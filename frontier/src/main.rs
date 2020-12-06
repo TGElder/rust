@@ -192,7 +192,7 @@ fn main() {
             )),
             Box::new(GetTownTraffic::new(game.tx())),
             Box::new(UpdateTown::new(game.tx())),
-            Box::new(RemoveTown::new(game.tx())),
+            Box::new(RemoveTown::new(x.clone_with_name("remove_town"))),
             Box::new(UpdateHomelandPopulation::new(game.tx())),
             Box::new(UpdateCurrentPopulation::new(
                 game.tx(),
@@ -275,9 +275,6 @@ fn main() {
     ));
 
     game.add_consumer(game_event_forwarder);
-    game.add_consumer(WorldArtistHandler::new(
-        x.clone_with_name("world_artist_handler"),
-    ));
     game.add_consumer(TownArtistForwarder {
         x: x.clone_with_name("town_artist_forwarder"),
     });

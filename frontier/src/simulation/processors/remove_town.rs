@@ -1,20 +1,14 @@
 use super::*;
-use crate::game::traits::{Controlled, RemoveSettlement};
-use std::collections::HashSet;
+use crate::traits::{Controlled, RemoveTown as RemoveTownTrait};
 
-const NAME: &str = "remove_town";
-
-pub struct RemoveTown<G>
-where
-    G: RemoveSettlement + Controlled + Send,
-{
-    game: FnSender<G>,
+pub struct RemoveTown<X> {
+    x: X,
 }
 
 #[async_trait]
-impl<G> Processor for RemoveTown<G>
+impl<X> Processor for RemoveTown<X>
 where
-    G: RemoveSettlement + Controlled + Send,
+    X: Controlled + RemoveTownTrait + Send + Sync,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
@@ -29,9 +23,8 @@ where
         {
             return state;
         }
-        let controlled = self
-            .remove_settlement_and_return_controlled(settlement.position)
-            .await;
+        let controlled = self.x.controlled(settlement.position).await;
+        self.x.remove_town(settlement.position).await;
         state
             .instructions
             .push(Instruction::RefreshPositions(controlled));
@@ -39,36 +32,13 @@ where
     }
 }
 
-impl<G> RemoveTown<G>
+impl<X> RemoveTown<X>
 where
-    G: RemoveSettlement + Controlled + Send,
+    X: Controlled + RemoveTownTrait + Send,
 {
-    pub fn new(game: &FnSender<G>) -> RemoveTown<G> {
-        RemoveTown {
-            game: game.clone_with_name(NAME),
-        }
+    pub fn new(x: X) -> RemoveTown<X> {
+        RemoveTown { x }
     }
-
-    async fn remove_settlement_and_return_controlled(
-        &mut self,
-        position: V2<usize>,
-    ) -> HashSet<V2<usize>> {
-        self.game
-            .send(move |game| remove_settlement_and_return_controlled(game, position))
-            .await
-    }
-}
-
-fn remove_settlement_and_return_controlled<G>(
-    game: &mut G,
-    position: V2<usize>,
-) -> HashSet<V2<usize>>
-where
-    G: RemoveSettlement + Controlled + Send,
-{
-    let out = game.controlled(&position);
-    game.remove_settlement(&position);
-    out
 }
 
 #[cfg(test)]
@@ -76,36 +46,30 @@ mod tests {
     use super::*;
 
     use crate::settlement::Settlement;
-    use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::v2;
+    use commons::{v2, Arm};
     use std::collections::HashSet;
     use std::default::Default;
     use std::time::Duration;
 
-    struct MockGame {
+    #[derive(Default)]
+    struct X {
         controlled: HashSet<V2<usize>>,
-        removed: Vec<V2<usize>>,
+        removed: Arm<Vec<V2<usize>>>,
     }
 
-    impl Default for MockGame {
-        fn default() -> MockGame {
-            MockGame {
-                controlled: hashset! {},
-                removed: vec![],
-            }
-        }
-    }
-
-    impl Controlled for MockGame {
-        fn controlled(&self, _: &V2<usize>) -> HashSet<V2<usize>> {
+    #[async_trait]
+    impl Controlled for X {
+        async fn controlled(&self, _: V2<usize>) -> HashSet<V2<usize>> {
             self.controlled.clone()
         }
     }
 
-    impl RemoveSettlement for MockGame {
-        fn remove_settlement(&mut self, position: &V2<usize>) {
-            self.removed.push(*position);
+    #[async_trait]
+    impl RemoveTownTrait for X {
+        async fn remove_town(&self, position: V2<usize>) -> bool {
+            self.removed.lock().unwrap().push(position);
+            true
         }
     }
 
@@ -116,8 +80,8 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let game = FnThread::new(MockGame::default());
-        let mut processor = RemoveTown::new(&game.tx());
+        let x = X::default();
+        let mut processor = RemoveTown::new(x);
         let state = State {
             params: SimulationParams {
                 town_removal_population: 0.5,
@@ -134,8 +98,10 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let game = game.join();
-        assert_eq!(game.removed, vec![settlement.position]);
+        assert_eq!(
+            *processor.x.removed.lock().unwrap(),
+            vec![settlement.position]
+        );
     }
 
     #[test]
@@ -145,8 +111,8 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let game = FnThread::new(MockGame::default());
-        let mut processor = RemoveTown::new(&game.tx());
+        let x = X::default();
+        let mut processor = RemoveTown::new(x);
         let state = State {
             params: SimulationParams {
                 town_removal_population: 0.5,
@@ -167,8 +133,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let game = game.join();
-        assert_eq!(game.removed, vec![]);
+        assert_eq!(*processor.x.removed.lock().unwrap(), vec![]);
     }
 
     #[test]
@@ -178,8 +143,8 @@ mod tests {
             current_population: 0.7,
             ..Settlement::default()
         };
-        let game = FnThread::new(MockGame::default());
-        let mut processor = RemoveTown::new(&game.tx());
+        let x = X::default();
+        let mut processor = RemoveTown::new(x);
         let state = State {
             params: SimulationParams {
                 town_removal_population: 0.5,
@@ -196,8 +161,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let game = game.join();
-        assert_eq!(game.removed, vec![]);
+        assert_eq!(*processor.x.removed.lock().unwrap(), vec![]);
     }
 
     #[test]
@@ -207,12 +171,11 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let game = MockGame {
+        let x = X {
             controlled: hashset! { v2(1, 2), v2(3, 4) },
-            ..MockGame::default()
+            ..X::default()
         };
-        let game = FnThread::new(game);
-        let mut processor = RemoveTown::new(&game.tx());
+        let mut processor = RemoveTown::new(x);
         let state = State {
             params: SimulationParams {
                 town_removal_population: 0.5,
@@ -234,8 +197,5 @@ mod tests {
                 hashset! { v2(1, 2), v2(3, 4) },
             )]
         );
-
-        // Finally
-        game.join();
     }
 }
