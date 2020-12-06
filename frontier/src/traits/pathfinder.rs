@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use commons::V2;
 
-use crate::pathfinder::traits::PositionsWithin as LegacyPositionsWithin;
 use crate::traits::SendPathfinder;
 
 #[async_trait]

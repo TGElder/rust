@@ -39,7 +39,7 @@ where
         TownBuilder { x }
     }
 
-    async fn try_add_town(&mut self, town: Settlement) -> bool {
+    async fn try_add_town(&self, town: Settlement) -> bool {
         if self.x.who_controls_tile(&town.position).await.is_some() {
             return false;
         }
@@ -61,7 +61,7 @@ mod tests {
         towns: Arm<HashMap<V2<usize>, Settlement>>,
         add_town_return: bool,
         control: HashMap<V2<usize>, V2<usize>>,
-        update_territory: Arc<Mutex<Vec<V2<usize>>>>,
+        updated_territory: Arc<Mutex<Vec<V2<usize>>>>,
     }
 
     #[async_trait]
@@ -75,7 +75,7 @@ mod tests {
     #[async_trait]
     impl UpdateTerritory for X {
         async fn update_territory(&mut self, controller: V2<usize>) {
-            self.update_territory.lock().unwrap().push(controller);
+            self.updated_territory.lock().unwrap().push(controller);
         }
     }
 
@@ -157,7 +157,7 @@ mod tests {
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert_eq!(*builder.x.update_territory.lock().unwrap(), vec![v2(1, 2)]);
+        assert_eq!(*builder.x.updated_territory.lock().unwrap(), vec![v2(1, 2)]);
     }
 
     #[test]
@@ -177,7 +177,7 @@ mod tests {
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert_eq!(*builder.x.update_territory.lock().unwrap(), vec![]);
+        assert_eq!(*builder.x.updated_territory.lock().unwrap(), vec![]);
     }
 
     #[test]
@@ -198,6 +198,6 @@ mod tests {
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert_eq!(*builder.x.update_territory.lock().unwrap(), vec![]);
+        assert_eq!(*builder.x.updated_territory.lock().unwrap(), vec![]);
     }
 }
