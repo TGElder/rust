@@ -35,7 +35,7 @@ where
                 traffic,
                 state.params.nation_flip_traffic_pc,
             ),
-            gap_half_life: get_gap_half_life(traffic),
+            gap_half_life: get_gap_half_life(settlement.gap_half_life, traffic),
             ..settlement.clone()
         })
         .await;
@@ -99,9 +99,9 @@ fn get_nation(
     }
 }
 
-fn get_gap_half_life(traffic_summaries: &[TownTrafficSummary]) -> Duration {
+fn get_gap_half_life(original: Duration, traffic_summaries: &[TownTrafficSummary]) -> Duration {
     if traffic_summaries.is_empty() {
-        return Duration::from_millis(0);
+        return original;
     }
     let numerator = traffic_summaries
         .iter()
@@ -333,5 +333,31 @@ mod tests {
         let gap_half_life_millis =
             updated_settlements[&v2(0, 0)].gap_half_life.as_nanos() as f32 / 1000000.0;
         assert!(gap_half_life_millis.almost(&3.0));
+    }
+
+    #[test]
+    fn should_not_change_gap_half_life_for_town_with_no_traffic() {
+        // Given
+        let settlement = Settlement {
+            target_population: 0.5,
+            gap_half_life: Duration::from_millis(4),
+            ..Settlement::default()
+        };
+        let game = FnThread::new(hashmap! {});
+        let mut processor = UpdateTown::new(&game.tx());
+
+        // When
+        let instruction = Instruction::UpdateTown {
+            settlement,
+            traffic: vec![],
+        };
+        block_on(processor.process(State::default(), &instruction));
+
+        // Then
+        let updated_settlements = game.join();
+        assert_eq!(
+            updated_settlements[&v2(0, 0)].gap_half_life,
+            Duration::from_millis(4)
+        );
     }
 }
