@@ -1,25 +1,24 @@
 use super::*;
 use crate::game::traits::{Controlled, Settlements};
 use crate::settlement::{Settlement, SettlementClass::Town};
-use crate::update_territory::UpdateTerritory;
+use crate::traits::UpdateTerritory;
 use std::collections::HashSet;
 
 const NAME: &str = "get_territory";
 
-pub struct GetTerritory<G, T>
+pub struct GetTerritory<G, X>
 where
-    G: Controlled + Settlements + Send,
-    T: UpdateTerritory,
+    G: Send,
 {
     game: FnSender<G>,
-    territory: T,
+    x: X,
 }
 
 #[async_trait]
-impl<G, T> Processor for GetTerritory<G, T>
+impl<G, X> Processor for GetTerritory<G, X>
 where
     G: Controlled + Settlements + Send,
-    T: UpdateTerritory + Send,
+    X: UpdateTerritory + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let settlement = match instruction {
@@ -32,7 +31,7 @@ where
             return state;
         };
 
-        self.territory.update_territory(settlement.position).await;
+        self.x.update_territory(settlement.position).await;
         let territory = self.territory(settlement.position).await;
 
         state.instructions.push(Instruction::GetTownTraffic {
@@ -44,15 +43,15 @@ where
     }
 }
 
-impl<G, T> GetTerritory<G, T>
+impl<G, X> GetTerritory<G, X>
 where
     G: Controlled + Settlements + Send,
-    T: UpdateTerritory,
+    X: UpdateTerritory,
 {
-    pub fn new(game: &FnSender<G>, territory: &T) -> GetTerritory<G, T> {
+    pub fn new(game: &FnSender<G>, x: X) -> GetTerritory<G, X> {
         GetTerritory {
             game: game.clone_with_name(NAME),
-            territory: territory.clone(),
+            x,
         }
     }
 
@@ -88,7 +87,7 @@ mod tests {
     use crate::settlement::SettlementClass::Homeland;
     use commons::fn_sender::FnThread;
     use commons::futures::executor::block_on;
-    use commons::v2;
+    use commons::{v2, Arm};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
@@ -106,6 +105,13 @@ mod tests {
     impl Settlements for MockGame {
         fn settlements(&self) -> &HashMap<V2<usize>, Settlement> {
             &self.settlements
+        }
+    }
+
+    #[async_trait]
+    impl UpdateTerritory for Arm<Vec<V2<usize>>> {
+        async fn update_territory(&mut self, controller: V2<usize>) {
+            self.lock().unwrap().push(controller);
         }
     }
 
@@ -127,17 +133,14 @@ mod tests {
 
         let updated_territory = Arc::new(Mutex::new(vec![]));
 
-        let mut processor = GetTerritory::new(&game.tx(), &updated_territory);
+        let mut processor = GetTerritory::new(&game.tx(), updated_territory);
 
         // Given
         let instruction = Instruction::GetTerritory(settlement.position);
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert_eq!(
-            *updated_territory.lock().unwrap(),
-            vec![settlement.position]
-        );
+        assert_eq!(*processor.x.lock().unwrap(), vec![settlement.position]);
         assert_eq!(
             state.instructions[0],
             Instruction::GetTownTraffic {
@@ -167,14 +170,14 @@ mod tests {
 
         let updated_territory = Arc::new(Mutex::new(vec![]));
 
-        let mut processor = GetTerritory::new(&game.tx(), &updated_territory);
+        let mut processor = GetTerritory::new(&game.tx(), updated_territory);
 
         // Given
         let instruction = Instruction::GetTerritory(settlement.position);
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert_eq!(*updated_territory.lock().unwrap(), vec![]);
+        assert_eq!(*processor.x.lock().unwrap(), vec![]);
         assert_eq!(state.instructions, vec![]);
 
         // Finally
@@ -193,14 +196,14 @@ mod tests {
 
         let updated_territory = Arc::new(Mutex::new(vec![]));
 
-        let mut processor = GetTerritory::new(&game.tx(), &updated_territory);
+        let mut processor = GetTerritory::new(&game.tx(), updated_territory);
 
         // Given
         let instruction = Instruction::GetTerritory(v2(5, 6));
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert_eq!(*updated_territory.lock().unwrap(), vec![]);
+        assert_eq!(*processor.x.lock().unwrap(), vec![]);
         assert_eq!(state.instructions, vec![]);
 
         // Finally

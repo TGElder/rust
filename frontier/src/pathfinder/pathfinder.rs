@@ -1,5 +1,5 @@
 use crate::pathfinder::traits::{
-    ClosestTargetResult, ClosestTargets, InBounds, LowestDuration, PositionsWithin, UpdateEdge,
+    ClosestTargetResult, ClosestTargets, InBounds, LowestDuration, UpdateEdge,
 };
 use crate::travel_duration::*;
 use crate::world::*;
@@ -177,6 +177,29 @@ where
             duration: self.travel_duration.get_duration_from_cost(result.cost),
         }
     }
+
+    pub fn positions_within(
+        &self,
+        positions: &[V2<usize>],
+        duration: &Duration,
+    ) -> HashMap<V2<usize>, Duration> {
+        let indices = self.get_network_indices(positions);
+        let max_cost = self.travel_duration.get_cost_from_duration(&duration);
+        self.network
+            .nodes_within(&indices, max_cost)
+            .into_iter()
+            .flat_map(|result| {
+                let position = self.get_position_from_network_index(result.index);
+                match position {
+                    Ok(position) => Some((
+                        position,
+                        self.travel_duration.get_duration_from_cost(result.cost),
+                    )),
+                    _ => None,
+                }
+            })
+            .collect()
+    }
 }
 
 impl<T> ClosestTargets for Pathfinder<T>
@@ -203,34 +226,6 @@ where
             .closest_loaded_targets(&indices, targets, n_closest)
             .drain(..)
             .map(|result| self.as_closest_target_result(result))
-            .collect()
-    }
-}
-
-impl<T> PositionsWithin for Pathfinder<T>
-where
-    T: TravelDuration,
-{
-    fn positions_within(
-        &self,
-        positions: &[V2<usize>],
-        duration: &Duration,
-    ) -> HashMap<V2<usize>, Duration> {
-        let indices = self.get_network_indices(positions);
-        let max_cost = self.travel_duration.get_cost_from_duration(&duration);
-        self.network
-            .nodes_within(&indices, max_cost)
-            .into_iter()
-            .flat_map(|result| {
-                let position = self.get_position_from_network_index(result.index);
-                match position {
-                    Ok(position) => Some((
-                        position,
-                        self.travel_duration.get_duration_from_cost(result.cost),
-                    )),
-                    _ => None,
-                }
-            })
             .collect()
     }
 }
