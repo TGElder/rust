@@ -2,15 +2,17 @@ use super::*;
 
 use crate::actors::{TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor};
 use crate::avatar::AvatarTravelDuration;
-use crate::game::Game;
+use crate::game::{Game, GameParams, GameState};
+use crate::nation::Nation;
 use crate::pathfinder::Pathfinder;
 use crate::settlement::Settlement;
 use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
-    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendNations,
-    SendParameters, SendPathfinder, SendSettlements, SendSim, SendTerritory, SendTownHouseArtist,
-    SendTownLabelArtist, SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
+    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendGameState,
+    SendNations, SendParameters, SendPathfinder, SendSettlements, SendSim, SendTerritory,
+    SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager, SendWorld,
+    SendWorldArtist,
 };
 use crate::world::World;
 use commons::fn_sender::FnSender;
@@ -68,11 +70,24 @@ impl SendGame for Polysender {
 }
 
 #[async_trait]
+impl SendGameState for Polysender {
+    async fn send_game_state<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut GameState) -> O + Send + 'static,
+    {
+        self.game_tx
+            .send(move |game| function(game.mut_state()))
+            .await
+    }
+}
+
+#[async_trait]
 impl SendNations for Polysender {
     async fn send_nations<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
-        F: FnOnce(&mut HashMap<String, crate::nation::Nation>) -> O + Send + 'static,
+        F: FnOnce(&mut HashMap<String, Nation>) -> O + Send + 'static,
     {
         self.game_tx
             .send(move |game| function(&mut game.mut_state().nations))
@@ -85,7 +100,7 @@ impl SendParameters for Polysender {
     async fn send_parameters<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
-        F: FnOnce(&crate::game::GameParams) -> O + Send + 'static,
+        F: FnOnce(&GameParams) -> O + Send + 'static,
     {
         self.game_tx
             .send(move |game| function(&game.game_state().params))
