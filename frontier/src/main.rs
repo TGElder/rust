@@ -27,6 +27,10 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
+use crate::actors::{
+    BasicRoadBuilder, ObjectBuilder, PauseGame, PauseSim, Save, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+};
 use crate::avatar::*;
 use crate::event_forwarder::EventForwarder;
 use crate::game::*;
@@ -34,10 +38,6 @@ use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::territory::*;
 use crate::world_gen::*;
-use actors::{
-    BasicRoadBuilder, ObjectBuilder, PauseGame, PauseSim, Save, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor,
-};
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::fn_sender::fn_channel;
 use commons::future::FutureExt;
@@ -119,7 +119,7 @@ fn main() {
             ..WorldArtistParameters::default()
         },
     );
-    let mut world_artist_actor = WorldArtistActor::new(
+    let mut world_artist = WorldArtistActor::new(
         x.clone_with_name("world_artist_actor"),
         world_artist_rx,
         event_forwarder.subscribe(),
@@ -161,6 +161,11 @@ fn main() {
     let mut voyager = Voyager::new(
         x.clone_with_name("voyager"),
         voyager_rx,
+        event_forwarder.subscribe(),
+    );
+
+    let mut town_builder = TownBuilderActor::new(
+        x.clone_with_name("town_builder_actor"),
         event_forwarder.subscribe(),
     );
 
@@ -238,7 +243,6 @@ fn main() {
         &pathfinder_without_planned_roads,
         thread_pool.clone(),
     ));
-    // game.add_consumer(TownBuilder::new(game.tx()));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(&pathfinder_with_planned_roads));
@@ -302,6 +306,10 @@ fn main() {
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
 
+    let (town_builder_run, town_builder_handle) =
+        async move { town_builder.run().await }.remote_handle();
+    thread_pool.spawn_ok(town_builder_run);
+
     let (town_house_artist_run, town_house_artist_handle) =
         async move { town_house_artist.run().await }.remote_handle();
     thread_pool.spawn_ok(town_house_artist_run);
@@ -317,7 +325,7 @@ fn main() {
     thread_pool.spawn_ok(voyager_run);
 
     let (world_artist_actor_run, world_artist_actor_handle) =
-        async move { world_artist_actor.run().await }.remote_handle();
+        async move { world_artist.run().await }.remote_handle();
     thread_pool.spawn_ok(world_artist_actor_run);
 
     let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
@@ -336,6 +344,7 @@ fn main() {
             pause_sim_handle,
             save_handle,
             sim_handle,
+            town_builder_handle,
             town_house_artist_handle,
             town_label_artist_handle,
             world_artist_actor_handle,
