@@ -103,7 +103,7 @@ fn get_gap_half_life(original: Duration, traffic_summaries: &[TownTrafficSummary
         .iter()
         .map(|summary| summary.traffic_share)
         .sum::<f64>();
-    numerator.div_f64(denominator).mul_f64(2.40942084) // converting "three-quarter life" to half life
+    numerator.div_f64(denominator).mul_f64(2.41) // converting "three-quarter life" to half life
 }
 
 #[cfg(test)]
@@ -325,7 +325,7 @@ mod tests {
         let updated_settlements = processor.x.lock().unwrap();
         let gap_half_life_millis =
             updated_settlements[&v2(0, 0)].gap_half_life.as_nanos() as f32 / 1000000.0;
-        assert!(gap_half_life_millis.almost(&14.45652504));
+        assert!(gap_half_life_millis.almost(&14.46));
     }
 
     #[test]
