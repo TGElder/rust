@@ -15,6 +15,7 @@ mod names;
 mod nation;
 mod pathfinder;
 mod polysender;
+mod reactor;
 mod resource;
 mod road_builder;
 mod route;
@@ -35,6 +36,7 @@ use crate::avatar::*;
 use crate::event_forwarder::EventForwarder;
 use crate::game::*;
 use crate::pathfinder::*;
+use crate::reactor::Reactor;
 use crate::road_builder::*;
 use crate::territory::*;
 use crate::world_gen::*;
@@ -75,6 +77,7 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
+    let (object_builder_tx, object_builder_rx) = fn_channel();
     let (simulation_tx, simulation_rx) = fn_channel();
     let (town_house_artist_tx, town_house_artist_rx) = fn_channel();
     let (town_label_artist_tx, town_label_artist_rx) = fn_channel();
@@ -93,6 +96,7 @@ fn main() {
 
     let x = Polysender {
         game_tx: game.tx().clone_with_name("polysender"),
+        object_builder_tx,
         simulation_tx,
         town_house_artist_tx,
         town_label_artist_tx,
@@ -169,10 +173,18 @@ fn main() {
         event_forwarder.subscribe(),
     );
 
-    let mut object_builder = ObjectBuilder::new(
+    let object_builder = ObjectBuilder::new(
         x.clone_with_name("object_builder"),
+        object_builder_rx,
         event_forwarder.subscribe(),
         game.game_state().params.seed,
+    );
+
+    let mut reactor = Reactor::new(
+        x.clone_with_name("reactor"),
+        event_forwarder.subscribe(),
+        thread_pool.clone(),
+        object_builder,
     );
 
     let builder = BuildSim::new(
@@ -292,15 +304,14 @@ fn main() {
         async move { basic_road_builder.run().await }.remote_handle();
     thread_pool.spawn_ok(basic_road_builder_run);
 
-    let (object_builder_run, object_builder_handle) =
-        async move { object_builder.run().await }.remote_handle();
-    thread_pool.spawn_ok(object_builder_run);
-
     let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
     thread_pool.spawn_ok(pause_game_run);
 
     let (pause_sim_run, pause_sim_handle) = async move { pause_sim.run().await }.remote_handle();
     thread_pool.spawn_ok(pause_sim_run);
+
+    let (reactor_run, reactor_handle) = async move { reactor.run().await }.remote_handle();
+    thread_pool.spawn_ok(reactor_run);
 
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
@@ -338,9 +349,9 @@ fn main() {
     block_on(async {
         join!(
             basic_road_builder_handle,
-            object_builder_handle,
             pause_game_handle,
             pause_sim_handle,
+            reactor_handle,
             save_handle,
             sim_handle,
             town_builder_handle,

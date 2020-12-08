@@ -1,6 +1,9 @@
+use crate::reactor::ActorTraits;
 use crate::traits::{RemoveWorldObject, SetWorldObject};
 use crate::world::WorldObject;
 use commons::async_channel::{Receiver, RecvError};
+use commons::async_trait::async_trait;
+use commons::fn_sender::{FnMessageExt, FnReceiver};
 use commons::futures::future::FutureExt;
 use commons::rand::rngs::SmallRng;
 use commons::rand::{Rng, SeedableRng};
@@ -11,6 +14,7 @@ use std::sync::Arc;
 
 pub struct ObjectBuilder<T> {
     x: T,
+    rx: FnReceiver<ObjectBuilder<T>>,
     engine_rx: Receiver<Arc<Event>>,
     rng: SmallRng,
     bindings: ObjectBuilderBindings,
@@ -23,13 +27,40 @@ struct ObjectBuilderBindings {
     demolish: Button,
 }
 
+#[async_trait]
+impl<T> ActorTraits for ObjectBuilder<T>
+where
+    T: RemoveWorldObject + SetWorldObject + Send + Sync + 'static,
+{
+    async fn run(mut self) -> Self {
+        while self.run {
+            self.step().await;
+        }
+        self
+    }
+
+    fn resume(&mut self) {
+        self.run = true;
+    }
+
+    fn shutdown(&mut self) {
+        self.run = false;
+    }
+}
+
 impl<T> ObjectBuilder<T>
 where
-    T: RemoveWorldObject + SetWorldObject,
+    T: RemoveWorldObject + SetWorldObject + Send,
 {
-    pub fn new(x: T, engine_rx: Receiver<Arc<Event>>, seed: u64) -> ObjectBuilder<T> {
+    pub fn new(
+        x: T,
+        rx: FnReceiver<ObjectBuilder<T>>,
+        engine_rx: Receiver<Arc<Event>>,
+        seed: u64,
+    ) -> ObjectBuilder<T> {
         ObjectBuilder {
             x,
+            rx,
             engine_rx,
             rng: SeedableRng::seed_from_u64(seed),
             bindings: ObjectBuilderBindings {
@@ -41,11 +72,10 @@ where
         }
     }
 
-    pub async fn run(&mut self) {
-        while self.run {
-            select! {
-                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
-            }
+    async fn step(&mut self) {
+        select! {
+            mut message = self.rx.get_message().fuse() => message.apply(self).await,
+            event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
         }
     }
 
