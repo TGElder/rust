@@ -87,6 +87,17 @@ where
     state: ProcessState<Program<T>>,
 }
 
+impl<T> Process<T>
+where
+    T: HandleEngineEvents<T> + Send + 'static,
+{
+    fn new(program: Program<T>) -> Process<T> {
+        Process {
+            state: ProcessState::Paused(Some(program)),
+        }
+    }
+}
+
 enum ProcessState<T>
 where
     T: Send,
@@ -103,8 +114,8 @@ where
     T: HandleEngineEvents<T> + Send + Sync + 'static,
 {
     fn start(&mut self, pool: &ThreadPool) {
-        if let ProcessState::Paused(actor) = &mut self.state {
-            let actor = actor.take().unwrap();
+        if let ProcessState::Paused(program) = &mut self.state {
+            let actor = program.take().unwrap();
             let tx = actor.tx().clone();
             let (runnable, handle) = async move { actor.run().await }.remote_handle();
             pool.spawn_ok(runnable);
@@ -149,9 +160,7 @@ impl System {
             x,
             engine_rx,
             pool,
-            object_builder: Process {
-                state: ProcessState::Paused(Some(object_builder)),
-            },
+            object_builder: Process::new(object_builder),
             bindings: SystemBindings {
                 pause: Button::Key(VirtualKeyCode::Space),
             },
