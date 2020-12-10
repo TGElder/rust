@@ -15,12 +15,12 @@ mod names;
 mod nation;
 mod pathfinder;
 mod polysender;
-mod reactor;
 mod resource;
 mod road_builder;
 mod route;
 mod settlement;
 mod simulation;
+mod system;
 mod territory;
 mod traits;
 mod travel_duration;
@@ -36,8 +36,8 @@ use crate::avatar::*;
 use crate::event_forwarder::EventForwarder;
 use crate::game::*;
 use crate::pathfinder::*;
-use crate::reactor::Reactor;
 use crate::road_builder::*;
+use crate::system::{Program, System};
 use crate::territory::*;
 use crate::world_gen::*;
 use artists::{WorldArtist, WorldArtistParameters};
@@ -175,16 +175,20 @@ fn main() {
 
     let object_builder = ObjectBuilder::new(
         x.clone_with_name("object_builder"),
-        object_builder_rx,
-        event_forwarder.subscribe(),
         game.game_state().params.seed,
     );
 
-    let mut reactor = Reactor::new(
+    let object_builder_program = Program::new(
+        object_builder,
+        object_builder_rx,
+        event_forwarder.subscribe(),
+    );
+
+    let mut reactor = System::new(
         x.clone_with_name("reactor"),
         event_forwarder.subscribe(),
         thread_pool.clone(),
-        object_builder,
+        object_builder_program,
     );
 
     let builder = BuildSim::new(
