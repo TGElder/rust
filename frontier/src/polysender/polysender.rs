@@ -1,6 +1,8 @@
 use super::*;
 
-use crate::actors::{TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor};
+use crate::actors::{
+    ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::{Game, GameParams, GameState};
 use crate::nation::Nation;
@@ -24,6 +26,7 @@ use std::sync::{Arc, RwLock};
 #[derive(Clone)]
 pub struct Polysender {
     pub game_tx: FnSender<Game>,
+    pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub simulation_tx: FnSender<Simulation>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
     pub town_label_artist_tx: FnSender<TownLabelArtist<Polysender>>,
@@ -38,6 +41,7 @@ impl Polysender {
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
             game_tx: self.game_tx.clone_with_name(name),
+            object_builder_tx: self.object_builder_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
             town_house_artist_tx: self.town_house_artist_tx.clone_with_name(name),
             town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
