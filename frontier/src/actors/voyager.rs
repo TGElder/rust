@@ -1,51 +1,27 @@
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{RevealPositions, SendSettlements, SendWorld};
 use crate::world::World;
-use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::{FnMessage, FnMessageExt, FnReceiver};
-use commons::futures::future::FutureExt;
+use commons::log::info;
 use commons::{v2, Grid, V2};
-use isometric::Event;
 use line_drawing::WalkGrid;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 const NAME: &str = "voyager";
 
 pub struct Voyager<T> {
     x: T,
-    rx: FnReceiver<Voyager<T>>,
-    engine_rx: Receiver<Arc<Event>>,
-    run: bool,
 }
 
 impl<T> Voyager<T>
 where
     T: RevealPositions + SendSettlements + SendWorld + Send,
 {
-    pub fn new(x: T, rx: FnReceiver<Voyager<T>>, engine_rx: Receiver<Arc<Event>>) -> Voyager<T> {
-        Voyager {
-            x,
-            rx,
-            engine_rx,
-            run: true,
-        }
-    }
-
-    pub async fn run(&mut self) {
-        while self.run {
-            select! {
-                mut message = self.rx.get_message().fuse() => self.handle_message(message).await,
-                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event)
-            }
-        }
-    }
-
-    async fn handle_message(&mut self, mut message: FnMessage<Voyager<T>>) {
-        message.apply(self).await;
+    pub fn new(x: T) -> Voyager<T> {
+        Voyager { x }
     }
 
     pub async fn voyage_to(&mut self, positions: HashSet<V2<usize>>, by: &'static str) {
+        info!("voyage to");
         if by == NAME {
             return;
         } // avoid chain reaction
@@ -82,16 +58,6 @@ where
 
     async fn reveal_cells(&self, to_reveal: HashSet<V2<usize>>) {
         self.x.reveal_positions(to_reveal, NAME).await;
-    }
-
-    fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
-        if let Event::Shutdown = *event.unwrap() {
-            self.shutdown();
-        }
-    }
-
-    fn shutdown(&mut self) {
-        self.run = false;
     }
 }
 

@@ -39,7 +39,7 @@ use crate::event_forwarder_2::EventForwarder2;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
-use crate::system::{Program, System};
+use crate::system::{Program, Programs, System};
 use crate::territory::*;
 use crate::world_gen::*;
 use artists::{WorldArtist, WorldArtistParameters};
@@ -164,29 +164,28 @@ fn main() {
         event_forwarder.subscribe(),
     );
 
-    let mut voyager = Voyager::new(
-        x.clone_with_name("voyager"),
-        voyager_rx,
-        event_forwarder.subscribe(),
-    );
+    let voyager = Program::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx);
 
     let mut town_builder = TownBuilderActor::new(
         x.clone_with_name("town_builder_actor"),
         event_forwarder.subscribe(),
     );
 
-    let object_builder = ObjectBuilder::new(
-        x.clone_with_name("object_builder"),
-        game.game_state().params.seed,
+    let object_builder = Program::new(
+        ObjectBuilder::new(
+            x.clone_with_name("object_builder"),
+            game.game_state().params.seed,
+        ),
+        object_builder_rx,
     );
 
-    let object_builder_program = Program::new(object_builder, object_builder_rx);
-
     let mut reactor = System::new(
-        x.clone_with_name("reactor"),
         event_forwarder.subscribe(),
         thread_pool.clone(),
-        object_builder_program,
+        Programs {
+            object_builder,
+            voyager,
+        },
     );
 
     let builder = BuildSim::new(
@@ -335,9 +334,6 @@ fn main() {
     let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
     thread_pool.spawn_ok(visibility_run);
 
-    let (voyager_run, voyager_handle) = async move { voyager.run().await }.remote_handle();
-    thread_pool.spawn_ok(voyager_run);
-
     let (world_artist_run, world_artist_handle) =
         async move { world_artist.run().await }.remote_handle();
     thread_pool.spawn_ok(world_artist_run);
@@ -363,7 +359,6 @@ fn main() {
             town_label_artist_handle,
             world_artist_handle,
             visibility_handle,
-            voyager_handle
         )
     });
     println!("Joining game");
