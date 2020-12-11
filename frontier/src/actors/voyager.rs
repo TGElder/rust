@@ -1,7 +1,6 @@
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{RevealPositions, SendSettlements, SendWorld};
 use crate::world::World;
-use commons::log::info;
 use commons::{v2, Grid, V2};
 use line_drawing::WalkGrid;
 use std::collections::{HashMap, HashSet};
@@ -21,7 +20,6 @@ where
     }
 
     pub async fn voyage_to(&mut self, positions: HashSet<V2<usize>>, by: &'static str) {
-        info!("voyage to");
         if by == NAME {
             return;
         } // avoid chain reaction

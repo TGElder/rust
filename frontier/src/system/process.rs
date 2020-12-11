@@ -8,18 +8,7 @@ pub struct Process<T>
 where
     T: Send + 'static,
 {
-    state: ProcessState<Program<T>>,
-}
-
-impl<T> Process<T>
-where
-    T: Send + 'static,
-{
-    pub fn new(program: Program<T>) -> Process<T> {
-        Process {
-            state: ProcessState::Paused(Some(program)),
-        }
-    }
+    state: ProcessState<T>,
 }
 
 enum ProcessState<T>
@@ -27,16 +16,22 @@ where
     T: Send,
 {
     Running {
-        handle: RemoteHandle<T>,
-        tx: FnSender<T>,
+        handle: RemoteHandle<Program<T>>,
+        tx: FnSender<Program<T>>,
     },
-    Paused(Option<T>),
+    Paused(Option<Program<T>>),
 }
 
 impl<T> Process<T>
 where
-    T: Send + Sync + 'static,
+    T: Send,
 {
+    pub fn new(program: Program<T>) -> Process<T> {
+        Process {
+            state: ProcessState::Paused(Some(program)),
+        }
+    }
+
     pub fn start(&mut self, pool: &ThreadPool) {
         if let ProcessState::Paused(program) = &mut self.state {
             let program = program.take().unwrap();

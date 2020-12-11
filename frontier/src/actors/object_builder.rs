@@ -23,7 +23,7 @@ struct ObjectBuilderBindings {
 
 impl<T> ObjectBuilder<T>
 where
-    T: RemoveWorldObject + SetWorldObject + Send,
+    T: RemoveWorldObject + SetWorldObject,
 {
     pub fn new(x: T, seed: u64) -> ObjectBuilder<T> {
         ObjectBuilder {

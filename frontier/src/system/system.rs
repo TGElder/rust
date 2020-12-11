@@ -14,9 +14,14 @@ pub struct System {
     engine_rx: Receiver<Arc<Event>>,
     pool: ThreadPool,
     processes: Processes,
-    bindings: SystemBindings,
+    bindings: Bindings,
     paused: bool,
     run: bool,
+}
+
+struct Processes {
+    object_builder: Process<ObjectBuilder<Polysender>>,
+    voyager: Process<Voyager<Polysender>>,
 }
 
 pub struct Programs {
@@ -33,12 +38,7 @@ impl Into<Processes> for Programs {
     }
 }
 
-struct Processes {
-    object_builder: Process<ObjectBuilder<Polysender>>,
-    voyager: Process<Voyager<Polysender>>,
-}
-
-struct SystemBindings {
+struct Bindings {
     pause: Button,
 }
 
@@ -48,7 +48,7 @@ impl System {
             engine_rx,
             pool,
             processes: programs.into(),
-            bindings: SystemBindings {
+            bindings: Bindings {
                 pause: Button::Key(VirtualKeyCode::Space),
             },
             paused: false,

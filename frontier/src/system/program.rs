@@ -16,7 +16,7 @@ impl<T> Program<T>
 where
     T: Send,
 {
-    pub fn new(actor: T, actor_rx: FnReceiver<T>) -> Program<T> {
+    pub fn new(actor: T, actor_rx: FnReceiver<T>) -> Self {
         let (tx, rx) = fn_channel();
         Program {
             actor,
@@ -27,7 +27,7 @@ where
         }
     }
 
-    pub fn tx(&self) -> &FnSender<Program<T>> {
+    pub fn tx(&self) -> &FnSender<Self> {
         &self.tx
     }
 
