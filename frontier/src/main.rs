@@ -7,6 +7,7 @@ mod actors;
 mod artists;
 mod avatar;
 mod event_forwarder;
+mod event_forwarder_2;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -34,6 +35,7 @@ use crate::actors::{
 };
 use crate::avatar::*;
 use crate::event_forwarder::EventForwarder;
+use crate::event_forwarder_2::EventForwarder2;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
@@ -178,11 +180,7 @@ fn main() {
         game.game_state().params.seed,
     );
 
-    let object_builder_program = Program::new(
-        object_builder,
-        object_builder_rx,
-        event_forwarder.subscribe(),
-    );
+    let object_builder_program = Program::new(object_builder, object_builder_rx);
 
     let mut reactor = System::new(
         x.clone_with_name("reactor"),
@@ -299,6 +297,8 @@ fn main() {
     game.add_consumer(game_event_forwarder);
 
     engine.add_event_consumer(event_forwarder);
+
+    engine.add_event_consumer(EventForwarder2::new(x.clone_with_name("event_forwarder")));
 
     // Run
 

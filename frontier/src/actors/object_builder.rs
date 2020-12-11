@@ -1,4 +1,4 @@
-use crate::system::HandleEngineEvents;
+use crate::event_forwarder_2::HandleEngineEvent;
 use crate::traits::{RemoveWorldObject, SetWorldObject};
 use crate::world::WorldObject;
 use commons::async_trait::async_trait;
@@ -66,7 +66,7 @@ where
 }
 
 #[async_trait]
-impl<T> HandleEngineEvents<ObjectBuilder<T>> for ObjectBuilder<T>
+impl<T> HandleEngineEvent for ObjectBuilder<T>
 where
     T: RemoveWorldObject + SetWorldObject + Send + Sync + 'static,
 {

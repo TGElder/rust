@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use commons::async_channel::{Receiver, RecvError};
-use commons::async_trait::async_trait;
 use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
 use commons::futures::executor::ThreadPool;
 use commons::futures::future::{FutureExt, RemoteHandle};
@@ -19,22 +18,20 @@ where
     actor_rx: FnReceiver<T>,
     tx: FnSender<Program<T>>,
     rx: FnReceiver<Program<T>>,
-    engine_rx: Receiver<Arc<Event>>,
     run: bool,
 }
 
 impl<T> Program<T>
 where
-    T: HandleEngineEvents<T> + Send,
+    T: Send,
 {
-    pub fn new(actor: T, rx: FnReceiver<T>, engine_rx: Receiver<Arc<Event>>) -> Program<T> {
+    pub fn new(actor: T, rx: FnReceiver<T>) -> Program<T> {
         let (ptx, prx) = fn_channel();
         Program {
             actor,
             actor_rx: rx,
             tx: ptx,
             rx: prx,
-            engine_rx,
             run: true,
         }
     }
@@ -53,12 +50,11 @@ where
 
     async fn step(&mut self)
     where
-        T: HandleEngineEvents<T> + Send,
+        T: Send,
     {
         select! {
             mut message = self.rx.get_message().fuse() => message.apply(self).await,
             mut message = self.actor_rx.get_message().fuse() => message.apply(&mut self.actor).await,
-            event = self.engine_rx.recv().fuse() => handle_engine_event(&mut self.actor, event).await
         }
     }
 
@@ -67,29 +63,16 @@ where
     }
 }
 
-#[async_trait]
-pub trait HandleEngineEvents<T> {
-    async fn handle_engine_event(&mut self, event: Arc<Event>);
-}
-
-async fn handle_engine_event<T>(t: &mut T, event: Result<Arc<Event>, RecvError>)
-where
-    T: HandleEngineEvents<T> + Send,
-{
-    let event = event.unwrap(); // TODO better message
-    t.handle_engine_event(event).await;
-}
-
 struct Process<T>
 where
-    T: HandleEngineEvents<T> + Send + 'static,
+    T: Send + 'static,
 {
     state: ProcessState<Program<T>>,
 }
 
 impl<T> Process<T>
 where
-    T: HandleEngineEvents<T> + Send + 'static,
+    T: Send + 'static,
 {
     fn new(program: Program<T>) -> Process<T> {
         Process {
@@ -111,7 +94,7 @@ where
 
 impl<T> Process<T>
 where
-    T: HandleEngineEvents<T> + Send + Sync + 'static,
+    T: Send + Sync + 'static,
 {
     fn start(&mut self, pool: &ThreadPool) {
         if let ProcessState::Paused(program) = &mut self.state {
@@ -227,7 +210,9 @@ impl System {
 
     async fn shutdown(&mut self) {
         info!("Shutting down reactor");
-        self.pause().await;
+        if !self.paused {
+            self.pause().await;
+        }
         self.run = false;
     }
 }
