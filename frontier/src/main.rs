@@ -7,6 +7,7 @@ mod actors;
 mod artists;
 mod avatar;
 mod event_forwarder;
+mod event_forwarder_2;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -20,6 +21,7 @@ mod road_builder;
 mod route;
 mod settlement;
 mod simulation;
+mod system;
 mod territory;
 mod traits;
 mod travel_duration;
@@ -33,9 +35,11 @@ use crate::actors::{
 };
 use crate::avatar::*;
 use crate::event_forwarder::EventForwarder;
+use crate::event_forwarder_2::EventForwarder2;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
+use crate::system::{Program, Programs, System};
 use crate::territory::*;
 use crate::world_gen::*;
 use artists::{WorldArtist, WorldArtistParameters};
@@ -75,6 +79,7 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
+    let (object_builder_tx, object_builder_rx) = fn_channel();
     let (simulation_tx, simulation_rx) = fn_channel();
     let (town_house_artist_tx, town_house_artist_rx) = fn_channel();
     let (town_label_artist_tx, town_label_artist_rx) = fn_channel();
@@ -93,6 +98,7 @@ fn main() {
 
     let x = Polysender {
         game_tx: game.tx().clone_with_name("polysender"),
+        object_builder_tx,
         simulation_tx,
         town_house_artist_tx,
         town_label_artist_tx,
@@ -158,21 +164,28 @@ fn main() {
         event_forwarder.subscribe(),
     );
 
-    let mut voyager = Voyager::new(
-        x.clone_with_name("voyager"),
-        voyager_rx,
-        event_forwarder.subscribe(),
-    );
+    let voyager = Program::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx);
 
     let mut town_builder = TownBuilderActor::new(
         x.clone_with_name("town_builder_actor"),
         event_forwarder.subscribe(),
     );
 
-    let mut object_builder = ObjectBuilder::new(
-        x.clone_with_name("object_builder"),
+    let object_builder = Program::new(
+        ObjectBuilder::new(
+            x.clone_with_name("object_builder"),
+            game.game_state().params.seed,
+        ),
+        object_builder_rx,
+    );
+
+    let mut reactor = System::new(
         event_forwarder.subscribe(),
-        game.game_state().params.seed,
+        thread_pool.clone(),
+        Programs {
+            object_builder,
+            voyager,
+        },
     );
 
     let builder = BuildSim::new(
@@ -284,6 +297,8 @@ fn main() {
 
     engine.add_event_consumer(event_forwarder);
 
+    engine.add_event_consumer(EventForwarder2::new(x.clone_with_name("event_forwarder")));
+
     // Run
 
     let game_handle = thread::spawn(move || game.run());
@@ -292,15 +307,14 @@ fn main() {
         async move { basic_road_builder.run().await }.remote_handle();
     thread_pool.spawn_ok(basic_road_builder_run);
 
-    let (object_builder_run, object_builder_handle) =
-        async move { object_builder.run().await }.remote_handle();
-    thread_pool.spawn_ok(object_builder_run);
-
     let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
     thread_pool.spawn_ok(pause_game_run);
 
     let (pause_sim_run, pause_sim_handle) = async move { pause_sim.run().await }.remote_handle();
     thread_pool.spawn_ok(pause_sim_run);
+
+    let (reactor_run, reactor_handle) = async move { reactor.run().await }.remote_handle();
+    thread_pool.spawn_ok(reactor_run);
 
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
@@ -320,9 +334,6 @@ fn main() {
     let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
     thread_pool.spawn_ok(visibility_run);
 
-    let (voyager_run, voyager_handle) = async move { voyager.run().await }.remote_handle();
-    thread_pool.spawn_ok(voyager_run);
-
     let (world_artist_run, world_artist_handle) =
         async move { world_artist.run().await }.remote_handle();
     thread_pool.spawn_ok(world_artist_run);
@@ -338,9 +349,9 @@ fn main() {
     block_on(async {
         join!(
             basic_road_builder_handle,
-            object_builder_handle,
             pause_game_handle,
             pause_sim_handle,
+            reactor_handle,
             save_handle,
             sim_handle,
             town_builder_handle,
@@ -348,7 +359,6 @@ fn main() {
             town_label_artist_handle,
             world_artist_handle,
             visibility_handle,
-            voyager_handle
         )
     });
     println!("Joining game");
