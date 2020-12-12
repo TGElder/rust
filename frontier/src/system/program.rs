@@ -1,9 +1,10 @@
+use commons::async_trait::async_trait;
 use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
 use commons::futures::future::FutureExt;
 
 pub struct Program<T>
 where
-    T: Send,
+    T: Init + Send,
 {
     actor: T,
     actor_rx: FnReceiver<T>,
@@ -14,7 +15,7 @@ where
 
 impl<T> Program<T>
 where
-    T: Send,
+    T: Init + Send,
 {
     pub fn new(actor: T, actor_rx: FnReceiver<T>) -> Self {
         let (tx, rx) = fn_channel();
@@ -29,6 +30,10 @@ where
 
     pub fn tx(&self) -> &FnSender<Self> {
         &self.tx
+    }
+
+    pub async fn init(&mut self) {
+        self.actor.init().await;
     }
 
     pub async fn run(mut self) -> Self {
@@ -52,4 +57,9 @@ where
     pub fn shutdown(&mut self) {
         self.run = false;
     }
+}
+
+#[async_trait]
+pub trait Init {
+    async fn init(&mut self);
 }

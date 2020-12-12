@@ -1,6 +1,8 @@
 use crate::settlement::{Settlement, SettlementClass};
+use crate::system::Init;
 use crate::traits::{RevealPositions, SendSettlements, SendWorld};
 use crate::world::World;
+use commons::async_trait::async_trait;
 use commons::{v2, Grid, V2};
 use line_drawing::WalkGrid;
 use std::collections::{HashMap, HashSet};
@@ -129,6 +131,14 @@ fn extend_all(world: &World, positions: Vec<V2<usize>>) -> HashSet<V2<usize>> {
         .into_iter()
         .flat_map(|position| world.expand_position(&position))
         .collect()
+}
+
+#[async_trait]
+impl<T> Init for Voyager<T>
+where
+    T: Send,
+{
+    async fn init(&mut self) {}
 }
 
 #[cfg(test)]

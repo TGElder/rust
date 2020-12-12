@@ -6,7 +6,7 @@ use commons::futures::future::FutureExt;
 use commons::log::info;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 
-use crate::actors::{ObjectBuilder, Voyager};
+use crate::actors::{ObjectBuilder, TownHouseArtist, Voyager};
 use crate::polysender::Polysender;
 use crate::system::{Process, Program};
 
@@ -21,11 +21,13 @@ pub struct System {
 
 struct Processes {
     object_builder: Process<ObjectBuilder<Polysender>>,
+    town_house_artist: Process<TownHouseArtist<Polysender>>,
     voyager: Process<Voyager<Polysender>>,
 }
 
 pub struct Programs {
     pub object_builder: Program<ObjectBuilder<Polysender>>,
+    pub town_house_artist: Program<TownHouseArtist<Polysender>>,
     pub voyager: Program<Voyager<Polysender>>,
 }
 
@@ -33,6 +35,7 @@ impl Into<Processes> for Programs {
     fn into(self) -> Processes {
         Processes {
             object_builder: Process::new(self.object_builder),
+            town_house_artist: Process::new(self.town_house_artist),
             voyager: Process::new(self.voyager),
         }
     }
@@ -57,7 +60,7 @@ impl System {
     }
 
     pub async fn run(&mut self) {
-        self.start();
+        self.init().await;
         while self.run {
             select! {
                 event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
@@ -90,17 +93,29 @@ impl System {
         }
     }
 
-    fn start(&mut self) {
+    async fn init(&mut self) {
+        self.start(true).await;
+    }
+
+    async fn resume(&mut self) {
+        self.start(false).await;
+    }
+
+    async fn start(&mut self, init: bool) {
         info!("Starting system");
-        self.processes.object_builder.start(&self.pool);
-        self.processes.voyager.start(&self.pool);
+        self.processes
+            .town_house_artist
+            .start(init, &self.pool)
+            .await;
+        self.processes.voyager.start(init, &self.pool).await;
+        self.processes.object_builder.start(init, &self.pool).await;
         self.paused = false;
         info!("Started system");
     }
 
     async fn toggle_pause(&mut self) {
         if self.paused {
-            self.start();
+            self.resume().await;
         } else {
             self.pause().await;
         }
@@ -111,6 +126,7 @@ impl System {
         join!(
             self.processes.object_builder.pause(),
             self.processes.voyager.pause(),
+            self.processes.town_house_artist.pause(),
         );
         self.paused = true;
         info!("Paused system");

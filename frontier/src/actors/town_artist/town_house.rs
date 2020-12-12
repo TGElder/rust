@@ -1,27 +1,20 @@
 use std::sync::mpsc::Sender;
-use std::sync::Arc;
 
 use crate::actors::town_artist::get_house_height_without_roof;
 use crate::actors::TownArtistParameters;
-use crate::game::GameEvent;
 use crate::settlement::*;
+use crate::system::Init;
 use crate::traits::{GetNationDescription, GetSettlement, SendWorld, Settlements};
 use crate::world::World;
-use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::{FnMessageExt, FnReceiver};
-use commons::futures::future::FutureExt;
+use commons::async_trait::async_trait;
 use commons::V2;
 use isometric::drawing::{draw_house, DrawHouseParams};
-use isometric::{Color, Command, Event};
+use isometric::{Color, Command};
 
 pub struct TownHouseArtist<X> {
     x: X,
-    rx: FnReceiver<TownHouseArtist<X>>,
-    engine_rx: Receiver<Arc<Event>>,
-    game_rx: Receiver<GameEvent>,
     command_tx: Sender<Vec<Command>>,
     params: TownArtistParameters,
-    run: bool,
 }
 
 impl<X> TownHouseArtist<X>
@@ -30,30 +23,13 @@ where
 {
     pub fn new(
         x: X,
-        rx: FnReceiver<TownHouseArtist<X>>,
-        engine_rx: Receiver<Arc<Event>>,
-        game_rx: Receiver<GameEvent>,
         command_tx: Sender<Vec<Command>>,
         params: TownArtistParameters,
     ) -> TownHouseArtist<X> {
         TownHouseArtist {
             x,
-            rx,
-            engine_rx,
-            game_rx,
             command_tx,
             params,
-            run: true,
-        }
-    }
-
-    pub async fn run(&mut self) {
-        while self.run {
-            select! {
-                mut message = self.rx.get_message().fuse() => message.apply(self).await,
-                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await,
-                event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
-            }
         }
     }
 
@@ -103,26 +79,6 @@ where
         self.command_tx.send(vec![command]).unwrap();
     }
 
-    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
-        if let Event::Shutdown = *event.unwrap() {
-            self.shutdown()
-        }
-    }
-
-    fn shutdown(&mut self) {
-        self.run = false;
-    }
-
-    async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
-        if let GameEvent::Init = event.unwrap() {
-            self.init().await;
-        }
-    }
-
-    async fn init(&mut self) {
-        self.draw_all().await;
-    }
-
     async fn draw_all(&mut self) {
         for settlement in self.x.settlements().await {
             self.draw_settlement(settlement).await;
@@ -141,4 +97,14 @@ pub fn get_draw_commands(
 
 fn get_name(position: &V2<usize>) -> String {
     format!("house-{:?}", position)
+}
+
+#[async_trait]
+impl<X> Init for TownHouseArtist<X>
+where
+    X: GetNationDescription + GetSettlement + SendWorld + Settlements + Send + Sync + 'static,
+{
+    async fn init(&mut self) {
+        self.draw_all().await;
+    }
 }
