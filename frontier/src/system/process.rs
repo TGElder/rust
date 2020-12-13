@@ -2,31 +2,31 @@ use commons::fn_sender::FnSender;
 use commons::futures::executor::ThreadPool;
 use commons::futures::future::{FutureExt, RemoteHandle};
 
-use crate::system::{Persistable, Program};
+use crate::system::{Persistable, Programish, Shutdown};
 
 pub struct Process<T>
 where
-    T: Send + 'static,
+    T: Programish + Send,
 {
     state: ProcessState<T>,
 }
 
 enum ProcessState<T>
 where
-    T: Send,
+    T: Programish + Send,
 {
     Running {
-        handle: RemoteHandle<Program<T>>,
-        tx: FnSender<Program<T>>,
+        handle: RemoteHandle<T>,
+        tx: FnSender<<T as Programish>::T>,
     },
-    Paused(Option<Program<T>>),
+    Paused(Option<T>),
 }
 
 impl<T> Process<T>
 where
-    T: Send,
+    T: Shutdown + Programish + Send + 'static,
 {
-    pub fn new(program: Program<T>) -> Process<T> {
+    pub fn new(program: T) -> Process<T> {
         Process {
             state: ProcessState::Paused(Some(program)),
         }
@@ -56,7 +56,7 @@ where
 
 impl<T> Process<T>
 where
-    T: Send + Persistable,
+    T: Persistable + Programish + Send,
 {
     pub fn save(&self, path: &str) {
         if let ProcessState::Paused(program) = &self.state {

@@ -39,7 +39,7 @@ use crate::event_forwarder_2::EventForwarder2;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
-use crate::system::{Program, Programs, System};
+use crate::system::{BusyProgram, Program, Programs, System};
 use crate::territory::*;
 use crate::world_gen::*;
 use artists::{WorldArtist, WorldArtistParameters};
@@ -56,7 +56,7 @@ use simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
 use simulation::game_event_consumers::ResourceTargets;
 use simulation::processors::*;
-use simulation::{Simulation, SimulationStateLoader};
+use simulation::Simulation;
 use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, RwLock};
@@ -186,12 +186,72 @@ fn main() {
         world_artist_rx,
     );
 
+    let builder = BuildSim::new(
+        game.tx(),
+        vec![
+            Box::new(TownBuilder::new(x.clone_with_name("town_builder"))),
+            Box::new(RoadBuilder::new(x.clone_with_name("road_builder"))),
+            Box::new(CropsBuilder::new(x.clone_with_name("crops_builder"))),
+        ],
+    );
+
+    let simulation = BusyProgram::new(
+        Simulation::new(
+            x.clone_with_name("simulation"),
+            vec![
+                Box::new(InstructionLogger::new()),
+                Box::new(builder),
+                Box::new(StepHomeland::new(game.tx())),
+                Box::new(StepTown::new(game.tx())),
+                Box::new(GetTerritory::new(
+                    game.tx(),
+                    x.clone_with_name("get_territory"),
+                )),
+                Box::new(GetTownTraffic::new(game.tx())),
+                Box::new(UpdateTown::new(x.clone_with_name("update_town"))),
+                Box::new(RemoveTown::new(x.clone_with_name("remove_town"))),
+                Box::new(UpdateHomelandPopulation::new(
+                    x.clone_with_name("update_homeland_population"),
+                )),
+                Box::new(UpdateCurrentPopulation::new(
+                    x.clone_with_name("update_current_population"),
+                    max_abs_population_change,
+                )),
+                Box::new(GetDemand::new(town_demand_fn)),
+                Box::new(GetDemand::new(homeland_demand_fn)),
+                Box::new(GetRoutes::new(
+                    game.tx(),
+                    &pathfinder_with_planned_roads,
+                    &pathfinder_without_planned_roads,
+                )),
+                Box::new(GetRouteChanges::new(game.tx())),
+                Box::new(UpdatePositionTraffic::new()),
+                Box::new(UpdateEdgeTraffic::new()),
+                Box::new(RefreshPositions::new(
+                    &game.tx(),
+                    x.clone_with_name("refresh_positions"),
+                    thread_pool.clone(),
+                )),
+                Box::new(RefreshEdges::new(
+                    &game.tx(),
+                    x.clone_with_name("refresh_edges"),
+                    AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
+                    &pathfinder_with_planned_roads,
+                    thread_pool.clone(),
+                )),
+                Box::new(UpdateRouteToPorts::new(game.tx())),
+            ],
+        ),
+        simulation_rx,
+    );
+
     let mut system = System::new(
         x.clone_with_name("system"),
         event_forwarder.subscribe(),
         thread_pool.clone(),
         Programs {
             object_builder,
+            simulation,
             town_house_artist,
             town_label_artist,
             visibility,
@@ -204,62 +264,6 @@ fn main() {
         ParsedArgs::New { .. } => system.new_game(),
         ParsedArgs::Load { path } => system.load(&path),
     }
-
-    let builder = BuildSim::new(
-        game.tx(),
-        vec![
-            Box::new(TownBuilder::new(x.clone_with_name("town_builder"))),
-            Box::new(RoadBuilder::new(x.clone_with_name("road_builder"))),
-            Box::new(CropsBuilder::new(x.clone_with_name("crops_builder"))),
-        ],
-    );
-
-    let mut sim = Simulation::new(
-        simulation_rx,
-        vec![
-            Box::new(InstructionLogger::new()),
-            Box::new(builder),
-            Box::new(StepHomeland::new(game.tx())),
-            Box::new(StepTown::new(game.tx())),
-            Box::new(GetTerritory::new(
-                game.tx(),
-                x.clone_with_name("get_territory"),
-            )),
-            Box::new(GetTownTraffic::new(game.tx())),
-            Box::new(UpdateTown::new(x.clone_with_name("update_town"))),
-            Box::new(RemoveTown::new(x.clone_with_name("remove_town"))),
-            Box::new(UpdateHomelandPopulation::new(
-                x.clone_with_name("update_homeland_population"),
-            )),
-            Box::new(UpdateCurrentPopulation::new(
-                x.clone_with_name("update_current_population"),
-                max_abs_population_change,
-            )),
-            Box::new(GetDemand::new(town_demand_fn)),
-            Box::new(GetDemand::new(homeland_demand_fn)),
-            Box::new(GetRoutes::new(
-                game.tx(),
-                &pathfinder_with_planned_roads,
-                &pathfinder_without_planned_roads,
-            )),
-            Box::new(GetRouteChanges::new(game.tx())),
-            Box::new(UpdatePositionTraffic::new()),
-            Box::new(UpdateEdgeTraffic::new()),
-            Box::new(RefreshPositions::new(
-                &game.tx(),
-                x.clone_with_name("refresh_positions"),
-                thread_pool.clone(),
-            )),
-            Box::new(RefreshEdges::new(
-                &game.tx(),
-                x.clone_with_name("refresh_edges"),
-                AutoRoadTravelDuration::from_params(&game.game_state().params.auto_road_travel),
-                &pathfinder_with_planned_roads,
-                thread_pool.clone(),
-            )),
-            Box::new(UpdateRouteToPorts::new(game.tx())),
-        ],
-    );
 
     let mut pause_sim = PauseSim::new(x.clone_with_name("pause_sim"), event_forwarder.subscribe());
     let mut save = Save::new(x.clone_with_name("save"), event_forwarder.subscribe());
@@ -288,9 +292,6 @@ fn main() {
     game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(PathfinderUpdater::new(&pathfinder_with_planned_roads));
     game.add_consumer(PathfinderUpdater::new(&pathfinder_without_planned_roads));
-    game.add_consumer(SimulationStateLoader::new(
-        x.clone_with_name("simulation_state_loader"),
-    ));
 
     game.add_consumer(ShutdownHandler::new(
         x.clone_with_name("shutdown_handler"),
@@ -336,9 +337,6 @@ fn main() {
         async move { town_builder.run().await }.remote_handle();
     thread_pool.spawn_ok(town_builder_run);
 
-    let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
-    thread_pool.spawn_ok(sim_run);
-
     engine.run();
 
     // Wait
@@ -351,7 +349,6 @@ fn main() {
             pause_sim_handle,
             system_handle,
             save_handle,
-            sim_handle,
             town_builder_handle,
         )
     });

@@ -10,7 +10,8 @@ use crate::actors::{
     ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::polysender::Polysender;
-use crate::system::{Process, Program};
+use crate::simulation::Simulation;
+use crate::system::{BusyProgram, Process, Program};
 
 const SAVE_PATH: &str = "save";
 
@@ -25,16 +26,18 @@ pub struct System {
 }
 
 struct Processes {
-    object_builder: Process<ObjectBuilder<Polysender>>,
-    town_house_artist: Process<TownHouseArtist<Polysender>>,
-    town_label_artist: Process<TownLabelArtist<Polysender>>,
-    visibility: Process<VisibilityActor<Polysender>>,
-    voyager: Process<Voyager<Polysender>>,
-    world_artist: Process<WorldArtistActor<Polysender>>,
+    object_builder: Process<Program<ObjectBuilder<Polysender>>>,
+    simulation: Process<BusyProgram<Simulation<Polysender>>>,
+    town_house_artist: Process<Program<TownHouseArtist<Polysender>>>,
+    town_label_artist: Process<Program<TownLabelArtist<Polysender>>>,
+    visibility: Process<Program<VisibilityActor<Polysender>>>,
+    voyager: Process<Program<Voyager<Polysender>>>,
+    world_artist: Process<Program<WorldArtistActor<Polysender>>>,
 }
 
 pub struct Programs {
     pub object_builder: Program<ObjectBuilder<Polysender>>,
+    pub simulation: BusyProgram<Simulation<Polysender>>,
     pub town_house_artist: Program<TownHouseArtist<Polysender>>,
     pub town_label_artist: Program<TownLabelArtist<Polysender>>,
     pub visibility: Program<VisibilityActor<Polysender>>,
@@ -46,6 +49,7 @@ impl Into<Processes> for Programs {
     fn into(self) -> Processes {
         Processes {
             object_builder: Process::new(self.object_builder),
+            simulation: Process::new(self.simulation),
             town_house_artist: Process::new(self.town_house_artist),
             town_label_artist: Process::new(self.town_label_artist),
             visibility: Process::new(self.visibility),
@@ -85,9 +89,13 @@ impl System {
         self.x
             .visibility_tx
             .send_future(|visibility| visibility.new_game().boxed());
+        self.x
+            .simulation_tx
+            .send_future(|simulation| simulation.new_game().boxed());
     }
 
     pub fn load(&mut self, path: &str) {
+        self.processes.simulation.load(path);
         self.processes.visibility.load(path);
     }
 
@@ -103,6 +111,7 @@ impl System {
     }
 
     fn send_init_messages(&self) {
+        self.x.simulation_tx.send(|simulation| simulation.init());
         self.x
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());
@@ -124,6 +133,7 @@ impl System {
         self.processes.visibility.start(&self.pool);
         self.processes.town_house_artist.start(&self.pool);
         self.processes.town_label_artist.start(&self.pool);
+        self.processes.simulation.start(&self.pool);
         self.processes.object_builder.start(&self.pool);
         self.paused = false;
         info!("Started system");
@@ -182,6 +192,7 @@ impl System {
     async fn pause(&mut self) {
         info!("Pausing system");
         self.processes.object_builder.pause().await;
+        self.processes.simulation.pause().await;
         self.processes.town_label_artist.pause().await;
         self.processes.town_house_artist.pause().await;
         self.processes.visibility.pause().await;

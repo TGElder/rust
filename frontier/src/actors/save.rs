@@ -1,3 +1,4 @@
+use crate::system::Persistable;
 use crate::traits::{SendGame, SendSim};
 use commons::async_channel::{Receiver, RecvError};
 use commons::futures::future::FutureExt;
