@@ -924,14 +924,21 @@ mod tests {
 
     #[test]
     fn test_closest_targets_with_tie() {
-        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 2)];
+        let edges = vec![Edge::new(0, 1, 1), Edge::new(0, 2, 1)];
         let network = Network::new(3, &edges);
         let actual = network.closest_targets(&[0], &[false, true, true], 1);
-        let expected = vec![ClosestTargetResult {
-            node: 1,
-            path: vec![0, 1],
-            cost: 1,
-        }];
+        let expected = vec![
+            ClosestTargetResult {
+                node: 1,
+                path: vec![0, 1],
+                cost: 1,
+            },
+            ClosestTargetResult {
+                node: 2,
+                path: vec![0, 2],
+                cost: 1,
+            },
+        ];
         assert_that!(&actual, contains(expected).exactly());
     }
 
