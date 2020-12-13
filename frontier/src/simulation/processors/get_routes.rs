@@ -90,6 +90,7 @@ where
     ) -> impl Iterator<Item = (RouteKey, Route)> + 'a {
         closest_targets
             .into_iter()
+            .take(demand.sources)
             .map(move |target| self.route(start_micros, demand, target))
     }
 
@@ -376,6 +377,91 @@ mod tests {
                     resource: Resource::Coal
                 },
                 route_set: hashmap! {}
+            }]
+        );
+
+        // Finally
+        game.join();
+    }
+
+    #[test]
+    fn test_more_closest_targets_than_requested() {
+        struct MockRoutePathfinder {}
+
+        impl ClosestTargets for MockRoutePathfinder {
+            fn init_targets(&mut self, _: String) {}
+
+            fn load_target(&mut self, _: &str, _: &V2<usize>, _: bool) {}
+
+            fn closest_targets(
+                &self,
+                positions: &[V2<usize>],
+                target_set: &str,
+                n_closest: usize,
+            ) -> Vec<ClosestTargetResult> {
+                assert!(same_elements(positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
+                assert_eq!(target_set, "resource-coal");
+                assert_eq!(n_closest, 1);
+                vec![
+                    ClosestTargetResult {
+                        position: v2(1, 5),
+                        path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                        duration: Duration::from_secs(2),
+                    },
+                    ClosestTargetResult {
+                        position: v2(2, 4),
+                        path: vec![v2(1, 3), v2(1, 4), v2(2, 4)],
+                        duration: Duration::from_secs(2),
+                    },
+                ]
+            }
+        }
+
+        impl InBounds for MockRoutePathfinder {
+            fn in_bounds(&self, position: &V2<usize>) -> bool {
+                *position != v2(2, 4)
+            }
+        }
+
+        // Given
+        let game = FnThread::new(101);
+        let route_pathfinder = Arc::new(RwLock::new(MockRoutePathfinder {}));
+        let duration_pathfinder = Arc::new(RwLock::new(MockDurationPathfinder {}));
+        let mut processor = GetRoutes::new(&game.tx(), &route_pathfinder, &duration_pathfinder);
+        let demand = Demand {
+            position: v2(1, 3),
+            resource: Resource::Coal,
+            sources: 1,
+            quantity: 3,
+        };
+
+        // When
+        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
+
+        // Then
+        let mut route_set = HashMap::new();
+        route_set.insert(
+            RouteKey {
+                settlement: v2(1, 3),
+                resource: Resource::Coal,
+                destination: v2(1, 5),
+            },
+            Route {
+                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                start_micros: 101,
+                duration: Duration::from_secs(303),
+                traffic: 3,
+            },
+        );
+
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::GetRouteChanges {
+                key: RouteSetKey {
+                    settlement: v2(1, 3),
+                    resource: Resource::Coal
+                },
+                route_set
             }]
         );
 
