@@ -6,7 +6,7 @@ use commons::futures::future::FutureExt;
 use commons::log::info;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 
-use crate::actors::{ObjectBuilder, TownHouseArtist, Voyager};
+use crate::actors::{ObjectBuilder, TownHouseArtist, TownLabelArtist, Voyager};
 use crate::polysender::Polysender;
 use crate::system::{Process, Program};
 
@@ -23,12 +23,14 @@ pub struct System {
 struct Processes {
     object_builder: Process<ObjectBuilder<Polysender>>,
     town_house_artist: Process<TownHouseArtist<Polysender>>,
+    town_label_artist: Process<TownLabelArtist<Polysender>>,
     voyager: Process<Voyager<Polysender>>,
 }
 
 pub struct Programs {
     pub object_builder: Program<ObjectBuilder<Polysender>>,
     pub town_house_artist: Program<TownHouseArtist<Polysender>>,
+    pub town_label_artist: Program<TownLabelArtist<Polysender>>,
     pub voyager: Program<Voyager<Polysender>>,
 }
 
@@ -37,6 +39,7 @@ impl Into<Processes> for Programs {
         Processes {
             object_builder: Process::new(self.object_builder),
             town_house_artist: Process::new(self.town_house_artist),
+            town_label_artist: Process::new(self.town_label_artist),
             voyager: Process::new(self.voyager),
         }
     }
@@ -81,12 +84,16 @@ impl System {
         self.x
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());
+        self.x
+            .town_label_artist_tx
+            .send_future(|town_label_artist| town_label_artist.init().boxed());
     }
 
     fn start(&mut self) {
         info!("Starting system");
         self.processes.voyager.start(&self.pool);
         self.processes.town_house_artist.start(&self.pool);
+        self.processes.town_label_artist.start(&self.pool);
         self.processes.object_builder.start(&self.pool);
         self.paused = false;
         info!("Started system");
@@ -128,6 +135,7 @@ impl System {
         info!("Pausing system");
         join!(
             self.processes.object_builder.pause(),
+            self.processes.town_label_artist.pause(),
             self.processes.town_house_artist.pause(),
             self.processes.voyager.pause(),
         );
