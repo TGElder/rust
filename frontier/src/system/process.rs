@@ -2,7 +2,7 @@ use commons::fn_sender::FnSender;
 use commons::futures::executor::ThreadPool;
 use commons::futures::future::{FutureExt, RemoteHandle};
 
-use crate::system::Program;
+use crate::system::{Persistable, Program};
 
 pub struct Process<T>
 where
@@ -40,7 +40,7 @@ where
             pool.spawn_ok(runnable);
             self.state = ProcessState::Running { handle, tx };
         } else {
-            panic!("Cannot run program: program is already running!");
+            panic!("Cannot run program: program is not paused!");
         }
     }
 
@@ -50,6 +50,27 @@ where
             self.state = ProcessState::Paused(Some(handle.await));
         } else {
             panic!("Cannot pause program: program is not running!");
+        }
+    }
+}
+
+impl<T> Process<T>
+where
+    T: Send + Persistable,
+{
+    pub fn save(&self, path: &str) {
+        if let ProcessState::Paused(program) = &self.state {
+            program.as_ref().unwrap().save(path);
+        } else {
+            panic!("Cannot save program state: program is not paused!");
+        }
+    }
+
+    pub fn load(&mut self, path: &str) {
+        if let ProcessState::Paused(program) = &mut self.state {
+            program.as_mut().unwrap().load(path);
+        } else {
+            panic!("Cannot load program state: program is not paused!");
         }
     }
 }

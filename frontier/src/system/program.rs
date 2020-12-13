@@ -1,6 +1,8 @@
 use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
 use commons::futures::future::FutureExt;
 
+use crate::system::Persistable;
+
 pub struct Program<T>
 where
     T: Send,
@@ -51,5 +53,18 @@ where
 
     pub fn shutdown(&mut self) {
         self.run = false;
+    }
+}
+
+impl<T> Program<T>
+where
+    T: Send + Persistable,
+{
+    pub fn save(&self, path: &str) {
+        self.actor.save(path);
+    }
+
+    pub fn load(&mut self, path: &str) {
+        self.actor.load(path);
     }
 }

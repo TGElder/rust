@@ -33,14 +33,12 @@ RemoveWorldObject SendWorld
 RevealPositions DrawWorld
 RevealPositions Micros
 RevealPositions SendGame
-RevealPositions SendSim_RP
 RevealPositions SendVoyager
 RevealPositions SendWorld
 RevealPositions UpdatePathfinderPositions
 RevealPositionsVoyager DrawWorld
 RevealPositionsVoyager Micros
 RevealPositionsVoyager SendGame
-RevealPositionsVoyager SendSim_RP
 RevealPositionsVoyager SendWorld
 RevealPositionsVoyager UpdatePathfinderPositions
 SendBasicRoadBuilder SendGame
