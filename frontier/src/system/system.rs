@@ -6,7 +6,9 @@ use commons::futures::future::FutureExt;
 use commons::log::info;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 
-use crate::actors::{ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager};
+use crate::actors::{
+    ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+};
 use crate::polysender::Polysender;
 use crate::system::{Process, Program};
 
@@ -28,6 +30,7 @@ struct Processes {
     town_label_artist: Process<TownLabelArtist<Polysender>>,
     visibility: Process<VisibilityActor<Polysender>>,
     voyager: Process<Voyager<Polysender>>,
+    world_artist: Process<WorldArtistActor<Polysender>>,
 }
 
 pub struct Programs {
@@ -36,6 +39,7 @@ pub struct Programs {
     pub town_label_artist: Program<TownLabelArtist<Polysender>>,
     pub visibility: Program<VisibilityActor<Polysender>>,
     pub voyager: Program<Voyager<Polysender>>,
+    pub world_artist: Program<WorldArtistActor<Polysender>>,
 }
 
 impl Into<Processes> for Programs {
@@ -46,6 +50,7 @@ impl Into<Processes> for Programs {
             town_label_artist: Process::new(self.town_label_artist),
             visibility: Process::new(self.visibility),
             voyager: Process::new(self.voyager),
+            world_artist: Process::new(self.world_artist),
         }
     }
 }
@@ -107,10 +112,14 @@ impl System {
         self.x
             .visibility_tx
             .send_future(|visibility| visibility.init().boxed());
+        self.x
+            .world_artist_tx
+            .send_future(|world_artist| world_artist.init().boxed());
     }
 
     fn start(&mut self) {
         info!("Starting system");
+        self.processes.world_artist.start(&self.pool);
         self.processes.voyager.start(&self.pool);
         self.processes.visibility.start(&self.pool);
         self.processes.town_house_artist.start(&self.pool);
@@ -177,6 +186,7 @@ impl System {
         self.processes.town_house_artist.pause().await;
         self.processes.visibility.pause().await;
         self.processes.voyager.pause().await;
+        self.processes.world_artist.pause().await;
         self.paused = true;
         info!("Paused system");
     }

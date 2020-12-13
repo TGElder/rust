@@ -1,14 +1,13 @@
 mod coloring;
 
 pub use coloring::WorldColoringParameters;
+use commons::async_trait::async_trait;
 
 use crate::artists::{Slab, WorldArtist};
-use crate::game::{Game, GameEvent};
+use crate::event_forwarder_2::HandleEngineEvent;
+use crate::game::Game;
 use crate::traits::{Micros, SendGame};
 use coloring::world_coloring;
-use commons::async_channel::{Receiver, RecvError};
-use commons::fn_sender::{FnMessageExt, FnReceiver};
-use commons::futures::future::FutureExt;
 use commons::V2;
 use isometric::{Button, Command, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::collections::HashMap;
@@ -27,53 +26,43 @@ impl Default for WorldArtistActorBindings {
     }
 }
 
-pub struct WorldArtistActor<T> {
-    x: T,
-    rx: FnReceiver<WorldArtistActor<T>>,
-    engine_rx: Receiver<Arc<Event>>,
-    game_rx: Receiver<GameEvent>,
+pub struct WorldArtistActor<X> {
+    x: X,
     command_tx: Sender<Vec<Command>>,
     bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
     last_redraw: HashMap<V2<usize>, u128>,
-    run: bool,
     territory_layer: bool,
 }
 
-impl<T> WorldArtistActor<T>
+impl<X> WorldArtistActor<X>
 where
-    T: Micros + SendGame + Send,
+    X: Micros + SendGame + Send,
 {
     pub fn new(
-        x: T,
-        rx: FnReceiver<WorldArtistActor<T>>,
-        engine_rx: Receiver<Arc<Event>>,
-        game_rx: Receiver<GameEvent>,
+        x: X,
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
-    ) -> WorldArtistActor<T> {
+    ) -> WorldArtistActor<X> {
         WorldArtistActor {
             x,
-            rx,
-            engine_rx,
-            game_rx,
             command_tx,
             bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},
             world_artist,
-            run: true,
             territory_layer: false,
         }
     }
 
-    pub async fn run(&mut self) {
-        while self.run {
-            select! {
-                mut message = self.rx.get_message().fuse() => message.apply(self).await,
-                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await,
-                event = self.game_rx.recv().fuse() => self.handle_game_event(event).await
-            }
-        }
+    pub async fn init(&mut self) {
+        let commands = self.world_artist.init();
+        self.command_tx.send(commands).unwrap();
+        self.redraw_all().await;
+    }
+
+    async fn redraw_all(&mut self) {
+        let when = self.when().await;
+        self.redraw_all_at(when).await;
     }
 
     pub async fn redraw_all_at(&mut self, when: u128) {
@@ -85,11 +74,6 @@ where
     pub async fn redraw_tile_at(&mut self, tile: V2<usize>, when: u128) {
         let slab = Slab::at(tile, self.world_artist.params().slab_size);
         self.redraw_slab(slab, when).await;
-    }
-
-    async fn redraw_all(&mut self) {
-        let when = self.when().await;
-        self.redraw_all_at(when).await;
     }
 
     async fn when(&mut self) -> u128 {
@@ -122,45 +106,9 @@ where
             .unwrap_or(false)
     }
 
-    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
-        match *event.unwrap() {
-            Event::Button {
-                ref button,
-                state: ElementState::Pressed,
-                modifiers:
-                    ModifiersState {
-                        alt: false,
-                        ctrl: true,
-                        ..
-                    },
-                ..
-            } if *button == self.bindings.toggle_territory_layer => {
-                self.toggle_territory_layer().await
-            }
-            Event::Shutdown => self.shutdown(),
-            _ => (),
-        }
-    }
-
     async fn toggle_territory_layer(&mut self) {
         self.territory_layer = !self.territory_layer;
         self.redraw_all().await;
-    }
-
-    fn shutdown(&mut self) {
-        self.run = false;
-    }
-
-    async fn handle_game_event(&mut self, event: Result<GameEvent, RecvError>) {
-        if let GameEvent::Init = event.unwrap() {
-            self.init();
-            self.redraw_all().await;
-        }
-    }
-
-    fn init(&mut self) {
-        let commands = self.world_artist.init();
-        self.command_tx.send(commands).unwrap();
     }
 }
 
@@ -183,5 +131,30 @@ fn draw_slab(
             &world_coloring(game_state, territory_layer),
             &slab,
         ),
+    }
+}
+
+#[async_trait]
+impl<X> HandleEngineEvent for WorldArtistActor<X>
+where
+    X: Micros + SendGame + Send + Sync,
+{
+    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+        match *event {
+            Event::Button {
+                ref button,
+                state: ElementState::Pressed,
+                modifiers:
+                    ModifiersState {
+                        alt: false,
+                        ctrl: true,
+                        ..
+                    },
+                ..
+            } if *button == self.bindings.toggle_territory_layer => {
+                self.toggle_territory_layer().await
+            }
+            _ => (),
+        }
     }
 }
