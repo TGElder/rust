@@ -98,7 +98,6 @@ where
         if *already_visited {
             return;
         } else {
-            commons::log::info!("Visiting {:?}", position);
             self.set_visited(&position);
         }
 

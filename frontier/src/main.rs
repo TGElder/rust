@@ -409,6 +409,17 @@ fn load(path: &str) -> (GameState, Vec<GameEvent>) {
     (game_state, init_events)
 }
 
+enum ParsedArgs {
+    New {
+        power: usize,
+        seed: u64,
+        reveal_all: bool,
+    },
+    Load {
+        path: String,
+    },
+}
+
 #[allow(clippy::comparison_chain)]
 fn parse_args(args: Vec<String>) -> ParsedArgs {
     if args.len() > 2 {
@@ -426,13 +437,3 @@ fn parse_args(args: Vec<String>) -> ParsedArgs {
     }
 }
 
-enum ParsedArgs {
-    New {
-        power: usize,
-        seed: u64,
-        reveal_all: bool,
-    },
-    Load {
-        path: String,
-    },
-}
