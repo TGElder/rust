@@ -143,15 +143,6 @@ fn main() {
         town_house_artist_rx,
     );
 
-    let mut town_label_artist = TownLabelArtist::new(
-        x.clone_with_name("town_labels"),
-        town_label_artist_rx,
-        event_forwarder.subscribe(),
-        game_event_forwarder.subscribe(),
-        engine.command_tx(),
-        game.game_state().params.town_artist,
-    );
-
     let mut visibility = VisibilityActor::new(
         x.clone_with_name("visibility"),
         visibility_rx,
@@ -163,8 +154,6 @@ fn main() {
         x.clone_with_name("basic_road_builder"),
         event_forwarder.subscribe(),
     );
-
-    let voyager = Program::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx);
 
     let mut town_builder = TownBuilderActor::new(
         x.clone_with_name("town_builder_actor"),
@@ -179,13 +168,25 @@ fn main() {
         object_builder_rx,
     );
 
-    let mut reactor = System::new(
+    let town_label_artist = Program::new(
+        TownLabelArtist::new(
+            x.clone_with_name("town_labels"),
+            engine.command_tx(),
+            game.game_state().params.town_artist,
+        ),
+        town_label_artist_rx,
+    );
+
+    let voyager = Program::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx);
+
+    let mut system = System::new(
         x.clone_with_name("system"),
         event_forwarder.subscribe(),
         thread_pool.clone(),
         Programs {
             object_builder,
             town_house_artist,
+            town_label_artist,
             voyager,
         },
     );
@@ -315,7 +316,7 @@ fn main() {
     let (pause_sim_run, pause_sim_handle) = async move { pause_sim.run().await }.remote_handle();
     thread_pool.spawn_ok(pause_sim_run);
 
-    let (reactor_run, reactor_handle) = async move { reactor.run().await }.remote_handle();
+    let (reactor_run, reactor_handle) = async move { system.run().await }.remote_handle();
     thread_pool.spawn_ok(reactor_run);
 
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
@@ -324,10 +325,6 @@ fn main() {
     let (town_builder_run, town_builder_handle) =
         async move { town_builder.run().await }.remote_handle();
     thread_pool.spawn_ok(town_builder_run);
-
-    let (town_label_artist_run, town_label_artist_handle) =
-        async move { town_label_artist.run().await }.remote_handle();
-    thread_pool.spawn_ok(town_label_artist_run);
 
     let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
     thread_pool.spawn_ok(visibility_run);
@@ -353,7 +350,6 @@ fn main() {
             save_handle,
             sim_handle,
             town_builder_handle,
-            town_label_artist_handle,
             world_artist_handle,
             visibility_handle,
         )
