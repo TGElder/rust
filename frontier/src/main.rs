@@ -119,7 +119,6 @@ fn main() {
     };
 
     let mut event_forwarder = EventForwarder::new();
-    let mut game_event_forwarder = GameEventForwarder::new(thread_pool.clone());
 
     let mut pause_game = PauseGame::new(event_forwarder.subscribe(), game.tx());
 
@@ -133,14 +132,6 @@ fn main() {
                 .max_navigable_river_gradient,
             ..WorldArtistParameters::default()
         },
-    );
-    let mut world_artist = WorldArtistActor::new(
-        x.clone_with_name("world_artist_actor"),
-        world_artist_rx,
-        event_forwarder.subscribe(),
-        game_event_forwarder.subscribe(),
-        engine.command_tx(),
-        world_artist,
     );
 
     let town_house_artist = Program::new(
@@ -186,6 +177,15 @@ fn main() {
 
     let voyager = Program::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx);
 
+    let world_artist = Program::new(
+        WorldArtistActor::new(
+            x.clone_with_name("world_artist_actor"),
+            engine.command_tx(),
+            world_artist,
+        ),
+        world_artist_rx,
+    );
+
     let mut system = System::new(
         x.clone_with_name("system"),
         event_forwarder.subscribe(),
@@ -196,6 +196,7 @@ fn main() {
             town_label_artist,
             visibility,
             voyager,
+            world_artist,
         },
     );
 
@@ -309,8 +310,6 @@ fn main() {
         thread_pool.clone(),
     ));
 
-    game.add_consumer(game_event_forwarder);
-
     engine.add_event_consumer(event_forwarder);
 
     engine.add_event_consumer(EventForwarder2::new(x.clone_with_name("event_forwarder")));
@@ -329,8 +328,8 @@ fn main() {
     let (pause_sim_run, pause_sim_handle) = async move { pause_sim.run().await }.remote_handle();
     thread_pool.spawn_ok(pause_sim_run);
 
-    let (reactor_run, reactor_handle) = async move { system.run().await }.remote_handle();
-    thread_pool.spawn_ok(reactor_run);
+    let (system_run, system_handle) = async move { system.run().await }.remote_handle();
+    thread_pool.spawn_ok(system_run);
 
     let (save_run, save_handle) = async move { save.run().await }.remote_handle();
     thread_pool.spawn_ok(save_run);
@@ -338,10 +337,6 @@ fn main() {
     let (town_builder_run, town_builder_handle) =
         async move { town_builder.run().await }.remote_handle();
     thread_pool.spawn_ok(town_builder_run);
-
-    let (world_artist_run, world_artist_handle) =
-        async move { world_artist.run().await }.remote_handle();
-    thread_pool.spawn_ok(world_artist_run);
 
     let (sim_run, sim_handle) = async move { sim.run().await }.remote_handle();
     thread_pool.spawn_ok(sim_run);
@@ -356,11 +351,10 @@ fn main() {
             basic_road_builder_handle,
             pause_game_handle,
             pause_sim_handle,
-            reactor_handle,
+            system_handle,
             save_handle,
             sim_handle,
             town_builder_handle,
-            world_artist_handle,
         )
     });
     println!("Joining game");
