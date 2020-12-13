@@ -134,13 +134,13 @@ fn main() {
         world_artist,
     );
 
-    let mut town_house_artist = TownHouseArtist::new(
-        x.clone_with_name("town_houses"),
+    let town_house_artist = Program::new(
+        TownHouseArtist::new(
+            x.clone_with_name("town_houses"),
+            engine.command_tx(),
+            game.game_state().params.town_artist,
+        ),
         town_house_artist_rx,
-        event_forwarder.subscribe(),
-        game_event_forwarder.subscribe(),
-        engine.command_tx(),
-        game.game_state().params.town_artist,
     );
 
     let mut town_label_artist = TownLabelArtist::new(
@@ -180,10 +180,12 @@ fn main() {
     );
 
     let mut reactor = System::new(
+        x.clone_with_name("system"),
         event_forwarder.subscribe(),
         thread_pool.clone(),
         Programs {
             object_builder,
+            town_house_artist,
             voyager,
         },
     );
@@ -323,10 +325,6 @@ fn main() {
         async move { town_builder.run().await }.remote_handle();
     thread_pool.spawn_ok(town_builder_run);
 
-    let (town_house_artist_run, town_house_artist_handle) =
-        async move { town_house_artist.run().await }.remote_handle();
-    thread_pool.spawn_ok(town_house_artist_run);
-
     let (town_label_artist_run, town_label_artist_handle) =
         async move { town_label_artist.run().await }.remote_handle();
     thread_pool.spawn_ok(town_label_artist_run);
@@ -355,7 +353,6 @@ fn main() {
             save_handle,
             sim_handle,
             town_builder_handle,
-            town_house_artist_handle,
             town_label_artist_handle,
             world_artist_handle,
             visibility_handle,

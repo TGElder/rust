@@ -40,16 +40,16 @@ where
             pool.spawn_ok(runnable);
             self.state = ProcessState::Running { handle, tx };
         } else {
-            panic!("Program is already running!");
+            panic!("Cannot run program: program is already running!");
         }
     }
 
     pub async fn pause(&mut self) {
         if let ProcessState::Running { handle, tx } = &mut self.state {
-            tx.send(|actor| actor.shutdown()).await;
+            tx.send(|program| program.shutdown()).await;
             self.state = ProcessState::Paused(Some(handle.await));
         } else {
-            panic!("Program is not running!");
+            panic!("Cannot pause program: program is not running!");
         }
     }
 }
