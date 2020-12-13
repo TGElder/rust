@@ -66,7 +66,16 @@ use std::time::Duration;
 fn main() {
     SimpleLogger::new().init().unwrap();
 
-    let (game_state, init_events) = parse_args(env::args().collect());
+    let parsed_args = parse_args(env::args().collect());
+
+    let (game_state, init_events) = match &parsed_args {
+        ParsedArgs::New {
+            power,
+            seed,
+            reveal_all,
+        } => new(*power, *seed, *reveal_all),
+        ParsedArgs::Load { path } => load(&path),
+    };
 
     let mut engine = IsometricEngine::new(IsometricEngineParameters {
         title: "Frontier",
@@ -143,13 +152,6 @@ fn main() {
         town_house_artist_rx,
     );
 
-    let mut visibility = VisibilityActor::new(
-        x.clone_with_name("visibility"),
-        visibility_rx,
-        event_forwarder.subscribe(),
-        game_event_forwarder.subscribe(),
-    );
-
     let mut basic_road_builder = BasicRoadBuilder::new(
         x.clone_with_name("basic_road_builder"),
         event_forwarder.subscribe(),
@@ -177,6 +179,11 @@ fn main() {
         town_label_artist_rx,
     );
 
+    let visibility = Program::new(
+        VisibilityActor::new(x.clone_with_name("visibility")),
+        visibility_rx,
+    );
+
     let voyager = Program::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx);
 
     let mut system = System::new(
@@ -187,9 +194,15 @@ fn main() {
             object_builder,
             town_house_artist,
             town_label_artist,
+            visibility,
             voyager,
         },
     );
+
+    match parsed_args {
+        ParsedArgs::New { .. } => system.new_game(),
+        ParsedArgs::Load { path } => system.load(&path),
+    }
 
     let builder = BuildSim::new(
         game.tx(),
@@ -326,9 +339,6 @@ fn main() {
         async move { town_builder.run().await }.remote_handle();
     thread_pool.spawn_ok(town_builder_run);
 
-    let (visibility_run, visibility_handle) = async move { visibility.run().await }.remote_handle();
-    thread_pool.spawn_ok(visibility_run);
-
     let (world_artist_run, world_artist_handle) =
         async move { world_artist.run().await }.remote_handle();
     thread_pool.spawn_ok(world_artist_run);
@@ -351,7 +361,6 @@ fn main() {
             sim_handle,
             town_builder_handle,
             world_artist_handle,
-            visibility_handle,
         )
     });
     println!("Joining game");
@@ -401,15 +410,29 @@ fn load(path: &str) -> (GameState, Vec<GameEvent>) {
 }
 
 #[allow(clippy::comparison_chain)]
-fn parse_args(args: Vec<String>) -> (GameState, Vec<GameEvent>) {
+fn parse_args(args: Vec<String>) -> ParsedArgs {
     if args.len() > 2 {
-        let power = args[1].parse().unwrap();
-        let seed = args[2].parse().unwrap();
-        let reveal_all = args.contains(&"-r".to_string());
-        new(power, seed, reveal_all)
+        ParsedArgs::New {
+            power: args[1].parse().unwrap(),
+            seed: args[2].parse().unwrap(),
+            reveal_all: args.contains(&"-r".to_string()),
+        }
     } else if args.len() == 2 {
-        load(&args[1])
+        ParsedArgs::Load {
+            path: args[1].clone(),
+        }
     } else {
         panic!("Invalid command line arguments");
     }
+}
+
+enum ParsedArgs {
+    New {
+        power: usize,
+        seed: u64,
+        reveal_all: bool,
+    },
+    Load {
+        path: String,
+    },
 }
