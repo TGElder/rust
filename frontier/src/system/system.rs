@@ -11,6 +11,7 @@ use crate::polysender::Polysender;
 use crate::system::{Process, Program};
 
 pub struct System {
+    x: Polysender,
     engine_rx: Receiver<Arc<Event>>,
     pool: ThreadPool,
     processes: Processes,
@@ -46,8 +47,14 @@ struct Bindings {
 }
 
 impl System {
-    pub fn new(engine_rx: Receiver<Arc<Event>>, pool: ThreadPool, programs: Programs) -> System {
+    pub fn new(
+        x: Polysender,
+        engine_rx: Receiver<Arc<Event>>,
+        pool: ThreadPool,
+        programs: Programs,
+    ) -> System {
         System {
+            x,
             engine_rx,
             pool,
             processes: programs.into(),
@@ -60,13 +67,29 @@ impl System {
     }
 
     pub async fn run(&mut self) {
-        self.init().await;
+        self.send_init_messages();
+        self.start().await;
         while self.run {
             select! {
                 event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
             }
         }
         info!("Shut down system");
+    }
+
+    fn send_init_messages(&self) {
+        self.x
+            .town_house_artist_tx
+            .send_future(|town_house_artist| town_house_artist.init().boxed());
+    }
+
+    async fn start(&mut self) {
+        info!("Starting system");
+        self.processes.town_house_artist.start(&self.pool).await;
+        self.processes.voyager.start(&self.pool).await;
+        self.processes.object_builder.start(&self.pool).await;
+        self.paused = false;
+        info!("Started system");
     }
 
     async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
@@ -93,29 +116,9 @@ impl System {
         }
     }
 
-    async fn init(&mut self) {
-        self.start(true).await;
-    }
-
-    async fn resume(&mut self) {
-        self.start(false).await;
-    }
-
-    async fn start(&mut self, init: bool) {
-        info!("Starting system");
-        self.processes
-            .town_house_artist
-            .start(init, &self.pool)
-            .await;
-        self.processes.voyager.start(init, &self.pool).await;
-        self.processes.object_builder.start(init, &self.pool).await;
-        self.paused = false;
-        info!("Started system");
-    }
-
     async fn toggle_pause(&mut self) {
         if self.paused {
-            self.resume().await;
+            self.start().await;
         } else {
             self.pause().await;
         }

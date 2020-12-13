@@ -2,18 +2,18 @@ use commons::fn_sender::FnSender;
 use commons::futures::executor::ThreadPool;
 use commons::futures::future::{FutureExt, RemoteHandle};
 
-use crate::system::{Init, Program};
+use crate::system::Program;
 
 pub struct Process<T>
 where
-    T: Init + Send + 'static,
+    T: Send + 'static,
 {
     state: ProcessState<T>,
 }
 
 enum ProcessState<T>
 where
-    T: Init + Send,
+    T: Send,
 {
     Running {
         handle: RemoteHandle<Program<T>>,
@@ -24,7 +24,7 @@ where
 
 impl<T> Process<T>
 where
-    T: Init + Send,
+    T: Send,
 {
     pub fn new(program: Program<T>) -> Process<T> {
         Process {
@@ -32,12 +32,9 @@ where
         }
     }
 
-    pub async fn start(&mut self, init: bool, pool: &ThreadPool) {
+    pub async fn start(&mut self, pool: &ThreadPool) {
         if let ProcessState::Paused(program) = &mut self.state {
-            let mut program = program.take().unwrap();
-            if init {
-                program.init().await;
-            }
+            let program = program.take().unwrap();
             let tx = program.tx().clone();
             let (runnable, handle) = async move { program.run().await }.remote_handle();
             pool.spawn_ok(runnable);
@@ -49,7 +46,7 @@ where
 
     pub async fn pause(&mut self) {
         if let ProcessState::Running { handle, tx } = &mut self.state {
-            tx.send(|actor| actor.shutdown()).await;
+            tx.send(|program| program.shutdown()).await;
             self.state = ProcessState::Paused(Some(handle.await));
         } else {
             panic!("Cannot pause program: program is not running!");

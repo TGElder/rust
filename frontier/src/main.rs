@@ -180,6 +180,7 @@ fn main() {
     );
 
     let mut reactor = System::new(
+        x.clone_with_name("system"),
         event_forwarder.subscribe(),
         thread_pool.clone(),
         Programs {

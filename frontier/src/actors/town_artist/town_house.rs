@@ -3,10 +3,8 @@ use std::sync::mpsc::Sender;
 use crate::actors::town_artist::get_house_height_without_roof;
 use crate::actors::TownArtistParameters;
 use crate::settlement::*;
-use crate::system::Init;
 use crate::traits::{GetNationDescription, GetSettlement, SendWorld, Settlements};
 use crate::world::World;
-use commons::async_trait::async_trait;
 use commons::V2;
 use isometric::drawing::{draw_house, DrawHouseParams};
 use isometric::{Color, Command};
@@ -33,11 +31,21 @@ where
         }
     }
 
+    pub async fn init(&mut self) {
+        self.draw_all().await;
+    }
+
     pub async fn update_settlement(&mut self, settlement: Settlement) {
         if self.x.get_settlement(settlement.position).await.is_some() {
             self.draw_settlement(settlement).await
         } else {
             self.erase_settlement(settlement)
+        }
+    }
+
+    async fn draw_all(&mut self) {
+        for settlement in self.x.settlements().await {
+            self.draw_settlement(settlement).await;
         }
     }
 
@@ -78,12 +86,6 @@ where
         let command = Command::Erase(get_name(&settlement.position));
         self.command_tx.send(vec![command]).unwrap();
     }
-
-    async fn draw_all(&mut self) {
-        for settlement in self.x.settlements().await {
-            self.draw_settlement(settlement).await;
-        }
-    }
 }
 
 pub fn get_draw_commands(
@@ -97,14 +99,4 @@ pub fn get_draw_commands(
 
 fn get_name(position: &V2<usize>) -> String {
     format!("house-{:?}", position)
-}
-
-#[async_trait]
-impl<X> Init for TownHouseArtist<X>
-where
-    X: GetNationDescription + GetSettlement + SendWorld + Settlements + Send + Sync + 'static,
-{
-    async fn init(&mut self) {
-        self.draw_all().await;
-    }
 }

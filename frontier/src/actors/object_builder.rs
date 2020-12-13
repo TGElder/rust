@@ -1,5 +1,4 @@
 use crate::event_forwarder_2::HandleEngineEvent;
-use crate::system::Init;
 use crate::traits::{RemoveWorldObject, SetWorldObject};
 use crate::world::WorldObject;
 use commons::async_trait::async_trait;
@@ -95,12 +94,4 @@ where
             }
         }
     }
-}
-
-#[async_trait]
-impl<T> Init for ObjectBuilder<T>
-where
-    T: Send,
-{
-    async fn init(&mut self) {}
 }
