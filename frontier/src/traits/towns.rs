@@ -2,10 +2,10 @@ use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::send::SendSettlements;
 use crate::traits::{
     AddController, DrawTown, GetSettlement, InsertSettlement, Micros, RemoveController,
-    RemoveWorldObject, SetControlDurations,
+    RemoveWorldObject, SendWorld, SetControlDurations, Visibility,
 };
 use commons::async_trait::async_trait;
-use commons::V2;
+use commons::{Grid, V2};
 
 #[async_trait]
 pub trait AddTown {
@@ -15,7 +15,14 @@ pub trait AddTown {
 #[async_trait]
 impl<T> AddTown for T
 where
-    T: AddController + GetSettlement + InsertSettlement + DrawTown + RemoveWorldObject + Sync,
+    T: AddController
+        + GetSettlement
+        + InsertSettlement
+        + DrawTown
+        + RemoveWorldObject
+        + SendWorld
+        + Visibility
+        + Sync,
 {
     async fn add_town(&self, town: Settlement) -> bool {
         if town.class != SettlementClass::Town {
@@ -27,13 +34,28 @@ where
         let controller = town.position;
         let remove = town.position;
         let to_insert = town.clone();
-        join!(self.add_controller(&controller), async {
-            self.remove_world_object(remove).await;
-            self.insert_settlement(to_insert).await;
-            self.draw_town(town);
-        });
+
+        join!(
+            self.add_controller(&controller),
+            check_visibility_from_town(self, town.position),
+            async {
+                self.remove_world_object(remove).await;
+                self.insert_settlement(to_insert).await;
+                self.draw_town(town);
+            }
+        );
         true
     }
+}
+
+async fn check_visibility_from_town<X>(x: &X, position: V2<usize>)
+where
+    X: SendWorld + Visibility,
+{
+    let visited = x
+        .send_world(move |world| world.get_corners_in_bounds(&position))
+        .await;
+    x.check_visibility_and_reveal(visited.into_iter().collect());
 }
 
 #[async_trait]

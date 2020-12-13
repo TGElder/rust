@@ -7,6 +7,8 @@ AddTown DrawTown
 AddTown GetSettlement
 AddTown InsertSettlement
 AddTown RemoveWorldObject
+AddTown SendWorld
+AddTown Visibility
 Controlled SendTerritory
 DrawTown SendTownHouseArtist
 DrawTown SendTownLabelArtist
