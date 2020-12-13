@@ -12,7 +12,6 @@ pub struct Simulation<X> {
     x: X,
     processors: Vec<Box<dyn Processor + Send>>,
     state: Option<State>,
-    paused: bool,
     run: bool,
 }
 
@@ -24,7 +23,6 @@ where
         Simulation {
             x,
             processors,
-            paused: true,
             run: true,
             state: None,
         }
@@ -41,26 +39,7 @@ where
             edge_traffic: hashmap! {},
             route_to_ports: hashmap! {},
             build_queue: BuildQueue::default(),
-            paused: false,
         });
-    }
-
-    pub fn init(&mut self) {
-        self.resume();
-    }
-
-    pub fn pause(&mut self) {
-        self.paused = true;
-    }
-
-    pub fn resume(&mut self) {
-        self.paused = false;
-    }
-
-    pub fn toggle_paused_persistent(&mut self) {
-        self.state
-            .iter_mut()
-            .for_each(|state| state.paused = !state.paused);
     }
 
     pub fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
@@ -80,10 +59,6 @@ where
     }
 
     async fn evolve_state(&mut self) {
-        let paused = unwrap_or!(&self.state, return).paused;
-        if paused {
-            return;
-        }
         let state = unwrap_or!(self.state.take(), return);
         let mut state = self.process_instruction(state).await;
         self.try_step(&mut state);

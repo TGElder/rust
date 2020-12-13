@@ -12,6 +12,7 @@ use crate::actors::{
 use crate::polysender::Polysender;
 use crate::simulation::Simulation;
 use crate::system::{BusyProgram, Process, Program};
+use crate::traits::SendGameState;
 
 const SAVE_PATH: &str = "save";
 
@@ -111,7 +112,6 @@ impl System {
     }
 
     fn send_init_messages(&self) {
-        self.x.simulation_tx.send(|simulation| simulation.init());
         self.x
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());
@@ -168,8 +168,16 @@ impl System {
     async fn toggle_pause(&mut self) {
         if self.paused {
             self.start();
+
+            self.x
+                .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
+                .await;
         } else {
             self.pause().await;
+
+            self.x
+                .send_game_state(|game_state| game_state.speed = 0.0)
+                .await;
         }
     }
 

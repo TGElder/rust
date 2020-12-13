@@ -30,8 +30,8 @@ mod world;
 mod world_gen;
 
 use crate::actors::{
-    BasicRoadBuilder, ObjectBuilder, PauseGame, PauseSim, Save, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::*;
 use crate::event_forwarder::EventForwarder;
@@ -119,8 +119,6 @@ fn main() {
     };
 
     let mut event_forwarder = EventForwarder::new();
-
-    let mut pause_game = PauseGame::new(event_forwarder.subscribe(), game.tx());
 
     let world_artist = WorldArtist::new(
         &game.game_state().world,
@@ -265,9 +263,6 @@ fn main() {
         ParsedArgs::Load { path } => system.load(&path),
     }
 
-    let mut pause_sim = PauseSim::new(x.clone_with_name("pause_sim"), event_forwarder.subscribe());
-    let mut save = Save::new(x.clone_with_name("save"), event_forwarder.subscribe());
-
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
     // Controls
@@ -321,17 +316,8 @@ fn main() {
         async move { basic_road_builder.run().await }.remote_handle();
     thread_pool.spawn_ok(basic_road_builder_run);
 
-    let (pause_game_run, pause_game_handle) = async move { pause_game.run().await }.remote_handle();
-    thread_pool.spawn_ok(pause_game_run);
-
-    let (pause_sim_run, pause_sim_handle) = async move { pause_sim.run().await }.remote_handle();
-    thread_pool.spawn_ok(pause_sim_run);
-
     let (system_run, system_handle) = async move { system.run().await }.remote_handle();
     thread_pool.spawn_ok(system_run);
-
-    let (save_run, save_handle) = async move { save.run().await }.remote_handle();
-    thread_pool.spawn_ok(save_run);
 
     let (town_builder_run, town_builder_handle) =
         async move { town_builder.run().await }.remote_handle();
@@ -345,10 +331,7 @@ fn main() {
     block_on(async {
         join!(
             basic_road_builder_handle,
-            pause_game_handle,
-            pause_sim_handle,
             system_handle,
-            save_handle,
             town_builder_handle,
         )
     });
