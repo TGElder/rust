@@ -85,8 +85,8 @@ impl System {
 
     fn start(&mut self) {
         info!("Starting system");
-        self.processes.town_house_artist.start(&self.pool);
         self.processes.voyager.start(&self.pool);
+        self.processes.town_house_artist.start(&self.pool);
         self.processes.object_builder.start(&self.pool);
         self.paused = false;
         info!("Started system");
@@ -128,8 +128,8 @@ impl System {
         info!("Pausing system");
         join!(
             self.processes.object_builder.pause(),
-            self.processes.voyager.pause(),
             self.processes.town_house_artist.pause(),
+            self.processes.voyager.pause(),
         );
         self.paused = true;
         info!("Paused system");
