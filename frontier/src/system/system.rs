@@ -6,9 +6,11 @@ use commons::futures::future::FutureExt;
 use commons::log::info;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 
-use crate::actors::{ObjectBuilder, TownHouseArtist, TownLabelArtist, Voyager};
+use crate::actors::{ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager};
 use crate::polysender::Polysender;
 use crate::system::{Process, Program};
+
+const SAVE_PATH: &str = "save";
 
 pub struct System {
     x: Polysender,
@@ -24,6 +26,7 @@ struct Processes {
     object_builder: Process<ObjectBuilder<Polysender>>,
     town_house_artist: Process<TownHouseArtist<Polysender>>,
     town_label_artist: Process<TownLabelArtist<Polysender>>,
+    visibility: Process<VisibilityActor<Polysender>>,
     voyager: Process<Voyager<Polysender>>,
 }
 
@@ -31,6 +34,7 @@ pub struct Programs {
     pub object_builder: Program<ObjectBuilder<Polysender>>,
     pub town_house_artist: Program<TownHouseArtist<Polysender>>,
     pub town_label_artist: Program<TownLabelArtist<Polysender>>,
+    pub visibility: Program<VisibilityActor<Polysender>>,
     pub voyager: Program<Voyager<Polysender>>,
 }
 
@@ -40,6 +44,7 @@ impl Into<Processes> for Programs {
             object_builder: Process::new(self.object_builder),
             town_house_artist: Process::new(self.town_house_artist),
             town_label_artist: Process::new(self.town_label_artist),
+            visibility: Process::new(self.visibility),
             voyager: Process::new(self.voyager),
         }
     }
@@ -47,6 +52,7 @@ impl Into<Processes> for Programs {
 
 struct Bindings {
     pause: Button,
+    save: Button,
 }
 
 impl System {
@@ -63,10 +69,21 @@ impl System {
             processes: programs.into(),
             bindings: Bindings {
                 pause: Button::Key(VirtualKeyCode::Space),
+                save: Button::Key(VirtualKeyCode::P),
             },
             paused: false,
             run: true,
         }
+    }
+
+    pub fn new_game(&self) {
+        self.x
+            .visibility_tx
+            .send_future(|visibility| visibility.new_game().boxed());
+    }
+
+    pub fn load(&mut self, path: &str) {
+        self.processes.visibility.load(path);
     }
 
     pub async fn run(&mut self) {
@@ -87,11 +104,15 @@ impl System {
         self.x
             .town_label_artist_tx
             .send_future(|town_label_artist| town_label_artist.init().boxed());
+        self.x
+            .visibility_tx
+            .send_future(|visibility| visibility.init().boxed());
     }
 
     fn start(&mut self) {
         info!("Starting system");
         self.processes.voyager.start(&self.pool);
+        self.processes.visibility.start(&self.pool);
         self.processes.town_house_artist.start(&self.pool);
         self.processes.town_label_artist.start(&self.pool);
         self.processes.object_builder.start(&self.pool);
@@ -116,6 +137,8 @@ impl System {
         {
             if button == &self.bindings.pause {
                 self.toggle_pause().await;
+            } else if button == &self.bindings.save {
+                self.save(SAVE_PATH).await;
             }
         }
         if let Event::Shutdown = *event {
@@ -131,14 +154,29 @@ impl System {
         }
     }
 
+    async fn save(&mut self, path: &str) {
+        let already_paused = self.paused;
+        if !already_paused {
+            self.pause().await;
+        }
+
+        self.processes.visibility.save(path);
+
+        let path = path.to_string();
+        self.x.game_tx.send(|game| game.save(path));
+
+        if !already_paused {
+            self.start();
+        }
+    }
+
     async fn pause(&mut self) {
         info!("Pausing system");
-        join!(
-            self.processes.object_builder.pause(),
-            self.processes.town_label_artist.pause(),
-            self.processes.town_house_artist.pause(),
-            self.processes.voyager.pause(),
-        );
+        self.processes.object_builder.pause().await;
+        self.processes.town_label_artist.pause().await;
+        self.processes.town_house_artist.pause().await;
+        self.processes.visibility.pause().await;
+        self.processes.voyager.pause().await;
         self.paused = true;
         info!("Paused system");
     }
