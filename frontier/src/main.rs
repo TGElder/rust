@@ -436,4 +436,3 @@ fn parse_args(args: Vec<String>) -> ParsedArgs {
         panic!("Invalid command line arguments");
     }
 }
-
