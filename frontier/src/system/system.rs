@@ -68,7 +68,7 @@ impl System {
 
     pub async fn run(&mut self) {
         self.send_init_messages();
-        self.start().await;
+        self.start();
         while self.run {
             select! {
                 event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
@@ -83,11 +83,11 @@ impl System {
             .send_future(|town_house_artist| town_house_artist.init().boxed());
     }
 
-    async fn start(&mut self) {
+    fn start(&mut self) {
         info!("Starting system");
-        self.processes.town_house_artist.start(&self.pool).await;
-        self.processes.voyager.start(&self.pool).await;
-        self.processes.object_builder.start(&self.pool).await;
+        self.processes.town_house_artist.start(&self.pool);
+        self.processes.voyager.start(&self.pool);
+        self.processes.object_builder.start(&self.pool);
         self.paused = false;
         info!("Started system");
     }
@@ -118,7 +118,7 @@ impl System {
 
     async fn toggle_pause(&mut self) {
         if self.paused {
-            self.start().await;
+            self.start();
         } else {
             self.pause().await;
         }

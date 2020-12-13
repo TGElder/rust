@@ -32,7 +32,7 @@ where
         }
     }
 
-    pub async fn start(&mut self, pool: &ThreadPool) {
+    pub fn start(&mut self, pool: &ThreadPool) {
         if let ProcessState::Paused(program) = &mut self.state {
             let program = program.take().unwrap();
             let tx = program.tx().clone();
