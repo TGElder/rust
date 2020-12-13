@@ -6,11 +6,12 @@ use commons::futures::future::FutureExt;
 use commons::log::info;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 
-use crate::actors::{ObjectBuilder, Voyager};
+use crate::actors::{ObjectBuilder, TownHouseArtist, Voyager};
 use crate::polysender::Polysender;
 use crate::system::{Process, Program};
 
 pub struct System {
+    x: Polysender,
     engine_rx: Receiver<Arc<Event>>,
     pool: ThreadPool,
     processes: Processes,
@@ -21,11 +22,13 @@ pub struct System {
 
 struct Processes {
     object_builder: Process<ObjectBuilder<Polysender>>,
+    town_house_artist: Process<TownHouseArtist<Polysender>>,
     voyager: Process<Voyager<Polysender>>,
 }
 
 pub struct Programs {
     pub object_builder: Program<ObjectBuilder<Polysender>>,
+    pub town_house_artist: Program<TownHouseArtist<Polysender>>,
     pub voyager: Program<Voyager<Polysender>>,
 }
 
@@ -33,6 +36,7 @@ impl Into<Processes> for Programs {
     fn into(self) -> Processes {
         Processes {
             object_builder: Process::new(self.object_builder),
+            town_house_artist: Process::new(self.town_house_artist),
             voyager: Process::new(self.voyager),
         }
     }
@@ -43,8 +47,14 @@ struct Bindings {
 }
 
 impl System {
-    pub fn new(engine_rx: Receiver<Arc<Event>>, pool: ThreadPool, programs: Programs) -> System {
+    pub fn new(
+        x: Polysender,
+        engine_rx: Receiver<Arc<Event>>,
+        pool: ThreadPool,
+        programs: Programs,
+    ) -> System {
         System {
+            x,
             engine_rx,
             pool,
             processes: programs.into(),
@@ -57,6 +67,7 @@ impl System {
     }
 
     pub async fn run(&mut self) {
+        self.send_init_messages();
         self.start();
         while self.run {
             select! {
@@ -64,6 +75,21 @@ impl System {
             }
         }
         info!("Shut down system");
+    }
+
+    fn send_init_messages(&self) {
+        self.x
+            .town_house_artist_tx
+            .send_future(|town_house_artist| town_house_artist.init().boxed());
+    }
+
+    fn start(&mut self) {
+        info!("Starting system");
+        self.processes.town_house_artist.start(&self.pool);
+        self.processes.voyager.start(&self.pool);
+        self.processes.object_builder.start(&self.pool);
+        self.paused = false;
+        info!("Started system");
     }
 
     async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
@@ -90,14 +116,6 @@ impl System {
         }
     }
 
-    fn start(&mut self) {
-        info!("Starting system");
-        self.processes.object_builder.start(&self.pool);
-        self.processes.voyager.start(&self.pool);
-        self.paused = false;
-        info!("Started system");
-    }
-
     async fn toggle_pause(&mut self) {
         if self.paused {
             self.start();
@@ -111,6 +129,7 @@ impl System {
         join!(
             self.processes.object_builder.pause(),
             self.processes.voyager.pause(),
+            self.processes.town_house_artist.pause(),
         );
         self.paused = true;
         info!("Paused system");
