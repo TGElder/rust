@@ -188,6 +188,7 @@ impl System {
             self.pause().await;
         }
 
+        self.processes.simulation.save(path);
         self.processes.visibility.save(path);
 
         let path = path.to_string();
