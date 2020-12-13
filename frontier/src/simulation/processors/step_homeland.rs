@@ -43,6 +43,9 @@ where
                 .push(Instruction::UpdateCurrentPopulation(position));
         }
         state
+            .instructions
+            .push(Instruction::UpdateHomelandPopulation);
+        state
     }
 
     async fn get_homeland_positions(&mut self) -> Vec<V2<usize>> {
@@ -100,6 +103,7 @@ mod tests {
                 Instruction::UpdateCurrentPopulation(v2(1, 1)),
                 Instruction::Build,
                 Instruction::UpdateCurrentPopulation(v2(2, 2)),
+                Instruction::UpdateHomelandPopulation
             ],
         ));
 
@@ -126,6 +130,7 @@ mod tests {
             vec![
                 Instruction::Build,
                 Instruction::UpdateCurrentPopulation(v2(2, 2)),
+                Instruction::UpdateHomelandPopulation
             ],
         );
 
