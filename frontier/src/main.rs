@@ -299,10 +299,8 @@ fn main() {
 
     // Visibility
     let from_avatar = VisibilityFromAvatar::new(x.clone_with_name("visibility_from_avatar"));
-    let from_towns = VisibilityFromTowns::new(x.clone_with_name("visibility_from_towns"));
     let setup_new_world = SetupNewWorld::new(x.clone_with_name("setup_new_world"));
     game.add_consumer(from_avatar);
-    game.add_consumer(from_towns);
     game.add_consumer(setup_new_world);
 
     game.add_consumer(Cheats::new(
