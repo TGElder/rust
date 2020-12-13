@@ -167,11 +167,11 @@ impl System {
 
     async fn toggle_pause(&mut self) {
         if self.paused {
-            self.start();
-
             self.x
                 .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
                 .await;
+
+            self.start();
         } else {
             self.pause().await;
 
@@ -182,6 +182,7 @@ impl System {
     }
 
     async fn save(&mut self, path: &str) {
+        info!("Saving");
         let already_paused = self.paused;
         if !already_paused {
             self.pause().await;
@@ -195,6 +196,7 @@ impl System {
         if !already_paused {
             self.start();
         }
+        info!("Saved");
     }
 
     async fn pause(&mut self) {
