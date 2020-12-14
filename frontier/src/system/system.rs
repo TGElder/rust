@@ -11,7 +11,7 @@ use crate::actors::{
 };
 use crate::polysender::Polysender;
 use crate::simulation::Simulation;
-use crate::system::{BusyProgram, Process, Program};
+use crate::system::{ActiveProcess, PassiveProcess, Persistable, Process, Program};
 use crate::traits::SendGameState;
 
 const SAVE_PATH: &str = "save";
@@ -27,18 +27,18 @@ pub struct System {
 }
 
 struct Processes {
-    object_builder: Process<Program<ObjectBuilder<Polysender>>>,
-    simulation: Process<BusyProgram<Simulation<Polysender>>>,
-    town_house_artist: Process<Program<TownHouseArtist<Polysender>>>,
-    town_label_artist: Process<Program<TownLabelArtist<Polysender>>>,
-    visibility: Process<Program<VisibilityActor<Polysender>>>,
-    voyager: Process<Program<Voyager<Polysender>>>,
-    world_artist: Process<Program<WorldArtistActor<Polysender>>>,
+    object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
+    simulation: ActiveProcess<Simulation<Polysender>>,
+    town_house_artist: PassiveProcess<TownHouseArtist<Polysender>>,
+    town_label_artist: PassiveProcess<TownLabelArtist<Polysender>>,
+    visibility: PassiveProcess<VisibilityActor<Polysender>>,
+    voyager: PassiveProcess<Voyager<Polysender>>,
+    world_artist: PassiveProcess<WorldArtistActor<Polysender>>,
 }
 
 pub struct Programs {
     pub object_builder: Program<ObjectBuilder<Polysender>>,
-    pub simulation: BusyProgram<Simulation<Polysender>>,
+    pub simulation: Program<Simulation<Polysender>>,
     pub town_house_artist: Program<TownHouseArtist<Polysender>>,
     pub town_label_artist: Program<TownLabelArtist<Polysender>>,
     pub visibility: Program<VisibilityActor<Polysender>>,
@@ -49,13 +49,13 @@ pub struct Programs {
 impl Into<Processes> for Programs {
     fn into(self) -> Processes {
         Processes {
-            object_builder: Process::new(self.object_builder),
-            simulation: Process::new(self.simulation),
-            town_house_artist: Process::new(self.town_house_artist),
-            town_label_artist: Process::new(self.town_label_artist),
-            visibility: Process::new(self.visibility),
-            voyager: Process::new(self.voyager),
-            world_artist: Process::new(self.world_artist),
+            object_builder: PassiveProcess::new(self.object_builder),
+            simulation: ActiveProcess::new(self.simulation),
+            town_house_artist: PassiveProcess::new(self.town_house_artist),
+            town_label_artist: PassiveProcess::new(self.town_label_artist),
+            visibility: PassiveProcess::new(self.visibility),
+            voyager: PassiveProcess::new(self.voyager),
+            world_artist: PassiveProcess::new(self.world_artist),
         }
     }
 }

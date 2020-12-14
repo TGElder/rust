@@ -39,7 +39,7 @@ use crate::event_forwarder_2::EventForwarder2;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
-use crate::system::{BusyProgram, Program, Programs, System};
+use crate::system::{Program, Programs, System};
 use crate::territory::*;
 use crate::world_gen::*;
 use artists::{WorldArtist, WorldArtistParameters};
@@ -193,7 +193,7 @@ fn main() {
         ],
     );
 
-    let simulation = BusyProgram::new(
+    let simulation = Program::new(
         Simulation::new(
             x.clone_with_name("simulation"),
             vec![
