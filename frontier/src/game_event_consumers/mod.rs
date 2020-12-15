@@ -20,7 +20,6 @@ mod prime_mover;
 mod rotation;
 mod select_avatar;
 mod setup_new_world;
-mod shutdown;
 mod speed_control;
 mod visibility;
 
@@ -36,6 +35,5 @@ pub use prime_mover::*;
 pub use rotation::*;
 pub use select_avatar::*;
 pub use setup_new_world::*;
-pub use shutdown::*;
 pub use speed_control::*;
 pub use visibility::*;

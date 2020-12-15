@@ -10,7 +10,9 @@ use crate::actors::{
     ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::polysender::Polysender;
-use crate::system::{Process, Program};
+use crate::simulation::Simulation;
+use crate::system::{ActiveProcess, PassiveProcess, Persistable, Process};
+use crate::traits::{SendGame, SendGameState};
 
 const SAVE_PATH: &str = "save";
 
@@ -24,35 +26,14 @@ pub struct System {
     run: bool,
 }
 
-struct Processes {
-    object_builder: Process<ObjectBuilder<Polysender>>,
-    town_house_artist: Process<TownHouseArtist<Polysender>>,
-    town_label_artist: Process<TownLabelArtist<Polysender>>,
-    visibility: Process<VisibilityActor<Polysender>>,
-    voyager: Process<Voyager<Polysender>>,
-    world_artist: Process<WorldArtistActor<Polysender>>,
-}
-
-pub struct Programs {
-    pub object_builder: Program<ObjectBuilder<Polysender>>,
-    pub town_house_artist: Program<TownHouseArtist<Polysender>>,
-    pub town_label_artist: Program<TownLabelArtist<Polysender>>,
-    pub visibility: Program<VisibilityActor<Polysender>>,
-    pub voyager: Program<Voyager<Polysender>>,
-    pub world_artist: Program<WorldArtistActor<Polysender>>,
-}
-
-impl Into<Processes> for Programs {
-    fn into(self) -> Processes {
-        Processes {
-            object_builder: Process::new(self.object_builder),
-            town_house_artist: Process::new(self.town_house_artist),
-            town_label_artist: Process::new(self.town_label_artist),
-            visibility: Process::new(self.visibility),
-            voyager: Process::new(self.voyager),
-            world_artist: Process::new(self.world_artist),
-        }
-    }
+pub struct Processes {
+    pub object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
+    pub simulation: ActiveProcess<Simulation<Polysender>>,
+    pub town_house_artist: PassiveProcess<TownHouseArtist<Polysender>>,
+    pub town_label_artist: PassiveProcess<TownLabelArtist<Polysender>>,
+    pub visibility: PassiveProcess<VisibilityActor<Polysender>>,
+    pub voyager: PassiveProcess<Voyager<Polysender>>,
+    pub world_artist: PassiveProcess<WorldArtistActor<Polysender>>,
 }
 
 struct Bindings {
@@ -65,13 +46,13 @@ impl System {
         x: Polysender,
         engine_rx: Receiver<Arc<Event>>,
         pool: ThreadPool,
-        programs: Programs,
+        processes: Processes,
     ) -> System {
         System {
             x,
             engine_rx,
             pool,
-            processes: programs.into(),
+            processes,
             bindings: Bindings {
                 pause: Button::Key(VirtualKeyCode::Space),
                 save: Button::Key(VirtualKeyCode::P),
@@ -79,16 +60,6 @@ impl System {
             paused: false,
             run: true,
         }
-    }
-
-    pub fn new_game(&self) {
-        self.x
-            .visibility_tx
-            .send_future(|visibility| visibility.new_game().boxed());
-    }
-
-    pub fn load(&mut self, path: &str) {
-        self.processes.visibility.load(path);
     }
 
     pub async fn run(&mut self) {
@@ -100,6 +71,42 @@ impl System {
             }
         }
         info!("Shut down system");
+        info!("Shutting down game");
+        self.x.send_game(|game| game.shutdown()).await;
+        info!("Shut down game");
+    }
+
+    pub fn new_game(&self) {
+        self.x
+            .simulation_tx
+            .send_future(|simulation| simulation.new_game().boxed());
+        self.x
+            .visibility_tx
+            .send_future(|visibility| visibility.new_game().boxed());
+    }
+
+    pub fn load(&mut self, path: &str) {
+        self.processes.simulation.load(path);
+        self.processes.visibility.load(path);
+    }
+
+    async fn save(&mut self, path: &str) {
+        info!("Saving");
+        let already_paused = self.paused;
+        if !already_paused {
+            self.pause().await;
+        }
+
+        self.processes.simulation.save(path);
+        self.processes.visibility.save(path);
+
+        let path = path.to_string();
+        self.x.send_game(|game| game.save(path)).await;
+
+        if !already_paused {
+            self.start();
+        }
+        info!("Saved");
     }
 
     fn send_init_messages(&self) {
@@ -124,9 +131,23 @@ impl System {
         self.processes.visibility.start(&self.pool);
         self.processes.town_house_artist.start(&self.pool);
         self.processes.town_label_artist.start(&self.pool);
+        self.processes.simulation.start(&self.pool);
         self.processes.object_builder.start(&self.pool);
         self.paused = false;
         info!("Started system");
+    }
+
+    async fn pause(&mut self) {
+        info!("Pausing system");
+        self.processes.object_builder.pause().await;
+        self.processes.simulation.pause().await;
+        self.processes.town_label_artist.pause().await;
+        self.processes.town_house_artist.pause().await;
+        self.processes.visibility.pause().await;
+        self.processes.voyager.pause().await;
+        self.processes.world_artist.pause().await;
+        self.paused = true;
+        info!("Paused system");
     }
 
     async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
@@ -157,38 +178,18 @@ impl System {
 
     async fn toggle_pause(&mut self) {
         if self.paused {
+            self.x
+                .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
+                .await;
+
             self.start();
         } else {
             self.pause().await;
+
+            self.x
+                .send_game_state(|game_state| game_state.speed = 0.0)
+                .await;
         }
-    }
-
-    async fn save(&mut self, path: &str) {
-        let already_paused = self.paused;
-        if !already_paused {
-            self.pause().await;
-        }
-
-        self.processes.visibility.save(path);
-
-        let path = path.to_string();
-        self.x.game_tx.send(|game| game.save(path));
-
-        if !already_paused {
-            self.start();
-        }
-    }
-
-    async fn pause(&mut self) {
-        info!("Pausing system");
-        self.processes.object_builder.pause().await;
-        self.processes.town_label_artist.pause().await;
-        self.processes.town_house_artist.pause().await;
-        self.processes.visibility.pause().await;
-        self.processes.voyager.pause().await;
-        self.processes.world_artist.pause().await;
-        self.paused = true;
-        info!("Paused system");
     }
 
     async fn shutdown(&mut self) {
