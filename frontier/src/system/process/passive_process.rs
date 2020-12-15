@@ -12,16 +12,8 @@ where
     T: Send + 'static,
 {
     pub fn new(actor: T, actor_rx: FnReceiver<T>) -> PassiveProcess<T> {
-        let (tx, rx) = fn_channel();
-        let program = Program {
-            actor,
-            actor_rx,
-            tx,
-            rx,
-            run: true,
-        };
         PassiveProcess {
-            state: ProcessState::Paused(Some(program)),
+            state: ProcessState::Paused(Some(Program::new(actor, actor_rx))),
         }
     }
 }

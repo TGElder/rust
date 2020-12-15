@@ -22,6 +22,22 @@ where
     run: bool,
 }
 
+impl<T> Program<T>
+where
+    T: Send,
+{
+    fn new(actor: T, actor_rx: FnReceiver<T>) -> Program<T> {
+        let (tx, rx) = fn_channel();
+        Program {
+            actor,
+            actor_rx,
+            tx,
+            rx,
+            run: true,
+        }
+    }
+}
+
 #[async_trait]
 pub trait Process: Send {
     type T: Send + 'static;
