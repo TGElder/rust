@@ -50,10 +50,6 @@ SendNations SendGame
 SendObjectBuilder RemoveWorldObject
 SendObjectBuilder SetWorldObject
 SendParameters SendGame
-SendPauseGame SendGame
-SendPauseSim SendSim
-SendSave SendGame
-SendSave SendSim
 SendSettlements SendGame
 SendSim AddCrops
 SendSim AddRoad
@@ -66,6 +62,7 @@ SendSim RemoveRoad
 SendSim RemoveTown
 SendSim RemoveWorldObject
 SendSim SendGameState
+SendSim SendWorld
 SendSim Settlements
 SendSim UpdateSettlement
 SendSim UpdateTerritory
