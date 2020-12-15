@@ -27,7 +27,7 @@ use std::sync::{Arc, RwLock};
 pub struct Polysender {
     pub game_tx: FnSender<Game>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
-    pub simulation_tx: FnSender<Simulation>,
+    pub simulation_tx: FnSender<Simulation<Polysender>>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
     pub town_label_artist_tx: FnSender<TownLabelArtist<Polysender>>,
     pub visibility_tx: FnSender<VisibilityActor<Polysender>>,
@@ -130,7 +130,7 @@ impl SendSim for Polysender {
     async fn send_sim<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
-        F: FnOnce(&mut Simulation) -> O + Send + 'static,
+        F: FnOnce(&mut Simulation<Self>) -> O + Send + 'static,
     {
         self.simulation_tx.send(function).await
     }
@@ -138,7 +138,7 @@ impl SendSim for Polysender {
     fn send_sim_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut Simulation) -> O + Send + 'static,
+        F: FnOnce(&mut Simulation<Self>) -> O + Send + 'static,
     {
         self.simulation_tx.send(function);
     }

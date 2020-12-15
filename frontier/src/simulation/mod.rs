@@ -8,7 +8,6 @@ pub mod processors;
 #[allow(clippy::module_inception)]
 mod simulation;
 mod state;
-mod state_loader;
 mod traffic;
 
 pub use build::builders;
@@ -20,7 +19,6 @@ pub use params::*;
 use processor::*;
 pub use simulation::*;
 use state::*;
-pub use state_loader::*;
 use traffic::*;
 
 use commons::async_trait::async_trait;
