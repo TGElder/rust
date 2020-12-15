@@ -11,7 +11,7 @@ use crate::actors::{
 };
 use crate::polysender::Polysender;
 use crate::simulation::Simulation;
-use crate::system::{ActiveProcess, PassiveProcess, Persistable, Process, Program};
+use crate::system::{ActiveProcess, PassiveProcess, Persistable, Process};
 use crate::traits::SendGameState;
 
 const SAVE_PATH: &str = "save";
@@ -26,38 +26,14 @@ pub struct System {
     run: bool,
 }
 
-struct Processes {
-    object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
-    simulation: ActiveProcess<Simulation<Polysender>>,
-    town_house_artist: PassiveProcess<TownHouseArtist<Polysender>>,
-    town_label_artist: PassiveProcess<TownLabelArtist<Polysender>>,
-    visibility: PassiveProcess<VisibilityActor<Polysender>>,
-    voyager: PassiveProcess<Voyager<Polysender>>,
-    world_artist: PassiveProcess<WorldArtistActor<Polysender>>,
-}
-
-pub struct Programs {
-    pub object_builder: Program<ObjectBuilder<Polysender>>,
-    pub simulation: Program<Simulation<Polysender>>,
-    pub town_house_artist: Program<TownHouseArtist<Polysender>>,
-    pub town_label_artist: Program<TownLabelArtist<Polysender>>,
-    pub visibility: Program<VisibilityActor<Polysender>>,
-    pub voyager: Program<Voyager<Polysender>>,
-    pub world_artist: Program<WorldArtistActor<Polysender>>,
-}
-
-impl Into<Processes> for Programs {
-    fn into(self) -> Processes {
-        Processes {
-            object_builder: PassiveProcess::new(self.object_builder),
-            simulation: ActiveProcess::new(self.simulation),
-            town_house_artist: PassiveProcess::new(self.town_house_artist),
-            town_label_artist: PassiveProcess::new(self.town_label_artist),
-            visibility: PassiveProcess::new(self.visibility),
-            voyager: PassiveProcess::new(self.voyager),
-            world_artist: PassiveProcess::new(self.world_artist),
-        }
-    }
+pub struct Processes {
+    pub object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
+    pub simulation: ActiveProcess<Simulation<Polysender>>,
+    pub town_house_artist: PassiveProcess<TownHouseArtist<Polysender>>,
+    pub town_label_artist: PassiveProcess<TownLabelArtist<Polysender>>,
+    pub visibility: PassiveProcess<VisibilityActor<Polysender>>,
+    pub voyager: PassiveProcess<Voyager<Polysender>>,
+    pub world_artist: PassiveProcess<WorldArtistActor<Polysender>>,
 }
 
 struct Bindings {
@@ -70,13 +46,13 @@ impl System {
         x: Polysender,
         engine_rx: Receiver<Arc<Event>>,
         pool: ThreadPool,
-        programs: Programs,
+        processes: Processes,
     ) -> System {
         System {
             x,
             engine_rx,
             pool,
-            processes: programs.into(),
+            processes,
             bindings: Bindings {
                 pause: Button::Key(VirtualKeyCode::Space),
                 save: Button::Key(VirtualKeyCode::P),

@@ -39,7 +39,7 @@ use crate::event_forwarder_2::EventForwarder2;
 use crate::game::*;
 use crate::pathfinder::*;
 use crate::road_builder::*;
-use crate::system::{Program, Programs, System};
+use crate::system::{ActiveProcess, PassiveProcess, Processes, System};
 use crate::territory::*;
 use crate::world_gen::*;
 use artists::{WorldArtist, WorldArtistParameters};
@@ -132,7 +132,7 @@ fn main() {
         },
     );
 
-    let town_house_artist = Program::new(
+    let town_house_artist = PassiveProcess::new(
         TownHouseArtist::new(
             x.clone_with_name("town_houses"),
             engine.command_tx(),
@@ -151,7 +151,7 @@ fn main() {
         event_forwarder.subscribe(),
     );
 
-    let object_builder = Program::new(
+    let object_builder = PassiveProcess::new(
         ObjectBuilder::new(
             x.clone_with_name("object_builder"),
             game.game_state().params.seed,
@@ -159,7 +159,7 @@ fn main() {
         object_builder_rx,
     );
 
-    let town_label_artist = Program::new(
+    let town_label_artist = PassiveProcess::new(
         TownLabelArtist::new(
             x.clone_with_name("town_labels"),
             engine.command_tx(),
@@ -168,14 +168,14 @@ fn main() {
         town_label_artist_rx,
     );
 
-    let visibility = Program::new(
+    let visibility = PassiveProcess::new(
         VisibilityActor::new(x.clone_with_name("visibility")),
         visibility_rx,
     );
 
-    let voyager = Program::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx);
+    let voyager = PassiveProcess::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx);
 
-    let world_artist = Program::new(
+    let world_artist = PassiveProcess::new(
         WorldArtistActor::new(
             x.clone_with_name("world_artist_actor"),
             engine.command_tx(),
@@ -193,7 +193,7 @@ fn main() {
         ],
     );
 
-    let simulation = Program::new(
+    let simulation = ActiveProcess::new(
         Simulation::new(
             x.clone_with_name("simulation"),
             vec![
@@ -247,7 +247,7 @@ fn main() {
         x.clone_with_name("system"),
         event_forwarder.subscribe(),
         thread_pool.clone(),
-        Programs {
+        Processes {
             object_builder,
             simulation,
             town_house_artist,
