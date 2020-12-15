@@ -12,7 +12,6 @@ pub struct Simulation<X> {
     x: X,
     processors: Vec<Box<dyn Processor + Send>>,
     state: Option<State>,
-    run: bool,
 }
 
 impl<X> Simulation<X>
@@ -23,7 +22,6 @@ where
         Simulation {
             x,
             processors,
-            run: true,
             state: None,
         }
     }
@@ -78,10 +76,6 @@ where
         if state.instructions.is_empty() {
             state.instructions.push(Instruction::Step);
         }
-    }
-
-    pub fn shutdown(&mut self) {
-        self.run = false;
     }
 }
 

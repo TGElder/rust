@@ -288,11 +288,6 @@ fn main() {
     game.add_consumer(PathfinderUpdater::new(&pathfinder_with_planned_roads));
     game.add_consumer(PathfinderUpdater::new(&pathfinder_without_planned_roads));
 
-    game.add_consumer(ShutdownHandler::new(
-        x.clone_with_name("shutdown_handler"),
-        thread_pool.clone(),
-    ));
-
     // Visibility
     let from_avatar = VisibilityFromAvatar::new(x.clone_with_name("visibility_from_avatar"));
     let setup_new_world = SetupNewWorld::new(x.clone_with_name("setup_new_world"));

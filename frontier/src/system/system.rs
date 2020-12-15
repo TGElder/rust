@@ -12,7 +12,7 @@ use crate::actors::{
 use crate::polysender::Polysender;
 use crate::simulation::Simulation;
 use crate::system::{ActiveProcess, PassiveProcess, Persistable, Process};
-use crate::traits::SendGameState;
+use crate::traits::{SendGame, SendGameState};
 
 const SAVE_PATH: &str = "save";
 
@@ -85,6 +85,9 @@ impl System {
             }
         }
         info!("Shut down system");
+        info!("Shutting down game");
+        self.x.send_game(|game| game.shutdown()).await;
+        info!("Shut down game");
     }
 
     fn send_init_messages(&self) {
@@ -168,7 +171,7 @@ impl System {
         self.processes.visibility.save(path);
 
         let path = path.to_string();
-        self.x.game_tx.send(|game| game.save(path));
+        self.x.send_game(|game| game.save(path)).await;
 
         if !already_paused {
             self.start();
