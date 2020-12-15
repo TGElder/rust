@@ -62,20 +62,6 @@ impl System {
         }
     }
 
-    pub fn new_game(&self) {
-        self.x
-            .visibility_tx
-            .send_future(|visibility| visibility.new_game().boxed());
-        self.x
-            .simulation_tx
-            .send_future(|simulation| simulation.new_game().boxed());
-    }
-
-    pub fn load(&mut self, path: &str) {
-        self.processes.simulation.load(path);
-        self.processes.visibility.load(path);
-    }
-
     pub async fn run(&mut self) {
         self.send_init_messages();
         self.start();
@@ -88,6 +74,39 @@ impl System {
         info!("Shutting down game");
         self.x.send_game(|game| game.shutdown()).await;
         info!("Shut down game");
+    }
+
+    pub fn new_game(&self) {
+        self.x
+            .simulation_tx
+            .send_future(|simulation| simulation.new_game().boxed());
+        self.x
+            .visibility_tx
+            .send_future(|visibility| visibility.new_game().boxed());
+    }
+
+    pub fn load(&mut self, path: &str) {
+        self.processes.simulation.load(path);
+        self.processes.visibility.load(path);
+    }
+
+    async fn save(&mut self, path: &str) {
+        info!("Saving");
+        let already_paused = self.paused;
+        if !already_paused {
+            self.pause().await;
+        }
+
+        self.processes.simulation.save(path);
+        self.processes.visibility.save(path);
+
+        let path = path.to_string();
+        self.x.send_game(|game| game.save(path)).await;
+
+        if !already_paused {
+            self.start();
+        }
+        info!("Saved");
     }
 
     fn send_init_messages(&self) {
@@ -116,6 +135,19 @@ impl System {
         self.processes.object_builder.start(&self.pool);
         self.paused = false;
         info!("Started system");
+    }
+
+    async fn pause(&mut self) {
+        info!("Pausing system");
+        self.processes.object_builder.pause().await;
+        self.processes.simulation.pause().await;
+        self.processes.town_label_artist.pause().await;
+        self.processes.town_house_artist.pause().await;
+        self.processes.visibility.pause().await;
+        self.processes.voyager.pause().await;
+        self.processes.world_artist.pause().await;
+        self.paused = true;
+        info!("Paused system");
     }
 
     async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
@@ -158,38 +190,6 @@ impl System {
                 .send_game_state(|game_state| game_state.speed = 0.0)
                 .await;
         }
-    }
-
-    async fn save(&mut self, path: &str) {
-        info!("Saving");
-        let already_paused = self.paused;
-        if !already_paused {
-            self.pause().await;
-        }
-
-        self.processes.simulation.save(path);
-        self.processes.visibility.save(path);
-
-        let path = path.to_string();
-        self.x.send_game(|game| game.save(path)).await;
-
-        if !already_paused {
-            self.start();
-        }
-        info!("Saved");
-    }
-
-    async fn pause(&mut self) {
-        info!("Pausing system");
-        self.processes.object_builder.pause().await;
-        self.processes.simulation.pause().await;
-        self.processes.town_label_artist.pause().await;
-        self.processes.town_house_artist.pause().await;
-        self.processes.visibility.pause().await;
-        self.processes.voyager.pause().await;
-        self.processes.world_artist.pause().await;
-        self.paused = true;
-        info!("Paused system");
     }
 
     async fn shutdown(&mut self) {
