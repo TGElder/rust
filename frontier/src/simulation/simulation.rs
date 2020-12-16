@@ -56,13 +56,6 @@ where
         }
     }
 
-    async fn evolve_state(&mut self) {
-        let state = unwrap_or!(self.state.take(), return);
-        let mut state = self.process_instruction(state).await;
-        self.try_step(&mut state);
-        self.state = Some(state);
-    }
-
     async fn process_instruction(&mut self, mut state: State) -> State {
         if let Some(instruction) = state.instructions.pop() {
             for processor in self.processors.iter_mut() {
@@ -85,7 +78,10 @@ where
     X: SendWorld + Send,
 {
     async fn step(&mut self) {
-        self.evolve_state().await;
+        let state = unwrap_or!(self.state.take(), return);
+        let mut state = self.process_instruction(state).await;
+        self.try_step(&mut state);
+        self.state = Some(state);
     }
 }
 
@@ -107,493 +103,172 @@ fn get_path(path: &str) -> String {
     format!("{}.sim", path)
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     use crate::resource::Resource;
-//     use crate::route::RouteKey;
-//     use crate::world::World;
-//     use commons::edge::Edge;
-//     use commons::fn_sender::fn_channel;
-//     use commons::futures::executor::block_on;
-//     use commons::index2d::Vec2D;
-//     use commons::{v2, Arm};
-//     use std::fs::remove_file;
-//     use std::sync::atomic::{AtomicBool, Ordering};
-//     use std::sync::{Arc, Mutex};
-//     use std::thread;
-//     use std::time::{Duration, Instant};
+    use crate::resource::Resource;
+    use crate::route::RouteKey;
+    use crate::world::World;
+    use commons::edge::Edge;
+    use commons::futures::executor::block_on;
+    use commons::index2d::Vec2D;
+    use commons::{v2, Arm, M};
+    use std::fs::remove_file;
+    use std::sync::{Arc, Mutex};
 
-//     fn world() -> Arm<World> {
-//         Arc::new(Mutex::new(World::new(M::zeros(3, 3), 0.0)))
-//     }
+    fn world() -> Arm<World> {
+        Arc::new(Mutex::new(World::new(M::zeros(3, 3), 0.0)))
+    }
 
-//     #[async_trait]
-//     impl SendWorld for Arm<World> {
-//         async fn send_world<F, O>(&self, function: F) -> O
-//         where
-//             O: Send + 'static,
-//             F: FnOnce(&mut World) -> O + Send + 'static,
-//         {
-//             function(&mut self.lock().unwrap())
-//         }
+    #[async_trait]
+    impl SendWorld for Arm<World> {
+        async fn send_world<F, O>(&self, function: F) -> O
+        where
+            O: Send + 'static,
+            F: FnOnce(&mut World) -> O + Send + 'static,
+        {
+            function(&mut self.lock().unwrap())
+        }
 
-//         fn send_world_background<F, O>(&self, function: F)
-//         where
-//             O: Send + 'static,
-//             F: FnOnce(&mut World) -> O + Send + 'static,
-//         {
-//             function(&mut self.lock().unwrap());
-//         }
-//     }
+        fn send_world_background<F, O>(&self, function: F)
+        where
+            O: Send + 'static,
+            F: FnOnce(&mut World) -> O + Send + 'static,
+        {
+            function(&mut self.lock().unwrap());
+        }
+    }
 
-//     struct InstructionRetriever {
-//         instructions: Arc<Mutex<Vec<Instruction>>>,
-//     }
+    #[test]
+    fn should_hand_instructions_to_all_processors() {
+        // Given
+        struct InstructionRetriever {
+            instructions: Arm<Vec<Instruction>>,
+        }
 
-//     impl InstructionRetriever {
-//         fn new() -> InstructionRetriever {
-//             InstructionRetriever {
-//                 instructions: Arc::new(Mutex::new(vec![])),
-//             }
-//         }
-//     }
+        #[async_trait]
+        impl Processor for InstructionRetriever {
+            async fn process(&mut self, state: State, instruction: &Instruction) -> State {
+                self.instructions.lock().unwrap().push(instruction.clone());
+                state
+            }
+        }
 
-//     #[async_trait]
-//     impl Processor for InstructionRetriever {
-//         async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-//             self.instructions.lock().unwrap().push(instruction.clone());
-//             state
-//         }
-//     }
+        let instructions_1 = Arm::default();
+        let instructions_2 = Arm::default();
+        let retriever_1 = InstructionRetriever {
+            instructions: instructions_1.clone(),
+        };
+        let retriever_2 = InstructionRetriever {
+            instructions: instructions_2.clone(),
+        };
+        let mut sim = Simulation::new(world(), vec![Box::new(retriever_1), Box::new(retriever_2)]);
+        sim.state = Some(State {
+            instructions: vec![Instruction::Step],
+            ..State::default()
+        });
 
-//     #[test]
-//     fn should_shutdown() {
-//         let done = Arc::new(AtomicBool::new(false));
-//         let done_2 = done.clone();
-//         let (tx, rx) = fn_channel();
-//         thread::spawn(move || {
-//             let mut sim = Simulation::new(world(), rx, vec![]);
-//             sim.resume();
-//             sim.state = Some(State::default());
-//             let handle = thread::spawn(move || block_on(sim.run()));
-//             tx.wait(|sim| sim.shutdown());
-//             handle.join().unwrap();
-//             done_2.store(true, Ordering::Relaxed);
-//         });
+        // When
+        block_on(sim.step());
 
-//         let start = Instant::now();
-//         while !done.load(Ordering::Relaxed) {
-//             if start.elapsed().as_secs() > 10 {
-//                 panic!("Simulation has not shutdown after 10 seconds");
-//             }
-//         }
-//     }
+        // Then
+        assert_eq!(*instructions_1.lock().unwrap(), vec![Instruction::Step]);
+        assert_eq!(*instructions_2.lock().unwrap(), vec![Instruction::Step]);
+    }
 
-//     #[test]
-//     fn should_add_step_to_instructions() {
-//         let processor = InstructionRetriever::new();
-//         let instructions = processor.instructions.clone();
-//         let (tx, rx) = fn_channel();
-//         let mut sim = Simulation::new(world(), rx, vec![Box::new(processor)]);
-//         sim.resume();
-//         sim.state = Some(State::default());
+    #[test]
+    fn should_add_step_instruction_if_instructions_are_empty() {
+        // Given
+        let mut sim = Simulation::new(world(), vec![]);
+        sim.state = Some(State::default());
 
-//         let handle = thread::spawn(move || block_on(sim.run()));
-//         let start = Instant::now();
-//         while !instructions.lock().unwrap().contains(&Instruction::Step) {
-//             if start.elapsed().as_secs() > 10 {
-//                 panic!("No step instruction received after 10 seconds");
-//             }
-//         }
-//         tx.wait(|sim| sim.shutdown());
-//         handle.join().unwrap();
-//     }
+        // When
+        block_on(sim.step());
 
-//     struct InstructionIntroducer {
-//         introduced: bool,
-//     }
+        // Then
+        assert_eq!(sim.state.unwrap().instructions, vec![Instruction::Step]);
+    }
 
-//     impl InstructionIntroducer {
-//         fn new() -> InstructionIntroducer {
-//             InstructionIntroducer { introduced: false }
-//         }
-//     }
-//     #[async_trait]
-//     impl Processor for InstructionIntroducer {
-//         async fn process(&mut self, mut state: State, _: &Instruction) -> State {
-//             if !self.introduced {
-//                 state.instructions = vec![Instruction::GetTerritory(v2(1, 1))];
-//                 self.introduced = true;
-//             }
-//             state
-//         }
-//     }
+    #[test]
+    fn processors_should_be_able_to_update_state() {
+        // Given
+        struct InstructionIntroducer {}
 
-//     #[test]
-//     fn should_update_state() {
-//         let introducer = InstructionIntroducer::new();
-//         let receiver = InstructionRetriever::new();
-//         let instructions = receiver.instructions.clone();
-//         let (tx, rx) = fn_channel();
-//         let mut sim = Simulation::new(world(), rx, vec![Box::new(introducer), Box::new(receiver)]);
-//         sim.resume();
-//         sim.state = Some(State::default());
+        #[async_trait]
+        impl Processor for InstructionIntroducer {
+            async fn process(&mut self, mut state: State, _: &Instruction) -> State {
+                state.instructions.push(Instruction::Build);
+                state
+            }
+        }
 
-//         let handle = thread::spawn(move || block_on(sim.run()));
-//         let start = Instant::now();
-//         while !instructions
-//             .lock()
-//             .unwrap()
-//             .contains(&Instruction::GetTerritory(v2(1, 1)))
-//         {
-//             if start.elapsed().as_secs() > 10 {
-//                 panic!("No GetTerritory instruction received after 10 seconds");
-//             }
-//         }
-//         tx.wait(|sim| sim.shutdown());
-//         handle.join().unwrap();
-//     }
+        let mut sim = Simulation::new(world(), vec![Box::new(InstructionIntroducer {})]);
+        sim.state = Some(State {
+            instructions: vec![Instruction::Step],
+            ..State::default()
+        });
 
-//     #[test]
-//     fn should_hand_instructions_to_all_processors() {
-//         let processor_1 = InstructionRetriever::new();
-//         let instructions_1 = processor_1.instructions.clone();
-//         let processor_2 = InstructionRetriever::new();
-//         let instructions_2 = processor_2.instructions.clone();
-//         let (tx, rx) = fn_channel();
-//         let mut sim = Simulation::new(
-//             world(),
-//             rx,
-//             vec![Box::new(processor_1), Box::new(processor_2)],
-//         );
-//         sim.resume();
-//         sim.state = Some(State::default());
+        // When
+        block_on(sim.step());
 
-//         let handle = thread::spawn(move || block_on(sim.run()));
-//         let start = Instant::now();
-//         while start.elapsed().as_secs() < 10
-//             && (instructions_1.lock().unwrap().is_empty()
-//                 || instructions_2.lock().unwrap().is_empty())
-//         {}
-//         tx.wait(|sim| sim.shutdown());
-//         handle.join().unwrap();
+        // Then
+        assert_eq!(sim.state.unwrap().instructions, vec![Instruction::Build]);
+    }
 
-//         assert_eq!(instructions_1.lock().unwrap()[0], Instruction::Step);
-//         assert_eq!(instructions_2.lock().unwrap()[0], Instruction::Step);
-//     }
+    #[test]
+    fn traffic_should_be_initialised_same_size_as_world_with_empty_maps() {
+        let mut sim = Simulation::new(world(), vec![]);
+        block_on(sim.new_game());
+        assert_eq!(
+            sim.state.unwrap().traffic,
+            Vec2D::new(3, 3, HashSet::with_capacity(0))
+        );
+    }
 
-//     #[test]
-//     fn should_process_updates_before_instructions() {
-//         let processor = InstructionRetriever::new();
-//         let instructions = processor.instructions.clone();
-//         let (tx, rx) = fn_channel();
-//         let mut sim = Simulation::new(world(), rx, vec![Box::new(processor)]);
-//         sim.resume();
-//         sim.state = Some(State::default());
+    #[test]
+    fn save_load_round_trip() {
+        // Given
+        let file_name = "test_save.simulation.round_trip";
 
-//         tx.send(|sim| sim.shutdown());
-//         let handle = thread::spawn(move || block_on(sim.run()));
-//         handle.join().unwrap();
+        let mut sim_1 = Simulation::new(world(), vec![]);
+        let route_key = RouteKey {
+            settlement: v2(1, 2),
+            resource: Resource::Crabs,
+            destination: v2(3, 4),
+        };
+        let mut build_queue = BuildQueue::default();
+        build_queue.insert(BuildInstruction {
+            when: 808,
+            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
+        });
+        sim_1.state = Some(State {
+            params: SimulationParams {
+                traffic_to_population: 0.123,
+                nation_flip_traffic_pc: 0.456,
+                initial_town_population: 0.234,
+                town_removal_population: 0.789,
+            },
+            instructions: vec![
+                Instruction::GetTerritory(v2(1, 1)),
+                Instruction::GetTerritory(v2(2, 2)),
+                Instruction::GetTerritory(v2(3, 3)),
+            ],
+            traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
+            edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
+            route_to_ports: hashmap! { route_key => hashset!{ v2(1, 2), v2(3, 4) } },
+            build_queue,
+        });
+        sim_1.save(file_name);
 
-//         assert!(instructions.lock().unwrap().is_empty());
-//     }
+        // When
+        let mut sim_2 = Simulation::new(world(), vec![]);
+        sim_2.load(file_name);
 
-//     #[test]
-//     fn save_load_round_trip() {
-//         // Given
-//         let file_name = "test_save.simulation.round_trip";
+        // Then
+        assert_eq!(sim_1.state, sim_2.state);
 
-//         let (_, rx) = fn_channel();
-//         let mut sim_1 = Simulation::new(world(), rx, vec![]);
-//         let route_key = RouteKey {
-//             settlement: v2(1, 2),
-//             resource: Resource::Crabs,
-//             destination: v2(3, 4),
-//         };
-//         let mut build_queue = BuildQueue::default();
-//         build_queue.insert(BuildInstruction {
-//             when: 808,
-//             what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
-//         });
-//         sim_1.state = Some(State {
-//             params: SimulationParams {
-//                 traffic_to_population: 0.123,
-//                 nation_flip_traffic_pc: 0.456,
-//                 initial_town_population: 0.234,
-//                 town_removal_population: 0.789,
-//             },
-//             instructions: vec![
-//                 Instruction::GetTerritory(v2(1, 1)),
-//                 Instruction::GetTerritory(v2(2, 2)),
-//                 Instruction::GetTerritory(v2(3, 3)),
-//             ],
-//             traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
-//             edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
-//             route_to_ports: hashmap! { route_key => hashset!{ v2(1, 2), v2(3, 4) } },
-//             build_queue,
-//             paused: true,
-//         });
-//         sim_1.save(file_name);
-
-//         // When
-//         let (_, rx) = fn_channel();
-//         let mut sim_2 = Simulation::new(world(), rx, vec![]);
-//         sim_2.load(file_name);
-
-//         // Then
-//         assert_eq!(sim_1.state, sim_2.state);
-
-//         // Finally
-//         remove_file(format!("{}.sim", file_name)).unwrap();
-//     }
-
-//     #[test]
-//     fn should_not_step_after_loading_instructions() {
-//         // Given
-//         let file_name = "test_save.simulation.should_not_step";
-
-//         let (_, rx) = fn_channel();
-//         let mut sim_1 = Simulation::new(world(), rx, vec![]);
-//         sim_1.state = Some(State {
-//             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
-//             ..State::default()
-//         });
-//         sim_1.save(file_name);
-
-//         let receiver = InstructionRetriever::new();
-//         let instructions = receiver.instructions.clone();
-
-//         // When
-//         let (tx, rx) = fn_channel();
-//         let mut sim_2 = Simulation::new(world(), rx, vec![Box::new(receiver)]);
-//         sim_2.resume();
-//         sim_2.load(file_name);
-
-//         let handle = thread::spawn(move || block_on(sim_2.run()));
-//         let start = Instant::now();
-//         while !instructions
-//             .lock()
-//             .unwrap()
-//             .contains(&Instruction::GetTerritory(v2(1, 1)))
-//         {
-//             if start.elapsed().as_secs() > 10 {
-//                 panic!("No GetTerritory instruction received after 10 seconds");
-//             }
-//         }
-//         tx.wait(|sim| sim.shutdown());
-//         handle.join().unwrap();
-
-//         // Then
-//         assert_eq!(
-//             instructions.lock().unwrap()[0],
-//             Instruction::GetTerritory(v2(1, 1))
-//         );
-
-//         // Finally
-//         remove_file(format!("{}.sim", file_name)).unwrap();
-//     }
-
-//     struct InstructionRepeater {}
-
-//     impl InstructionRepeater {
-//         fn new() -> InstructionRepeater {
-//             InstructionRepeater {}
-//         }
-//     }
-
-//     #[async_trait]
-//     impl Processor for InstructionRepeater {
-//         async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-//             thread::sleep(Duration::from_millis(10));
-//             state.instructions.push(instruction.clone());
-//             state
-//         }
-//     }
-
-//     #[test]
-//     fn should_shutdown_without_processing_pending_instructions() {
-//         let done = Arc::new(AtomicBool::new(false));
-//         let done_2 = done.clone();
-//         thread::spawn(move || {
-//             let repeater = InstructionRepeater::new();
-//             let receiver = InstructionRetriever::new();
-//             let instructions = receiver.instructions.clone();
-//             let (tx, rx) = fn_channel();
-//             let mut sim =
-//                 Simulation::new(world(), rx, vec![Box::new(repeater), Box::new(receiver)]);
-//             sim.resume();
-//             sim.state = Some(State::default());
-
-//             let start = Instant::now();
-//             let handle = thread::spawn(move || block_on(sim.run()));
-//             while instructions.lock().unwrap().is_empty() {
-//                 if start.elapsed().as_secs() > 10 {
-//                     panic!("Instruction not received after 10 seconds");
-//                 }
-//             }
-
-//             tx.wait(|sim| sim.shutdown());
-//             handle.join().unwrap();
-//             done_2.store(true, Ordering::Relaxed);
-//         });
-
-//         let start = Instant::now();
-//         while !done.load(Ordering::Relaxed) {
-//             if start.elapsed().as_secs() > 10 {
-//                 panic!("Simulation has not shutdown after 10 seconds");
-//             }
-//         }
-//     }
-
-//     #[test]
-//     fn should_not_process_instruction_by_default() {
-//         // Given
-//         let (tx, rx) = fn_channel();
-//         let mut sim = Simulation::new(world(), rx, vec![]);
-//         sim.state = Some(State {
-//             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
-//             ..State::default()
-//         });
-//         let handle = thread::spawn(move || {
-//             block_on(sim.run());
-//             sim
-//         });
-
-//         // When
-//         tx.wait(|_| {});
-//         tx.wait(|sim| sim.shutdown());
-
-//         // Then
-//         let sim = handle.join().unwrap();
-//         assert_eq!(
-//             sim.state.unwrap().instructions,
-//             vec![Instruction::GetTerritory(v2(1, 1))]
-//         );
-//     }
-
-//     #[test]
-//     fn should_not_process_instruction_while_paused() {
-//         // Given
-//         let (tx, rx) = fn_channel();
-//         let mut sim = Simulation::new(world(), rx, vec![]);
-//         sim.state = Some(State {
-//             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
-//             ..State::default()
-//         });
-//         sim.resume();
-//         sim.pause();
-//         let handle = thread::spawn(move || {
-//             block_on(sim.run());
-//             sim
-//         });
-
-//         // When
-//         tx.wait(|_| {});
-//         tx.wait(|sim| sim.shutdown());
-
-//         // Then
-//         let sim = handle.join().unwrap();
-//         assert_eq!(
-//             sim.state.unwrap().instructions,
-//             vec![Instruction::GetTerritory(v2(1, 1))]
-//         );
-//     }
-
-//     #[test]
-//     fn should_process_instruction_when_resumed() {
-//         let receiver = InstructionRetriever::new();
-//         let instructions = receiver.instructions.clone();
-//         let (tx, rx) = fn_channel();
-//         let mut sim = Simulation::new(world(), rx, vec![Box::new(receiver)]);
-//         sim.state = Some(State {
-//             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
-//             ..State::default()
-//         });
-//         sim.pause();
-//         sim.resume();
-
-//         let handle = thread::spawn(move || {
-//             block_on(sim.run());
-//             sim
-//         });
-
-//         let start = Instant::now();
-//         while !instructions
-//             .lock()
-//             .unwrap()
-//             .contains(&Instruction::GetTerritory(v2(1, 1)))
-//         {
-//             if start.elapsed().as_secs() > 10 {
-//                 panic!("No GetTerritory instruction received after 10 seconds");
-//             }
-//         }
-
-//         tx.wait(|sim| sim.shutdown());
-//         handle.join().unwrap();
-//     }
-
-//     #[test]
-//     fn should_not_process_instruction_while_paused_persistent() {
-//         // Given
-//         let (tx, rx) = fn_channel();
-//         let mut sim = Simulation::new(world(), rx, vec![]);
-//         sim.resume();
-//         sim.state = Some(State {
-//             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
-//             paused: false,
-//             ..State::default()
-//         });
-//         sim.toggle_paused_persistent();
-//         let handle = thread::spawn(move || {
-//             block_on(sim.run());
-//             sim
-//         });
-
-//         // When
-//         tx.wait(|_| {});
-//         tx.wait(|sim| sim.shutdown());
-
-//         // Then
-//         let sim = handle.join().unwrap();
-//         assert_eq!(
-//             sim.state.unwrap().instructions,
-//             vec![Instruction::GetTerritory(v2(1, 1))]
-//         );
-//     }
-
-//     #[test]
-//     fn should_process_instruction_when_resumed_persistent() {
-//         let receiver = InstructionRetriever::new();
-//         let instructions = receiver.instructions.clone();
-//         let (tx, rx) = fn_channel();
-//         let mut sim = Simulation::new(world(), rx, vec![Box::new(receiver)]);
-//         sim.resume();
-//         sim.state = Some(State {
-//             instructions: vec![Instruction::GetTerritory(v2(1, 1))],
-//             paused: true,
-//             ..State::default()
-//         });
-//         sim.toggle_paused_persistent();
-
-//         let handle = thread::spawn(move || {
-//             block_on(sim.run());
-//             sim
-//         });
-
-//         let start = Instant::now();
-//         while !instructions
-//             .lock()
-//             .unwrap()
-//             .contains(&Instruction::GetTerritory(v2(1, 1)))
-//         {
-//             if start.elapsed().as_secs() > 10 {
-//                 panic!("No GetTerritory instruction received after 10 seconds");
-//             }
-//         }
-
-//         tx.wait(|sim| sim.shutdown());
-//         handle.join().unwrap();
-//     }
-// }
+        // Finally
+        remove_file(format!("{}.sim", file_name)).unwrap();
+    }
+}
