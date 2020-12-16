@@ -7,7 +7,8 @@ use commons::log::info;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 
 use crate::actors::{
-    ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    BasicRoadBuilder, ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
+    WorldArtistActor,
 };
 use crate::polysender::Polysender;
 use crate::simulation::Simulation;
@@ -27,6 +28,7 @@ pub struct System {
 }
 
 pub struct Processes {
+    pub basic_road_builder: PassiveProcess<BasicRoadBuilder<Polysender>>,
     pub object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
     pub simulation: ActiveProcess<Simulation<Polysender>>,
     pub town_house_artist: PassiveProcess<TownHouseArtist<Polysender>>,
@@ -133,12 +135,14 @@ impl System {
         self.processes.town_label_artist.start(&self.pool);
         self.processes.simulation.start(&self.pool);
         self.processes.object_builder.start(&self.pool);
+        self.processes.basic_road_builder.start(&self.pool);
         self.paused = false;
         info!("Started system");
     }
 
     async fn pause(&mut self) {
         info!("Pausing system");
+        self.processes.basic_road_builder.pause().await;
         self.processes.object_builder.pause().await;
         self.processes.simulation.pause().await;
         self.processes.town_label_artist.pause().await;
