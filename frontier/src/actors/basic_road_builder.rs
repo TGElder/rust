@@ -1,59 +1,28 @@
+use crate::event_forwarder_2::HandleEngineEvent;
 use crate::game::{Game, GameState};
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
 use crate::traits::{SendGame, UpdateRoads};
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
-use commons::async_channel::{Receiver, RecvError};
+use commons::async_trait::async_trait;
 use commons::edge::Edge;
-use commons::futures::future::FutureExt;
 use commons::V2;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 
-pub struct BasicRoadBuilder<T> {
-    x: T,
-    engine_rx: Receiver<Arc<Event>>,
+pub struct BasicRoadBuilder<X> {
+    x: X,
     binding: Button,
-    run: bool,
 }
 
-impl<T> BasicRoadBuilder<T>
+impl<X> BasicRoadBuilder<X>
 where
-    T: SendGame + UpdateRoads,
+    X: SendGame + UpdateRoads,
 {
-    pub fn new(x: T, engine_rx: Receiver<Arc<Event>>) -> BasicRoadBuilder<T> {
+    pub fn new(x: X) -> BasicRoadBuilder<X> {
         BasicRoadBuilder {
             x,
-            engine_rx,
             binding: Button::Key(VirtualKeyCode::R),
-            run: true,
-        }
-    }
-
-    pub async fn run(&mut self) {
-        while self.run {
-            select! {
-                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
-            }
-        }
-    }
-
-    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
-        let event: Arc<Event> = event.unwrap();
-        match *event {
-            Event::Button {
-                ref button,
-                state: ElementState::Pressed,
-                modifiers:
-                    ModifiersState {
-                        alt: false,
-                        ctrl: true,
-                        ..
-                    },
-                ..
-            } if *button == self.binding => self.build_road().await,
-            Event::Shutdown => self.shutdown(),
-            _ => (),
         }
     }
 
@@ -85,9 +54,30 @@ where
     async fn update_roads(&mut self, result: RoadBuilderResult) {
         self.x.update_roads(result).await;
     }
+}
 
-    fn shutdown(&mut self) {
-        self.run = false;
+#[async_trait]
+impl<X> HandleEngineEvent for BasicRoadBuilder<X>
+where
+    X: SendGame + UpdateRoads + Send + Sync + 'static,
+{
+    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+        if let Event::Button {
+            ref button,
+            state: ElementState::Pressed,
+            modifiers:
+                ModifiersState {
+                    alt: false,
+                    ctrl: true,
+                    ..
+                },
+            ..
+        } = *event
+        {
+            if *button == self.binding {
+                self.build_road().await;
+            }
+        }
     }
 }
 

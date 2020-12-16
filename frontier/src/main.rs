@@ -88,6 +88,7 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
+    let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
     let (object_builder_tx, object_builder_rx) = fn_channel();
     let (simulation_tx, simulation_rx) = fn_channel();
     let (town_house_artist_tx, town_house_artist_rx) = fn_channel();
@@ -107,6 +108,7 @@ fn main() {
 
     let x = Polysender {
         game_tx: game.tx().clone_with_name("polysender"),
+        basic_road_builder_tx,
         object_builder_tx,
         simulation_tx,
         town_house_artist_tx,
@@ -141,9 +143,9 @@ fn main() {
         town_house_artist_rx,
     );
 
-    let mut basic_road_builder = BasicRoadBuilder::new(
-        x.clone_with_name("basic_road_builder"),
-        event_forwarder.subscribe(),
+    let basic_road_builder = PassiveProcess::new(
+        BasicRoadBuilder::new(x.clone_with_name("basic_road_builder")),
+        basic_road_builder_rx,
     );
 
     let mut town_builder = TownBuilderActor::new(
@@ -248,6 +250,7 @@ fn main() {
         event_forwarder.subscribe(),
         thread_pool.clone(),
         Processes {
+            basic_road_builder,
             object_builder,
             simulation,
             town_house_artist,
@@ -307,10 +310,6 @@ fn main() {
 
     let game_handle = thread::spawn(move || game.run());
 
-    let (basic_road_builder_run, basic_road_builder_handle) =
-        async move { basic_road_builder.run().await }.remote_handle();
-    thread_pool.spawn_ok(basic_road_builder_run);
-
     let (system_run, system_handle) = async move { system.run().await }.remote_handle();
     thread_pool.spawn_ok(system_run);
 
@@ -323,13 +322,7 @@ fn main() {
     // Wait
 
     println!("Joining actors");
-    block_on(async {
-        join!(
-            basic_road_builder_handle,
-            system_handle,
-            town_builder_handle,
-        )
-    });
+    block_on(async { join!(system_handle, town_builder_handle,) });
     println!("Joining game");
     game_handle.join().unwrap();
 }
