@@ -7,8 +7,8 @@ use commons::log::info;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 
 use crate::actors::{
-    BasicRoadBuilder, ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
-    WorldArtistActor,
+    BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::polysender::Polysender;
 use crate::simulation::Simulation;
@@ -31,6 +31,7 @@ pub struct Processes {
     pub basic_road_builder: PassiveProcess<BasicRoadBuilder<Polysender>>,
     pub object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
     pub simulation: ActiveProcess<Simulation<Polysender>>,
+    pub town_builder: PassiveProcess<TownBuilderActor<Polysender>>,
     pub town_house_artist: PassiveProcess<TownHouseArtist<Polysender>>,
     pub town_label_artist: PassiveProcess<TownLabelArtist<Polysender>>,
     pub visibility: PassiveProcess<VisibilityActor<Polysender>>,
@@ -66,7 +67,7 @@ impl System {
 
     pub async fn run(&mut self) {
         self.send_init_messages();
-        self.start();
+        self.start().await;
         while self.run {
             select! {
                 event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
@@ -106,7 +107,7 @@ impl System {
         self.x.send_game(|game| game.save(path)).await;
 
         if !already_paused {
-            self.start();
+            self.start().await;
         }
         info!("Saved");
     }
@@ -126,13 +127,18 @@ impl System {
             .send_future(|world_artist| world_artist.init().boxed());
     }
 
-    fn start(&mut self) {
+    async fn start(&mut self) {
         info!("Starting system");
+        self.x
+            .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
+            .await;
+
         self.processes.world_artist.start(&self.pool);
         self.processes.voyager.start(&self.pool);
         self.processes.visibility.start(&self.pool);
         self.processes.town_house_artist.start(&self.pool);
         self.processes.town_label_artist.start(&self.pool);
+        self.processes.town_builder.start(&self.pool);
         self.processes.simulation.start(&self.pool);
         self.processes.object_builder.start(&self.pool);
         self.processes.basic_road_builder.start(&self.pool);
@@ -145,12 +151,17 @@ impl System {
         self.processes.basic_road_builder.pause().await;
         self.processes.object_builder.pause().await;
         self.processes.simulation.pause().await;
+        self.processes.town_builder.pause().await;
         self.processes.town_label_artist.pause().await;
         self.processes.town_house_artist.pause().await;
         self.processes.visibility.pause().await;
         self.processes.voyager.pause().await;
         self.processes.world_artist.pause().await;
         self.paused = true;
+
+        self.x
+            .send_game_state(|game_state| game_state.speed = 0.0)
+            .await;
         info!("Paused system");
     }
 
@@ -182,17 +193,9 @@ impl System {
 
     async fn toggle_pause(&mut self) {
         if self.paused {
-            self.x
-                .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
-                .await;
-
-            self.start();
+            self.start().await;
         } else {
             self.pause().await;
-
-            self.x
-                .send_game_state(|game_state| game_state.speed = 0.0)
-                .await;
         }
     }
 
