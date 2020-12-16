@@ -20,6 +20,7 @@ impl EventConsumer for EventForwarder2 {
     fn consume_event(&mut self, event: Arc<Event>) {
         send_event(&self.x.basic_road_builder_tx, &event);
         send_event(&self.x.object_builder_tx, &event);
+        send_event(&self.x.town_builder_tx, &event);
         send_event(&self.x.town_label_artist_tx, &event);
         send_event(&self.x.world_artist_tx, &event);
     }

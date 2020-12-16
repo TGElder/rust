@@ -91,6 +91,7 @@ fn main() {
     let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
     let (object_builder_tx, object_builder_rx) = fn_channel();
     let (simulation_tx, simulation_rx) = fn_channel();
+    let (town_builder_tx, town_builder_rx) = fn_channel();
     let (town_house_artist_tx, town_house_artist_rx) = fn_channel();
     let (town_label_artist_tx, town_label_artist_rx) = fn_channel();
     let (visibility_tx, visibility_rx) = fn_channel();
@@ -111,6 +112,7 @@ fn main() {
         basic_road_builder_tx,
         object_builder_tx,
         simulation_tx,
+        town_builder_tx,
         town_house_artist_tx,
         town_label_artist_tx,
         visibility_tx,
@@ -148,9 +150,9 @@ fn main() {
         basic_road_builder_rx,
     );
 
-    let mut town_builder = TownBuilderActor::new(
-        x.clone_with_name("town_builder_actor"),
-        event_forwarder.subscribe(),
+    let town_builder = PassiveProcess::new(
+        TownBuilderActor::new(x.clone_with_name("town_builder_actor")),
+        town_builder_rx,
     );
 
     let object_builder = PassiveProcess::new(
@@ -253,6 +255,7 @@ fn main() {
             basic_road_builder,
             object_builder,
             simulation,
+            town_builder,
             town_house_artist,
             town_label_artist,
             visibility,
@@ -303,7 +306,6 @@ fn main() {
     ));
 
     engine.add_event_consumer(event_forwarder);
-
     engine.add_event_consumer(EventForwarder2::new(x.clone_with_name("event_forwarder")));
 
     // Run
@@ -313,16 +315,12 @@ fn main() {
     let (system_run, system_handle) = async move { system.run().await }.remote_handle();
     thread_pool.spawn_ok(system_run);
 
-    let (town_builder_run, town_builder_handle) =
-        async move { town_builder.run().await }.remote_handle();
-    thread_pool.spawn_ok(town_builder_run);
-
     engine.run();
 
     // Wait
 
-    println!("Joining actors");
-    block_on(async { join!(system_handle, town_builder_handle,) });
+    println!("Joining system");
+    block_on(system_handle);
     println!("Joining game");
     game_handle.join().unwrap();
 }

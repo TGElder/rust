@@ -1,8 +1,8 @@
 use super::*;
 
 use crate::actors::{
-    BasicRoadBuilder, ObjectBuilder, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
-    WorldArtistActor,
+    BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::game::{Game, GameParams, GameState};
@@ -30,6 +30,7 @@ pub struct Polysender {
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
+    pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
     pub town_label_artist_tx: FnSender<TownLabelArtist<Polysender>>,
     pub visibility_tx: FnSender<VisibilityActor<Polysender>>,
@@ -46,6 +47,7 @@ impl Polysender {
             game_tx: self.game_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
+            town_builder_tx: self.town_builder_tx.clone_with_name(name),
             town_house_artist_tx: self.town_house_artist_tx.clone_with_name(name),
             town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
             visibility_tx: self.visibility_tx.clone_with_name(name),

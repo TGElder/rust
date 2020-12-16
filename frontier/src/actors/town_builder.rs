@@ -1,26 +1,24 @@
+use crate::event_forwarder_2::HandleEngineEvent;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{
     AddTown, GetSettlement, Micros, NationDescriptions, RandomTownName, RemoveTown, SetWorldObject,
 };
-use commons::async_channel::{Receiver, RecvError};
-use commons::futures::future::FutureExt;
+use commons::async_trait::async_trait;
 use commons::V2;
 use isometric::coords::WorldCoord;
 use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
 use std::sync::Arc;
 use std::time::Duration;
 
-pub struct TownBuilderActor<T> {
-    x: T,
-    engine_rx: Receiver<Arc<Event>>,
+pub struct TownBuilderActor<X> {
+    x: X,
     binding: Button,
     world_coord: Option<WorldCoord>,
-    run: bool,
 }
 
-impl<T> TownBuilderActor<T>
+impl<X> TownBuilderActor<X>
 where
-    T: AddTown
+    X: AddTown
         + GetSettlement
         + Micros
         + NationDescriptions
@@ -28,42 +26,11 @@ where
         + RemoveTown
         + SetWorldObject,
 {
-    pub fn new(x: T, engine_rx: Receiver<Arc<Event>>) -> TownBuilderActor<T> {
+    pub fn new(x: X) -> TownBuilderActor<X> {
         TownBuilderActor {
             x,
-            engine_rx,
             binding: Button::Key(VirtualKeyCode::H),
             world_coord: None,
-            run: true,
-        }
-    }
-
-    pub async fn run(&mut self) {
-        while self.run {
-            select! {
-                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
-            }
-        }
-    }
-
-    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
-        let event: Arc<Event> = event.unwrap();
-
-        match *event {
-            Event::WorldPositionChanged(world_coord) => self.update_world_coord(world_coord),
-            Event::Button {
-                ref button,
-                state: ElementState::Pressed,
-                modifiers:
-                    ModifiersState {
-                        alt: false,
-                        ctrl: true,
-                        ..
-                    },
-                ..
-            } if *button == self.binding => self.toggle_town().await,
-            Event::Shutdown => self.shutdown(),
-            _ => (),
         }
     }
 
@@ -117,8 +84,37 @@ where
     async fn remove_town(&mut self, position: V2<usize>) {
         self.x.remove_town(position).await;
     }
+}
 
-    fn shutdown(&mut self) {
-        self.run = false;
+#[async_trait]
+impl<X> HandleEngineEvent for TownBuilderActor<X>
+where
+    X: AddTown
+        + GetSettlement
+        + Micros
+        + NationDescriptions
+        + RandomTownName
+        + RemoveTown
+        + SetWorldObject
+        + Send
+        + Sync
+        + 'static,
+{
+    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+        match *event {
+            Event::WorldPositionChanged(world_coord) => self.update_world_coord(world_coord),
+            Event::Button {
+                ref button,
+                state: ElementState::Pressed,
+                modifiers:
+                    ModifiersState {
+                        alt: false,
+                        ctrl: true,
+                        ..
+                    },
+                ..
+            } if *button == self.binding => self.toggle_town().await,
+            _ => (),
+        }
     }
 }
