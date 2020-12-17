@@ -1,4 +1,4 @@
-use crate::system::{Persistable, Step};
+use crate::process::{Persistable, Step};
 use crate::traits::SendWorld;
 
 use super::*;

@@ -1,5 +1,5 @@
 use crate::game::Game;
-use crate::system::Persistable;
+use crate::process::Persistable;
 use crate::traits::{RevealPositions, SendGame, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
