@@ -41,12 +41,14 @@ use crate::pathfinder::*;
 use crate::road_builder::*;
 use crate::system::{ActiveProcess, PassiveProcess, Processes, System};
 use crate::territory::*;
+use crate::traits::SendGame;
 use crate::world_gen::*;
 use artists::{WorldArtist, WorldArtistParameters};
 use commons::fn_sender::fn_channel;
 use commons::future::FutureExt;
 use commons::futures::executor::{block_on, ThreadPool};
 use commons::grid::Grid;
+use commons::log::info;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
@@ -247,27 +249,27 @@ fn main() {
         simulation_rx,
     );
 
-    let mut system = System::new(
-        x.clone_with_name("system"),
-        event_forwarder.subscribe(),
-        thread_pool.clone(),
-        Processes {
-            basic_road_builder,
-            object_builder,
-            simulation,
-            town_builder,
-            town_house_artist,
-            town_label_artist,
-            visibility,
-            voyager,
-            world_artist,
-        },
-    );
+    let mut processes = Processes {
+        x: x.clone_with_name("processes"),
+        basic_road_builder,
+        object_builder,
+        simulation,
+        town_builder,
+        town_house_artist,
+        town_label_artist,
+        visibility,
+        voyager,
+        world_artist,
+    };
+
+    processes.send_init_messages();
 
     match parsed_args {
-        ParsedArgs::New { .. } => system.new_game(),
-        ParsedArgs::Load { path } => system.load(&path),
+        ParsedArgs::New { .. } => processes.new_game(),
+        ParsedArgs::Load { path } => processes.load(&path),
     }
+
+    let mut system = System::new(event_forwarder.subscribe(), thread_pool.clone(), processes);
 
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
@@ -319,8 +321,12 @@ fn main() {
 
     // Wait
 
-    println!("Joining system");
+    info!("Joining system");
     block_on(system_handle);
+
+    info!("Shutting down game");
+    block_on(x.send_game(|game| game.shutdown()));
+    info!("Shut down game");
     println!("Joining game");
     game_handle.join().unwrap();
 }
