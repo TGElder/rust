@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use commons::async_channel::{Receiver, RecvError};
+use commons::async_trait::async_trait;
 use commons::futures::executor::ThreadPool;
 use commons::futures::future::FutureExt;
 use commons::log::info;
@@ -17,17 +18,17 @@ use crate::traits::{SendGame, SendGameState};
 
 const SAVE_PATH: &str = "save";
 
-pub struct System {
-    x: Polysender,
+pub struct System<T> {
     engine_rx: Receiver<Arc<Event>>,
     pool: ThreadPool,
-    processes: Processes,
+    kernel: T,
     bindings: Bindings,
     paused: bool,
     run: bool,
 }
 
 pub struct Processes {
+    pub x: Polysender,
     pub basic_road_builder: PassiveProcess<BasicRoadBuilder<Polysender>>,
     pub object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
     pub simulation: ActiveProcess<Simulation<Polysender>>,
@@ -39,80 +40,8 @@ pub struct Processes {
     pub world_artist: PassiveProcess<WorldArtistActor<Polysender>>,
 }
 
-struct Bindings {
-    pause: Button,
-    save: Button,
-}
-
-impl System {
-    pub fn new(
-        x: Polysender,
-        engine_rx: Receiver<Arc<Event>>,
-        pool: ThreadPool,
-        processes: Processes,
-    ) -> System {
-        System {
-            x,
-            engine_rx,
-            pool,
-            processes,
-            bindings: Bindings {
-                pause: Button::Key(VirtualKeyCode::Space),
-                save: Button::Key(VirtualKeyCode::P),
-            },
-            paused: false,
-            run: true,
-        }
-    }
-
-    pub async fn run(&mut self) {
-        self.send_init_messages();
-        self.start().await;
-        while self.run {
-            select! {
-                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
-            }
-        }
-        info!("Shut down system");
-        info!("Shutting down game");
-        self.x.send_game(|game| game.shutdown()).await;
-        info!("Shut down game");
-    }
-
-    pub fn new_game(&self) {
-        self.x
-            .simulation_tx
-            .send_future(|simulation| simulation.new_game().boxed());
-        self.x
-            .visibility_tx
-            .send_future(|visibility| visibility.new_game().boxed());
-    }
-
-    pub fn load(&mut self, path: &str) {
-        self.processes.simulation.load(path);
-        self.processes.visibility.load(path);
-    }
-
-    async fn save(&mut self, path: &str) {
-        info!("Saving");
-        let already_paused = self.paused;
-        if !already_paused {
-            self.pause().await;
-        }
-
-        self.processes.simulation.save(path);
-        self.processes.visibility.save(path);
-
-        let path = path.to_string();
-        self.x.send_game(|game| game.save(path)).await;
-
-        if !already_paused {
-            self.start().await;
-        }
-        info!("Saved");
-    }
-
-    fn send_init_messages(&self) {
+impl Processes {
+    pub fn send_init_messages(&self) {
         self.x
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());
@@ -127,41 +56,129 @@ impl System {
             .send_future(|world_artist| world_artist.init().boxed());
     }
 
-    async fn start(&mut self) {
-        info!("Starting system");
+    pub fn new_game(&self) {
+        self.x
+            .simulation_tx
+            .send_future(|simulation| simulation.new_game().boxed());
+        self.x
+            .visibility_tx
+            .send_future(|visibility| visibility.new_game().boxed());
+    }
+
+    pub fn load(&mut self, path: &str) {
+        self.simulation.load(path);
+        self.visibility.load(path);
+    }
+}
+
+struct Bindings {
+    pause: Button,
+    save: Button,
+}
+
+#[async_trait]
+pub trait Kernel {
+    async fn start(&mut self, pool: &ThreadPool);
+    async fn pause(&mut self);
+    async fn save(&mut self, path: &str);
+}
+
+#[async_trait]
+impl Kernel for Processes {
+    async fn start(&mut self, pool: &ThreadPool) {
         self.x
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
             .await;
 
-        self.processes.world_artist.start(&self.pool);
-        self.processes.voyager.start(&self.pool);
-        self.processes.visibility.start(&self.pool);
-        self.processes.town_house_artist.start(&self.pool);
-        self.processes.town_label_artist.start(&self.pool);
-        self.processes.town_builder.start(&self.pool);
-        self.processes.simulation.start(&self.pool);
-        self.processes.object_builder.start(&self.pool);
-        self.processes.basic_road_builder.start(&self.pool);
+        self.world_artist.start(pool);
+        self.voyager.start(pool);
+        self.visibility.start(pool);
+        self.town_house_artist.start(pool);
+        self.town_label_artist.start(pool);
+        self.town_builder.start(pool);
+        self.simulation.start(pool);
+        self.object_builder.start(pool);
+        self.basic_road_builder.start(pool);
+    }
+
+    async fn pause(&mut self) {
+        self.basic_road_builder.pause().await;
+        self.object_builder.pause().await;
+        self.simulation.pause().await;
+        self.town_builder.pause().await;
+        self.town_label_artist.pause().await;
+        self.town_house_artist.pause().await;
+        self.visibility.pause().await;
+        self.voyager.pause().await;
+        self.world_artist.pause().await;
+
+        self.x
+            .send_game_state(|game_state| game_state.speed = 0.0)
+            .await;
+    }
+
+    async fn save(&mut self, path: &str) {
+        self.simulation.save(path);
+        self.visibility.save(path);
+
+        let path = path.to_string();
+        self.x.send_game(|game| game.save(path)).await;
+    }
+}
+
+impl<T> System<T>
+where
+    T: Kernel,
+{
+    pub fn new(engine_rx: Receiver<Arc<Event>>, pool: ThreadPool, kernel: T) -> System<T> {
+        System {
+            engine_rx,
+            pool,
+            kernel,
+            bindings: Bindings {
+                pause: Button::Key(VirtualKeyCode::Space),
+                save: Button::Key(VirtualKeyCode::P),
+            },
+            paused: false,
+            run: true,
+        }
+    }
+
+    pub async fn run(&mut self) {
+        self.start().await;
+        while self.run {
+            select! {
+                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
+            }
+        }
+        info!("Shut down system");
+    }
+
+    async fn save(&mut self, path: &str) {
+        info!("Saving");
+        let already_paused = self.paused;
+        if !already_paused {
+            self.pause().await;
+        }
+
+        self.kernel.save(path).await;
+
+        if !already_paused {
+            self.start().await;
+        }
+        info!("Saved");
+    }
+
+    async fn start(&mut self) {
+        info!("Starting system");
+        self.kernel.start(&self.pool).await;
         self.paused = false;
         info!("Started system");
     }
 
     async fn pause(&mut self) {
         info!("Pausing system");
-        self.processes.basic_road_builder.pause().await;
-        self.processes.object_builder.pause().await;
-        self.processes.simulation.pause().await;
-        self.processes.town_builder.pause().await;
-        self.processes.town_label_artist.pause().await;
-        self.processes.town_house_artist.pause().await;
-        self.processes.visibility.pause().await;
-        self.processes.voyager.pause().await;
-        self.processes.world_artist.pause().await;
-        self.paused = true;
-
-        self.x
-            .send_game_state(|game_state| game_state.speed = 0.0)
-            .await;
+        self.kernel.pause().await;
         info!("Paused system");
     }
 
