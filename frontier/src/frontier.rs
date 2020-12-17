@@ -7,11 +7,12 @@ use crate::actors::{
     VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::polysender::Polysender;
+use crate::process::{ActiveProcess, PassiveProcess, Persistable, Process};
 use crate::simulation::Simulation;
-use crate::system::{ActiveProcess, Kernel, PassiveProcess, Persistable, Process};
+use crate::system::Kernel;
 use crate::traits::{SendGame, SendGameState};
 
-pub struct Processes {
+pub struct Frontier {
     pub x: Polysender,
     pub basic_road_builder: PassiveProcess<BasicRoadBuilder<Polysender>>,
     pub object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
@@ -24,7 +25,7 @@ pub struct Processes {
     pub world_artist: PassiveProcess<WorldArtistActor<Polysender>>,
 }
 
-impl Processes {
+impl Frontier {
     pub fn send_init_messages(&self) {
         self.x
             .town_house_artist_tx
@@ -56,7 +57,7 @@ impl Processes {
 }
 
 #[async_trait]
-impl Kernel for Processes {
+impl Kernel for Frontier {
     async fn start(&mut self, pool: &ThreadPool) {
         self.x
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)

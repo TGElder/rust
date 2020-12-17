@@ -6,8 +6,6 @@ use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
 use commons::futures::executor::ThreadPool;
 use commons::futures::future::{FutureExt, RemoteHandle};
 
-use crate::system::Persistable;
-
 pub use active_process::*;
 pub use passive_process::*;
 
@@ -85,6 +83,11 @@ where
         tx: FnSender<Program<T>>,
     },
     Paused(Option<Program<T>>),
+}
+
+pub trait Persistable {
+    fn save(&self, path: &str);
+    fn load(&mut self, path: &str);
 }
 
 impl<T> Persistable for T

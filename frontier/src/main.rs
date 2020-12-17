@@ -8,6 +8,7 @@ mod artists;
 mod avatar;
 mod event_forwarder;
 mod event_forwarder_2;
+mod frontier;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -16,6 +17,7 @@ mod names;
 mod nation;
 mod pathfinder;
 mod polysender;
+mod process;
 mod resource;
 mod road_builder;
 mod route;
@@ -36,10 +38,12 @@ use crate::actors::{
 use crate::avatar::*;
 use crate::event_forwarder::EventForwarder;
 use crate::event_forwarder_2::EventForwarder2;
+use crate::frontier::Frontier;
 use crate::game::*;
 use crate::pathfinder::*;
+use crate::process::{ActiveProcess, PassiveProcess};
 use crate::road_builder::*;
-use crate::system::{ActiveProcess, PassiveProcess, Processes, System};
+use crate::system::System;
 use crate::territory::*;
 use crate::traits::SendGame;
 use crate::world_gen::*;
@@ -249,7 +253,7 @@ fn main() {
         simulation_rx,
     );
 
-    let mut processes = Processes {
+    let mut frontier = Frontier {
         x: x.clone_with_name("processes"),
         basic_road_builder,
         object_builder,
@@ -262,14 +266,14 @@ fn main() {
         world_artist,
     };
 
-    processes.send_init_messages();
+    frontier.send_init_messages();
 
     match parsed_args {
-        ParsedArgs::New { .. } => processes.new_game(),
-        ParsedArgs::Load { path } => processes.load(&path),
+        ParsedArgs::New { .. } => frontier.new_game(),
+        ParsedArgs::Load { path } => frontier.load(&path),
     }
 
-    let mut system = System::new(event_forwarder.subscribe(), thread_pool.clone(), processes);
+    let mut system = System::new(event_forwarder.subscribe(), thread_pool.clone(), frontier);
 
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
