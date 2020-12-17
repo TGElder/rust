@@ -68,6 +68,7 @@ where
     async fn pause(&mut self) {
         info!("Pausing system");
         self.kernel.pause().await;
+        self.paused = true;
         info!("Paused system");
     }
 
