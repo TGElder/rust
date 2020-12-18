@@ -6,9 +6,9 @@ extern crate commons;
 mod actors;
 mod artists;
 mod avatar;
+mod config;
 mod event_forwarder;
 mod event_forwarder_2;
-mod frontier;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -31,9 +31,9 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
+use crate::config::Config;
 use crate::event_forwarder::EventForwarder;
 use crate::event_forwarder_2::EventForwarder2;
-use crate::frontier::Frontier;
 use crate::game::*;
 use crate::system::System;
 use crate::territory::*;
@@ -79,7 +79,7 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let mut frontier = Frontier::new(
+    let mut frontier = Config::new(
         &game.game_state(),
         &engine.command_tx(),
         game.tx(),
