@@ -99,14 +99,12 @@ fn main() {
     game.add_consumer(BasicAvatarControls::new(game.tx()));
     game.add_consumer(PathfindingAvatarControls::new(
         game.tx(),
-        &config.x.pathfinder_without_planned_roads,
+        &x.pathfinder_without_planned_roads,
         thread_pool.clone(),
     ));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
-    game.add_consumer(ResourceTargets::new(
-        &config.x.pathfinder_with_planned_roads,
-    ));
+    game.add_consumer(ResourceTargets::new(&x.pathfinder_with_planned_roads));
 
     // Drawing
 
