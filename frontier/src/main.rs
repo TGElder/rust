@@ -31,7 +31,7 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
-use crate::configuration::Config;
+use crate::configuration::Configuration;
 use crate::event_forwarder::EventForwarder;
 use crate::event_forwarder_2::EventForwarder2;
 use crate::game::*;
@@ -79,18 +79,17 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let mut frontier = Config::new(
+    let mut config = Configuration::new(
         &game.game_state(),
         &engine.command_tx(),
         game.tx(),
         &thread_pool,
     );
-    frontier.send_init_messages();
     match parsed_args {
-        ParsedArgs::New { .. } => frontier.new_game(),
-        ParsedArgs::Load { path } => frontier.load(&path),
+        ParsedArgs::New { .. } => config.new_game(),
+        ParsedArgs::Load { path } => config.load(&path),
     }
-    let x = frontier.x.clone_with_name("main");
+    let x = config.x.clone_with_name("main");
 
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
@@ -100,13 +99,13 @@ fn main() {
     game.add_consumer(BasicAvatarControls::new(game.tx()));
     game.add_consumer(PathfindingAvatarControls::new(
         game.tx(),
-        &frontier.x.pathfinder_without_planned_roads,
+        &config.x.pathfinder_without_planned_roads,
         thread_pool.clone(),
     ));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(
-        &frontier.x.pathfinder_with_planned_roads,
+        &config.x.pathfinder_with_planned_roads,
     ));
 
     // Drawing
@@ -131,7 +130,7 @@ fn main() {
     ));
 
     let mut event_forwarder = EventForwarder::new();
-    let mut system = System::new(event_forwarder.subscribe(), thread_pool.clone(), frontier);
+    let mut system = System::new(event_forwarder.subscribe(), thread_pool.clone(), config);
 
     engine.add_event_consumer(EventForwarder2::new(x.clone_with_name("event_forwarder")));
     engine.add_event_consumer(event_forwarder);

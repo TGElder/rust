@@ -12,14 +12,14 @@ const SAVE_PATH: &str = "save";
 pub struct System<T> {
     engine_rx: Receiver<Arc<Event>>,
     pool: ThreadPool,
-    kernel: T,
+    listener: T,
     bindings: Bindings,
     paused: bool,
     run: bool,
 }
 
 #[async_trait]
-pub trait Kernel {
+pub trait SystemListener {
     async fn start(&mut self, pool: &ThreadPool);
     async fn pause(&mut self);
     async fn save(&mut self, path: &str);
@@ -32,13 +32,13 @@ struct Bindings {
 
 impl<T> System<T>
 where
-    T: Kernel,
+    T: SystemListener,
 {
-    pub fn new(engine_rx: Receiver<Arc<Event>>, pool: ThreadPool, kernel: T) -> System<T> {
+    pub fn new(engine_rx: Receiver<Arc<Event>>, pool: ThreadPool, listener: T) -> System<T> {
         System {
             engine_rx,
             pool,
-            kernel,
+            listener,
             bindings: Bindings {
                 pause: Button::Key(VirtualKeyCode::Space),
                 save: Button::Key(VirtualKeyCode::P),
@@ -60,14 +60,14 @@ where
 
     async fn start(&mut self) {
         info!("Starting system");
-        self.kernel.start(&self.pool).await;
+        self.listener.start(&self.pool).await;
         self.paused = false;
         info!("Started system");
     }
 
     async fn pause(&mut self) {
         info!("Pausing system");
-        self.kernel.pause().await;
+        self.listener.pause().await;
         self.paused = true;
         info!("Paused system");
     }
@@ -86,7 +86,7 @@ where
             self.pause().await;
         }
 
-        self.kernel.save(path).await;
+        self.listener.save(path).await;
 
         if !already_paused {
             self.start().await;

@@ -27,7 +27,7 @@ use crate::simulation::processors::{
     UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
 };
 use crate::simulation::Simulation;
-use crate::system::Kernel;
+use crate::system::SystemListener;
 use crate::traits::{SendGame, SendGameState};
 
 pub struct Configuration {
@@ -84,7 +84,7 @@ impl Configuration {
             pathfinder_without_planned_roads: pathfinder_without_planned_roads.clone(),
         };
 
-        Configuration {
+        let config = Configuration {
             x: x.clone_with_name("processes"),
             basic_road_builder: PassiveProcess::new(
                 BasicRoadBuilder::new(x.clone_with_name("basic_road_builder")),
@@ -194,7 +194,11 @@ impl Configuration {
                 ),
                 world_artist_rx,
             ),
-        }
+        };
+
+        config.send_init_messages();
+
+        config
     }
 
     pub fn send_init_messages(&self) {
@@ -228,7 +232,7 @@ impl Configuration {
 }
 
 #[async_trait]
-impl Kernel for Configuration {
+impl SystemListener for Configuration {
     async fn start(&mut self, pool: &ThreadPool) {
         self.x
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
