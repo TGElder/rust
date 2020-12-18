@@ -30,7 +30,7 @@ use crate::simulation::Simulation;
 use crate::system::Kernel;
 use crate::traits::{SendGame, SendGameState};
 
-pub struct Config {
+pub struct Configuration {
     pub x: Polysender,
     pub basic_road_builder: PassiveProcess<BasicRoadBuilder<Polysender>>,
     pub object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
@@ -43,13 +43,13 @@ pub struct Config {
     pub world_artist: PassiveProcess<WorldArtistActor<Polysender>>,
 }
 
-impl Config {
+impl Configuration {
     pub fn new(
         game_state: &GameState,
         engine_tx: &Sender<Vec<Command>>,
         game_tx: &FnSender<Game>,
         thread_pool: &ThreadPool,
-    ) -> Config {
+    ) -> Configuration {
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
@@ -84,7 +84,7 @@ impl Config {
             pathfinder_without_planned_roads: pathfinder_without_planned_roads.clone(),
         };
 
-        Config {
+        Configuration {
             x: x.clone_with_name("processes"),
             basic_road_builder: PassiveProcess::new(
                 BasicRoadBuilder::new(x.clone_with_name("basic_road_builder")),
@@ -228,7 +228,7 @@ impl Config {
 }
 
 #[async_trait]
-impl Kernel for Config {
+impl Kernel for Configuration {
     async fn start(&mut self, pool: &ThreadPool) {
         self.x
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)

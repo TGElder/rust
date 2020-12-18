@@ -6,7 +6,7 @@ extern crate commons;
 mod actors;
 mod artists;
 mod avatar;
-mod config;
+mod configuration;
 mod event_forwarder;
 mod event_forwarder_2;
 mod game;
@@ -31,7 +31,7 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
-use crate::config::Config;
+use crate::configuration::Config;
 use crate::event_forwarder::EventForwarder;
 use crate::event_forwarder_2::EventForwarder2;
 use crate::game::*;
