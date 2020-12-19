@@ -1,5 +1,6 @@
 use crate::resource::Resource;
 use crate::world::*;
+use commons::grid::Grid;
 use commons::*;
 use isometric::cell_traits::*;
 use isometric::coords::*;

@@ -67,8 +67,8 @@ mod tests {
 
     use commons::edge::Edge;
     use commons::fn_sender::FnThread;
-    use commons::futures::executor::block_on;
     use commons::v2;
+    use futures::executor::block_on;
     use std::sync::{Arc, Mutex};
     struct BuildRetriever {
         builds: Arc<Mutex<Vec<Build>>>,

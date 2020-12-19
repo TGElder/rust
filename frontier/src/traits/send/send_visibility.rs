@@ -1,4 +1,4 @@
-use commons::futures::future::BoxFuture;
+use futures::future::BoxFuture;
 
 use crate::actors::VisibilityActor;
 use crate::traits::{RevealPositions, SendGame, SendWorld};

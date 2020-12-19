@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use commons::async_channel::{unbounded, Receiver, RecvError, Sender};
 use commons::async_trait::async_trait;
-use commons::futures::executor::block_on;
-use commons::futures::executor::ThreadPool;
-use commons::futures::future::FutureExt;
 use commons::log::info;
+use futures::executor::block_on;
+use futures::executor::ThreadPool;
+use futures::future::FutureExt;
 use isometric::{
     Button, ElementState, Event, EventConsumer, IsometricEngine, ModifiersState, VirtualKeyCode,
 };

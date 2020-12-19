@@ -39,7 +39,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use commons::futures::executor::block_on;
+    use futures::executor::block_on;
 
     #[test]
     fn should_add_instruction_for_each_demand() {

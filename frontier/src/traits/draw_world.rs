@@ -1,7 +1,7 @@
 use crate::traits::send::SendWorldArtist;
 use commons::async_trait::async_trait;
-use commons::future::FutureExt;
 use commons::V2;
+use futures::FutureExt;
 
 #[async_trait]
 pub trait DrawWorld {

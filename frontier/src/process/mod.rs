@@ -3,8 +3,8 @@ mod passive_process;
 
 use commons::async_trait::async_trait;
 use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
-use commons::futures::executor::ThreadPool;
-use commons::futures::future::{FutureExt, RemoteHandle};
+use futures::executor::ThreadPool;
+use futures::future::{FutureExt, RemoteHandle};
 
 use std::any::type_name;
 

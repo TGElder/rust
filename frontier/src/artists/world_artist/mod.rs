@@ -1,5 +1,6 @@
 mod slab;
 
+use commons::grid::Grid;
 pub use slab::Slab;
 
 use super::crop_artist::*;

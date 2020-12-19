@@ -1,5 +1,6 @@
 extern crate line_drawing;
 
+use commons::grid::Grid;
 use commons::*;
 use isometric::cell_traits::WithElevation;
 use serde::{Deserialize, Serialize};

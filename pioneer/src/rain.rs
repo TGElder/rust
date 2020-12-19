@@ -1,4 +1,5 @@
-use commons::*;
+use commons::grid::Grid;
+use commons::{rescale, v2, M, V2};
 
 #[derive(Clone)]
 pub struct Wind {

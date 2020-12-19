@@ -1,5 +1,5 @@
 use commons::edge::Edge;
-use commons::executor::ThreadPool;
+use futures::executor::ThreadPool;
 
 use super::*;
 use crate::pathfinder::traits::UpdateEdge;
@@ -73,8 +73,8 @@ mod tests {
     use crate::world::World;
     use commons::async_trait::async_trait;
     use commons::edge::Edge;
-    use commons::futures::executor::block_on;
     use commons::{v2, Arm, M};
+    use futures::executor::block_on;
     use std::default::Default;
     use std::sync::Mutex;
 

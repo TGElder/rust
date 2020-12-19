@@ -3,7 +3,7 @@ use super::*;
 use crate::game::traits::{GetRoute, HasWorld, Settlements, WhoControlsTile};
 use crate::resource::Resource;
 use crate::route::RouteKey;
-use commons::Grid;
+use commons::grid::Grid;
 use std::collections::HashSet;
 use std::time::Duration;
 

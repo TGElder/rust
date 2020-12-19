@@ -2,7 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use commons::async_trait::async_trait;
-use commons::{get_corners, V2};
+use commons::grid::get_corners;
+use commons::V2;
 
 use crate::traits::{
     DrawWorld, ExpandPositions, Micros, PathfinderWithoutPlannedRoads, PositionsWithin,

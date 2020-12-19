@@ -4,8 +4,8 @@ use crate::game::traits::HasWorld;
 use crate::resource::Resource;
 use crate::traits::RemoveWorldObject;
 use crate::world::{WorldCell, WorldObject};
-use commons::executor::ThreadPool;
 use commons::grid::Grid;
+use futures::executor::ThreadPool;
 
 const FARM_RESOURCE: Resource = Resource::Crops;
 

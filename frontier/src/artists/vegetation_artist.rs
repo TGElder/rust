@@ -1,5 +1,6 @@
 use crate::world::*;
 use commons::barycentric::triangle_interpolate_any;
+use commons::grid::Grid;
 use commons::*;
 use isometric::cell_traits::*;
 use isometric::coords::*;

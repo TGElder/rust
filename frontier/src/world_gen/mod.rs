@@ -9,6 +9,7 @@ mod vegetation_gen;
 
 use crate::world::World;
 use commons::equalize::{equalize_with_filter, PositionValue};
+use commons::grid::Grid;
 use commons::scale::Scale;
 use commons::*;
 use groundwater_gen::*;

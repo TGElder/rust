@@ -1,3 +1,4 @@
+use commons::grid::Grid;
 use commons::index2d::*;
 use commons::*;
 

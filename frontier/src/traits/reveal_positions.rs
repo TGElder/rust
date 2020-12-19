@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use commons::async_trait::async_trait;
-use commons::{FutureExt, Grid, V2};
+use commons::grid::Grid;
+use commons::V2;
+use futures::FutureExt;
 
 use crate::traits::{
     DrawWorld, Micros, SendGame, SendVoyager, SendWorld, UpdatePathfinderPositions,

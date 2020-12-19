@@ -51,8 +51,8 @@ mod tests {
 
     use super::*;
 
-    use commons::futures::executor::block_on;
     use commons::{v2, Arm};
+    use futures::executor::block_on;
 
     #[async_trait]
     impl AddRoad for Arm<HashSet<Edge>> {

@@ -111,9 +111,9 @@ mod tests {
     use crate::route::RouteKey;
     use crate::world::World;
     use commons::edge::Edge;
-    use commons::futures::executor::block_on;
     use commons::index2d::Vec2D;
     use commons::{v2, Arm, M};
+    use futures::executor::block_on;
     use std::fs::remove_file;
     use std::sync::{Arc, Mutex};
 

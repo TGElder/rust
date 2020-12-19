@@ -18,8 +18,8 @@ use crate::traits::{
 use crate::world::World;
 use commons::async_trait::async_trait;
 use commons::fn_sender::FnSender;
-use commons::futures::future::BoxFuture;
 use commons::V2;
+use futures::future::BoxFuture;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 

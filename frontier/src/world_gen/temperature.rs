@@ -1,5 +1,6 @@
 use super::*;
 use crate::world::*;
+use commons::grid::extract_matrix;
 use commons::scale::*;
 use commons::*;
 use pioneer::sunshine::*;

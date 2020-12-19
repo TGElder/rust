@@ -3,6 +3,7 @@ use super::utils::*;
 use cell_traits::*;
 use color::Color;
 use commons::barycentric::triangle_interpolate_any;
+use commons::grid::Grid;
 use commons::*;
 use graphics::Drawing;
 use Command;

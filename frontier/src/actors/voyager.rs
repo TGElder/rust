@@ -1,7 +1,8 @@
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{RevealPositions, SendSettlements, SendWorld};
 use crate::world::World;
-use commons::{v2, Grid, V2};
+use commons::grid::Grid;
+use commons::{v2, V2};
 use line_drawing::WalkGrid;
 use std::collections::{HashMap, HashSet};
 

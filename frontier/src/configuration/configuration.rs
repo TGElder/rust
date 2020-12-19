@@ -2,8 +2,8 @@ use std::sync::{Arc, RwLock};
 
 use commons::async_trait::async_trait;
 use commons::fn_sender::{fn_channel, FnSender};
-use commons::futures::executor::ThreadPool;
-use commons::futures::future::FutureExt;
+use futures::executor::ThreadPool;
+use futures::future::FutureExt;
 use isometric::IsometricEngine;
 
 use crate::actors::{

@@ -2,6 +2,7 @@ use super::*;
 
 use crate::travel_duration::*;
 use crate::world::{World, WorldCell};
+use commons::grid::Grid;
 use commons::scale::*;
 use commons::*;
 use serde::{Deserialize, Serialize};

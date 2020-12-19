@@ -10,6 +10,7 @@ use crate::Command;
 use cell_traits::*;
 use color::Color;
 use commons::edge::*;
+use commons::grid::Grid;
 use commons::index2d::*;
 use commons::*;
 

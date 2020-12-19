@@ -136,9 +136,9 @@ mod tests {
 
     use crate::resource::Resource;
     use commons::fn_sender::FnThread;
-    use commons::futures::executor::block_on;
     use commons::same_elements;
     use commons::v2;
+    use futures::executor::block_on;
     use std::time::Duration;
 
     #[test]

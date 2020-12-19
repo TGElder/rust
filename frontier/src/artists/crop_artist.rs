@@ -1,5 +1,6 @@
 use super::*;
 
+use commons::grid::Grid;
 use isometric::drawing::{textured_tiles, TerrainColoring, TexturedTile};
 use std::f32::consts::PI;
 

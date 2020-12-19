@@ -46,8 +46,8 @@ mod tests {
     use super::*;
 
     use crate::settlement::Settlement;
-    use commons::futures::executor::block_on;
     use commons::{v2, Arm};
+    use futures::executor::block_on;
     use std::collections::HashSet;
     use std::default::Default;
     use std::time::Duration;

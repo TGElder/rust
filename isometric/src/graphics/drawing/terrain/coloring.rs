@@ -3,6 +3,7 @@ use crate::drawing::utils::*;
 use cell_traits::*;
 use color::Color;
 use commons::almost::Almost;
+use commons::grid::Grid;
 use commons::scale::*;
 use commons::*;
 use commons::{M, V2, V3};

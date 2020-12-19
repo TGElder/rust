@@ -1,7 +1,7 @@
 use crate::actors::TownHouseArtist;
 use crate::traits::{GetNationDescription, GetSettlement, SendWorld, Settlements};
 use commons::async_trait::async_trait;
-use commons::future::BoxFuture;
+use futures::future::BoxFuture;
 
 #[async_trait]
 pub trait SendTownHouseArtist:

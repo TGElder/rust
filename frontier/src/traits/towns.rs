@@ -5,7 +5,8 @@ use crate::traits::{
     RemoveWorldObject, SendWorld, SetControlDurations, Visibility,
 };
 use commons::async_trait::async_trait;
-use commons::{Grid, V2};
+use commons::grid::Grid;
+use commons::V2;
 
 #[async_trait]
 pub trait AddTown {

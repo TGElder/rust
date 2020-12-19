@@ -2,6 +2,8 @@
 
 #[macro_use]
 extern crate commons;
+#[macro_use]
+extern crate futures;
 
 mod actors;
 mod artists;
@@ -35,10 +37,10 @@ use crate::territory::*;
 use crate::traits::SendGame;
 use crate::world_gen::*;
 
-use commons::future::FutureExt;
-use commons::futures::executor::{block_on, ThreadPool};
 use commons::grid::Grid;
 use commons::log::info;
+use futures::executor::{block_on, ThreadPool};
+use futures::FutureExt;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};

@@ -4,6 +4,7 @@ use crate::pathfinder::traits::{
 use crate::travel_duration::*;
 use crate::world::*;
 use commons::edge::Edge;
+use commons::grid::Grid;
 use commons::index2d::*;
 use commons::manhattan::ManhattanDistance;
 use commons::*;

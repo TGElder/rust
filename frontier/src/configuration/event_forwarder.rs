@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 use commons::fn_sender::FnSender;
-use commons::futures::future::FutureExt;
+use futures::future::FutureExt;
 use isometric::{Event, EventConsumer};
 use std::sync::Arc;
 

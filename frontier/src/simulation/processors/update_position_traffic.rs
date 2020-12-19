@@ -102,9 +102,9 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use commons::futures::executor::block_on;
     use commons::index2d::Vec2D;
     use commons::v2;
+    use futures::executor::block_on;
     use std::collections::HashSet;
     use std::time::Duration;
 

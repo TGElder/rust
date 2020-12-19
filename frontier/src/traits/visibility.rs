@@ -1,8 +1,8 @@
 use super::*;
 
 use commons::async_trait::async_trait;
-use commons::future::FutureExt;
 use commons::V2;
+use futures::FutureExt;
 use std::collections::HashSet;
 
 #[async_trait]

@@ -2,6 +2,7 @@ use super::*;
 
 use crate::world::World;
 use commons::edge::*;
+use commons::grid::Grid;
 use commons::*;
 
 #[derive(Debug, PartialEq, Clone)]

@@ -5,8 +5,8 @@ use crate::pathfinder::traits::UpdateEdge;
 use crate::traits::RemoveRoad;
 use crate::travel_duration::TravelDuration;
 use commons::edge::Edge;
-use commons::executor::ThreadPool;
-use commons::futures::FutureExt;
+use futures::executor::ThreadPool;
+use futures::FutureExt;
 use std::collections::HashSet;
 
 const NAME: &str = "refresh_edges";

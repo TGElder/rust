@@ -2,7 +2,6 @@ pub extern crate async_channel;
 pub extern crate async_trait;
 pub extern crate float_cmp;
 pub extern crate futures;
-pub use futures::*;
 pub extern crate image;
 pub extern crate log;
 extern crate maplit;
@@ -31,7 +30,6 @@ pub type M<T> = na::DMatrix<T>;
 pub type V2<T> = na::Vector2<T>;
 pub type V3<T> = na::Vector3<T>;
 
-pub use grid::*;
 pub use maplit::{btreemap, btreeset, hashmap, hashset};
 
 use crate::scale::*;

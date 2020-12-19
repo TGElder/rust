@@ -4,7 +4,8 @@ use crate::nation::Nation;
 use crate::settlement::Settlement;
 use crate::territory::Claim;
 use crate::world::{World, WorldCell, WorldObject};
-use commons::{Grid, V2, V3};
+use commons::grid::Grid;
+use commons::{V2, V3};
 use isometric::drawing::{
     LayerColoring, NoneColoring, SeaLevelColoring, ShadedTileTerrainColoring, TerrainColoring,
 };

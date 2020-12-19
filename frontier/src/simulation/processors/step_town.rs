@@ -65,8 +65,8 @@ mod tests {
 
     use crate::settlement::{SettlementClass, SettlementClass::Homeland};
     use commons::fn_sender::FnThread;
-    use commons::futures::executor::block_on;
     use commons::{same_elements, v2};
+    use futures::executor::block_on;
     use std::collections::HashMap;
 
     fn settlement(class: SettlementClass, position: V2<usize>) -> Settlement {

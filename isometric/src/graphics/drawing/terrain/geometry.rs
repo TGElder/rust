@@ -1,4 +1,5 @@
 use cell_traits::*;
+use commons::grid::Grid;
 use commons::*;
 
 pub struct TerrainGeometry<'a, T>

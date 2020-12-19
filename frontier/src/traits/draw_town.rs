@@ -1,4 +1,4 @@
-use commons::FutureExt;
+use futures::FutureExt;
 
 use crate::settlement::Settlement;
 use crate::traits::{SendTownHouseArtist, SendTownLabelArtist};

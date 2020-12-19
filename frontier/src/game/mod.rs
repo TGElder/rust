@@ -8,9 +8,9 @@ pub use game_state::*;
 
 use crate::avatar::*;
 use commons::fn_sender::*;
-use commons::futures::executor::block_on;
 use commons::V2;
 use commons::*;
+use futures::executor::block_on;
 use isometric::{Command, Event, EventConsumer, IsometricEngine};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;

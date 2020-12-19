@@ -111,8 +111,8 @@ mod tests {
     use crate::route::Route;
     use crate::world::World;
     use commons::fn_sender::FnThread;
-    use commons::futures::executor::block_on;
     use commons::{v2, M};
+    use futures::executor::block_on;
     use std::time::Duration;
 
     fn world() -> World {

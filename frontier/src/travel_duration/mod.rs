@@ -7,8 +7,9 @@ pub use gradient::*;
 pub use no_river_corners::*;
 
 use crate::world::World;
+use commons::grid::Grid;
+use commons::scale::*;
 use commons::V2;
-use commons::{scale::*, Grid};
 use std::iter::{empty, once};
 use std::time::Duration;
 

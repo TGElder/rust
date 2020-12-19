@@ -2,7 +2,7 @@ use super::*;
 use crate::game::traits::{GetRoute, HasWorld, Settlements};
 use crate::route::RouteKey;
 use crate::settlement::Settlement;
-use commons::get_corners;
+use commons::grid::get_corners;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
@@ -178,10 +178,10 @@ mod tests {
     use crate::route::Route;
     use crate::world::World;
     use commons::fn_sender::FnThread;
-    use commons::futures::executor::block_on;
     use commons::grid::Grid;
     use commons::same_elements;
     use commons::{v2, M};
+    use futures::executor::block_on;
 
     use std::collections::{HashMap, HashSet};
     use std::default::Default;

@@ -1,6 +1,6 @@
-use commons::edge::*;
+use commons::grid::Grid;
 use commons::junction::*;
-use commons::*;
+use commons::{edge::*, v2, M, V2};
 use downhill_map::DownhillMap;
 use downhill_map::DIRECTIONS;
 use flow_map::FlowMap;
@@ -51,10 +51,10 @@ fn get_river_cells_from_downhill_map_and_rain_map(
 }
 
 fn get_neighbour(
-    position: na::Vector2<usize>,
+    position: V2<usize>,
     mesh: &Mesh,
     downhill_map: &dyn SingleDownhillMap,
-) -> Option<na::Vector2<usize>> {
+) -> Option<V2<usize>> {
     let direction = DIRECTIONS[downhill_map.get_direction(position.x as i32, position.y as i32)];
     let nx = (position.x as i32) + direction.0;
     let ny = (position.y as i32) + direction.1;

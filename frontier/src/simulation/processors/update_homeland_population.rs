@@ -66,8 +66,8 @@ where
 mod tests {
     use super::*;
     use crate::game::GameState;
-    use commons::futures::executor::block_on;
     use commons::{v2, Arm};
+    use futures::executor::block_on;
     use std::collections::HashMap;
     use std::sync::Mutex;
 

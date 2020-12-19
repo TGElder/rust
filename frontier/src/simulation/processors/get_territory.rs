@@ -86,8 +86,8 @@ mod tests {
 
     use crate::settlement::SettlementClass::Homeland;
     use commons::fn_sender::FnThread;
-    use commons::futures::executor::block_on;
     use commons::{v2, Arm};
+    use futures::executor::block_on;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 

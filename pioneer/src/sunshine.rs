@@ -1,5 +1,5 @@
-use commons::scale::*;
-use commons::*;
+use commons::grid::Grid;
+use commons::{scale::*, v2, v3, M, V2, V3};
 
 fn get_normal(elevations: &M<f64>, position: &V2<usize>) -> V3<f64> {
     let x1 = elevations.offset(position, v2(-1, 0)).unwrap_or(*position);

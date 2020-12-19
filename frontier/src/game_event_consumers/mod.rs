@@ -1,9 +1,9 @@
 use crate::avatar::*;
 use crate::game::*;
 use commons::fn_sender::*;
-use commons::futures::executor::ThreadPool;
 use commons::grid::Grid;
 use commons::V2;
+use futures::executor::ThreadPool;
 use isometric::{Command, Event};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;

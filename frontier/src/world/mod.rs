@@ -11,6 +11,7 @@ pub use world_cell::*;
 pub use world_object::*;
 
 use commons::edge::*;
+use commons::grid::{get_corners, Grid};
 use commons::junction::*;
 use commons::unsafe_ordering;
 use commons::*;

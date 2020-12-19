@@ -51,8 +51,8 @@ where
 mod tests {
     use super::*;
 
-    use commons::futures::executor::block_on;
     use commons::{v2, Arm, V2};
+    use futures::executor::block_on;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 

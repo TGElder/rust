@@ -1,5 +1,6 @@
 use super::*;
 use crate::world::*;
+use commons::grid::extract_matrix;
 use commons::*;
 use pioneer::rain::*;
 use std::default::Default;
