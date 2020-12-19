@@ -177,7 +177,7 @@ mod tests {
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert_eq!(*processor.x.lock().unwrap(), vec![]);
+        assert!(processor.x.lock().unwrap().is_empty());
         assert_eq!(state.instructions, vec![]);
 
         // Finally
@@ -203,7 +203,7 @@ mod tests {
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert_eq!(*processor.x.lock().unwrap(), vec![]);
+        assert!(processor.x.lock().unwrap().is_empty());
         assert_eq!(state.instructions, vec![]);
 
         // Finally

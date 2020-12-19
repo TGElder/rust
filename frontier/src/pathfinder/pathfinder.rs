@@ -424,7 +424,7 @@ mod tests {
         let pathfinder = pathfinder();
         let indices = [9];
         let actual = pathfinder.get_positions_from_network_indices(&indices);
-        assert_eq!(actual, vec![]);
+        assert!(actual.is_empty());
     }
 
     #[test]

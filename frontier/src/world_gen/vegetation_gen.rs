@@ -92,7 +92,7 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
 
     fn random_offset(&mut self) -> f32 {
         let range = self.params.vegetation.offset_range;
-        self.rng.gen_range(range.0, range.1)
+        self.rng.gen_range(range.0..range.1)
     }
 
     fn thin(&mut self, position: &V2<usize>) -> bool {

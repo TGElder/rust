@@ -30,9 +30,9 @@ impl Color {
 
     pub fn random<T: Rng>(rng: &mut T, a: f32) -> Color {
         Color::new(
-            rng.gen_range(0.0, 1.0),
-            rng.gen_range(0.0, 1.0),
-            rng.gen_range(0.0, 1.0),
+            rng.gen_range(0.0..1.0),
+            rng.gen_range(0.0..1.0),
+            rng.gen_range(0.0..1.0),
             a,
         )
     }

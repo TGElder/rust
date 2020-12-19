@@ -133,7 +133,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        assert_eq!(*processor.x.removed.lock().unwrap(), vec![]);
+        assert!(processor.x.removed.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -161,7 +161,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        assert_eq!(*processor.x.removed.lock().unwrap(), vec![]);
+        assert!(processor.x.removed.lock().unwrap().is_empty());
     }
 
     #[test]

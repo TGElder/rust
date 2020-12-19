@@ -352,7 +352,7 @@ mod tests {
         let at = start + 1_500;
         assert_eq!(path.stop(&at).points, vec![v2(0, 1), v2(1, 1)]);
         let done_at = start + 10_000;
-        assert_eq!(path.stop(&done_at).points, vec![]);
+        assert!(path.stop(&done_at).points.is_empty());
     }
 
     #[test]

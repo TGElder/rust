@@ -5,15 +5,15 @@ authors = ["Thomas Elder <tgelder@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-async-channel = "1.4"
+async-channel = "1.5"
 async-trait = "0.1"
-float-cmp = "0.5"
+float-cmp = "0.8"
 futures = { version = "0.3", features = ["thread-pool"] }
-image = "0.22"
+image = "0.23"
 log = "0.4"
 maplit = "1.0.2"
-nalgebra = { version = "0.18", features = ["serde-serialize"] }
-noise = "0.6.0"
-num = "0.2"
-rand = { version = "0.7", features = ["small_rng"] }
+nalgebra = { version = "0.23", features = ["serde-serialize"] }
+noise = "0.7.0"
+num = "0.3"
+rand = { version = "0.8", features = ["small_rng"] }
 serde = { version = "1.0", features = ["derive"] }

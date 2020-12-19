@@ -177,7 +177,7 @@ mod tests {
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert_eq!(*builder.x.updated_territory.lock().unwrap(), vec![]);
+        assert!(builder.x.updated_territory.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -198,6 +198,6 @@ mod tests {
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert_eq!(*builder.x.updated_territory.lock().unwrap(), vec![]);
+        assert!(builder.x.updated_territory.lock().unwrap().is_empty());
     }
 }

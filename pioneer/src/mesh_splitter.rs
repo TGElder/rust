@@ -26,7 +26,7 @@ struct SplitProcess {
 
 impl SplitRule {
     fn generate_split<R: Rng>(&self, rng: &mut R, random_range: (f64, f64)) -> Split {
-        let r: f64 = rng.gen_range(random_range.0, random_range.1);
+        let r: f64 = rng.gen_range(random_range.0..random_range.1);
         let scale: Scale<f64> = Scale::new((0.0, 1.0), self.range);
         Split {
             x: self.x,

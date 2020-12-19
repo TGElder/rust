@@ -335,7 +335,7 @@ mod tests {
     fn test_get_border_empty() {
         let actual = TerrainGeometry::of(&terrain()).get_border(v2(0, 0), true);
 
-        assert_eq!(actual, vec![]);
+        assert!(actual.is_empty());
     }
 
     #[test]
@@ -361,10 +361,9 @@ mod tests {
 
         terrain[(2, 1)].visible = false;
 
-        assert_eq!(
-            TerrainGeometry::of(&terrain).get_border(v2(3, 2), false),
-            vec![]
-        );
+        assert!(TerrainGeometry::of(&terrain)
+            .get_border(v2(3, 2), false)
+            .is_empty());
     }
 
     #[test]
