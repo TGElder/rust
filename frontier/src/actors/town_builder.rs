@@ -1,4 +1,4 @@
-use crate::event_forwarder_2::HandleEngineEvent;
+use crate::configuration::HandleEngineEvent;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{
     AddTown, GetSettlement, Micros, NationDescriptions, RandomTownName, RemoveTown, SetWorldObject,

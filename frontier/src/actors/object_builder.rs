@@ -1,4 +1,4 @@
-use crate::event_forwarder_2::HandleEngineEvent;
+use crate::configuration::HandleEngineEvent;
 use crate::traits::{RemoveWorldObject, SetWorldObject};
 use crate::world::WorldObject;
 use commons::async_trait::async_trait;

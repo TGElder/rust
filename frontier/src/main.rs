@@ -8,7 +8,6 @@ mod artists;
 mod avatar;
 mod configuration;
 mod event_forwarder;
-mod event_forwarder_2;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -32,7 +31,6 @@ mod world_gen;
 
 use crate::configuration::Configuration;
 use crate::event_forwarder::EventForwarder;
-use crate::event_forwarder_2::EventForwarder2;
 use crate::game::*;
 use crate::system::System;
 use crate::territory::*;
@@ -78,12 +76,7 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let mut config = Configuration::new(
-        &game.game_state(),
-        &engine.command_tx(),
-        game.tx(),
-        &thread_pool,
-    );
+    let mut config = Configuration::new(&game.game_state(), &mut engine, game.tx(), &thread_pool);
     match parsed_args {
         ParsedArgs::New { .. } => config.new_game(),
         ParsedArgs::Load { path } => config.load(&path),
@@ -129,7 +122,6 @@ fn main() {
     let mut event_forwarder = EventForwarder::new();
     let mut system = System::new(event_forwarder.subscribe(), thread_pool.clone(), config);
 
-    engine.add_event_consumer(EventForwarder2::new(x.clone_with_name("event_forwarder")));
     engine.add_event_consumer(event_forwarder);
 
     // Run

@@ -1,11 +1,10 @@
-use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 
 use commons::async_trait::async_trait;
 use commons::fn_sender::{fn_channel, FnSender};
 use commons::futures::executor::ThreadPool;
 use commons::futures::future::FutureExt;
-use isometric::Command;
+use isometric::IsometricEngine;
 
 use crate::actors::{
     BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
@@ -13,7 +12,7 @@ use crate::actors::{
 };
 use crate::artists::{WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
-use crate::configuration::Polysender;
+use crate::configuration::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::game::{Game, GameState};
 use crate::pathfinder::Pathfinder;
 use crate::process::{ActiveProcess, PassiveProcess, Persistable, Process};
@@ -33,6 +32,7 @@ use crate::traits::{SendGame, SendGameState};
 pub struct Configuration {
     pub x: Polysender,
     pub basic_road_builder: PassiveProcess<BasicRoadBuilder<Polysender>>,
+    pub event_forwarder: PassiveProcess<EventForwarderActor>,
     pub object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
     pub simulation: ActiveProcess<Simulation<Polysender>>,
     pub town_builder: PassiveProcess<TownBuilderActor<Polysender>>,
@@ -46,7 +46,7 @@ pub struct Configuration {
 impl Configuration {
     pub fn new(
         game_state: &GameState,
-        engine_tx: &Sender<Vec<Command>>,
+        engine: &mut IsometricEngine,
         game_tx: &FnSender<Game>,
         thread_pool: &ThreadPool,
     ) -> Configuration {
@@ -84,11 +84,18 @@ impl Configuration {
             pathfinder_without_planned_roads: pathfinder_without_planned_roads.clone(),
         };
 
+        let (event_forwarder_tx, event_forwarder_rx) = fn_channel();
+        engine.add_event_consumer(EventForwarderConsumer::new(event_forwarder_tx));
+
         let config = Configuration {
             x: x.clone_with_name("processes"),
             basic_road_builder: PassiveProcess::new(
                 BasicRoadBuilder::new(x.clone_with_name("basic_road_builder")),
                 basic_road_builder_rx,
+            ),
+            event_forwarder: PassiveProcess::new(
+                EventForwarderActor::new(x.clone_with_name("event_forwarder")),
+                event_forwarder_rx,
             ),
             object_builder: PassiveProcess::new(
                 ObjectBuilder::new(x.clone_with_name("object_builder"), game_state.params.seed),
@@ -159,7 +166,7 @@ impl Configuration {
             town_house_artist: PassiveProcess::new(
                 TownHouseArtist::new(
                     x.clone_with_name("town_houses"),
-                    engine_tx.clone(),
+                    engine.command_tx(),
                     game_state.params.town_artist,
                 ),
                 town_house_artist_rx,
@@ -167,7 +174,7 @@ impl Configuration {
             town_label_artist: PassiveProcess::new(
                 TownLabelArtist::new(
                     x.clone_with_name("town_labels"),
-                    engine_tx.clone(),
+                    engine.command_tx(),
                     game_state.params.town_artist,
                 ),
                 town_label_artist_rx,
@@ -180,7 +187,7 @@ impl Configuration {
             world_artist: PassiveProcess::new(
                 WorldArtistActor::new(
                     x.clone_with_name("world_artist_actor"),
-                    engine_tx.clone(),
+                    engine.command_tx(),
                     WorldArtist::new(
                         &game_state.world,
                         WorldArtistParameters {
@@ -247,9 +254,11 @@ impl SystemListener for Configuration {
         self.simulation.start(pool);
         self.object_builder.start(pool);
         self.basic_road_builder.start(pool);
+        self.event_forwarder.start(pool);
     }
 
     async fn pause(&mut self) {
+        self.event_forwarder.pause().await;
         self.basic_road_builder.pause().await;
         self.object_builder.pause().await;
         self.simulation.pause().await;

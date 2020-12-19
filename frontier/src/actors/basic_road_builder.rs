@@ -1,4 +1,4 @@
-use crate::event_forwarder_2::HandleEngineEvent;
+use crate::configuration::HandleEngineEvent;
 use crate::game::{Game, GameState};
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
 use crate::traits::{SendGame, UpdateRoads};
