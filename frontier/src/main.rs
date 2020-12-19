@@ -7,7 +7,6 @@ mod actors;
 mod artists;
 mod avatar;
 mod configuration;
-mod event_forwarder;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -30,7 +29,6 @@ mod world;
 mod world_gen;
 
 use crate::configuration::Configuration;
-use crate::event_forwarder::EventForwarder;
 use crate::game::*;
 use crate::system::System;
 use crate::territory::*;
@@ -119,17 +117,13 @@ fn main() {
         thread_pool.clone(),
     ));
 
-    let mut event_forwarder = EventForwarder::new();
-    let mut system = System::new(event_forwarder.subscribe(), thread_pool.clone(), config);
-
-    engine.add_event_consumer(event_forwarder);
-
     // Run
 
-    let game_handle = thread::spawn(move || game.run());
-
+    let mut system = System::new(&mut engine, thread_pool.clone(), config);
     let (system_run, system_handle) = async move { system.run().await }.remote_handle();
     thread_pool.spawn_ok(system_run);
+
+    let game_handle = thread::spawn(move || game.run());
 
     engine.run();
 

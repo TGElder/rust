@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use commons::async_channel::{Receiver, RecvError};
+use commons::async_channel::{unbounded, Receiver, RecvError, Sender};
 use commons::async_trait::async_trait;
+use commons::futures::executor::block_on;
 use commons::futures::executor::ThreadPool;
 use commons::futures::future::FutureExt;
 use commons::log::info;
-use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
+use isometric::{
+    Button, ElementState, Event, EventConsumer, IsometricEngine, ModifiersState, VirtualKeyCode,
+};
 
 const SAVE_PATH: &str = "save";
 
@@ -34,7 +37,10 @@ impl<T> System<T>
 where
     T: SystemListener,
 {
-    pub fn new(engine_rx: Receiver<Arc<Event>>, pool: ThreadPool, listener: T) -> System<T> {
+    pub fn new(engine: &mut IsometricEngine, pool: ThreadPool, listener: T) -> System<T> {
+        let (engine_tx, engine_rx) = unbounded();
+        engine.add_event_consumer(SystemEventForwarder::new(engine_tx));
+
         System {
             engine_rx,
             pool,
@@ -126,5 +132,21 @@ where
         if let Event::Shutdown = *event {
             self.shutdown().await;
         }
+    }
+}
+
+pub struct SystemEventForwarder {
+    tx: Sender<Arc<Event>>,
+}
+
+impl SystemEventForwarder {
+    pub fn new(tx: Sender<Arc<Event>>) -> SystemEventForwarder {
+        SystemEventForwarder { tx }
+    }
+}
+
+impl EventConsumer for SystemEventForwarder {
+    fn consume_event(&mut self, event: Arc<Event>) {
+        block_on(async { self.tx.send(event.clone()).await }).unwrap();
     }
 }
