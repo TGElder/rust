@@ -21,7 +21,7 @@ where
     tx: FnSender<Self>,
     rx: FnReceiver<Self>,
     run: bool,
-    initialized: bool,
+    drain_messages: bool,
 }
 
 impl<T> Program<T>
@@ -36,7 +36,7 @@ where
             tx,
             rx,
             run: true,
-            initialized: false,
+            drain_messages: false,
         }
     }
 
@@ -44,7 +44,7 @@ where
     where
         T: Send,
     {
-        if self.initialized {
+        if self.drain_messages {
             let messages = self.actor_rx.get_messages();
             if !messages.is_empty() {
                 error!(
@@ -54,7 +54,7 @@ where
                 );
             }
         } else {
-            self.initialized = true;
+            self.drain_messages = true;
         }
     }
 }

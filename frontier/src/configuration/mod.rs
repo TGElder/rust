@@ -1,6 +1,6 @@
+#[allow(clippy::module_inception)]
 mod configuration;
 mod event_forwarder;
-#[allow(clippy::module_inception)]
 mod init;
 mod polysender;
 
