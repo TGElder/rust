@@ -16,7 +16,6 @@ mod label_editor;
 mod names;
 mod nation;
 mod pathfinder;
-mod polysender;
 mod process;
 mod resource;
 mod road_builder;

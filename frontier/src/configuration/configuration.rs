@@ -13,9 +13,9 @@ use crate::actors::{
 };
 use crate::artists::{WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
+use crate::configuration::Polysender;
 use crate::game::{Game, GameState};
 use crate::pathfinder::Pathfinder;
-use crate::polysender::Polysender;
 use crate::process::{ActiveProcess, PassiveProcess, Persistable, Process};
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};

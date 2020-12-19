@@ -4,7 +4,7 @@ use commons::futures::future::FutureExt;
 use isometric::{Event, EventConsumer};
 use std::sync::Arc;
 
-use crate::polysender::Polysender;
+use crate::configuration::Polysender;
 
 pub struct EventForwarder2 {
     x: Polysender,

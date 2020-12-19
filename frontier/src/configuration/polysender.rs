@@ -1,5 +1,3 @@
-use super::*;
-
 use crate::actors::{
     BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
     VisibilityActor, Voyager, WorldArtistActor,
@@ -18,6 +16,7 @@ use crate::traits::{
     SendWorldArtist,
 };
 use crate::world::World;
+use commons::async_trait::async_trait;
 use commons::fn_sender::FnSender;
 use commons::futures::future::BoxFuture;
 use commons::V2;
