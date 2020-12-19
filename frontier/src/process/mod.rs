@@ -6,7 +6,10 @@ use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver, FnSender};
 use commons::futures::executor::ThreadPool;
 use commons::futures::future::{FutureExt, RemoteHandle};
 
+use std::any::type_name;
+
 pub use active_process::*;
+use commons::log::{debug, error};
 pub use passive_process::*;
 
 pub struct Program<T>
@@ -18,6 +21,7 @@ where
     tx: FnSender<Self>,
     rx: FnReceiver<Self>,
     run: bool,
+    drain_messages: bool,
 }
 
 impl<T> Program<T>
@@ -32,6 +36,25 @@ where
             tx,
             rx,
             run: true,
+            drain_messages: false,
+        }
+    }
+
+    fn drain_actor_messages(&mut self)
+    where
+        T: Send,
+    {
+        if self.drain_messages {
+            let messages = self.actor_rx.get_messages();
+            if !messages.is_empty() {
+                error!(
+                    "{} unprocessed messages on {:?}!",
+                    messages.len(),
+                    type_name::<T>()
+                );
+            }
+        } else {
+            self.drain_messages = true;
         }
     }
 }
@@ -54,11 +77,13 @@ pub trait Process: Send {
 
     fn start(&mut self, pool: &ThreadPool) {
         if let ProcessState::Paused(program) = self.mut_state() {
-            let program = program.take().unwrap();
+            let mut program = program.take().unwrap();
+            program.drain_actor_messages();
             let tx = program.tx.clone();
             let (runnable, handle) = async move { Self::run(program).await }.remote_handle();
             pool.spawn_ok(runnable);
             *self.mut_state() = ProcessState::Running { handle, tx };
+            debug!("Started {:?}", type_name::<Self::T>());
         } else {
             panic!("Cannot start program: program is not paused!");
         }
@@ -68,6 +93,7 @@ pub trait Process: Send {
         if let ProcessState::Running { handle, tx } = self.mut_state() {
             tx.send(|program| program.run = false).await;
             *self.mut_state() = ProcessState::Paused(Some(handle.await));
+            debug!("Paused {:?}", type_name::<Self::T>());
         } else {
             panic!("Cannot pause program: program is not running!");
         }
@@ -98,6 +124,7 @@ where
     fn save(&self, path: &str) {
         if let ProcessState::Paused(program) = self.state() {
             program.as_ref().unwrap().actor.save(path);
+            debug!("Saved {:?}", type_name::<<T as Process>::T>());
         } else {
             panic!("Cannot save program state: program is not paused!");
         }
@@ -106,6 +133,7 @@ where
     fn load(&mut self, path: &str) {
         if let ProcessState::Paused(program) = self.mut_state() {
             program.as_mut().unwrap().actor.load(path);
+            debug!("Loaded {:?}", type_name::<<T as Process>::T>());
         } else {
             panic!("Cannot load program state: program is not paused!");
         }

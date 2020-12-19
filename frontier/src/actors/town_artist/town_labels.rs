@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::actors::town_artist::get_house_height_with_roof;
 use crate::actors::TownArtistParameters;
-use crate::event_forwarder_2::HandleEngineEvent;
+use crate::configuration::HandleEngineEvent;
 use crate::settlement::*;
 use crate::traits::{GetNationDescription, GetSettlement, SendWorld, Settlements};
 use crate::world::World;

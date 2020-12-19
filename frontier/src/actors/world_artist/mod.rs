@@ -4,7 +4,7 @@ pub use coloring::WorldColoringParameters;
 use commons::async_trait::async_trait;
 
 use crate::artists::{Slab, WorldArtist};
-use crate::event_forwarder_2::HandleEngineEvent;
+use crate::configuration::HandleEngineEvent;
 use crate::game::Game;
 use crate::traits::{Micros, SendGame};
 use coloring::world_coloring;
