@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use commons::grid::Grid;
-use commons::log::info;
+use commons::log::trace;
+use commons::rand::prelude::SmallRng;
+use commons::rand::{Rng, SeedableRng};
 
 use crate::game::traits::GetRoute;
 use crate::resource::Resource;
@@ -12,6 +14,7 @@ use crate::world::{World, WorldObject};
 use super::*;
 pub struct TryBuildCrops<X> {
     x: X,
+    rng: SmallRng,
 }
 
 #[async_trait]
@@ -41,7 +44,7 @@ where
             }
         }
 
-        info!(
+        trace!(
             "Built {}/{} crops in {}ms",
             built,
             position_count,
@@ -56,11 +59,14 @@ impl<X> TryBuildCrops<X>
 where
     X: SendGame, // TOOD send routes
 {
-    pub fn new(x: X) -> TryBuildCrops<X> {
-        TryBuildCrops { x }
+    pub fn new(x: X, seed: u64) -> TryBuildCrops<X> {
+        TryBuildCrops {
+            x,
+            rng: SeedableRng::seed_from_u64(seed),
+        }
     }
 
-    async fn build_crops(&self, state: &mut State, position: &V2<usize>) -> bool {
+    async fn build_crops(&mut self, state: &mut State, position: &V2<usize>) -> bool {
         let mut routes = ok_or!(state.traffic.get(position), return false).clone();
         routes.retain(|route| route.resource == Resource::Crops);
 
@@ -84,8 +90,8 @@ where
         state.build_queue.insert(BuildInstruction {
             what: Build::Crops {
                 position: *position,
-                rotated: true,
-            }, // TODO random rotation
+                rotated: self.rng.gen(),
+            },
             when: first_visit,
         });
 

@@ -1,5 +1,5 @@
 use commons::edge::Edge;
-use commons::log::info;
+use commons::log::trace;
 
 use crate::game::traits::GetRoute;
 use crate::route::Route;
@@ -36,7 +36,7 @@ where
             }
         }
 
-        info!(
+        trace!(
             "Sent {}/{} build instructions in {}ms",
             count,
             edge_count,

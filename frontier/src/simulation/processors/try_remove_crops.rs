@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use commons::grid::Grid;
-use commons::log::info;
+use commons::log::trace;
 
 use crate::resource::Resource;
 use crate::traits::{
@@ -40,7 +40,7 @@ where
             self.x.remove_world_object(position).await; // TODO trait that checks the world object before removing
         }
 
-        info!(
+        trace!(
             "Removed {}/{} crops in {}ms",
             removed,
             position_count,

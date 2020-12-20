@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use commons::grid::Grid;
-use commons::log::info;
+use commons::log::trace;
 
 use crate::game::traits::GetRoute;
 use crate::route::{Route, RouteKey};
@@ -41,7 +41,7 @@ where
             }
         }
 
-        info!(
+        trace!(
             "Sent {}/{} build instructions in {}ms",
             count,
             position_count,

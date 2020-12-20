@@ -141,7 +141,10 @@ impl Configuration {
                         Box::new(UpdatePositionTraffic::new()),
                         Box::new(UpdateEdgeTraffic::new()),
                         Box::new(TryBuildTown::new(x.clone_with_name("try_build_town"))),
-                        Box::new(TryBuildCrops::new(x.clone_with_name("try_build_crops"))),
+                        Box::new(TryBuildCrops::new(
+                            x.clone_with_name("try_build_crops"),
+                            game_state.params.seed,
+                        )),
                         Box::new(TryRemoveCrops::new(x.clone_with_name("try_remove_crops"))),
                         Box::new(TryBuildRoad::new(
                             x.clone_with_name("try_build_road"),
