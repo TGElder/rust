@@ -19,7 +19,12 @@ use crate::process::{ActiveProcess, PassiveProcess, Persistable, Process};
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
-use crate::simulation::processors::{BuildSim, GetDemand, GetRouteChanges, GetRoutes, GetTerritory, GetTownTraffic, InstructionLogger, RefreshEdges, RefreshPositions, RemoveTown, StepHomeland, StepTown, TryBuildTown, UpdateCurrentPopulation, UpdateEdgeTraffic, UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown, max_abs_population_change};
+use crate::simulation::processors::{
+    max_abs_population_change, BuildSim, GetDemand, GetRouteChanges, GetRoutes, GetTerritory,
+    GetTownTraffic, InstructionLogger, RefreshEdges, RefreshPositions, RemoveTown, StepHomeland,
+    StepTown, TryBuildTown, UpdateCurrentPopulation, UpdateEdgeTraffic, UpdateHomelandPopulation,
+    UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
+};
 use crate::simulation::Simulation;
 use crate::system::SystemListener;
 use crate::traits::{SendGame, SendGameState};

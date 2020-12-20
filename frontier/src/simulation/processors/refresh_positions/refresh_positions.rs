@@ -1,3 +1,4 @@
+use commons::log::info;
 use futures::executor::ThreadPool;
 
 use super::*;
@@ -29,7 +30,15 @@ where
             Instruction::RefreshPositions(positions) => positions.clone(),
             _ => return state,
         };
-        self.refresh_positions_in_batches(state, positions).await
+        let start = std::time::Instant::now();
+        let position_count = positions.len();
+        let state = self.refresh_positions_in_batches(state, positions).await;
+        info!(
+            "Refreshed {} positions in {}ms",
+            position_count,
+            start.elapsed().as_millis()
+        );
+        state
     }
 }
 
@@ -107,9 +116,9 @@ fn refresh_position<G, X>(
     X: RemoveWorldObject + Clone + Send + Sync + 'static,
 {
     let traffic = get_position_traffic(game, &state, &position);
-    // for instruction in try_build_town(game, &traffic, &initial_town_population) {
-    //     state.build_queue.insert(instruction);
-    // }
+    for instruction in try_build_town(game, &traffic, &initial_town_population) {
+        state.build_queue.insert(instruction);
+    }
     if let Some(instruction) = try_build_crops(game, &traffic) {
         state.build_queue.insert(instruction);
     }
