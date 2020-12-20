@@ -123,9 +123,9 @@ impl Configuration {
                         Box::new(GetTownTraffic::new(game_tx)),
                         Box::new(UpdateTown::new(x.clone_with_name("update_town"))),
                         Box::new(RemoveTown::new(x.clone_with_name("remove_town"))),
-                        // Box::new(UpdateHomelandPopulation::new(
-                        //     x.clone_with_name("update_homeland_population"),
-                        // )),
+                        Box::new(UpdateHomelandPopulation::new(
+                            x.clone_with_name("update_homeland_population"),
+                        )),
                         Box::new(UpdateCurrentPopulation::new(
                             x.clone_with_name("update_current_population"),
                             max_abs_population_change,
