@@ -19,9 +19,9 @@ impl<X> Processor for TryBuildTown<X>
 where
     X: GetSettlement
         + RandomTownName
-        + WhoControlsTile
         + SendGame
         + SendWorld
+        + WhoControlsTile
         + Send
         + Sync
         + 'static,

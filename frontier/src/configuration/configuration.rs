@@ -22,8 +22,8 @@ use crate::simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
 use crate::simulation::processors::{
     max_abs_population_change, BuildSim, GetDemand, GetRouteChanges, GetRoutes, GetTerritory,
     GetTownTraffic, InstructionLogger, RefreshEdges, RefreshPositions, RemoveTown, StepHomeland,
-    StepTown, TryBuildTown, UpdateCurrentPopulation, UpdateEdgeTraffic, UpdateHomelandPopulation,
-    UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
+    StepTown, TryBuildTown, TryRemoveCrops, UpdateCurrentPopulation, UpdateEdgeTraffic,
+    UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
 };
 use crate::simulation::Simulation;
 use crate::system::SystemListener;
@@ -146,6 +146,7 @@ impl Configuration {
                             thread_pool.clone(),
                         )),
                         Box::new(TryBuildTown::new(x.clone_with_name("try_build_town"))),
+                        Box::new(TryRemoveCrops::new(x.clone_with_name("try_remove_crops"))),
                         Box::new(RefreshEdges::new(
                             &game_tx,
                             x.clone_with_name("refresh_edges"),
