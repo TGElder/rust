@@ -19,7 +19,7 @@ impl<X> Processor for TryRemoveCrops<X>
 where
     X: RemoveWorldObject + SendWorld + Send + Sync + 'static,
 {
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let mut positions = match instruction {
             Instruction::RefreshPositions(positions) => positions.clone(),
             _ => return state,
@@ -36,6 +36,7 @@ where
 
         let removed = have_crops.len();
         for position in have_crops {
+            state.build_queue.remove(&BuildKey::Crops(position));
             self.x.remove_world_object(position).await; // TODO trait that checks the world object before removing
         }
 
