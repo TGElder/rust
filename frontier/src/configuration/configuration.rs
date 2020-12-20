@@ -21,9 +21,10 @@ use crate::simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
 use crate::simulation::processors::{
     max_abs_population_change, BuildSim, GetDemand, GetRouteChanges, GetRoutes, GetTerritory,
-    GetTownTraffic, InstructionLogger, RefreshEdges, RemoveTown, StepHomeland, StepTown,
-    TryBuildCrops, TryBuildTown, TryRemoveCrops, UpdateCurrentPopulation, UpdateEdgeTraffic,
-    UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
+    GetTownTraffic, InstructionLogger, RemoveTown, StepHomeland, StepTown, TryBuildCrops,
+    TryBuildRoad, TryBuildTown, TryRemoveCrops, TryRemoveRoad, UpdateCurrentPopulation,
+    UpdateEdgeTraffic, UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts,
+    UpdateTown,
 };
 use crate::simulation::Simulation;
 use crate::system::SystemListener;
@@ -48,7 +49,6 @@ impl Configuration {
         game_state: &GameState,
         engine: &mut IsometricEngine,
         game_tx: &FnSender<Game>,
-        thread_pool: &ThreadPool,
     ) -> Configuration {
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
@@ -123,9 +123,9 @@ impl Configuration {
                         Box::new(GetTownTraffic::new(game_tx)),
                         Box::new(UpdateTown::new(x.clone_with_name("update_town"))),
                         Box::new(RemoveTown::new(x.clone_with_name("remove_town"))),
-                        Box::new(UpdateHomelandPopulation::new(
-                            x.clone_with_name("update_homeland_population"),
-                        )),
+                        // Box::new(UpdateHomelandPopulation::new(
+                        //     x.clone_with_name("update_homeland_population"),
+                        // )),
                         Box::new(UpdateCurrentPopulation::new(
                             x.clone_with_name("update_current_population"),
                             max_abs_population_change,
@@ -143,15 +143,13 @@ impl Configuration {
                         Box::new(TryBuildTown::new(x.clone_with_name("try_build_town"))),
                         Box::new(TryBuildCrops::new(x.clone_with_name("try_build_crops"))),
                         Box::new(TryRemoveCrops::new(x.clone_with_name("try_remove_crops"))),
-                        Box::new(RefreshEdges::new(
-                            &game_tx,
-                            x.clone_with_name("refresh_edges"),
-                            AutoRoadTravelDuration::from_params(
+                        Box::new(TryBuildRoad::new(
+                            x.clone_with_name("try_build_road"),
+                            Arc::new(AutoRoadTravelDuration::from_params(
                                 &game_state.params.auto_road_travel,
-                            ),
-                            &pathfinder_with_planned_roads,
-                            thread_pool.clone(),
+                            )),
                         )),
+                        Box::new(TryRemoveRoad::new(x.clone_with_name("try_remove_road"))),
                         Box::new(UpdateRouteToPorts::new(game_tx)),
                     ],
                 ),

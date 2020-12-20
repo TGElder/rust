@@ -63,7 +63,7 @@ where
 fn has_no_crop_routes(state: &State, position: &V2<usize>) -> bool {
     !ok_or!(state.traffic.get(&position), return false)
         .iter()
-        .any(|route| route.resource == Resource::Crops)
+        .any(|route| route.resource == Resource::Crops && route.destination == *position)
 }
 
 fn have_crops(world: &World, positions: HashSet<V2<usize>>) -> Vec<V2<usize>> {
