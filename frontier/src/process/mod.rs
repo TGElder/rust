@@ -21,7 +21,7 @@ where
     tx: FnSender<Self>,
     rx: FnReceiver<Self>,
     run: bool,
-    drain_messages: bool,
+    allow_clear_actor_messages: bool,
 }
 
 impl<T> Program<T>
@@ -36,15 +36,30 @@ where
             tx,
             rx,
             run: true,
-            drain_messages: false,
+            allow_clear_actor_messages: false,
         }
     }
 
-    fn drain_actor_messages(&mut self)
+    async fn manually_process_actor_messages(&mut self)
     where
         T: Send,
     {
-        if self.drain_messages {
+        let mut messages = self.actor_rx.get_messages();
+        if !messages.is_empty() {
+            debug!(
+                "{} messages from {:?} manually processed",
+                messages.len(),
+                type_name::<T>()
+            );
+            messages.apply(&mut self.actor).await;
+        }
+    }
+
+    fn clear_actor_messages(&mut self)
+    where
+        T: Send,
+    {
+        if self.allow_clear_actor_messages {
             let messages = self.actor_rx.get_messages();
             if !messages.is_empty() {
                 error!(
@@ -53,8 +68,6 @@ where
                     type_name::<T>()
                 );
             }
-        } else {
-            self.drain_messages = true;
         }
     }
 }
@@ -71,6 +84,9 @@ pub trait Process: Send {
         while t.run {
             Self::step(&mut t).await;
         }
+
+        t.manually_process_actor_messages().await;
+
         t.run = true;
         t
     }
@@ -78,7 +94,10 @@ pub trait Process: Send {
     fn start(&mut self, pool: &ThreadPool) {
         if let ProcessState::Paused(program) = self.mut_state() {
             let mut program = program.take().unwrap();
-            program.drain_actor_messages();
+
+            program.clear_actor_messages();
+            program.allow_clear_actor_messages = true;
+
             let tx = program.tx.clone();
             let (runnable, handle) = async move { Self::run(program).await }.remote_handle();
             pool.spawn_ok(runnable);
