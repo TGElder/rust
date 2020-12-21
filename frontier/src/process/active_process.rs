@@ -9,7 +9,7 @@ pub struct ActiveProcess<T>
 where
     T: Step + Send + 'static,
 {
-    state: ProcessState<T>,
+    state: Option<ProcessState<T>>,
 }
 
 impl<T> ActiveProcess<T>
@@ -18,7 +18,10 @@ where
 {
     pub fn new(actor: T, actor_rx: FnReceiver<T>) -> ActiveProcess<T> {
         ActiveProcess {
-            state: ProcessState::Paused(Some(Program::new(actor, actor_rx))),
+            state: Some(ProcessState::Paused {
+                actor,
+                receiver: ReceiverState::accumulating(actor_rx),
+            }),
         }
     }
 }
@@ -30,11 +33,11 @@ where
 {
     type T = T;
 
-    fn state(&self) -> &ProcessState<Self::T> {
+    fn state(&self) -> &Option<ProcessState<Self::T>> {
         &self.state
     }
 
-    fn mut_state(&mut self) -> &mut ProcessState<Self::T> {
+    fn mut_state(&mut self) -> &mut Option<ProcessState<Self::T>> {
         &mut self.state
     }
 

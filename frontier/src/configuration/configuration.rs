@@ -245,29 +245,29 @@ impl SystemListener for Configuration {
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
             .await;
 
-        self.world_artist.start(pool);
-        self.voyager.start(pool);
-        self.visibility.start(pool);
-        self.town_house_artist.start(pool);
-        self.town_label_artist.start(pool);
-        self.town_builder.start(pool);
-        self.simulation.start(pool);
-        self.object_builder.start(pool);
-        self.basic_road_builder.start(pool);
-        self.event_forwarder.start(pool);
+        self.world_artist.start(pool).await;
+        self.voyager.start(pool).await;
+        self.visibility.start(pool).await;
+        self.town_house_artist.start(pool).await;
+        self.town_label_artist.start(pool).await;
+        self.town_builder.start(pool).await;
+        self.simulation.start(pool).await;
+        self.object_builder.start(pool).await;
+        self.basic_road_builder.start(pool).await;
+        self.event_forwarder.start(pool).await;
     }
 
-    async fn pause(&mut self) {
-        self.event_forwarder.pause().await;
-        self.basic_road_builder.pause().await;
-        self.object_builder.pause().await;
-        self.simulation.pause().await;
-        self.town_builder.pause().await;
-        self.town_label_artist.pause().await;
-        self.town_house_artist.pause().await;
-        self.visibility.pause().await;
-        self.voyager.pause().await;
-        self.world_artist.pause().await;
+    async fn pause(&mut self, pool: &ThreadPool) {
+        self.event_forwarder.pause(pool).await;
+        self.basic_road_builder.pause(pool).await;
+        self.object_builder.pause(pool).await;
+        self.simulation.pause(pool).await;
+        self.town_builder.pause(pool).await;
+        self.town_label_artist.pause(pool).await;
+        self.town_house_artist.pause(pool).await;
+        self.visibility.pause(pool).await;
+        self.voyager.pause(pool).await;
+        self.world_artist.pause(pool).await;
 
         self.x
             .send_game_state(|game_state| game_state.speed = 0.0)
