@@ -8,7 +8,7 @@ use graphics::{Drawing, GraphicsEngine, GraphicsEngineParameters};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
-use glutin::GlContext;
+use glutin::{ContextTrait, WindowedContext};
 
 #[derive(Debug, PartialEq)]
 pub enum Button {
@@ -72,7 +72,7 @@ pub enum Command {
 
 pub struct IsometricEngine {
     events_loop: glutin::EventsLoop,
-    window: glutin::GlWindow,
+    window: WindowedContext,
     graphics: GraphicsEngine,
     running: bool,
     cursor_handler: CursorHandler,
@@ -105,7 +105,7 @@ impl IsometricEngine {
             .with_gl(IsometricEngine::GL_VERSION)
             .with_vsync(true)
             .with_multisampling(4);
-        let gl_window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
+        let gl_window = WindowedContext::new_windowed(window, context, &events_loop).unwrap();
 
         unsafe {
             gl_window.make_current().unwrap();
