@@ -4,7 +4,7 @@ pub struct PassiveProcess<T>
 where
     T: Send + 'static,
 {
-    state: ProcessState<T>,
+    state: Option<ProcessState<T>>,
 }
 
 impl<T> PassiveProcess<T>
@@ -13,7 +13,10 @@ where
 {
     pub fn new(actor: T, actor_rx: FnReceiver<T>) -> PassiveProcess<T> {
         PassiveProcess {
-            state: ProcessState::Paused(Some(Program::new(actor, actor_rx))),
+            state: Some(ProcessState::Paused {
+                actor,
+                rx_state: ReceiverState::accumulating(actor_rx),
+            }),
         }
     }
 }
@@ -25,11 +28,11 @@ where
 {
     type T = T;
 
-    fn state(&self) -> &ProcessState<Self::T> {
+    fn state(&self) -> &Option<ProcessState<Self::T>> {
         &self.state
     }
 
-    fn mut_state(&mut self) -> &mut ProcessState<Self::T> {
+    fn mut_state(&mut self) -> &mut Option<ProcessState<Self::T>> {
         &mut self.state
     }
 

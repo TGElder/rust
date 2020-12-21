@@ -24,7 +24,7 @@ pub struct System<T> {
 #[async_trait]
 pub trait SystemListener {
     async fn start(&mut self, pool: &ThreadPool);
-    async fn pause(&mut self);
+    async fn pause(&mut self, pool: &ThreadPool);
     async fn save(&mut self, path: &str);
 }
 
@@ -73,7 +73,7 @@ where
 
     async fn pause(&mut self) {
         info!("Pausing system");
-        self.listener.pause().await;
+        self.listener.pause(&self.pool).await;
         self.paused = true;
         info!("Paused system");
     }
