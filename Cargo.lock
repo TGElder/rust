@@ -641,9 +641,9 @@ dependencies = [
 
 [[package]]
 name = "glutin"
-version = "0.20.1"
+version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e5cc17ac6cb35704f434faaa5bb5e4254a66f50853976c7e6f00aee09ff1bf2"
+checksum = "5371b35b309dace06be1b81b5f6adb1c9de578b7dbe1e74bf7e4ef762cf6febd"
 dependencies = [
  "android_glue",
  "cgl",
@@ -651,15 +651,15 @@ dependencies = [
  "core-foundation",
  "core-graphics",
  "glutin_egl_sys",
+ "glutin_emscripten_sys",
  "glutin_gles2_sys",
  "glutin_glx_sys",
  "glutin_wgl_sys",
  "lazy_static",
- "libc",
  "libloading",
  "objc",
  "osmesa-sys",
- "shared_library",
+ "parking_lot",
  "wayland-client",
  "winapi",
  "winit",
@@ -674,6 +674,12 @@ dependencies = [
  "gl_generator 0.14.0",
  "winapi",
 ]
+
+[[package]]
+name = "glutin_emscripten_sys"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80de4146df76e8a6c32b03007bc764ff3249dcaeb4f675d68a06caf1bac363f1"
 
 [[package]]
 name = "glutin_gles2_sys"
