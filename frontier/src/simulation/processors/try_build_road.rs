@@ -35,7 +35,10 @@ where
         let edge_count = edges.len();
 
         let travel_duration = self.travel_duration.clone();
-        let candidates = self.x.send_world(move |world| candidates(world, travel_duration, edges)).await;
+        let candidates = self
+            .x
+            .send_world(move |world| candidates(world, travel_duration, edges))
+            .await;
         let candidate_count = candidates.len();
 
         for candidate in candidates {
@@ -43,7 +46,6 @@ where
                 count += 1;
             }
         }
-        
 
         trace!(
             "Sent {}/{}/{} build instructions in {}ms",
@@ -149,7 +151,11 @@ where
     }
 }
 
-fn candidates(world: &World, travel_duration: Arc<dyn TravelDuration>, edges: HashSet<Edge>) -> Vec<Edge> {
+fn candidates(
+    world: &World,
+    travel_duration: Arc<dyn TravelDuration>,
+    edges: HashSet<Edge>,
+) -> Vec<Edge> {
     edges
         .into_iter()
         .filter(|edge| {
