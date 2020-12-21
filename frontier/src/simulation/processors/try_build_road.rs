@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use commons::edge::Edge;
 use commons::log::trace;
 
@@ -5,6 +7,7 @@ use crate::game::traits::GetRoute;
 use crate::route::Route;
 use crate::traits::{PathfinderWithPlannedRoads, SendGame, SendPathfinder, SendWorld};
 use crate::travel_duration::{EdgeDuration, TravelDuration};
+use crate::world::World;
 
 use super::*;
 
@@ -30,15 +33,22 @@ where
         let start = std::time::Instant::now();
         let mut count: usize = 0;
         let edge_count = edges.len();
-        for edge in edges {
-            if self.process_edge(&mut state, edge).await {
+
+        let travel_duration = self.travel_duration.clone();
+        let candidates = self.x.send_world(move |world| candidates(world, travel_duration, edges)).await;
+        let candidate_count = candidates.len();
+
+        for candidate in candidates {
+            if self.process_edge(&mut state, candidate).await {
                 count += 1;
             }
         }
+        
 
         trace!(
-            "Sent {}/{} build instructions in {}ms",
+            "Sent {}/{}/{} build instructions in {}ms",
             count,
+            candidate_count,
             edge_count,
             start.elapsed().as_millis()
         );
@@ -83,20 +93,12 @@ where
             .min()
             .unwrap();
 
-        let travel_duration_in_world = self.travel_duration.clone();
         if self
             .x
             .send_world(move |world| {
-                if world.is_road(&edge)
-                    || world
-                        .road_planned(&edge)
-                        .map_or(false, |when| when <= first_visit)
-                {
-                    return true;
-                }
-                if travel_duration_in_world
-                    .get_duration(world, edge.from(), edge.to())
-                    .is_none()
+                if world
+                    .road_planned(&edge)
+                    .map_or(false, |when| when <= first_visit)
                 {
                     return true;
                 }
@@ -145,4 +147,16 @@ where
                 }
             });
     }
+}
+
+fn candidates(world: &World, travel_duration: Arc<dyn TravelDuration>, edges: HashSet<Edge>) -> Vec<Edge> {
+    edges
+        .into_iter()
+        .filter(|edge| {
+            !world.is_road(edge)
+                && travel_duration
+                    .get_duration(world, edge.from(), edge.to())
+                    .is_some()
+        })
+        .collect()
 }
