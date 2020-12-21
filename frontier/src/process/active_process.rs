@@ -20,7 +20,7 @@ where
         ActiveProcess {
             state: Some(ProcessState::Paused {
                 actor,
-                receiver: ReceiverState::accumulating(actor_rx),
+                rx_state: ReceiverState::accumulating(actor_rx),
             }),
         }
     }
