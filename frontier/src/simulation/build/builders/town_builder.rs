@@ -14,11 +14,7 @@ where
     X: AddTown + UpdateTerritory + WhoControlsTile + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
-        if let Build::Town { .. } = build {
-            true
-        } else {
-            false
-        }
+        matches!(build, Build::Town { .. })
     }
 
     async fn build(&mut self, build: Build) {

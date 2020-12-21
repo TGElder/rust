@@ -116,13 +116,13 @@ impl Territory {
     }
 
     pub fn is_controlled_by(&self, position: &V2<usize>, controller: &V2<usize>) -> bool {
-        match self.who_controls(position) {
+        matches!(
+            self.who_controls(position),
             Some(Claim {
                 controller: controlled_by,
                 ..
-            }) if controlled_by == controller => true,
-            _ => false,
-        }
+            }) if controlled_by == controller
+        )
     }
 
     pub fn controlled(&self, controller: &V2<usize>) -> HashSet<V2<usize>> {

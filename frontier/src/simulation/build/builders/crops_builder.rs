@@ -14,11 +14,7 @@ where
     T: AddCrops + GetSettlement + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
-        if let Build::Crops { .. } = build {
-            true
-        } else {
-            false
-        }
+        matches!(build, Build::Crops { .. })
     }
 
     async fn build(&mut self, build: Build) {

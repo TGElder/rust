@@ -17,11 +17,7 @@ where
     G: AddRoad + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
-        if let Build::Road(..) = build {
-            true
-        } else {
-            false
-        }
+        matches!(build, Build::Road(..))
     }
 
     async fn build(&mut self, build: Build) {

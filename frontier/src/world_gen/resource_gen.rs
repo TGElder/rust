@@ -353,7 +353,8 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         position: &V2<usize>,
         vegetation_type: VegetationType,
     ) -> bool {
-        match self.world.get_cell(position) {
+        matches!(
+            self.world.get_cell(position),
             Some(WorldCell {
                 object:
                     WorldObject::Vegetation {
@@ -361,21 +362,18 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                         ..
                     },
                 ..
-            }) if *actual == vegetation_type => true,
-            _ => false,
-        }
+            }) if *actual == vegetation_type
+        )
     }
 
     fn tile_has_object(&self, position: &V2<usize>) -> bool {
-        if let Some(WorldCell {
-            object: WorldObject::None,
-            ..
-        }) = self.world.get_cell(position)
-        {
-            false
-        } else {
-            true
-        }
+        !matches!(
+            self.world.get_cell(position),
+            Some(WorldCell {
+                object: WorldObject::None,
+                ..
+            })
+        )
     }
 
     fn tile_is_beach(&self, position: &V2<usize>) -> bool {

@@ -139,7 +139,7 @@ impl Path {
     pub fn extend(
         &self,
         world: &World,
-        mut extension: Vec<V2<usize>>,
+        extension: Vec<V2<usize>>,
         travel_duration: &dyn TravelDuration,
     ) -> Option<Path> {
         if *self.final_position() == extension[0] {

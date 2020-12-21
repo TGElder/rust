@@ -197,14 +197,16 @@ impl Game {
             .game_state
             .selected_avatar()
             .map(|avatar| avatar.name.to_string());
-        self.game_state.avatars.retain(|_, avatar| match avatar {
-            Avatar {
-                state: AvatarState::Stationary { .. },
-                ref name,
-                ..
-            } if Some(name) != selected_avatar_name.as_ref() => false,
-            _ => true,
-        });
+        self.game_state.avatars.retain(|_, avatar| {
+            !matches!(
+                avatar,
+                Avatar {
+                    state: AvatarState::Stationary { .. },
+                    ref name,
+                    ..
+                } if Some(name) != selected_avatar_name.as_ref()
+            )
+        })
     }
 
     pub fn update_avatar_state(&mut self, name: String, new_state: AvatarState) {

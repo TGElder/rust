@@ -62,7 +62,7 @@ where
             nations
                 .get_mut(&nation)
                 .map(|nation| nation.get_town_name())
-                .ok_or_else(|| NationNotFound { nation })
+                .ok_or(NationNotFound { nation })
         })
         .await
     }

@@ -63,10 +63,7 @@ fn get_targets(game_state: &GameState, resource: Resource) -> HashSet<V2<usize>>
 }
 
 fn resource_at(world: &World, resource: Resource, position: &V2<usize>) -> bool {
-    match world.get_cell(position) {
-        Some(cell) if cell.resource == resource => true,
-        _ => false,
-    }
+    matches!(world.get_cell(position), Some(cell) if cell.resource == resource)
 }
 
 pub fn target_set(resource: Resource) -> String {

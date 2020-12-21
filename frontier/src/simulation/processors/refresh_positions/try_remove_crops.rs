@@ -40,15 +40,13 @@ fn get_crop_routes(traffic: &PositionTrafficSummary) -> Vec<&RouteSummary> {
 }
 
 fn cell_has_crops(world: &dyn HasWorld, position: &V2<usize>) -> bool {
-    if let Some(WorldCell {
-        object: WorldObject::Crop { .. },
-        ..
-    }) = world.world().get_cell(&position)
-    {
-        true
-    } else {
-        false
-    }
+    matches!(
+        world.world().get_cell(&position),
+        Some(WorldCell {
+            object: WorldObject::Crop { .. },
+            ..
+        })
+    )
 }
 
 fn remove_crops<X>(x: &X, pool: &ThreadPool, position: V2<usize>)
