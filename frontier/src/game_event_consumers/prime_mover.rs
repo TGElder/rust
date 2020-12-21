@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::default::Default;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const NAME: &str = "prime_mover";
 
@@ -45,6 +45,7 @@ pub struct PrimeMover {
     game_tx: FnSender<Game>,
     state: PrimeMoverState,
     active: bool,
+    last_update: Option<Instant>,
     rng: SmallRng,
 }
 
@@ -55,16 +56,26 @@ impl PrimeMover {
             game_tx: game_tx.clone_with_name(NAME),
             state: PrimeMoverState::default(),
             active: false,
+            last_update: None,
             rng: SeedableRng::seed_from_u64(seed),
             binding: Button::Key(VirtualKeyCode::K),
         }
     }
 
     fn tick(&mut self, game_state: &GameState) {
-        if self.active {
+        if self.active && self.ready() {
             self.update_visible_routes(game_state);
             self.prune_frozen(game_state);
             self.show_routes(game_state);
+            self.last_update = Some(Instant::now());
+        }
+    }
+
+    fn ready(&mut self) -> bool {
+        if let Some(last_update) = self.last_update {
+            last_update.elapsed().as_millis() >= 1000
+        } else {
+            true
         }
     }
 

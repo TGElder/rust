@@ -76,7 +76,7 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let mut config = Configuration::new(&game.game_state(), &mut engine, game.tx(), &thread_pool);
+    let mut config = Configuration::new(&game.game_state(), &mut engine, game.tx());
     match parsed_args {
         ParsedArgs::New { .. } => config.new_game(),
         ParsedArgs::Load { path } => config.load(&path),
