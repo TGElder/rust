@@ -108,7 +108,6 @@ where
 
     fn draining(actor_rx: FnReceiver<T>, pool: &ThreadPool) -> ReceiverState<T> {
         let drain = Drain::new(actor_rx);
-
         let tx = drain.tx.clone();
 
         let (runnable, handle) = async move { drain.run().await }.remote_handle();
@@ -173,13 +172,8 @@ pub trait Process: Send {
     }
 
     async fn start(&mut self, pool: &ThreadPool) {
-        let state = self.mut_state().take().unwrap();
-        if let ProcessState::Paused {
-            actor,
-            rx_state: receiver,
-        } = state
-        {
-            let actor_rx = receiver.actor_rx().await;
+        if let ProcessState::Paused { actor, rx_state } = self.mut_state().take().unwrap() {
+            let actor_rx = rx_state.actor_rx().await;
 
             let program = Program::new(actor, actor_rx);
             let tx = program.tx.clone();
