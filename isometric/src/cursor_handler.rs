@@ -58,8 +58,8 @@ impl CursorHandler {
 impl EventConsumer for CursorHandler {
     fn consume_event(&mut self, event: Arc<Event>) {
         match *event {
-            Event::GlutinEvent(glutin::Event::WindowEvent {
-                event: glutin::WindowEvent::CursorMoved { position, .. },
+            Event::GlutinEvent(glutin::event::Event::WindowEvent {
+                event: glutin::event::WindowEvent::CursorMoved { position, .. },
                 ..
             }) => {
                 self.screen_cursor = Some(position);

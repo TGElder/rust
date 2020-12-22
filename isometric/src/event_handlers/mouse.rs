@@ -8,9 +8,9 @@ pub struct MouseRelay {}
 impl EventHandler for MouseRelay {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
-            Event::GlutinEvent(glutin::Event::WindowEvent {
+            Event::GlutinEvent(glutin::event::Event::WindowEvent {
                 event:
-                    glutin::WindowEvent::MouseInput {
+                    glutin::event::WindowEvent::MouseInput {
                         button,
                         state,
                         modifiers,

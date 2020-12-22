@@ -12,8 +12,8 @@ use glutin::{PossiblyCurrent, WindowedContext};
 
 #[derive(Debug, PartialEq)]
 pub enum Button {
-    Key(glutin::VirtualKeyCode),
-    Mouse(glutin::MouseButton),
+    Key(glutin::event::VirtualKeyCode),
+    Mouse(glutin::event::MouseButton),
 }
 
 #[derive(Debug)]
@@ -25,12 +25,12 @@ pub enum Event {
     DPIChanged(f64),
     CursorMoved(Option<GLCoord4D>),
     WorldPositionChanged(Option<WorldCoord>),
-    GlutinEvent(glutin::Event),
+    GlutinEvent(glutin::event::Event<'static, ()>),
     Drag(GLCoord4D),
     Button {
         button: Button,
-        state: glutin::ElementState,
-        modifiers: glutin::ModifiersState,
+        state: glutin::event::ElementState,
+        modifiers: glutin::event::ModifiersState,
     },
 }
 
@@ -71,7 +71,7 @@ pub enum Command {
 }
 
 pub struct IsometricEngine {
-    events_loop: glutin::EventsLoop,
+    events_loop: glutin::event_loop::EventLoop<()>,
     windowed_context: WindowedContext<PossiblyCurrent>,
     graphics: GraphicsEngine,
     running: bool,
@@ -94,8 +94,8 @@ impl IsometricEngine {
     const GL_VERSION: glutin::GlRequest = glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 3));
 
     pub fn new(params: IsometricEngineParameters) -> IsometricEngine {
-        let events_loop = glutin::EventsLoop::new();
-        let window = glutin::WindowBuilder::new()
+        let events_loop = glutin::event_loop::EventLoop::new();
+        let window = glutin::window::WindowBuilder::new()
             .with_title(params.title)
             .with_dimensions(glutin::dpi::LogicalSize::new(
                 f64::from(params.width),

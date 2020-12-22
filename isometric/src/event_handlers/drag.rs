@@ -10,10 +10,10 @@ pub struct DragHandler {
 }
 
 impl DragHandler {
-    fn handle_mouse_state(&mut self, state: glutin::ElementState) -> Vec<Command> {
+    fn handle_mouse_state(&mut self, state: glutin::event::ElementState) -> Vec<Command> {
         match state {
-            glutin::ElementState::Pressed => self.dragging = true,
-            glutin::ElementState::Released => self.dragging = false,
+            glutin::event::ElementState::Pressed => self.dragging = true,
+            glutin::event::ElementState::Released => self.dragging = false,
         };
         vec![]
     }
@@ -42,11 +42,11 @@ impl DragHandler {
 impl EventHandler for DragHandler {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
-            Event::GlutinEvent(glutin::Event::WindowEvent {
+            Event::GlutinEvent(glutin::event::Event::WindowEvent {
                 event:
-                    glutin::WindowEvent::MouseInput {
+                    glutin::event::WindowEvent::MouseInput {
                         state,
-                        button: glutin::MouseButton::Left,
+                        button: glutin::event::MouseButton::Left,
                         ..
                     },
                 ..
