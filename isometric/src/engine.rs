@@ -24,7 +24,6 @@ pub enum Event {
     Start,
     Tick,
     Shutdown,
-    Resize(glutin::dpi::PhysicalSize<u32>),
     CursorMoved(Option<GLCoord4D>),
     WorldPositionChanged(Option<WorldCoord>),
     GlutinEvent(glutin::event::Event<'static, ()>),
@@ -163,6 +162,7 @@ impl IsometricEngine {
 
     fn init_event_handlers(&mut self) {
         self.add_event_handler(ShutdownHandler::default());
+        self.add_event_handler(Resizer::default());
         self.add_event_handler(DragHandler::default());
         self.add_event_handler(Scroller::default());
         self.add_event_handler(KeyRelay::default());

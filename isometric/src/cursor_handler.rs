@@ -59,7 +59,10 @@ impl EventConsumer for CursorHandler {
             }) => {
                 self.screen_cursor = Some(position);
             }
-            Event::Resize(physical_size) => {
+            Event::GlutinEvent(glutin::event::Event::WindowEvent {
+                event: glutin::event::WindowEvent::Resized(physical_size),
+                ..
+            }) => {
                 self.physical_window_size = physical_size;
             }
             _ => (),
