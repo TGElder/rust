@@ -6,7 +6,7 @@ use commons::rand::rngs::SmallRng;
 use commons::rand::{Rng, SeedableRng};
 use commons::V2;
 use isometric::coords::WorldCoord;
-use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
+use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
 
 pub struct ObjectBuilder<T> {
@@ -82,13 +82,9 @@ where
             ..
         } = *event
         {
-            if button == &self.bindings.build_crop
-                && (modifiers == (!ModifiersState::ALT & ModifiersState::CTRL))
-            {
+            if button == &self.bindings.build_crop && !modifiers.alt() && modifiers.ctrl() {
                 self.build_farm_at_cursor().await;
-            } else if button == &self.bindings.demolish
-                && (modifiers == (!ModifiersState::ALT & ModifiersState::CTRL))
-            {
+            } else if button == &self.bindings.demolish && !modifiers.alt() && modifiers.ctrl() {
                 self.clear_object_at_cursor().await;
             }
         }

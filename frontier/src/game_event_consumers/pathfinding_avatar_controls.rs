@@ -1,7 +1,7 @@
 use super::*;
 use crate::pathfinder::Pathfinder;
 use isometric::coords::*;
-use isometric::{Button, ElementState, ModifiersState, MouseButton, VirtualKeyCode};
+use isometric::{Button, ElementState, MouseButton, VirtualKeyCode};
 use std::default::Default;
 use std::sync::RwLock;
 
@@ -126,9 +126,9 @@ impl GameEventConsumer for PathfindingAvatarControls {
             ..
         } = *event
         {
-            if button == &self.bindings.walk_to && (modifiers == !ModifiersState::ALT) {
+            if button == &self.bindings.walk_to && !modifiers.alt() {
                 self.walk_to();
-            } else if button == &self.bindings.stop && (modifiers == !ModifiersState::ALT) {
+            } else if button == &self.bindings.stop && !modifiers.alt() {
                 self.stop();
             };
         }

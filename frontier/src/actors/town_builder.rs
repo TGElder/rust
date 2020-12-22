@@ -6,7 +6,7 @@ use crate::traits::{
 use commons::async_trait::async_trait;
 use commons::V2;
 use isometric::coords::WorldCoord;
-use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
+use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -108,9 +108,7 @@ where
                 state: ElementState::Pressed,
                 modifiers,
                 ..
-            } if *button == self.binding
-                && (modifiers == (!ModifiersState::ALT & ModifiersState::CTRL)) =>
-            {
+            } if *button == self.binding && !modifiers.alt() && modifiers.ctrl() => {
                 self.toggle_town().await
             }
             _ => (),

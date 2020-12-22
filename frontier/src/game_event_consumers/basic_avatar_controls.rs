@@ -1,6 +1,6 @@
 use super::*;
 use crate::travel_duration::TravelDuration;
-use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
+use isometric::{Button, ElementState, VirtualKeyCode};
 use std::default::Default;
 
 const NAME: &str = "basic_avatar_controls";
@@ -111,15 +111,11 @@ impl GameEventConsumer for BasicAvatarControls {
             ..
         } = *event
         {
-            if button == &self.bindings.forward && (modifiers == !ModifiersState::ALT) {
+            if button == &self.bindings.forward && !modifiers.alt() {
                 self.walk_forward(&game_state)
-            } else if button == &self.bindings.rotate_clockwise
-                && (modifiers == !ModifiersState::ALT)
-            {
+            } else if button == &self.bindings.rotate_clockwise && !modifiers.alt() {
                 self.rotate_clockwise(&game_state)
-            } else if button == &self.bindings.rotate_anticlockwise
-                && (modifiers == !ModifiersState::ALT)
-            {
+            } else if button == &self.bindings.rotate_anticlockwise && !modifiers.alt() {
                 self.rotate_anticlockwise(&game_state)
             };
         }

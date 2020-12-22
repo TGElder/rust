@@ -2,7 +2,7 @@ use super::*;
 use crate::label_editor::*;
 use isometric::coords::*;
 use isometric::EventHandler;
-use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
+use isometric::{Button, ElementState, VirtualKeyCode};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -104,9 +104,7 @@ impl GameEventConsumer for LabelEditorHandler {
                 ref button,
                 state: ElementState::Pressed,
                 modifiers,
-            } if button == &self.binding && (modifiers == !ModifiersState::ALT) => {
-                self.start_edit(&game_state)
-            }
+            } if button == &self.binding && !modifiers.alt() => self.start_edit(&game_state),
             _ => (),
         }
         CaptureEvent::No

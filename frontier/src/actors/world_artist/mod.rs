@@ -9,7 +9,7 @@ use crate::game::Game;
 use crate::traits::{Micros, SendGame};
 use coloring::world_coloring;
 use commons::V2;
-use isometric::{Button, Command, ElementState, Event, ModifiersState, VirtualKeyCode};
+use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -147,7 +147,8 @@ where
                 modifiers,
                 ..
             } if *button == self.bindings.toggle_territory_layer
-                && (modifiers == (!ModifiersState::ALT & ModifiersState::CTRL)) =>
+                && !modifiers.alt()
+                && modifiers.ctrl() =>
             {
                 self.toggle_territory_layer().await
             }

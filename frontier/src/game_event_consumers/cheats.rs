@@ -2,7 +2,7 @@ use super::*;
 
 use crate::traits::{RevealAll, SendGame, Visibility};
 use isometric::coords::*;
-use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
+use isometric::{Button, ElementState, VirtualKeyCode};
 use std::default::Default;
 
 const NAME: &str = "cheats";
@@ -103,11 +103,11 @@ where
             ..
         } = *event
         {
-            if button == &self.bindings.reveal_all && (modifiers == ModifiersState::ALT) {
+            if button == &self.bindings.reveal_all && modifiers.alt() {
                 self.reveal_all(game_state);
-            } else if button == &self.bindings.move_avatar && (modifiers == ModifiersState::ALT) {
+            } else if button == &self.bindings.move_avatar && modifiers.alt() {
                 self.move_avatar(game_state);
-            } else if button == &self.bindings.remove_avatar && (modifiers == ModifiersState::ALT) {
+            } else if button == &self.bindings.remove_avatar && modifiers.alt() {
                 self.remove_avatar(game_state)
             }
         }

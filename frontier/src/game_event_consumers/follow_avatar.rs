@@ -1,5 +1,5 @@
 use super::*;
-use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
+use isometric::{Button, ElementState, VirtualKeyCode};
 
 const NAME: &str = "follow_avatar";
 

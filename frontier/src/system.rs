@@ -6,9 +6,7 @@ use commons::log::info;
 use futures::executor::block_on;
 use futures::executor::ThreadPool;
 use futures::future::FutureExt;
-use isometric::{
-    Button, ElementState, Event, EventConsumer, IsometricEngine, ModifiersState, VirtualKeyCode,
-};
+use isometric::{Button, ElementState, Event, EventConsumer, IsometricEngine, VirtualKeyCode};
 
 const SAVE_PATH: &str = "save";
 
@@ -118,13 +116,9 @@ where
             ..
         } = *event
         {
-            if button == &self.bindings.pause
-                && (modifiers == !ModifiersState::ALT & ModifiersState::CTRL)
-            {
+            if button == &self.bindings.pause && !modifiers.alt() && modifiers.ctrl() {
                 self.toggle_pause().await;
-            } else if button == &self.bindings.save
-                && (modifiers == !ModifiersState::ALT & ModifiersState::CTRL)
-            {
+            } else if button == &self.bindings.save && !modifiers.alt() && modifiers.ctrl() {
                 self.save(SAVE_PATH).await;
             }
         }
