@@ -59,8 +59,7 @@ impl EventConsumer for CursorHandler {
                 event: glutin::event::WindowEvent::CursorMoved { position, .. },
                 ..
             }) => {
-                self.screen_cursor =
-                    Some(PhysicalPosition::new(position.x as f64, position.y as f64));
+                self.screen_cursor = Some(position);
             }
             Event::DPIChanged(dpi) => {
                 self.dpi_factor = dpi;

@@ -9,7 +9,7 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
 use glutin::{
-    event_loop::ControlFlow, platform::desktop::EventLoopExtDesktop, PossiblyCurrent,
+    event_loop::ControlFlow, platform::run_return::EventLoopExtRunReturn, PossiblyCurrent,
     WindowedContext,
 };
 
@@ -180,7 +180,6 @@ impl IsometricEngine {
 
     pub fn run(&mut self) {
         while self.running {
-            println!("Running");
             self.handle_commands();
             self.consume_cursors();
             self.consume_glutin_events();

@@ -47,12 +47,12 @@ impl EventHandler for ZoomHandler {
             }) => self.handle_mouse_scroll_delta(delta),
 
             Event::Button {
-                button: Button::Key(VirtualKeyCode::Add),
+                button: Button::Key(VirtualKeyCode::Plus),
                 state: ElementState::Pressed,
                 ..
             } => self.zoom(2.0),
             Event::Button {
-                button: Button::Key(VirtualKeyCode::Subtract),
+                button: Button::Key(VirtualKeyCode::Minus),
                 state: ElementState::Pressed,
                 ..
             } => self.zoom(0.5),

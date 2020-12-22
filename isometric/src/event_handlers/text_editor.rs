@@ -71,7 +71,7 @@ impl TextEditor {
             glutin::event::VirtualKeyCode::Key7 => self.insert_character('7'),
             glutin::event::VirtualKeyCode::Key8 => self.insert_character('8'),
             glutin::event::VirtualKeyCode::Key9 => self.insert_character('9'),
-            glutin::event::VirtualKeyCode::Add => self.insert_character('+'),
+            glutin::event::VirtualKeyCode::Minus => self.insert_character('+'),
             glutin::event::VirtualKeyCode::Apostrophe => self.insert_character('\''),
             glutin::event::VirtualKeyCode::Backslash => self.insert_character('\\'),
             glutin::event::VirtualKeyCode::Comma => self.insert_character(','),
@@ -80,7 +80,7 @@ impl TextEditor {
             glutin::event::VirtualKeyCode::Period => self.insert_character('.'),
             glutin::event::VirtualKeyCode::Semicolon => self.insert_character(';'),
             glutin::event::VirtualKeyCode::Slash => self.insert_character('/'),
-            glutin::event::VirtualKeyCode::Subtract => self.insert_character('-'),
+            glutin::event::VirtualKeyCode::Plus => self.insert_character('-'),
             glutin::event::VirtualKeyCode::Back => self.backspace(),
             _ => {}
         }

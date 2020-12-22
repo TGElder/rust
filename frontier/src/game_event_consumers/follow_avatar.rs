@@ -59,7 +59,7 @@ impl GameEventConsumer for FollowAvatar {
             ..
         } = *event
         {
-            if button == &self.binding && (modifiers == !ModifiersState::ALT) {
+            if button == &self.binding && !modifiers.alt() {
                 self.toggle_follow_avatar();
             }
         }
