@@ -8,7 +8,7 @@ use graphics::{Drawing, GraphicsEngine, GraphicsEngineParameters};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
-use glutin::{PossiblyCurrent, WindowedContext};
+use glutin::{platform::desktop::EventLoopExtDesktop, PossiblyCurrent, WindowedContext};
 
 #[derive(Debug, PartialEq)]
 pub enum Button {
@@ -97,7 +97,7 @@ impl IsometricEngine {
         let events_loop = glutin::event_loop::EventLoop::new();
         let window = glutin::window::WindowBuilder::new()
             .with_title(params.title)
-            .with_dimensions(glutin::dpi::LogicalSize::new(
+            .with_inner_size(glutin::dpi::LogicalSize::new(
                 f64::from(params.width),
                 f64::from(params.height),
             ));
@@ -105,17 +105,19 @@ impl IsometricEngine {
             .with_gl(IsometricEngine::GL_VERSION)
             .with_vsync(true)
             .with_multisampling(4)
-            .build_windowed(window, &events_loop).unwrap();
+            .build_windowed(window, &events_loop)
+            .unwrap();
 
         let windowed_context = unsafe { windowed_context.make_current().unwrap() };
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
-        
 
-        let dpi_factor = windowed_context.window().get_hidpi_factor();
-        let logical_window_size = windowed_context.window().get_inner_size().unwrap();
+        let dpi_factor = windowed_context.window().scale_factor();
+        let physical_size = windowed_context.window().inner_size();
+        let physical_size =
+            glutin::dpi::PhysicalSize::new(physical_size.width as f64, physical_size.height as f64);
         let graphics = GraphicsEngine::new(GraphicsEngineParameters {
             z_scale: 1.0 / params.max_z,
-            viewport_size: logical_window_size.to_physical(dpi_factor),
+            viewport_size: physical_size,
             label_padding: params.label_padding,
         });
 
@@ -123,7 +125,7 @@ impl IsometricEngine {
 
         let mut out = IsometricEngine {
             events_loop,
-            cursor_handler: CursorHandler::new(dpi_factor, logical_window_size),
+            cursor_handler: CursorHandler::new(dpi_factor, physical_size),
             event_consumers: vec![],
             windowed_context,
             graphics,
@@ -161,7 +163,7 @@ impl IsometricEngine {
     }
 
     fn init_event_handlers(&mut self) {
-        let dpi_factor = self.windowed_context.window().get_hidpi_factor();
+        let dpi_factor = self.windowed_context.window().scale_factor();
 
         self.add_event_handler(ShutdownHandler::default());
         self.add_event_handler(DPIRelay::default());
@@ -193,8 +195,10 @@ impl IsometricEngine {
 
     fn consume_glutin_events(&mut self) {
         let mut glutin_events = vec![];
-        self.events_loop.poll_events(|event| {
-            glutin_events.push(event);
+        self.events_loop.run_return(|event, _, _| {
+            if let Some(event) = event.to_static() {
+                glutin_events.push(event);
+            }
         });
         for event in glutin_events {
             self.consume_event(Event::GlutinEvent(event));
@@ -232,7 +236,10 @@ impl IsometricEngine {
         match command {
             Command::Shutdown => self.running = false,
             Command::Resize(physical_size) => {
-                self.windowed_context.resize(physical_size);
+                self.windowed_context.resize(glutin::dpi::PhysicalSize::new(
+                    physical_size.width as u32,
+                    physical_size.height as u32,
+                ));
                 self.graphics.set_viewport_size(physical_size);
             }
             Command::Translate(translation) => self.graphics.transform().translate(translation),

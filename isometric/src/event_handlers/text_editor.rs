@@ -106,17 +106,14 @@ impl EventHandler for TextEditor {
                             glutin::event::KeyboardInput {
                                 virtual_keycode: Some(key),
                                 state: glutin::event::ElementState::Pressed,
-                                modifiers:
-                                    glutin::event::ModifiersState {
-                                        shift: shift_state, ..
-                                    },
+                                modifiers,
                                 ..
                             },
                         ..
                     },
                 ..
             }) => {
-                self.handle_key(key, shift_state);
+                self.handle_key(key, modifiers == glutin::event::ModifiersState::SHIFT);
                 vec![]
             }
             _ => vec![],

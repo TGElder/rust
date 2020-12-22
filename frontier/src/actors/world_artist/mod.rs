@@ -144,14 +144,11 @@ where
             Event::Button {
                 ref button,
                 state: ElementState::Pressed,
-                modifiers:
-                    ModifiersState {
-                        alt: false,
-                        ctrl: true,
-                        ..
-                    },
+                modifiers,
                 ..
-            } if *button == self.bindings.toggle_territory_layer => {
+            } if *button == self.bindings.toggle_territory_layer
+                && (modifiers == (!ModifiersState::ALT & ModifiersState::CTRL)) =>
+            {
                 self.toggle_territory_layer().await
             }
             _ => (),

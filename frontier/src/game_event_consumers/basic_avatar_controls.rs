@@ -107,15 +107,19 @@ impl GameEventConsumer for BasicAvatarControls {
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers: ModifiersState { alt: false, .. },
+            modifiers,
             ..
         } = *event
         {
-            if button == &self.bindings.forward {
+            if button == &self.bindings.forward && (modifiers == !ModifiersState::ALT) {
                 self.walk_forward(&game_state)
-            } else if button == &self.bindings.rotate_clockwise {
+            } else if button == &self.bindings.rotate_clockwise
+                && (modifiers == !ModifiersState::ALT)
+            {
                 self.rotate_clockwise(&game_state)
-            } else if button == &self.bindings.rotate_anticlockwise {
+            } else if button == &self.bindings.rotate_anticlockwise
+                && (modifiers == !ModifiersState::ALT)
+            {
                 self.rotate_anticlockwise(&game_state)
             };
         }

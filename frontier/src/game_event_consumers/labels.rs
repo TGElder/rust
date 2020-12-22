@@ -103,8 +103,10 @@ impl GameEventConsumer for LabelEditorHandler {
             Event::Button {
                 ref button,
                 state: ElementState::Pressed,
-                modifiers: ModifiersState { alt: false, .. },
-            } if button == &self.binding => self.start_edit(&game_state),
+                modifiers,
+            } if button == &self.binding && (modifiers == !ModifiersState::ALT) => {
+                self.start_edit(&game_state)
+            }
             _ => (),
         }
         CaptureEvent::No

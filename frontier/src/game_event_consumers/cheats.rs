@@ -99,15 +99,15 @@ where
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers: ModifiersState { alt: true, .. },
+            modifiers,
             ..
         } = *event
         {
-            if button == &self.bindings.reveal_all {
+            if button == &self.bindings.reveal_all && (modifiers == ModifiersState::ALT) {
                 self.reveal_all(game_state);
-            } else if button == &self.bindings.move_avatar {
+            } else if button == &self.bindings.move_avatar && (modifiers == ModifiersState::ALT) {
                 self.move_avatar(game_state);
-            } else if button == &self.bindings.remove_avatar {
+            } else if button == &self.bindings.remove_avatar && (modifiers == ModifiersState::ALT) {
                 self.remove_avatar(game_state)
             }
         }

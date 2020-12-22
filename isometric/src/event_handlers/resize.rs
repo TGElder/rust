@@ -9,9 +9,9 @@ impl EventHandler for DPIRelay {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
             Event::GlutinEvent(glutin::event::Event::WindowEvent {
-                event: glutin::event::WindowEvent::HiDpiFactorChanged(dpi_factor),
+                event: glutin::event::WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
-            }) => vec![Command::Event(Event::DPIChanged(dpi_factor))],
+            }) => vec![Command::Event(Event::DPIChanged(scale_factor))],
             _ => vec![],
         }
     }
@@ -38,10 +38,13 @@ impl EventHandler for ResizeRelay {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
             Event::GlutinEvent(glutin::event::Event::WindowEvent {
-                event: glutin::event::WindowEvent::Resized(logical_size),
+                event: glutin::event::WindowEvent::Resized(physical_size),
                 ..
             }) => vec![Command::Event(Event::Resize(
-                self.get_physical_size(logical_size),
+                glutin::dpi::PhysicalSize::new(
+                    physical_size.width as f64,
+                    physical_size.height as f64,
+                ),
             ))],
             Event::DPIChanged(dpi) => {
                 self.dpi_factor = dpi;

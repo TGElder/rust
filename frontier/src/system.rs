@@ -114,18 +114,17 @@ where
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers:
-                ModifiersState {
-                    alt: false,
-                    ctrl: true,
-                    ..
-                },
+            modifiers,
             ..
         } = *event
         {
-            if button == &self.bindings.pause {
+            if button == &self.bindings.pause
+                && (modifiers == !ModifiersState::ALT & ModifiersState::CTRL)
+            {
                 self.toggle_pause().await;
-            } else if button == &self.bindings.save {
+            } else if button == &self.bindings.save
+                && (modifiers == !ModifiersState::ALT & ModifiersState::CTRL)
+            {
                 self.save(SAVE_PATH).await;
             }
         }

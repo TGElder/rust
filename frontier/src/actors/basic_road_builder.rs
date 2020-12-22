@@ -65,16 +65,13 @@ where
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers:
-                ModifiersState {
-                    alt: false,
-                    ctrl: true,
-                    ..
-                },
+            modifiers,
             ..
         } = *event
         {
-            if *button == self.binding {
+            if *button == self.binding
+                && (modifiers == (!ModifiersState::ALT & ModifiersState::CTRL))
+            {
                 self.build_road().await;
             }
         }

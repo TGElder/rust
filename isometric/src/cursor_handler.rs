@@ -1,7 +1,7 @@
 use coords::{GLCoord4D, PhysicalPositionExt, WorldCoord};
 use engine::Event;
 use events::EventConsumer;
-use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
+use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use graphics::GLZFinder;
 use std::sync::Arc;
 use transform::Transform;
@@ -10,17 +10,17 @@ pub struct CursorHandler {
     z_finder: GLZFinder,
     dpi_factor: f64,
     physical_window_size: PhysicalSize<f64>,
-    screen_cursor: Option<LogicalPosition<f64>>,
+    screen_cursor: Option<PhysicalPosition<f64>>,
     gl_cursor: Option<GLCoord4D>,
     world_cursor: Option<WorldCoord>,
 }
 
 impl CursorHandler {
-    pub fn new(dpi_factor: f64, logical_window_size: LogicalSize<f64>) -> CursorHandler {
+    pub fn new(dpi_factor: f64, physical_window_size: PhysicalSize<f64>) -> CursorHandler {
         CursorHandler {
             z_finder: GLZFinder {},
             dpi_factor,
-            physical_window_size: logical_window_size.to_physical(dpi_factor),
+            physical_window_size,
             screen_cursor: None,
             gl_cursor: None,
             world_cursor: None,
@@ -36,11 +36,8 @@ impl CursorHandler {
     }
 
     fn get_gl_cursor(&self) -> Option<GLCoord4D> {
-        self.screen_cursor.map(|position| {
-            position
-                .to_physical(self.dpi_factor)
-                .to_gl_coord_4d(self.physical_window_size, &self.z_finder)
-        })
+        self.screen_cursor
+            .map(|position| position.to_gl_coord_4d(self.physical_window_size, &self.z_finder))
     }
 
     fn compute_world_cursor(&self, transform: &mut Transform) -> Option<WorldCoord> {
@@ -62,7 +59,8 @@ impl EventConsumer for CursorHandler {
                 event: glutin::event::WindowEvent::CursorMoved { position, .. },
                 ..
             }) => {
-                self.screen_cursor = Some(position);
+                self.screen_cursor =
+                    Some(PhysicalPosition::new(position.x as f64, position.y as f64));
             }
             Event::DPIChanged(dpi) => {
                 self.dpi_factor = dpi;

@@ -78,18 +78,17 @@ where
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers:
-                ModifiersState {
-                    alt: false,
-                    ctrl: true,
-                    ..
-                },
+            modifiers,
             ..
         } = *event
         {
-            if button == &self.bindings.build_crop {
+            if button == &self.bindings.build_crop
+                && (modifiers == (!ModifiersState::ALT & ModifiersState::CTRL))
+            {
                 self.build_farm_at_cursor().await;
-            } else if button == &self.bindings.demolish {
+            } else if button == &self.bindings.demolish
+                && (modifiers == (!ModifiersState::ALT & ModifiersState::CTRL))
+            {
                 self.clear_object_at_cursor().await;
             }
         }

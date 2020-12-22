@@ -145,14 +145,13 @@ where
             Event::Button {
                 ref button,
                 state: ElementState::Pressed,
-                modifiers:
-                    ModifiersState {
-                        alt: true,
-                        ctrl: false,
-                        ..
-                    },
+                modifiers,
                 ..
-            } if *button == self.binding => self.change_state().await,
+            } if *button == self.binding
+                && (modifiers == (ModifiersState::ALT & !ModifiersState::CTRL)) =>
+            {
+                self.change_state().await
+            }
             _ => (),
         }
     }

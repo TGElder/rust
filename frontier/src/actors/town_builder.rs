@@ -106,14 +106,13 @@ where
             Event::Button {
                 ref button,
                 state: ElementState::Pressed,
-                modifiers:
-                    ModifiersState {
-                        alt: false,
-                        ctrl: true,
-                        ..
-                    },
+                modifiers,
                 ..
-            } if *button == self.binding => self.toggle_town().await,
+            } if *button == self.binding
+                && (modifiers == (!ModifiersState::ALT & ModifiersState::CTRL)) =>
+            {
+                self.toggle_town().await
+            }
             _ => (),
         }
     }

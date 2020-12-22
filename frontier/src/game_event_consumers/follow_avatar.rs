@@ -55,11 +55,11 @@ impl GameEventConsumer for FollowAvatar {
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers: ModifiersState { alt: false, .. },
+            modifiers,
             ..
         } = *event
         {
-            if button == &self.binding {
+            if button == &self.binding && (modifiers == !ModifiersState::ALT) {
                 self.toggle_follow_avatar();
             }
         }

@@ -122,13 +122,13 @@ impl GameEventConsumer for PathfindingAvatarControls {
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers: ModifiersState { alt: false, .. },
+            modifiers,
             ..
         } = *event
         {
-            if button == &self.bindings.walk_to {
+            if button == &self.bindings.walk_to && (modifiers == !ModifiersState::ALT) {
                 self.walk_to();
-            } else if button == &self.bindings.stop {
+            } else if button == &self.bindings.stop && (modifiers == !ModifiersState::ALT) {
                 self.stop();
             };
         }
