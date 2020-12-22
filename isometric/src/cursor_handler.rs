@@ -1,7 +1,7 @@
 use coords::{GLCoord4D, PhysicalPositionExt, WorldCoord};
 use engine::Event;
 use events::EventConsumer;
-use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use graphics::GLZFinder;
 use std::sync::Arc;
 use transform::Transform;

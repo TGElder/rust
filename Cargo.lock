@@ -805,7 +805,6 @@ dependencies = [
  "glutin",
  "regex 1.1.9",
  "serde",
- "x11-dl",
 ]
 
 [[package]]

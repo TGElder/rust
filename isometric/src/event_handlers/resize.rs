@@ -25,13 +25,6 @@ impl ResizeRelay {
     pub fn new(dpi_factor: f64) -> ResizeRelay {
         ResizeRelay { dpi_factor }
     }
-
-    fn get_physical_size(
-        &self,
-        logical_size: glutin::dpi::LogicalSize<f64>,
-    ) -> glutin::dpi::PhysicalSize<f64> {
-        logical_size.to_physical(self.dpi_factor)
-    }
 }
 
 impl EventHandler for ResizeRelay {

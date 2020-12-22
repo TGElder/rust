@@ -8,7 +8,10 @@ use graphics::{Drawing, GraphicsEngine, GraphicsEngineParameters};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
-use glutin::{platform::desktop::EventLoopExtDesktop, PossiblyCurrent, WindowedContext};
+use glutin::{
+    event_loop::ControlFlow, platform::desktop::EventLoopExtDesktop, PossiblyCurrent,
+    WindowedContext,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum Button {
@@ -97,7 +100,7 @@ impl IsometricEngine {
         let events_loop = glutin::event_loop::EventLoop::new();
         let window = glutin::window::WindowBuilder::new()
             .with_title(params.title)
-            .with_inner_size(glutin::dpi::LogicalSize::new(
+            .with_inner_size(glutin::dpi::PhysicalSize::new(
                 f64::from(params.width),
                 f64::from(params.height),
             ));
@@ -177,6 +180,7 @@ impl IsometricEngine {
 
     pub fn run(&mut self) {
         while self.running {
+            println!("Running");
             self.handle_commands();
             self.consume_cursors();
             self.consume_glutin_events();
@@ -195,10 +199,11 @@ impl IsometricEngine {
 
     fn consume_glutin_events(&mut self) {
         let mut glutin_events = vec![];
-        self.events_loop.run_return(|event, _, _| {
+        self.events_loop.run_return(|event, _, control_flow| {
             if let Some(event) = event.to_static() {
                 glutin_events.push(event);
             }
+            *control_flow = ControlFlow::Exit
         });
         for event in glutin_events {
             self.consume_event(Event::GlutinEvent(event));
