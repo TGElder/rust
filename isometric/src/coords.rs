@@ -6,24 +6,24 @@ use commons::{v2, V2};
 use serde::{Deserialize, Serialize};
 
 pub trait PhysicalPositionExt {
-    fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize<f64>) -> GLCoord2D;
-    fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize<f64>) -> BufferCoordinate;
+    fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize<u32>) -> GLCoord2D;
+    fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize<u32>) -> BufferCoordinate;
     fn to_gl_coord_4d<T: ZFinder>(
         self,
-        physical_size: glutin::dpi::PhysicalSize<f64>,
+        physical_size: glutin::dpi::PhysicalSize<u32>,
         z_finder: &T,
     ) -> GLCoord4D;
 }
 
 impl PhysicalPositionExt for glutin::dpi::PhysicalPosition<f64> {
-    fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize<f64>) -> GLCoord2D {
+    fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize<u32>) -> GLCoord2D {
         GLCoord2D {
-            x: ((((self.x + 0.5) / physical_size.width) * 2.0) - 1.0) as f32,
-            y: (1.0 - (((self.y + 0.5) / physical_size.height) * 2.0)) as f32,
+            x: ((((self.x + 0.5) / physical_size.width as f64) * 2.0) - 1.0) as f32,
+            y: (1.0 - (((self.y + 0.5) / physical_size.height as f64) * 2.0)) as f32,
         }
     }
 
-    fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize<f64>) -> BufferCoordinate {
+    fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize<u32>) -> BufferCoordinate {
         let physical_position: (i32, i32) = self.into();
         BufferCoordinate {
             x: physical_position.0,
@@ -33,7 +33,7 @@ impl PhysicalPositionExt for glutin::dpi::PhysicalPosition<f64> {
 
     fn to_gl_coord_4d<T: ZFinder>(
         self,
-        physical_size: glutin::dpi::PhysicalSize<f64>,
+        physical_size: glutin::dpi::PhysicalSize<u32>,
         z_finder: &T,
     ) -> GLCoord4D {
         let buffer_coord = self.to_buffer_coord(physical_size);
@@ -76,7 +76,7 @@ impl GLCoord2D {
 
     pub fn to_buffer_coord(
         self,
-        physical_size: &glutin::dpi::PhysicalSize<f64>,
+        physical_size: &glutin::dpi::PhysicalSize<u32>,
     ) -> BufferCoordinate {
         BufferCoordinate {
             x: ((((self.x + 1.0) / 2.0) * physical_size.width as f32) - 0.5).floor() as i32,
@@ -86,7 +86,7 @@ impl GLCoord2D {
 
     pub fn to_gl_coord_3d(
         self,
-        physical_size: &glutin::dpi::PhysicalSize<f64>,
+        physical_size: &glutin::dpi::PhysicalSize<u32>,
         z_finder: &dyn ZFinder,
     ) -> GLCoord3D {
         let buffer_coord = self.to_buffer_coord(physical_size);
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn physical_position_to_gl_2d_left_top() {
-        let physical_size = glutin::dpi::PhysicalSize::new(100.0, 50.0);
+        let physical_size = glutin::dpi::PhysicalSize::new(100, 50);
         let physical_position = glutin::dpi::PhysicalPosition::new(0.0, 0.0);
 
         assert_eq!(
@@ -215,7 +215,7 @@ mod tests {
 
     #[test]
     fn physical_position_to_gl_2d_right_top() {
-        let physical_size = glutin::dpi::PhysicalSize::new(100.0, 50.0);
+        let physical_size = glutin::dpi::PhysicalSize::new(100, 50);
         let physical_position = glutin::dpi::PhysicalPosition::new(100.0, 0.0);
 
         assert_eq!(
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn physical_position_to_gl_2d_left_bottom() {
-        let physical_size = glutin::dpi::PhysicalSize::new(100.0, 50.0);
+        let physical_size = glutin::dpi::PhysicalSize::new(100, 50);
         let physical_position = glutin::dpi::PhysicalPosition::new(0.0, 50.0);
 
         assert_eq!(
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn physical_position_to_gl_2d_right_bottom() {
-        let physical_size = glutin::dpi::PhysicalSize::new(100.0, 50.0);
+        let physical_size = glutin::dpi::PhysicalSize::new(100, 50);
         let physical_position = glutin::dpi::PhysicalPosition::new(100.0, 50.0);
 
         assert_eq!(
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn physical_position_to_gl_2d_center() {
-        let physical_size = glutin::dpi::PhysicalSize::new(100.0, 50.0);
+        let physical_size = glutin::dpi::PhysicalSize::new(100, 50);
         let physical_position = glutin::dpi::PhysicalPosition::new(50.0, 25.0);
 
         assert_eq!(
@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_physical_position_to_gl_4d() {
-        let physical_size = glutin::dpi::PhysicalSize::new(100.0, 50.0);
+        let physical_size = glutin::dpi::PhysicalSize::new(100, 50);
         let physical_position = glutin::dpi::PhysicalPosition::new(80.0, 10.0);
 
         struct MockZFinder {}
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn test_gl_2d_to_buffer_coord() {
         let gl_coord_2 = GLCoord2D::new(-0.5, 0.5);
-        let physical_size = glutin::dpi::PhysicalSize::new(256.0, 128.0);
+        let physical_size = glutin::dpi::PhysicalSize::new(256, 128);
 
         assert_eq!(
             gl_coord_2.to_buffer_coord(&physical_size),
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn test_gl_2d_to_gl_4d() {
         let gl_coord_2 = GLCoord2D::new(-0.5, 0.5);
-        let physical_size = glutin::dpi::PhysicalSize::new(256.0, 128.0);
+        let physical_size = glutin::dpi::PhysicalSize::new(256, 128);
 
         struct MockZFinder {}
         impl ZFinder for MockZFinder {

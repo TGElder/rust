@@ -24,8 +24,7 @@ pub enum Event {
     Start,
     Tick,
     Shutdown,
-    Resize(glutin::dpi::PhysicalSize<f64>),
-    DPIChanged(f64),
+    Resize(glutin::dpi::PhysicalSize<u32>),
     CursorMoved(Option<GLCoord4D>),
     WorldPositionChanged(Option<WorldCoord>),
     GlutinEvent(glutin::event::Event<'static, ()>),
@@ -40,7 +39,7 @@ pub enum Event {
 #[derive(Debug)]
 pub enum Command {
     Shutdown,
-    Resize(glutin::dpi::PhysicalSize<f64>),
+    Resize(glutin::dpi::PhysicalSize<u32>),
     Translate(GLCoord2D),
     Scale {
         center: GLCoord4D,
@@ -114,10 +113,7 @@ impl IsometricEngine {
         let windowed_context = unsafe { windowed_context.make_current().unwrap() };
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
 
-        let dpi_factor = windowed_context.window().scale_factor();
         let physical_size = windowed_context.window().inner_size();
-        let physical_size =
-            glutin::dpi::PhysicalSize::new(physical_size.width as f64, physical_size.height as f64);
         let graphics = GraphicsEngine::new(GraphicsEngineParameters {
             z_scale: 1.0 / params.max_z,
             viewport_size: physical_size,
@@ -128,7 +124,7 @@ impl IsometricEngine {
 
         let mut out = IsometricEngine {
             events_loop,
-            cursor_handler: CursorHandler::new(dpi_factor, physical_size),
+            cursor_handler: CursorHandler::new(physical_size),
             event_consumers: vec![],
             windowed_context,
             graphics,
@@ -166,13 +162,8 @@ impl IsometricEngine {
     }
 
     fn init_event_handlers(&mut self) {
-        let dpi_factor = self.windowed_context.window().scale_factor();
-
         self.add_event_handler(ShutdownHandler::default());
-        self.add_event_handler(DPIRelay::default());
-        self.add_event_handler(Resizer::default());
         self.add_event_handler(DragHandler::default());
-        self.add_event_handler(ResizeRelay::new(dpi_factor));
         self.add_event_handler(Scroller::default());
         self.add_event_handler(KeyRelay::default());
         self.add_event_handler(MouseRelay::default());

@@ -8,18 +8,16 @@ use transform::Transform;
 
 pub struct CursorHandler {
     z_finder: GLZFinder,
-    dpi_factor: f64,
-    physical_window_size: PhysicalSize<f64>,
+    physical_window_size: PhysicalSize<u32>,
     screen_cursor: Option<PhysicalPosition<f64>>,
     gl_cursor: Option<GLCoord4D>,
     world_cursor: Option<WorldCoord>,
 }
 
 impl CursorHandler {
-    pub fn new(dpi_factor: f64, physical_window_size: PhysicalSize<f64>) -> CursorHandler {
+    pub fn new(physical_window_size: PhysicalSize<u32>) -> CursorHandler {
         CursorHandler {
             z_finder: GLZFinder {},
-            dpi_factor,
             physical_window_size,
             screen_cursor: None,
             gl_cursor: None,
@@ -60,9 +58,6 @@ impl EventConsumer for CursorHandler {
                 ..
             }) => {
                 self.screen_cursor = Some(position);
-            }
-            Event::DPIChanged(dpi) => {
-                self.dpi_factor = dpi;
             }
             Event::Resize(physical_size) => {
                 self.physical_window_size = physical_size;
