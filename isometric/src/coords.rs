@@ -6,24 +6,24 @@ use commons::{v2, V2};
 use serde::{Deserialize, Serialize};
 
 pub trait PhysicalPositionExt {
-    fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize) -> GLCoord2D;
-    fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize) -> BufferCoordinate;
+    fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize<f64>) -> GLCoord2D;
+    fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize<f64>) -> BufferCoordinate;
     fn to_gl_coord_4d<T: ZFinder>(
         self,
-        physical_size: glutin::dpi::PhysicalSize,
+        physical_size: glutin::dpi::PhysicalSize<f64>,
         z_finder: &T,
     ) -> GLCoord4D;
 }
 
-impl PhysicalPositionExt for glutin::dpi::PhysicalPosition {
-    fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize) -> GLCoord2D {
+impl PhysicalPositionExt for glutin::dpi::PhysicalPosition<f64> {
+    fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize<f64>) -> GLCoord2D {
         GLCoord2D {
             x: ((((self.x + 0.5) / physical_size.width) * 2.0) - 1.0) as f32,
             y: (1.0 - (((self.y + 0.5) / physical_size.height) * 2.0)) as f32,
         }
     }
 
-    fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize) -> BufferCoordinate {
+    fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize<f64>) -> BufferCoordinate {
         let physical_position: (i32, i32) = self.into();
         BufferCoordinate {
             x: physical_position.0,
@@ -33,7 +33,7 @@ impl PhysicalPositionExt for glutin::dpi::PhysicalPosition {
 
     fn to_gl_coord_4d<T: ZFinder>(
         self,
-        physical_size: glutin::dpi::PhysicalSize,
+        physical_size: glutin::dpi::PhysicalSize<f64>,
         z_finder: &T,
     ) -> GLCoord4D {
         let buffer_coord = self.to_buffer_coord(physical_size);
@@ -74,7 +74,7 @@ impl GLCoord2D {
         GLCoord2D { x, y }
     }
 
-    pub fn to_buffer_coord(self, physical_size: &glutin::dpi::PhysicalSize) -> BufferCoordinate {
+    pub fn to_buffer_coord(self, physical_size: &glutin::dpi::PhysicalSize<f64>) -> BufferCoordinate {
         BufferCoordinate {
             x: ((((self.x + 1.0) / 2.0) * physical_size.width as f32) - 0.5).floor() as i32,
             y: ((((self.y + 1.0) / 2.0) * physical_size.height as f32) - 0.5).floor() as i32,
@@ -83,7 +83,7 @@ impl GLCoord2D {
 
     pub fn to_gl_coord_3d(
         self,
-        physical_size: &glutin::dpi::PhysicalSize,
+        physical_size: &glutin::dpi::PhysicalSize<f64>,
         z_finder: &dyn ZFinder,
     ) -> GLCoord3D {
         let buffer_coord = self.to_buffer_coord(physical_size);

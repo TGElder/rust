@@ -9,14 +9,14 @@ use transform::Transform;
 pub struct CursorHandler {
     z_finder: GLZFinder,
     dpi_factor: f64,
-    physical_window_size: PhysicalSize,
-    screen_cursor: Option<LogicalPosition>,
+    physical_window_size: PhysicalSize<f64>,
+    screen_cursor: Option<LogicalPosition<f64>>,
     gl_cursor: Option<GLCoord4D>,
     world_cursor: Option<WorldCoord>,
 }
 
 impl CursorHandler {
-    pub fn new(dpi_factor: f64, logical_window_size: LogicalSize) -> CursorHandler {
+    pub fn new(dpi_factor: f64, logical_window_size: LogicalSize<f64>) -> CursorHandler {
         CursorHandler {
             z_finder: GLZFinder {},
             dpi_factor,

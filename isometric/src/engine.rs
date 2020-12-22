@@ -21,7 +21,7 @@ pub enum Event {
     Start,
     Tick,
     Shutdown,
-    Resize(glutin::dpi::PhysicalSize),
+    Resize(glutin::dpi::PhysicalSize<f64>),
     DPIChanged(f64),
     CursorMoved(Option<GLCoord4D>),
     WorldPositionChanged(Option<WorldCoord>),
@@ -37,7 +37,7 @@ pub enum Event {
 #[derive(Debug)]
 pub enum Command {
     Shutdown,
-    Resize(glutin::dpi::PhysicalSize),
+    Resize(glutin::dpi::PhysicalSize<f64>),
     Translate(GLCoord2D),
     Scale {
         center: GLCoord4D,

@@ -18,7 +18,7 @@ pub struct LabelVisibilityCheck {
 pub struct LabelVisibilityChecker<'a> {
     padding: f32,
     transform: &'a Transform,
-    physical_size: &'a PhysicalSize,
+    physical_size: &'a PhysicalSize<f64>,
     z_finder: &'a dyn ZFinder,
     pixel_to_screen: Matrix2<f32>,
     ui_elements: Vec<Rectangle<f32>>,

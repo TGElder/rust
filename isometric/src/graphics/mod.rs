@@ -21,7 +21,7 @@ use transform::{Isometric, Transform};
 
 pub struct GraphicsEngine {
     programs: [Program; 5],
-    viewport_size: PhysicalSize,
+    viewport_size: PhysicalSize<f64>,
     label_padding: f32,
     transform: Transform,
     projection: Isometric,
@@ -31,7 +31,7 @@ pub struct GraphicsEngine {
 
 pub struct GraphicsEngineParameters {
     pub z_scale: f32,
-    pub viewport_size: PhysicalSize,
+    pub viewport_size: PhysicalSize<f64>,
     pub label_padding: f32,
 }
 
@@ -262,7 +262,7 @@ impl GraphicsEngine {
         }
     }
 
-    pub fn set_viewport_size(&mut self, viewport_size: PhysicalSize) {
+    pub fn set_viewport_size(&mut self, viewport_size: PhysicalSize<f64>) {
         self.transform.scale(
             GLCoord4D::new(0.0, 0.0, 0.0, 1.0),
             GLCoord2D::new(
