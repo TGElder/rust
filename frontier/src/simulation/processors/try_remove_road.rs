@@ -74,7 +74,7 @@ where
         }
 
         state.build_queue.remove(&BuildKey::Road(edge));
-        self.x.remove_road(&edge).await;
+        self.x.remove_road(edge).await;
 
         true
     }

@@ -36,7 +36,7 @@ where
     }
 
     async fn build_road(&mut self, road: Edge) {
-        self.game.add_road(&road).await
+        self.game.add_road(road).await
     }
 }
 
@@ -52,8 +52,8 @@ mod tests {
 
     #[async_trait]
     impl AddRoad for Arm<HashSet<Edge>> {
-        async fn add_road(&self, edge: &Edge) {
-            self.lock().unwrap().insert(*edge);
+        async fn add_road(&self, edge: Edge) {
+            self.lock().unwrap().insert(edge);
         }
     }
 

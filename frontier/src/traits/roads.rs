@@ -21,7 +21,7 @@ where
 
 #[async_trait]
 pub trait AddRoad {
-    async fn add_road(&self, edge: &Edge);
+    async fn add_road(&self, edge: Edge);
 }
 
 #[async_trait]
@@ -29,8 +29,8 @@ impl<T> AddRoad for T
 where
     T: IsRoad + UpdateRoads + Send + Sync,
 {
-    async fn add_road(&self, edge: &Edge) {
-        if self.is_road(*edge).await {
+    async fn add_road(&self, edge: Edge) {
+        if self.is_road(edge).await {
             return;
         }
         let result = RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Build);
@@ -40,7 +40,7 @@ where
 
 #[async_trait]
 pub trait RemoveRoad {
-    async fn remove_road(&self, edge: &Edge);
+    async fn remove_road(&self, edge: Edge);
 }
 
 #[async_trait]
@@ -48,8 +48,8 @@ impl<T> RemoveRoad for T
 where
     T: IsRoad + UpdateRoads + Send + Sync,
 {
-    async fn remove_road(&self, edge: &Edge) {
-        if !self.is_road(*edge).await {
+    async fn remove_road(&self, edge: Edge) {
+        if !self.is_road(edge).await {
             return;
         }
         let result =

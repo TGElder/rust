@@ -37,7 +37,7 @@ where
         let to_insert = town.clone();
 
         join!(
-            self.add_controller(&controller),
+            self.add_controller(controller),
             check_visibility_from_town(self, town.position),
             async {
                 self.remove_world_object(remove).await;

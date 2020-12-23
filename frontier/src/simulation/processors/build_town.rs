@@ -53,7 +53,7 @@ where
             return;
         }
 
-        if self.tx.who_controls_tile(&position).await.is_some() {
+        if self.tx.who_controls_tile(position).await.is_some() {
             return;
         }
 
@@ -234,7 +234,7 @@ mod tests {
 
     #[async_trait]
     impl WhoControlsTile for Tx {
-        async fn who_controls_tile(&self, _: &V2<usize>) -> Option<V2<usize>> {
+        async fn who_controls_tile(&self, _: V2<usize>) -> Option<V2<usize>> {
             self.who_controls_tile
         }
     }
