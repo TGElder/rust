@@ -9,14 +9,14 @@ use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{GetSettlement, RandomTownName, SendRoutes, SendWorld, WhoControlsTile};
 
 use super::*;
-pub struct BuildTown<X> {
-    tx: X,
+pub struct BuildTown<T> {
+    tx: T,
 }
 
 #[async_trait]
-impl<X> Processor for BuildTown<X>
+impl<T> Processor for BuildTown<T>
 where
-    X: GetSettlement
+    T: GetSettlement
         + RandomTownName
         + SendRoutes
         + SendWorld
@@ -39,11 +39,11 @@ where
     }
 }
 
-impl<X> BuildTown<X>
+impl<T> BuildTown<T>
 where
-    X: GetSettlement + RandomTownName + SendRoutes + SendWorld + WhoControlsTile,
+    T: GetSettlement + RandomTownName + SendRoutes + SendWorld + WhoControlsTile,
 {
-    pub fn new(x: X) -> BuildTown<X> {
+    pub fn new(x: T) -> BuildTown<T> {
         BuildTown { tx: x }
     }
 
@@ -66,10 +66,12 @@ where
         if routes.is_empty() || routes.values().map(|route| route.traffic).sum::<usize>() == 0 {
             return;
         }
-        let (first_route_key, first_visit) = first_route(routes);
+        let (first_visit_route_key, first_visit_micros) = fist_visit(routes);
 
         let settlement = unwrap_or!(
-            self.tx.get_settlement(first_route_key.settlement).await,
+            self.tx
+                .get_settlement(first_visit_route_key.settlement)
+                .await,
             return
         );
         let nation = settlement.nation;
@@ -84,12 +86,12 @@ where
                 current_population: state.params.initial_town_population,
                 target_population: state.params.initial_town_population,
                 gap_half_life: Duration::from_millis(0),
-                last_population_update_micros: first_visit,
+                last_population_update_micros: first_visit_micros,
             };
 
             state.build_queue.insert(BuildInstruction {
                 what: Build::Town(settlement),
-                when: first_visit,
+                when: first_visit_micros,
             });
         }
     }
@@ -140,11 +142,11 @@ where
     }
 }
 
-fn first_route(routes: HashMap<RouteKey, Route>) -> (RouteKey, u128) {
+fn fist_visit(routes: HashMap<RouteKey, Route>) -> (RouteKey, u128) {
     routes
         .into_iter()
         .map(|(route_key, route)| (route_key, route.start_micros + route.duration.as_micros()))
-        .min_by_key(|(_, first_visit)| *first_visit)
+        .min_by_key(|(_, micros)| *micros)
         .unwrap()
 }
 
