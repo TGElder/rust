@@ -6,14 +6,15 @@ use crate::avatar::AvatarTravelDuration;
 use crate::game::{Game, GameParams, GameState};
 use crate::nation::Nation;
 use crate::pathfinder::Pathfinder;
+use crate::route::Routes;
 use crate::settlement::Settlement;
 use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
     PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendGameState,
-    SendNations, SendParameters, SendPathfinder, SendSettlements, SendSim, SendTerritory,
-    SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager, SendWorld,
-    SendWorldArtist,
+    SendNations, SendParameters, SendPathfinder, SendRoutes, SendSettlements, SendSim,
+    SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
+    SendWorld, SendWorldArtist,
 };
 use crate::world::World;
 use commons::async_trait::async_trait;
@@ -112,6 +113,19 @@ impl SendParameters for Polysender {
     {
         self.game_tx
             .send(move |game| function(&game.game_state().params))
+            .await
+    }
+}
+
+#[async_trait]
+impl SendRoutes for Polysender {
+    async fn send_routes<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Routes) -> O + Send + 'static,
+    {
+        self.game_tx
+            .send(move |game| function(&mut game.mut_state().routes))
             .await
     }
 }

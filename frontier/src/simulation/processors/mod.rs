@@ -1,6 +1,7 @@
 use super::*;
 
 mod build_sim;
+mod build_town;
 mod get_demand;
 mod get_route_changes;
 mod get_routes;
@@ -12,7 +13,6 @@ mod step_homeland;
 mod step_town;
 mod try_build_crops;
 mod try_build_road;
-mod try_build_town;
 mod try_remove_crops;
 mod try_remove_road;
 mod update_current_population;
@@ -23,6 +23,7 @@ mod update_route_to_ports;
 mod update_town;
 
 pub use build_sim::*;
+pub use build_town::*;
 pub use get_demand::*;
 pub use get_route_changes::*;
 pub use get_routes::*;
@@ -34,7 +35,6 @@ pub use step_homeland::*;
 pub use step_town::*;
 pub use try_build_crops::*;
 pub use try_build_road::*;
-pub use try_build_town::*;
 pub use try_remove_crops::*;
 pub use try_remove_road::*;
 pub use update_current_population::*;

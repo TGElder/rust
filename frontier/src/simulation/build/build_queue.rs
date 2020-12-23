@@ -37,6 +37,11 @@ impl BuildQueue {
             .map(|(_, instruction)| instruction)
             .collect()
     }
+
+    #[cfg(test)]
+    pub fn get(&self, build_key: &BuildKey) -> Option<&BuildInstruction> {
+        self.queue.get(build_key)
+    }
 }
 
 #[cfg(test)]
