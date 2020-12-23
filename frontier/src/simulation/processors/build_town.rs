@@ -10,12 +10,12 @@ use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{GetSettlement, RandomTownName, SendRoutes, SendWorld, WhoControlsTile};
 
 use super::*;
-pub struct TryBuildTown<X> {
+pub struct BuildTown<X> {
     tx: X,
 }
 
 #[async_trait]
-impl<X> Processor for TryBuildTown<X>
+impl<X> Processor for BuildTown<X>
 where
     X: GetSettlement
         + RandomTownName
@@ -52,12 +52,12 @@ where
     }
 }
 
-impl<X> TryBuildTown<X>
+impl<X> BuildTown<X>
 where
     X: GetSettlement + RandomTownName + SendRoutes + SendWorld + WhoControlsTile,
 {
-    pub fn new(x: X) -> TryBuildTown<X> {
-        TryBuildTown { tx: x }
+    pub fn new(x: X) -> BuildTown<X> {
+        BuildTown { tx: x }
     }
 
     async fn process_position(&mut self, state: &mut State, position: V2<usize>) -> bool {
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn should_build_if_route_ends_at_position() {
         // When
-        let state = block_on(TryBuildTown::new(happy_path_tx()).process(
+        let state = block_on(BuildTown::new(happy_path_tx()).process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
@@ -335,7 +335,7 @@ mod tests {
 
         // When
         let state = block_on(
-            TryBuildTown::new(happy_path_tx())
+            BuildTown::new(happy_path_tx())
                 .process(state, &Instruction::RefreshPositions(hashset! {v2(1, 0)})),
         );
 
@@ -353,7 +353,7 @@ mod tests {
 
         // When
         let state = block_on(
-            TryBuildTown::new(happy_path_tx())
+            BuildTown::new(happy_path_tx())
                 .process(state, &Instruction::RefreshPositions(hashset! {v2(1, 0)})),
         );
 
@@ -370,7 +370,7 @@ mod tests {
 
         // When
         let state = block_on(
-            TryBuildTown::new(happy_path_tx())
+            BuildTown::new(happy_path_tx())
                 .process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})),
         );
 
@@ -393,7 +393,7 @@ mod tests {
         );
 
         // When
-        let state = block_on(TryBuildTown::new(tx).process(
+        let state = block_on(BuildTown::new(tx).process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
@@ -415,7 +415,7 @@ mod tests {
         }
 
         // When
-        let state = block_on(TryBuildTown::new(tx).process(
+        let state = block_on(BuildTown::new(tx).process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
@@ -431,7 +431,7 @@ mod tests {
         *tx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
 
         // When
-        let state = block_on(TryBuildTown::new(tx).process(
+        let state = block_on(BuildTown::new(tx).process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
@@ -447,7 +447,7 @@ mod tests {
         tx.who_controls_tile = Some(v2(1, 1));
 
         // When
-        let state = block_on(TryBuildTown::new(tx).process(
+        let state = block_on(BuildTown::new(tx).process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
@@ -463,7 +463,7 @@ mod tests {
         *tx.routes.lock().unwrap() = Routes::default();
 
         // When
-        let state = block_on(TryBuildTown::new(tx).process(
+        let state = block_on(BuildTown::new(tx).process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
@@ -479,7 +479,7 @@ mod tests {
         tx.get_settlement = None;
 
         // When
-        let state = block_on(TryBuildTown::new(tx).process(
+        let state = block_on(BuildTown::new(tx).process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
