@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use commons::grid::Grid;
-use commons::log::trace;
 
 use crate::game::traits::GetRoute;
 use crate::route::{Route, RouteKey};
@@ -32,21 +31,9 @@ where
             _ => return state,
         };
 
-        let start = std::time::Instant::now();
-        let mut count: usize = 0;
-        let position_count = positions.len();
         for position in positions {
-            if self.process_position(&mut state, position).await {
-                count += 1;
-            }
+            self.process_position(&mut state, position).await
         }
-
-        trace!(
-            "Sent {}/{} build instructions in {}ms",
-            count,
-            position_count,
-            start.elapsed().as_millis()
-        );
 
         state
     }
@@ -60,78 +47,33 @@ where
         BuildTown { tx: x }
     }
 
-    async fn process_position(&mut self, state: &mut State, position: V2<usize>) -> bool {
-        let traffic = ok_or!(state.traffic.get(&position), return false);
-        if traffic.is_empty() {
-            return false;
-        }
-        let route_keys: Vec<RouteKey> = traffic
-            .iter()
-            .filter(|route| {
-                route.destination == position
-                    || state
-                        .route_to_ports
-                        .get(route)
-                        .map_or(false, |ports| ports.contains(&position))
-            })
-            .cloned()
-            .collect();
-
+    async fn process_position(&mut self, state: &mut State, position: V2<usize>) {
+        let route_keys = self.get_route_keys(state, &position);
         if route_keys.is_empty() {
-            return false;
+            return;
         }
 
         if self.tx.who_controls_tile(&position).await.is_some() {
-            return false;
+            return;
         }
 
-        let tiles: Vec<V2<usize>> = self
-            .tx
-            .send_world(move |world| {
-                world
-                    .get_adjacent_tiles_in_bounds(&position)
-                    .into_iter()
-                    .filter(|tile| {
-                        world.get_cell(tile).map_or(false, |cell| cell.visible)
-                            && !world.is_sea(tile)
-                    })
-                    .collect()
-            })
-            .await;
-
+        let tiles = self.get_tiles(position).await;
         if tiles.is_empty() {
-            return false;
+            return;
         }
 
-        let routes: HashMap<RouteKey, Route> = self
-            .tx
-            .send_routes(move |routes| {
-                route_keys
-                    .into_iter()
-                    .flat_map(|route_key| {
-                        routes
-                            .get_route(&route_key)
-                            .map(|route| (route_key, route.clone()))
-                    })
-                    .collect()
-            })
-            .await;
+        let routes = self.get_routes(route_keys).await;
         if routes.is_empty() || routes.values().map(|route| route.traffic).sum::<usize>() == 0 {
-            return false;
+            return;
         }
+        let (first_route_key, first_visit) = first_route(routes);
 
-        let (first_route_key, first_route) = routes
-            .into_iter()
-            .min_by_key(|(_, route)| route.start_micros + route.duration.as_micros())
-            .unwrap();
-        let first_visit = first_route.start_micros + first_route.duration.as_micros(); // TODO recalced
-
-        let nation = unwrap_or!(
+        let settlement = unwrap_or!(
             self.tx.get_settlement(first_route_key.settlement).await,
-            return false
-        )
-        .nation;
-        let name = ok_or!(self.tx.random_town_name(nation.clone()).await, return false);
+            return
+        );
+        let nation = settlement.nation;
+        let name = ok_or!(self.tx.random_town_name(nation.clone()).await, return);
 
         for tile in tiles {
             let settlement = Settlement {
@@ -150,9 +92,60 @@ where
                 when: first_visit,
             });
         }
-
-        true
     }
+
+    fn get_route_keys(&self, state: &State, position: &V2<usize>) -> Vec<RouteKey> {
+        let traffic = ok_or!(state.traffic.get(&position), return vec![]);
+        traffic
+            .iter()
+            .filter(|route| {
+                route.destination == *position
+                    || state
+                        .route_to_ports
+                        .get(route)
+                        .map_or(false, |ports| ports.contains(&position))
+            })
+            .cloned()
+            .collect()
+    }
+
+    async fn get_tiles(&self, position: V2<usize>) -> Vec<V2<usize>> {
+        self.tx
+            .send_world(move |world| {
+                world
+                    .get_adjacent_tiles_in_bounds(&position)
+                    .into_iter()
+                    .filter(|tile| {
+                        world.get_cell(tile).map_or(false, |cell| cell.visible)
+                            && !world.is_sea(tile)
+                    })
+                    .collect()
+            })
+            .await
+    }
+
+    async fn get_routes(&self, route_keys: Vec<RouteKey>) -> HashMap<RouteKey, Route> {
+        self.tx
+            .send_routes(move |routes| {
+                route_keys
+                    .into_iter()
+                    .flat_map(|route_key| {
+                        routes
+                            .get_route(&route_key)
+                            .map(|route| (route_key, route.clone()))
+                    })
+                    .collect()
+            })
+            .await
+    }
+}
+
+fn first_route(routes: HashMap<RouteKey, Route>) -> (RouteKey, u128) {
+    routes
+        .into_iter()
+        .map(|(route_key, route)| (route_key, route.start_micros + route.duration.as_micros()))
+        .min_by_key(|(_, first_visit)| *first_visit)
+        .unwrap()
 }
 
 #[cfg(test)]
