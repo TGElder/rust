@@ -4,14 +4,12 @@ use coords::*;
 use cursor_handler::*;
 use event_handlers::*;
 use events::{EventConsumer, EventHandler, EventHandlerAdapter};
+use glutin::event_loop::ControlFlow;
+use glutin::platform::run_return::EventLoopExtRunReturn;
+use glutin::{PossiblyCurrent, WindowedContext};
 use graphics::{Drawing, GraphicsEngine, GraphicsEngineParameters};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
-
-use glutin::{
-    event_loop::ControlFlow, platform::run_return::EventLoopExtRunReturn, PossiblyCurrent,
-    WindowedContext,
-};
 
 #[derive(Debug, PartialEq)]
 pub enum Button {
@@ -108,14 +106,14 @@ impl IsometricEngine {
             .with_multisampling(4)
             .build_windowed(window, &events_loop)
             .unwrap();
-
         let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
 
-        let physical_size = windowed_context.window().inner_size();
+        let physical_window_size = windowed_context.window().inner_size();
         let graphics = GraphicsEngine::new(GraphicsEngineParameters {
             z_scale: 1.0 / params.max_z,
-            viewport_size: physical_size,
+            viewport_size: physical_window_size,
             label_padding: params.label_padding,
         });
 
@@ -123,7 +121,7 @@ impl IsometricEngine {
 
         let mut out = IsometricEngine {
             events_loop,
-            cursor_handler: CursorHandler::new(physical_size),
+            cursor_handler: CursorHandler::new(physical_window_size),
             event_consumers: vec![],
             windowed_context,
             graphics,
@@ -231,10 +229,7 @@ impl IsometricEngine {
         match command {
             Command::Shutdown => self.running = false,
             Command::Resize(physical_size) => {
-                self.windowed_context.resize(glutin::dpi::PhysicalSize::new(
-                    physical_size.width as u32,
-                    physical_size.height as u32,
-                ));
+                self.windowed_context.resize(physical_size);
                 self.graphics.set_viewport_size(physical_size);
             }
             Command::Translate(translation) => self.graphics.transform().translate(translation),
