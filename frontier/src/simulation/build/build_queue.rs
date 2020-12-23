@@ -9,6 +9,10 @@ pub struct BuildQueue {
 }
 
 impl BuildQueue {
+    pub fn get(&self, build_key: &BuildKey) -> Option<&BuildInstruction> {
+        self.queue.get(build_key)
+    }
+
     pub fn insert(&mut self, build_instruction: BuildInstruction) {
         let key = build_instruction.what.key();
         match self.queue.entry(key) {

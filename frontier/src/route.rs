@@ -1,6 +1,7 @@
 use crate::resource::Resource;
 use commons::V2;
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result};
 use std::time::Duration;
@@ -42,11 +43,34 @@ pub struct RouteSetKey {
     pub resource: Resource,
 }
 
-impl From<&RouteKey> for RouteSetKey {
-    fn from(route_key: &RouteKey) -> RouteSetKey {
+impl<T> From<T> for RouteSetKey
+where
+    T: Borrow<RouteKey>,
+{
+    fn from(route_key: T) -> RouteSetKey {
         RouteSetKey {
-            settlement: route_key.settlement,
-            resource: route_key.resource,
+            settlement: route_key.borrow().settlement,
+            resource: route_key.borrow().resource,
         }
+    }
+}
+
+pub type Routes = HashMap<RouteSetKey, RouteSet>;
+
+pub trait RoutesExt {
+    fn get_route(&self, key: &RouteKey) -> Option<&Route>;
+    fn insert_route(&mut self, key: RouteKey, route: Route);
+}
+
+impl RoutesExt for Routes {
+    fn get_route(&self, key: &RouteKey) -> Option<&Route> {
+        self.get(&key.into())
+            .and_then(|route_set| route_set.get(key))
+    }
+
+    fn insert_route(&mut self, key: RouteKey, route: Route) {
+        self.entry(key.into())
+            .or_insert_with(HashMap::new)
+            .insert(key, route);
     }
 }
