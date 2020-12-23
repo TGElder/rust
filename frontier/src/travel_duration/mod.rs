@@ -55,21 +55,21 @@ pub trait TravelDuration: Send + Sync {
     fn get_durations_for_position<'a>(
         &'a self,
         world: &'a World,
-        position: &'a V2<usize>,
+        position: V2<usize>,
     ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
         let iterator = world
-            .neighbours(position)
+            .neighbours(&position)
             .into_iter()
             .flat_map(move |neighbour| {
                 once(EdgeDuration {
-                    from: *position,
+                    from: position,
                     to: neighbour,
-                    duration: self.get_duration(world, position, &neighbour),
+                    duration: self.get_duration(world, &position, &neighbour),
                 })
                 .chain(once(EdgeDuration {
                     from: neighbour,
-                    to: *position,
-                    duration: self.get_duration(world, &neighbour, position),
+                    to: position,
+                    duration: self.get_duration(world, &neighbour, &position),
                 }))
             });
         Box::new(iterator)
@@ -197,7 +197,7 @@ mod tests {
             max_millis: 4,
         };
         assert_eq!(
-            travel_duration.get_durations_for_position(&world(), &v2(1, 1)).collect::<HashSet<EdgeDuration>>(),
+            travel_duration.get_durations_for_position(&world(), v2(1, 1)).collect::<HashSet<EdgeDuration>>(),
             hashset!{EdgeDuration{
                 from: v2(1, 1),
                 to: v2(2, 1),
@@ -243,7 +243,7 @@ mod tests {
             max_millis: 4,
         };
         assert_eq!(
-            travel_duration.get_durations_for_position(&world(), &v2(0, 0)).collect::<HashSet<EdgeDuration>>(),
+            travel_duration.get_durations_for_position(&world(), v2(0, 0)).collect::<HashSet<EdgeDuration>>(),
             hashset!{EdgeDuration{
                 from: v2(0, 0),
                 to: v2(1, 0),

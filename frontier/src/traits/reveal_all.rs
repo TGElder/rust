@@ -32,7 +32,7 @@ where
         update_sim(self, positions.clone());
         join!(
             redraw_all(self),
-            self.update_positions_all_pathfinders(positions.into_iter().collect())
+            self.update_positions_all_pathfinders(positions)
         );
     }
 }

@@ -26,7 +26,7 @@ where
         voyage(self, newly_visible.clone(), revealed_by);
         join!(
             redraw(self, &newly_visible),
-            self.update_positions_all_pathfinders(newly_visible.iter().cloned().collect()),
+            self.update_positions_all_pathfinders(newly_visible.clone()),
         );
     }
 }

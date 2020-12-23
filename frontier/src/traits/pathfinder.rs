@@ -35,9 +35,10 @@ where
 
 #[async_trait]
 pub trait UpdatePathfinderPositions {
-    async fn update_pathfinder_positions<P>(&self, pathfinder: P, positions: Vec<V2<usize>>)
+    async fn update_pathfinder_positions<P, I>(&self, pathfinder: P, positions: I)
     where
-        P: SendPathfinder + Send + Sync;
+        P: SendPathfinder + Send + Sync,
+        I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static;
 }
 
 #[async_trait]
@@ -45,9 +46,10 @@ impl<T> UpdatePathfinderPositions for T
 where
     T: SendWorld + Send + Sync,
 {
-    async fn update_pathfinder_positions<P>(&self, pathfinder: P, positions: Vec<V2<usize>>)
+    async fn update_pathfinder_positions<P, I>(&self, pathfinder: P, positions: I)
     where
         P: SendPathfinder + Send + Sync,
+        I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static,
     {
         let travel_duration = pathfinder
             .send_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
@@ -56,9 +58,9 @@ where
         let durations: HashSet<EdgeDuration> = self
             .send_world(move |world| {
                 positions
-                    .iter()
+                    .into_iter()
                     .flat_map(|position| {
-                        travel_duration.get_durations_for_position(world, &position)
+                        travel_duration.get_durations_for_position(world, position)
                     })
                     .collect()
             })
@@ -76,7 +78,9 @@ where
 
 #[async_trait]
 pub trait UpdatePositionsAllPathfinders {
-    async fn update_positions_all_pathfinders(&self, positions: Vec<V2<usize>>);
+    async fn update_positions_all_pathfinders<I>(&self, positions: I)
+    where
+        I: IntoIterator<Item = V2<usize>> + Clone + Send + Sync + 'static;
 }
 
 #[async_trait]
@@ -88,7 +92,10 @@ where
         + Send
         + Sync,
 {
-    async fn update_positions_all_pathfinders(&self, positions: Vec<V2<usize>>) {
+    async fn update_positions_all_pathfinders<I>(&self, positions: I)
+    where
+        I: IntoIterator<Item = V2<usize>> + Clone + Send + Sync + 'static,
+    {
         let pathfinder_with = self.pathfinder_with_planned_roads().clone();
         let pathfinder_without = self.pathfinder_without_planned_roads().clone();
 
