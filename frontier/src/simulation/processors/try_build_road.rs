@@ -5,8 +5,8 @@ use commons::log::trace;
 
 use crate::game::traits::GetRoute;
 use crate::route::Route;
-use crate::traits::{PathfinderWithPlannedRoads, SendGame, SendPathfinder, SendWorld};
-use crate::travel_duration::{EdgeDuration, TravelDuration};
+use crate::traits::{PathfinderWithPlannedRoads, SendGame, SendWorld, UpdatePathfinderPositions};
+use crate::travel_duration::TravelDuration;
 use crate::world::World;
 
 use super::*;
@@ -61,7 +61,7 @@ where
 
 impl<X, T> TryBuildRoad<X, T>
 where
-    X: PathfinderWithPlannedRoads + SendGame + SendWorld,
+    X: PathfinderWithPlannedRoads + SendGame + SendWorld + UpdatePathfinderPositions,
     T: TravelDuration + 'static,
 {
     pub fn new(x: X, travel_duration: Arc<T>) -> TryBuildRoad<X, T> {
@@ -112,7 +112,10 @@ where
             return false;
         }
 
-        self.update_pathfinder(&edge).await;
+        let pathfinder = self.x.pathfinder_with_planned_roads().clone();
+        self.x
+            .update_pathfinder_positions(pathfinder, vec![*edge.from(), *edge.to()])
+            .await;
 
         state.build_queue.insert(BuildInstruction {
             what: Build::Road(edge),
@@ -120,34 +123,6 @@ where
         });
 
         true
-    }
-
-    async fn update_pathfinder(&self, edge: &Edge) {
-        let travel_duration = self
-            .x
-            .pathfinder_with_planned_roads()
-            .send_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
-            .await;
-
-        let path = [*edge.from(), *edge.to()];
-        let durations: Vec<EdgeDuration> = self
-            .x
-            .send_world(move |world| {
-                travel_duration
-                    .get_durations_for_path(world, &path)
-                    .collect()
-            })
-            .await;
-
-        self.x
-            .pathfinder_with_planned_roads()
-            .send_pathfinder_background(move |pathfinder| {
-                for EdgeDuration { from, to, duration } in durations {
-                    if let Some(duration) = duration {
-                        pathfinder.set_edge_duration(&from, &to, &duration)
-                    }
-                }
-            });
     }
 }
 
