@@ -10,7 +10,7 @@ use crate::world::World;
 use commons::grid::Grid;
 use commons::scale::*;
 use commons::V2;
-use std::iter::{empty, once};
+use std::iter::once;
 use std::time::Duration;
 
 pub trait TravelDuration: Send + Sync {
@@ -52,49 +52,24 @@ pub trait TravelDuration: Send + Sync {
             .map(|duration| self.get_cost_from_duration_u8(&duration))
     }
 
-    fn get_durations_for_path<'a>(
-        &'a self,
-        world: &'a World,
-        path: &'a [V2<usize>],
-    ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
-        if path.is_empty() {
-            return Box::new(empty());
-        }
-        let iterator = (0..path.len() - 1).flat_map(move |i| {
-            let from = path[i];
-            let to = path[i + 1];
-            once(EdgeDuration {
-                from,
-                to,
-                duration: self.get_duration(world, &from, &to),
-            })
-            .chain(once(EdgeDuration {
-                from: to,
-                to: from,
-                duration: self.get_duration(world, &to, &from),
-            }))
-        });
-        Box::new(iterator)
-    }
-
     fn get_durations_for_position<'a>(
         &'a self,
         world: &'a World,
-        position: &'a V2<usize>,
+        position: V2<usize>,
     ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
         let iterator = world
-            .neighbours(position)
+            .neighbours(&position)
             .into_iter()
             .flat_map(move |neighbour| {
                 once(EdgeDuration {
-                    from: *position,
+                    from: position,
                     to: neighbour,
-                    duration: self.get_duration(world, position, &neighbour),
+                    duration: self.get_duration(world, &position, &neighbour),
                 })
                 .chain(once(EdgeDuration {
                     from: neighbour,
-                    to: *position,
-                    duration: self.get_duration(world, &neighbour, position),
+                    to: position,
+                    duration: self.get_duration(world, &neighbour, &position),
                 }))
             });
         Box::new(iterator)
@@ -215,86 +190,6 @@ mod tests {
 
     #[test]
     #[rustfmt::skip]
-    fn test_get_durations_for_path() {
-        
-        let travel_duration = TestDuration {
-            millis: 1,
-            max_millis: 4,
-        };
-        assert_eq!(
-            travel_duration.get_durations_for_path(&world(), &[v2(0, 0), v2(1, 0), v2(2, 0)]).collect::<HashSet<EdgeDuration>>(),
-            hashset!{ EdgeDuration{
-                from: v2(0, 0),
-                to: v2(1, 0),
-                duration: Some(Duration::from_millis(1))
-            }, EdgeDuration{
-                from: v2(1, 0),
-                to: v2(2, 0),
-                duration: Some(Duration::from_millis(1))
-            }, EdgeDuration{
-                from: v2(2, 0),
-                to: v2(1, 0),
-                duration: Some(Duration::from_millis(1))
-            }, EdgeDuration{
-                from: v2(1, 0),
-                to: v2(0, 0),
-                duration: Some(Duration::from_millis(1))
-            }}
-        );
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_get_durations_for_two_position_path() {
-
-        let travel_duration = TestDuration {
-            millis: 1,
-            max_millis: 4,
-        };
-        assert_eq!(
-            travel_duration.get_durations_for_path(&world(), &[v2(0, 0), v2(1, 0)]).collect::<HashSet<EdgeDuration>>(),
-            hashset!{ EdgeDuration{
-                from: v2(0, 0),
-                to: v2(1, 0),
-                duration: Some(Duration::from_millis(1))
-            }, EdgeDuration{
-                from: v2(1, 0),
-                to: v2(0, 0),
-                duration: Some(Duration::from_millis(1))
-            }}
-        );
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_get_durations_for_single_position_path() {
-
-        let travel_duration = TestDuration {
-            millis: 1,
-            max_millis: 4,
-        };
-        assert_eq!(
-            travel_duration.get_durations_for_path(&world(), &[v2(0, 0)]).collect::<HashSet<EdgeDuration>>(),
-            hashset!{}
-        );
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn test_get_durations_for_empty_path() {
-
-        let travel_duration = TestDuration {
-            millis: 1,
-            max_millis: 4,
-        };
-        assert_eq!(
-            travel_duration.get_durations_for_path(&world(), &[]).collect::<HashSet<EdgeDuration>>(),
-            hashset!{}
-        );
-    }
-
-    #[test]
-    #[rustfmt::skip]
     fn test_get_durations_for_position() {
 
         let travel_duration = TestDuration {
@@ -302,7 +197,7 @@ mod tests {
             max_millis: 4,
         };
         assert_eq!(
-            travel_duration.get_durations_for_position(&world(), &v2(1, 1)).collect::<HashSet<EdgeDuration>>(),
+            travel_duration.get_durations_for_position(&world(), v2(1, 1)).collect::<HashSet<EdgeDuration>>(),
             hashset!{EdgeDuration{
                 from: v2(1, 1),
                 to: v2(2, 1),
@@ -348,7 +243,7 @@ mod tests {
             max_millis: 4,
         };
         assert_eq!(
-            travel_duration.get_durations_for_position(&world(), &v2(0, 0)).collect::<HashSet<EdgeDuration>>(),
+            travel_duration.get_durations_for_position(&world(), v2(0, 0)).collect::<HashSet<EdgeDuration>>(),
             hashset!{EdgeDuration{
                 from: v2(0, 0),
                 to: v2(1, 0),
