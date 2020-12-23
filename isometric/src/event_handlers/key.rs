@@ -6,7 +6,6 @@ use std::sync::Arc;
 pub struct KeyRelay {}
 
 impl EventHandler for KeyRelay {
-
     #[allow(deprecated)]
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
