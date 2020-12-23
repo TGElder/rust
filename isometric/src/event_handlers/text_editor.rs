@@ -97,6 +97,8 @@ impl Default for TextEditor {
 }
 
 impl EventHandler for TextEditor {
+
+    #[allow(deprecated)]
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
             Event::GlutinEvent(glutin::event::Event::WindowEvent {
