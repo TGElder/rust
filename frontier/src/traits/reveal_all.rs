@@ -4,7 +4,9 @@ use commons::async_trait::async_trait;
 use commons::grid::Grid;
 use commons::{v2, V2};
 
-use crate::traits::{DrawWorld, Micros, SendGame, SendSim, SendWorld, UpdatePathfinderPositions};
+use crate::traits::{
+    DrawWorld, Micros, SendGame, SendSim, SendWorld, UpdatePositionsAllPathfinders,
+};
 
 #[async_trait]
 pub trait RevealAll {
@@ -14,7 +16,14 @@ pub trait RevealAll {
 #[async_trait]
 impl<T> RevealAll for T
 where
-    T: DrawWorld + Micros + SendGame + SendSim + SendWorld + UpdatePathfinderPositions + Sync,
+    T: DrawWorld
+        + Micros
+        + SendGame
+        + SendSim
+        + SendWorld
+        + UpdatePositionsAllPathfinders
+        + Send
+        + Sync,
 {
     async fn reveal_all(&self) {
         let (width, height) = reveal_all_get_dimensions(self).await;
@@ -23,7 +32,7 @@ where
         update_sim(self, positions.clone());
         join!(
             redraw_all(self),
-            self.update_pathfinder_positions(&positions)
+            self.update_positions_all_pathfinders(positions)
         );
     }
 }
