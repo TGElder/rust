@@ -17,10 +17,10 @@ pub use font::*;
 pub use graphics::drawing;
 pub use graphics::texture::*;
 
-pub use glutin::ElementState;
-pub use glutin::ModifiersState;
-pub use glutin::MouseButton;
-pub use glutin::VirtualKeyCode;
+pub use glutin::event::ElementState;
+pub use glutin::event::ModifiersState;
+pub use glutin::event::MouseButton;
+pub use glutin::event::VirtualKeyCode;
 
 extern crate bincode;
 extern crate commons;

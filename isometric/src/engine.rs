@@ -4,16 +4,17 @@ use coords::*;
 use cursor_handler::*;
 use event_handlers::*;
 use events::{EventConsumer, EventHandler, EventHandlerAdapter};
+use glutin::event_loop::ControlFlow;
+use glutin::platform::run_return::EventLoopExtRunReturn;
+use glutin::{PossiblyCurrent, WindowedContext};
 use graphics::{Drawing, GraphicsEngine, GraphicsEngineParameters};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
-use glutin::GlContext;
-
 #[derive(Debug, PartialEq)]
 pub enum Button {
-    Key(glutin::VirtualKeyCode),
-    Mouse(glutin::MouseButton),
+    Key(glutin::event::VirtualKeyCode),
+    Mouse(glutin::event::MouseButton),
 }
 
 #[derive(Debug)]
@@ -21,23 +22,21 @@ pub enum Event {
     Start,
     Tick,
     Shutdown,
-    Resize(glutin::dpi::PhysicalSize),
-    DPIChanged(f64),
     CursorMoved(Option<GLCoord4D>),
     WorldPositionChanged(Option<WorldCoord>),
-    GlutinEvent(glutin::Event),
+    GlutinEvent(glutin::event::Event<'static, ()>),
     Drag(GLCoord4D),
     Button {
         button: Button,
-        state: glutin::ElementState,
-        modifiers: glutin::ModifiersState,
+        state: glutin::event::ElementState,
+        modifiers: glutin::event::ModifiersState,
     },
 }
 
 #[derive(Debug)]
 pub enum Command {
     Shutdown,
-    Resize(glutin::dpi::PhysicalSize),
+    Resize(glutin::dpi::PhysicalSize<u32>),
     Translate(GLCoord2D),
     Scale {
         center: GLCoord4D,
@@ -71,8 +70,8 @@ pub enum Command {
 }
 
 pub struct IsometricEngine {
-    events_loop: glutin::EventsLoop,
-    window: glutin::GlWindow,
+    events_loop: glutin::event_loop::EventLoop<()>,
+    windowed_context: WindowedContext<PossiblyCurrent>,
     graphics: GraphicsEngine,
     running: bool,
     cursor_handler: CursorHandler,
@@ -94,29 +93,27 @@ impl IsometricEngine {
     const GL_VERSION: glutin::GlRequest = glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 3));
 
     pub fn new(params: IsometricEngineParameters) -> IsometricEngine {
-        let events_loop = glutin::EventsLoop::new();
-        let window = glutin::WindowBuilder::new()
+        let events_loop = glutin::event_loop::EventLoop::new();
+        let window = glutin::window::WindowBuilder::new()
             .with_title(params.title)
-            .with_dimensions(glutin::dpi::LogicalSize::new(
+            .with_inner_size(glutin::dpi::PhysicalSize::new(
                 f64::from(params.width),
                 f64::from(params.height),
             ));
-        let context = glutin::ContextBuilder::new()
+        let windowed_context = glutin::ContextBuilder::new()
             .with_gl(IsometricEngine::GL_VERSION)
             .with_vsync(true)
-            .with_multisampling(4);
-        let gl_window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
+            .with_multisampling(4)
+            .build_windowed(window, &events_loop)
+            .unwrap();
+        let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
-        unsafe {
-            gl_window.make_current().unwrap();
-            gl::load_with(|symbol| gl_window.get_proc_address(symbol) as *const _);
-        }
+        gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
 
-        let dpi_factor = gl_window.get_hidpi_factor();
-        let logical_window_size = gl_window.window().get_inner_size().unwrap();
+        let physical_window_size = windowed_context.window().inner_size();
         let graphics = GraphicsEngine::new(GraphicsEngineParameters {
             z_scale: 1.0 / params.max_z,
-            viewport_size: logical_window_size.to_physical(dpi_factor),
+            viewport_size: physical_window_size,
             label_padding: params.label_padding,
         });
 
@@ -124,9 +121,9 @@ impl IsometricEngine {
 
         let mut out = IsometricEngine {
             events_loop,
-            cursor_handler: CursorHandler::new(dpi_factor, logical_window_size),
+            cursor_handler: CursorHandler::new(physical_window_size),
             event_consumers: vec![],
-            window: gl_window,
+            windowed_context,
             graphics,
             running: true,
             command_rx,
@@ -162,13 +159,9 @@ impl IsometricEngine {
     }
 
     fn init_event_handlers(&mut self) {
-        let dpi_factor = self.window.get_hidpi_factor();
-
         self.add_event_handler(ShutdownHandler::default());
-        self.add_event_handler(DPIRelay::default());
         self.add_event_handler(Resizer::default());
         self.add_event_handler(DragHandler::default());
-        self.add_event_handler(ResizeRelay::new(dpi_factor));
         self.add_event_handler(Scroller::default());
         self.add_event_handler(KeyRelay::default());
         self.add_event_handler(MouseRelay::default());
@@ -186,7 +179,7 @@ impl IsometricEngine {
             self.update_cursors();
             self.graphics.draw_ui();
             self.graphics.draw_billboards();
-            self.window.swap_buffers().unwrap();
+            self.windowed_context.swap_buffers().unwrap();
         }
 
         self.shutdown();
@@ -194,8 +187,11 @@ impl IsometricEngine {
 
     fn consume_glutin_events(&mut self) {
         let mut glutin_events = vec![];
-        self.events_loop.poll_events(|event| {
-            glutin_events.push(event);
+        self.events_loop.run_return(|event, _, control_flow| {
+            if let Some(event) = event.to_static() {
+                glutin_events.push(event);
+            }
+            *control_flow = ControlFlow::Exit
         });
         for event in glutin_events {
             self.consume_event(Event::GlutinEvent(event));
@@ -233,7 +229,7 @@ impl IsometricEngine {
         match command {
             Command::Shutdown => self.running = false,
             Command::Resize(physical_size) => {
-                self.window.resize(physical_size);
+                self.windowed_context.resize(physical_size);
                 self.graphics.set_viewport_size(physical_size);
             }
             Command::Translate(translation) => self.graphics.transform().translate(translation),

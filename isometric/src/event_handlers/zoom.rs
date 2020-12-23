@@ -21,10 +21,10 @@ impl ZoomHandler {
         }
     }
 
-    fn handle_mouse_scroll_delta(&self, delta: glutin::MouseScrollDelta) -> Vec<Command> {
+    fn handle_mouse_scroll_delta(&self, delta: glutin::event::MouseScrollDelta) -> Vec<Command> {
         match delta {
-            glutin::MouseScrollDelta::LineDelta(_, d) if d > 0.0 => self.zoom(2.0),
-            glutin::MouseScrollDelta::LineDelta(_, d) if d < 0.0 => self.zoom(0.5),
+            glutin::event::MouseScrollDelta::LineDelta(_, d) if d > 0.0 => self.zoom(2.0),
+            glutin::event::MouseScrollDelta::LineDelta(_, d) if d < 0.0 => self.zoom(0.5),
             _ => vec![],
         }
     }
@@ -41,18 +41,18 @@ impl Default for ZoomHandler {
 impl EventHandler for ZoomHandler {
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
-            Event::GlutinEvent(glutin::Event::WindowEvent {
-                event: glutin::WindowEvent::MouseWheel { delta, .. },
+            Event::GlutinEvent(glutin::event::Event::WindowEvent {
+                event: glutin::event::WindowEvent::MouseWheel { delta, .. },
                 ..
             }) => self.handle_mouse_scroll_delta(delta),
 
             Event::Button {
-                button: Button::Key(VirtualKeyCode::Add),
+                button: Button::Key(VirtualKeyCode::Plus),
                 state: ElementState::Pressed,
                 ..
             } => self.zoom(2.0),
             Event::Button {
-                button: Button::Key(VirtualKeyCode::Subtract),
+                button: Button::Key(VirtualKeyCode::Minus),
                 state: ElementState::Pressed,
                 ..
             } => self.zoom(0.5),

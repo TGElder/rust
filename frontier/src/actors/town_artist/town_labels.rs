@@ -11,7 +11,7 @@ use commons::async_trait::async_trait;
 use commons::{unsafe_ordering, V2};
 use isometric::coords::WorldCoord;
 use isometric::drawing::{draw_label, get_house_base_corners};
-use isometric::{Button, Command, ElementState, Event, Font, ModifiersState, VirtualKeyCode};
+use isometric::{Button, Command, ElementState, Event, Font, VirtualKeyCode};
 
 pub struct TownLabelArtist<X> {
     x: X,
@@ -145,14 +145,11 @@ where
             Event::Button {
                 ref button,
                 state: ElementState::Pressed,
-                modifiers:
-                    ModifiersState {
-                        alt: true,
-                        ctrl: false,
-                        ..
-                    },
+                modifiers,
                 ..
-            } if *button == self.binding => self.change_state().await,
+            } if *button == self.binding && modifiers.alt() && !modifiers.ctrl() => {
+                self.change_state().await
+            }
             _ => (),
         }
     }

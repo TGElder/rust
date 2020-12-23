@@ -6,13 +6,14 @@ use std::sync::Arc;
 pub struct KeyRelay {}
 
 impl EventHandler for KeyRelay {
+    #[allow(deprecated)]
     fn handle_event(&mut self, event: Arc<Event>) -> Vec<Command> {
         match *event {
-            Event::GlutinEvent(glutin::Event::WindowEvent {
+            Event::GlutinEvent(glutin::event::Event::WindowEvent {
                 event:
-                    glutin::WindowEvent::KeyboardInput {
+                    glutin::event::WindowEvent::KeyboardInput {
                         input:
-                            glutin::KeyboardInput {
+                            glutin::event::KeyboardInput {
                                 virtual_keycode,
                                 state,
                                 modifiers,

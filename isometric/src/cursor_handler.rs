@@ -1,26 +1,24 @@
 use coords::{GLCoord4D, PhysicalPositionExt, WorldCoord};
 use engine::Event;
 use events::EventConsumer;
-use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
+use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use graphics::GLZFinder;
 use std::sync::Arc;
 use transform::Transform;
 
 pub struct CursorHandler {
     z_finder: GLZFinder,
-    dpi_factor: f64,
-    physical_window_size: PhysicalSize,
-    screen_cursor: Option<LogicalPosition>,
+    physical_window_size: PhysicalSize<u32>,
+    screen_cursor: Option<PhysicalPosition<f64>>,
     gl_cursor: Option<GLCoord4D>,
     world_cursor: Option<WorldCoord>,
 }
 
 impl CursorHandler {
-    pub fn new(dpi_factor: f64, logical_window_size: LogicalSize) -> CursorHandler {
+    pub fn new(physical_window_size: PhysicalSize<u32>) -> CursorHandler {
         CursorHandler {
             z_finder: GLZFinder {},
-            dpi_factor,
-            physical_window_size: logical_window_size.to_physical(dpi_factor),
+            physical_window_size,
             screen_cursor: None,
             gl_cursor: None,
             world_cursor: None,
@@ -36,11 +34,8 @@ impl CursorHandler {
     }
 
     fn get_gl_cursor(&self) -> Option<GLCoord4D> {
-        self.screen_cursor.map(|position| {
-            position
-                .to_physical(self.dpi_factor)
-                .to_gl_coord_4d(self.physical_window_size, &self.z_finder)
-        })
+        self.screen_cursor
+            .map(|position| position.to_gl_coord_4d(self.physical_window_size, &self.z_finder))
     }
 
     fn compute_world_cursor(&self, transform: &mut Transform) -> Option<WorldCoord> {
@@ -58,16 +53,16 @@ impl CursorHandler {
 impl EventConsumer for CursorHandler {
     fn consume_event(&mut self, event: Arc<Event>) {
         match *event {
-            Event::GlutinEvent(glutin::Event::WindowEvent {
-                event: glutin::WindowEvent::CursorMoved { position, .. },
+            Event::GlutinEvent(glutin::event::Event::WindowEvent {
+                event: glutin::event::WindowEvent::CursorMoved { position, .. },
                 ..
             }) => {
                 self.screen_cursor = Some(position);
             }
-            Event::DPIChanged(dpi) => {
-                self.dpi_factor = dpi;
-            }
-            Event::Resize(physical_size) => {
+            Event::GlutinEvent(glutin::event::Event::WindowEvent {
+                event: glutin::event::WindowEvent::Resized(physical_size),
+                ..
+            }) => {
                 self.physical_window_size = physical_size;
             }
             _ => (),

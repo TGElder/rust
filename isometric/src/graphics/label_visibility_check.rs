@@ -18,7 +18,7 @@ pub struct LabelVisibilityCheck {
 pub struct LabelVisibilityChecker<'a> {
     padding: f32,
     transform: &'a Transform,
-    physical_size: &'a PhysicalSize,
+    physical_size: &'a PhysicalSize<u32>,
     z_finder: &'a dyn ZFinder,
     pixel_to_screen: Matrix2<f32>,
     ui_elements: Vec<Rectangle<f32>>,
@@ -112,7 +112,7 @@ mod tests {
             GLCoord2D::new(0.0, 0.0),
             Box::new(Identity {}),
         );
-        let physical_size = PhysicalSize::new(100.0, 100.0);
+        let physical_size = PhysicalSize::new(100, 100);
         let z_finder = MockZFinder {};
 
         let mut checker = LabelVisibilityChecker {

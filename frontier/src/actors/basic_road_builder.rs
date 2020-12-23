@@ -7,7 +7,7 @@ use crate::world::World;
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
 use commons::V2;
-use isometric::{Button, ElementState, Event, ModifiersState, VirtualKeyCode};
+use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
 
 pub struct BasicRoadBuilder<X> {
@@ -65,16 +65,11 @@ where
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers:
-                ModifiersState {
-                    alt: false,
-                    ctrl: true,
-                    ..
-                },
+            modifiers,
             ..
         } = *event
         {
-            if *button == self.binding {
+            if *button == self.binding && !modifiers.alt() && modifiers.ctrl() {
                 self.build_road().await;
             }
         }

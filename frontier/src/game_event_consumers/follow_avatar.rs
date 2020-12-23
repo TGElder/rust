@@ -1,5 +1,5 @@
 use super::*;
-use isometric::{Button, ElementState, ModifiersState, VirtualKeyCode};
+use isometric::{Button, ElementState, VirtualKeyCode};
 
 const NAME: &str = "follow_avatar";
 
@@ -55,11 +55,11 @@ impl GameEventConsumer for FollowAvatar {
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
-            modifiers: ModifiersState { alt: false, .. },
+            modifiers,
             ..
         } = *event
         {
-            if button == &self.binding {
+            if button == &self.binding && !modifiers.alt() {
                 self.toggle_follow_avatar();
             }
         }
