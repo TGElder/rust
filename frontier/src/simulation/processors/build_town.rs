@@ -43,8 +43,8 @@ impl<T> BuildTown<T>
 where
     T: GetSettlement + RandomTownName + SendRoutes + SendWorld + WhoControlsTile,
 {
-    pub fn new(x: T) -> BuildTown<T> {
-        BuildTown { tx: x }
+    pub fn new(tx: T) -> BuildTown<T> {
+        BuildTown { tx }
     }
 
     async fn process_position(&mut self, state: &mut State, position: V2<usize>) {

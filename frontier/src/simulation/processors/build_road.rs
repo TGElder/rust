@@ -40,9 +40,9 @@ where
     X: PlanRoad + RoadPlanned + SendRoutes + SendWorld,
     T: TravelDuration + 'static,
 {
-    pub fn new(x: X, travel_duration: Arc<T>) -> BuildRoad<X, T> {
+    pub fn new(tx: X, travel_duration: Arc<T>) -> BuildRoad<X, T> {
         BuildRoad {
-            tx: x,
+            tx,
             travel_duration,
         }
     }
