@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use commons::grid::Grid;
 use commons::rand::prelude::SmallRng;
@@ -6,7 +6,7 @@ use commons::rand::{Rng, SeedableRng};
 
 use crate::game::traits::GetRoute;
 use crate::resource::Resource;
-use crate::route::Route;
+use crate::route::RouteKey;
 use crate::traits::{SendRoutes, SendWorld};
 use crate::world::{World, WorldObject};
 
@@ -22,19 +22,19 @@ where
     T: SendRoutes + SendWorld + Send + Sync + 'static,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let mut positions = match instruction {
+        let positions = match instruction {
             Instruction::RefreshPositions(positions) => positions.clone(),
             _ => return state,
         };
 
-        positions.retain(|position| has_crop_routes(&state, position));
-        let free_positions = self
-            .tx
-            .send_world(move |world| free_positions(world, positions))
+        let crop_routes = get_crop_routes(&state, positions);
+        let crop_routes = self
+            .filter_crop_routes_with_free_destination(crop_routes)
             .await;
 
-        for position in free_positions {
-            self.build_crops(&mut state, &position).await;
+        for (position, route_keys) in crop_routes {
+            self.process_position(&mut state, position, route_keys)
+                .await;
         }
 
         state
@@ -43,7 +43,7 @@ where
 
 impl<T> BuildCrops<T>
 where
-    T: SendRoutes,
+    T: SendRoutes + SendWorld,
 {
     pub fn new(tx: T, seed: u64) -> BuildCrops<T> {
         BuildCrops {
@@ -52,47 +52,85 @@ where
         }
     }
 
-    async fn build_crops(&mut self, state: &mut State, position: &V2<usize>) {
-        let mut route_keys = ok_or!(state.traffic.get(position), return).clone();
-        route_keys.retain(|route| route.resource == Resource::Crops);
+    async fn filter_crop_routes_with_free_destination(
+        &self,
+        crop_routes: HashMap<V2<usize>, HashSet<RouteKey>>,
+    ) -> HashMap<V2<usize>, HashSet<RouteKey>> {
+        self.tx
+            .send_world(move |world| filter_crop_routes_with_free_destination(world, crop_routes))
+            .await
+    }
 
-        let routes: Vec<Route> = self
-            .tx
-            .send_routes(move |routes| {
-                route_keys
-                    .into_iter()
-                    .flat_map(|route_key| routes.get_route(&route_key))
-                    .cloned()
-                    .collect()
-            })
-            .await;
-
-        let first_visit = routes
-            .into_iter()
-            .map(|route| route.start_micros + route.duration.as_micros())
-            .min()
-            .unwrap();
+    async fn process_position(
+        &mut self,
+        state: &mut State,
+        position: V2<usize>,
+        route_keys: HashSet<RouteKey>,
+    ) {
+        let first_visit = unwrap_or!(self.first_visit(route_keys).await, return);
 
         state.build_queue.insert(BuildInstruction {
             what: Build::Crops {
-                position: *position,
+                position,
                 rotated: self.rng.gen(),
             },
             when: first_visit,
         });
     }
+
+    async fn first_visit(&self, route_keys: HashSet<RouteKey>) -> Option<u128> {
+        self.tx
+            .send_routes(move |routes| {
+                route_keys
+                    .into_iter()
+                    .flat_map(|route_key| routes.get_route(&route_key))
+                    .map(|route| route.start_micros + route.duration.as_micros())
+                    .min()
+            })
+            .await
+    }
 }
 
-fn has_crop_routes(state: &State, position: &V2<usize>) -> bool {
-    ok_or!(state.traffic.get(&position), return false)
-        .iter()
-        .any(|route| route.resource == Resource::Crops && route.destination == *position)
-}
-
-fn free_positions(world: &World, positions: HashSet<V2<usize>>) -> Vec<V2<usize>> {
+fn get_crop_routes(
+    state: &State,
+    positions: HashSet<V2<usize>>,
+) -> HashMap<V2<usize>, HashSet<RouteKey>> {
     positions
         .into_iter()
-        .filter(|position| is_free(world, position))
+        .flat_map(|position| get_crop_routes_for_position(state, position))
+        .collect()
+}
+
+fn get_crop_routes_for_position(
+    state: &State,
+    position: V2<usize>,
+) -> Option<(V2<usize>, HashSet<RouteKey>)> {
+    Some((
+        position,
+        ok_or!(state.traffic.get(&position), return None)
+            .iter()
+            .filter(|route_key| {
+                route_key.resource == Resource::Crops && route_key.destination == position
+            })
+            .cloned()
+            .collect(),
+    ))
+}
+
+fn filter_crop_routes_with_free_destination(
+    world: &World,
+    crop_routes: HashMap<V2<usize>, HashSet<RouteKey>>,
+) -> HashMap<V2<usize>, HashSet<RouteKey>> {
+    crop_routes
+        .into_iter()
+        .map(|(position, route_key)| (position, free_destinations(world, route_key)))
+        .collect()
+}
+
+fn free_destinations(world: &World, route_keys: HashSet<RouteKey>) -> HashSet<RouteKey> {
+    route_keys
+        .into_iter()
+        .filter(|route_key| is_free(world, &route_key.destination))
         .collect()
 }
 
@@ -110,7 +148,7 @@ mod tests {
     use commons::{v2, Arm, M};
     use futures::executor::block_on;
 
-    use crate::route::{RouteKey, Routes, RoutesExt};
+    use crate::route::{Route, RouteKey, Routes, RoutesExt};
 
     use super::*;
 
@@ -286,7 +324,6 @@ mod tests {
     #[test]
     fn should_not_build_crops_if_empty_traffic_entry() {
         // Given
-        // Given
         let mut state = happy_path_state();
         state.traffic.set(&v2(1, 1), HashSet::new()).unwrap();
 
@@ -295,6 +332,22 @@ mod tests {
             BuildCrops::new(happy_path_tx(), 0)
                 .process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})),
         );
+
+        // Then
+        assert_eq!(state.build_queue, BuildQueue::default());
+    }
+
+    #[test]
+    fn should_not_build_crops_if_invalid_route() {
+        // Given
+        let mut tx = happy_path_tx();
+        tx.routes = Arm::default();
+
+        // When
+        let state = block_on(BuildCrops::new(tx, 0).process(
+            happy_path_state(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
+        ));
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
