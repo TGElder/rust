@@ -67,14 +67,12 @@ where
         position: V2<usize>,
         route_keys: HashSet<RouteKey>,
     ) {
-        let first_visit = unwrap_or!(self.first_visit(route_keys).await, return);
-
         state.build_queue.insert(BuildInstruction {
             what: Build::Crops {
                 position,
                 rotated: self.rng.gen(),
             },
-            when: first_visit,
+            when: unwrap_or!(self.first_visit(route_keys).await, return),
         });
     }
 
@@ -105,16 +103,15 @@ fn get_crop_routes_for_position(
     state: &State,
     position: V2<usize>,
 ) -> Option<(V2<usize>, HashSet<RouteKey>)> {
-    Some((
-        position,
-        ok_or!(state.traffic.get(&position), return None)
-            .iter()
-            .filter(|route_key| {
-                route_key.resource == Resource::Crops && route_key.destination == position
-            })
-            .cloned()
-            .collect(),
-    ))
+    let route_keys = ok_or!(state.traffic.get(&position), return None);
+    let crop_route_keys = route_keys
+        .iter()
+        .filter(|route_key| {
+            route_key.resource == Resource::Crops && route_key.destination == position
+        })
+        .cloned()
+        .collect();
+    Some((position, crop_route_keys))
 }
 
 fn filter_crop_routes_with_free_destination(
