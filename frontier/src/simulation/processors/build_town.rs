@@ -1,10 +1,9 @@
-use std::collections::HashMap;
 use std::time::Duration;
 
 use commons::grid::Grid;
 
 use crate::game::traits::GetRoute;
-use crate::route::{Route, RouteKey};
+use crate::route::RouteKey;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{GetSettlement, RandomTownName, SendRoutes, SendWorld, WhoControlsTile};
 
@@ -62,18 +61,13 @@ where
             return;
         }
 
-        let routes = self.get_routes(route_keys).await;
-        if routes.is_empty() || routes.values().map(|route| route.traffic).sum::<usize>() == 0 {
+        let routes = self.get_route_summaries(route_keys).await;
+        if routes.is_empty() || routes.iter().map(|route| route.traffic).sum::<usize>() == 0 {
             return;
         }
-        let (first_visit_route_key, first_visit_micros) = fist_visit(routes);
+        let route = first_visit_route(routes);
 
-        let settlement = unwrap_or!(
-            self.tx
-                .get_settlement(first_visit_route_key.settlement)
-                .await,
-            return
-        );
+        let settlement = unwrap_or!(self.tx.get_settlement(route.settlement).await, return);
         let nation = settlement.nation;
         let name = ok_or!(self.tx.random_town_name(nation.clone()).await, return);
 
@@ -86,12 +80,12 @@ where
                 current_population: state.params.initial_town_population,
                 target_population: state.params.initial_town_population,
                 gap_half_life: Duration::from_millis(0),
-                last_population_update_micros: first_visit_micros,
+                last_population_update_micros: route.first_visit,
             };
 
             state.build_queue.insert(BuildInstruction {
                 what: Build::Town(settlement),
-                when: first_visit_micros,
+                when: route.first_visit,
             });
         }
     }
@@ -126,15 +120,17 @@ where
             .await
     }
 
-    async fn get_routes(&self, route_keys: Vec<RouteKey>) -> HashMap<RouteKey, Route> {
+    async fn get_route_summaries(&self, route_keys: Vec<RouteKey>) -> Vec<RouteSummary> {
         self.tx
             .send_routes(move |routes| {
                 route_keys
                     .into_iter()
                     .flat_map(|route_key| {
-                        routes
-                            .get_route(&route_key)
-                            .map(|route| (route_key, route.clone()))
+                        routes.get_route(&route_key).map(|route| RouteSummary {
+                            settlement: route_key.settlement,
+                            traffic: route.traffic,
+                            first_visit: route.start_micros + route.duration.as_micros(),
+                        })
                     })
                     .collect()
             })
@@ -142,12 +138,17 @@ where
     }
 }
 
-fn fist_visit(routes: HashMap<RouteKey, Route>) -> (RouteKey, u128) {
+fn first_visit_route(routes: Vec<RouteSummary>) -> RouteSummary {
     routes
         .into_iter()
-        .map(|(route_key, route)| (route_key, route.start_micros + route.duration.as_micros()))
-        .min_by_key(|(_, micros)| *micros)
+        .min_by_key(|route| route.first_visit)
         .unwrap()
+}
+
+struct RouteSummary {
+    settlement: V2<usize>,
+    traffic: usize,
+    first_visit: u128,
 }
 
 #[cfg(test)]
@@ -160,7 +161,7 @@ mod tests {
     use futures::executor::block_on;
 
     use crate::resource::Resource;
-    use crate::route::{Routes, RoutesExt};
+    use crate::route::{Route, Routes, RoutesExt};
     use crate::traits::NationNotFound;
     use crate::world::World;
 
