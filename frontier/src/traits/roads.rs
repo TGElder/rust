@@ -3,7 +3,7 @@ use commons::edge::Edge;
 
 use crate::road_builder::{RoadBuildMode, RoadBuilderResult};
 use crate::traits::{
-    PathfinderWithPlannedRoads, SendWorld, UpdatePathfinderPositions, UpdateRoads,
+    NotMock, PathfinderWithPlannedRoads, SendWorld, UpdatePathfinderPositions, UpdateRoads,
 };
 
 #[async_trait]
@@ -68,7 +68,7 @@ pub trait RoadPlanned {
 #[async_trait]
 impl<T> RoadPlanned for T
 where
-    T: SendWorld + Send + Sync,
+    T: SendWorld + NotMock + Send + Sync,
 {
     async fn road_planned(&self, edge: Edge) -> Option<u128> {
         self.send_world(move |world| world.road_planned(&edge))

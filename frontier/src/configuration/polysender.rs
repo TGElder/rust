@@ -11,7 +11,7 @@ use crate::settlement::Settlement;
 use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
-    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendGameState,
+    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendGameState,
     SendNations, SendParameters, SendPathfinder, SendRoutes, SendSettlements, SendSim,
     SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
     SendWorld, SendWorldArtist,
@@ -299,3 +299,5 @@ impl SendPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
         function(&mut self.write().unwrap());
     }
 }
+
+impl NotMock for Polysender {}

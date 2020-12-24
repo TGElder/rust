@@ -18,7 +18,7 @@ pub struct BuildRoad<T, D> {
 #[async_trait]
 impl<T, D> Processor for BuildRoad<T, D>
 where
-    T: PlanRoad + RoadPlanned + SendRoutes + SendWorldProxy + Send + Sync + 'static,
+    T: PlanRoad + RoadPlanned + SendRoutes + SendWorld + Send + Sync + 'static,
     D: TravelDuration + 'static,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
@@ -37,7 +37,7 @@ where
 
 impl<X, T> BuildRoad<X, T>
 where
-    X: PlanRoad + RoadPlanned + SendRoutes + SendWorldProxy,
+    X: PlanRoad + RoadPlanned + SendRoutes + SendWorld,
     T: TravelDuration + 'static,
 {
     pub fn new(x: X, travel_duration: Arc<T>) -> BuildRoad<X, T> {
@@ -50,7 +50,7 @@ where
     async fn get_candidates(&self, edges: HashSet<Edge>) -> Vec<Edge> {
         let travel_duration = self.travel_duration.clone();
         self.tx
-            .send_world_proxy(move |world| get_candidates(world, travel_duration, edges))
+            .send_world(move |world| get_candidates(world, travel_duration, edges))
             .await
     }
 
@@ -143,28 +143,6 @@ impl From<&Route> for RouteSummary {
     }
 }
 
-// Required to stop the auto-implementation of RoadPlanned for SendWorld when testing
-#[async_trait]
-pub trait SendWorldProxy {
-    async fn send_world_proxy<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut World) -> O + Send + 'static;
-}
-
-#[async_trait]
-impl<T> SendWorldProxy for T
-where
-    T: SendWorld + Send + Sync,
-{
-    async fn send_world_proxy<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut World) -> O + Send + 'static,
-    {
-        self.send_world(function).await
-    }
-}
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
@@ -213,13 +191,21 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorldProxy for Tx {
-        async fn send_world_proxy<F, O>(&self, function: F) -> O
+    impl SendWorld for Tx {
+        async fn send_world<F, O>(&self, function: F) -> O
         where
             O: Send + 'static,
             F: FnOnce(&mut World) -> O + Send + 'static,
         {
             function(&mut self.world.lock().unwrap())
+        }
+
+        fn send_world_background<F, O>(&self, function: F)
+        where
+            O: Send + 'static,
+            F: FnOnce(&mut World) -> O + Send + 'static,
+        {
+            function(&mut self.world.lock().unwrap());
         }
     }
 
