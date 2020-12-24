@@ -88,8 +88,10 @@ where
     async fn plan_road(&self, edge: Edge, when: Option<u128>) {
         self.send_world(move |world| world.plan_road(&edge, when))
             .await;
-        let pathfinder = self.pathfinder_with_planned_roads().clone();
-        self.update_pathfinder_positions(pathfinder, vec![*edge.from(), *edge.to()])
-            .await;
+        self.update_pathfinder_positions(
+            self.pathfinder_with_planned_roads(),
+            vec![*edge.from(), *edge.to()],
+        )
+        .await;
     }
 }
