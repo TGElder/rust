@@ -69,10 +69,7 @@ where
             .min()
             .unwrap();
 
-        if !self
-            .plan_road_if_not_planned_earlier(edge, first_visit)
-            .await
-        {
+        if !self.try_plan_road(edge, first_visit).await {
             return;
         }
 
@@ -93,7 +90,7 @@ where
             .await
     }
 
-    async fn plan_road_if_not_planned_earlier(&self, edge: Edge, when: u128) -> bool {
+    async fn try_plan_road(&self, edge: Edge, when: u128) -> bool {
         if matches!(self.tx.road_planned(edge).await, Some(existing) if existing <= when) {
             false
         } else {
@@ -151,10 +148,8 @@ mod tests {
     use commons::{v2, Arm, M};
     use futures::executor::block_on;
 
-    use crate::pathfinder::Pathfinder;
     use crate::resource::Resource;
     use crate::route::{RouteKey, Routes, RoutesExt};
-    use crate::traits::SendPathfinder;
 
     use super::*;
 
@@ -224,30 +219,6 @@ mod tests {
 
         fn max_duration(&self) -> Duration {
             Duration::from_millis(2000)
-        }
-    }
-
-    #[derive(Clone)]
-    struct MockPathfinder {}
-
-    #[async_trait]
-    impl SendPathfinder for MockPathfinder {
-        type T = MockTravelDuration;
-
-        async fn send_pathfinder<F, O>(&self, _: F) -> O
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut Pathfinder<Self::T>) -> O + Send + 'static,
-        {
-            panic!("Not expecting pathfinder to be called in this test!")
-        }
-
-        fn send_pathfinder_background<F, O>(&self, _: F)
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut Pathfinder<Self::T>) -> O + Send + 'static,
-        {
-            panic!("Not expecting pathfinder to be called in this test!")
         }
     }
 
