@@ -20,6 +20,22 @@ where
 }
 
 #[async_trait]
+pub trait RoadPlanned {
+    async fn road_planned(&self, edge: Edge) -> Option<u128>;
+}
+
+#[async_trait]
+impl<T> RoadPlanned for T
+where
+    T: SendWorld + Send + Sync,
+{
+    async fn road_planned(&self, edge: Edge) -> Option<u128> {
+        self.send_world(move |world| world.road_planned(&edge))
+            .await
+    }
+}
+
+#[async_trait]
 pub trait AddRoad {
     async fn add_road(&self, edge: Edge);
 }
