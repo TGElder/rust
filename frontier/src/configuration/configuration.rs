@@ -140,19 +140,19 @@ impl Configuration {
                         Box::new(GetRouteChanges::new(game_tx)),
                         Box::new(UpdatePositionTraffic::new()),
                         Box::new(UpdateEdgeTraffic::new()),
-                        Box::new(BuildTown::new(x.clone_with_name("try_build_town"))),
+                        Box::new(BuildTown::new(x.clone_with_name("build_town"))),
                         Box::new(TryBuildCrops::new(
                             x.clone_with_name("try_build_crops"),
                             game_state.params.seed,
                         )),
                         Box::new(TryRemoveCrops::new(x.clone_with_name("try_remove_crops"))),
                         Box::new(BuildRoad::new(
-                            x.clone_with_name("try_build_road"),
+                            x.clone_with_name("build_road"),
                             Arc::new(AutoRoadTravelDuration::from_params(
                                 &game_state.params.auto_road_travel,
                             )),
                         )),
-                        Box::new(RemoveRoad::new(x.clone_with_name("try_remove_road"))),
+                        Box::new(RemoveRoad::new(x.clone_with_name("remove_road"))),
                         Box::new(UpdateRouteToPorts::new(game_tx)),
                     ],
                 ),

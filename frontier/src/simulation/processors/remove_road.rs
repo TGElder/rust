@@ -197,6 +197,7 @@ mod tests {
             },
             ..State::default()
         };
+
         let mut processor = RemoveRoad::new(tx);
 
         // When
