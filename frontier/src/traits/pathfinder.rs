@@ -35,7 +35,7 @@ where
 
 #[async_trait]
 pub trait UpdatePathfinderPositions {
-    async fn update_pathfinder_positions<P, I>(&self, pathfinder: P, positions: I)
+    async fn update_pathfinder_positions<P, I>(&self, pathfinder: &P, positions: I)
     where
         P: SendPathfinder + Send + Sync,
         I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static;
@@ -46,7 +46,7 @@ impl<T> UpdatePathfinderPositions for T
 where
     T: SendWorld + Send + Sync,
 {
-    async fn update_pathfinder_positions<P, I>(&self, pathfinder: P, positions: I)
+    async fn update_pathfinder_positions<P, I>(&self, pathfinder: &P, positions: I)
     where
         P: SendPathfinder + Send + Sync,
         I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static,
@@ -96,8 +96,8 @@ where
     where
         I: IntoIterator<Item = V2<usize>> + Clone + Send + Sync + 'static,
     {
-        let pathfinder_with = self.pathfinder_with_planned_roads().clone();
-        let pathfinder_without = self.pathfinder_without_planned_roads().clone();
+        let pathfinder_with = self.pathfinder_with_planned_roads();
+        let pathfinder_without = self.pathfinder_without_planned_roads();
 
         join!(
             self.update_pathfinder_positions(pathfinder_with, positions.clone()),
