@@ -4,7 +4,7 @@ use commons::edge::Edge;
 
 use crate::game::traits::GetRoute;
 use crate::route::{Route, RouteKey, Routes};
-use crate::traits::{PathfinderWithPlannedRoads, SendRoutes, SendWorld, UpdatePathfinderPositions};
+use crate::traits::{PlanRoad, RoadPlanned, SendRoutes, SendWorld};
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
 
@@ -18,13 +18,7 @@ pub struct BuildRoad<T, D> {
 #[async_trait]
 impl<T, D> Processor for BuildRoad<T, D>
 where
-    T: PathfinderWithPlannedRoads
-        + SendRoutes
-        + SendWorldProxy
-        + UpdatePathfinderPositions
-        + Send
-        + Sync
-        + 'static,
+    T: PlanRoad + RoadPlanned + SendRoutes + SendWorldProxy + Send + Sync + 'static,
     D: TravelDuration + 'static,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
@@ -43,7 +37,7 @@ where
 
 impl<X, T> BuildRoad<X, T>
 where
-    X: PathfinderWithPlannedRoads + SendRoutes + SendWorldProxy + UpdatePathfinderPositions,
+    X: PlanRoad + RoadPlanned + SendRoutes + SendWorldProxy,
     T: TravelDuration + 'static,
 {
     pub fn new(x: X, travel_duration: Arc<T>) -> BuildRoad<X, T> {
@@ -75,17 +69,12 @@ where
             .min()
             .unwrap();
 
-        if self
+        if !self
             .plan_road_if_not_planned_earlier(edge, first_visit)
             .await
         {
             return;
         }
-
-        let pathfinder = self.tx.pathfinder_with_planned_roads().clone();
-        self.tx
-            .update_pathfinder_positions(pathfinder, vec![*edge.from(), *edge.to()])
-            .await;
 
         state.build_queue.insert(BuildInstruction {
             what: Build::Road(edge),
@@ -105,9 +94,12 @@ where
     }
 
     async fn plan_road_if_not_planned_earlier(&self, edge: Edge, when: u128) -> bool {
-        self.tx
-            .send_world_proxy(move |world| plan_road_if_not_planned_earlier(world, edge, when))
-            .await
+        if matches!(self.tx.road_planned(edge).await, Some(existing) if existing <= when) {
+            false
+        } else {
+            self.tx.plan_road(edge, Some(when)).await;
+            true
+        }
     }
 }
 
@@ -137,17 +129,6 @@ fn get_route_summaries(routes: &Routes, route_keys: HashSet<RouteKey>) -> Vec<Ro
         .collect()
 }
 
-fn plan_road_if_not_planned_earlier(world: &mut World, edge: Edge, when: u128) -> bool {
-    if world
-        .road_planned(&edge)
-        .map_or(false, |existing| existing <= when)
-    {
-        return true;
-    }
-    world.plan_road(&edge, Some(when));
-    false
-}
-
 struct RouteSummary {
     traffic: usize,
     first_visit: u128,
@@ -162,7 +143,7 @@ impl From<&Route> for RouteSummary {
     }
 }
 
-// Required to stop the auto-implementation of UpdatePathfinderPositions for SendWorld when testing
+// Required to stop the auto-implementation of RoadPlanned for SendWorld when testing
 #[async_trait]
 pub trait SendWorldProxy {
     async fn send_world_proxy<F, O>(&self, function: F) -> O
@@ -184,7 +165,6 @@ where
         self.send_world(function).await
     }
 }
-
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
@@ -201,17 +181,23 @@ mod tests {
     use super::*;
 
     struct Tx {
-        pathfinder: MockPathfinder,
+        planned_roads: Arm<Vec<(Edge, Option<u128>)>>,
+        road_planned: Option<u128>,
         routes: Arm<Routes>,
-        update_pathfinder_positions: Arm<Vec<V2<usize>>>,
         world: Arm<World>,
     }
 
-    impl PathfinderWithPlannedRoads for Tx {
-        type T = MockPathfinder;
+    #[async_trait]
+    impl RoadPlanned for Tx {
+        async fn road_planned(&self, _: Edge) -> Option<u128> {
+            self.road_planned
+        }
+    }
 
-        fn pathfinder_with_planned_roads(&self) -> &Self::T {
-            &self.pathfinder
+    #[async_trait]
+    impl PlanRoad for Tx {
+        async fn plan_road(&self, edge: Edge, when: Option<u128>) {
+            self.planned_roads.lock().unwrap().push((edge, when));
         }
     }
 
@@ -234,20 +220,6 @@ mod tests {
             F: FnOnce(&mut World) -> O + Send + 'static,
         {
             function(&mut self.world.lock().unwrap())
-        }
-    }
-
-    #[async_trait]
-    impl UpdatePathfinderPositions for Tx {
-        async fn update_pathfinder_positions<P, I>(&self, _: P, positions: I)
-        where
-            P: SendPathfinder + Send + Sync,
-            I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static,
-        {
-            self.update_pathfinder_positions
-                .lock()
-                .unwrap()
-                .extend(positions.into_iter());
         }
     }
 
@@ -326,13 +298,12 @@ mod tests {
             },
         );
 
-        let mut world = World::new(M::from_element(3, 3, 1.0), 0.5);
-        world.plan_road(&happy_path_edge(), Some(10));
+        let world = World::new(M::from_element(3, 3, 1.0), 0.5);
 
         Tx {
-            pathfinder: MockPathfinder {},
+            planned_roads: Arm::default(),
+            road_planned: None,
             routes: Arc::new(Mutex::new(routes)),
-            update_pathfinder_positions: Arm::default(),
             world: Arc::new(Mutex::new(world)),
         }
     }
@@ -400,18 +371,8 @@ mod tests {
         assert_eq!(state.build_queue, expected_build_queue);
 
         assert_eq!(
-            processor
-                .tx
-                .world
-                .lock()
-                .unwrap()
-                .road_planned(&happy_path_edge()),
-            Some(9)
-        );
-
-        assert_eq!(
-            *processor.tx.update_pathfinder_positions.lock().unwrap(),
-            vec![v2(1, 0), v2(1, 1)]
+            *processor.tx.planned_roads.lock().unwrap(),
+            vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(9))]
         );
     }
 
@@ -470,11 +431,8 @@ mod tests {
     #[test]
     fn should_not_build_if_road_planned_earlier() {
         // Given
-        let tx = happy_path_tx();
-        {
-            let mut world = tx.world.lock().unwrap();
-            world.plan_road(&happy_path_edge(), Some(1));
-        }
+        let mut tx = happy_path_tx();
+        tx.road_planned = Some(1);
         let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
 
         // When
@@ -485,6 +443,33 @@ mod tests {
 
         // Then
         assert_eq!(state.build_queue, BuildQueue::default());
+    }
+
+    #[test]
+    fn should_build_if_road_planned_later() {
+        // Given
+        let mut tx = happy_path_tx();
+        tx.road_planned = Some(10);
+        let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
+
+        // When
+        let state = block_on(processor.process(
+            happy_path_state(),
+            &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
+        ));
+
+        // Then
+        let mut expected_build_queue = BuildQueue::default();
+        expected_build_queue.insert(BuildInstruction {
+            what: Build::Road(happy_path_edge()),
+            when: 9,
+        });
+        assert_eq!(state.build_queue, expected_build_queue);
+
+        assert_eq!(
+            *processor.tx.planned_roads.lock().unwrap(),
+            vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(9))]
+        );
     }
 
     #[test]
