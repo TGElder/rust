@@ -35,3 +35,5 @@ pub use towns::*;
 pub use update_roads::*;
 pub use visibility::*;
 pub use world_object::*;
+
+pub trait NotMock {}

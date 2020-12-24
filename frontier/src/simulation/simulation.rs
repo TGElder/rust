@@ -244,6 +244,7 @@ mod tests {
         });
         sim_1.state = Some(State {
             params: SimulationParams {
+                road_build_threshold: 8,
                 traffic_to_population: 0.123,
                 nation_flip_traffic_pc: 0.456,
                 initial_town_population: 0.234,
