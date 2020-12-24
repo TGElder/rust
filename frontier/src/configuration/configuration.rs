@@ -20,11 +20,10 @@ use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
 use crate::simulation::processors::{
-    max_abs_population_change, BuildRoad, BuildSim, BuildTown, GetDemand, GetRouteChanges,
-    GetRoutes, GetTerritory, GetTownTraffic, InstructionLogger, RemoveRoad, RemoveTown,
-    StepHomeland, StepTown, TryBuildCrops, TryRemoveCrops, UpdateCurrentPopulation,
-    UpdateEdgeTraffic, UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts,
-    UpdateTown,
+    max_abs_population_change, BuildCrops, BuildRoad, BuildSim, BuildTown, GetDemand,
+    GetRouteChanges, GetRoutes, GetTerritory, GetTownTraffic, InstructionLogger, RemoveRoad,
+    RemoveTown, StepHomeland, StepTown, TryRemoveCrops, UpdateCurrentPopulation, UpdateEdgeTraffic,
+    UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
 };
 use crate::simulation::Simulation;
 use crate::system::SystemListener;
@@ -141,7 +140,7 @@ impl Configuration {
                         Box::new(UpdatePositionTraffic::new()),
                         Box::new(UpdateEdgeTraffic::new()),
                         Box::new(BuildTown::new(x.clone_with_name("build_town"))),
-                        Box::new(TryBuildCrops::new(
+                        Box::new(BuildCrops::new(
                             x.clone_with_name("try_build_crops"),
                             game_state.params.seed,
                         )),
