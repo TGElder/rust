@@ -1,32 +1,31 @@
 use std::collections::HashSet;
 
 use commons::edge::Edge;
-use commons::log::trace;
 
 use crate::game::traits::GetRoute;
-use crate::route::Route;
+use crate::route::{Route, RouteKey, Routes};
 use crate::traits::{PathfinderWithPlannedRoads, SendRoutes, SendWorld, UpdatePathfinderPositions};
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
 
 use super::*;
 
-pub struct TryBuildRoad<X, T> {
-    x: X,
-    travel_duration: Arc<T>,
+pub struct BuildRoad<T, D> {
+    tx: T,
+    travel_duration: Arc<D>,
 }
 
 #[async_trait]
-impl<X, T> Processor for TryBuildRoad<X, T>
+impl<T, D> Processor for BuildRoad<T, D>
 where
-    X: PathfinderWithPlannedRoads
+    T: PathfinderWithPlannedRoads
         + SendRoutes
         + SendWorldProxy
         + UpdatePathfinderPositions
         + Send
         + Sync
         + 'static,
-    T: TravelDuration + 'static,
+    D: TravelDuration + 'static,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let edges = match instruction {
@@ -34,92 +33,57 @@ where
             _ => return state,
         };
 
-        let start = std::time::Instant::now();
-        let mut count: usize = 0;
-        let edge_count = edges.len();
-
-        let travel_duration = self.travel_duration.clone();
-        let candidates = self
-            .x
-            .send_world_proxy(move |world| candidates(world, travel_duration, edges))
-            .await;
-        let candidate_count = candidates.len();
-
-        for candidate in candidates {
-            if self.process_edge(&mut state, candidate).await {
-                count += 1;
-            }
+        for candidate in self.get_candidates(edges).await {
+            self.process_edge(&mut state, candidate).await;
         }
-
-        trace!(
-            "Sent {}/{}/{} build instructions in {}ms",
-            count,
-            candidate_count,
-            edge_count,
-            start.elapsed().as_millis()
-        );
 
         state
     }
 }
 
-impl<X, T> TryBuildRoad<X, T>
+impl<X, T> BuildRoad<X, T>
 where
     X: PathfinderWithPlannedRoads + SendRoutes + SendWorldProxy + UpdatePathfinderPositions,
     T: TravelDuration + 'static,
 {
-    pub fn new(x: X, travel_duration: Arc<T>) -> TryBuildRoad<X, T> {
-        TryBuildRoad { x, travel_duration }
+    pub fn new(x: X, travel_duration: Arc<T>) -> BuildRoad<X, T> {
+        BuildRoad {
+            tx: x,
+            travel_duration,
+        }
     }
 
-    async fn process_edge(&mut self, state: &mut State, edge: Edge) -> bool {
-        let route_keys = unwrap_or!(state.edge_traffic.get(&edge), return false).clone();
-        if route_keys.is_empty() {
-            return false;
-        }
+    async fn get_candidates(&self, edges: HashSet<Edge>) -> Vec<Edge> {
+        let travel_duration = self.travel_duration.clone();
+        self.tx
+            .send_world_proxy(move |world| get_candidates(world, travel_duration, edges))
+            .await
+    }
 
-        let routes: Vec<Route> = self
-            .x
-            .send_routes(move |routes| {
-                route_keys
-                    .into_iter()
-                    .flat_map(|route_key| routes.get_route(&route_key))
-                    .cloned()
-                    .collect()
-            })
-            .await;
+    async fn process_edge(&mut self, state: &mut State, edge: Edge) {
+        let routes = self.get_route_summaries(state, &edge).await;
 
         if routes.iter().map(|route| route.traffic).sum::<usize>()
             < state.params.road_build_threshold
         {
-            return false;
+            return;
         }
 
         let first_visit = routes
             .into_iter()
-            .map(|route| route.start_micros + route.duration.as_micros())
+            .map(|route| route.first_visit)
             .min()
             .unwrap();
 
         if self
-            .x
-            .send_world_proxy(move |world| {
-                if world
-                    .road_planned(&edge)
-                    .map_or(false, |when| when <= first_visit)
-                {
-                    return true;
-                }
-                world.plan_road(&edge, Some(first_visit));
-                false
-            })
+            .plan_road_if_not_planned_earlier(edge, first_visit)
             .await
         {
-            return false;
+            return;
         }
 
-        let pathfinder = self.x.pathfinder_with_planned_roads().clone();
-        self.x
+        let pathfinder = self.tx.pathfinder_with_planned_roads().clone();
+        self.tx
             .update_pathfinder_positions(pathfinder, vec![*edge.from(), *edge.to()])
             .await;
 
@@ -127,8 +91,74 @@ where
             what: Build::Road(edge),
             when: first_visit,
         });
+    }
 
-        true
+    async fn get_route_summaries(&self, state: &State, edge: &Edge) -> Vec<RouteSummary> {
+        let route_keys = unwrap_or!(state.edge_traffic.get(&edge), return vec![]).clone();
+        if route_keys.is_empty() {
+            return vec![];
+        }
+
+        self.tx
+            .send_routes(move |routes| get_route_summaries(routes, route_keys))
+            .await
+    }
+
+    async fn plan_road_if_not_planned_earlier(&self, edge: Edge, when: u128) -> bool {
+        self.tx
+            .send_world_proxy(move |world| plan_road_if_not_planned_earlier(world, edge, when))
+            .await
+    }
+}
+
+fn get_candidates(
+    world: &World,
+    travel_duration: Arc<dyn TravelDuration>,
+    edges: HashSet<Edge>,
+) -> Vec<Edge> {
+    edges
+        .into_iter()
+        .filter(|edge| is_candidate(world, travel_duration.as_ref(), edge))
+        .collect()
+}
+
+fn is_candidate(world: &World, travel_duration: &dyn TravelDuration, edge: &Edge) -> bool {
+    !world.is_road(edge)
+        && travel_duration
+            .get_duration(world, edge.from(), edge.to())
+            .is_some()
+}
+
+fn get_route_summaries(routes: &Routes, route_keys: HashSet<RouteKey>) -> Vec<RouteSummary> {
+    route_keys
+        .into_iter()
+        .flat_map(|route_key| routes.get_route(&route_key))
+        .map(|route| route.into())
+        .collect()
+}
+
+fn plan_road_if_not_planned_earlier(world: &mut World, edge: Edge, when: u128) -> bool {
+    if world
+        .road_planned(&edge)
+        .map_or(false, |existing| existing <= when)
+    {
+        return true;
+    }
+    world.plan_road(&edge, Some(when));
+    false
+}
+
+struct RouteSummary {
+    traffic: usize,
+    first_visit: u128,
+}
+
+impl From<&Route> for RouteSummary {
+    fn from(route: &Route) -> Self {
+        RouteSummary {
+            traffic: route.traffic,
+            first_visit: route.start_micros + route.duration.as_micros(),
+        }
     }
 }
 
@@ -153,22 +183,6 @@ where
     {
         self.send_world(function).await
     }
-}
-
-fn candidates(
-    world: &World,
-    travel_duration: Arc<dyn TravelDuration>,
-    edges: HashSet<Edge>,
-) -> Vec<Edge> {
-    edges
-        .into_iter()
-        .filter(|edge| {
-            !world.is_road(edge)
-                && travel_duration
-                    .get_duration(world, edge.from(), edge.to())
-                    .is_some()
-        })
-        .collect()
 }
 
 #[cfg(test)]
@@ -369,7 +383,7 @@ mod tests {
     #[test]
     fn should_build_road_if_traffic_meets_threshold() {
         // Given
-        let mut processor = TryBuildRoad::new(happy_path_tx(), happy_path_travel_duration());
+        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration());
 
         // When
         let state = block_on(processor.process(
@@ -387,7 +401,7 @@ mod tests {
 
         assert_eq!(
             processor
-                .x
+                .tx
                 .world
                 .lock()
                 .unwrap()
@@ -396,7 +410,7 @@ mod tests {
         );
 
         assert_eq!(
-            *processor.x.update_pathfinder_positions.lock().unwrap(),
+            *processor.tx.update_pathfinder_positions.lock().unwrap(),
             vec![v2(1, 0), v2(1, 1)]
         );
     }
@@ -406,7 +420,7 @@ mod tests {
         // Given
         let mut state = happy_path_state();
         state.edge_traffic = hashmap! {};
-        let mut processor = TryBuildRoad::new(happy_path_tx(), happy_path_travel_duration());
+        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration());
 
         // When
         let state = block_on(processor.process(
@@ -421,7 +435,7 @@ mod tests {
     #[test]
     fn should_not_build_if_traffic_below_threshold() {
         // Given
-        let mut processor = TryBuildRoad::new(happy_path_tx(), happy_path_travel_duration());
+        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration());
 
         // When
         let state = block_on(processor.process(
@@ -441,7 +455,7 @@ mod tests {
             let mut world = tx.world.lock().unwrap();
             world.set_road(&happy_path_edge(), true);
         }
-        let mut processor = TryBuildRoad::new(tx, happy_path_travel_duration());
+        let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
 
         // When
         let state = block_on(processor.process(
@@ -461,7 +475,7 @@ mod tests {
             let mut world = tx.world.lock().unwrap();
             world.plan_road(&happy_path_edge(), Some(1));
         }
-        let mut processor = TryBuildRoad::new(tx, happy_path_travel_duration());
+        let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
 
         // When
         let state = block_on(processor.process(
@@ -475,7 +489,7 @@ mod tests {
 
     #[test]
     fn should_not_build_if_road_not_possible() {
-        let mut processor = TryBuildRoad::new(
+        let mut processor = BuildRoad::new(
             happy_path_tx(),
             Arc::new(MockTravelDuration { duration: None }),
         );
@@ -495,7 +509,7 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.routes = Arm::default();
-        let mut processor = TryBuildRoad::new(tx, happy_path_travel_duration());
+        let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
 
         // When
         let state = block_on(processor.process(
