@@ -115,6 +115,12 @@ impl Territory {
             .and_then(|map| map.values().min_by(|a, b| a.cmp(&b)))
     }
 
+    pub fn anyone_controls(&self, position: &V2<usize>) -> bool {
+        self.claims
+            .get(position)
+            .map_or(false, |claims| !claims.is_empty())
+    }
+
     pub fn is_controlled_by(&self, position: &V2<usize>, controller: &V2<usize>) -> bool {
         matches!(
             self.who_controls(position),
@@ -462,6 +468,7 @@ mod tests {
     #[test]
     fn who_controls_no_claims() {
         assert_eq!(territory().who_controls(&v2(0, 0)), None);
+        assert_eq!(territory().anyone_controls(&v2(0, 0)), false);
     }
 
     #[test]
@@ -485,6 +492,7 @@ mod tests {
                 since_micros: 0
             })
         );
+        assert_eq!(territory.anyone_controls(&v2(0, 0)), true);
     }
 
     #[test]
@@ -517,6 +525,7 @@ mod tests {
                 since_micros: 1
             })
         );
+        assert_eq!(territory.anyone_controls(&v2(0, 0)), true);
     }
 
     #[test]
@@ -549,6 +558,7 @@ mod tests {
                 since_micros: 0
             })
         );
+        assert_eq!(territory.anyone_controls(&v2(0, 0)), true);
     }
 
     #[test]

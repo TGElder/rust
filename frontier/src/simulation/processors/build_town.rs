@@ -5,7 +5,7 @@ use commons::grid::Grid;
 use crate::game::traits::GetRoute;
 use crate::route::RouteKey;
 use crate::settlement::{Settlement, SettlementClass};
-use crate::traits::{GetSettlement, RandomTownName, SendRoutes, SendWorld, WhoControlsTile};
+use crate::traits::{AnyoneControls, GetSettlement, RandomTownName, SendRoutes, SendWorld};
 
 use super::*;
 pub struct BuildTown<T> {
@@ -15,11 +15,11 @@ pub struct BuildTown<T> {
 #[async_trait]
 impl<T> Processor for BuildTown<T>
 where
-    T: GetSettlement
+    T: AnyoneControls
+        + GetSettlement
         + RandomTownName
         + SendRoutes
         + SendWorld
-        + WhoControlsTile
         + Send
         + Sync
         + 'static,
@@ -40,7 +40,7 @@ where
 
 impl<T> BuildTown<T>
 where
-    T: GetSettlement + RandomTownName + SendRoutes + SendWorld + WhoControlsTile,
+    T: AnyoneControls + GetSettlement + RandomTownName + SendRoutes + SendWorld,
 {
     pub fn new(tx: T) -> BuildTown<T> {
         BuildTown { tx }
@@ -52,7 +52,7 @@ where
             return;
         }
 
-        if self.tx.who_controls_tile(position).await.is_some() {
+        if self.tx.anyone_controls(position).await {
             return;
         }
 
@@ -168,10 +168,10 @@ mod tests {
     use super::*;
 
     struct Tx {
+        anyone_controls: bool,
         get_settlement: Option<Settlement>,
         random_town_name: String,
         routes: Arm<Routes>,
-        who_controls_tile: Option<V2<usize>>,
         world: Arm<World>,
     }
 
@@ -180,12 +180,19 @@ mod tests {
             let mut world = World::new(M::from_element(3, 3, 1.0), 0.0);
             world.reveal_all();
             Tx {
+                anyone_controls: false,
                 get_settlement: None,
                 random_town_name: String::default(),
                 routes: Arm::default(),
-                who_controls_tile: None,
                 world: Arc::new(Mutex::new(world)),
             }
+        }
+    }
+
+    #[async_trait]
+    impl AnyoneControls for Tx {
+        async fn anyone_controls(&self, _: V2<usize>) -> bool {
+            self.anyone_controls
         }
     }
 
@@ -230,13 +237,6 @@ mod tests {
             F: FnOnce(&mut World) -> O + Send + 'static,
         {
             function(&mut self.world.lock().unwrap());
-        }
-    }
-
-    #[async_trait]
-    impl WhoControlsTile for Tx {
-        async fn who_controls_tile(&self, _: V2<usize>) -> Option<V2<usize>> {
-            self.who_controls_tile
         }
     }
 
@@ -440,7 +440,7 @@ mod tests {
     fn should_not_build_if_position_controlled() {
         // Given
         let mut tx = happy_path_tx();
-        tx.who_controls_tile = Some(v2(1, 1));
+        tx.anyone_controls = true;
 
         // When
         let state = block_on(BuildTown::new(tx).process(
