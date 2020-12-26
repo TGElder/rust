@@ -19,6 +19,7 @@ pub struct PrimeMoverParams {
     pause_at_start_of_journey: Option<Duration>,
     pause_at_end_of_journey: Option<Duration>,
     freeze_duration: Option<Duration>,
+    refresh_interval: Duration,
 }
 
 impl Default for PrimeMoverParams {
@@ -28,6 +29,7 @@ impl Default for PrimeMoverParams {
             pause_at_start_of_journey: Some(Duration::from_secs(60 * 30)),
             pause_at_end_of_journey: Some(Duration::from_secs(60 * 30)),
             freeze_duration: Some(Duration::from_secs(60 * 60)),
+            refresh_interval: Duration::from_secs(1),
         }
     }
 }
@@ -73,7 +75,7 @@ impl PrimeMover {
 
     fn ready(&mut self) -> bool {
         if let Some(last_update) = self.last_update {
-            last_update.elapsed().as_millis() >= 1000
+            last_update.elapsed() >= self.params.refresh_interval
         } else {
             true
         }
