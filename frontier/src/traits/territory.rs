@@ -144,3 +144,19 @@ where
         .await
     }
 }
+
+#[async_trait]
+pub trait AnyoneControls {
+    async fn anyone_controls(&self, position: V2<usize>) -> bool;
+}
+
+#[async_trait]
+impl<T> AnyoneControls for T
+where
+    T: SendTerritory + Sync,
+{
+    async fn anyone_controls(&self, position: V2<usize>) -> bool {
+        self.send_territory(move |territory| territory.anyone_controls(&position))
+            .await
+    }
+}
