@@ -15,7 +15,6 @@ use crate::avatar::AvatarTravelDuration;
 use crate::configuration::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::game::{Game, GameState};
 use crate::pathfinder::Pathfinder;
-use crate::process::{ActiveProcess, PassiveProcess, Persistable, Process};
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
@@ -28,19 +27,20 @@ use crate::simulation::processors::{
 use crate::simulation::Simulation;
 use crate::system::SystemListener;
 use crate::traits::{SendGame, SendGameState};
+use commons::process::Process;
 
 pub struct Configuration {
     pub x: Polysender,
-    pub basic_road_builder: PassiveProcess<BasicRoadBuilder<Polysender>>,
-    pub event_forwarder: PassiveProcess<EventForwarderActor>,
-    pub object_builder: PassiveProcess<ObjectBuilder<Polysender>>,
-    pub simulation: ActiveProcess<Simulation<Polysender>>,
-    pub town_builder: PassiveProcess<TownBuilderActor<Polysender>>,
-    pub town_house_artist: PassiveProcess<TownHouseArtist<Polysender>>,
-    pub town_label_artist: PassiveProcess<TownLabelArtist<Polysender>>,
-    pub visibility: PassiveProcess<VisibilityActor<Polysender>>,
-    pub voyager: PassiveProcess<Voyager<Polysender>>,
-    pub world_artist: PassiveProcess<WorldArtistActor<Polysender>>,
+    pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
+    pub event_forwarder: Process<EventForwarderActor>,
+    pub object_builder: Process<ObjectBuilder<Polysender>>,
+    pub simulation: Process<Simulation<Polysender>>,
+    pub town_builder: Process<TownBuilderActor<Polysender>>,
+    pub town_house_artist: Process<TownHouseArtist<Polysender>>,
+    pub town_label_artist: Process<TownLabelArtist<Polysender>>,
+    pub visibility: Process<VisibilityActor<Polysender>>,
+    pub voyager: Process<Voyager<Polysender>>,
+    pub world_artist: Process<WorldArtistActor<Polysender>>,
 }
 
 impl Configuration {
@@ -88,19 +88,19 @@ impl Configuration {
 
         let config = Configuration {
             x: x.clone_with_name("processes"),
-            basic_road_builder: PassiveProcess::new(
+            basic_road_builder: Process::new(
                 BasicRoadBuilder::new(x.clone_with_name("basic_road_builder")),
                 basic_road_builder_rx,
             ),
-            event_forwarder: PassiveProcess::new(
+            event_forwarder: Process::new(
                 EventForwarderActor::new(x.clone_with_name("event_forwarder")),
                 event_forwarder_rx,
             ),
-            object_builder: PassiveProcess::new(
+            object_builder: Process::new(
                 ObjectBuilder::new(x.clone_with_name("object_builder"), game_state.params.seed),
                 object_builder_rx,
             ),
-            simulation: ActiveProcess::new(
+            simulation: Process::new(
                 Simulation::new(
                     x.clone_with_name("simulation"),
                     vec![
@@ -157,11 +157,11 @@ impl Configuration {
                 ),
                 simulation_rx,
             ),
-            town_builder: PassiveProcess::new(
+            town_builder: Process::new(
                 TownBuilderActor::new(x.clone_with_name("town_builder_actor")),
                 town_builder_rx,
             ),
-            town_house_artist: PassiveProcess::new(
+            town_house_artist: Process::new(
                 TownHouseArtist::new(
                     x.clone_with_name("town_houses"),
                     engine.command_tx(),
@@ -169,7 +169,7 @@ impl Configuration {
                 ),
                 town_house_artist_rx,
             ),
-            town_label_artist: PassiveProcess::new(
+            town_label_artist: Process::new(
                 TownLabelArtist::new(
                     x.clone_with_name("town_labels"),
                     engine.command_tx(),
@@ -177,12 +177,12 @@ impl Configuration {
                 ),
                 town_label_artist_rx,
             ),
-            visibility: PassiveProcess::new(
+            visibility: Process::new(
                 VisibilityActor::new(x.clone_with_name("visibility")),
                 visibility_rx,
             ),
-            voyager: PassiveProcess::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx),
-            world_artist: PassiveProcess::new(
+            voyager: Process::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx),
+            world_artist: Process::new(
                 WorldArtistActor::new(
                     x.clone_with_name("world_artist_actor"),
                     engine.command_tx(),
@@ -243,29 +243,29 @@ impl SystemListener for Configuration {
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
             .await;
 
-        self.world_artist.start(pool).await;
-        self.voyager.start(pool).await;
-        self.visibility.start(pool).await;
-        self.town_house_artist.start(pool).await;
-        self.town_label_artist.start(pool).await;
-        self.town_builder.start(pool).await;
-        self.simulation.start(pool).await;
-        self.object_builder.start(pool).await;
-        self.basic_road_builder.start(pool).await;
-        self.event_forwarder.start(pool).await;
+        self.world_artist.run_passive(pool).await;
+        self.voyager.run_passive(pool).await;
+        self.visibility.run_passive(pool).await;
+        self.town_house_artist.run_passive(pool).await;
+        self.town_label_artist.run_passive(pool).await;
+        self.town_builder.run_passive(pool).await;
+        self.simulation.run_active(pool).await;
+        self.object_builder.run_passive(pool).await;
+        self.basic_road_builder.run_passive(pool).await;
+        self.event_forwarder.run_passive(pool).await;
     }
 
     async fn pause(&mut self, pool: &ThreadPool) {
-        self.event_forwarder.pause(pool).await;
-        self.basic_road_builder.pause(pool).await;
-        self.object_builder.pause(pool).await;
-        self.simulation.pause(pool).await;
-        self.town_builder.pause(pool).await;
-        self.town_label_artist.pause(pool).await;
-        self.town_house_artist.pause(pool).await;
-        self.visibility.pause(pool).await;
-        self.voyager.pause(pool).await;
-        self.world_artist.pause(pool).await;
+        self.event_forwarder.drain(pool).await;
+        self.basic_road_builder.drain(pool).await;
+        self.object_builder.drain(pool).await;
+        self.simulation.drain(pool).await;
+        self.town_builder.drain(pool).await;
+        self.town_label_artist.drain(pool).await;
+        self.town_house_artist.drain(pool).await;
+        self.visibility.drain(pool).await;
+        self.voyager.drain(pool).await;
+        self.world_artist.drain(pool).await;
 
         self.x
             .send_game_state(|game_state| game_state.speed = 0.0)

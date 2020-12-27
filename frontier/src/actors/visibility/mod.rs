@@ -1,9 +1,9 @@
 use crate::game::Game;
-use crate::process::Persistable;
 use crate::traits::{RevealPositions, SendGame, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
 use commons::grid::Grid;
+use commons::process::Persistable;
 use commons::{v2, M, V2};
 use isometric::cell_traits::WithElevation;
 use serde::{Deserialize, Serialize};
