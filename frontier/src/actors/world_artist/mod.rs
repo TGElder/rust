@@ -26,8 +26,8 @@ impl Default for WorldArtistActorBindings {
     }
 }
 
-pub struct WorldArtistActor<X> {
-    x: X,
+pub struct WorldArtistActor<T> {
+    tx: T,
     command_tx: Sender<Vec<Command>>,
     bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
@@ -35,17 +35,17 @@ pub struct WorldArtistActor<X> {
     territory_layer: bool,
 }
 
-impl<X> WorldArtistActor<X>
+impl<T> WorldArtistActor<T>
 where
-    X: Micros + SendGame + Send,
+    T: Micros + SendGame + Send,
 {
     pub fn new(
-        x: X,
+        tx: T,
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
-    ) -> WorldArtistActor<X> {
+    ) -> WorldArtistActor<T> {
         WorldArtistActor {
-            x,
+            tx,
             command_tx,
             bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},
@@ -77,7 +77,7 @@ where
     }
 
     async fn when(&mut self) -> u128 {
-        self.x.micros().await
+        self.tx.micros().await
     }
 
     async fn redraw_slab(&mut self, slab: Slab, when: u128) {
@@ -91,7 +91,7 @@ where
             generated_at,
             commands,
         } = self
-            .x
+            .tx
             .send_game(move |game| draw_slab(&game, world_artist, slab, territory_layer))
             .await;
 
@@ -135,9 +135,9 @@ fn draw_slab(
 }
 
 #[async_trait]
-impl<X> HandleEngineEvent for WorldArtistActor<X>
+impl<T> HandleEngineEvent for WorldArtistActor<T>
 where
-    X: Micros + SendGame + Send + Sync,
+    T: Micros + SendGame + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) {
         match *event {

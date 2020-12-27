@@ -1,14 +1,14 @@
 use super::*;
 use crate::traits::{Controlled, RemoveTown as RemoveTownTrait};
 
-pub struct RemoveTown<X> {
-    x: X,
+pub struct RemoveTown<T> {
+    tx: T,
 }
 
 #[async_trait]
-impl<X> Processor for RemoveTown<X>
+impl<T> Processor for RemoveTown<T>
 where
-    X: Controlled + RemoveTownTrait + Send + Sync,
+    T: Controlled + RemoveTownTrait + Send + Sync,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
@@ -23,8 +23,8 @@ where
         {
             return state;
         }
-        let controlled = self.x.controlled(settlement.position).await;
-        self.x.remove_town(settlement.position).await;
+        let controlled = self.tx.controlled(settlement.position).await;
+        self.tx.remove_town(settlement.position).await;
         state
             .instructions
             .push(Instruction::RefreshPositions(controlled));
@@ -32,12 +32,12 @@ where
     }
 }
 
-impl<X> RemoveTown<X>
+impl<T> RemoveTown<T>
 where
-    X: Controlled + RemoveTownTrait + Send,
+    T: Controlled + RemoveTownTrait + Send,
 {
-    pub fn new(x: X) -> RemoveTown<X> {
-        RemoveTown { x }
+    pub fn new(tx: T) -> RemoveTown<T> {
+        RemoveTown { tx }
     }
 }
 
@@ -53,20 +53,20 @@ mod tests {
     use std::time::Duration;
 
     #[derive(Default)]
-    struct X {
+    struct Tx {
         controlled: HashSet<V2<usize>>,
         removed: Arm<Vec<V2<usize>>>,
     }
 
     #[async_trait]
-    impl Controlled for X {
+    impl Controlled for Tx {
         async fn controlled(&self, _: V2<usize>) -> HashSet<V2<usize>> {
             self.controlled.clone()
         }
     }
 
     #[async_trait]
-    impl RemoveTownTrait for X {
+    impl RemoveTownTrait for Tx {
         async fn remove_town(&self, position: V2<usize>) -> bool {
             self.removed.lock().unwrap().push(position);
             true
@@ -80,8 +80,8 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let x = X::default();
-        let mut processor = RemoveTown::new(x);
+        let tx = Tx::default();
+        let mut processor = RemoveTown::new(tx);
         let state = State {
             params: SimulationParams {
                 town_removal_population: 0.5,
@@ -99,7 +99,7 @@ mod tests {
 
         // Then
         assert_eq!(
-            *processor.x.removed.lock().unwrap(),
+            *processor.tx.removed.lock().unwrap(),
             vec![settlement.position]
         );
     }
@@ -111,8 +111,8 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let x = X::default();
-        let mut processor = RemoveTown::new(x);
+        let tx = Tx::default();
+        let mut processor = RemoveTown::new(tx);
         let state = State {
             params: SimulationParams {
                 town_removal_population: 0.5,
@@ -133,7 +133,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        assert!(processor.x.removed.lock().unwrap().is_empty());
+        assert!(processor.tx.removed.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -143,8 +143,8 @@ mod tests {
             current_population: 0.7,
             ..Settlement::default()
         };
-        let x = X::default();
-        let mut processor = RemoveTown::new(x);
+        let tx = Tx::default();
+        let mut processor = RemoveTown::new(tx);
         let state = State {
             params: SimulationParams {
                 town_removal_population: 0.5,
@@ -161,7 +161,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        assert!(processor.x.removed.lock().unwrap().is_empty());
+        assert!(processor.tx.removed.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -171,11 +171,11 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let x = X {
+        let tx = Tx {
             controlled: hashset! { v2(1, 2), v2(3, 4) },
-            ..X::default()
+            ..Tx::default()
         };
-        let mut processor = RemoveTown::new(x);
+        let mut processor = RemoveTown::new(tx);
         let state = State {
             params: SimulationParams {
                 town_removal_population: 0.5,

@@ -5,7 +5,7 @@ use crate::traits::{AddCrops, GetSettlement};
 use commons::V2;
 
 pub struct CropsBuilder<T> {
-    x: T,
+    tx: T,
 }
 
 #[async_trait]
@@ -28,15 +28,15 @@ impl<T> CropsBuilder<T>
 where
     T: AddCrops + GetSettlement + Send + Sync,
 {
-    pub fn new(x: T) -> CropsBuilder<T> {
-        CropsBuilder { x }
+    pub fn new(tx: T) -> CropsBuilder<T> {
+        CropsBuilder { tx }
     }
 
     async fn try_build_crops(&mut self, position: V2<usize>, rotated: bool) {
-        if let Some(Settlement { class: Town, .. }) = self.x.get_settlement(position).await {
+        if let Some(Settlement { class: Town, .. }) = self.tx.get_settlement(position).await {
             return;
         }
-        self.x.add_crops(position, rotated).await;
+        self.tx.add_crops(position, rotated).await;
     }
 }
 
@@ -49,13 +49,13 @@ mod tests {
     use std::collections::HashMap;
 
     #[derive(Default)]
-    struct X {
+    struct Tx {
         crops: Arm<HashMap<V2<usize>, bool>>,
         settlements: HashMap<V2<usize>, Settlement>,
     }
 
     #[async_trait]
-    impl AddCrops for X {
+    impl AddCrops for Tx {
         async fn add_crops(&self, position: V2<usize>, rotated: bool) -> bool {
             self.crops.lock().unwrap().insert(position, rotated);
             true
@@ -63,7 +63,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl GetSettlement for X {
+    impl GetSettlement for Tx {
         async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
             self.settlements.get(&position).cloned()
         }
@@ -72,8 +72,8 @@ mod tests {
     #[test]
     fn can_build_crops() {
         // Given
-        let x = X::default();
-        let builder = CropsBuilder::new(x);
+        let tx = Tx::default();
+        let builder = CropsBuilder::new(tx);
 
         // When
         let can_build = builder.can_build(&Build::Crops {
@@ -88,8 +88,8 @@ mod tests {
     #[test]
     fn should_build_crops_if_no_town_on_tile() {
         // Given
-        let x = X::default();
-        let mut builder = CropsBuilder::new(x);
+        let tx = Tx::default();
+        let mut builder = CropsBuilder::new(tx);
 
         // When
         block_on(builder.build(Build::Crops {
@@ -99,7 +99,7 @@ mod tests {
 
         // Then
         assert_eq!(
-            *builder.x.crops.lock().unwrap(),
+            *builder.tx.crops.lock().unwrap(),
             hashmap! {v2(1, 2) => true}
         );
     }
@@ -112,11 +112,11 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let x = X {
+        let tx = Tx {
             settlements: hashmap! {v2(1, 2) => settlement},
-            ..X::default()
+            ..Tx::default()
         };
-        let mut builder = CropsBuilder::new(x);
+        let mut builder = CropsBuilder::new(tx);
 
         // When
         block_on(builder.build(Build::Crops {
@@ -125,6 +125,6 @@ mod tests {
         }));
 
         // Then
-        assert_eq!(*builder.x.crops.lock().unwrap(), hashmap! {});
+        assert_eq!(*builder.tx.crops.lock().unwrap(), hashmap! {});
     }
 }

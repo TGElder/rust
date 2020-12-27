@@ -102,9 +102,9 @@ pub trait UpdateTerritory {
 }
 
 #[async_trait]
-impl<X> UpdateTerritory for X
+impl<T> UpdateTerritory for T
 where
-    X: Micros
+    T: Micros
         + PathfinderWithoutPlannedRoads
         + SendParameters
         + SetControlDurations

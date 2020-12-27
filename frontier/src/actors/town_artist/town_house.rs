@@ -9,23 +9,23 @@ use commons::V2;
 use isometric::drawing::{draw_house, DrawHouseParams};
 use isometric::{Color, Command};
 
-pub struct TownHouseArtist<X> {
-    x: X,
+pub struct TownHouseArtist<T> {
+    tx: T,
     command_tx: Sender<Vec<Command>>,
     params: TownArtistParameters,
 }
 
-impl<X> TownHouseArtist<X>
+impl<T> TownHouseArtist<T>
 where
-    X: GetNationDescription + GetSettlement + SendWorld + Settlements + Send,
+    T: GetNationDescription + GetSettlement + SendWorld + Settlements + Send,
 {
     pub fn new(
-        x: X,
+        tx: T,
         command_tx: Sender<Vec<Command>>,
         params: TownArtistParameters,
-    ) -> TownHouseArtist<X> {
+    ) -> TownHouseArtist<T> {
         TownHouseArtist {
-            x,
+            tx,
             command_tx,
             params,
         }
@@ -36,7 +36,7 @@ where
     }
 
     pub async fn update_settlement(&mut self, settlement: Settlement) {
-        if self.x.get_settlement(settlement.position).await.is_some() {
+        if self.tx.get_settlement(settlement.position).await.is_some() {
             self.draw_settlement(settlement).await
         } else {
             self.erase_settlement(settlement)
@@ -44,7 +44,7 @@ where
     }
 
     async fn draw_all(&mut self) {
-        for settlement in self.x.settlements().await {
+        for settlement in self.tx.settlements().await {
             self.draw_settlement(settlement).await;
         }
     }
@@ -65,7 +65,7 @@ where
     }
 
     async fn get_nation_color(&mut self, nation: String) -> Color {
-        self.x
+        self.tx
             .get_nation_description(nation)
             .await
             .unwrap_or_else(|| panic!("Unknown nation"))
@@ -76,7 +76,7 @@ where
         let name = get_name(&settlement.position);
         let position = settlement.position;
         let commands = self
-            .x
+            .tx
             .send_world(move |world| get_draw_commands(name, world, position, params))
             .await;
         self.command_tx.send(commands).unwrap();

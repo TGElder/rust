@@ -5,14 +5,14 @@ use crate::settlement::Settlement;
 use crate::traits::UpdateSettlement;
 use commons::unsafe_ordering;
 
-pub struct UpdateTown<X> {
-    x: X,
+pub struct UpdateTown<T> {
+    tx: T,
 }
 
 #[async_trait]
-impl<X> Processor for UpdateTown<X>
+impl<T> Processor for UpdateTown<T>
 where
-    X: UpdateSettlement + Send + Sync + 'static,
+    T: UpdateSettlement + Send + Sync + 'static,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
@@ -23,7 +23,7 @@ where
             _ => return state,
         };
 
-        self.x
+        self.tx
             .update_settlement(Settlement {
                 target_population: get_target_population(
                     traffic,
@@ -47,12 +47,12 @@ where
     }
 }
 
-impl<X> UpdateTown<X>
+impl<T> UpdateTown<T>
 where
-    X: UpdateSettlement + Send + Sync + 'static,
+    T: UpdateSettlement + Send + Sync + 'static,
 {
-    pub fn new(x: X) -> UpdateTown<X> {
-        UpdateTown { x }
+    pub fn new(tx: T) -> UpdateTown<T> {
+        UpdateTown { tx }
     }
 }
 
@@ -157,7 +157,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = processor.x.lock().unwrap();
+        let updated_settlements = processor.tx.lock().unwrap();
         assert!(updated_settlements[&v2(0, 0)]
             .target_population
             .almost(&28.0));
@@ -180,7 +180,7 @@ mod tests {
         block_on(processor.process(State::default(), &instruction));
 
         // Then
-        let updated_settlements = processor.x.lock().unwrap();
+        let updated_settlements = processor.tx.lock().unwrap();
         assert!(updated_settlements[&v2(0, 0)]
             .target_population
             .almost(&0.0));
@@ -221,7 +221,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = processor.x.lock().unwrap();
+        let updated_settlements = processor.tx.lock().unwrap();
         assert_eq!(updated_settlements[&v2(0, 0)].nation, "C".to_string(),);
     }
 
@@ -260,7 +260,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = processor.x.lock().unwrap();
+        let updated_settlements = processor.tx.lock().unwrap();
         assert_eq!(updated_settlements[&v2(0, 0)].nation, "A".to_string());
     }
 
@@ -322,7 +322,7 @@ mod tests {
         block_on(processor.process(state, &instruction));
 
         // Then
-        let updated_settlements = processor.x.lock().unwrap();
+        let updated_settlements = processor.tx.lock().unwrap();
         let gap_half_life_millis =
             updated_settlements[&v2(0, 0)].gap_half_life.as_nanos() as f32 / 1000000.0;
         assert!(gap_half_life_millis.almost(&14.46));
@@ -346,7 +346,7 @@ mod tests {
         block_on(processor.process(State::default(), &instruction));
 
         // Then
-        let updated_settlements = processor.x.lock().unwrap();
+        let updated_settlements = processor.tx.lock().unwrap();
         assert_eq!(
             updated_settlements[&v2(0, 0)].gap_half_life,
             Duration::from_millis(4)

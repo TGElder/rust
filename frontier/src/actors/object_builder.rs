@@ -10,7 +10,7 @@ use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
 
 pub struct ObjectBuilder<T> {
-    x: T,
+    tx: T,
     rng: SmallRng,
     bindings: ObjectBuilderBindings,
     world_coord: Option<WorldCoord>,
@@ -25,9 +25,9 @@ impl<T> ObjectBuilder<T>
 where
     T: RemoveWorldObject + SetWorldObject,
 {
-    pub fn new(x: T, seed: u64) -> ObjectBuilder<T> {
+    pub fn new(tx: T, seed: u64) -> ObjectBuilder<T> {
         ObjectBuilder {
-            x,
+            tx,
             rng: SeedableRng::seed_from_u64(seed),
             bindings: ObjectBuilderBindings {
                 build_crop: Button::Key(VirtualKeyCode::F),
@@ -49,13 +49,13 @@ where
 
     async fn build_object_at_cursor(&self, object: WorldObject) {
         if let Some(position) = self.get_position() {
-            self.x.set_world_object(object, position).await;
+            self.tx.set_world_object(object, position).await;
         }
     }
 
     async fn clear_object_at_cursor(&self) {
         if let Some(position) = self.get_position() {
-            self.x.remove_world_object(position).await;
+            self.tx.remove_world_object(position).await;
         }
     }
 

@@ -7,22 +7,22 @@ use std::sync::Arc;
 use crate::configuration::Polysender;
 
 pub struct EventForwarderActor {
-    x: Polysender,
+    tx: Polysender,
 }
 
 impl EventForwarderActor {
-    pub fn new(x: Polysender) -> EventForwarderActor {
-        EventForwarderActor { x }
+    pub fn new(tx: Polysender) -> EventForwarderActor {
+        EventForwarderActor { tx }
     }
 }
 
 impl EventForwarderActor {
     fn consume_event(&mut self, event: Arc<Event>) {
-        send_event(&self.x.basic_road_builder_tx, &event);
-        send_event(&self.x.object_builder_tx, &event);
-        send_event(&self.x.town_builder_tx, &event);
-        send_event(&self.x.town_label_artist_tx, &event);
-        send_event(&self.x.world_artist_tx, &event);
+        send_event(&self.tx.basic_road_builder_tx, &event);
+        send_event(&self.tx.object_builder_tx, &event);
+        send_event(&self.tx.town_builder_tx, &event);
+        send_event(&self.tx.town_label_artist_tx, &event);
+        send_event(&self.tx.world_artist_tx, &event);
     }
 }
 

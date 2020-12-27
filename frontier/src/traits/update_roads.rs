@@ -42,13 +42,13 @@ where
         .await
 }
 
-async fn redraw<T>(x: &T, result: &Arc<RoadBuilderResult>)
+async fn redraw<T>(tx: &T, result: &Arc<RoadBuilderResult>)
 where
     T: DrawWorld + Micros,
 {
-    let micros = x.micros().await;
+    let micros = tx.micros().await;
     for position in result.path().iter().cloned() {
-        x.draw_world_tile(position, micros);
+        tx.draw_world_tile(position, micros);
     }
 }
 

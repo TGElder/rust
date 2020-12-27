@@ -24,7 +24,7 @@ impl Default for CheatBindings {
 }
 
 pub struct Cheats<T> {
-    x: T,
+    tx: T,
     pool: ThreadPool,
     bindings: CheatBindings,
     world_coord: Option<WorldCoord>,
@@ -36,7 +36,7 @@ where
 {
     pub fn new(tx: T, thread_pool: ThreadPool) -> Cheats<T> {
         Cheats {
-            x: tx,
+            tx,
             pool: thread_pool,
             bindings: CheatBindings::default(),
             world_coord: None,
@@ -48,10 +48,10 @@ where
     }
 
     fn reveal_all(&mut self, _: &GameState) {
-        let x_in_thread = self.x.clone();
+        let x_in_thread = self.tx.clone();
         self.pool
             .spawn_ok(async move { x_in_thread.reveal_all().await });
-        self.x.disable_visibility_computation();
+        self.tx.disable_visibility_computation();
     }
 
     fn move_avatar(&mut self, game_state: &GameState) {
@@ -74,7 +74,7 @@ where
 
     fn send_update_avatar_state_command(&mut self, name: &str, avatar_state: AvatarState) {
         let name = name.to_string();
-        self.x.send_game_background(move |game| {
+        self.tx.send_game_background(move |game| {
             game.update_avatar_state(name.to_string(), avatar_state);
         });
     }

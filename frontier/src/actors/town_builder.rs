@@ -10,15 +10,15 @@ use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
 use std::time::Duration;
 
-pub struct TownBuilderActor<X> {
-    x: X,
+pub struct TownBuilderActor<T> {
+    tx: T,
     binding: Button,
     world_coord: Option<WorldCoord>,
 }
 
-impl<X> TownBuilderActor<X>
+impl<T> TownBuilderActor<T>
 where
-    X: AddTown
+    T: AddTown
         + GetSettlement
         + Micros
         + NationDescriptions
@@ -26,9 +26,9 @@ where
         + RemoveTown
         + SetWorldObject,
 {
-    pub fn new(x: X) -> TownBuilderActor<X> {
+    pub fn new(tx: T) -> TownBuilderActor<T> {
         TownBuilderActor {
-            x,
+            tx,
             binding: Button::Key(VirtualKeyCode::H),
             world_coord: None,
         }
@@ -40,7 +40,7 @@ where
 
     async fn toggle_town(&mut self) {
         let position = unwrap_or!(self.get_position(), return);
-        if self.x.get_settlement(position).await.is_some() {
+        if self.tx.get_settlement(position).await.is_some() {
             self.remove_town(position).await;
         } else {
             self.add_town(position).await;
@@ -54,8 +54,8 @@ where
 
     async fn add_town(&mut self, position: V2<usize>) {
         let nation = self.random_nation().await;
-        let name = self.x.random_town_name(nation.clone()).await.unwrap();
-        let last_population_update_micros = self.x.micros().await;
+        let name = self.tx.random_town_name(nation.clone()).await.unwrap();
+        let last_population_update_micros = self.tx.micros().await;
 
         let town = Settlement {
             position,
@@ -68,11 +68,11 @@ where
             last_population_update_micros,
         };
 
-        self.x.add_town(town).await;
+        self.tx.add_town(town).await;
     }
 
     async fn random_nation(&self) -> String {
-        self.x
+        self.tx
             .nation_descriptions()
             .await
             .into_iter()
@@ -82,14 +82,14 @@ where
     }
 
     async fn remove_town(&mut self, position: V2<usize>) {
-        self.x.remove_town(position).await;
+        self.tx.remove_town(position).await;
     }
 }
 
 #[async_trait]
-impl<X> HandleEngineEvent for TownBuilderActor<X>
+impl<T> HandleEngineEvent for TownBuilderActor<T>
 where
-    X: AddTown
+    T: AddTown
         + GetSettlement
         + Micros
         + NationDescriptions

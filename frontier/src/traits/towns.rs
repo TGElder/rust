@@ -49,14 +49,14 @@ where
     }
 }
 
-async fn check_visibility_from_town<X>(x: &X, position: V2<usize>)
+async fn check_visibility_from_town<T>(tx: &T, position: V2<usize>)
 where
-    X: SendWorld + Visibility,
+    T: SendWorld + Visibility,
 {
-    let visited = x
+    let visited = tx
         .send_world(move |world| world.get_corners_in_bounds(&position))
         .await;
-    x.check_visibility_and_reveal(visited.into_iter().collect());
+    tx.check_visibility_and_reveal(visited.into_iter().collect());
 }
 
 #[async_trait]

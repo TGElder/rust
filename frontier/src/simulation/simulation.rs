@@ -8,19 +8,19 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
-pub struct Simulation<X> {
-    x: X,
+pub struct Simulation<T> {
+    tx: T,
     processors: Vec<Box<dyn Processor + Send>>,
     state: Option<State>,
 }
 
-impl<X> Simulation<X>
+impl<T> Simulation<T>
 where
-    X: SendWorld + Send,
+    T: SendWorld + Send,
 {
-    pub fn new(x: X, processors: Vec<Box<dyn Processor + Send>>) -> Simulation<X> {
+    pub fn new(tx: T, processors: Vec<Box<dyn Processor + Send>>) -> Simulation<T> {
         Simulation {
-            x,
+            tx,
             processors,
             state: None,
         }
@@ -31,7 +31,7 @@ where
             params: SimulationParams::default(),
             instructions: vec![],
             traffic: self
-                .x
+                .tx
                 .send_world(|world| Vec2D::same_size_as(world, HashSet::with_capacity(0)))
                 .await,
             edge_traffic: hashmap! {},
@@ -73,9 +73,9 @@ where
 }
 
 #[async_trait]
-impl<X> Step for Simulation<X>
+impl<T> Step for Simulation<T>
 where
-    X: SendWorld + Send,
+    T: SendWorld + Send,
 {
     async fn step(&mut self) {
         let state = unwrap_or!(self.state.take(), return);
@@ -85,7 +85,7 @@ where
     }
 }
 
-impl<X> Persistable for Simulation<X> {
+impl<T> Persistable for Simulation<T> {
     fn save(&self, path: &str) {
         let path = get_path(path);
         let mut file = BufWriter::new(File::create(path).unwrap());

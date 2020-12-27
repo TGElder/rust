@@ -2,15 +2,15 @@ use super::*;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{GetSettlement, Micros, UpdateSettlement};
 
-pub struct UpdateCurrentPopulation<X> {
-    x: X,
+pub struct UpdateCurrentPopulation<T> {
+    tx: T,
     max_abs_population_change: fn(&SettlementClass) -> f64,
 }
 
 #[async_trait]
-impl<X> Processor for UpdateCurrentPopulation<X>
+impl<T> Processor for UpdateCurrentPopulation<T>
 where
-    X: GetSettlement + Micros + UpdateSettlement + Send + Sync + 'static,
+    T: GetSettlement + Micros + UpdateSettlement + Send + Sync + 'static,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let position = match instruction {
@@ -26,24 +26,24 @@ where
     }
 }
 
-impl<X> UpdateCurrentPopulation<X>
+impl<T> UpdateCurrentPopulation<T>
 where
-    X: GetSettlement + Micros + UpdateSettlement + Send,
+    T: GetSettlement + Micros + UpdateSettlement + Send,
 {
     pub fn new(
-        x: X,
+        tx: T,
         max_abs_population_change: fn(&SettlementClass) -> f64,
-    ) -> UpdateCurrentPopulation<X> {
+    ) -> UpdateCurrentPopulation<T> {
         UpdateCurrentPopulation {
-            x,
+            tx,
             max_abs_population_change,
         }
     }
 
     async fn try_update_settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
         let max_abs_population_change = self.max_abs_population_change;
-        let settlement = self.x.get_settlement(position).await?;
-        let game_micros = self.x.micros().await;
+        let settlement = self.tx.get_settlement(position).await?;
+        let game_micros = self.tx.micros().await;
 
         if settlement.last_population_update_micros >= game_micros {
             return Some(settlement.clone());
@@ -62,7 +62,7 @@ where
             nation: settlement.nation.clone(),
             ..settlement
         };
-        self.x.update_settlement(new_settlement.clone()).await;
+        self.tx.update_settlement(new_settlement.clone()).await;
         Some(new_settlement)
     }
 }
@@ -102,27 +102,27 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
 
-    struct X {
+    struct Tx {
         micros: u128,
         settlements: Arm<HashMap<V2<usize>, Settlement>>,
     }
 
     #[async_trait]
-    impl GetSettlement for X {
+    impl GetSettlement for Tx {
         async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
             self.settlements.lock().unwrap().get(&position).cloned()
         }
     }
 
     #[async_trait]
-    impl Micros for X {
+    impl Micros for Tx {
         async fn micros(&self) -> u128 {
             self.micros
         }
     }
 
     #[async_trait]
-    impl UpdateSettlement for X {
+    impl UpdateSettlement for Tx {
         async fn update_settlement(&self, settlement: Settlement) {
             self.settlements
                 .lock()
@@ -150,11 +150,11 @@ mod tests {
             v2(1, 2) => settlement,
         }));
 
-        let x = X {
+        let tx = Tx {
             micros: 33,
             settlements,
         };
-        let mut processor = UpdateCurrentPopulation::new(x, max_abs_population_change);
+        let mut processor = UpdateCurrentPopulation::new(tx, max_abs_population_change);
 
         // When
         let state = block_on(processor.process(
@@ -163,7 +163,7 @@ mod tests {
         ));
 
         // Then
-        let settlements = processor.x.settlements.lock().unwrap();
+        let settlements = processor.tx.settlements.lock().unwrap();
         let settlement = settlements.get(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&78.45387355842092));
@@ -189,11 +189,11 @@ mod tests {
             v2(1, 2) => settlement,
         }));
 
-        let x = X {
+        let tx = Tx {
             micros: 33,
             settlements,
         };
-        let mut processor = UpdateCurrentPopulation::new(x, max_abs_population_change);
+        let mut processor = UpdateCurrentPopulation::new(tx, max_abs_population_change);
 
         // When
         let state = block_on(processor.process(
@@ -202,7 +202,7 @@ mod tests {
         ));
 
         // Then
-        let settlements = processor.x.settlements.lock().unwrap();
+        let settlements = processor.tx.settlements.lock().unwrap();
         let settlement = settlements.get(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&22.54612644157907));
@@ -228,11 +228,11 @@ mod tests {
             v2(1, 2) => settlement,
         }));
 
-        let x = X {
+        let tx = Tx {
             micros: 33,
             settlements,
         };
-        let mut processor = UpdateCurrentPopulation::new(x, max_abs_population_change);
+        let mut processor = UpdateCurrentPopulation::new(tx, max_abs_population_change);
 
         // When
         let state = block_on(processor.process(
@@ -241,7 +241,7 @@ mod tests {
         ));
 
         // Then
-        let settlements = processor.x.settlements.lock().unwrap();
+        let settlements = processor.tx.settlements.lock().unwrap();
         let settlement = settlements.get(&v2(1, 2)).unwrap();
 
         assert!(settlement
@@ -258,11 +258,11 @@ mod tests {
     fn should_do_nothing_if_no_settlement() {
         // Given
 
-        let x = X {
+        let tx = Tx {
             micros: 33,
             settlements: Arc::new(Mutex::new(hashmap! {})),
         };
-        let mut processor = UpdateCurrentPopulation::new(x, max_abs_population_change);
+        let mut processor = UpdateCurrentPopulation::new(tx, max_abs_population_change);
 
         // When
         let state = block_on(processor.process(
@@ -289,11 +289,11 @@ mod tests {
             v2(1, 2) => settlement,
         }));
 
-        let x = X {
+        let tx = Tx {
             micros: 11,
             settlements,
         };
-        let mut processor = UpdateCurrentPopulation::new(x, max_abs_population_change);
+        let mut processor = UpdateCurrentPopulation::new(tx, max_abs_population_change);
 
         // When
         let state = block_on(processor.process(
@@ -302,7 +302,7 @@ mod tests {
         ));
 
         // Then
-        let settlements = processor.x.settlements.lock().unwrap();
+        let settlements = processor.tx.settlements.lock().unwrap();
         let settlement = settlements.get(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&100.0));
@@ -328,14 +328,14 @@ mod tests {
             v2(1, 2) => settlement,
         }));
 
-        let x = X {
+        let tx = Tx {
             micros: 33,
             settlements,
         };
         fn max_abs_population_change(_: &SettlementClass) -> f64 {
             1.0
         };
-        let mut processor = UpdateCurrentPopulation::new(x, max_abs_population_change);
+        let mut processor = UpdateCurrentPopulation::new(tx, max_abs_population_change);
 
         // When
         let state = block_on(processor.process(
@@ -344,7 +344,7 @@ mod tests {
         ));
 
         // Then
-        let settlements = processor.x.settlements.lock().unwrap();
+        let settlements = processor.tx.settlements.lock().unwrap();
         let settlement = settlements.get(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&2.0));
@@ -370,14 +370,14 @@ mod tests {
             v2(1, 2) => settlement,
         }));
 
-        let x = X {
+        let tx = Tx {
             micros: 33,
             settlements,
         };
         fn max_abs_population_change(_: &SettlementClass) -> f64 {
             1.0
         };
-        let mut processor = UpdateCurrentPopulation::new(x, max_abs_population_change);
+        let mut processor = UpdateCurrentPopulation::new(tx, max_abs_population_change);
 
         // When
         let state = block_on(processor.process(
@@ -386,7 +386,7 @@ mod tests {
         ));
 
         // Then
-        let settlements = processor.x.settlements.lock().unwrap();
+        let settlements = processor.tx.settlements.lock().unwrap();
         let settlement = settlements.get(&v2(1, 2)).unwrap();
 
         assert!(settlement.current_population.almost(&99.0));

@@ -2,14 +2,14 @@ use super::*;
 use crate::settlement::{Settlement, SettlementClass::Homeland};
 use crate::traits::{SendGameState, Settlements, UpdateSettlement};
 
-pub struct UpdateHomelandPopulation<X> {
-    x: X,
+pub struct UpdateHomelandPopulation<T> {
+    tx: T,
 }
 
 #[async_trait]
-impl<X> Processor for UpdateHomelandPopulation<X>
+impl<T> Processor for UpdateHomelandPopulation<T>
 where
-    X: SendGameState + Settlements + UpdateSettlement + Send + Sync + 'static,
+    T: SendGameState + Settlements + UpdateSettlement + Send + Sync + 'static,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         match instruction {
@@ -22,16 +22,16 @@ where
     }
 }
 
-impl<X> UpdateHomelandPopulation<X>
+impl<T> UpdateHomelandPopulation<T>
 where
-    X: SendGameState + Settlements + UpdateSettlement + Send + Sync + 'static,
+    T: SendGameState + Settlements + UpdateSettlement + Send + Sync + 'static,
 {
-    pub fn new(x: X) -> UpdateHomelandPopulation<X> {
-        UpdateHomelandPopulation { x }
+    pub fn new(tx: T) -> UpdateHomelandPopulation<T> {
+        UpdateHomelandPopulation { tx }
     }
 
     async fn visibile_land_positions(&self) -> usize {
-        self.x
+        self.tx
             .send_game_state(|state| state.visible_land_positions)
             .await
     }
@@ -45,7 +45,7 @@ where
     }
 
     async fn get_homelands(&self) -> Vec<Settlement> {
-        self.x
+        self.tx
             .settlements()
             .await
             .into_iter()
@@ -58,7 +58,7 @@ where
             target_population,
             ..settlement
         };
-        self.x.update_settlement(settlement).await;
+        self.tx.update_settlement(settlement).await;
     }
 }
 
@@ -71,13 +71,13 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Mutex;
 
-    struct X {
+    struct Tx {
         settlements: Arm<HashMap<V2<usize>, Settlement>>,
         game_state: Arm<GameState>,
     }
 
     #[async_trait]
-    impl SendGameState for X {
+    impl SendGameState for Tx {
         async fn send_game_state<F, O>(&self, function: F) -> O
         where
             O: Send + 'static,
@@ -88,14 +88,14 @@ mod tests {
     }
 
     #[async_trait]
-    impl Settlements for X {
+    impl Settlements for Tx {
         async fn settlements(&self) -> Vec<Settlement> {
             self.settlements.lock().unwrap().values().cloned().collect()
         }
     }
 
     #[async_trait]
-    impl UpdateSettlement for X {
+    impl UpdateSettlement for Tx {
         async fn update_settlement(&self, settlement: Settlement) {
             self.settlements
                 .lock()
@@ -119,20 +119,20 @@ mod tests {
                 ..Settlement::default()
             },
         }));
-        let x = X {
+        let tx = Tx {
             settlements,
             game_state: Arc::new(Mutex::new(GameState {
                 visible_land_positions: 202,
                 ..GameState::default()
             })),
         };
-        let mut processor = UpdateHomelandPopulation::new(x);
+        let mut processor = UpdateHomelandPopulation::new(tx);
 
         // When
         block_on(processor.process(State::default(), &Instruction::UpdateHomelandPopulation));
 
         // Then
-        let actual = processor.x.settlements.lock().unwrap();
+        let actual = processor.tx.settlements.lock().unwrap();
         let expected = hashmap! {
             v2(0, 1) => Settlement{
                 position: v2(0, 1),

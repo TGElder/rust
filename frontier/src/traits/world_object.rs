@@ -59,7 +59,7 @@ where
 }
 
 async fn send_set_world_object<T>(
-    x: &T,
+    tx: &T,
     object: WorldObject,
     position: V2<usize>,
     force: bool,
@@ -67,7 +67,7 @@ async fn send_set_world_object<T>(
 where
     T: SendWorld,
 {
-    x.send_world(move |world| set_world_object(world, object, position, force))
+    tx.send_world(move |world| set_world_object(world, object, position, force))
         .await
 }
 

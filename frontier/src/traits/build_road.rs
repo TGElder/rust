@@ -44,13 +44,13 @@ where
         .await
 }
 
-async fn redraw<T>(x: &T, result: &Arc<RoadBuilderResult>)
+async fn redraw<T>(tx: &T, result: &Arc<RoadBuilderResult>)
 where
     T: Micros + Redraw,
 {
-    let micros = x.micros().await;
+    let micros = tx.micros().await;
     for position in result.path().iter().cloned() {
-        x.redraw_tile_at(position, micros);
+        tx.redraw_tile_at(position, micros);
     }
 }
 
@@ -59,20 +59,20 @@ fn check_visibility_and_reveal(tx: &dyn Visibility, result: &Arc<RoadBuilderResu
     tx.check_visibility_and_reveal(visited);
 }
 
-async fn update_pathfinders<T>(x: &T, result: &Arc<RoadBuilderResult>)
+async fn update_pathfinders<T>(tx: &T, result: &Arc<RoadBuilderResult>)
 where
     T: PathfinderWithPlannedRoads + PathfinderWithoutPlannedRoads + SendWorld,
 {
-    let pathfinder_with = x.pathfinder_with_planned_roads().clone();
-    let pathfinder_without = x.pathfinder_without_planned_roads().clone();
+    let pathfinder_with = tx.pathfinder_with_planned_roads().clone();
+    let pathfinder_without = tx.pathfinder_without_planned_roads().clone();
 
     join!(
-        update_pathfinder(x, pathfinder_with, result),
-        update_pathfinder(x, pathfinder_without, result),
+        update_pathfinder(tx, pathfinder_with, result),
+        update_pathfinder(tx, pathfinder_without, result),
     );
 }
 
-async fn update_pathfinder<T, P>(x: &T, pathfinder: P, result: &Arc<RoadBuilderResult>)
+async fn update_pathfinder<T, P>(tx: &T, pathfinder: P, result: &Arc<RoadBuilderResult>)
 where
     T: SendWorld,
     P: SendPathfinder + Send,

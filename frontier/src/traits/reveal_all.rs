@@ -37,11 +37,11 @@ where
     }
 }
 
-async fn reveal_all_get_dimensions<T>(x: &T) -> (usize, usize)
+async fn reveal_all_get_dimensions<T>(tx: &T) -> (usize, usize)
 where
     T: SendWorld,
 {
-    x.send_world(move |world| {
+    tx.send_world(move |world| {
         world.reveal_all();
         (world.width(), world.height())
     })
@@ -54,28 +54,28 @@ fn all_positions(width: usize, height: usize) -> HashSet<V2<usize>> {
         .collect()
 }
 
-async fn set_visible_land_positions<T>(x: &T, visible_positions: usize)
+async fn set_visible_land_positions<T>(tx: &T, visible_positions: usize)
 where
     T: SendGame,
 {
-    x.send_game(move |game| game.mut_state().visible_land_positions = visible_positions)
+    tx.send_game(move |game| game.mut_state().visible_land_positions = visible_positions)
         .await
 }
 
-fn update_sim<T>(x: &T, positions: HashSet<V2<usize>>)
+fn update_sim<T>(tx: &T, positions: HashSet<V2<usize>>)
 where
     T: SendSim,
 {
-    x.send_sim_background(move |sim| {
+    tx.send_sim_background(move |sim| {
         sim.refresh_positions(positions);
         sim.update_homeland_population();
     });
 }
 
-async fn redraw_all<T>(x: &T)
+async fn redraw_all<T>(tx: &T)
 where
     T: DrawWorld + Micros,
 {
-    let micros = x.micros().await;
-    x.draw_world(micros);
+    let micros = tx.micros().await;
+    tx.draw_world(micros);
 }

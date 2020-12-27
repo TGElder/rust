@@ -6,19 +6,19 @@ use std::collections::HashSet;
 
 const NAME: &str = "get_territory";
 
-pub struct GetTerritory<G, X>
+pub struct GetTerritory<G, T>
 where
     G: Send,
 {
     game: FnSender<G>,
-    x: X,
+    tx: T,
 }
 
 #[async_trait]
-impl<G, X> Processor for GetTerritory<G, X>
+impl<G, T> Processor for GetTerritory<G, T>
 where
     G: Controlled + Settlements + Send,
-    X: UpdateTerritory + Send,
+    T: UpdateTerritory + Send,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let settlement = match instruction {
@@ -31,7 +31,7 @@ where
             return state;
         };
 
-        self.x.update_territory(settlement.position).await;
+        self.tx.update_territory(settlement.position).await;
         let territory = self.territory(settlement.position).await;
 
         state.instructions.push(Instruction::GetTownTraffic {
@@ -43,15 +43,15 @@ where
     }
 }
 
-impl<G, X> GetTerritory<G, X>
+impl<G, T> GetTerritory<G, T>
 where
     G: Controlled + Settlements + Send,
-    X: UpdateTerritory,
+    T: UpdateTerritory,
 {
-    pub fn new(game: &FnSender<G>, x: X) -> GetTerritory<G, X> {
+    pub fn new(game: &FnSender<G>, tx: T) -> GetTerritory<G, T> {
         GetTerritory {
             game: game.clone_with_name(NAME),
-            x,
+            tx,
         }
     }
 
@@ -140,7 +140,7 @@ mod tests {
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert_eq!(*processor.x.lock().unwrap(), vec![settlement.position]);
+        assert_eq!(*processor.tx.lock().unwrap(), vec![settlement.position]);
         assert_eq!(
             state.instructions[0],
             Instruction::GetTownTraffic {
@@ -177,7 +177,7 @@ mod tests {
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert!(processor.x.lock().unwrap().is_empty());
+        assert!(processor.tx.lock().unwrap().is_empty());
         assert_eq!(state.instructions, vec![]);
 
         // Finally
@@ -203,7 +203,7 @@ mod tests {
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert!(processor.x.lock().unwrap().is_empty());
+        assert!(processor.tx.lock().unwrap().is_empty());
         assert_eq!(state.instructions, vec![]);
 
         // Finally

@@ -1,9 +1,9 @@
+use crate::fn_sender::{FnMessageExt, FnReceiver};
 use async_channel::{unbounded, Sender};
 use async_trait::async_trait;
-use crate::fn_sender::{FnMessageExt, FnReceiver};
-use log::error;
 use futures::executor::ThreadPool;
 use futures::future::{FutureExt, RemoteHandle};
+use log::error;
 
 use std::any::type_name;
 

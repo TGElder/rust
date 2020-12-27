@@ -9,15 +9,15 @@ use std::collections::{HashMap, HashSet};
 const NAME: &str = "voyager";
 
 pub struct Voyager<T> {
-    x: T,
+    tx: T,
 }
 
 impl<T> Voyager<T>
 where
     T: RevealPositions + SendSettlements + SendWorld + Send,
 {
-    pub fn new(x: T) -> Voyager<T> {
-        Voyager { x }
+    pub fn new(tx: T) -> Voyager<T> {
+        Voyager { tx }
     }
 
     pub async fn voyage_to(&mut self, positions: HashSet<V2<usize>>, by: &'static str) {
@@ -36,27 +36,27 @@ where
     where
         T: SendWorld,
     {
-        self.x
+        self.tx
             .send_world(move |world| filter_coastal(world, positions))
             .await
     }
 
     async fn homeland_positions(&self) -> HashSet<V2<usize>> {
-        self.x
+        self.tx
             .send_settlements(|settlements| homeland_positions(settlements))
             .await
     }
 
     async fn voyage_between(&self, from: V2<usize>, to: V2<usize>) {
         let to_reveal = self
-            .x
+            .tx
             .send_world(move |world| get_positions_to_reveal(world, from, to))
             .await;
         self.reveal_cells(to_reveal).await
     }
 
     async fn reveal_cells(&self, to_reveal: HashSet<V2<usize>>) {
-        self.x.reveal_positions(to_reveal, NAME).await;
+        self.tx.reveal_positions(to_reveal, NAME).await;
     }
 }
 

@@ -10,18 +10,18 @@ use commons::V2;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
 
-pub struct BasicRoadBuilder<X> {
-    x: X,
+pub struct BasicRoadBuilder<T> {
+    tx: T,
     binding: Button,
 }
 
-impl<X> BasicRoadBuilder<X>
+impl<T> BasicRoadBuilder<T>
 where
-    X: SendGame + UpdateRoads,
+    T: SendGame + UpdateRoads,
 {
-    pub fn new(x: X) -> BasicRoadBuilder<X> {
+    pub fn new(tx: T) -> BasicRoadBuilder<T> {
         BasicRoadBuilder {
-            x,
+            tx,
             binding: Button::Key(VirtualKeyCode::R),
         }
     }
@@ -34,11 +34,11 @@ where
     }
 
     async fn get_plan(&mut self) -> Option<Plan> {
-        self.x.send_game(|game| get_plan(game)).await
+        self.tx.send_game(|game| get_plan(game)).await
     }
 
     async fn walk_positions(&mut self, plan: Plan) {
-        self.x
+        self.tx
             .send_game(|game| {
                 game.walk_positions(
                     plan.avatar_name,
@@ -52,14 +52,14 @@ where
     }
 
     async fn update_roads(&mut self, result: RoadBuilderResult) {
-        self.x.update_roads(result).await;
+        self.tx.update_roads(result).await;
     }
 }
 
 #[async_trait]
-impl<X> HandleEngineEvent for BasicRoadBuilder<X>
+impl<T> HandleEngineEvent for BasicRoadBuilder<T>
 where
-    X: SendGame + UpdateRoads + Send + Sync + 'static,
+    T: SendGame + UpdateRoads + Send + Sync + 'static,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) {
         if let Event::Button {

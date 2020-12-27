@@ -30,7 +30,7 @@ use crate::traits::{SendGame, SendGameState};
 use commons::process::Process;
 
 pub struct Configuration {
-    pub x: Polysender,
+    pub tx: Polysender,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
@@ -68,7 +68,7 @@ impl Configuration {
             AvatarTravelDuration::with_planned_roads_ignored(&game_state.params.avatar_travel),
         )));
 
-        let x = Polysender {
+        let tx = Polysender {
             game_tx: game_tx.clone_with_name("polysender"),
             basic_road_builder_tx,
             object_builder_tx,
@@ -87,46 +87,46 @@ impl Configuration {
         engine.add_event_consumer(EventForwarderConsumer::new(event_forwarder_tx));
 
         let config = Configuration {
-            x: x.clone_with_name("processes"),
+            tx: tx.clone_with_name("processes"),
             basic_road_builder: Process::new(
-                BasicRoadBuilder::new(x.clone_with_name("basic_road_builder")),
+                BasicRoadBuilder::new(tx.clone_with_name("basic_road_builder")),
                 basic_road_builder_rx,
             ),
             event_forwarder: Process::new(
-                EventForwarderActor::new(x.clone_with_name("event_forwarder")),
+                EventForwarderActor::new(tx.clone_with_name("event_forwarder")),
                 event_forwarder_rx,
             ),
             object_builder: Process::new(
-                ObjectBuilder::new(x.clone_with_name("object_builder"), game_state.params.seed),
+                ObjectBuilder::new(tx.clone_with_name("object_builder"), game_state.params.seed),
                 object_builder_rx,
             ),
             simulation: Process::new(
                 Simulation::new(
-                    x.clone_with_name("simulation"),
+                    tx.clone_with_name("simulation"),
                     vec![
                         Box::new(InstructionLogger::new()),
                         Box::new(BuildSim::new(
                             game_tx,
                             vec![
-                                Box::new(TownBuilder::new(x.clone_with_name("town_builder"))),
-                                Box::new(RoadBuilder::new(x.clone_with_name("road_builder"))),
-                                Box::new(CropsBuilder::new(x.clone_with_name("crops_builder"))),
+                                Box::new(TownBuilder::new(tx.clone_with_name("town_builder"))),
+                                Box::new(RoadBuilder::new(tx.clone_with_name("road_builder"))),
+                                Box::new(CropsBuilder::new(tx.clone_with_name("crops_builder"))),
                             ],
                         )),
                         Box::new(StepHomeland::new(game_tx)),
                         Box::new(StepTown::new(game_tx)),
                         Box::new(GetTerritory::new(
                             game_tx,
-                            x.clone_with_name("get_territory"),
+                            tx.clone_with_name("get_territory"),
                         )),
                         Box::new(GetTownTraffic::new(game_tx)),
-                        Box::new(UpdateTown::new(x.clone_with_name("update_town"))),
-                        Box::new(RemoveTown::new(x.clone_with_name("remove_town"))),
+                        Box::new(UpdateTown::new(tx.clone_with_name("update_town"))),
+                        Box::new(RemoveTown::new(tx.clone_with_name("remove_town"))),
                         Box::new(UpdateHomelandPopulation::new(
-                            x.clone_with_name("update_homeland_population"),
+                            tx.clone_with_name("update_homeland_population"),
                         )),
                         Box::new(UpdateCurrentPopulation::new(
-                            x.clone_with_name("update_current_population"),
+                            tx.clone_with_name("update_current_population"),
                             max_abs_population_change,
                         )),
                         Box::new(GetDemand::new(town_demand_fn)),
@@ -139,31 +139,31 @@ impl Configuration {
                         Box::new(GetRouteChanges::new(game_tx)),
                         Box::new(UpdatePositionTraffic::new()),
                         Box::new(UpdateEdgeTraffic::new()),
-                        Box::new(BuildTown::new(x.clone_with_name("build_town"))),
+                        Box::new(BuildTown::new(tx.clone_with_name("build_town"))),
                         Box::new(BuildCrops::new(
-                            x.clone_with_name("build_crops"),
+                            tx.clone_with_name("build_crops"),
                             game_state.params.seed,
                         )),
-                        Box::new(RemoveCrops::new(x.clone_with_name("remove_crops"))),
+                        Box::new(RemoveCrops::new(tx.clone_with_name("remove_crops"))),
                         Box::new(BuildRoad::new(
-                            x.clone_with_name("build_road"),
+                            tx.clone_with_name("build_road"),
                             Arc::new(AutoRoadTravelDuration::from_params(
                                 &game_state.params.auto_road_travel,
                             )),
                         )),
-                        Box::new(RemoveRoad::new(x.clone_with_name("remove_road"))),
+                        Box::new(RemoveRoad::new(tx.clone_with_name("remove_road"))),
                         Box::new(UpdateRouteToPorts::new(game_tx)),
                     ],
                 ),
                 simulation_rx,
             ),
             town_builder: Process::new(
-                TownBuilderActor::new(x.clone_with_name("town_builder_actor")),
+                TownBuilderActor::new(tx.clone_with_name("town_builder_actor")),
                 town_builder_rx,
             ),
             town_house_artist: Process::new(
                 TownHouseArtist::new(
-                    x.clone_with_name("town_houses"),
+                    tx.clone_with_name("town_houses"),
                     engine.command_tx(),
                     game_state.params.town_artist,
                 ),
@@ -171,20 +171,20 @@ impl Configuration {
             ),
             town_label_artist: Process::new(
                 TownLabelArtist::new(
-                    x.clone_with_name("town_labels"),
+                    tx.clone_with_name("town_labels"),
                     engine.command_tx(),
                     game_state.params.town_artist,
                 ),
                 town_label_artist_rx,
             ),
             visibility: Process::new(
-                VisibilityActor::new(x.clone_with_name("visibility")),
+                VisibilityActor::new(tx.clone_with_name("visibility")),
                 visibility_rx,
             ),
-            voyager: Process::new(Voyager::new(x.clone_with_name("voyager")), voyager_rx),
+            voyager: Process::new(Voyager::new(tx.clone_with_name("voyager")), voyager_rx),
             world_artist: Process::new(
                 WorldArtistActor::new(
-                    x.clone_with_name("world_artist_actor"),
+                    tx.clone_with_name("world_artist_actor"),
                     engine.command_tx(),
                     WorldArtist::new(
                         &game_state.world,
@@ -207,25 +207,25 @@ impl Configuration {
     }
 
     pub fn send_init_messages(&self) {
-        self.x
+        self.tx
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());
-        self.x
+        self.tx
             .town_label_artist_tx
             .send_future(|town_label_artist| town_label_artist.init().boxed());
-        self.x
+        self.tx
             .visibility_tx
             .send_future(|visibility| visibility.init().boxed());
-        self.x
+        self.tx
             .world_artist_tx
             .send_future(|world_artist| world_artist.init().boxed());
     }
 
     pub fn new_game(&self) {
-        self.x
+        self.tx
             .simulation_tx
             .send_future(|simulation| simulation.new_game().boxed());
-        self.x
+        self.tx
             .visibility_tx
             .send_future(|visibility| visibility.new_game().boxed());
     }
@@ -239,7 +239,7 @@ impl Configuration {
 #[async_trait]
 impl SystemListener for Configuration {
     async fn start(&mut self, pool: &ThreadPool) {
-        self.x
+        self.tx
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
             .await;
 
@@ -267,7 +267,7 @@ impl SystemListener for Configuration {
         self.voyager.drain(pool).await;
         self.world_artist.drain(pool).await;
 
-        self.x
+        self.tx
             .send_game_state(|game_state| game_state.speed = 0.0)
             .await;
     }
@@ -277,6 +277,6 @@ impl SystemListener for Configuration {
         self.visibility.save(path);
 
         let path = path.to_string();
-        self.x.send_game(|game| game.save(path)).await;
+        self.tx.send_game(|game| game.save(path)).await;
     }
 }

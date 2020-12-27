@@ -35,12 +35,12 @@ where
     }
 }
 
-impl<X, T> BuildRoad<X, T>
+impl<T, D> BuildRoad<T, D>
 where
-    X: PlanRoad + RoadPlanned + SendRoutes + SendWorld,
-    T: TravelDuration + 'static,
+    T: PlanRoad + RoadPlanned + SendRoutes + SendWorld,
+    D: TravelDuration + 'static,
 {
-    pub fn new(tx: X, travel_duration: Arc<T>) -> BuildRoad<X, T> {
+    pub fn new(tx: T, travel_duration: Arc<D>) -> BuildRoad<T, D> {
         BuildRoad {
             tx,
             travel_duration,

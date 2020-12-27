@@ -13,8 +13,8 @@ use std::io::{BufReader, BufWriter};
 
 const NAME: &str = "world_artist_actor";
 
-pub struct VisibilityActor<X> {
-    x: X,
+pub struct VisibilityActor<T> {
+    tx: T,
     visibility_computer: VisibilityComputer,
     state: VisibilityActorState,
     elevations: Option<M<Elevation>>,
@@ -37,13 +37,13 @@ impl WithElevation for Elevation {
     }
 }
 
-impl<X> VisibilityActor<X>
+impl<T> VisibilityActor<T>
 where
-    X: RevealPositions + SendGame + SendWorld + Send,
+    T: RevealPositions + SendGame + SendWorld + Send,
 {
-    pub fn new(x: X) -> VisibilityActor<X> {
+    pub fn new(tx: T) -> VisibilityActor<T> {
         VisibilityActor {
-            x,
+            tx,
             visibility_computer: VisibilityComputer::default(),
             state: VisibilityActorState {
                 visited: None,
@@ -61,13 +61,13 @@ where
     }
 
     async fn try_disable_visibility_computation(&mut self) {
-        if self.x.send_game(|game| get_reveal_all(game)).await {
+        if self.tx.send_game(|game| get_reveal_all(game)).await {
             self.disable_visibility_computation();
         }
     }
 
     pub async fn init_visited(&mut self) {
-        let (width, height) = self.x.send_world(|world| get_dimensions(world)).await;
+        let (width, height) = self.tx.send_world(|world| get_dimensions(world)).await;
         self.state.visited = Some(M::from_element(width, height, false));
     }
 
@@ -76,7 +76,7 @@ where
     }
 
     async fn init_elevations(&mut self) {
-        self.elevations = Some(self.x.send_world(|world| get_elevations(world)).await);
+        self.elevations = Some(self.tx.send_world(|world| get_elevations(world)).await);
     }
 
     pub async fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
@@ -105,7 +105,7 @@ where
             .visibility_computer
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
-        self.x.reveal_positions(visible, NAME).await;
+        self.tx.reveal_positions(visible, NAME).await;
     }
 
     fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {
@@ -136,7 +136,7 @@ fn get_elevations(world: &World) -> M<Elevation> {
     })
 }
 
-impl<X> Persistable for VisibilityActor<X> {
+impl<T> Persistable for VisibilityActor<T> {
     fn save(&self, path: &str) {
         let path = get_path(path);
         let mut file = BufWriter::new(File::create(path).unwrap());

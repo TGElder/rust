@@ -13,8 +13,8 @@ use isometric::coords::WorldCoord;
 use isometric::drawing::{draw_label, get_house_base_corners};
 use isometric::{Button, Command, ElementState, Event, Font, VirtualKeyCode};
 
-pub struct TownLabelArtist<X> {
-    x: X,
+pub struct TownLabelArtist<T> {
+    tx: T,
     command_tx: Sender<Vec<Command>>,
     params: TownArtistParameters,
     font: Arc<Font>,
@@ -22,17 +22,17 @@ pub struct TownLabelArtist<X> {
     binding: Button,
 }
 
-impl<X> TownLabelArtist<X>
+impl<T> TownLabelArtist<T>
 where
-    X: GetNationDescription + GetSettlement + SendWorld + Settlements + Send,
+    T: GetNationDescription + GetSettlement + SendWorld + Settlements + Send,
 {
     pub fn new(
-        x: X,
+        tx: T,
         command_tx: Sender<Vec<Command>>,
         params: TownArtistParameters,
-    ) -> TownLabelArtist<X> {
+    ) -> TownLabelArtist<T> {
         TownLabelArtist {
-            x,
+            tx,
             command_tx,
             params,
             font: Arc::new(Font::from_file("resources/fonts/roboto_slab_20.fnt")),
@@ -60,7 +60,7 @@ where
     }
 
     async fn erase_all(&mut self) {
-        for settlement in self.x.settlements().await {
+        for settlement in self.tx.settlements().await {
             self.erase_settlement(&settlement);
         }
     }
@@ -71,7 +71,7 @@ where
     }
 
     async fn draw_all(&mut self) {
-        for settlement in self.x.settlements().await {
+        for settlement in self.tx.settlements().await {
             self.draw_settlement(&settlement).await;
         }
     }
@@ -92,7 +92,7 @@ where
         let params = self.params;
         let position = settlement.position;
         let mut world_coord = self
-            .x
+            .tx
             .send_world(move |world| get_house_base_coord(world, position, params))
             .await;
         world_coord.z += get_house_height_with_roof(&params, settlement) + params.label_float;
@@ -100,7 +100,7 @@ where
     }
 
     async fn update_settlement(&mut self, settlement: &Settlement) {
-        if self.x.get_settlement(settlement.position).await.is_some() {
+        if self.tx.get_settlement(settlement.position).await.is_some() {
             self.draw_settlement(settlement).await;
         } else {
             self.erase_settlement(settlement);

@@ -80,7 +80,7 @@ fn main() {
         ParsedArgs::New { .. } => config.new_game(),
         ParsedArgs::Load { path } => config.load(&path),
     }
-    let x = config.x.clone_with_name("main");
+    let tx = config.tx.clone_with_name("main");
 
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
@@ -90,12 +90,12 @@ fn main() {
     game.add_consumer(BasicAvatarControls::new(game.tx()));
     game.add_consumer(PathfindingAvatarControls::new(
         game.tx(),
-        &x.pathfinder_without_planned_roads,
+        &tx.pathfinder_without_planned_roads,
         thread_pool.clone(),
     ));
     game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
-    game.add_consumer(ResourceTargets::new(&x.pathfinder_with_planned_roads));
+    game.add_consumer(ResourceTargets::new(&tx.pathfinder_with_planned_roads));
 
     // Drawing
 
@@ -104,17 +104,17 @@ fn main() {
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.tx()));
 
     game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
-    game.add_consumer(PathfinderUpdater::new(&x.pathfinder_with_planned_roads));
-    game.add_consumer(PathfinderUpdater::new(&x.pathfinder_without_planned_roads));
+    game.add_consumer(PathfinderUpdater::new(&tx.pathfinder_with_planned_roads));
+    game.add_consumer(PathfinderUpdater::new(&tx.pathfinder_without_planned_roads));
 
     // Visibility
-    let from_avatar = VisibilityFromAvatar::new(x.clone_with_name("visibility_from_avatar"));
-    let setup_new_world = SetupNewWorld::new(x.clone_with_name("setup_new_world"));
+    let from_avatar = VisibilityFromAvatar::new(tx.clone_with_name("visibility_from_avatar"));
+    let setup_new_world = SetupNewWorld::new(tx.clone_with_name("setup_new_world"));
     game.add_consumer(from_avatar);
     game.add_consumer(setup_new_world);
 
     game.add_consumer(Cheats::new(
-        x.clone_with_name("cheats"),
+        tx.clone_with_name("cheats"),
         thread_pool.clone(),
     ));
 
@@ -134,7 +134,7 @@ fn main() {
     block_on(system_handle);
 
     info!("Shutting down game");
-    block_on(x.send_game(|game| game.shutdown()));
+    block_on(tx.send_game(|game| game.shutdown()));
     info!("Shut down game");
     println!("Joining game");
     game_handle.join().unwrap();
