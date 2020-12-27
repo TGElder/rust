@@ -3,7 +3,7 @@ use async_channel::{unbounded, Sender};
 use async_trait::async_trait;
 use futures::executor::ThreadPool;
 use futures::future::{FutureExt, RemoteHandle};
-use log::error;
+use log::{error, debug};
 
 use std::any::type_name;
 
@@ -59,6 +59,7 @@ where
     }
 
     pub async fn run_passive(&mut self, pool: &ThreadPool) {
+        debug!("Running {} (passive)", type_name::<T>());
         let (mut actor, mut actor_rx) = self.actor_and_rx().await;
         let (shutdown_tx, shutdown_rx) = unbounded();
         let (runnable, handle) = async move {
@@ -81,6 +82,7 @@ where
     }
 
     pub async fn drain(&mut self, pool: &ThreadPool) {
+        debug!("Draining {}", type_name::<T>());
         let (actor, mut actor_rx) = self.actor_and_rx().await;
         let (shutdown_tx, shutdown_rx) = unbounded();
         let (runnable, handle) = async move {
@@ -122,6 +124,7 @@ where
     T: Step + Send + 'static,
 {
     pub async fn run_active(&mut self, pool: &ThreadPool) {
+        debug!("Running {} (active)", type_name::<T>());
         let (mut actor, mut actor_rx) = self.actor_and_rx().await;
         let (shutdown_tx, shutdown_rx) = unbounded();
         let (runnable, handle) = async move {
@@ -152,6 +155,7 @@ where
     T: Persistable,
 {
     pub fn save(&self, path: &str) {
+        debug!("Saving {}", type_name::<T>());
         let actor = match self.state.as_ref() {
             Some(ProcessState::Paused { actor, .. }) => actor,
             Some(ProcessState::Draining { actor, .. }) => actor,
@@ -161,6 +165,7 @@ where
     }
 
     pub fn load(&mut self, path: &str) {
+        debug!("Loading {}", type_name::<T>());
         let actor = match self.state.as_mut() {
             Some(ProcessState::Paused { actor, .. }) => actor,
             Some(ProcessState::Draining { actor, .. }) => actor,
