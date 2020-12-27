@@ -1,4 +1,5 @@
 use crate::world::*;
+use commons::chrono::prelude::*;
 use commons::barycentric::triangle_interpolate_any;
 use commons::grid::Grid;
 use commons::*;
@@ -26,11 +27,14 @@ impl Default for VegatationArtistParams {
 #[derive(Clone)]
 pub struct VegetationArtist {
     params: VegatationArtistParams,
+    christmas_trees: bool,
 }
 
 impl VegetationArtist {
     pub fn new(params: VegatationArtistParams) -> VegetationArtist {
-        VegetationArtist { params }
+        let date = Local::now().date();
+        let christmas_trees = date.month() == 12 && (date.day() == 25 || date.day() == 26);
+        VegetationArtist { params, christmas_trees }
     }
 
     pub fn draw(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Vec<Command> {
@@ -87,12 +91,29 @@ impl VegetationArtist {
                 billboards,
                 size,
                 size,
-                texture(vegetation_type),
+                self.texture(vegetation_type),
             ));
         }
 
         out
     }
+
+
+    fn texture(&self, vegetation_type: VegetationType) -> &'static str {
+        match vegetation_type {
+            VegetationType::SnowTree => 
+                if self.christmas_trees {
+                    "resources/textures/twemoji/derivative/christmas_tree.png"
+                } else {  
+                    "resources/textures/twemoji/derivative/snow_pine.png"
+                },
+            VegetationType::EvergreenTree => "resources/textures/twemoji/derivative/pine.png",
+            VegetationType::DeciduousTree => "resources/textures/fxemoji/tree.png",
+            VegetationType::PalmTree => "resources/textures/fxemoji/palm.png",
+            VegetationType::Cactus => "resources/textures/fxemoji/cactus.png",
+        }
+    }
+
 }
 
 fn snap_to_terrain(world: &World, tile: &V2<usize>, offset: V2<f32>) -> Option<WorldCoord> {
@@ -108,14 +129,4 @@ fn snap_to_middle(world: &World, tile: &V2<usize>) -> Option<WorldCoord> {
     world
         .snap_to_middle(&position)
         .map(|z| WorldCoord::new(position.x, position.y, z))
-}
-
-fn texture(vegetation_type: VegetationType) -> &'static str {
-    match vegetation_type {
-        VegetationType::SnowTree => "resources/textures/twemoji/derivative/snow_pine.png",
-        VegetationType::EvergreenTree => "resources/textures/twemoji/derivative/pine.png",
-        VegetationType::DeciduousTree => "resources/textures/fxemoji/tree.png",
-        VegetationType::PalmTree => "resources/textures/fxemoji/palm.png",
-        VegetationType::Cactus => "resources/textures/fxemoji/cactus.png",
-    }
 }

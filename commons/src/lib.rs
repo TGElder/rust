@@ -1,5 +1,6 @@
 pub extern crate async_channel;
 pub extern crate async_trait;
+pub extern crate chrono;
 pub extern crate float_cmp;
 pub extern crate futures;
 pub extern crate image;
