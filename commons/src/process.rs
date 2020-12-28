@@ -3,7 +3,7 @@ use async_channel::{unbounded, Sender};
 use async_trait::async_trait;
 use futures::executor::ThreadPool;
 use futures::future::{FutureExt, RemoteHandle};
-use log::{error, debug};
+use log::{debug, error};
 
 use std::any::type_name;
 
@@ -81,7 +81,7 @@ where
         });
     }
 
-    pub async fn drain(&mut self, pool: &ThreadPool) {
+    pub async fn drain(&mut self, pool: &ThreadPool, error_on_drain: bool) {
         debug!("Draining {}", type_name::<T>());
         let (actor, mut actor_rx) = self.actor_and_rx().await;
         let (shutdown_tx, shutdown_rx) = unbounded();
@@ -91,7 +91,7 @@ where
                 select! {
                     mut message = shutdown_rx.recv().fuse() => {
                         count += actor_rx.get_messages().len();
-                        if count > 0 {
+                        if error_on_drain && count > 0 {
                             error!(
                                 "{} messages for {:?} were drained!",
                                 count,

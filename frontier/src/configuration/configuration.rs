@@ -256,16 +256,16 @@ impl SystemListener for Configuration {
     }
 
     async fn pause(&mut self, pool: &ThreadPool) {
-        self.event_forwarder.drain(pool).await;
-        self.basic_road_builder.drain(pool).await;
-        self.object_builder.drain(pool).await;
-        self.simulation.drain(pool).await;
-        self.town_builder.drain(pool).await;
-        self.town_label_artist.drain(pool).await;
-        self.town_house_artist.drain(pool).await;
-        self.visibility.drain(pool).await;
-        self.voyager.drain(pool).await;
-        self.world_artist.drain(pool).await;
+        self.event_forwarder.drain(pool, false).await;
+        self.basic_road_builder.drain(pool, true).await;
+        self.object_builder.drain(pool, true).await;
+        self.simulation.drain(pool, true).await;
+        self.town_builder.drain(pool, true).await;
+        self.town_label_artist.drain(pool, true).await;
+        self.town_house_artist.drain(pool, true).await;
+        self.visibility.drain(pool, true).await;
+        self.voyager.drain(pool, true).await;
+        self.world_artist.drain(pool, true).await;
 
         self.tx
             .send_game_state(|game_state| game_state.speed = 0.0)
