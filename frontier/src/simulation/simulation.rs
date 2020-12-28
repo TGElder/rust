@@ -1,5 +1,5 @@
 use crate::traits::SendWorld;
-use commons::process::{Persistable, Step};
+use commons::process::Step;
 
 use super::*;
 
@@ -70,6 +70,22 @@ where
             state.instructions.push(Instruction::Step);
         }
     }
+
+    pub fn save(&self, path: &str) {
+        let path = get_path(path);
+        let mut file = BufWriter::new(File::create(path).unwrap());
+        bincode::serialize_into(&mut file, &self.state).unwrap();
+    }
+
+    pub fn load(&mut self, path: &str) {
+        let path = get_path(path);
+        let file = BufReader::new(File::open(path).unwrap());
+        self.state = bincode::deserialize_from(file).unwrap();
+    }
+}
+
+fn get_path(path: &str) -> String {
+    format!("{}.sim", path)
 }
 
 #[async_trait]
@@ -83,24 +99,6 @@ where
         self.try_step(&mut state);
         self.state = Some(state);
     }
-}
-
-impl<T> Persistable for Simulation<T> {
-    fn save(&self, path: &str) {
-        let path = get_path(path);
-        let mut file = BufWriter::new(File::create(path).unwrap());
-        bincode::serialize_into(&mut file, &self.state).unwrap();
-    }
-
-    fn load(&mut self, path: &str) {
-        let path = get_path(path);
-        let file = BufReader::new(File::open(path).unwrap());
-        self.state = bincode::deserialize_from(file).unwrap();
-    }
-}
-
-fn get_path(path: &str) -> String {
-    format!("{}.sim", path)
 }
 
 #[cfg(test)]

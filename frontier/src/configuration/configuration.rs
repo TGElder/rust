@@ -231,8 +231,8 @@ impl Configuration {
     }
 
     pub fn load(&mut self, path: &str) {
-        self.simulation.load(path);
-        self.visibility.load(path);
+        self.simulation.object_mut().unwrap().load(path);
+        self.visibility.object_mut().unwrap().load(path);
     }
 }
 
@@ -273,8 +273,8 @@ impl SystemListener for Configuration {
     }
 
     async fn save(&mut self, path: &str) {
-        self.simulation.save(path);
-        self.visibility.save(path);
+        self.simulation.object_ref().unwrap().save(path);
+        self.visibility.object_ref().unwrap().save(path);
 
         let path = path.to_string();
         self.tx.send_game(|game| game.save(path)).await;

@@ -3,7 +3,6 @@ use crate::traits::{RevealPositions, SendGame, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
 use commons::grid::Grid;
-use commons::process::Persistable;
 use commons::{v2, M, V2};
 use isometric::cell_traits::WithElevation;
 use serde::{Deserialize, Serialize};
@@ -119,6 +118,18 @@ where
             *visited = true;
         }
     }
+
+    pub fn save(&self, path: &str) {
+        let path = get_path(path);
+        let mut file = BufWriter::new(File::create(path).unwrap());
+        bincode::serialize_into(&mut file, &self.state).unwrap();
+    }
+
+    pub fn load(&mut self, path: &str) {
+        let path = get_path(path);
+        let file = BufReader::new(File::open(path).unwrap());
+        self.state = bincode::deserialize_from(file).unwrap();
+    }
 }
 
 fn get_reveal_all(game: &Game) -> bool {
@@ -134,20 +145,6 @@ fn get_elevations(world: &World) -> M<Elevation> {
     M::from_fn(world.width(), world.height(), |x, y| Elevation {
         elevation: world.get_cell_unsafe(&v2(x, y)).elevation.max(sea_level),
     })
-}
-
-impl<T> Persistable for VisibilityActor<T> {
-    fn save(&self, path: &str) {
-        let path = get_path(path);
-        let mut file = BufWriter::new(File::create(path).unwrap());
-        bincode::serialize_into(&mut file, &self.state).unwrap();
-    }
-
-    fn load(&mut self, path: &str) {
-        let path = get_path(path);
-        let file = BufReader::new(File::open(path).unwrap());
-        self.state = bincode::deserialize_from(file).unwrap();
-    }
 }
 
 fn get_path(path: &str) -> String {
