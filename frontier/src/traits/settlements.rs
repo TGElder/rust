@@ -5,7 +5,7 @@ use commons::async_trait::async_trait;
 use commons::V2;
 
 #[async_trait]
-pub trait InsertSettlement {
+pub(in crate::traits) trait InsertSettlement {
     async fn insert_settlement(&self, settlement: Settlement);
 }
 

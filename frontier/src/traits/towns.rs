@@ -18,9 +18,9 @@ impl<T> AddTown for T
 where
     T: AddController
         + GetSettlement
-        + InsertSettlement
         + DrawTown
         + RemoveWorldObject
+        + SendSettlements
         + SendWorld
         + Visibility
         + Sync,

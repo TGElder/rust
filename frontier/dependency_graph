@@ -5,8 +5,8 @@ AddRoad UpdateRoads
 AddTown AddController
 AddTown DrawTown
 AddTown GetSettlement
-AddTown InsertSettlement
 AddTown RemoveWorldObject
+AddTown SendSettlements
 AddTown SendWorld
 AddTown Visibility
 AnyoneControls SendTerritory
@@ -17,7 +17,6 @@ DrawWorld SendWorldArtist
 ExpandPositions SendWorld
 GetNationDescription SendNations
 GetSettlement SendSettlements
-InsertSettlement SendSettlements
 IsRoad SendWorld
 Micros SendGame
 NationDescriptions SendNations
