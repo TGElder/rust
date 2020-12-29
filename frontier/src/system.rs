@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use commons::async_channel::{unbounded, Receiver, RecvError, Sender};
 use commons::async_trait::async_trait;
+use commons::fn_sender::FnSender;
 use commons::log::info;
 use futures::executor::block_on;
 use futures::executor::ThreadPool;
@@ -11,10 +12,8 @@ use isometric::{Button, ElementState, Event, EventConsumer, IsometricEngine, Vir
 const SAVE_PATH: &str = "save";
 
 pub struct System<T> {
-    engine_rx: Receiver<Arc<Event>>,
     pool: ThreadPool,
     listener: T,
-    bindings: Bindings,
     paused: bool,
     run: bool,
 }
@@ -43,10 +42,6 @@ where
             engine_rx,
             pool,
             listener,
-            bindings: Bindings {
-                pause: Button::Key(VirtualKeyCode::Space),
-                save: Button::Key(VirtualKeyCode::P),
-            },
             paused: false,
             run: true,
         }
@@ -109,6 +104,32 @@ where
     async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
         let event: Arc<Event> = event.unwrap();
 
+        
+    }
+}
+
+pub struct SystemEventForwarder<T> 
+    where T: Send
+{
+    tx: FnSender<System<T>>,
+    bindings: Bindings,
+}
+
+impl <T> SystemEventForwarder<T> 
+    where T: Send
+{
+    pub fn new(tx: FnSender<System<T>>) -> SystemEventForwarder<T> {
+        SystemEventForwarder { tx, bindings: Bindings {
+            pause: Button::Key(VirtualKeyCode::Space),
+            save: Button::Key(VirtualKeyCode::P),
+        }, }
+    }
+}
+
+impl <T> EventConsumer for SystemEventForwarder<T> 
+    where T: Send + SystemListener
+{
+    fn consume_event(&mut self, event: Arc<Event>) {
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
@@ -117,29 +138,13 @@ where
         } = *event
         {
             if button == &self.bindings.pause && !modifiers.alt() && modifiers.ctrl() {
-                self.toggle_pause().await;
+                self.tx.send_future(|system| system.toggle_pause().boxed());
             } else if button == &self.bindings.save && !modifiers.alt() && modifiers.ctrl() {
-                self.save(SAVE_PATH).await;
+                self.tx.send_future(|system| system.save(SAVE_PATH).boxed());
             }
         }
         if let Event::Shutdown = *event {
-            self.shutdown().await;
+            self.tx.send_future(|system| system.shutdown().boxed());
         }
-    }
-}
-
-pub struct SystemEventForwarder {
-    tx: Sender<Arc<Event>>,
-}
-
-impl SystemEventForwarder {
-    pub fn new(tx: Sender<Arc<Event>>) -> SystemEventForwarder {
-        SystemEventForwarder { tx }
-    }
-}
-
-impl EventConsumer for SystemEventForwarder {
-    fn consume_event(&mut self, event: Arc<Event>) {
-        block_on(async { self.tx.send(event.clone()).await }).unwrap();
     }
 }
