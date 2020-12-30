@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use commons::async_channel::{unbounded, Receiver, RecvError, Sender};
+use commons::async_channel::{Receiver, Sender};
 use commons::async_trait::async_trait;
-use commons::fn_sender::FnSender;
+use commons::fn_sender::{FnMessageExt, FnReceiver, FnSender};
 use commons::log::info;
 use futures::executor::block_on;
 use futures::executor::ThreadPool;
-use futures::future::FutureExt;
-use isometric::{Button, ElementState, Event, EventConsumer, IsometricEngine, VirtualKeyCode};
+use futures::future::{FutureExt, RemoteHandle};
+use isometric::{Button, ElementState, Event, EventConsumer, VirtualKeyCode};
 
 const SAVE_PATH: &str = "save";
 
@@ -15,7 +15,6 @@ pub struct System<T> {
     pool: ThreadPool,
     listener: T,
     paused: bool,
-    run: bool,
 }
 
 #[async_trait]
@@ -34,27 +33,12 @@ impl<T> System<T>
 where
     T: SystemListener,
 {
-    pub fn new(engine: &mut IsometricEngine, pool: ThreadPool, listener: T) -> System<T> {
-        let (engine_tx, engine_rx) = unbounded();
-        engine.add_event_consumer(SystemEventForwarder::new(engine_tx));
-
+    pub fn new(pool: ThreadPool, listener: T) -> System<T> {
         System {
-            engine_rx,
             pool,
             listener,
             paused: false,
-            run: true,
         }
-    }
-
-    pub async fn run(&mut self) {
-        self.start().await;
-        while self.run {
-            select! {
-                event = self.engine_rx.recv().fuse() => self.handle_engine_event(event).await
-            }
-        }
-        info!("Shut down system");
     }
 
     async fn start(&mut self) {
@@ -98,36 +82,66 @@ where
         if !self.paused {
             self.pause().await;
         }
-        self.run = false;
-    }
-
-    async fn handle_engine_event(&mut self, event: Result<Arc<Event>, RecvError>) {
-        let event: Arc<Event> = event.unwrap();
-
-        
     }
 }
 
-pub struct SystemEventForwarder<T> 
-    where T: Send
+pub struct SystemRunner {
+    pub handle: RemoteHandle<()>,
+}
+
+impl SystemRunner {
+    pub fn run<T: Send + SystemListener + 'static>(
+        mut system: System<T>,
+        mut system_rx: FnReceiver<System<T>>,
+        shutdown_rx: Receiver<()>,
+    ) -> SystemRunner {
+        let pool = system.pool.clone(); // TODO weird
+        let (runnable, handle) = async move {
+            system.start().await;
+            loop {
+                select! {
+                mut message = shutdown_rx.recv().fuse() => {
+                    system_rx.get_messages().apply(&mut system).await;
+                    return;
+                },
+                mut message = system_rx.get_message().fuse() => message.apply(&mut system).await,}
+            }
+        }
+        .remote_handle();
+
+        pool.spawn_ok(runnable);
+        SystemRunner { handle }
+    }
+}
+
+pub struct SystemEventForwarder<T>
+where
+    T: Send,
 {
     tx: FnSender<System<T>>,
+    shutdown_tx: Sender<()>,
     bindings: Bindings,
 }
 
-impl <T> SystemEventForwarder<T> 
-    where T: Send
+impl<T> SystemEventForwarder<T>
+where
+    T: Send,
 {
-    pub fn new(tx: FnSender<System<T>>) -> SystemEventForwarder<T> {
-        SystemEventForwarder { tx, bindings: Bindings {
-            pause: Button::Key(VirtualKeyCode::Space),
-            save: Button::Key(VirtualKeyCode::P),
-        }, }
+    pub fn new(tx: FnSender<System<T>>, shutdown_tx: Sender<()>) -> SystemEventForwarder<T> {
+        SystemEventForwarder {
+            tx,
+            shutdown_tx,
+            bindings: Bindings {
+                pause: Button::Key(VirtualKeyCode::Space),
+                save: Button::Key(VirtualKeyCode::P),
+            },
+        }
     }
 }
 
-impl <T> EventConsumer for SystemEventForwarder<T> 
-    where T: Send + SystemListener
+impl<T> EventConsumer for SystemEventForwarder<T>
+where
+    T: Send + SystemListener,
 {
     fn consume_event(&mut self, event: Arc<Event>) {
         if let Event::Button {
@@ -145,6 +159,7 @@ impl <T> EventConsumer for SystemEventForwarder<T>
         }
         if let Event::Shutdown = *event {
             self.tx.send_future(|system| system.shutdown().boxed());
+            block_on(self.shutdown_tx.send(())).unwrap();
         }
     }
 }

@@ -31,15 +31,16 @@ mod world_gen;
 
 use crate::configuration::Configuration;
 use crate::game::*;
-use crate::system::System;
+use crate::system::{System, SystemEventForwarder, SystemRunner};
 use crate::territory::*;
 use crate::traits::SendGame;
 use crate::world_gen::*;
 
+use commons::async_channel::unbounded;
+use commons::fn_sender::fn_channel;
 use commons::grid::Grid;
 use commons::log::info;
 use futures::executor::{block_on, ThreadPool};
-use futures::FutureExt;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
@@ -120,9 +121,12 @@ fn main() {
 
     // Run
 
-    let mut system = System::new(&mut engine, thread_pool.clone(), config);
-    let (system_run, system_handle) = async move { system.run().await }.remote_handle();
-    thread_pool.spawn_ok(system_run);
+    let system = System::new(thread_pool, config);
+    let (system_tx, system_rx) = fn_channel();
+    let (shutdown_tx, shutdown_rx) = unbounded();
+    let system_runner = SystemRunner::run(system, system_rx, shutdown_rx);
+    let event_forwarder = SystemEventForwarder::new(system_tx, shutdown_tx);
+    engine.add_event_consumer(event_forwarder);
 
     let game_handle = thread::spawn(move || game.run());
 
@@ -131,7 +135,7 @@ fn main() {
     // Wait
 
     info!("Joining system");
-    block_on(system_handle);
+    block_on(system_runner.handle);
 
     info!("Shutting down game");
     block_on(tx.send_game(|game| game.shutdown()));
