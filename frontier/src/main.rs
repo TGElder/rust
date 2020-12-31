@@ -8,7 +8,6 @@ extern crate futures;
 mod actors;
 mod artists;
 mod avatar;
-mod configuration;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -29,9 +28,8 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
-use crate::configuration::Configuration;
 use crate::game::*;
-use crate::system::{System, SystemEventForwarder, SystemRunner};
+use crate::system::{run_system, System, SystemController};
 use crate::territory::*;
 use crate::traits::SendGame;
 use crate::world_gen::*;
@@ -76,7 +74,12 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let mut config = Configuration::new(&game.game_state(), &mut engine, game.tx());
+    let mut config = System::new(
+        &game.game_state(),
+        &mut engine,
+        game.tx(),
+        thread_pool.clone(),
+    );
     match parsed_args {
         ParsedArgs::New { .. } => config.new_game(),
         ParsedArgs::Load { path } => config.load(&path),
@@ -114,18 +117,13 @@ fn main() {
     game.add_consumer(from_avatar);
     game.add_consumer(setup_new_world);
 
-    game.add_consumer(Cheats::new(
-        tx.clone_with_name("cheats"),
-        thread_pool.clone(),
-    ));
+    game.add_consumer(Cheats::new(tx.clone_with_name("cheats"), thread_pool));
 
     // Run
-
-    let system = System::new(thread_pool, config);
     let (system_tx, system_rx) = fn_channel();
     let (shutdown_tx, shutdown_rx) = unbounded();
-    let system_runner = SystemRunner::run(system, system_rx, shutdown_rx);
-    let event_forwarder = SystemEventForwarder::new(system_tx, shutdown_tx);
+    let system_runner = run_system(config, system_rx, shutdown_rx);
+    let event_forwarder = SystemController::new(system_tx, shutdown_tx);
     engine.add_event_consumer(event_forwarder);
 
     let game_handle = thread::spawn(move || game.run());
@@ -135,7 +133,7 @@ fn main() {
     // Wait
 
     info!("Joining system");
-    block_on(system_runner.handle);
+    block_on(system_runner);
 
     info!("Shutting down game");
     block_on(tx.send_game(|game| game.shutdown()));
