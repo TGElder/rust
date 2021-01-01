@@ -40,9 +40,9 @@ impl VegetationType {
 
     pub fn in_range_temperature(self, temperature: f32) -> bool {
         match self {
-            VegetationType::SnowTree => temperature >= -5.0 && temperature < 0.0,
-            VegetationType::EvergreenTree => temperature >= 0.0 && temperature < 12.5,
-            VegetationType::DeciduousTree => temperature >= 7.5 && temperature < 22.5,
+            VegetationType::SnowTree => (-5.0..0.0).contains(&temperature),
+            VegetationType::EvergreenTree => (0.0..12.5).contains(&temperature),
+            VegetationType::DeciduousTree => (7.5..22.5).contains(&temperature),
             VegetationType::PalmTree => temperature >= 17.5,
             VegetationType::Cactus => temperature >= 10.0,
         }

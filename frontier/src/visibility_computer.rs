@@ -26,10 +26,7 @@ impl Default for VisibilityComputer {
     }
 }
 
-fn bresenham_cicle<'a>(
-    position: &'a V2<usize>,
-    radius: i64,
-) -> impl Iterator<Item = (i64, i64)> + 'a {
+fn bresenham_cicle(position: &V2<usize>, radius: i64) -> impl Iterator<Item = (i64, i64)> {
     BresenhamCircle::new(position.x as i64, position.y as i64, radius)
 }
 
@@ -187,9 +184,9 @@ mod tests {
     #[test]
     fn test_run() {
         assert!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 0.0, 1.0)).almost(&3.0));
-        assert!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 1.0, 1.0)).almost(&(10.0 as f32).sqrt()));
-        assert!(run(&v3(0.0, 0.0, 0.0), &v3(2.0, 2.0, 1.0)).almost(&(8.0 as f32).sqrt()));
-        assert!(run(&v3(0.0, 0.0, 0.0), &v3(1.0, 3.0, 1.0)).almost(&(10.0 as f32).sqrt()));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(3.0, 1.0, 1.0)).almost(&10.0f32.sqrt()));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(2.0, 2.0, 1.0)).almost(&8.0f32.sqrt()));
+        assert!(run(&v3(0.0, 0.0, 0.0), &v3(1.0, 3.0, 1.0)).almost(&10.0f32.sqrt()));
     }
 
     #[test]
@@ -213,7 +210,7 @@ mod tests {
         };
         assert!(visibility_computer
             .planet_curve_adjustment(100.0)
-            .almost(&(1000.0 - (990_000.0 as f32).sqrt())));
+            .almost(&(1000.0 - 990_000.0f32.sqrt())));
     }
 
     fn test_check_visibility_along_line(

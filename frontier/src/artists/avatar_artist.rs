@@ -448,10 +448,7 @@ fn create_masked_billboard_part_drawing<'a>(
         .chain(update_masked_billboard_mask(name, &mask))
 }
 
-fn create_billboard_part_drawing<'a>(
-    name: String,
-    texture: &'a str,
-) -> impl Iterator<Item = Command> + 'a {
+fn create_billboard_part_drawing(name: String, texture: &str) -> impl Iterator<Item = Command> {
     once(create_billboard(name.clone())).chain(update_billboard_texture(name, &texture))
 }
 

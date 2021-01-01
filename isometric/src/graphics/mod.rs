@@ -15,7 +15,6 @@ use glutin::dpi::PhysicalSize;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ffi::c_void;
-use std::iter::FromIterator;
 use std::sync::Arc;
 use transform::{Isometric, Transform};
 
@@ -106,11 +105,11 @@ impl GraphicsEngine {
     }
 
     fn compute_draw_order(&self, drawing_type: DrawingType) -> Vec<&GLDrawing> {
-        let mut out = Vec::from_iter(
-            self.drawings
-                .values()
-                .filter(|d| d.drawing.drawing_type == drawing_type),
-        );
+        let mut out: Vec<&GLDrawing> = self
+            .drawings
+            .values()
+            .filter(|d| d.drawing.drawing_type == drawing_type)
+            .collect();
         out.sort_by_key(|gl_drawing| {
             (
                 gl_drawing.drawing.draw_order,

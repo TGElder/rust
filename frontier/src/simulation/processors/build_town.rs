@@ -249,15 +249,15 @@ mod tests {
     }
 
     fn happy_path_tx() -> Tx {
-        let mut tx = Tx::default();
-
-        tx.get_settlement = Some(Settlement {
-            position: v2(0, 0),
-            nation: "nation".to_string(),
-            ..Settlement::default()
-        });
-
-        tx.random_town_name = "town".to_string();
+        let tx = Tx {
+            get_settlement: Some(Settlement {
+                position: v2(0, 0),
+                nation: "nation".to_string(),
+                ..Settlement::default()
+            }),
+            random_town_name: "town".to_string(),
+            ..Tx::default()
+        };
 
         tx.routes.lock().unwrap().insert_route(
             happy_path_route_key(),
@@ -273,8 +273,10 @@ mod tests {
     }
 
     fn happy_path_state() -> State {
-        let mut state = State::default();
-        state.traffic = Vec2D::new(3, 3, HashSet::new());
+        let mut state = State {
+            traffic: Vec2D::new(3, 3, HashSet::new()),
+            ..State::default()
+        };
         state
             .traffic
             .get_mut(&v2(0, 0))
