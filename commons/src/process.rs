@@ -119,7 +119,6 @@ where
         }
     }
     .remote_handle();
-
     pool.spawn_ok(runnable);
     handle
 }
@@ -154,7 +153,6 @@ where
     }
     .remote_handle();
     pool.spawn_ok(runnable);
-
     handle
 }
 
