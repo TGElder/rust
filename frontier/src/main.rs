@@ -29,7 +29,7 @@ mod world;
 mod world_gen;
 
 use crate::game::*;
-use crate::system::{run_system, System, SystemController};
+use crate::system::{System, SystemController};
 use crate::territory::*;
 use crate::traits::SendGame;
 use crate::world_gen::*;
@@ -38,7 +38,9 @@ use commons::async_channel::unbounded;
 use commons::fn_sender::fn_channel;
 use commons::grid::Grid;
 use commons::log::info;
+use commons::process::run_passive;
 use futures::executor::{block_on, ThreadPool};
+use futures::FutureExt;
 use game_event_consumers::*;
 use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
@@ -74,17 +76,17 @@ fn main() {
     let mut game = Game::new(game_state, &mut engine, init_events);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let mut config = System::new(
+    let mut system = System::new(
         &game.game_state(),
         &mut engine,
         game.tx(),
         thread_pool.clone(),
     );
     match parsed_args {
-        ParsedArgs::New { .. } => config.new_game(),
-        ParsedArgs::Load { path } => config.load(&path),
+        ParsedArgs::New { .. } => system.new_game(),
+        ParsedArgs::Load { path } => system.load(&path),
     }
-    let tx = config.tx.clone_with_name("main");
+    let tx = system.tx.clone_with_name("main");
 
     game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
@@ -117,24 +119,25 @@ fn main() {
     game.add_consumer(from_avatar);
     game.add_consumer(setup_new_world);
 
-    game.add_consumer(Cheats::new(tx.clone_with_name("cheats"), thread_pool));
+    game.add_consumer(Cheats::new(
+        tx.clone_with_name("cheats"),
+        thread_pool.clone(),
+    ));
 
     // Run
     let (system_tx, system_rx) = fn_channel();
+    system_tx.send_future(|system: &mut System| system.start().boxed());
     let (shutdown_tx, shutdown_rx) = unbounded();
-    let system_runner = run_system(config, system_rx, shutdown_rx);
-    let event_forwarder = SystemController::new(system_tx, shutdown_tx);
-    engine.add_event_consumer(event_forwarder);
+    engine.add_event_consumer(SystemController::new(system_tx, shutdown_tx));
 
+    let system_handle = run_passive(system, system_rx, shutdown_rx, &thread_pool);
     let game_handle = thread::spawn(move || game.run());
-
     engine.run();
 
     // Wait
 
     info!("Joining system");
-    block_on(system_runner);
-
+    block_on(system_handle);
     info!("Shutting down game");
     block_on(tx.send_game(|game| game.shutdown()));
     info!("Shut down game");
