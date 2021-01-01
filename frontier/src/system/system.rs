@@ -1,6 +1,5 @@
 use std::sync::{Arc, RwLock};
 
-use commons::async_trait::async_trait;
 use commons::fn_sender::{fn_channel, FnSender};
 use futures::executor::ThreadPool;
 use futures::future::FutureExt;
@@ -12,7 +11,6 @@ use crate::actors::{
 };
 use crate::artists::{WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
-use crate::configuration::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::game::{Game, GameState};
 use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
@@ -25,12 +23,13 @@ use crate::simulation::processors::{
     UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
 };
 use crate::simulation::Simulation;
-use crate::system::SystemListener;
+use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traits::{SendGame, SendGameState};
 use commons::process::Process;
 
-pub struct Configuration {
+pub struct System {
     pub tx: Polysender,
+    pub pool: ThreadPool,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
@@ -43,12 +42,13 @@ pub struct Configuration {
     pub world_artist: Process<WorldArtistActor<Polysender>>,
 }
 
-impl Configuration {
+impl System {
     pub fn new(
         game_state: &GameState,
         engine: &mut IsometricEngine,
         game_tx: &FnSender<Game>,
-    ) -> Configuration {
+        pool: ThreadPool,
+    ) -> System {
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
@@ -86,8 +86,9 @@ impl Configuration {
         let (event_forwarder_tx, event_forwarder_rx) = fn_channel();
         engine.add_event_consumer(EventForwarderConsumer::new(event_forwarder_tx));
 
-        let config = Configuration {
+        let config = System {
             tx: tx.clone_with_name("processes"),
+            pool,
             basic_road_builder: Process::new(
                 BasicRoadBuilder::new(tx.clone_with_name("basic_road_builder")),
                 basic_road_builder_rx,
@@ -230,53 +231,50 @@ impl Configuration {
             .send_future(|visibility| visibility.new_game().boxed());
     }
 
-    pub fn load(&mut self, path: &str) {
-        self.simulation.object_mut().unwrap().load(path);
-        self.visibility.object_mut().unwrap().load(path);
-    }
-}
-
-#[async_trait]
-impl SystemListener for Configuration {
-    async fn start(&mut self, pool: &ThreadPool) {
+    pub async fn start(&mut self) {
         self.tx
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
             .await;
 
-        self.world_artist.run_passive(pool).await;
-        self.voyager.run_passive(pool).await;
-        self.visibility.run_passive(pool).await;
-        self.town_house_artist.run_passive(pool).await;
-        self.town_label_artist.run_passive(pool).await;
-        self.town_builder.run_passive(pool).await;
-        self.simulation.run_active(pool).await;
-        self.object_builder.run_passive(pool).await;
-        self.basic_road_builder.run_passive(pool).await;
-        self.event_forwarder.run_passive(pool).await;
+        self.world_artist.run_passive(&self.pool).await;
+        self.voyager.run_passive(&self.pool).await;
+        self.visibility.run_passive(&self.pool).await;
+        self.town_house_artist.run_passive(&self.pool).await;
+        self.town_label_artist.run_passive(&self.pool).await;
+        self.town_builder.run_passive(&self.pool).await;
+        self.simulation.run_active(&self.pool).await;
+        self.object_builder.run_passive(&self.pool).await;
+        self.basic_road_builder.run_passive(&self.pool).await;
+        self.event_forwarder.run_passive(&self.pool).await;
     }
 
-    async fn pause(&mut self, pool: &ThreadPool) {
-        self.event_forwarder.drain(pool, false).await;
-        self.basic_road_builder.drain(pool, true).await;
-        self.object_builder.drain(pool, true).await;
-        self.simulation.drain(pool, true).await;
-        self.town_builder.drain(pool, true).await;
-        self.town_label_artist.drain(pool, true).await;
-        self.town_house_artist.drain(pool, true).await;
-        self.visibility.drain(pool, true).await;
-        self.voyager.drain(pool, true).await;
-        self.world_artist.drain(pool, true).await;
+    pub async fn pause(&mut self) {
+        self.event_forwarder.drain(&self.pool, false).await;
+        self.basic_road_builder.drain(&self.pool, true).await;
+        self.object_builder.drain(&self.pool, true).await;
+        self.simulation.drain(&self.pool, true).await;
+        self.town_builder.drain(&self.pool, true).await;
+        self.town_label_artist.drain(&self.pool, true).await;
+        self.town_house_artist.drain(&self.pool, true).await;
+        self.visibility.drain(&self.pool, true).await;
+        self.voyager.drain(&self.pool, true).await;
+        self.world_artist.drain(&self.pool, true).await;
 
         self.tx
             .send_game_state(|game_state| game_state.speed = 0.0)
             .await;
     }
 
-    async fn save(&mut self, path: &str) {
+    pub async fn save(&mut self, path: &str) {
         self.simulation.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
 
         let path = path.to_string();
         self.tx.send_game(|game| game.save(path)).await;
+    }
+
+    pub fn load(&mut self, path: &str) {
+        self.simulation.object_mut().unwrap().load(path);
+        self.visibility.object_mut().unwrap().load(path);
     }
 }
