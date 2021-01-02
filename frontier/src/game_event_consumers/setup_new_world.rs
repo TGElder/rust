@@ -38,7 +38,7 @@ where
         let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
         let world = &game_state.world;
         let homeland_starts = gen_homeland_starts(world, &mut rng, &params.homeland);
-        let avatars = gen_avatars(&mut rng, &homeland_starts, params.avatar_color);
+        let avatars = gen_avatars(world, &mut rng, &homeland_starts, params.avatar_color);
         let nations = gen_nations(&mut rng, &params);
         let initial_population = initial_population(&game_state.visible_land_positions, params);
         let settlements = gen_settlements(params, &homeland_starts, &nations, &initial_population);
@@ -91,17 +91,23 @@ fn get_visited_positions(homeland_starts: &[HomelandStart]) -> HashSet<V2<usize>
 }
 
 fn gen_avatars<R: Rng>(
+    world: &World,
     rng: &mut R,
     homeland_starts: &[HomelandStart],
     color: Color,
 ) -> HashMap<String, Avatar> {
     let mut avatars = HashMap::new();
+    let position = homeland_starts[0].pre_landfall;
     avatars.insert(
         AVATAR_NAME.to_string(),
         Avatar {
             name: AVATAR_NAME.to_string(),
             state: AvatarState::Stationary {
-                position: homeland_starts[0].pre_landfall,
+                elevation: world
+                    .get_cell_unsafe(&position)
+                    .elevation
+                    .max(world.sea_level()),
+                position,
                 rotation: Rotation::Up,
             },
             color,

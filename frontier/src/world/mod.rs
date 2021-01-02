@@ -16,7 +16,6 @@ use commons::junction::*;
 use commons::unsafe_ordering;
 use commons::*;
 use isometric::cell_traits::*;
-use isometric::coords::WorldCoord;
 use serde::{Deserialize, Serialize};
 
 const ROAD_WIDTH: f32 = 0.05;
@@ -151,15 +150,6 @@ impl World {
                 self.mut_cell_unsafe(&v2(x, y)).visible = true;
             }
         }
-    }
-
-    pub fn snap(&self, world_coord: WorldCoord) -> WorldCoord {
-        let z = if let Some(cell) = self.get_cell(&world_coord.to_v2_round()) {
-            cell.elevation()
-        } else {
-            world_coord.z
-        };
-        WorldCoord::new(world_coord.x.round(), world_coord.y.round(), z)
     }
 
     pub fn snap_to_middle(&self, position: &V2<f32>) -> Option<f32> {
@@ -336,14 +326,6 @@ mod tests {
                     to: true,
                 },
             }
-        );
-    }
-
-    #[test]
-    fn test_snap() {
-        assert_eq!(
-            world().snap(WorldCoord::new(0.3, 1.7, 1.2)),
-            WorldCoord::new(0.0, 2.0, 1.0)
         );
     }
 

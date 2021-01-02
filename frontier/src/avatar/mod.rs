@@ -38,6 +38,7 @@ pub struct Avatar {
 pub enum AvatarState {
     Stationary {
         position: V2<usize>,
+        elevation: f32,
         rotation: Rotation,
     },
     Walking(Path),
@@ -57,6 +58,7 @@ impl AvatarState {
         match self {
             AvatarState::Walking(ref path) if path.done(instant) => Some(AvatarState::Stationary {
                 position: *path.final_position(),
+                elevation: *path.final_elevation(),
                 rotation: path.compute_final_rotation().unwrap_or_default(),
             }),
             _ => None,
@@ -64,10 +66,16 @@ impl AvatarState {
     }
 
     pub fn rotate_clockwise(&self) -> Option<AvatarState> {
-        if let AvatarState::Stationary { rotation, position } = self {
+        if let AvatarState::Stationary {
+            position,
+            elevation,
+            rotation,
+        } = self
+        {
             Some(AvatarState::Stationary {
-                rotation: rotation.clockwise(),
                 position: *position,
+                elevation: *elevation,
+                rotation: rotation.clockwise(),
             })
         } else {
             None
@@ -75,10 +83,16 @@ impl AvatarState {
     }
 
     pub fn rotate_anticlockwise(&self) -> Option<AvatarState> {
-        if let AvatarState::Stationary { rotation, position } = self {
+        if let AvatarState::Stationary {
+            position,
+            elevation,
+            rotation,
+        } = self
+        {
             Some(AvatarState::Stationary {
-                rotation: rotation.anticlockwise(),
                 position: *position,
+                elevation: *elevation,
+                rotation: rotation.anticlockwise(),
             })
         } else {
             None
@@ -149,21 +163,19 @@ impl AvatarState {
         None
     }
 
-    fn compute_world_coord_basic(&self, world: &World, instant: &u128) -> Option<WorldCoord> {
+    pub fn compute_world_coord(&self, instant: &u128) -> Option<WorldCoord> {
         match &self {
-            AvatarState::Stationary { position, .. } => {
-                Some(world.snap(WorldCoord::new(position.x as f32, position.y as f32, 0.0)))
-            }
+            AvatarState::Stationary {
+                position,
+                elevation,
+                ..
+            } => Some(WorldCoord::new(
+                position.x as f32,
+                position.y as f32,
+                *elevation,
+            )),
             AvatarState::Walking(path) => path.compute_world_coord(instant),
             _ => None,
-        }
-    }
-
-    pub fn compute_world_coord(&self, world: &World, instant: &u128) -> Option<WorldCoord> {
-        if let Some(WorldCoord { x, y, z }) = self.compute_world_coord_basic(world, instant) {
-            Some(WorldCoord::new(x, y, z.max(world.sea_level())))
-        } else {
-            None
         }
     }
 }
@@ -269,6 +281,7 @@ mod tests {
     fn test_forward_path() {
         let avatar = AvatarState::Stationary {
             position: v2(1, 1),
+            elevation: 0.3,
             rotation: Rotation::Up,
         };
         assert_eq!(avatar.forward_path(), Some(vec![v2(1, 1), v2(1, 2)]));
@@ -285,6 +298,7 @@ mod tests {
         let world = world();
         let state = AvatarState::Stationary {
             position: v2(0, 0),
+            elevation: 0.3,
             rotation: Rotation::Up,
         };
         let new_state = state.walk_positions(
@@ -311,6 +325,7 @@ mod tests {
         let world = world();
         let state = AvatarState::Stationary {
             position: v2(0, 0),
+            elevation: 0.3,
             rotation: Rotation::Up,
         };
         let new_state = state.walk_positions(
@@ -385,6 +400,7 @@ mod tests {
         let world = world();
         let state = AvatarState::Stationary {
             position: v2(0, 0),
+            elevation: 0.3,
             rotation: Rotation::Up,
         };
         let new_state = state.walk_positions(
@@ -430,19 +446,20 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_world_coord_basic_stationary() {
+    fn test_compute_world_coord_stationary() {
         let avatar = AvatarState::Stationary {
             position: v2(1, 1),
+            elevation: 0.3,
             rotation: Rotation::Up,
         };
         assert_eq!(
-            avatar.compute_world_coord(&world(), &0),
-            Some(WorldCoord::new(1.0, 1.0, 1.0))
+            avatar.compute_world_coord(&0),
+            Some(WorldCoord::new(1.0, 1.0, 0.3))
         );
     }
 
     #[test]
-    fn test_compute_world_coord_basic_walking() {
+    fn test_compute_world_coord_walking() {
         let world = world();
         let start = 0;
         let avatar = AvatarState::Walking(Path::new(
@@ -455,23 +472,11 @@ mod tests {
             .get_duration(&world, &v2(1, 1), &v2(1, 2))
             .unwrap();
         let actual = avatar
-            .compute_world_coord(&world, &(start + duration.as_micros() / 4))
+            .compute_world_coord(&(start + duration.as_micros() / 4))
             .unwrap();
         let expected = WorldCoord::new(1.0, 1.25, 1.25);
         assert!(((actual.x * 100.0).round() / 100.0).almost(&expected.x));
         assert!(((actual.y * 100.0).round() / 100.0).almost(&expected.y));
         assert!(((actual.z * 100.0).round() / 100.0).almost(&expected.z));
-    }
-
-    #[test]
-    fn test_compute_world_coord_under_sea_level() {
-        let avatar = AvatarState::Stationary {
-            position: v2(2, 1),
-            rotation: Rotation::Up,
-        };
-        assert_eq!(
-            avatar.compute_world_coord(&world(), &0),
-            Some(WorldCoord::new(2.0, 1.0, 0.5))
-        );
     }
 }

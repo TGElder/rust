@@ -96,6 +96,7 @@ mod tests {
                 name: "avatar".to_string(),
                 state: AvatarState::Stationary {
                     position: v2(1, 1),
+                    elevation: 0.3,
                     rotation: Rotation::Down,
                 },
                 load: AvatarLoad::Resource(Resource::Gold),

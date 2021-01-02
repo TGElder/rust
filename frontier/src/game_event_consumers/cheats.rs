@@ -57,8 +57,14 @@ where
     fn move_avatar(&mut self, game_state: &GameState) {
         if let Some(world_coord) = self.world_coord {
             if let Some(name) = &game_state.selected_avatar {
+                let position = world_coord.to_v2_round();
                 let new_state = AvatarState::Stationary {
-                    position: world_coord.to_v2_round(),
+                    elevation: game_state
+                        .world
+                        .get_cell_unsafe(&position)
+                        .elevation
+                        .max(game_state.world.sea_level()),
+                    position,
                     rotation: Rotation::Down,
                 };
                 self.send_update_avatar_state_command(name, new_state);

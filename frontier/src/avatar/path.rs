@@ -70,7 +70,12 @@ impl Path {
     fn compute_elevations(world: &World, points: &[V2<usize>]) -> Vec<f32> {
         points
             .iter()
-            .map(|point| world.get_cell_unsafe(point).elevation)
+            .map(|point| {
+                world
+                    .get_cell_unsafe(point)
+                    .elevation
+                    .max(world.sea_level())
+            })
             .collect()
     }
 
@@ -80,6 +85,10 @@ impl Path {
 
     pub fn final_point_arrival(&self) -> &u128 {
         &self.point_arrivals[self.points.len() - 1]
+    }
+
+    pub fn final_elevation(&self) -> &f32 {
+        &self.elevations[self.points.len() - 1]
     }
 
     pub fn done(&self, instant: &u128) -> bool {
@@ -288,7 +297,7 @@ mod tests {
         let world = world();
         let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let actual = Path::compute_elevations(&world, &points);
-        let expected = vec![1.0, 0.0, 1.0, 2.0, 3.0];
+        let expected = vec![1.0, 0.5, 1.0, 2.0, 3.0];
         assert_eq!(actual, expected);
     }
 
@@ -308,6 +317,14 @@ mod tests {
         let path = Path::new(&world, points, &travel_duration(), instant);
         let expected = instant + 10_000;
         assert_eq!(path.final_point_arrival(), &expected);
+    }
+
+    #[test]
+    fn test_final_elevation() {
+        let world = world();
+        let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let path = Path::new(&world, points, &travel_duration(), 0);
+        assert!(path.final_elevation().almost(&3.0));
     }
 
     #[test]
@@ -342,10 +359,12 @@ mod tests {
         let path = Path::new(&world, points, &travel_duration(), start);
         let at = start + 1_500;
         let actual = path.compute_world_coord(&at).unwrap();
-        let expected = WorldCoord::new(0.25, 1.0, 0.25);
-        assert!(((actual.x * 100.0).round() / 100.0).almost(&expected.x));
-        assert!(((actual.y * 100.0).round() / 100.0).almost(&expected.y));
-        assert!(((actual.z * 100.0).round() / 100.0).almost(&expected.z));
+        let expected = WorldCoord::new(0.25, 1.0, 0.625);
+        println!("{:?}", actual);
+        println!("{:?}", expected);
+        assert!(actual.x.almost(&expected.x));
+        assert!(actual.y.almost(&expected.y));
+        assert!(actual.z.almost(&expected.z));
     }
 
     #[test]
@@ -478,13 +497,13 @@ mod tests {
         let path = Path {
             points: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             point_arrivals: vec![0, 10, 20],
-            elevations: vec![0.1, 0.2, 0.3],
+            elevations: vec![1.0, 2.0, 3.0],
         };
         let actual = path.with_pause_at_start(1);
         let expected = Path {
             points: vec![v2(0, 0), v2(0, 0), v2(1, 0), v2(2, 0)],
             point_arrivals: vec![0, 1, 11, 21],
-            elevations: vec![0.1, 0.1, 0.2, 0.3],
+            elevations: vec![1.0, 1.0, 2.0, 3.0],
         };
         assert_eq!(actual, expected);
     }
@@ -510,13 +529,13 @@ mod tests {
         let path = Path {
             points: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             point_arrivals: vec![0, 10, 20],
-            elevations: vec![0.1, 0.2, 0.3],
+            elevations: vec![1.0, 2.0, 3.0],
         };
         let actual = path.with_pause_at_end(1);
         let expected = Path {
             points: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 0)],
             point_arrivals: vec![0, 10, 20, 21],
-            elevations: vec![0.1, 0.2, 0.3, 0.3],
+            elevations: vec![1.0, 2.0, 3.0, 3.0],
         };
         assert_eq!(actual, expected);
     }
@@ -542,17 +561,17 @@ mod tests {
         let a = Path {
             points: vec![v2(0, 0), v2(1, 1)],
             point_arrivals: vec![0, 1],
-            elevations: vec![0.0, 0.1],
+            elevations: vec![1.0, 2.0],
         };
         let b = Path {
             points: vec![v2(2, 2), v2(3, 3)],
             point_arrivals: vec![2, 3],
-            elevations: vec![0.2, 0.3],
+            elevations: vec![3.0, 4.0],
         };
         let expected = Path {
             points: vec![v2(0, 0), v2(1, 1), v2(2, 2), v2(3, 3)],
             point_arrivals: vec![0, 1, 2, 3],
-            elevations: vec![0.0, 0.1, 0.2, 0.3],
+            elevations: vec![1.0, 2.0, 3.0, 4.0],
         };
         assert_eq!(a + b, expected);
     }
@@ -563,7 +582,7 @@ mod tests {
         let b = Path {
             points: vec![v2(2, 2), v2(3, 3)],
             point_arrivals: vec![2, 3],
-            elevations: vec![0.2, 0.3],
+            elevations: vec![3.0, 4.0],
         };
         assert_eq!(a + b.clone(), b);
     }
@@ -573,7 +592,7 @@ mod tests {
         let a = Path {
             points: vec![v2(0, 0), v2(1, 1)],
             point_arrivals: vec![0, 1],
-            elevations: vec![0.0, 0.1],
+            elevations: vec![1.0, 2.0],
         };
         let b = Path::empty();
         assert_eq!(a.clone() + b, a);

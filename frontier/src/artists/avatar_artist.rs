@@ -173,7 +173,7 @@ impl AvatarArtist {
         self.last_draw_state
             .insert(name.to_string(), new_draw_state);
 
-        if let Some(world_coord) = state.compute_world_coord(world, instant) {
+        if let Some(world_coord) = state.compute_world_coord(instant) {
             out.append(&mut self.draw_body(&avatar, instant, world_coord));
             out.append(&mut self.draw_boat_if_required(
                 &name,

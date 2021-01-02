@@ -263,10 +263,17 @@ fn add_avatar(
     skin_color: Color,
     load: AvatarLoad,
 ) {
+    let elevation = game
+        .game_state()
+        .world
+        .get_cell_unsafe(&position)
+        .elevation
+        .max(game.game_state().world.sea_level());
     let avatar = Avatar {
         name: name.clone(),
         state: AvatarState::Stationary {
             position,
+            elevation,
             rotation: Rotation::Up,
         },
         color,
