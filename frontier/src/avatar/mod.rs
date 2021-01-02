@@ -154,7 +154,7 @@ impl AvatarState {
             AvatarState::Stationary { position, .. } => {
                 Some(world.snap(WorldCoord::new(position.x as f32, position.y as f32, 0.0)))
             }
-            AvatarState::Walking(path) => path.compute_world_coord(world, instant),
+            AvatarState::Walking(path) => path.compute_world_coord(instant),
             _ => None,
         }
     }

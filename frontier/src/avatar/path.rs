@@ -1,9 +1,9 @@
 use super::*;
 use crate::travel_duration::*;
 use crate::world::World;
-use commons::edge::*;
 use commons::grid::Grid;
-use commons::{v2, V2};
+use commons::V2;
+use commons::{edge::*, v3};
 use isometric::coords::*;
 use std::ops::Add;
 
@@ -11,6 +11,7 @@ use std::ops::Add;
 pub struct Path {
     points: Vec<V2<usize>>,
     point_arrivals: Vec<u128>,
+    elevations: Vec<f32>,
 }
 
 impl Path {
@@ -18,6 +19,7 @@ impl Path {
         Path {
             points: vec![],
             point_arrivals: vec![],
+            elevations: vec![],
         }
     }
 
@@ -34,6 +36,7 @@ impl Path {
                 start_at,
                 travel_duration,
             ),
+            elevations: Path::compute_elevations(world, &points),
             points,
         }
     }
@@ -64,6 +67,13 @@ impl Path {
         out
     }
 
+    fn compute_elevations(world: &World, points: &[V2<usize>]) -> Vec<f32> {
+        points
+            .iter()
+            .map(|point| world.get_cell_unsafe(point).elevation)
+            .collect()
+    }
+
     pub fn final_position(&self) -> &V2<usize> {
         &self.points[self.points.len() - 1]
     }
@@ -90,25 +100,34 @@ impl Path {
             .map(|i| Path {
                 points: vec![self.points[i - 1], self.points[i]],
                 point_arrivals: vec![self.point_arrivals[i - 1], self.point_arrivals[i]],
+                elevations: vec![self.elevations[i - 1], self.elevations[i]],
             })
             .unwrap_or_else(Path::empty)
     }
 
-    pub fn compute_world_coord(&self, world: &World, instant: &u128) -> Option<WorldCoord> {
-        self.compute_current_index(instant).map(|i| {
-            let from = self.points[i - 1];
-            let to = self.points[i];
-            let from_time = self.point_arrivals[i - 1];
-            let to_time = self.point_arrivals[i];
-            let p_micros = instant - from_time;
-            let edge_micros = to_time - from_time;
-            let p = ((p_micros as f64) / (edge_micros as f64)) as f32;
-            let from = v2(from.x as f32, from.y as f32);
-            let to = v2(to.x as f32, to.y as f32);
-            let x = from.x + (to.x - from.x) * p;
-            let y = from.y + (to.y - from.y) * p;
-            WorldCoord::new(x, y, world.snap_to_edge(&v2(x, y)))
-        })
+    pub fn compute_world_coord(&self, instant: &u128) -> Option<WorldCoord> {
+        let i = self.compute_current_index(instant)?;
+
+        let from = self.points[i - 1];
+        let to = self.points[i];
+        let from_time = self.point_arrivals[i - 1];
+        let to_time = self.point_arrivals[i];
+        let from_z = self.elevations[i - 1];
+        let to_z = self.elevations[i];
+
+        let from = v3(from.x as f32, from.y as f32, from_z);
+        let to = v3(to.x as f32, to.y as f32, to_z);
+
+        let p_micros = instant - from_time;
+        let edge_micros = to_time - from_time;
+        let p = ((p_micros as f64) / (edge_micros as f64)) as f32;
+
+        let interpolated = from + (to - from) * p;
+        Some(WorldCoord::new(
+            interpolated.x,
+            interpolated.y,
+            interpolated.z,
+        ))
     }
 
     fn compute_rotation_at_index(&self, index: usize) -> Option<Rotation> {
@@ -151,9 +170,11 @@ impl Path {
                 self.point_arrivals[0],
                 travel_duration,
             );
+            let elevations = Path::compute_elevations(world, &points);
             Some(Path {
                 points,
                 point_arrivals,
+                elevations,
             })
         } else {
             None
@@ -184,19 +205,23 @@ impl Path {
     pub fn with_pause_at_start(mut self, pause: u128) -> Path {
         let first_point = *unwrap_or!(self.points.first(), return self);
         let first_arrival = *unwrap_or!(self.point_arrivals.first(), return self);
+        let first_elevation = *unwrap_or!(self.elevations.first(), return self);
         self.point_arrivals
             .iter_mut()
             .for_each(|arrival| *arrival += pause);
         self.points.insert(0, first_point);
         self.point_arrivals.insert(0, first_arrival);
+        self.elevations.insert(0, first_elevation);
         self
     }
 
     pub fn with_pause_at_end(mut self, pause: u128) -> Path {
         let last_point = *unwrap_or!(self.points.last(), return self);
         let last_arrival = *unwrap_or!(self.point_arrivals.last(), return self);
+        let last_elevation = *unwrap_or!(self.elevations.last(), return self);
         self.points.push(last_point);
         self.point_arrivals.push(last_arrival + pause);
+        self.elevations.push(last_elevation);
         self
     }
 }
@@ -207,9 +232,11 @@ impl Add for Path {
     fn add(mut self, mut other: Self) -> Self {
         self.points.append(&mut other.points);
         self.point_arrivals.append(&mut other.point_arrivals);
+        self.elevations.append(&mut other.elevations);
         Self {
             points: self.points,
             point_arrivals: self.point_arrivals,
+            elevations: self.elevations,
         }
     }
 }
@@ -253,6 +280,15 @@ mod tests {
             instant + 6_000,
             instant + 10_000,
         ];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_compute_elevations() {
+        let world = world();
+        let points = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let actual = Path::compute_elevations(&world, &points);
+        let expected = vec![1.0, 0.0, 1.0, 2.0, 3.0];
         assert_eq!(actual, expected);
     }
 
@@ -305,7 +341,7 @@ mod tests {
         let start = 0;
         let path = Path::new(&world, points, &travel_duration(), start);
         let at = start + 1_500;
-        let actual = path.compute_world_coord(&world, &at).unwrap();
+        let actual = path.compute_world_coord(&at).unwrap();
         let expected = WorldCoord::new(0.25, 1.0, 0.25);
         assert!(((actual.x * 100.0).round() / 100.0).almost(&expected.x));
         assert!(((actual.y * 100.0).round() / 100.0).almost(&expected.y));
@@ -442,11 +478,13 @@ mod tests {
         let path = Path {
             points: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             point_arrivals: vec![0, 10, 20],
+            elevations: vec![0.1, 0.2, 0.3],
         };
         let actual = path.with_pause_at_start(1);
         let expected = Path {
             points: vec![v2(0, 0), v2(0, 0), v2(1, 0), v2(2, 0)],
             point_arrivals: vec![0, 1, 11, 21],
+            elevations: vec![0.1, 0.1, 0.2, 0.3],
         };
         assert_eq!(actual, expected);
     }
@@ -456,11 +494,13 @@ mod tests {
         let path = Path {
             points: vec![],
             point_arrivals: vec![],
+            elevations: vec![],
         };
         let actual = path.with_pause_at_start(1);
         let expected = Path {
             points: vec![],
             point_arrivals: vec![],
+            elevations: vec![],
         };
         assert_eq!(actual, expected);
     }
@@ -470,11 +510,13 @@ mod tests {
         let path = Path {
             points: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             point_arrivals: vec![0, 10, 20],
+            elevations: vec![0.1, 0.2, 0.3],
         };
         let actual = path.with_pause_at_end(1);
         let expected = Path {
             points: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 0)],
             point_arrivals: vec![0, 10, 20, 21],
+            elevations: vec![0.1, 0.2, 0.3, 0.3],
         };
         assert_eq!(actual, expected);
     }
@@ -484,11 +526,13 @@ mod tests {
         let path = Path {
             points: vec![],
             point_arrivals: vec![],
+            elevations: vec![],
         };
         let actual = path.with_pause_at_end(1);
         let expected = Path {
             points: vec![],
             point_arrivals: vec![],
+            elevations: vec![],
         };
         assert_eq!(actual, expected);
     }
@@ -498,14 +542,17 @@ mod tests {
         let a = Path {
             points: vec![v2(0, 0), v2(1, 1)],
             point_arrivals: vec![0, 1],
+            elevations: vec![0.0, 0.1],
         };
         let b = Path {
             points: vec![v2(2, 2), v2(3, 3)],
             point_arrivals: vec![2, 3],
+            elevations: vec![0.2, 0.3],
         };
         let expected = Path {
             points: vec![v2(0, 0), v2(1, 1), v2(2, 2), v2(3, 3)],
             point_arrivals: vec![0, 1, 2, 3],
+            elevations: vec![0.0, 0.1, 0.2, 0.3],
         };
         assert_eq!(a + b, expected);
     }
@@ -516,6 +563,7 @@ mod tests {
         let b = Path {
             points: vec![v2(2, 2), v2(3, 3)],
             point_arrivals: vec![2, 3],
+            elevations: vec![0.2, 0.3],
         };
         assert_eq!(a + b.clone(), b);
     }
@@ -525,6 +573,7 @@ mod tests {
         let a = Path {
             points: vec![v2(0, 0), v2(1, 1)],
             point_arrivals: vec![0, 1],
+            elevations: vec![0.0, 0.1],
         };
         let b = Path::empty();
         assert_eq!(a.clone() + b, a);
