@@ -1,5 +1,5 @@
 use crate::actors::{
-    BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    BasicRoadBuilder, Micros, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
     VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
@@ -12,7 +12,7 @@ use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendGameState,
-    SendNations, SendParameters, SendPathfinder, SendRoutes, SendSettlements, SendSim,
+    SendMicros, SendNations, SendParameters, SendPathfinder, SendRoutes, SendSettlements, SendSim,
     SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
     SendWorld, SendWorldArtist,
 };
@@ -28,6 +28,7 @@ use std::sync::{Arc, RwLock};
 pub struct Polysender {
     pub game_tx: FnSender<Game>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
+    pub micros_tx: FnSender<Micros>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
@@ -43,8 +44,9 @@ pub struct Polysender {
 impl Polysender {
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
-            basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             game_tx: self.game_tx.clone_with_name(name),
+            basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
+            micros_tx: self.micros_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
             town_builder_tx: self.town_builder_tx.clone_with_name(name),
@@ -88,6 +90,17 @@ impl SendGameState for Polysender {
         self.game_tx
             .send(move |game| function(game.mut_state()))
             .await
+    }
+}
+
+#[async_trait]
+impl SendMicros for Polysender {
+    async fn send_micros<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Micros) -> O + Send + 'static,
+    {
+        self.micros_tx.send(move |micros| function(micros)).await
     }
 }
 

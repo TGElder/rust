@@ -1,4 +1,5 @@
 mod basic_road_builder;
+mod micros;
 mod object_builder;
 mod town_artist;
 mod town_builder;
@@ -7,6 +8,7 @@ mod voyager;
 mod world_artist;
 
 pub use basic_road_builder::*;
+pub use micros::*;
 pub use object_builder::*;
 pub use town_artist::*;
 pub use town_builder::*;

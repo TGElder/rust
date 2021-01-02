@@ -6,7 +6,7 @@ use futures::future::FutureExt;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    BasicRoadBuilder, Micros, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
     VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::artists::{WorldArtist, WorldArtistParameters};
@@ -31,6 +31,7 @@ pub struct System {
     pub tx: Polysender,
     pub pool: ThreadPool,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
+    pub micros: Process<Micros>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub simulation: Process<Simulation<Polysender>>,
@@ -50,6 +51,7 @@ impl System {
         pool: ThreadPool,
     ) -> System {
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
+        let (micros_tx, micros_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
         let (town_builder_tx, town_builder_rx) = fn_channel();
@@ -71,6 +73,7 @@ impl System {
         let tx = Polysender {
             game_tx: game_tx.clone_with_name("polysender"),
             basic_road_builder_tx,
+            micros_tx,
             object_builder_tx,
             simulation_tx,
             town_builder_tx,
@@ -93,6 +96,7 @@ impl System {
                 BasicRoadBuilder::new(tx.clone_with_name("basic_road_builder")),
                 basic_road_builder_rx,
             ),
+            micros: Process::new(Micros::new(game_state.params.default_speed), micros_rx),
             event_forwarder: Process::new(
                 EventForwarderActor::new(tx.clone_with_name("event_forwarder")),
                 event_forwarder_rx,
@@ -208,6 +212,7 @@ impl System {
     }
 
     pub fn send_init_messages(&self) {
+        // TODO init micros
         self.tx
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());
@@ -232,10 +237,12 @@ impl System {
     }
 
     pub async fn start(&mut self) {
+        // TODO dependencies
         self.tx
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
             .await;
 
+        self.micros.run_passive(&self.pool).await;
         self.world_artist.run_passive(&self.pool).await;
         self.voyager.run_passive(&self.pool).await;
         self.visibility.run_passive(&self.pool).await;
@@ -259,6 +266,7 @@ impl System {
         self.visibility.drain(&self.pool, true).await;
         self.voyager.drain(&self.pool, true).await;
         self.world_artist.drain(&self.pool, true).await;
+        self.micros.drain(&self.pool, true).await;
 
         self.tx
             .send_game_state(|game_state| game_state.speed = 0.0)
@@ -266,6 +274,7 @@ impl System {
     }
 
     pub async fn save(&mut self, path: &str) {
+        self.micros.object_mut().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
 
@@ -274,6 +283,7 @@ impl System {
     }
 
     pub fn load(&mut self, path: &str) {
+        self.micros.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
     }
