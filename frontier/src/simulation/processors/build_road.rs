@@ -63,19 +63,15 @@ where
             return;
         }
 
-        let first_visit = routes
-            .into_iter()
-            .map(|route| route.first_visit)
-            .min()
-            .unwrap();
+        let when = get_when(&state, routes);
 
-        if !self.try_plan_road(edge, first_visit).await {
+        if !self.try_plan_road(edge, when).await {
             return;
         }
 
         state.build_queue.insert(BuildInstruction {
             what: Build::Road(edge),
-            when: first_visit,
+            when,
         });
     }
 
@@ -124,6 +120,21 @@ fn get_route_summaries(routes: &Routes, route_keys: HashSet<RouteKey>) -> Vec<Ro
         .flat_map(|route_key| routes.get_route(&route_key))
         .map(|route| route.into())
         .collect()
+}
+
+fn get_when(state: &State, mut routes: Vec<RouteSummary>) -> u128 {
+    routes.sort_by_key(|route| route.first_visit);
+    let mut traffic_cum = 0;
+    for route in routes {
+        traffic_cum += route.traffic;
+        if traffic_cum >= state.params.road_build_threshold {
+            return route.first_visit;
+        }
+    }
+    panic!(
+        "Total traffic {} does not exceed threshold for building road {}",
+        traffic_cum, state.params.road_build_threshold
+    );
 }
 
 struct RouteSummary {
@@ -323,13 +334,13 @@ mod tests {
         let mut expected_build_queue = BuildQueue::default();
         expected_build_queue.insert(BuildInstruction {
             what: Build::Road(happy_path_edge()),
-            when: 9,
+            when: 11,
         });
         assert_eq!(state.build_queue, expected_build_queue);
 
         assert_eq!(
             *processor.tx.planned_roads.lock().unwrap(),
-            vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(9))]
+            vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
         );
     }
 
@@ -406,7 +417,7 @@ mod tests {
     fn should_build_if_road_planned_later() {
         // Given
         let mut tx = happy_path_tx();
-        tx.road_planned = Some(10);
+        tx.road_planned = Some(12);
         let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
 
         // When
@@ -419,13 +430,13 @@ mod tests {
         let mut expected_build_queue = BuildQueue::default();
         expected_build_queue.insert(BuildInstruction {
             what: Build::Road(happy_path_edge()),
-            when: 9,
+            when: 11,
         });
         assert_eq!(state.build_queue, expected_build_queue);
 
         assert_eq!(
             *processor.tx.planned_roads.lock().unwrap(),
-            vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(9))]
+            vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
         );
     }
 
