@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use commons::async_channel::Sender;
 use commons::fn_sender::FnSender;
+use commons::log::info;
 use futures::executor::block_on;
 use futures::future::FutureExt;
 use isometric::{Button, ElementState, Event, EventConsumer, VirtualKeyCode};
@@ -40,9 +41,13 @@ impl SystemController {
     fn set_pause(&mut self, pause: bool) {
         if self.paused != pause {
             if pause {
+                info!("Pausing system");
                 self.tx.send_future(|system| system.pause().boxed());
+                info!("Paused system");
             } else {
+                info!("Starting system");
                 self.tx.send_future(|system| system.start().boxed());
+                info!("Started system");
             }
             self.paused = pause;
         }
@@ -53,13 +58,16 @@ impl SystemController {
     }
 
     fn save(&mut self) {
+        info!("Saving system");
         let was_paused = self.paused;
         self.set_pause(true);
         self.tx.send_future(|system| system.save(SAVE_PATH).boxed());
         self.set_pause(was_paused);
+        info!("Saved system");
     }
 
     fn shutdown(&mut self) {
+        info!("Shutting down system");
         self.set_pause(true);
         block_on(self.shutdown_tx.send(())).unwrap();
     }
