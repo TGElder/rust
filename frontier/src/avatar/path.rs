@@ -63,11 +63,11 @@ impl Path {
             let to = positions[p + 1];
             let duration = travel_duration
                 .get_duration(world, &from, &to)
-                .unwrap_or_else(|| panic!(Self::impassable_edge(world, &from, &to)));
+                .unwrap_or_else(|| panic!(Self::impassable_edge_message(world, &from, &to)));
             next_arrival_time += duration.as_micros();
             let travel_mode = travel_mode_fn
                 .travel_mode_between(world, &from, &to)
-                .unwrap_or_else(|| panic!(Self::impassable_edge(world, &from, &to)));
+                .unwrap_or_else(|| panic!(Self::impassable_edge_message(world, &from, &to)));
             out.push(Frame {
                 position: to,
                 elevation: Self::get_elevation(world, &to),
@@ -78,7 +78,7 @@ impl Path {
         out
     }
 
-    fn impassable_edge(world: &World, from: &V2<usize>, to: &V2<usize>) -> String {
+    fn impassable_edge_message(world: &World, from: &V2<usize>, to: &V2<usize>) -> String {
         format!(
             "Tried to create avatar path over impassable edge from {:?} to {:?}",
             world.get_cell(from).unwrap(),
