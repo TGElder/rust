@@ -145,7 +145,7 @@ impl Path {
         ))
     }
 
-    pub fn vehicle(&self, instant: &u128) -> Option<Vehicle> {
+    pub fn vehicle_at(&self, instant: &u128) -> Option<Vehicle> {
         self.compute_current_index(instant)
             .map(|index| self.frames[index].vehicle)
     }
@@ -401,15 +401,15 @@ mod tests {
     }
 
     #[test]
-    fn test_vehicle() {
+    fn test_vehicle_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
-        assert_eq!(path.vehicle(&0), Some(Vehicle::Boat));
-        assert_eq!(path.vehicle(&2_999), Some(Vehicle::Boat));
-        assert_eq!(path.vehicle(&3_000), Some(Vehicle::None));
-        assert_eq!(path.vehicle(&10_000), None);
+        assert_eq!(path.vehicle_at(&0), Some(Vehicle::Boat));
+        assert_eq!(path.vehicle_at(&2_999), Some(Vehicle::Boat));
+        assert_eq!(path.vehicle_at(&3_000), Some(Vehicle::None));
+        assert_eq!(path.vehicle_at(&10_000), None);
     }
 
     #[test]

@@ -74,14 +74,14 @@ impl AvatarState {
             position,
             elevation,
             rotation,
-            vehicle: travel_mode_class,
+            vehicle,
         } = self
         {
             Some(AvatarState::Stationary {
                 position: *position,
                 elevation: *elevation,
                 rotation: rotation.clockwise(),
-                vehicle: *travel_mode_class,
+                vehicle,
             })
         } else {
             None
@@ -93,14 +93,14 @@ impl AvatarState {
             position,
             elevation,
             rotation,
-            vehicle: travel_mode_class,
+            vehicle,
         } = self
         {
             Some(AvatarState::Stationary {
                 position: *position,
                 elevation: *elevation,
                 rotation: rotation.anticlockwise(),
-                vehicle: *travel_mode_class,
+                vehicle,
             })
         } else {
             None
@@ -165,10 +165,10 @@ impl AvatarState {
         }
     }
 
-    pub fn vehicle(&self, instant: &u128) -> Option<Vehicle> {
+    pub fn vehicle_at(&self, instant: &u128) -> Option<Vehicle> {
         match &self {
             AvatarState::Stationary { vehicle, .. } => Some(*vehicle),
-            AvatarState::Walking(path) => path.vehicle(instant),
+            AvatarState::Walking(path) => path.vehicle_at(instant),
             _ => None,
         }
     }
@@ -597,7 +597,7 @@ mod tests {
     }
 
     #[test]
-    fn test_travel_mode_class_stationary() {
+    fn test_vehicle_at_stationary() {
         let avatar = AvatarState::Stationary {
             position: v2(1, 1),
             elevation: 0.3,
@@ -605,11 +605,11 @@ mod tests {
             vehicle: Vehicle::None,
         };
 
-        assert_eq!(avatar.vehicle(&123), Some(Vehicle::None));
+        assert_eq!(avatar.vehicle_at(&123), Some(Vehicle::None));
     }
 
     #[test]
-    fn test_travel_mode_class_walking() {
+    fn test_vehicle_at_walking() {
         let world = world();
         let start = 0;
         let avatar = AvatarState::Walking(Path::new(
@@ -623,7 +623,7 @@ mod tests {
         let duration = travel_duration()
             .get_duration(&world, &v2(1, 1), &v2(1, 2))
             .unwrap();
-        let actual = avatar.vehicle(&(start + duration.as_micros() / 4));
+        let actual = avatar.vehicle_at(&(start + duration.as_micros() / 4));
 
         assert_eq!(actual, Some(Vehicle::Boat));
     }
