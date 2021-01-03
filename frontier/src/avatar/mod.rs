@@ -81,7 +81,7 @@ impl AvatarState {
                 position: *position,
                 elevation: *elevation,
                 rotation: rotation.clockwise(),
-                vehicle,
+                vehicle: *vehicle,
             })
         } else {
             None
@@ -100,7 +100,7 @@ impl AvatarState {
                 position: *position,
                 elevation: *elevation,
                 rotation: rotation.anticlockwise(),
-                vehicle,
+                vehicle: *vehicle,
             })
         } else {
             None

@@ -50,42 +50,55 @@ impl Path {
             position: positions[0],
             elevation: Self::get_elevation(world, &positions[0]),
             arrival: next_arrival_time,
-            vehicle: vehicle_fn
-                .vehicle_between(world, &positions[0], &positions[1])
-                .unwrap_or_else(|| {
-                    panic!(Self::impassable_edge_message(
-                        world,
-                        &positions[0],
-                        &positions[1]
-                    ))
-                }),
+            vehicle: Self::vehicle(world, &positions[0], &positions[1], vehicle_fn),
         });
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            let duration = travel_duration
-                .get_duration(world, &from, &to)
-                .unwrap_or_else(|| panic!(Self::impassable_edge_message(world, &from, &to)));
+            let duration = Self::travel_duration(world, &from, &to, travel_duration);
             next_arrival_time += duration.as_micros();
-            let vehicle = vehicle_fn
-                .vehicle_between(world, &from, &to)
-                .unwrap_or_else(|| panic!(Self::impassable_edge_message(world, &from, &to)));
             out.push(Frame {
                 position: to,
                 elevation: Self::get_elevation(world, &to),
                 arrival: next_arrival_time,
-                vehicle,
+                vehicle: Self::vehicle(world, &from, &to, vehicle_fn),
             });
         }
         out
     }
 
-    fn impassable_edge_message(world: &World, from: &V2<usize>, to: &V2<usize>) -> String {
-        format!(
-            "Tried to create avatar path over impassable edge from {:?} to {:?}",
-            world.get_cell(from).unwrap(),
-            world.get_cell(to).unwrap()
-        )
+    fn vehicle(
+        world: &World,
+        from: &V2<usize>,
+        to: &V2<usize>,
+        vehicle_fn: &dyn VehicleFn,
+    ) -> Vehicle {
+        vehicle_fn
+            .vehicle_between(world, &from, &to)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Tried to create avatar path over edge without vehicle from {:?} to {:?}",
+                    world.get_cell(from).unwrap(),
+                    world.get_cell(to).unwrap()
+                )
+            })
+    }
+
+    fn travel_duration(
+        world: &World,
+        from: &V2<usize>,
+        to: &V2<usize>,
+        travel_duration: &dyn TravelDuration,
+    ) -> Duration {
+        travel_duration
+            .get_duration(world, &from, &to)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Tried to create avatar path over impassable edge from {:?} to {:?}",
+                    world.get_cell(from).unwrap(),
+                    world.get_cell(to).unwrap()
+                )
+            })
     }
 
     fn get_elevation(world: &World, position: &V2<usize>) -> f32 {
