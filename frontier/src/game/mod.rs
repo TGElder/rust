@@ -229,7 +229,7 @@ impl Game {
                 world: &self.game_state.world,
                 positions,
                 travel_duration: &self.avatar_travel_duration,
-                travel_mode_fn: self.avatar_travel_duration.travel_mode_fn(),
+                vehicle_fn: self.avatar_travel_duration.travel_mode_fn(),
                 start_at,
                 pause_at_start,
                 pause_at_end,

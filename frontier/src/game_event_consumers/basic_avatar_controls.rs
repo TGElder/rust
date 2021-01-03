@@ -55,7 +55,7 @@ impl BasicAvatarControls {
                             world: &game_state.world,
                             positions: path,
                             travel_duration,
-                            travel_mode_fn: travel_duration.travel_mode_fn(),
+                            vehicle_fn: travel_duration.travel_mode_fn(),
                             start_at,
                             pause_at_start: None,
                             pause_at_end: None,

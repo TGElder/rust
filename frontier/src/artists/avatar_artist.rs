@@ -262,7 +262,7 @@ impl AvatarArtist {
     }
 
     fn should_draw_boat(&self, state: &AvatarState, instant: &u128) -> bool {
-        state.travel_mode_class(instant) == Some(TravelModeClass::Water)
+        state.vehicle(instant) == Some(Vehicle::Boat)
     }
 
     fn draw_boat(

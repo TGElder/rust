@@ -5,6 +5,7 @@ mod travel_duration;
 mod travel_mode;
 mod travel_mode_change;
 mod travel_mode_fn;
+mod vehicle;
 
 pub use avatar_travel_mode_fn::*;
 pub use check_for_port::*;
@@ -13,6 +14,7 @@ pub use travel_duration::*;
 pub use travel_mode::*;
 pub use travel_mode_change::*;
 pub use travel_mode_fn::*;
+pub use vehicle::*;
 
 use crate::resource::Resource;
 use crate::travel_duration::*;
@@ -40,7 +42,7 @@ pub enum AvatarState {
         position: V2<usize>,
         elevation: f32,
         rotation: Rotation,
-        travel_mode_class: TravelModeClass,
+        vehicle: Vehicle,
     },
     Walking(Path),
     Absent,
@@ -61,7 +63,7 @@ impl AvatarState {
                 position: path.final_frame().position,
                 elevation: path.final_frame().elevation,
                 rotation: path.compute_final_rotation().unwrap_or_default(),
-                travel_mode_class: path.final_frame().travel_mode_class.unwrap(),
+                vehicle: path.final_frame().vehicle,
             }),
             _ => None,
         }
@@ -72,14 +74,14 @@ impl AvatarState {
             position,
             elevation,
             rotation,
-            travel_mode_class,
+            vehicle: travel_mode_class,
         } = self
         {
             Some(AvatarState::Stationary {
                 position: *position,
                 elevation: *elevation,
                 rotation: rotation.clockwise(),
-                travel_mode_class: *travel_mode_class,
+                vehicle: *travel_mode_class,
             })
         } else {
             None
@@ -91,14 +93,14 @@ impl AvatarState {
             position,
             elevation,
             rotation,
-            travel_mode_class,
+            vehicle: travel_mode_class,
         } = self
         {
             Some(AvatarState::Stationary {
                 position: *position,
                 elevation: *elevation,
                 rotation: rotation.anticlockwise(),
-                travel_mode_class: *travel_mode_class,
+                vehicle: *travel_mode_class,
             })
         } else {
             None
@@ -163,12 +165,10 @@ impl AvatarState {
         }
     }
 
-    pub fn travel_mode_class(&self, instant: &u128) -> Option<TravelModeClass> {
+    pub fn vehicle(&self, instant: &u128) -> Option<Vehicle> {
         match &self {
-            AvatarState::Stationary {
-                travel_mode_class, ..
-            } => Some(*travel_mode_class),
-            AvatarState::Walking(path) => path.travel_mode_class(instant),
+            AvatarState::Stationary { vehicle, .. } => Some(*vehicle),
+            AvatarState::Walking(path) => path.vehicle(instant),
             _ => None,
         }
     }
@@ -178,7 +178,7 @@ pub struct Journey<'a> {
     pub world: &'a World,
     pub positions: Vec<V2<usize>>,
     pub travel_duration: &'a dyn TravelDuration,
-    pub travel_mode_fn: &'a dyn TravelModeFn,
+    pub vehicle_fn: &'a dyn VehicleFn,
     pub start_at: u128,
     pub pause_at_start: Option<Duration>,
     pub pause_at_end: Option<Duration>,
@@ -190,7 +190,7 @@ impl<'a> Journey<'a> {
             self.world,
             self.positions,
             self.travel_duration,
-            self.travel_mode_fn,
+            self.vehicle_fn,
         )?;
         if let Some(pause) = self.pause_at_end {
             path = path.with_pause_at_end(pause.as_micros());
@@ -205,7 +205,7 @@ impl<'a> Into<Path> for Journey<'a> {
             self.world,
             self.positions,
             self.travel_duration,
-            self.travel_mode_fn,
+            self.vehicle_fn,
             self.start_at,
         );
         if let Some(pause) = self.pause_at_start {
@@ -303,25 +303,16 @@ mod tests {
         }
     }
 
-    struct TestTravelModeFn {}
+    struct TestVehicleFn {}
 
-    impl TravelModeFn for TestTravelModeFn {
-        fn travel_mode_between(
-            &self,
-            _: &World,
-            _: &V2<usize>,
-            _: &V2<usize>,
-        ) -> Option<TravelMode> {
-            Some(TravelMode::Sea)
-        }
-
-        fn travel_modes_here(&self, _: &World, _: &V2<usize>) -> Vec<TravelMode> {
-            vec![TravelMode::Sea]
+    impl VehicleFn for TestVehicleFn {
+        fn vehicle_between(&self, _: &World, _: &V2<usize>, _: &V2<usize>) -> Option<Vehicle> {
+            Some(Vehicle::Boat)
         }
     }
 
-    fn travel_mode_fn() -> impl TravelModeFn {
-        TestTravelModeFn {}
+    fn vehicle_fn() -> impl VehicleFn {
+        TestVehicleFn {}
     }
 
     #[rustfmt::skip]
@@ -342,7 +333,7 @@ mod tests {
             position: v2(1, 1),
             elevation: 0.3,
             rotation: Rotation::Up,
-            travel_mode_class: TravelModeClass::Land,
+            vehicle: Vehicle::None,
         };
         assert_eq!(avatar.forward_path(), Some(vec![v2(1, 1), v2(1, 2)]));
         let avatar = avatar.rotate_clockwise().unwrap();
@@ -360,13 +351,13 @@ mod tests {
             position: v2(0, 0),
             elevation: 0.3,
             rotation: Rotation::Up,
-            travel_mode_class: TravelModeClass::Land,
+            vehicle: Vehicle::None,
         };
         let new_state = state.travel(Journey {
             world: &world,
             positions: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             travel_duration: &travel_duration(),
-            travel_mode_fn: &travel_mode_fn(),
+            vehicle_fn: &vehicle_fn(),
             start_at: 0,
             pause_at_start: None,
             pause_at_end: None,
@@ -377,7 +368,7 @@ mod tests {
                 &world,
                 vec![v2(0, 0), v2(1, 0), v2(2, 0)],
                 &travel_duration(),
-                &travel_mode_fn(),
+                &vehicle_fn(),
                 0
             )))
         )
@@ -390,13 +381,13 @@ mod tests {
             position: v2(0, 0),
             elevation: 0.3,
             rotation: Rotation::Up,
-            travel_mode_class: TravelModeClass::Land,
+            vehicle: Vehicle::None,
         };
         let new_state = state.travel(Journey {
             world: &world,
             positions: vec![v2(0, 1), v2(1, 1), v2(2, 1)],
             travel_duration: &travel_duration(),
-            travel_mode_fn: &travel_mode_fn(),
+            vehicle_fn: &vehicle_fn(),
             start_at: 1000,
             pause_at_start: None,
             pause_at_end: None,
@@ -412,14 +403,14 @@ mod tests {
             &world,
             positions,
             &travel_duration(),
-            &travel_mode_fn(),
+            &vehicle_fn(),
             0,
         ));
         let new_state = state.travel(Journey {
             world: &world,
             positions: vec![v2(1, 0), v2(2, 0), v2(2, 1)],
             travel_duration: &travel_duration(),
-            travel_mode_fn: &travel_mode_fn(),
+            vehicle_fn: &vehicle_fn(),
             start_at: 1000,
             pause_at_start: None,
             pause_at_end: None,
@@ -430,7 +421,7 @@ mod tests {
                 &world,
                 vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
                 &travel_duration(),
-                &travel_mode_fn(),
+                &vehicle_fn(),
                 0
             )))
         )
@@ -444,14 +435,14 @@ mod tests {
             &world,
             positions,
             &travel_duration(),
-            &travel_mode_fn(),
+            &vehicle_fn(),
             0,
         ));
         let new_state = state.travel(Journey {
             world: &world,
             positions: vec![v2(1, 1), v2(2, 1), v2(2, 2)],
             travel_duration: &travel_duration(),
-            travel_mode_fn: &travel_mode_fn(),
+            vehicle_fn: &vehicle_fn(),
             start_at: 1000,
             pause_at_start: None,
             pause_at_end: None,
@@ -467,14 +458,14 @@ mod tests {
             &world,
             positions,
             &travel_duration(),
-            &travel_mode_fn(),
+            &vehicle_fn(),
             0,
         ));
         let new_state = state.travel(Journey {
             world: &world,
             positions: vec![v2(1, 0), v2(2, 0), v2(2, 1)],
             travel_duration: &travel_duration(),
-            travel_mode_fn: &travel_mode_fn(),
+            vehicle_fn: &vehicle_fn(),
             start_at: 2000,
             pause_at_start: None,
             pause_at_end: None,
@@ -489,13 +480,13 @@ mod tests {
             position: v2(0, 0),
             elevation: 0.3,
             rotation: Rotation::Up,
-            travel_mode_class: TravelModeClass::Land,
+            vehicle: Vehicle::None,
         };
         let new_state = state.travel(Journey {
             world: &world,
             positions: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             travel_duration: &travel_duration(),
-            travel_mode_fn: &travel_mode_fn(),
+            vehicle_fn: &vehicle_fn(),
             start_at: 0,
             pause_at_start: Some(Duration::from_secs(10)),
             pause_at_end: Some(Duration::from_secs(20)),
@@ -504,7 +495,7 @@ mod tests {
             &world,
             vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             &travel_duration(),
-            &travel_mode_fn(),
+            &vehicle_fn(),
             0,
         )
         .with_pause_at_start(Duration::from_secs(10).as_micros())
@@ -520,14 +511,14 @@ mod tests {
             &world,
             positions,
             &travel_duration(),
-            &travel_mode_fn(),
+            &vehicle_fn(),
             0,
         ));
         let new_state = state.travel(Journey {
             world: &world,
             positions: vec![v2(1, 0), v2(2, 0), v2(2, 1)],
             travel_duration: &travel_duration(),
-            travel_mode_fn: &travel_mode_fn(),
+            vehicle_fn: &vehicle_fn(),
             start_at: 1000,
             pause_at_start: Some(Duration::from_secs(10)),
             pause_at_end: Some(Duration::from_secs(20)),
@@ -536,7 +527,7 @@ mod tests {
             &world,
             vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
             &travel_duration(),
-            &travel_mode_fn(),
+            &vehicle_fn(),
             0,
         )
         .with_pause_at_end(Duration::from_secs(20).as_micros());
@@ -551,7 +542,7 @@ mod tests {
             world: &world,
             positions: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             travel_duration: &travel_duration(),
-            travel_mode_fn: &travel_mode_fn(),
+            vehicle_fn: &vehicle_fn(),
             start_at: 0,
             pause_at_start: None,
             pause_at_end: None,
@@ -562,7 +553,7 @@ mod tests {
                 &world,
                 vec![v2(0, 0), v2(1, 0), v2(2, 0)],
                 &travel_duration(),
-                &travel_mode_fn(),
+                &vehicle_fn(),
                 0
             )))
         )
@@ -574,7 +565,7 @@ mod tests {
             position: v2(1, 1),
             elevation: 0.3,
             rotation: Rotation::Up,
-            travel_mode_class: TravelModeClass::Land,
+            vehicle: Vehicle::None,
         };
         assert_eq!(
             avatar.compute_world_coord(&0),
@@ -590,7 +581,7 @@ mod tests {
             &world,
             vec![v2(1, 1), v2(1, 2)],
             &travel_duration(),
-            &travel_mode_fn(),
+            &vehicle_fn(),
             start,
         ));
         let duration = travel_duration()
@@ -611,10 +602,10 @@ mod tests {
             position: v2(1, 1),
             elevation: 0.3,
             rotation: Rotation::Up,
-            travel_mode_class: TravelModeClass::Land,
+            vehicle: Vehicle::None,
         };
 
-        assert_eq!(avatar.travel_mode_class(&123), Some(TravelModeClass::Land));
+        assert_eq!(avatar.vehicle(&123), Some(Vehicle::None));
     }
 
     #[test]
@@ -625,15 +616,15 @@ mod tests {
             &world,
             vec![v2(1, 1), v2(1, 2)],
             &travel_duration(),
-            &travel_mode_fn(),
+            &vehicle_fn(),
             start,
         ));
 
         let duration = travel_duration()
             .get_duration(&world, &v2(1, 1), &v2(1, 2))
             .unwrap();
-        let actual = avatar.travel_mode_class(&(start + duration.as_micros() / 4));
+        let actual = avatar.vehicle(&(start + duration.as_micros() / 4));
 
-        assert_eq!(actual, Some(TravelModeClass::Water));
+        assert_eq!(actual, Some(Vehicle::Boat));
     }
 }
