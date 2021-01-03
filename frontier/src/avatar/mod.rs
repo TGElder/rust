@@ -135,8 +135,16 @@ impl AvatarState {
                 if path.final_frame().arrival != args.start_at {
                     return None;
                 }
-
-                Some(AvatarState::Walking(args.follow(path)?))
+                let mut path = path.extend(
+                    args.world,
+                    args.positions,
+                    args.travel_duration,
+                    args.vehicle_fn,
+                )?;
+                if let Some(pause) = args.pause_at_end {
+                    path = path.with_pause_at_end(pause.as_micros());
+                }
+                Some(AvatarState::Walking(path))
             }
             AvatarState::Absent => Some(AvatarState::Walking(args.into())),
         }
@@ -182,21 +190,6 @@ pub struct TravelArgs<'a> {
     pub start_at: u128,
     pub pause_at_start: Option<Duration>,
     pub pause_at_end: Option<Duration>,
-}
-
-impl<'a> TravelArgs<'a> {
-    fn follow(self, path: &Path) -> Option<Path> {
-        let mut path = path.extend(
-            self.world,
-            self.positions,
-            self.travel_duration,
-            self.vehicle_fn,
-        )?;
-        if let Some(pause) = self.pause_at_end {
-            path = path.with_pause_at_end(pause.as_micros());
-        }
-        Some(path)
-    }
 }
 
 impl<'a> Into<Path> for TravelArgs<'a> {
