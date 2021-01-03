@@ -6,7 +6,6 @@ const NAME: &str = "avatar_artist_handler";
 pub struct AvatarArtistHandler {
     command_tx: Sender<Vec<Command>>,
     avatar_artist: Option<AvatarArtist>,
-    travel_mode_fn: Option<AvatarTravelModeFn>,
 }
 
 impl AvatarArtistHandler {
@@ -14,15 +13,11 @@ impl AvatarArtistHandler {
         AvatarArtistHandler {
             command_tx,
             avatar_artist: None,
-            travel_mode_fn: None,
         }
     }
 
     fn init(&mut self, game_state: &GameState) {
         self.init_avatar_artist(game_state);
-        self.travel_mode_fn = Some(AvatarTravelModeFn::new(
-            game_state.params.avatar_travel.min_navigable_river_width,
-        ));
     }
 
     fn init_avatar_artist(&mut self, game_state: &GameState) {
@@ -32,15 +27,9 @@ impl AvatarArtistHandler {
     }
 
     fn draw_avatars(&mut self, game_state: &GameState) {
-        if let (Some(avatar_artist), Some(travel_mode_fn)) =
-            (&mut self.avatar_artist, &self.travel_mode_fn)
-        {
-            let commands = avatar_artist.update_avatars(
-                &game_state.avatars,
-                &game_state.world,
-                &game_state.game_micros,
-                &travel_mode_fn,
-            );
+        if let Some(avatar_artist) = &mut self.avatar_artist {
+            let commands =
+                avatar_artist.update_avatars(&game_state.avatars, &game_state.game_micros);
             self.command_tx.send(commands).unwrap();
         }
     }

@@ -98,6 +98,7 @@ mod tests {
                     position: v2(1, 1),
                     elevation: 0.3,
                     rotation: Rotation::Down,
+                    vehicle: Vehicle::Boat,
                 },
                 load: AvatarLoad::Resource(Resource::Gold),
                 color: Color::new(0.2, 0.4, 0.6, 0.8),

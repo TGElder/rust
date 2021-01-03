@@ -166,9 +166,8 @@ impl PrimeMover {
     ) {
         let pause_at_start = self.params.pause_at_start_of_journey;
         let pause_at_end = self.params.pause_at_end_of_journey;
-        let first = *unwrap_or!(positions.first(), return);
         self.game_tx.send(move |game| {
-            add_avatar(game, key.to_string(), first, color, skin_color, load);
+            add_avatar(game, key.to_string(), color, skin_color, load);
             walk_positions(
                 game,
                 key.to_string(),
@@ -255,27 +254,10 @@ fn walk_positions(
     game.walk_positions(name, positions, start_at, pause_at_start, pause_at_end);
 }
 
-fn add_avatar(
-    game: &mut Game,
-    name: String,
-    position: V2<usize>,
-    color: Color,
-    skin_color: Color,
-    load: AvatarLoad,
-) {
-    let elevation = game
-        .game_state()
-        .world
-        .get_cell_unsafe(&position)
-        .elevation
-        .max(game.game_state().world.sea_level());
+fn add_avatar(game: &mut Game, name: String, color: Color, skin_color: Color, load: AvatarLoad) {
     let avatar = Avatar {
         name: name.clone(),
-        state: AvatarState::Stationary {
-            position,
-            elevation,
-            rotation: Rotation::Up,
-        },
+        state: AvatarState::Absent,
         color,
         skin_color,
         load,

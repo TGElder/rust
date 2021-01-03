@@ -1,7 +1,6 @@
 use super::*;
 use crate::avatar::*;
 use crate::resource::Resource;
-use crate::world::World;
 use commons::{na, v3, V3};
 use isometric::coords::*;
 use isometric::drawing::{
@@ -128,36 +127,22 @@ impl AvatarArtist {
     pub fn update_avatars(
         &mut self,
         avatars: &HashMap<String, Avatar>,
-        world: &World,
         instant: &u128,
-        travel_mode_fn: &AvatarTravelModeFn,
     ) -> Vec<Command> {
         let mut out = vec![];
-        out.append(&mut self.draw_avatars(avatars, world, instant, travel_mode_fn));
+        out.append(&mut self.draw_avatars(avatars, instant));
         out.append(&mut self.erase_avatars(avatars));
         out
     }
 
-    fn draw_avatars(
-        &mut self,
-        avatars: &HashMap<String, Avatar>,
-        world: &World,
-        instant: &u128,
-        travel_mode_fn: &AvatarTravelModeFn,
-    ) -> Vec<Command> {
+    fn draw_avatars(&mut self, avatars: &HashMap<String, Avatar>, instant: &u128) -> Vec<Command> {
         avatars
             .values()
-            .flat_map(|avatar| self.draw_avatar(avatar, world, instant, travel_mode_fn))
+            .flat_map(|avatar| self.draw_avatar(avatar, instant))
             .collect()
     }
 
-    fn draw_avatar(
-        &mut self,
-        avatar: &Avatar,
-        world: &World,
-        instant: &u128,
-        travel_mode_fn: &AvatarTravelModeFn,
-    ) -> Vec<Command> {
+    fn draw_avatar(&mut self, avatar: &Avatar, instant: &u128) -> Vec<Command> {
         let mut out = vec![];
         let name = &avatar.name;
         let state = &avatar.state;
@@ -175,14 +160,7 @@ impl AvatarArtist {
 
         if let Some(world_coord) = state.compute_world_coord(instant) {
             out.append(&mut self.draw_body(&avatar, instant, world_coord));
-            out.append(&mut self.draw_boat_if_required(
-                &name,
-                state,
-                world,
-                world_coord,
-                instant,
-                travel_mode_fn,
-            ));
+            out.append(&mut self.draw_boat_if_required(&name, state, world_coord, instant));
             out.append(&mut self.draw_load(&name, &avatar.load, world_coord));
         } else {
             out.append(&mut self.hide(name));
@@ -273,43 +251,18 @@ impl AvatarArtist {
         &self,
         name: &str,
         state: &AvatarState,
-        world: &World,
         world_coord: WorldCoord,
         instant: &u128,
-        travel_mode_fn: &AvatarTravelModeFn,
     ) -> Vec<Command> {
-        if self.should_draw_boat(state, world, world_coord, travel_mode_fn) {
+        if self.should_draw_boat(state, instant) {
             self.draw_boat(name, state, world_coord, instant)
         } else {
             vec![self.hide_boat(name)]
         }
     }
 
-    fn should_draw_boat(
-        &self,
-        state: &AvatarState,
-        world: &World,
-        world_coord: WorldCoord,
-        travel_mode_fn: &AvatarTravelModeFn,
-    ) -> bool {
-        let travel_modes = match state {
-            AvatarState::Walking { .. } => {
-                let from = world_coord.to_v2_floor();
-                let to = world_coord.to_v2_ceil();
-                travel_mode_fn
-                    .travel_mode_between(world, &from, &to)
-                    .map(|mode| vec![mode])
-                    .unwrap_or_default()
-            }
-            AvatarState::Stationary { position, .. } => {
-                travel_mode_fn.travel_modes_here(world, &position)
-            }
-            _ => vec![],
-        };
-        !travel_modes
-            .iter()
-            .map(|mode| mode.class())
-            .any(|class| class == TravelModeClass::Land)
+    fn should_draw_boat(&self, state: &AvatarState, instant: &u128) -> bool {
+        state.vehicle_at(instant) == Some(Vehicle::Boat)
     }
 
     fn draw_boat(

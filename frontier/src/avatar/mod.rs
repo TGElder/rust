@@ -5,6 +5,7 @@ mod travel_duration;
 mod travel_mode;
 mod travel_mode_change;
 mod travel_mode_fn;
+mod vehicle;
 
 pub use avatar_travel_mode_fn::*;
 pub use check_for_port::*;
@@ -13,6 +14,7 @@ pub use travel_duration::*;
 pub use travel_mode::*;
 pub use travel_mode_change::*;
 pub use travel_mode_fn::*;
+pub use vehicle::*;
 
 use crate::resource::Resource;
 use crate::travel_duration::*;
@@ -40,6 +42,7 @@ pub enum AvatarState {
         position: V2<usize>,
         elevation: f32,
         rotation: Rotation,
+        vehicle: Vehicle,
     },
     Walking(Path),
     Absent,
@@ -60,6 +63,7 @@ impl AvatarState {
                 position: path.final_frame().position,
                 elevation: path.final_frame().elevation,
                 rotation: path.compute_final_rotation().unwrap_or_default(),
+                vehicle: path.final_frame().vehicle,
             }),
             _ => None,
         }
@@ -70,12 +74,14 @@ impl AvatarState {
             position,
             elevation,
             rotation,
+            vehicle,
         } = self
         {
             Some(AvatarState::Stationary {
                 position: *position,
                 elevation: *elevation,
                 rotation: rotation.clockwise(),
+                vehicle: *vehicle,
             })
         } else {
             None
@@ -87,12 +93,14 @@ impl AvatarState {
             position,
             elevation,
             rotation,
+            vehicle,
         } = self
         {
             Some(AvatarState::Stationary {
                 position: *position,
                 elevation: *elevation,
                 rotation: rotation.anticlockwise(),
+                vehicle: *vehicle,
             })
         } else {
             None
@@ -115,45 +123,31 @@ impl AvatarState {
         None
     }
 
-    pub fn walk_positions<T>(
-        &self,
-        world: &World,
-        positions: Vec<V2<usize>>,
-        travel_duration: &T,
-        start_at: u128,
-        pause_at_start: Option<Duration>,
-        pause_at_end: Option<Duration>,
-    ) -> Option<AvatarState>
-    where
-        T: TravelDuration,
-    {
+    pub fn travel(&self, args: TravelArgs) -> Option<AvatarState> {
         match self {
             AvatarState::Stationary { position: from, .. } => {
-                if *from != positions[0] {
+                if *from != args.positions[0] {
                     return None;
                 }
-                let mut path = Path::new(world, positions, travel_duration, start_at);
-                if let Some(pause) = pause_at_start {
-                    path = path.with_pause_at_start(pause.as_micros());
-                }
-                if let Some(pause) = pause_at_end {
-                    path = path.with_pause_at_end(pause.as_micros());
-                }
-                return Some(AvatarState::Walking(path));
+                Some(AvatarState::Walking(args.into()))
             }
             AvatarState::Walking(path) => {
-                if path.final_frame().arrival != start_at {
+                if path.final_frame().arrival != args.start_at {
                     return None;
                 }
-                let mut path = path.extend(world, positions, travel_duration)?;
-                if let Some(pause) = pause_at_end {
+                let mut path = path.extend(
+                    args.world,
+                    args.positions,
+                    args.travel_duration,
+                    args.vehicle_fn,
+                )?;
+                if let Some(pause) = args.pause_at_end {
                     path = path.with_pause_at_end(pause.as_micros());
                 }
-                return Some(AvatarState::Walking(path));
+                Some(AvatarState::Walking(path))
             }
-            _ => (),
+            AvatarState::Absent => Some(AvatarState::Walking(args.into())),
         }
-        None
     }
 
     pub fn stop(&self, stop_at: &u128) -> Option<AvatarState> {
@@ -177,6 +171,43 @@ impl AvatarState {
             AvatarState::Walking(path) => path.compute_world_coord(instant),
             _ => None,
         }
+    }
+
+    pub fn vehicle_at(&self, instant: &u128) -> Option<Vehicle> {
+        match &self {
+            AvatarState::Stationary { vehicle, .. } => Some(*vehicle),
+            AvatarState::Walking(path) => path.vehicle_at(instant),
+            _ => None,
+        }
+    }
+}
+
+pub struct TravelArgs<'a> {
+    pub world: &'a World,
+    pub positions: Vec<V2<usize>>,
+    pub travel_duration: &'a dyn TravelDuration,
+    pub vehicle_fn: &'a dyn VehicleFn,
+    pub start_at: u128,
+    pub pause_at_start: Option<Duration>,
+    pub pause_at_end: Option<Duration>,
+}
+
+impl<'a> Into<Path> for TravelArgs<'a> {
+    fn into(self) -> Path {
+        let mut path = Path::new(
+            self.world,
+            self.positions,
+            self.travel_duration,
+            self.vehicle_fn,
+            self.start_at,
+        );
+        if let Some(pause) = self.pause_at_start {
+            path = path.with_pause_at_start(pause.as_micros());
+        }
+        if let Some(pause) = self.pause_at_end {
+            path = path.with_pause_at_end(pause.as_micros());
+        }
+        path
     }
 }
 
@@ -265,6 +296,18 @@ mod tests {
         }
     }
 
+    struct TestVehicleFn {}
+
+    impl VehicleFn for TestVehicleFn {
+        fn vehicle_between(&self, _: &World, _: &V2<usize>, _: &V2<usize>) -> Option<Vehicle> {
+            Some(Vehicle::Boat)
+        }
+    }
+
+    fn vehicle_fn() -> impl VehicleFn {
+        TestVehicleFn {}
+    }
+
     #[rustfmt::skip]
     fn world() -> World {
         World::new(
@@ -283,6 +326,7 @@ mod tests {
             position: v2(1, 1),
             elevation: 0.3,
             rotation: Rotation::Up,
+            vehicle: Vehicle::None,
         };
         assert_eq!(avatar.forward_path(), Some(vec![v2(1, 1), v2(1, 2)]));
         let avatar = avatar.rotate_clockwise().unwrap();
@@ -294,127 +338,157 @@ mod tests {
     }
 
     #[test]
-    fn test_walk_positions_stationary_compatible() {
+    fn test_travel_stationary_compatible() {
         let world = world();
         let state = AvatarState::Stationary {
             position: v2(0, 0),
             elevation: 0.3,
             rotation: Rotation::Up,
+            vehicle: Vehicle::None,
         };
-        let new_state = state.walk_positions(
-            &world,
-            vec![v2(0, 0), v2(1, 0), v2(2, 0)],
-            &travel_duration(),
-            0,
-            None,
-            None,
-        );
+        let new_state = state.travel(TravelArgs {
+            world: &world,
+            positions: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
+            travel_duration: &travel_duration(),
+            vehicle_fn: &vehicle_fn(),
+            start_at: 0,
+            pause_at_start: None,
+            pause_at_end: None,
+        });
         assert_eq!(
             new_state,
             Some(AvatarState::Walking(Path::new(
                 &world,
                 vec![v2(0, 0), v2(1, 0), v2(2, 0)],
                 &travel_duration(),
+                &vehicle_fn(),
                 0
             )))
         )
     }
 
     #[test]
-    fn test_walk_positions_stationary_position_incompatible() {
+    fn test_travel_stationary_position_incompatible() {
         let world = world();
         let state = AvatarState::Stationary {
             position: v2(0, 0),
             elevation: 0.3,
             rotation: Rotation::Up,
+            vehicle: Vehicle::None,
         };
-        let new_state = state.walk_positions(
-            &world,
-            vec![v2(0, 1), v2(1, 1), v2(2, 1)],
-            &travel_duration(),
-            1000,
-            None,
-            None,
-        );
+        let new_state = state.travel(TravelArgs {
+            world: &world,
+            positions: vec![v2(0, 1), v2(1, 1), v2(2, 1)],
+            travel_duration: &travel_duration(),
+            vehicle_fn: &vehicle_fn(),
+            start_at: 1000,
+            pause_at_start: None,
+            pause_at_end: None,
+        });
         assert_eq!(new_state, None,)
     }
 
     #[test]
-    fn test_walk_positions_walking_compatible() {
+    fn test_travel_walking_compatible() {
         let world = world();
         let positions = vec![v2(0, 0), v2(1, 0)];
-        let state = AvatarState::Walking(Path::new(&world, positions, &travel_duration(), 0));
-        let new_state = state.walk_positions(
+        let state = AvatarState::Walking(Path::new(
             &world,
-            vec![v2(1, 0), v2(2, 0), v2(2, 1)],
+            positions,
             &travel_duration(),
-            1000,
-            None,
-            None,
-        );
+            &vehicle_fn(),
+            0,
+        ));
+        let new_state = state.travel(TravelArgs {
+            world: &world,
+            positions: vec![v2(1, 0), v2(2, 0), v2(2, 1)],
+            travel_duration: &travel_duration(),
+            vehicle_fn: &vehicle_fn(),
+            start_at: 1000,
+            pause_at_start: None,
+            pause_at_end: None,
+        });
         assert_eq!(
             new_state,
             Some(AvatarState::Walking(Path::new(
                 &world,
                 vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
                 &travel_duration(),
+                &vehicle_fn(),
                 0
             )))
         )
     }
 
     #[test]
-    fn test_walk_positions_walking_position_incompatible() {
+    fn test_travel_walking_position_incompatible() {
         let world = world();
         let positions = vec![v2(0, 0), v2(1, 0)];
-        let state = AvatarState::Walking(Path::new(&world, positions, &travel_duration(), 0));
-        let new_state = state.walk_positions(
+        let state = AvatarState::Walking(Path::new(
             &world,
-            vec![v2(1, 1), v2(2, 1), v2(2, 2)],
+            positions,
             &travel_duration(),
-            1000,
-            None,
-            None,
-        );
+            &vehicle_fn(),
+            0,
+        ));
+        let new_state = state.travel(TravelArgs {
+            world: &world,
+            positions: vec![v2(1, 1), v2(2, 1), v2(2, 2)],
+            travel_duration: &travel_duration(),
+            vehicle_fn: &vehicle_fn(),
+            start_at: 1000,
+            pause_at_start: None,
+            pause_at_end: None,
+        });
         assert_eq!(new_state, None,)
     }
 
     #[test]
-    fn test_walk_positions_walking_time_incompatible() {
+    fn test_travel_walking_time_incompatible() {
         let world = world();
         let positions = vec![v2(0, 0), v2(1, 0)];
-        let state = AvatarState::Walking(Path::new(&world, positions, &travel_duration(), 0));
-        let new_state = state.walk_positions(
+        let state = AvatarState::Walking(Path::new(
             &world,
-            vec![v2(1, 0), v2(2, 0), v2(2, 1)],
+            positions,
             &travel_duration(),
-            2000,
-            None,
-            None,
-        );
+            &vehicle_fn(),
+            0,
+        ));
+        let new_state = state.travel(TravelArgs {
+            world: &world,
+            positions: vec![v2(1, 0), v2(2, 0), v2(2, 1)],
+            travel_duration: &travel_duration(),
+            vehicle_fn: &vehicle_fn(),
+            start_at: 2000,
+            pause_at_start: None,
+            pause_at_end: None,
+        });
         assert_eq!(new_state, None,)
     }
 
     #[test]
-    fn test_walk_positions_stationary_with_pauses() {
+    fn test_travel_stationary_with_pauses() {
         let world = world();
         let state = AvatarState::Stationary {
             position: v2(0, 0),
             elevation: 0.3,
             rotation: Rotation::Up,
+            vehicle: Vehicle::None,
         };
-        let new_state = state.walk_positions(
-            &world,
-            vec![v2(0, 0), v2(1, 0), v2(2, 0)],
-            &travel_duration(),
-            0,
-            Some(Duration::from_secs(10)),
-            Some(Duration::from_secs(20)),
-        );
+        let new_state = state.travel(TravelArgs {
+            world: &world,
+            positions: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
+            travel_duration: &travel_duration(),
+            vehicle_fn: &vehicle_fn(),
+            start_at: 0,
+            pause_at_start: Some(Duration::from_secs(10)),
+            pause_at_end: Some(Duration::from_secs(20)),
+        });
         let expected_path = Path::new(
             &world,
             vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             &travel_duration(),
+            &vehicle_fn(),
             0,
         )
         .with_pause_at_start(Duration::from_secs(10).as_micros())
@@ -423,26 +497,59 @@ mod tests {
     }
 
     #[test]
-    fn test_walk_positions_walking_with_pauses() {
+    fn test_travel_walking_with_pauses() {
         let world = world();
         let positions = vec![v2(0, 0), v2(1, 0)];
-        let state = AvatarState::Walking(Path::new(&world, positions, &travel_duration(), 0));
-        let new_state = state.walk_positions(
+        let state = AvatarState::Walking(Path::new(
             &world,
-            vec![v2(1, 0), v2(2, 0), v2(2, 1)],
+            positions,
             &travel_duration(),
-            1000,
-            Some(Duration::from_secs(10)),
-            Some(Duration::from_secs(20)),
-        );
+            &vehicle_fn(),
+            0,
+        ));
+        let new_state = state.travel(TravelArgs {
+            world: &world,
+            positions: vec![v2(1, 0), v2(2, 0), v2(2, 1)],
+            travel_duration: &travel_duration(),
+            vehicle_fn: &vehicle_fn(),
+            start_at: 1000,
+            pause_at_start: Some(Duration::from_secs(10)),
+            pause_at_end: Some(Duration::from_secs(20)),
+        });
         let expected_path = Path::new(
             &world,
             vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
             &travel_duration(),
+            &vehicle_fn(),
             0,
         )
         .with_pause_at_end(Duration::from_secs(20).as_micros());
         assert_eq!(new_state, Some(AvatarState::Walking(expected_path)),)
+    }
+
+    #[test]
+    fn test_travel_absent() {
+        let world = world();
+        let state = AvatarState::Absent;
+        let new_state = state.travel(TravelArgs {
+            world: &world,
+            positions: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
+            travel_duration: &travel_duration(),
+            vehicle_fn: &vehicle_fn(),
+            start_at: 0,
+            pause_at_start: None,
+            pause_at_end: None,
+        });
+        assert_eq!(
+            new_state,
+            Some(AvatarState::Walking(Path::new(
+                &world,
+                vec![v2(0, 0), v2(1, 0), v2(2, 0)],
+                &travel_duration(),
+                &vehicle_fn(),
+                0
+            )))
+        )
     }
 
     #[test]
@@ -451,6 +558,7 @@ mod tests {
             position: v2(1, 1),
             elevation: 0.3,
             rotation: Rotation::Up,
+            vehicle: Vehicle::None,
         };
         assert_eq!(
             avatar.compute_world_coord(&0),
@@ -466,6 +574,7 @@ mod tests {
             &world,
             vec![v2(1, 1), v2(1, 2)],
             &travel_duration(),
+            &vehicle_fn(),
             start,
         ));
         let duration = travel_duration()
@@ -478,5 +587,37 @@ mod tests {
         assert!(((actual.x * 100.0).round() / 100.0).almost(&expected.x));
         assert!(((actual.y * 100.0).round() / 100.0).almost(&expected.y));
         assert!(((actual.z * 100.0).round() / 100.0).almost(&expected.z));
+    }
+
+    #[test]
+    fn test_vehicle_at_stationary() {
+        let avatar = AvatarState::Stationary {
+            position: v2(1, 1),
+            elevation: 0.3,
+            rotation: Rotation::Up,
+            vehicle: Vehicle::None,
+        };
+
+        assert_eq!(avatar.vehicle_at(&123), Some(Vehicle::None));
+    }
+
+    #[test]
+    fn test_vehicle_at_walking() {
+        let world = world();
+        let start = 0;
+        let avatar = AvatarState::Walking(Path::new(
+            &world,
+            vec![v2(1, 1), v2(1, 2)],
+            &travel_duration(),
+            &vehicle_fn(),
+            start,
+        ));
+
+        let duration = travel_duration()
+            .get_duration(&world, &v2(1, 1), &v2(1, 2))
+            .unwrap();
+        let actual = avatar.vehicle_at(&(start + duration.as_micros() / 4));
+
+        assert_eq!(actual, Some(Vehicle::Boat));
     }
 }

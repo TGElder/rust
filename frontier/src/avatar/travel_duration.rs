@@ -50,6 +50,10 @@ pub struct AvatarTravelDuration {
 }
 
 impl AvatarTravelDuration {
+    pub fn travel_mode_fn(&self) -> &AvatarTravelModeFn {
+        &self.travel_mode_fn
+    }
+
     pub fn with_planned_roads_as_roads(p: &AvatarTravelParams) -> AvatarTravelDuration {
         AvatarTravelDuration {
             travel_mode_fn: AvatarTravelModeFn::new(p.min_navigable_river_width),

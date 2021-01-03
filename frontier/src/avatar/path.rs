@@ -17,6 +17,7 @@ pub struct Frame {
     pub position: V2<usize>,
     pub elevation: f32,
     pub arrival: u128,
+    pub vehicle: Vehicle,
 }
 
 impl Path {
@@ -28,10 +29,11 @@ impl Path {
         world: &World,
         positions: Vec<V2<usize>>,
         travel_duration: &dyn TravelDuration,
+        vehicle_fn: &dyn VehicleFn,
         start_at: u128,
     ) -> Path {
         Path {
-            frames: Path::compute_frames(world, &positions, start_at, travel_duration),
+            frames: Path::compute_frames(world, &positions, start_at, travel_duration, vehicle_fn),
         }
     }
 
@@ -40,6 +42,7 @@ impl Path {
         positions: &[V2<usize>],
         start_at: u128,
         travel_duration: &dyn TravelDuration,
+        vehicle_fn: &dyn VehicleFn,
     ) -> Vec<Frame> {
         let mut next_arrival_time = start_at;
         let mut out = Vec::with_capacity(positions.len());
@@ -47,26 +50,55 @@ impl Path {
             position: positions[0],
             elevation: Self::get_elevation(world, &positions[0]),
             arrival: next_arrival_time,
+            vehicle: Self::vehicle(world, &positions[0], &positions[1], vehicle_fn),
         });
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            if let Some(duration) = travel_duration.get_duration(world, &from, &to) {
-                next_arrival_time += duration.as_micros();
-                out.push(Frame {
-                    position: to,
-                    elevation: Self::get_elevation(world, &to),
-                    arrival: next_arrival_time,
-                });
-            } else {
-                panic!(
-                    "Tried to create avatar path over impassable edge from {:?} to {:?}",
-                    world.get_cell(&from).unwrap(),
-                    world.get_cell(&to).unwrap()
-                );
-            }
+            let duration = Self::travel_duration(world, &from, &to, travel_duration);
+            next_arrival_time += duration.as_micros();
+            out.push(Frame {
+                position: to,
+                elevation: Self::get_elevation(world, &to),
+                arrival: next_arrival_time,
+                vehicle: Self::vehicle(world, &from, &to, vehicle_fn),
+            });
         }
         out
+    }
+
+    fn vehicle(
+        world: &World,
+        from: &V2<usize>,
+        to: &V2<usize>,
+        vehicle_fn: &dyn VehicleFn,
+    ) -> Vehicle {
+        vehicle_fn
+            .vehicle_between(world, &from, &to)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Tried to create avatar path over edge without vehicle from {:?} to {:?}",
+                    world.get_cell(from).unwrap(),
+                    world.get_cell(to).unwrap()
+                )
+            })
+    }
+
+    fn travel_duration(
+        world: &World,
+        from: &V2<usize>,
+        to: &V2<usize>,
+        travel_duration: &dyn TravelDuration,
+    ) -> Duration {
+        travel_duration
+            .get_duration(world, &from, &to)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Tried to create avatar path over impassable edge from {:?} to {:?}",
+                    world.get_cell(from).unwrap(),
+                    world.get_cell(to).unwrap()
+                )
+            })
     }
 
     fn get_elevation(world: &World, position: &V2<usize>) -> f32 {
@@ -126,6 +158,11 @@ impl Path {
         ))
     }
 
+    pub fn vehicle_at(&self, instant: &u128) -> Option<Vehicle> {
+        self.compute_current_index(instant)
+            .map(|index| self.frames[index].vehicle)
+    }
+
     fn compute_rotation_at_index(&self, index: usize) -> Option<Rotation> {
         let from = self.frames[index - 1].position;
         let to = self.frames[index].position;
@@ -156,6 +193,7 @@ impl Path {
         world: &World,
         extension: Vec<V2<usize>>,
         travel_duration: &dyn TravelDuration,
+        vehicle_fn: &dyn VehicleFn,
     ) -> Option<Path> {
         if self.final_frame().position != extension[0] {
             return None;
@@ -164,8 +202,13 @@ impl Path {
         let mut positions: Vec<V2<usize>> =
             self.frames.iter().map(|frame| frame.position).collect();
         positions.append(&mut extension[1..].to_vec());
-        let frames =
-            Path::compute_frames(world, &positions, self.frames[0].arrival, travel_duration);
+        let frames = Path::compute_frames(
+            world,
+            &positions,
+            self.frames[0].arrival,
+            travel_duration,
+            vehicle_fn,
+        );
         Some(Path { frames })
     }
 
@@ -231,6 +274,29 @@ mod tests {
         }
     }
 
+    struct TestVehicleFn {}
+
+    impl VehicleFn for TestVehicleFn {
+        fn vehicle_between(
+            &self,
+            world: &World,
+            from: &V2<usize>,
+            to: &V2<usize>,
+        ) -> Option<Vehicle> {
+            if world.get_cell_unsafe(from).elevation < world.sea_level()
+                || world.get_cell_unsafe(to).elevation < world.sea_level()
+            {
+                Some(Vehicle::Boat)
+            } else {
+                Some(Vehicle::None)
+            }
+        }
+    }
+
+    fn vehicle_fn() -> impl VehicleFn {
+        TestVehicleFn {}
+    }
+
     #[rustfmt::skip]
     fn world() -> World {
         World::new(
@@ -247,33 +313,38 @@ mod tests {
     fn test_new() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let actual = Path::new(&world, positions, &travel_duration(), 0);
+        let actual = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let expected = Path {
             frames: vec![
                 Frame {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 0,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(0, 1),
                     elevation: 0.5,
                     arrival: 1_000,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(1, 1),
                     elevation: 1.0,
                     arrival: 3_000,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(1, 2),
                     elevation: 2.0,
                     arrival: 6_000,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(2, 2),
                     elevation: 3.0,
                     arrival: 10_000,
+                    vehicle: Vehicle::None,
                 },
             ],
         };
@@ -284,13 +355,14 @@ mod tests {
     fn test_final_frame() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), 0);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         assert_eq!(
             path.final_frame(),
             &Frame {
                 position: v2(2, 2),
                 elevation: 3.0,
                 arrival: 10_000,
+                vehicle: Vehicle::None,
             }
         );
     }
@@ -300,7 +372,13 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let instant = 0;
-        let path = Path::new(&world, positions, &travel_duration(), instant);
+        let path = Path::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            instant,
+        );
         assert!(!path.done(&instant));
         let done_at = instant + 10_000;
         assert!(path.done(&done_at));
@@ -311,7 +389,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Path::new(&world, positions, &travel_duration(), start);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         assert_eq!(path.compute_current_index(&start), Some(1));
         let at = start + 1_500;
         assert_eq!(path.compute_current_index(&at), Some(2));
@@ -324,7 +402,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Path::new(&world, positions, &travel_duration(), start);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let at = start + 1_500;
         let actual = path.compute_world_coord(&at).unwrap();
         let expected = WorldCoord::new(0.25, 1.0, 0.625);
@@ -336,10 +414,22 @@ mod tests {
     }
 
     #[test]
+    fn test_vehicle_at() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let start = 0;
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        assert_eq!(path.vehicle_at(&0), Some(Vehicle::Boat));
+        assert_eq!(path.vehicle_at(&2_999), Some(Vehicle::Boat));
+        assert_eq!(path.vehicle_at(&3_000), Some(Vehicle::None));
+        assert_eq!(path.vehicle_at(&10_000), None);
+    }
+
+    #[test]
     fn test_compute_rotation_at_index() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(0, 1), v2(0, 0)];
-        let path = Path::new(&world, positions, &travel_duration(), 0);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         assert_eq!(path.compute_rotation_at_index(1), Some(Rotation::Up));
         assert_eq!(path.compute_rotation_at_index(2), Some(Rotation::Right));
         assert_eq!(path.compute_rotation_at_index(3), Some(Rotation::Left));
@@ -351,7 +441,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Path::new(&world, positions, &travel_duration(), start);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let at = start + 1_500;
         let actual = path.compute_rotation(&at).unwrap();
         assert_eq!(actual, Rotation::Right);
@@ -361,7 +451,7 @@ mod tests {
     fn test_final_rotation() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), 0);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         assert_eq!(path.compute_final_rotation(), Some(Rotation::Right));
     }
 
@@ -371,7 +461,7 @@ mod tests {
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
 
-        let path = Path::new(&world, positions, &travel_duration(), start);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let frames = path.frames.clone();
 
         assert_eq!(path.stop(&start).frames, vec![frames[0], frames[1]]);
@@ -385,16 +475,24 @@ mod tests {
     fn test_extend_compatible() {
         let world = world();
         let start = 0;
-        let actual = Path::new(&world, vec![v2(0, 0), v2(0, 1)], &travel_duration(), start);
+        let actual = Path::new(
+            &world,
+            vec![v2(0, 0), v2(0, 1)],
+            &travel_duration(),
+            &vehicle_fn(),
+            start,
+        );
         let actual = actual.extend(
             &world,
             vec![v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)],
             &travel_duration(),
+            &vehicle_fn(),
         );
         let expected = Path::new(
             &world,
             vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)],
             &travel_duration(),
+            &vehicle_fn(),
             start,
         );
         assert_eq!(actual, Some(expected));
@@ -404,11 +502,18 @@ mod tests {
     fn test_extend_incompatible() {
         let world = world();
         let start = 0;
-        let actual = Path::new(&world, vec![v2(0, 0), v2(0, 1)], &travel_duration(), start);
+        let actual = Path::new(
+            &world,
+            vec![v2(0, 0), v2(0, 1)],
+            &travel_duration(),
+            &vehicle_fn(),
+            start,
+        );
         let actual = actual.extend(
             &world,
             vec![v2(1, 1), v2(1, 2), v2(2, 2)],
             &travel_duration(),
+            &vehicle_fn(),
         );
         assert_eq!(actual, None);
     }
@@ -417,7 +522,7 @@ mod tests {
     fn test_edges_between_times() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), 0);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let actual = path.edges_between_times(&1_500, &6_500);
         let expected = vec![Edge::new(v2(0, 1), v2(1, 1)), Edge::new(v2(1, 1), v2(1, 2))];
         assert_eq!(actual, expected);
@@ -427,7 +532,7 @@ mod tests {
     fn test_edges_between_times_start_not_included() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), 0);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let actual = path.edges_between_times(&0, &1_500);
         let expected = vec![Edge::new(v2(0, 0), v2(0, 1))];
         assert_eq!(actual, expected);
@@ -437,7 +542,7 @@ mod tests {
     fn test_edges_between_times_end_is_included() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), 0);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let actual = path.edges_between_times(&6_500, &10_000);
         let expected = vec![Edge::new(v2(1, 2), v2(2, 2))];
         assert_eq!(actual, expected);
@@ -447,7 +552,7 @@ mod tests {
     fn test_edges_between_times_before() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), 1_000);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 1_000);
         let actual = path.edges_between_times(&0, &500);
         let expected = vec![];
         assert_eq!(actual, expected);
@@ -457,7 +562,7 @@ mod tests {
     fn test_edges_between_times_after() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), 0);
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let actual = path.edges_between_times(&10_000, &10_500);
         let expected = vec![];
         assert_eq!(actual, expected);
@@ -471,16 +576,19 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 0,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(1, 0),
                     elevation: 2.0,
                     arrival: 10,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 20,
+                    vehicle: Vehicle::None,
                 },
             ],
         };
@@ -493,21 +601,25 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 0,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 1,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(1, 0),
                     elevation: 2.0,
                     arrival: 11,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 21,
+                    vehicle: Vehicle::None,
                 },
             ],
         };
@@ -530,16 +642,19 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 0,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(1, 0),
                     elevation: 2.0,
                     arrival: 10,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 20,
+                    vehicle: Vehicle::Boat,
                 },
             ],
         };
@@ -552,21 +667,25 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 0,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(1, 0),
                     elevation: 2.0,
                     arrival: 10,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 20,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 21,
+                    vehicle: Vehicle::Boat,
                 },
             ],
         };
@@ -589,11 +708,13 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 0,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(1, 1),
                     elevation: 2.0,
                     arrival: 1,
+                    vehicle: Vehicle::Boat,
                 },
             ],
         };
@@ -603,11 +724,13 @@ mod tests {
                     position: v2(2, 2),
                     elevation: 2.0,
                     arrival: 2,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(3, 3),
                     elevation: 3.0,
                     arrival: 3,
+                    vehicle: Vehicle::None,
                 },
             ],
         };
@@ -617,21 +740,25 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 0,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(1, 1),
                     elevation: 2.0,
                     arrival: 1,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(2, 2),
                     elevation: 2.0,
                     arrival: 2,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(3, 3),
                     elevation: 3.0,
                     arrival: 3,
+                    vehicle: Vehicle::None,
                 },
             ],
         };
@@ -647,11 +774,13 @@ mod tests {
                     position: v2(2, 2),
                     elevation: 2.0,
                     arrival: 2,
+                    vehicle: Vehicle::Boat,
                 },
                 Frame {
                     position: v2(3, 3),
                     elevation: 3.0,
                     arrival: 3,
+                    vehicle: Vehicle::None,
                 },
             ],
         };
@@ -666,11 +795,13 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 0,
+                    vehicle: Vehicle::None,
                 },
                 Frame {
                     position: v2(1, 1),
                     elevation: 2.0,
                     arrival: 1,
+                    vehicle: Vehicle::Boat,
                 },
             ],
         };

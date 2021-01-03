@@ -66,6 +66,7 @@ where
                         .max(game_state.world.sea_level()),
                     position,
                     rotation: Rotation::Down,
+                    vehicle: Vehicle::None,
                 };
                 self.send_update_avatar_state_command(name, new_state);
             }

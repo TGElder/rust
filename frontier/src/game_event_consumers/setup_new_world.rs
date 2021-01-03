@@ -1,4 +1,4 @@
-use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation};
+use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation, Vehicle};
 use crate::game::{
     CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
 };
@@ -109,6 +109,7 @@ fn gen_avatars<R: Rng>(
                     .max(world.sea_level()),
                 position,
                 rotation: Rotation::Up,
+                vehicle: Vehicle::Boat,
             },
             color,
             skin_color: avatar_skin_color(rng),
