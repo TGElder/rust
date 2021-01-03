@@ -51,7 +51,7 @@ impl BasicAvatarControls {
                         .get_duration(&game_state.world, &path[0], &path[1])
                         .is_some()
                     {
-                        if let Some(new_state) = state.travel(Journey {
+                        if let Some(new_state) = state.travel(TravelArgs {
                             world: &game_state.world,
                             positions: path,
                             travel_duration,

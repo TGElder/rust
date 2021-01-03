@@ -225,7 +225,7 @@ impl Game {
     ) {
         let start_at = start_at.max(self.game_state.game_micros);
         if let Entry::Occupied(mut avatar) = self.game_state.avatars.entry(name) {
-            if let Some(new_state) = avatar.get().state.travel(Journey {
+            if let Some(new_state) = avatar.get().state.travel(TravelArgs {
                 world: &self.game_state.world,
                 positions,
                 travel_duration: &self.avatar_travel_duration,

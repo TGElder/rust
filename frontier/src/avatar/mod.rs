@@ -123,22 +123,22 @@ impl AvatarState {
         None
     }
 
-    pub fn travel(&self, journey: Journey) -> Option<AvatarState> {
+    pub fn travel(&self, args: TravelArgs) -> Option<AvatarState> {
         match self {
             AvatarState::Stationary { position: from, .. } => {
-                if *from != journey.positions[0] {
+                if *from != args.positions[0] {
                     return None;
                 }
-                Some(AvatarState::Walking(journey.into()))
+                Some(AvatarState::Walking(args.into()))
             }
             AvatarState::Walking(path) => {
-                if path.final_frame().arrival != journey.start_at {
+                if path.final_frame().arrival != args.start_at {
                     return None;
                 }
 
-                Some(AvatarState::Walking(journey.follow(path)?))
+                Some(AvatarState::Walking(args.follow(path)?))
             }
-            AvatarState::Absent => Some(AvatarState::Walking(journey.into())),
+            AvatarState::Absent => Some(AvatarState::Walking(args.into())),
         }
     }
 
@@ -174,7 +174,7 @@ impl AvatarState {
     }
 }
 
-pub struct Journey<'a> {
+pub struct TravelArgs<'a> {
     pub world: &'a World,
     pub positions: Vec<V2<usize>>,
     pub travel_duration: &'a dyn TravelDuration,
@@ -184,7 +184,7 @@ pub struct Journey<'a> {
     pub pause_at_end: Option<Duration>,
 }
 
-impl<'a> Journey<'a> {
+impl<'a> TravelArgs<'a> {
     fn follow(self, path: &Path) -> Option<Path> {
         let mut path = path.extend(
             self.world,
@@ -199,7 +199,7 @@ impl<'a> Journey<'a> {
     }
 }
 
-impl<'a> Into<Path> for Journey<'a> {
+impl<'a> Into<Path> for TravelArgs<'a> {
     fn into(self) -> Path {
         let mut path = Path::new(
             self.world,
@@ -353,7 +353,7 @@ mod tests {
             rotation: Rotation::Up,
             vehicle: Vehicle::None,
         };
-        let new_state = state.travel(Journey {
+        let new_state = state.travel(TravelArgs {
             world: &world,
             positions: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             travel_duration: &travel_duration(),
@@ -383,7 +383,7 @@ mod tests {
             rotation: Rotation::Up,
             vehicle: Vehicle::None,
         };
-        let new_state = state.travel(Journey {
+        let new_state = state.travel(TravelArgs {
             world: &world,
             positions: vec![v2(0, 1), v2(1, 1), v2(2, 1)],
             travel_duration: &travel_duration(),
@@ -406,7 +406,7 @@ mod tests {
             &vehicle_fn(),
             0,
         ));
-        let new_state = state.travel(Journey {
+        let new_state = state.travel(TravelArgs {
             world: &world,
             positions: vec![v2(1, 0), v2(2, 0), v2(2, 1)],
             travel_duration: &travel_duration(),
@@ -438,7 +438,7 @@ mod tests {
             &vehicle_fn(),
             0,
         ));
-        let new_state = state.travel(Journey {
+        let new_state = state.travel(TravelArgs {
             world: &world,
             positions: vec![v2(1, 1), v2(2, 1), v2(2, 2)],
             travel_duration: &travel_duration(),
@@ -461,7 +461,7 @@ mod tests {
             &vehicle_fn(),
             0,
         ));
-        let new_state = state.travel(Journey {
+        let new_state = state.travel(TravelArgs {
             world: &world,
             positions: vec![v2(1, 0), v2(2, 0), v2(2, 1)],
             travel_duration: &travel_duration(),
@@ -482,7 +482,7 @@ mod tests {
             rotation: Rotation::Up,
             vehicle: Vehicle::None,
         };
-        let new_state = state.travel(Journey {
+        let new_state = state.travel(TravelArgs {
             world: &world,
             positions: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             travel_duration: &travel_duration(),
@@ -514,7 +514,7 @@ mod tests {
             &vehicle_fn(),
             0,
         ));
-        let new_state = state.travel(Journey {
+        let new_state = state.travel(TravelArgs {
             world: &world,
             positions: vec![v2(1, 0), v2(2, 0), v2(2, 1)],
             travel_duration: &travel_duration(),
@@ -538,7 +538,7 @@ mod tests {
     fn test_travel_absent() {
         let world = world();
         let state = AvatarState::Absent;
-        let new_state = state.travel(Journey {
+        let new_state = state.travel(TravelArgs {
             world: &world,
             positions: vec![v2(0, 0), v2(1, 0), v2(2, 0)],
             travel_duration: &travel_duration(),
