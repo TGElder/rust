@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum TravelMode {
     Walk,
@@ -8,7 +10,7 @@ pub enum TravelMode {
     Sea,
 }
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum TravelModeClass {
     Land,
     Water,

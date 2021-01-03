@@ -51,14 +51,15 @@ impl BasicAvatarControls {
                         .get_duration(&game_state.world, &path[0], &path[1])
                         .is_some()
                     {
-                        if let Some(new_state) = state.walk_positions(
-                            &game_state.world,
-                            path,
+                        if let Some(new_state) = state.travel(Journey {
+                            world: &game_state.world,
+                            positions: path,
                             travel_duration,
+                            travel_mode_fn: travel_duration.travel_mode_fn(),
                             start_at,
-                            None,
-                            None,
-                        ) {
+                            pause_at_start: None,
+                            pause_at_end: None,
+                        }) {
                             self.send_update_avatar_state_command(name, new_state);
                         }
                     }
