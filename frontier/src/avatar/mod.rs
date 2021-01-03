@@ -57,8 +57,8 @@ impl AvatarState {
     pub fn evolve(&self, instant: &u128) -> Option<AvatarState> {
         match self {
             AvatarState::Walking(ref path) if path.done(instant) => Some(AvatarState::Stationary {
-                position: *path.final_position(),
-                elevation: *path.final_elevation(),
+                position: path.final_frame().position,
+                elevation: path.final_frame().elevation,
                 rotation: path.compute_final_rotation().unwrap_or_default(),
             }),
             _ => None,
@@ -142,7 +142,7 @@ impl AvatarState {
                 return Some(AvatarState::Walking(path));
             }
             AvatarState::Walking(path) => {
-                if *path.final_point_arrival() != start_at {
+                if path.final_frame().arrival != start_at {
                     return None;
                 }
                 let mut path = path.extend(world, positions, travel_duration)?;

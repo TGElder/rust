@@ -100,7 +100,8 @@ fn compute_stop_position_and_micros(
         AvatarState::Stationary { position: from, .. } => Some((*from, *game_micros)),
         AvatarState::Walking(path) => {
             let path = path.stop(&game_micros);
-            Some((*path.final_position(), *path.final_point_arrival()))
+            let final_frame = path.final_frame();
+            Some((final_frame.position, final_frame.arrival))
         }
         AvatarState::Absent => None,
     }
