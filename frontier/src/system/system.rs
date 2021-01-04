@@ -252,21 +252,21 @@ impl System {
         self.visibility.run_passive(&self.pool).await;
         self.town_house_artist.run_passive(&self.pool).await;
         self.town_label_artist.run_passive(&self.pool).await;
+        self.avatar_artist.run_passive(&self.pool).await;
         self.town_builder.run_passive(&self.pool).await;
         self.simulation.run_active(&self.pool).await;
         self.object_builder.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
-        self.avatar_artist.run_passive(&self.pool).await;
         self.event_forwarder.run_passive(&self.pool).await;
     }
 
     pub async fn pause(&mut self) {
         self.event_forwarder.drain(&self.pool, false).await;
-        self.avatar_artist.drain(&self.pool, true).await;
         self.basic_road_builder.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
         self.simulation.drain(&self.pool, true).await;
         self.town_builder.drain(&self.pool, true).await;
+        self.avatar_artist.drain(&self.pool, true).await;
         self.town_label_artist.drain(&self.pool, true).await;
         self.town_house_artist.drain(&self.pool, true).await;
         self.visibility.drain(&self.pool, true).await;

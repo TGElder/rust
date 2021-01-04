@@ -33,6 +33,7 @@ where
     async fn draw_avatars(&mut self) {
         let mut avatar_artist = self.avatar_artist.take().unwrap();
         let micros = self.tx.micros().await;
+
         let (commands, avatar_artist) = self
             .tx
             .send_avatars(move |avatars| {
@@ -40,6 +41,7 @@ where
                 (commands, avatar_artist)
             })
             .await;
+
         self.command_tx.send(commands).unwrap();
         self.avatar_artist = Some(avatar_artist)
     }
