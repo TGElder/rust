@@ -1,3 +1,4 @@
+mod avatar_artist;
 mod basic_road_builder;
 mod object_builder;
 mod town_artist;
@@ -6,6 +7,7 @@ mod visibility;
 mod voyager;
 mod world_artist;
 
+pub use avatar_artist::*;
 pub use basic_road_builder::*;
 pub use object_builder::*;
 pub use town_artist::*;

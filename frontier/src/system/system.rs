@@ -6,10 +6,10 @@ use futures::future::FutureExt;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor,
+    AvatarArtistActor, BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
-use crate::artists::{WorldArtist, WorldArtistParameters};
+use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::{Game, GameState};
 use crate::pathfinder::Pathfinder;
@@ -30,6 +30,7 @@ use commons::process::Process;
 pub struct System {
     pub tx: Polysender,
     pub pool: ThreadPool,
+    pub avatar_artist: Process<AvatarArtistActor<Polysender>>,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
@@ -49,6 +50,7 @@ impl System {
         game_tx: &FnSender<Game>,
         pool: ThreadPool,
     ) -> System {
+        let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
@@ -70,6 +72,7 @@ impl System {
 
         let tx = Polysender {
             game_tx: game_tx.clone_with_name("polysender"),
+            avatar_artist_tx,
             basic_road_builder_tx,
             object_builder_tx,
             simulation_tx,
@@ -89,6 +92,14 @@ impl System {
         let config = System {
             tx: tx.clone_with_name("processes"),
             pool,
+            avatar_artist: Process::new(
+                AvatarArtistActor::new(
+                    tx.clone_with_name("avatar_artist"),
+                    engine.command_tx(),
+                    AvatarArtist::new(AvatarArtistParams::new(&game_state.params.light_direction)),
+                ),
+                avatar_artist_rx,
+            ),
             basic_road_builder: Process::new(
                 BasicRoadBuilder::new(tx.clone_with_name("basic_road_builder")),
                 basic_road_builder_rx,
@@ -245,11 +256,13 @@ impl System {
         self.simulation.run_active(&self.pool).await;
         self.object_builder.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
+        self.avatar_artist.run_passive(&self.pool).await;
         self.event_forwarder.run_passive(&self.pool).await;
     }
 
     pub async fn pause(&mut self) {
         self.event_forwarder.drain(&self.pool, false).await;
+        self.avatar_artist.drain(&self.pool, true).await;
         self.basic_road_builder.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
         self.simulation.drain(&self.pool, true).await;

@@ -46,6 +46,9 @@ RevealPositionsVoyager SendGame
 RevealPositionsVoyager SendWorld
 RevealPositionsVoyager UpdatePositionsAllPathfinders
 RoadPlanned SendWorld
+SendAvatars SendGame
+SendAvatars Micros
+SendAvatarArtist SendAvatars
 SendBasicRoadBuilder SendGame
 SendBasicRoadBuilder UpdateRoads
 SendGameState SendGame

@@ -1,8 +1,8 @@
 use crate::actors::{
-    BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor,
+    AvatarArtistActor, BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
-use crate::avatar::AvatarTravelDuration;
+use crate::avatar::{Avatar, AvatarTravelDuration};
 use crate::game::{Game, GameParams, GameState};
 use crate::nation::Nation;
 use crate::pathfinder::Pathfinder;
@@ -11,9 +11,9 @@ use crate::settlement::Settlement;
 use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
-    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendGame, SendGameState,
-    SendNations, SendParameters, SendPathfinder, SendRoutes, SendSettlements, SendSim,
-    SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
+    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendGame,
+    SendGameState, SendNations, SendParameters, SendPathfinder, SendRoutes, SendSettlements,
+    SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
     SendWorld, SendWorldArtist,
 };
 use crate::world::World;
@@ -27,6 +27,7 @@ use std::sync::{Arc, RwLock};
 #[derive(Clone)]
 pub struct Polysender {
     pub game_tx: FnSender<Game>,
+    pub avatar_artist_tx: FnSender<AvatarArtistActor<Polysender>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
@@ -43,8 +44,9 @@ pub struct Polysender {
 impl Polysender {
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
-            basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             game_tx: self.game_tx.clone_with_name(name),
+            avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
+            basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
             town_builder_tx: self.town_builder_tx.clone_with_name(name),
@@ -56,6 +58,19 @@ impl Polysender {
             pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
             pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
         }
+    }
+}
+
+#[async_trait]
+impl SendAvatars for Polysender {
+    async fn send_avatars<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut HashMap<String, Avatar>) -> O + Send + 'static,
+    {
+        self.game_tx
+            .send(move |game| function(&mut game.mut_state().avatars))
+            .await
     }
 }
 

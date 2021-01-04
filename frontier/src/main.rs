@@ -105,8 +105,6 @@ fn main() {
 
     // Drawing
 
-    game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
-
     game.add_consumer(FollowAvatar::new(engine.command_tx(), game.tx()));
 
     game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));

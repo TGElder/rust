@@ -13,6 +13,7 @@ use isometric::Command;
 use std::collections::{HashMap, HashSet};
 use std::iter::once;
 
+#[derive(Clone)]
 pub struct AvatarArtistParams {
     pixels_per_cell: f32,
     boat_params: DrawBoatParams,
@@ -39,6 +40,7 @@ impl AvatarArtistParams {
     }
 }
 
+#[derive(Clone)]
 pub struct AvatarArtist {
     params: AvatarArtistParams,
     body_parts: Vec<BodyPart>,
@@ -451,6 +453,7 @@ fn avatar_draw_state(state: &AvatarState) -> AvatarDrawState {
     }
 }
 
+#[derive(Clone)]
 struct BodyPart {
     offset: V3<f32>,
     handle: String,
@@ -460,11 +463,13 @@ struct BodyPart {
     mask: Option<ColorMask>,
 }
 
+#[derive(Clone)]
 struct ColorMask {
     color: AvatarColor,
     mask: String,
 }
 
+#[derive(Clone)]
 enum AvatarColor {
     Base,
     Skin,

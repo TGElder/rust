@@ -7,6 +7,7 @@ use coords::*;
 
 const BOAT_FLOATS: usize = 540;
 
+#[derive(Clone)]
 pub struct DrawBoatParams {
     pub width: f32,
     pub side_height: f32,
