@@ -8,7 +8,6 @@ use isometric::{Command, Event};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
-mod avatar_artist;
 mod basic_avatar_controls;
 mod cheats;
 mod event_handler_adapter;
@@ -23,7 +22,6 @@ mod setup_new_world;
 mod speed_control;
 mod visibility;
 
-pub use avatar_artist::*;
 pub use basic_avatar_controls::*;
 pub use cheats::*;
 pub use event_handler_adapter::*;

@@ -18,6 +18,7 @@ impl EventForwarderActor {
 
 impl EventForwarderActor {
     fn consume_event(&mut self, event: Arc<Event>) {
+        send_event(&self.tx.avatar_artist_tx, &event);
         send_event(&self.tx.basic_road_builder_tx, &event);
         send_event(&self.tx.object_builder_tx, &event);
         send_event(&self.tx.town_builder_tx, &event);

@@ -1,3 +1,4 @@
+mod send_avatars;
 mod send_game;
 mod send_game_state;
 mod send_nations;
@@ -14,6 +15,7 @@ mod send_voyager;
 mod send_world;
 mod send_world_artist;
 
+pub use send_avatars::*;
 pub use send_game::*;
 pub use send_game_state::*;
 pub use send_nations::*;
