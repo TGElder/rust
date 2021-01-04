@@ -11,7 +11,7 @@ use crate::traits::{Micros, SendAvatars};
 pub struct AvatarArtistActor<T> {
     tx: T,
     command_tx: Sender<Vec<Command>>,
-    avatar_artist: AvatarArtist,
+    avatar_artist: Option<AvatarArtist>,
 }
 
 impl<T> AvatarArtistActor<T>
@@ -26,18 +26,22 @@ where
         AvatarArtistActor {
             tx,
             command_tx,
-            avatar_artist,
+            avatar_artist: Some(avatar_artist),
         }
     }
 
     async fn draw_avatars(&mut self) {
-        let mut avatar_artist = self.avatar_artist.clone();
+        let mut avatar_artist = self.avatar_artist.take().unwrap();
         let micros = self.tx.micros().await;
-        let commands = self
+        let (commands, avatar_artist) = self
             .tx
-            .send_avatars(move |avatars| avatar_artist.update_avatars(avatars, &micros))
+            .send_avatars(move |avatars| {
+                let commands = avatar_artist.update_avatars(avatars, &micros);
+                (commands, avatar_artist)
+            })
             .await;
         self.command_tx.send(commands).unwrap();
+        self.avatar_artist = Some(avatar_artist)
     }
 }
 
