@@ -9,7 +9,7 @@ use std::ops::Add;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Path {
-    pub frames: Vec<Frame>,
+    frames: Vec<Frame>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
