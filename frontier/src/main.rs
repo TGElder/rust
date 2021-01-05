@@ -107,8 +107,6 @@ fn main() {
 
     // Drawing
 
-    game.add_consumer(FollowAvatar::new(engine.command_tx(), game.tx()));
-
     game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(PathfinderUpdater::new(&tx.pathfinder_with_planned_roads));
     game.add_consumer(PathfinderUpdater::new(&tx.pathfinder_without_planned_roads));

@@ -9,7 +9,7 @@ use std::ops::Add;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Path {
-    frames: Vec<Frame>,
+    pub frames: Vec<Frame>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
@@ -134,6 +134,8 @@ impl Path {
     }
 
     pub fn compute_world_coord(&self, instant: &u128) -> Option<WorldCoord> {
+        let instant = instant.max(&self.frames[0].arrival);
+
         let i = self.compute_current_index(instant)?;
 
         let from = self.frames[i - 1];
@@ -180,6 +182,8 @@ impl Path {
     }
 
     pub fn compute_rotation(&self, instant: &u128) -> Option<Rotation> {
+        let instant = instant.max(&self.frames[0].arrival);
+
         self.compute_current_index(instant)
             .and_then(|index| self.compute_rotation_at_index(index))
     }
@@ -406,8 +410,21 @@ mod tests {
         let at = start + 1_500;
         let actual = path.compute_world_coord(&at).unwrap();
         let expected = WorldCoord::new(0.25, 1.0, 0.625);
-        println!("{:?}", actual);
-        println!("{:?}", expected);
+        assert!(actual.x.almost(&expected.x));
+        assert!(actual.y.almost(&expected.y));
+        assert!(actual.z.almost(&expected.z));
+    }
+
+    #[test]
+    fn test_compute_world_coord_before_start() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let start = 10;
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+
+        let actual = path.compute_world_coord(&0).unwrap();
+
+        let expected = WorldCoord::new(0.0, 0.0, 1.0);
         assert!(actual.x.almost(&expected.x));
         assert!(actual.y.almost(&expected.y));
         assert!(actual.z.almost(&expected.z));
@@ -445,6 +462,18 @@ mod tests {
         let at = start + 1_500;
         let actual = path.compute_rotation(&at).unwrap();
         assert_eq!(actual, Rotation::Right);
+    }
+
+    #[test]
+    fn test_compute_rotation_before_start() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let start = 10;
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+
+        let actual = path.compute_rotation(&0).unwrap();
+
+        assert_eq!(actual, Rotation::Up);
     }
 
     #[test]
