@@ -77,7 +77,7 @@ impl PathfindingAvatarControls {
 }
 
 fn stop_selected_avatar(game: &mut Game) -> Option<(String, V2<usize>, u128)> {
-    let (name, state) = match game.game_state().selected_avatar() {
+    let (name, state) = match game.game_state().avatars.selected() {
         Some(Avatar { name, state, .. }) => (name, state),
         _ => return None,
     };

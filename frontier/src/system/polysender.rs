@@ -2,7 +2,8 @@ use crate::actors::{
     AvatarArtistActor, BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist,
     TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
-use crate::avatar::{Avatar, AvatarTravelDuration};
+use crate::avatar::AvatarTravelDuration;
+use crate::avatars::Avatars;
 use crate::game::{Game, GameParams, GameState};
 use crate::nation::Nation;
 use crate::pathfinder::Pathfinder;
@@ -66,7 +67,7 @@ impl SendAvatars for Polysender {
     async fn send_avatars<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
-        F: FnOnce(&mut HashMap<String, Avatar>) -> O + Send + 'static,
+        F: FnOnce(&mut Avatars) -> O + Send + 'static,
     {
         self.game_tx
             .send(move |game| function(&mut game.mut_state().avatars))

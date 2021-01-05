@@ -35,7 +35,7 @@ fn avatar_visited<'a>(
     from: &'a u128,
     to: &'a u128,
 ) -> Box<dyn Iterator<Item = V2<usize>> + 'a> {
-    if let Some(avatar) = game_state.selected_avatar() {
+    if let Some(avatar) = game_state.avatars.selected() {
         match &avatar.state {
             AvatarState::Walking(path) => {
                 let edges = path.edges_between_times(from, to);

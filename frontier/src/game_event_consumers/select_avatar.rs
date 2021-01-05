@@ -16,7 +16,7 @@ impl SelectAvatar {
 
     fn select_avatar(&mut self, name: String) {
         self.game_tx.send(move |game: &mut Game| {
-            game.mut_state().selected_avatar = Some(name);
+            game.mut_state().avatars.selected = Some(name);
         });
     }
 }
