@@ -20,7 +20,7 @@ impl FollowAvatar {
 
     fn look_at_selected_avatar(&self, game_state: &GameState) {
         if game_state.follow_avatar {
-            if let Some(Avatar { state, .. }) = &game_state.selected_avatar() {
+            if let Some(Avatar { state, .. }) = &game_state.avatars.selected() {
                 let maybe_world_coord = state.compute_world_coord(&game_state.game_micros);
                 self.command_tx
                     .send(vec![Command::LookAt(maybe_world_coord)])

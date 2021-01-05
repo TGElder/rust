@@ -37,7 +37,7 @@ where
         let (commands, avatar_artist) = self
             .tx
             .send_avatars(move |avatars| {
-                let commands = avatar_artist.update_avatars(avatars, &micros);
+                let commands = avatar_artist.update_avatars(&avatars.all, &micros);
                 (commands, avatar_artist)
             })
             .await;

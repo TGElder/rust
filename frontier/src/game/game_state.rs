@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::avatar::*;
+use crate::avatars::Avatars;
 use crate::nation::Nation;
 use crate::route::*;
 use crate::settlement::*;
@@ -18,10 +18,9 @@ pub struct GameState {
     pub world: World,
     pub game_micros: u128,
     pub params: GameParams,
-    pub avatars: HashMap<String, Avatar>,
+    pub avatars: Avatars,
     pub nations: HashMap<String, Nation>,
     pub settlements: HashMap<V2<usize>, Settlement>,
-    pub selected_avatar: Option<String>,
     pub follow_avatar: bool,
     pub routes: HashMap<RouteSetKey, RouteSet>,
     pub territory: Territory,
@@ -35,10 +34,9 @@ impl Default for GameState {
         GameState {
             game_micros: 0,
             params: GameParams::default(),
-            avatars: HashMap::new(),
+            avatars: Avatars::default(),
             nations: HashMap::new(),
             settlements: HashMap::new(),
-            selected_avatar: None,
             follow_avatar: false,
             routes: HashMap::new(),
             territory: Territory::new(&world),
@@ -64,13 +62,6 @@ impl GameState {
     pub fn to_file(&self, file_name: &str) {
         let mut file = BufWriter::new(File::create(file_name).unwrap());
         bincode::serialize_into(&mut file, &self).unwrap();
-    }
-
-    pub fn selected_avatar(&self) -> Option<&Avatar> {
-        match &self.selected_avatar {
-            Some(name) => self.avatars.get(name),
-            None => None,
-        }
     }
 }
 
@@ -156,10 +147,12 @@ mod tests {
             world,
             game_micros: 123,
             params: GameParams::default(),
-            avatars,
+            avatars: Avatars {
+                all: avatars,
+                selected: Some("avatar".to_string()),
+            },
             nations,
             settlements,
-            selected_avatar: Some("avatar".to_string()),
             follow_avatar: false,
             routes,
             speed: 1.0,

@@ -8,6 +8,7 @@ extern crate futures;
 mod actors;
 mod artists;
 mod avatar;
+mod avatars;
 mod game;
 mod game_event_consumers;
 mod homeland_start;
@@ -28,6 +29,7 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
+use crate::avatars::Avatars;
 use crate::game::*;
 use crate::system::{System, SystemController};
 use crate::territory::*;
@@ -167,10 +169,9 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         game_micros: 0,
         speed: params.default_speed,
         params,
-        avatars: HashMap::new(),
+        avatars: Avatars::default(),
         nations: HashMap::new(),
         settlements: HashMap::new(),
-        selected_avatar: None,
         follow_avatar: true,
         routes: HashMap::new(),
         visible_land_positions,

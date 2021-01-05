@@ -240,7 +240,7 @@ fn avatar_colors(game_state: &GameState, key: &RouteKey) -> Option<(Color, Color
 }
 
 fn has_avatar(game_state: &GameState, key: &RouteKey) -> bool {
-    game_state.avatars.get(&key.to_string()).is_some()
+    game_state.avatars.all.get(&key.to_string()).is_some()
 }
 
 fn walk_positions(
@@ -262,7 +262,7 @@ fn add_avatar(game: &mut Game, name: String, color: Color, skin_color: Color, lo
         skin_color,
         load,
     };
-    game.mut_state().avatars.insert(name, avatar);
+    game.mut_state().avatars.all.insert(name, avatar);
 }
 
 impl GameEventConsumer for PrimeMover {

@@ -1,4 +1,5 @@
 use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation, Vehicle};
+use crate::avatars::Avatars;
 use crate::game::{
     CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
 };
@@ -181,10 +182,12 @@ fn setup_game(
     settlements: HashMap<V2<usize>, Settlement>,
 ) {
     let game_state = game.mut_state();
-    game_state.avatars = avatars;
+    game_state.avatars = Avatars {
+        all: avatars,
+        selected: Some(AVATAR_NAME.to_string()),
+    };
     game_state.nations = nations;
     game_state.settlements = settlements;
-    game_state.selected_avatar = Some(AVATAR_NAME.to_string());
 }
 
 impl<T> GameEventConsumer for SetupNewWorld<T>

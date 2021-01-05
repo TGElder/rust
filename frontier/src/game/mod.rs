@@ -176,6 +176,7 @@ impl Game {
         let game_micros = &self.game_state.game_micros;
         self.game_state
             .avatars
+            .all
             .values_mut()
             .for_each(|Avatar { state, .. }| {
                 if let Some(new_state) = Self::evolve_avatar(game_micros, state) {
@@ -195,9 +196,10 @@ impl Game {
     fn prune_avatars(&mut self) {
         let selected_avatar_name = self
             .game_state
-            .selected_avatar()
+            .avatars
+            .selected()
             .map(|avatar| avatar.name.to_string());
-        self.game_state.avatars.retain(|_, avatar| {
+        self.game_state.avatars.all.retain(|_, avatar| {
             !matches!(
                 avatar,
                 Avatar {
@@ -210,7 +212,7 @@ impl Game {
     }
 
     pub fn update_avatar_state(&mut self, name: String, new_state: AvatarState) {
-        if let Some(avatar) = self.game_state.avatars.get_mut(&name) {
+        if let Some(avatar) = self.game_state.avatars.all.get_mut(&name) {
             avatar.state = new_state
         }
     }
@@ -224,7 +226,7 @@ impl Game {
         pause_at_end: Option<Duration>,
     ) {
         let start_at = start_at.max(self.game_state.game_micros);
-        if let Entry::Occupied(mut avatar) = self.game_state.avatars.entry(name) {
+        if let Entry::Occupied(mut avatar) = self.game_state.avatars.all.entry(name) {
             if let Some(new_state) = avatar.get().state.travel(TravelArgs {
                 world: &self.game_state.world,
                 positions,

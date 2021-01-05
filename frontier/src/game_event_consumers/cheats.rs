@@ -56,7 +56,7 @@ where
 
     fn move_avatar(&mut self, game_state: &GameState) {
         if let Some(world_coord) = self.world_coord {
-            if let Some(name) = &game_state.selected_avatar {
+            if let Some(name) = &game_state.avatars.selected {
                 let position = world_coord.to_v2_round();
                 let new_state = AvatarState::Stationary {
                     elevation: game_state
@@ -74,7 +74,7 @@ where
     }
 
     fn remove_avatar(&mut self, game_state: &GameState) {
-        if let Some(name) = &game_state.selected_avatar {
+        if let Some(name) = &game_state.avatars.selected {
             self.send_update_avatar_state_command(name, AvatarState::Absent);
         }
     }

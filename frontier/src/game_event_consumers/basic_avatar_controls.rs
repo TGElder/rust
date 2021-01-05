@@ -44,7 +44,7 @@ impl BasicAvatarControls {
 
     fn walk_forward(&mut self, game_state: &GameState) {
         if let Some(travel_duration) = &self.travel_duration {
-            if let Some(Avatar { name, state, .. }) = &game_state.selected_avatar() {
+            if let Some(Avatar { name, state, .. }) = &game_state.avatars.selected() {
                 if let Some(path) = state.forward_path() {
                     let start_at = game_state.game_micros;
                     if travel_duration
@@ -69,7 +69,7 @@ impl BasicAvatarControls {
     }
 
     fn rotate_clockwise(&mut self, game_state: &GameState) {
-        if let Some(Avatar { name, state, .. }) = &game_state.selected_avatar() {
+        if let Some(Avatar { name, state, .. }) = &game_state.avatars.selected() {
             if let Some(new_state) = state.rotate_clockwise() {
                 self.send_update_avatar_state_command(name, new_state);
             }
@@ -77,7 +77,7 @@ impl BasicAvatarControls {
     }
 
     fn rotate_anticlockwise(&mut self, game_state: &GameState) {
-        if let Some(Avatar { name, state, .. }) = &game_state.selected_avatar() {
+        if let Some(Avatar { name, state, .. }) = &game_state.avatars.selected() {
             if let Some(new_state) = state.rotate_anticlockwise() {
                 self.send_update_avatar_state_command(name, new_state);
             }
