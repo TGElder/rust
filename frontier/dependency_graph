@@ -49,6 +49,7 @@ RoadPlanned SendWorld
 SendAvatars SendGame
 SendAvatarArtist Micros
 SendAvatarArtist SendAvatars
+SendAvatarArtist SendRotate
 SendBasicRoadBuilder SendGame
 SendBasicRoadBuilder UpdateRoads
 SendGameState SendGame
@@ -56,6 +57,7 @@ SendNations SendGame
 SendObjectBuilder RemoveWorldObject
 SendObjectBuilder SetWorldObject
 SendParameters SendGame
+SendRotate _
 SendRoutes SendGame
 SendSettlements SendGame
 SendSim AddCrops

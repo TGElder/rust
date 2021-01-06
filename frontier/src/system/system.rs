@@ -6,7 +6,7 @@ use futures::future::FutureExt;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist,
+    AvatarArtistActor, BasicRoadBuilder, ObjectBuilder, Rotate, TownBuilderActor, TownHouseArtist,
     TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
@@ -34,6 +34,7 @@ pub struct System {
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
+    pub rotate: Process<Rotate>,
     pub simulation: Process<Simulation<Polysender>>,
     pub town_builder: Process<TownBuilderActor<Polysender>>,
     pub town_house_artist: Process<TownHouseArtist<Polysender>>,
@@ -53,6 +54,7 @@ impl System {
         let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
+        let (rotate_tx, rotate_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
         let (town_builder_tx, town_builder_rx) = fn_channel();
         let (town_house_artist_tx, town_house_artist_rx) = fn_channel();
@@ -75,6 +77,7 @@ impl System {
             avatar_artist_tx,
             basic_road_builder_tx,
             object_builder_tx,
+            rotate_tx,
             simulation_tx,
             town_builder_tx,
             town_house_artist_tx,
@@ -112,6 +115,7 @@ impl System {
                 ObjectBuilder::new(tx.clone_with_name("object_builder"), game_state.params.seed),
                 object_builder_rx,
             ),
+            rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
             simulation: Process::new(
                 Simulation::new(
                     tx.clone_with_name("simulation"),
@@ -220,6 +224,9 @@ impl System {
 
     pub fn send_init_messages(&self) {
         self.tx
+            .avatar_artist_tx
+            .send(|avatar_artist| avatar_artist.init());
+        self.tx
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());
         self.tx
@@ -252,21 +259,23 @@ impl System {
         self.visibility.run_passive(&self.pool).await;
         self.town_house_artist.run_passive(&self.pool).await;
         self.town_label_artist.run_passive(&self.pool).await;
-        self.avatar_artist.run_passive(&self.pool).await;
+        self.rotate.run_passive(&self.pool).await;
         self.town_builder.run_passive(&self.pool).await;
         self.simulation.run_active(&self.pool).await;
         self.object_builder.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
+        self.avatar_artist.run_passive(&self.pool).await;
         self.event_forwarder.run_passive(&self.pool).await;
     }
 
     pub async fn pause(&mut self) {
         self.event_forwarder.drain(&self.pool, false).await;
+        self.avatar_artist.drain(&self.pool, true).await;
         self.basic_road_builder.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
         self.simulation.drain(&self.pool, true).await;
         self.town_builder.drain(&self.pool, true).await;
-        self.avatar_artist.drain(&self.pool, true).await;
+        self.rotate.drain(&self.pool, true).await;
         self.town_label_artist.drain(&self.pool, true).await;
         self.town_house_artist.drain(&self.pool, true).await;
         self.visibility.drain(&self.pool, true).await;

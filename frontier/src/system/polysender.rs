@@ -1,5 +1,5 @@
 use crate::actors::{
-    AvatarArtistActor, BasicRoadBuilder, ObjectBuilder, TownBuilderActor, TownHouseArtist,
+    AvatarArtistActor, BasicRoadBuilder, ObjectBuilder, Rotate, TownBuilderActor, TownHouseArtist,
     TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
@@ -13,9 +13,9 @@ use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendGame,
-    SendGameState, SendNations, SendParameters, SendPathfinder, SendRoutes, SendSettlements,
-    SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
-    SendWorld, SendWorldArtist,
+    SendGameState, SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes,
+    SendSettlements, SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
+    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::world::World;
 use commons::async_trait::async_trait;
@@ -31,6 +31,7 @@ pub struct Polysender {
     pub avatar_artist_tx: FnSender<AvatarArtistActor<Polysender>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
+    pub rotate_tx: FnSender<Rotate>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
@@ -49,6 +50,7 @@ impl Polysender {
             avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
+            rotate_tx: self.rotate_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
             town_builder_tx: self.town_builder_tx.clone_with_name(name),
             town_house_artist_tx: self.town_house_artist_tx.clone_with_name(name),
@@ -130,6 +132,17 @@ impl SendParameters for Polysender {
         self.game_tx
             .send(move |game| function(&game.game_state().params))
             .await
+    }
+}
+
+#[async_trait]
+impl SendRotate for Polysender {
+    fn send_rotate_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Rotate) -> O + Send + 'static,
+    {
+        self.rotate_tx.send(function);
     }
 }
 
