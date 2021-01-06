@@ -44,7 +44,6 @@ use commons::process::run_passive;
 use futures::executor::{block_on, ThreadPool};
 use futures::FutureExt;
 use game_event_consumers::*;
-use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use simple_logger::SimpleLogger;
 use simulation::game_event_consumers::ResourceTargets;
@@ -89,8 +88,6 @@ fn main() {
         ParsedArgs::Load { path } => system.load(&path),
     }
     let tx = system.tx.clone_with_name("main");
-
-    game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.tx()));

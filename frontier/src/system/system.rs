@@ -3,6 +3,7 @@ use std::sync::{Arc, RwLock};
 use commons::fn_sender::{fn_channel, FnSender};
 use futures::executor::ThreadPool;
 use futures::future::FutureExt;
+use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
@@ -91,6 +92,7 @@ impl System {
 
         let (event_forwarder_tx, event_forwarder_rx) = fn_channel();
         engine.add_event_consumer(EventForwarderConsumer::new(event_forwarder_tx));
+        engine.add_event_handler(ZoomHandler::default());
 
         let config = System {
             tx: tx.clone_with_name("processes"),

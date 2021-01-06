@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 mod basic_avatar_controls;
 mod cheats;
-mod event_handler_adapter;
 mod labels;
 mod pathfinder_updater;
 mod pathfinding_avatar_controls;
@@ -21,7 +20,6 @@ mod visibility;
 
 pub use basic_avatar_controls::*;
 pub use cheats::*;
-pub use event_handler_adapter::*;
 pub use labels::*;
 pub use pathfinder_updater::*;
 pub use pathfinding_avatar_controls::*;
