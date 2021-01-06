@@ -7,7 +7,7 @@ use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 use crate::artists::AvatarArtist;
 use crate::avatars::Avatars;
 use crate::system::HandleEngineEvent;
-use crate::traits::{Micros, SendAvatars};
+use crate::traits::{Micros, SendAvatars, SendRotate};
 
 pub struct AvatarArtistActor<T> {
     tx: T,
@@ -19,7 +19,7 @@ pub struct AvatarArtistActor<T> {
 
 impl<T> AvatarArtistActor<T>
 where
-    T: SendAvatars + Micros,
+    T: SendAvatars + SendRotate + Micros,
 {
     pub fn new(
         tx: T,
@@ -33,6 +33,22 @@ where
             follow_avatar: true,
             follow_avatar_binding: Button::Key(VirtualKeyCode::C),
         }
+    }
+
+    pub fn init(&mut self) {
+        self.set_follow_avatar(self.follow_avatar);
+    }
+
+    fn set_follow_avatar(&mut self, follow_avatar: bool) {
+        self.follow_avatar = follow_avatar;
+        if self.follow_avatar {
+            self.command_tx.send(vec![Command::LookAt(None)]).unwrap();
+        }
+
+        let rotate_over_undrawn = self.follow_avatar;
+        self.tx.send_rotate_background(move |rotate| {
+            rotate.set_rotate_over_undrawn(rotate_over_undrawn)
+        });
     }
 
     async fn draw_avatars(&mut self) {
@@ -58,10 +74,7 @@ where
     }
 
     fn toggle_follow_avatar(&mut self) {
-        self.follow_avatar = !self.follow_avatar;
-        if !self.follow_avatar {
-            self.command_tx.send(vec![Command::LookAt(None)]).unwrap();
-        }
+        self.set_follow_avatar(!self.follow_avatar);
     }
 }
 
@@ -76,7 +89,7 @@ fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {
 #[async_trait]
 impl<T> HandleEngineEvent for AvatarArtistActor<T>
 where
-    T: SendAvatars + Micros + Send + Sync,
+    T: SendAvatars + SendRotate + Micros + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) {
         match *event {

@@ -94,7 +94,6 @@ fn main() {
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.tx()));
-    game.add_consumer(RotateHandler::new(game.tx()));
     game.add_consumer(BasicAvatarControls::new(game.tx()));
     game.add_consumer(PathfindingAvatarControls::new(
         game.tx(),
@@ -170,7 +169,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         avatars: Avatars::default(),
         nations: HashMap::new(),
         settlements: HashMap::new(),
-        follow_avatar: true,
         routes: HashMap::new(),
         visible_land_positions,
     };

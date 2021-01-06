@@ -1,6 +1,7 @@
 mod avatar_artist;
 mod basic_road_builder;
 mod object_builder;
+mod rotate;
 mod town_artist;
 mod town_builder;
 mod visibility;
@@ -10,6 +11,7 @@ mod world_artist;
 pub use avatar_artist::*;
 pub use basic_road_builder::*;
 pub use object_builder::*;
+pub use rotate::*;
 pub use town_artist::*;
 pub use town_builder::*;
 pub use visibility::*;
