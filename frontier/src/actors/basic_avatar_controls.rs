@@ -7,6 +7,11 @@ use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::default::Default;
 use std::sync::Arc;
 
+pub struct BasicAvatarControls<T> {
+    tx: T,
+    travel_duration: Arc<AvatarTravelDuration>,
+    bindings: BasicAvatarBindings,
+}
 pub struct BasicAvatarBindings {
     forward: Button,
     rotate_clockwise: Button,
@@ -21,12 +26,6 @@ impl Default for BasicAvatarBindings {
             rotate_anticlockwise: Button::Key(VirtualKeyCode::A),
         }
     }
-}
-
-pub struct BasicAvatarControls<T> {
-    tx: T,
-    travel_duration: Arc<AvatarTravelDuration>,
-    bindings: BasicAvatarBindings,
 }
 
 impl<T> BasicAvatarControls<T>
@@ -47,7 +46,7 @@ where
 
         let new_state = unwrap_or!(self.get_new_state(state, start_at).await, return);
 
-        self.send_update_avatar_state_command(name, new_state);
+         self.tx.update_avatar_state(name, state);
     }
 
     async fn get_new_state(&self, state: AvatarState, start_at: u128) -> Option<AvatarState> {
@@ -74,7 +73,7 @@ where
     async fn rotate_clockwise(&self) {
         if let Some(Avatar { name, state, .. }) = self.tx.selected_avatar().await {
             if let Some(new_state) = state.rotate_clockwise() {
-                self.send_update_avatar_state_command(name, new_state);
+                 self.tx.update_avatar_state(name, state);
             }
         }
     }
@@ -82,14 +81,11 @@ where
     async fn rotate_anticlockwise(&self) {
         if let Some(Avatar { name, state, .. }) = self.tx.selected_avatar().await {
             if let Some(new_state) = state.rotate_anticlockwise() {
-                self.send_update_avatar_state_command(name, new_state);
+                 self.tx.update_avatar_state(name, state);
             }
         }
     }
 
-    fn send_update_avatar_state_command(&self, name: String, state: AvatarState) {
-        self.tx.update_avatar_state(name, state);
-    }
 }
 
 #[async_trait]
