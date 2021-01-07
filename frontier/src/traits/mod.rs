@@ -1,3 +1,4 @@
+mod avatars;
 mod crops;
 mod draw_town;
 mod draw_world;
@@ -17,6 +18,7 @@ mod update_roads;
 mod visibility;
 mod world_object;
 
+pub use avatars::*;
 pub use crops::*;
 pub use draw_town::*;
 pub use draw_world::*;

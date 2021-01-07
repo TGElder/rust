@@ -8,4 +8,9 @@ pub trait SendAvatars {
     where
         O: Send + 'static,
         F: FnOnce(&mut Avatars) -> O + Send + 'static;
+
+    fn send_avatars_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Avatars) -> O + Send + 'static;
 }

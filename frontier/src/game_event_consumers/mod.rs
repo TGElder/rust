@@ -7,7 +7,6 @@ use futures::executor::ThreadPool;
 use isometric::Event;
 use std::sync::Arc;
 
-mod basic_avatar_controls;
 mod cheats;
 mod labels;
 mod pathfinder_updater;
@@ -18,7 +17,6 @@ mod setup_new_world;
 mod speed_control;
 mod visibility;
 
-pub use basic_avatar_controls::*;
 pub use cheats::*;
 pub use labels::*;
 pub use pathfinder_updater::*;

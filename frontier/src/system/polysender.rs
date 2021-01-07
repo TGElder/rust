@@ -1,6 +1,6 @@
 use crate::actors::{
-    AvatarArtistActor, BasicRoadBuilder, ObjectBuilder, Rotate, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, ObjectBuilder, Rotate,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -29,6 +29,7 @@ use std::sync::{Arc, RwLock};
 pub struct Polysender {
     pub game_tx: FnSender<Game>,
     pub avatar_artist_tx: FnSender<AvatarArtistActor<Polysender>>,
+    pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Polysender>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub rotate_tx: FnSender<Rotate>,
@@ -48,6 +49,7 @@ impl Polysender {
         Polysender {
             game_tx: self.game_tx.clone_with_name(name),
             avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
+            basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             rotate_tx: self.rotate_tx.clone_with_name(name),
@@ -74,6 +76,15 @@ impl SendAvatars for Polysender {
         self.game_tx
             .send(move |game| function(&mut game.mut_state().avatars))
             .await
+    }
+
+    fn send_avatars_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Avatars) -> O + Send + 'static,
+    {
+        self.game_tx
+            .send(move |game| function(&mut game.mut_state().avatars));
     }
 }
 

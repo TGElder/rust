@@ -7,8 +7,8 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, BasicRoadBuilder, ObjectBuilder, Rotate, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, ObjectBuilder, Rotate,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -32,6 +32,7 @@ pub struct System {
     pub tx: Polysender,
     pub pool: ThreadPool,
     pub avatar_artist: Process<AvatarArtistActor<Polysender>>,
+    pub basic_avatar_controls: Process<BasicAvatarControls<Polysender>>,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
@@ -53,6 +54,7 @@ impl System {
         pool: ThreadPool,
     ) -> System {
         let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
+        let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
@@ -76,6 +78,7 @@ impl System {
         let tx = Polysender {
             game_tx: game_tx.clone_with_name("polysender"),
             avatar_artist_tx,
+            basic_avatar_controls_tx,
             basic_road_builder_tx,
             object_builder_tx,
             rotate_tx,
@@ -104,6 +107,15 @@ impl System {
                     AvatarArtist::new(AvatarArtistParams::new(&game_state.params.light_direction)),
                 ),
                 avatar_artist_rx,
+            ),
+            basic_avatar_controls: Process::new(
+                BasicAvatarControls::new(
+                    tx.clone_with_name("basic_avatar_controls"),
+                    Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
+                        &game_state.params.avatar_travel,
+                    )),
+                ),
+                basic_avatar_controls_rx,
             ),
             basic_road_builder: Process::new(
                 BasicRoadBuilder::new(tx.clone_with_name("basic_road_builder")),
@@ -266,6 +278,7 @@ impl System {
         self.simulation.run_active(&self.pool).await;
         self.object_builder.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
+        self.basic_avatar_controls.run_passive(&self.pool).await;
         self.avatar_artist.run_passive(&self.pool).await;
         self.event_forwarder.run_passive(&self.pool).await;
     }
@@ -273,6 +286,7 @@ impl System {
     pub async fn pause(&mut self) {
         self.event_forwarder.drain(&self.pool, false).await;
         self.avatar_artist.drain(&self.pool, true).await;
+        self.basic_avatar_controls.drain(&self.pool, true).await;
         self.basic_road_builder.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
         self.simulation.drain(&self.pool, true).await;
