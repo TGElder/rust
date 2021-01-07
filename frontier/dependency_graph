@@ -46,10 +46,15 @@ RevealPositionsVoyager SendGame
 RevealPositionsVoyager SendWorld
 RevealPositionsVoyager UpdatePositionsAllPathfinders
 RoadPlanned SendWorld
+SelectedAvatar SendAvatars
 SendAvatars SendGame
 SendAvatarArtist Micros
 SendAvatarArtist SendAvatars
 SendAvatarArtist SendRotate
+SendBasicAvatarControls Micros
+SendBasicAvatarControls SelectedAvatar
+SendBasicAvatarControls SendWorld
+SendBasicAvatarControls UpdateAvatar
 SendBasicRoadBuilder SendGame
 SendBasicRoadBuilder UpdateRoads
 SendGameState SendGame
@@ -114,6 +119,7 @@ Settlements SendSettlements
 SetWorldObject DrawWorld
 SetWorldObject Micros
 SetWorldObject SendWorld
+UpdateAvatar SendAvatars
 UpdatePathfinderPositions SendPathfinder
 UpdatePathfinderPositions SendWorld
 UpdatePositionsAllPathfinders PathfinderWithoutPlannedRoads

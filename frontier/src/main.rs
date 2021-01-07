@@ -91,7 +91,6 @@ fn main() {
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.tx()));
-    game.add_consumer(BasicAvatarControls::new(game.tx()));
     game.add_consumer(PathfindingAvatarControls::new(
         game.tx(),
         &tx.pathfinder_without_planned_roads,
