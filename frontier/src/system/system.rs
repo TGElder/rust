@@ -7,8 +7,9 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, ObjectBuilder, Rotate,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, ObjectBuilder,
+    PathfindingAvatarControls, Rotate, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -36,6 +37,7 @@ pub struct System {
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
+    pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
     pub rotate: Process<Rotate>,
     pub simulation: Process<Simulation<Polysender>>,
     pub town_builder: Process<TownBuilderActor<Polysender>>,
@@ -57,6 +59,7 @@ impl System {
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
+        let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
         let (town_builder_tx, town_builder_rx) = fn_channel();
@@ -81,6 +84,7 @@ impl System {
             basic_avatar_controls_tx,
             basic_road_builder_tx,
             object_builder_tx,
+            pathfinding_avatar_controls_tx,
             rotate_tx,
             simulation_tx,
             town_builder_tx,
@@ -128,6 +132,15 @@ impl System {
             object_builder: Process::new(
                 ObjectBuilder::new(tx.clone_with_name("object_builder"), game_state.params.seed),
                 object_builder_rx,
+            ),
+            pathfinding_avatar_controls: Process::new(
+                PathfindingAvatarControls::new(
+                    tx.clone_with_name("pathfinding_avatar_controls"),
+                    Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
+                        &game_state.params.avatar_travel,
+                    )),
+                ),
+                pathfinding_avatar_controls_rx,
             ),
             rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
             simulation: Process::new(
@@ -276,6 +289,9 @@ impl System {
         self.rotate.run_passive(&self.pool).await;
         self.town_builder.run_passive(&self.pool).await;
         self.simulation.run_active(&self.pool).await;
+        self.pathfinding_avatar_controls
+            .run_passive(&self.pool)
+            .await;
         self.object_builder.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
         self.basic_avatar_controls.run_passive(&self.pool).await;
@@ -289,6 +305,9 @@ impl System {
         self.basic_avatar_controls.drain(&self.pool, true).await;
         self.basic_road_builder.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
+        self.pathfinding_avatar_controls
+            .drain(&self.pool, true)
+            .await;
         self.simulation.drain(&self.pool, true).await;
         self.town_builder.drain(&self.pool, true).await;
         self.rotate.drain(&self.pool, true).await;
