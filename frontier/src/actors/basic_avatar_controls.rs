@@ -46,7 +46,7 @@ where
 
         let new_state = unwrap_or!(self.get_walk_forward_state(state, start_at).await, return);
 
-        self.tx.update_avatar_state(name, new_state);
+        self.tx.update_avatar_state(name, new_state).await;
     }
 
     async fn get_walk_forward_state(
@@ -77,7 +77,7 @@ where
     async fn rotate_clockwise(&self) {
         if let Some(Avatar { name, state, .. }) = self.tx.selected_avatar().await {
             if let Some(new_state) = state.rotate_clockwise() {
-                self.tx.update_avatar_state(name, new_state);
+                self.tx.update_avatar_state(name, new_state).await;
             }
         }
     }
@@ -85,7 +85,7 @@ where
     async fn rotate_anticlockwise(&self) {
         if let Some(Avatar { name, state, .. }) = self.tx.selected_avatar().await {
             if let Some(new_state) = state.rotate_anticlockwise() {
-                self.tx.update_avatar_state(name, new_state);
+                self.tx.update_avatar_state(name, new_state).await;
             }
         }
     }

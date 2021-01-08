@@ -10,6 +10,22 @@ use crate::traits::{
 use crate::travel_duration::{EdgeDuration, TravelDuration};
 
 #[async_trait]
+pub trait FindPath {
+    async fn find_path(&self, from: Vec<V2<usize>>, to: Vec<V2<usize>>) -> Option<Vec<V2<usize>>>;
+}
+
+#[async_trait]
+impl<T> FindPath for T
+where
+    T: SendPathfinder + Sync,
+{
+    async fn find_path(&self, from: Vec<V2<usize>>, to: Vec<V2<usize>>) -> Option<Vec<V2<usize>>> {
+        self.send_pathfinder(move |pathfinder| pathfinder.find_path(&from, &to))
+            .await
+    }
+}
+
+#[async_trait]
 pub trait PositionsWithin {
     async fn positions_within(
         &self,

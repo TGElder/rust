@@ -17,6 +17,7 @@ DrawWorld SendWorldArtist
 ExpandPositions SendWorld
 GetNationDescription SendNations
 GetSettlement SendSettlements
+FindPath SendPathfinder
 IsRoad SendWorld
 Micros SendGame
 NationDescriptions SendNations
@@ -62,6 +63,12 @@ SendNations SendGame
 SendObjectBuilder RemoveWorldObject
 SendObjectBuilder SetWorldObject
 SendParameters SendGame
+SendPathfindingAvatarControls FindPath
+SendPathfindingAvatarControls Micros
+SendPathfindingAvatarControls PathfinderWithoutPlannedRoads
+SendPathfindingAvatarControls SelectedAvatar
+SendPathfindingAvatarControls SendWorld
+SendPathfindingAvatarControls UpdateAvatar
 SendRotate _
 SendRoutes SendGame
 SendSettlements SendGame
