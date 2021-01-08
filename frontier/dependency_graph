@@ -15,9 +15,9 @@ DrawTown SendTownHouseArtist
 DrawTown SendTownLabelArtist
 DrawWorld SendWorldArtist
 ExpandPositions SendWorld
+FindPath SendPathfinder
 GetNationDescription SendNations
 GetSettlement SendSettlements
-FindPath SendPathfinder
 IsRoad SendWorld
 Micros SendGame
 NationDescriptions SendNations
