@@ -44,12 +44,16 @@ where
         let (start_at, selected_avatar) = join!(self.tx.micros(), self.tx.selected_avatar(),);
         let Avatar { name, state, .. } = unwrap_or!(selected_avatar, return);
 
-        let new_state = unwrap_or!(self.get_new_state(state, start_at).await, return);
+        let new_state = unwrap_or!(self.get_walk_forward_state(state, start_at).await, return);
 
-         self.tx.update_avatar_state(name, state);
+        self.tx.update_avatar_state(name, new_state);
     }
 
-    async fn get_new_state(&self, state: AvatarState, start_at: u128) -> Option<AvatarState> {
+    async fn get_walk_forward_state(
+        &self,
+        state: AvatarState,
+        start_at: u128,
+    ) -> Option<AvatarState> {
         let path = state.forward_path()?;
 
         let travel_duration = self.travel_duration.clone();
@@ -73,7 +77,7 @@ where
     async fn rotate_clockwise(&self) {
         if let Some(Avatar { name, state, .. }) = self.tx.selected_avatar().await {
             if let Some(new_state) = state.rotate_clockwise() {
-                 self.tx.update_avatar_state(name, state);
+                self.tx.update_avatar_state(name, new_state);
             }
         }
     }
@@ -81,11 +85,10 @@ where
     async fn rotate_anticlockwise(&self) {
         if let Some(Avatar { name, state, .. }) = self.tx.selected_avatar().await {
             if let Some(new_state) = state.rotate_anticlockwise() {
-                 self.tx.update_avatar_state(name, state);
+                self.tx.update_avatar_state(name, new_state);
             }
         }
     }
-
 }
 
 #[async_trait]
