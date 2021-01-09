@@ -40,7 +40,7 @@ where
     }
 
     fn send_messages(&mut self) {
-        if self.follow_avatar {
+        if !self.follow_avatar {
             self.command_tx.send(vec![Command::LookAt(None)]).unwrap();
         }
 
