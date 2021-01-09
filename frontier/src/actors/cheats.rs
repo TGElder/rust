@@ -36,10 +36,6 @@ where
         + SendWorld
         + UpdateAvatar
         + Visibility
-        + Clone
-        + Send
-        + Sync
-        + 'static,
 {
     pub fn new(tx: T) -> Cheats<T> {
         Cheats {
@@ -79,6 +75,12 @@ where
 
         self.tx.update_avatar_state(name, moved).await;
     }
+   
+    async fn remove_avatar(&mut self) {
+        if let Some(name) = self.selected_avatar_name().await {
+            self.tx.update_avatar_state(name, AvatarState::Absent).await;
+        }
+    }
 
     async fn selected_avatar_name(&self) -> Option<String> {
         self.tx
@@ -86,11 +88,6 @@ where
             .await
     }
 
-    async fn remove_avatar(&mut self) {
-        if let Some(name) = self.selected_avatar_name().await {
-            self.tx.update_avatar_state(name, AvatarState::Absent).await;
-        }
-    }
 }
 
 #[async_trait]
@@ -101,10 +98,8 @@ where
         + SendWorld
         + UpdateAvatar
         + Visibility
-        + Clone
         + Send
         + Sync
-        + 'static,
 {
     async fn handle_engine_event(&mut self, event: std::sync::Arc<isometric::Event>) {
         if let Event::WorldPositionChanged(world_coord) = *event {
