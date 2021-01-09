@@ -318,6 +318,13 @@ impl System {
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
             .await;
 
+        self.pathfinder_with_planned_roads
+            .run_passive(&self.pool)
+            .await;
+        self.pathfinder_without_planned_roads
+            .run_passive(&self.pool)
+            .await;
+
         self.world_artist.run_passive(&self.pool).await;
         self.voyager.run_passive(&self.pool).await;
         self.visibility.run_passive(&self.pool).await;
@@ -329,6 +336,7 @@ impl System {
         self.pathfinding_avatar_controls
             .run_passive(&self.pool)
             .await;
+        self.resource_targets.run_passive(&self.pool).await;
         self.object_builder.run_passive(&self.pool).await;
         self.cheats.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
@@ -344,6 +352,7 @@ impl System {
         self.basic_road_builder.drain(&self.pool, true).await;
         self.cheats.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
+        self.resource_targets.drain(&self.pool, true).await;
         self.pathfinding_avatar_controls
             .drain(&self.pool, true)
             .await;
@@ -355,6 +364,13 @@ impl System {
         self.visibility.drain(&self.pool, true).await;
         self.voyager.drain(&self.pool, true).await;
         self.world_artist.drain(&self.pool, true).await;
+
+        self.pathfinder_without_planned_roads
+            .drain(&self.pool, true)
+            .await;
+        self.pathfinder_with_planned_roads
+            .drain(&self.pool, true)
+            .await;
 
         self.tx
             .send_game_state(|game_state| game_state.speed = 0.0)
