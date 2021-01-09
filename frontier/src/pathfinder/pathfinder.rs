@@ -1,9 +1,5 @@
-use crate::pathfinder::traits::{
-    ClosestTargetResult, ClosestTargets, InBounds, LowestDuration, UpdateEdge,
-};
 use crate::travel_duration::*;
 use crate::world::*;
-use commons::edge::Edge;
 use commons::grid::Grid;
 use commons::index2d::*;
 use commons::manhattan::ManhattanDistance;
@@ -152,14 +148,6 @@ where
         }
     }
 
-    pub fn update_from_to(&mut self, world: &World, from: &V2<usize>, to: &V2<usize>) {
-        self.network
-            .remove_edges(self.get_network_index(from), self.get_network_index(to));
-        if let Some(network_edge) = self.compute_network_edge(&world, from, to) {
-            self.network.add_edge(&network_edge);
-        }
-    }
-
     pub fn set_edge_duration(&mut self, from: &V2<usize>, to: &V2<usize>, duration: &Duration) {
         self.network
             .remove_edges(self.get_network_index(from), self.get_network_index(to));
@@ -201,22 +189,27 @@ where
             })
             .collect()
     }
-}
 
-impl<T> ClosestTargets for Pathfinder<T>
-where
-    T: TravelDuration,
-{
-    fn init_targets(&mut self, name: String) {
+    pub fn in_bounds(&self, position: &V2<usize>) -> bool {
+        self.index.get_index(position).is_ok()
+    }
+
+    pub fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
+        self.network
+            .lowest_cost_for_path(&self.get_network_indices(path))
+            .map(|cost| self.travel_duration.get_duration_from_cost(cost))
+    }
+
+    pub fn init_targets(&mut self, name: String) {
         self.network.init_targets(name);
     }
 
-    fn load_target(&mut self, name: &str, position: &V2<usize>, target: bool) {
+    pub fn load_target(&mut self, name: &str, position: &V2<usize>, target: bool) {
         self.network
             .load_target(name, self.get_network_index(position), target)
     }
 
-    fn closest_targets(
+    pub fn closest_targets(
         &self,
         positions: &[V2<usize>],
         targets: &str,
@@ -231,40 +224,18 @@ where
     }
 }
 
-impl<T> UpdateEdge for Pathfinder<T>
-where
-    T: TravelDuration,
-{
-    fn update_edge(&mut self, world: &World, edge: &Edge) {
-        self.update_from_to(world, edge.from(), edge.to());
-        self.update_from_to(world, edge.to(), edge.from());
-    }
-}
-
-impl<T> InBounds for Pathfinder<T>
-where
-    T: TravelDuration,
-{
-    fn in_bounds(&self, position: &V2<usize>) -> bool {
-        self.index.get_index(position).is_ok()
-    }
-}
-
-impl<T> LowestDuration for Pathfinder<T>
-where
-    T: TravelDuration,
-{
-    fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
-        self.network
-            .lowest_cost_for_path(&self.get_network_indices(path))
-            .map(|cost| self.travel_duration.get_duration_from_cost(cost))
-    }
+#[derive(Debug, PartialEq)]
+pub struct ClosestTargetResult {
+    pub position: V2<usize>,
+    pub path: Vec<V2<usize>>,
+    pub duration: Duration,
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    use commons::edge::Edge;
     use commons::M;
     use isometric::cell_traits::*;
     use std::time::Duration;
@@ -546,28 +517,12 @@ mod tests {
     }
 
     #[test]
-    fn test_update_from_to() {
-        let mut pathfinder = pathfinder();
-        let mut world = world();
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 0), &v2(0, 0)),
-            Some(&NetworkEdge::new(1, 0, 255))
-        );
-        world.set_road(&Edge::new(v2(1, 0), v2(0, 0)), true);
-        pathfinder.update_from_to(&world, &v2(1, 0), &v2(0, 0));
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 0), &v2(0, 0)),
-            Some(&NetworkEdge::new(1, 0, 64))
-        );
-    }
-
-    #[test]
     fn test_new_edge() {
-        let mut pathfinder = pathfinder();
+        let pathfinder = pathfinder();
         let mut world = world();
         assert_eq!(get_network_edge(&pathfinder, &v2(1, 0), &v2(2, 0)), None);
         world.set_road(&Edge::new(v2(1, 0), v2(2, 0)), true);
-        pathfinder.update_from_to(&world, &v2(1, 0), &v2(2, 0));
+        pathfinder.compute_network_edges(&world);
         assert_eq!(
             get_network_edge(&pathfinder, &v2(1, 0), &v2(2, 0)),
             Some(&NetworkEdge::new(1, 2, 64))
@@ -667,26 +622,6 @@ mod tests {
         assert_eq!(
             manhattan_distance(pathfinder.get_network_index(&v2(1, 2))),
             0
-        );
-    }
-
-    #[test]
-    fn test_update_edge() {
-        let mut pathfinder = pathfinder();
-        let mut world = world();
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 0), &v2(0, 0)),
-            Some(&NetworkEdge::new(1, 0, 255))
-        );
-        world.set_road(&Edge::new(v2(1, 0), v2(0, 0)), true);
-        pathfinder.update_edge(&world, &Edge::new(v2(1, 0), v2(0, 0)));
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 0), &v2(0, 0)),
-            Some(&NetworkEdge::new(1, 0, 64))
-        );
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(0, 0), &v2(1, 0)),
-            Some(&NetworkEdge::new(0, 1, 64))
         );
     }
 

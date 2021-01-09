@@ -46,7 +46,6 @@ use futures::FutureExt;
 use game_event_consumers::*;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use simple_logger::SimpleLogger;
-use simulation::game_event_consumers::ResourceTargets;
 use std::collections::HashMap;
 use std::env;
 use std::thread;
@@ -92,13 +91,10 @@ fn main() {
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
-    game.add_consumer(ResourceTargets::new(&tx.pathfinder_with_planned_roads));
 
     // Drawing
 
     game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
-    game.add_consumer(PathfinderUpdater::new(&tx.pathfinder_with_planned_roads));
-    game.add_consumer(PathfinderUpdater::new(&tx.pathfinder_without_planned_roads));
 
     // Visibility
     let from_avatar = VisibilityFromAvatar::new(tx.clone_with_name("visibility_from_avatar"));

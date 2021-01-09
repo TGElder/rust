@@ -1,7 +1,7 @@
 use crate::actors::{
     AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, ObjectBuilder,
-    PathfindingAvatarControls, Rotate, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor,
+    PathfinderService, PathfindingAvatarControls, ResourceTargets, Rotate, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -24,7 +24,6 @@ use commons::fn_sender::FnSender;
 use commons::V2;
 use futures::future::BoxFuture;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct Polysender {
@@ -35,6 +34,11 @@ pub struct Polysender {
     pub cheats_tx: FnSender<Cheats<Polysender>>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
+    pub pathfinder_with_planned_roads_tx:
+        FnSender<PathfinderService<Polysender, AvatarTravelDuration>>,
+    pub pathfinder_without_planned_roads_tx:
+        FnSender<PathfinderService<Polysender, AvatarTravelDuration>>,
+    pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
     pub rotate_tx: FnSender<Rotate>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
@@ -43,8 +47,6 @@ pub struct Polysender {
     pub visibility_tx: FnSender<VisibilityActor<Polysender>>,
     pub voyager_tx: FnSender<Voyager<Polysender>>,
     pub world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
-    pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
-    pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
 }
 
 impl Polysender {
@@ -56,8 +58,15 @@ impl Polysender {
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             cheats_tx: self.cheats_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
+            resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
+                .clone_with_name(name),
+            pathfinder_with_planned_roads_tx: self
+                .pathfinder_with_planned_roads_tx
+                .clone_with_name(name),
+            pathfinder_without_planned_roads_tx: self
+                .pathfinder_without_planned_roads_tx
                 .clone_with_name(name),
             rotate_tx: self.rotate_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
@@ -67,8 +76,6 @@ impl Polysender {
             visibility_tx: self.visibility_tx.clone_with_name(name),
             voyager_tx: self.voyager_tx.clone_with_name(name),
             world_artist_tx: self.world_artist_tx.clone_with_name(name),
-            pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
-            pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
         }
     }
 }
@@ -311,23 +318,23 @@ impl SendWorldArtist for Polysender {
 }
 
 impl PathfinderWithPlannedRoads for Polysender {
-    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
+    type T = FnSender<PathfinderService<Polysender, AvatarTravelDuration>>;
 
     fn pathfinder_with_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_with_planned_roads
+        &self.pathfinder_with_planned_roads_tx
     }
 }
 
 impl PathfinderWithoutPlannedRoads for Polysender {
-    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
+    type T = FnSender<PathfinderService<Polysender, AvatarTravelDuration>>;
 
     fn pathfinder_without_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_without_planned_roads
+        &self.pathfinder_without_planned_roads_tx
     }
 }
 
 #[async_trait]
-impl SendPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
+impl SendPathfinder for FnSender<PathfinderService<Polysender, AvatarTravelDuration>> {
     type T = AvatarTravelDuration;
 
     async fn send_pathfinder<F, O>(&self, function: F) -> O
@@ -335,7 +342,8 @@ impl SendPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
         O: Send + 'static,
         F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static,
     {
-        function(&mut self.write().unwrap())
+        self.send(move |service| function(service.pathfinder()))
+            .await
     }
 
     fn send_pathfinder_background<F, O>(&self, function: F)
@@ -343,7 +351,7 @@ impl SendPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
         O: Send + 'static,
         F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static,
     {
-        function(&mut self.write().unwrap());
+        self.send(move |service| function(service.pathfinder()));
     }
 }
 
