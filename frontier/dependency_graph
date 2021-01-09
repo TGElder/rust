@@ -58,6 +58,11 @@ SendBasicAvatarControls SendWorld
 SendBasicAvatarControls UpdateAvatar
 SendBasicRoadBuilder SendGame
 SendBasicRoadBuilder UpdateRoads
+SendCheats RevealAll
+SendCheats SendAvatars
+SendCheats SendWorld
+SendCheats UpdateAvatar
+SendCheats Visibility
 SendGameState SendGame
 SendNations SendGame
 SendObjectBuilder RemoveWorldObject

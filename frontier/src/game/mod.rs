@@ -211,12 +211,6 @@ impl Game {
         })
     }
 
-    pub fn update_avatar_state(&mut self, name: String, new_state: AvatarState) {
-        if let Some(avatar) = self.game_state.avatars.all.get_mut(&name) {
-            avatar.state = new_state
-        }
-    }
-
     pub fn walk_positions(
         &mut self,
         name: String,

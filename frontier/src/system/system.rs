@@ -7,7 +7,7 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, ObjectBuilder,
+    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, ObjectBuilder,
     PathfindingAvatarControls, Rotate, TownBuilderActor, TownHouseArtist, TownLabelArtist,
     VisibilityActor, Voyager, WorldArtistActor,
 };
@@ -35,6 +35,7 @@ pub struct System {
     pub avatar_artist: Process<AvatarArtistActor<Polysender>>,
     pub basic_avatar_controls: Process<BasicAvatarControls<Polysender>>,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
+    pub cheats: Process<Cheats<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
@@ -58,6 +59,7 @@ impl System {
         let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
+        let (cheats_tx, cheats_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
@@ -83,6 +85,7 @@ impl System {
             avatar_artist_tx,
             basic_avatar_controls_tx,
             basic_road_builder_tx,
+            cheats_tx,
             object_builder_tx,
             pathfinding_avatar_controls_tx,
             rotate_tx,
@@ -125,6 +128,7 @@ impl System {
                 BasicRoadBuilder::new(tx.clone_with_name("basic_road_builder")),
                 basic_road_builder_rx,
             ),
+            cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
             event_forwarder: Process::new(
                 EventForwarderActor::new(tx.clone_with_name("event_forwarder")),
                 event_forwarder_rx,
@@ -293,6 +297,7 @@ impl System {
             .run_passive(&self.pool)
             .await;
         self.object_builder.run_passive(&self.pool).await;
+        self.cheats.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
         self.basic_avatar_controls.run_passive(&self.pool).await;
         self.avatar_artist.run_passive(&self.pool).await;
@@ -304,6 +309,7 @@ impl System {
         self.avatar_artist.drain(&self.pool, true).await;
         self.basic_avatar_controls.drain(&self.pool, true).await;
         self.basic_road_builder.drain(&self.pool, true).await;
+        self.cheats.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
         self.pathfinding_avatar_controls
             .drain(&self.pool, true)
