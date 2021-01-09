@@ -91,7 +91,6 @@ fn main() {
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.tx()));
-    game.add_consumer(SelectAvatar::new(game.tx()));
     game.add_consumer(SpeedControl::new(game.tx()));
     game.add_consumer(ResourceTargets::new(&tx.pathfinder_with_planned_roads));
 
