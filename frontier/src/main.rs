@@ -107,11 +107,6 @@ fn main() {
     game.add_consumer(from_avatar);
     game.add_consumer(setup_new_world);
 
-    game.add_consumer(Cheats::new(
-        tx.clone_with_name("cheats"),
-        thread_pool.clone(),
-    ));
-
     // Run
     let (system_tx, system_rx) = fn_channel();
     system_tx.send_future(|system: &mut System| system.start().boxed());

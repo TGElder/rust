@@ -1,6 +1,7 @@
 mod avatar_artist;
 mod basic_avatar_controls;
 mod basic_road_builder;
+mod cheats;
 mod object_builder;
 mod pathfinding_avatar_controls;
 mod rotate;
@@ -13,6 +14,7 @@ mod world_artist;
 pub use avatar_artist::*;
 pub use basic_avatar_controls::*;
 pub use basic_road_builder::*;
+pub use cheats::*;
 pub use object_builder::*;
 pub use pathfinding_avatar_controls::*;
 pub use rotate::*;

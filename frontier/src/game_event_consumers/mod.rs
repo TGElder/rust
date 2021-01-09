@@ -3,11 +3,9 @@ use crate::game::*;
 use commons::fn_sender::*;
 use commons::grid::Grid;
 use commons::V2;
-use futures::executor::ThreadPool;
 use isometric::Event;
 use std::sync::Arc;
 
-mod cheats;
 mod labels;
 mod pathfinder_updater;
 mod prime_mover;
@@ -16,7 +14,6 @@ mod setup_new_world;
 mod speed_control;
 mod visibility;
 
-pub use cheats::*;
 pub use labels::*;
 pub use pathfinder_updater::*;
 pub use prime_mover::*;

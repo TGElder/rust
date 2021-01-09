@@ -1,5 +1,5 @@
 use crate::actors::{
-    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, ObjectBuilder,
+    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, ObjectBuilder,
     PathfindingAvatarControls, Rotate, TownBuilderActor, TownHouseArtist, TownLabelArtist,
     VisibilityActor, Voyager, WorldArtistActor,
 };
@@ -32,6 +32,7 @@ pub struct Polysender {
     pub avatar_artist_tx: FnSender<AvatarArtistActor<Polysender>>,
     pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Polysender>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
+    pub cheats_tx: FnSender<Cheats<Polysender>>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
     pub rotate_tx: FnSender<Rotate>,
@@ -53,6 +54,7 @@ impl Polysender {
             avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
+            cheats_tx: self.cheats_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
