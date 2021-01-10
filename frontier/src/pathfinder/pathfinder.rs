@@ -61,19 +61,11 @@ where
             .collect()
     }
 
-    fn compute_network_edge(
-        &self,
-        world: &World,
-        from: &V2<usize>,
-        to: &V2<usize>,
-    ) -> Option<NetworkEdge> {
-        self.travel_duration.get_cost(world, from, to).map(|cost| {
-            NetworkEdge::new(
-                self.get_network_index(from),
-                self.get_network_index(to),
-                cost,
-            )
-        })
+    pub fn reset_edges(&mut self, world: &World) {
+        self.network.reset_edges();
+        self.compute_network_edges(world)
+            .iter()
+            .for_each(|edge| self.network.add_edge(&edge));
     }
 
     fn compute_network_edges(&self, world: &World) -> Vec<NetworkEdge> {
@@ -96,11 +88,30 @@ where
         edges
     }
 
-    pub fn reset_edges(&mut self, world: &World) {
-        self.network.reset_edges();
-        self.compute_network_edges(world)
-            .iter()
-            .for_each(|edge| self.network.add_edge(&edge));
+    fn compute_network_edge(
+        &self,
+        world: &World,
+        from: &V2<usize>,
+        to: &V2<usize>,
+    ) -> Option<NetworkEdge> {
+        self.travel_duration.get_cost(world, from, to).map(|cost| {
+            NetworkEdge::new(
+                self.get_network_index(from),
+                self.get_network_index(to),
+                cost,
+            )
+        })
+    }
+
+    pub fn set_edge_duration(&mut self, from: &V2<usize>, to: &V2<usize>, duration: &Duration) {
+        self.network
+            .remove_edges(self.get_network_index(from), self.get_network_index(to));
+        let network_edge = NetworkEdge::new(
+            self.get_network_index(from),
+            self.get_network_index(to),
+            self.travel_duration.get_cost_from_duration_u8(duration),
+        );
+        self.network.add_edge(&network_edge);
     }
 
     pub fn manhattan_distance(&self, to: &[V2<usize>]) -> impl Fn(usize) -> u32 {
@@ -148,23 +159,14 @@ where
         }
     }
 
-    pub fn set_edge_duration(&mut self, from: &V2<usize>, to: &V2<usize>, duration: &Duration) {
-        self.network
-            .remove_edges(self.get_network_index(from), self.get_network_index(to));
-        let network_edge = NetworkEdge::new(
-            self.get_network_index(from),
-            self.get_network_index(to),
-            self.travel_duration.get_cost_from_duration_u8(duration),
-        );
-        self.network.add_edge(&network_edge);
+    pub fn in_bounds(&self, position: &V2<usize>) -> bool {
+        self.index.get_index(position).is_ok()
     }
 
-    fn as_closest_target_result(&self, result: NetworkClosestTargetResult) -> ClosestTargetResult {
-        ClosestTargetResult {
-            position: self.get_position_from_network_index(result.node).unwrap(),
-            path: self.get_positions_from_network_indices(&result.path),
-            duration: self.travel_duration.get_duration_from_cost(result.cost),
-        }
+    pub fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
+        self.network
+            .lowest_cost_for_path(&self.get_network_indices(path))
+            .map(|cost| self.travel_duration.get_duration_from_cost(cost))
     }
 
     pub fn positions_within(
@@ -190,16 +192,6 @@ where
             .collect()
     }
 
-    pub fn in_bounds(&self, position: &V2<usize>) -> bool {
-        self.index.get_index(position).is_ok()
-    }
-
-    pub fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
-        self.network
-            .lowest_cost_for_path(&self.get_network_indices(path))
-            .map(|cost| self.travel_duration.get_duration_from_cost(cost))
-    }
-
     pub fn init_targets(&mut self, name: String) {
         self.network.init_targets(name);
     }
@@ -222,6 +214,15 @@ where
             .map(|result| self.as_closest_target_result(result))
             .collect()
     }
+
+    fn as_closest_target_result(&self, result: NetworkClosestTargetResult) -> ClosestTargetResult {
+        ClosestTargetResult {
+            position: self.get_position_from_network_index(result.node).unwrap(),
+            path: self.get_positions_from_network_indices(&result.path),
+            duration: self.travel_duration.get_duration_from_cost(result.cost),
+        }
+    }
+
 }
 
 #[derive(Clone, Debug, PartialEq)]
