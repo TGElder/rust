@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use commons::fn_sender::{fn_channel, FnSender};
 use futures::executor::ThreadPool;
@@ -8,8 +8,8 @@ use isometric::IsometricEngine;
 
 use crate::actors::{
     AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, ObjectBuilder,
-    PathfindingAvatarControls, Rotate, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor,
+    PathfinderService, PathfindingAvatarControls, ResourceTargets, Rotate, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -38,7 +38,11 @@ pub struct System {
     pub cheats: Process<Cheats<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
+    pub resource_targets: Process<ResourceTargets<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
+    pub pathfinder_with_planned_roads: Process<PathfinderService<Polysender, AvatarTravelDuration>>,
+    pub pathfinder_without_planned_roads:
+        Process<PathfinderService<Polysender, AvatarTravelDuration>>,
     pub rotate: Process<Rotate>,
     pub simulation: Process<Simulation<Polysender>>,
     pub town_builder: Process<TownBuilderActor<Polysender>>,
@@ -61,6 +65,10 @@ impl System {
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
+        let (resource_targets_tx, resource_targets_rx) = fn_channel();
+        let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
+        let (pathfinder_without_planned_roads_tx, pathfinder_without_planned_roads_rx) =
+            fn_channel();
         let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
@@ -71,15 +79,6 @@ impl System {
         let (voyager_tx, voyager_rx) = fn_channel();
         let (world_artist_tx, world_artist_rx) = fn_channel();
 
-        let pathfinder_with_planned_roads = Arc::new(RwLock::new(Pathfinder::new(
-            &game_state.world,
-            AvatarTravelDuration::with_planned_roads_as_roads(&game_state.params.avatar_travel),
-        )));
-        let pathfinder_without_planned_roads = Arc::new(RwLock::new(Pathfinder::new(
-            &game_state.world,
-            AvatarTravelDuration::with_planned_roads_ignored(&game_state.params.avatar_travel),
-        )));
-
         let tx = Polysender {
             game_tx: game_tx.clone_with_name("polysender"),
             avatar_artist_tx,
@@ -87,6 +86,9 @@ impl System {
             basic_road_builder_tx,
             cheats_tx,
             object_builder_tx,
+            resource_targets_tx,
+            pathfinder_with_planned_roads_tx,
+            pathfinder_without_planned_roads_tx,
             pathfinding_avatar_controls_tx,
             rotate_tx,
             simulation_tx,
@@ -96,8 +98,6 @@ impl System {
             visibility_tx,
             voyager_tx,
             world_artist_tx,
-            pathfinder_with_planned_roads: pathfinder_with_planned_roads.clone(),
-            pathfinder_without_planned_roads: pathfinder_without_planned_roads.clone(),
         };
 
         let (event_forwarder_tx, event_forwarder_rx) = fn_channel();
@@ -136,6 +136,34 @@ impl System {
             object_builder: Process::new(
                 ObjectBuilder::new(tx.clone_with_name("object_builder"), game_state.params.seed),
                 object_builder_rx,
+            ),
+            resource_targets: Process::new(
+                ResourceTargets::new(tx.clone_with_name("resource_targets")),
+                resource_targets_rx,
+            ),
+            pathfinder_with_planned_roads: Process::new(
+                PathfinderService::new(
+                    tx.clone_with_name("pathfinder_with_planned_roads"),
+                    Pathfinder::new(
+                        &game_state.world,
+                        AvatarTravelDuration::with_planned_roads_as_roads(
+                            &game_state.params.avatar_travel,
+                        ),
+                    ),
+                ),
+                pathfinder_with_planned_roads_rx,
+            ),
+            pathfinder_without_planned_roads: Process::new(
+                PathfinderService::new(
+                    tx.clone_with_name("pathfinder_without_planned_roads"),
+                    Pathfinder::new(
+                        &game_state.world,
+                        AvatarTravelDuration::with_planned_roads_ignored(
+                            &game_state.params.avatar_travel,
+                        ),
+                    ),
+                ),
+                pathfinder_without_planned_roads_rx,
             ),
             pathfinding_avatar_controls: Process::new(
                 PathfindingAvatarControls::new(
@@ -178,11 +206,7 @@ impl System {
                         )),
                         Box::new(GetDemand::new(town_demand_fn)),
                         Box::new(GetDemand::new(homeland_demand_fn)),
-                        Box::new(GetRoutes::new(
-                            game_tx,
-                            &pathfinder_with_planned_roads,
-                            &pathfinder_without_planned_roads,
-                        )),
+                        Box::new(GetRoutes::new(tx.clone_with_name("get_routes"))),
                         Box::new(GetRouteChanges::new(game_tx)),
                         Box::new(UpdatePositionTraffic::new()),
                         Box::new(UpdateEdgeTraffic::new()),
@@ -258,6 +282,15 @@ impl System {
             .avatar_artist_tx
             .send(|avatar_artist| avatar_artist.init());
         self.tx
+            .resource_targets_tx
+            .send_future(|resource_targets| resource_targets.init().boxed());
+        self.tx
+            .pathfinder_with_planned_roads_tx
+            .send_future(|pathfinder| pathfinder.init().boxed());
+        self.tx
+            .pathfinder_without_planned_roads_tx
+            .send_future(|pathfinder| pathfinder.init().boxed());
+        self.tx
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());
         self.tx
@@ -285,11 +318,19 @@ impl System {
             .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
             .await;
 
+        self.pathfinder_with_planned_roads
+            .run_passive(&self.pool)
+            .await;
+        self.pathfinder_without_planned_roads
+            .run_passive(&self.pool)
+            .await;
+
         self.world_artist.run_passive(&self.pool).await;
         self.voyager.run_passive(&self.pool).await;
         self.visibility.run_passive(&self.pool).await;
         self.town_house_artist.run_passive(&self.pool).await;
         self.town_label_artist.run_passive(&self.pool).await;
+        self.resource_targets.run_passive(&self.pool).await;
         self.rotate.run_passive(&self.pool).await;
         self.town_builder.run_passive(&self.pool).await;
         self.simulation.run_active(&self.pool).await;
@@ -317,11 +358,19 @@ impl System {
         self.simulation.drain(&self.pool, true).await;
         self.town_builder.drain(&self.pool, true).await;
         self.rotate.drain(&self.pool, true).await;
+        self.resource_targets.drain(&self.pool, true).await;
         self.town_label_artist.drain(&self.pool, true).await;
         self.town_house_artist.drain(&self.pool, true).await;
         self.visibility.drain(&self.pool, true).await;
         self.voyager.drain(&self.pool, true).await;
         self.world_artist.drain(&self.pool, true).await;
+
+        self.pathfinder_without_planned_roads
+            .drain(&self.pool, true)
+            .await;
+        self.pathfinder_with_planned_roads
+            .drain(&self.pool, true)
+            .await;
 
         self.tx
             .send_game_state(|game_state| game_state.speed = 0.0)
