@@ -59,7 +59,7 @@ where
             )
             .await;
         let nations = gen_nations(&mut rng, &nations, &homeland_starts.len());
-        let settlements = self
+        let homelands = self
             .gen_homelands(&homeland_distance, &homeland_starts, &nations)
             .await;
 
@@ -100,7 +100,7 @@ where
         nations: &HashMap<String, Nation>,
     ) -> HashMap<V2<usize>, Settlement> {
         let initial_population = self.initial_population(&nations.len()).await;
-        get_homelands(
+        gen_homelands(
             &homeland_distance,
             &homeland_starts,
             &nations,
@@ -219,7 +219,7 @@ fn gen_nations<R: Rng>(
         .collect()
 }
 
-fn get_homelands(
+fn gen_homelands(
     homeland_distance: &Duration,
     homeland_starts: &[HomelandStart],
     nations: &HashMap<String, Nation>,
@@ -229,7 +229,7 @@ fn get_homelands(
         .keys()
         .enumerate()
         .map(|(i, nation)| {
-            get_homeland(
+            gen_homeland(
                 homeland_distance,
                 &homeland_starts[i],
                 nation.to_string(),
@@ -240,7 +240,7 @@ fn get_homelands(
         .collect()
 }
 
-fn get_homeland(
+fn gen_homeland(
     homeland_distance: &Duration,
     homeland_start: &HomelandStart,
     nation: String,
