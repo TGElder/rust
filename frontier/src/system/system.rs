@@ -330,13 +330,13 @@ impl System {
         self.visibility.run_passive(&self.pool).await;
         self.town_house_artist.run_passive(&self.pool).await;
         self.town_label_artist.run_passive(&self.pool).await;
+        self.resource_targets.run_passive(&self.pool).await;
         self.rotate.run_passive(&self.pool).await;
         self.town_builder.run_passive(&self.pool).await;
         self.simulation.run_active(&self.pool).await;
         self.pathfinding_avatar_controls
             .run_passive(&self.pool)
             .await;
-        self.resource_targets.run_passive(&self.pool).await;
         self.object_builder.run_passive(&self.pool).await;
         self.cheats.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
@@ -352,13 +352,13 @@ impl System {
         self.basic_road_builder.drain(&self.pool, true).await;
         self.cheats.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
-        self.resource_targets.drain(&self.pool, true).await;
         self.pathfinding_avatar_controls
             .drain(&self.pool, true)
             .await;
         self.simulation.drain(&self.pool, true).await;
         self.town_builder.drain(&self.pool, true).await;
         self.rotate.drain(&self.pool, true).await;
+        self.resource_targets.drain(&self.pool, true).await;
         self.town_label_artist.drain(&self.pool, true).await;
         self.town_house_artist.drain(&self.pool, true).await;
         self.visibility.drain(&self.pool, true).await;

@@ -60,7 +60,8 @@ where
 
     pub async fn run_passive(&mut self, pool: &ThreadPool) {
         debug!("Running {} (passive)", type_name::<T>());
-        let (object, object_rx) = self.object_and_rx().await;
+        let (mut object, mut object_rx) = self.object_and_rx().await;
+        process_messages(&mut object, &mut object_rx).await;
         let (shutdown_tx, shutdown_rx) = unbounded();
         let handle = run_passive(object, object_rx, shutdown_rx, pool);
         self.state = Some(ProcessState::Running {
@@ -71,7 +72,8 @@ where
 
     pub async fn drain(&mut self, pool: &ThreadPool, error_on_drain: bool) {
         debug!("Draining {}", type_name::<T>());
-        let (object, object_rx) = self.object_and_rx().await;
+        let (mut object, mut object_rx) = self.object_and_rx().await;
+        process_messages(&mut object, &mut object_rx).await;
         let (shutdown_tx, shutdown_rx) = unbounded();
         let handle = drain(object_rx, shutdown_rx, pool, error_on_drain);
         self.state = Some(ProcessState::Draining {
@@ -80,6 +82,7 @@ where
             handle,
         });
     }
+
 
     pub fn object_ref(&self) -> Result<&T, &'static str> {
         match self.state.as_ref() {
@@ -95,6 +98,16 @@ where
             Some(ProcessState::Draining { object, .. }) => Ok(object),
             _ => Err("Can only access object in paused or draining process!"),
         }
+    }
+}
+
+async fn process_messages<T>(object: &mut T, object_rx: &mut FnReceiver<T>) 
+    where T: Send
+{
+    let mut messages = object_rx.get_messages();
+    if !messages.is_empty() {
+        debug!("Processed {} messages for {}", messages.len(), type_name::<T>());
+        messages.apply(object).await;
     }
 }
 
@@ -167,7 +180,8 @@ where
 {
     pub async fn run_active(&mut self, pool: &ThreadPool) {
         debug!("Running {} (active)", type_name::<T>());
-        let (object, object_rx) = self.object_and_rx().await;
+        let (mut object, mut object_rx) = self.object_and_rx().await;
+        process_messages(&mut object, &mut object_rx).await;
         let (shutdown_tx, shutdown_rx) = unbounded();
         let handle = run_active(object, object_rx, shutdown_rx, pool);
         self.state = Some(ProcessState::Running {
