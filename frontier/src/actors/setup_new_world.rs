@@ -48,24 +48,20 @@ where
             })
             .await;
         let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
-        let homeland_count = homeland_params.count;
 
         let homeland_starts = self.gen_homeland_starts(rng.clone(), homeland_params).await;
+
         let avatars = self
-            .gen_avatars(
-                homeland_starts.clone(),
+            .gen_avatar(
+                homeland_starts[0].pre_landfall,
                 avatar_color,
                 avatar_skin_color(&mut rng),
             )
             .await;
-        let nations = gen_nations(&mut rng, &nations, &homeland_count);
-        let initial_population = self.initial_population(&homeland_count).await;
-        let settlements = gen_settlements(
-            &homeland_distance,
-            &homeland_starts,
-            &nations,
-            &initial_population,
-        );
+        let nations = gen_nations(&mut rng, &nations, &homeland_starts.len());
+        let settlements = self
+            .gen_homelands(&homeland_distance, &homeland_starts, &nations)
+            .await;
 
         join!(
             self.set_avatars(avatars),
@@ -73,7 +69,7 @@ where
             self.set_settlements(settlements)
         );
 
-        self.set_visibility_from_voyage(&homeland_starts);
+        self.set_visibility_from_voyage(&homeland_starts[0].voyage);
     }
 
     async fn gen_homeland_starts<R: Rng + Send + 'static>(
@@ -86,15 +82,30 @@ where
             .await
     }
 
-    async fn gen_avatars(
+    async fn gen_avatar(
         &self,
-        homeland_starts: Vec<HomelandStart>,
-        avatar_color: Color,
+        position: V2<usize>,
+        color: Color,
         skin_color: Color,
     ) -> HashMap<String, Avatar> {
         self.tx
-            .send_world(move |world| gen_avatar(world, &homeland_starts, avatar_color, skin_color))
+            .send_world(move |world| gen_avatar(world, position, color, skin_color))
             .await
+    }
+
+    async fn gen_homelands(
+        &self,
+        homeland_distance: &Duration,
+        homeland_starts: &[HomelandStart],
+        nations: &HashMap<String, Nation>,
+    ) -> HashMap<V2<usize>, Settlement> {
+        let initial_population = self.initial_population(&nations.len()).await;
+        get_homelands(
+            &homeland_distance,
+            &homeland_starts,
+            &nations,
+            &initial_population,
+        )
     }
 
     async fn initial_population(&self, homeland_count: &usize) -> f64 {
@@ -126,8 +137,8 @@ where
             .await;
     }
 
-    fn set_visibility_from_voyage(&self, homeland_starts: &[HomelandStart]) {
-        let visited = get_visited_positions(&homeland_starts);
+    fn set_visibility_from_voyage(&self, voyage: &[V2<usize>]) {
+        let visited = get_visited_positions(&voyage);
         self.tx.check_visibility_and_reveal(visited);
     }
 }
@@ -168,25 +179,18 @@ fn total_edge_positions(world: &World, edges: &[HomelandEdge]) -> usize {
         .sum()
 }
 
-fn get_visited_positions(homeland_starts: &[HomelandStart]) -> HashSet<V2<usize>> {
-    homeland_starts[0].voyage.iter().cloned().collect()
-}
-
 fn avatar_skin_color<R: Rng>(rng: &mut R) -> Color {
     *skin_colors().choose(rng).unwrap()
 }
 
 fn gen_avatar(
     world: &World,
-    homeland_starts: &[HomelandStart],
+    position: V2<usize>,
     color: Color,
     skin_color: Color,
 ) -> HashMap<String, Avatar> {
-    let mut avatars = HashMap::new();
-    let position = homeland_starts[0].pre_landfall;
-    avatars.insert(
-        AVATAR_NAME.to_string(),
-        Avatar {
+    hashmap! {
+        AVATAR_NAME.to_string() => Avatar {
             name: AVATAR_NAME.to_string(),
             state: AvatarState::Stationary {
                 elevation: world
@@ -200,9 +204,8 @@ fn gen_avatar(
             color,
             skin_color,
             load: AvatarLoad::None,
-        },
-    );
-    avatars
+        }
+    }
 }
 
 fn gen_nations<R: Rng>(
@@ -216,7 +219,7 @@ fn gen_nations<R: Rng>(
         .collect()
 }
 
-fn gen_settlements(
+fn get_homelands(
     homeland_distance: &Duration,
     homeland_starts: &[HomelandStart],
     nations: &HashMap<String, Nation>,
@@ -226,7 +229,7 @@ fn gen_settlements(
         .keys()
         .enumerate()
         .map(|(i, nation)| {
-            get_settlement(
+            get_homeland(
                 homeland_distance,
                 &homeland_starts[i],
                 nation.to_string(),
@@ -237,7 +240,7 @@ fn gen_settlements(
         .collect()
 }
 
-fn get_settlement(
+fn get_homeland(
     homeland_distance: &Duration,
     homeland_start: &HomelandStart,
     nation: String,
@@ -253,6 +256,10 @@ fn get_settlement(
         gap_half_life: (*homeland_distance * 2).mul_f32(2.41), // 5.19 makes half life equivalent to '7/8th life'
         last_population_update_micros: 0,
     }
+}
+
+fn get_visited_positions(voyage: &[V2<usize>]) -> HashSet<V2<usize>> {
+    voyage.iter().cloned().collect()
 }
 
 #[cfg(test)]
