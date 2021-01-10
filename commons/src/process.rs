@@ -72,8 +72,7 @@ where
 
     pub async fn drain(&mut self, pool: &ThreadPool, error_on_drain: bool) {
         debug!("Draining {}", type_name::<T>());
-        let (mut object, mut object_rx) = self.object_and_rx().await;
-        process_messages(&mut object, &mut object_rx).await;
+        let (object, object_rx) = self.object_and_rx().await;
         let (shutdown_tx, shutdown_rx) = unbounded();
         let handle = drain(object_rx, shutdown_rx, pool, error_on_drain);
         self.state = Some(ProcessState::Draining {
@@ -82,7 +81,6 @@ where
             handle,
         });
     }
-
 
     pub fn object_ref(&self) -> Result<&T, &'static str> {
         match self.state.as_ref() {
@@ -101,12 +99,17 @@ where
     }
 }
 
-async fn process_messages<T>(object: &mut T, object_rx: &mut FnReceiver<T>) 
-    where T: Send
+async fn process_messages<T>(object: &mut T, object_rx: &mut FnReceiver<T>)
+where
+    T: Send,
 {
     let mut messages = object_rx.get_messages();
     if !messages.is_empty() {
-        debug!("Processed {} messages for {}", messages.len(), type_name::<T>());
+        debug!(
+            "Processed {} messages for {}",
+            messages.len(),
+            type_name::<T>()
+        );
         messages.apply(object).await;
     }
 }

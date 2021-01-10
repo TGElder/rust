@@ -517,19 +517,6 @@ mod tests {
     }
 
     #[test]
-    fn test_new_edge() {
-        let pathfinder = pathfinder();
-        let mut world = world();
-        assert_eq!(get_network_edge(&pathfinder, &v2(1, 0), &v2(2, 0)), None);
-        world.set_road(&Edge::new(v2(1, 0), v2(2, 0)), true);
-        pathfinder.compute_network_edges(&world);
-        assert_eq!(
-            get_network_edge(&pathfinder, &v2(1, 0), &v2(2, 0)),
-            Some(&NetworkEdge::new(1, 2, 64))
-        );
-    }
-
-    #[test]
     fn test_set_edge_duration() {
         // Given
         let mut pathfinder = pathfinder();

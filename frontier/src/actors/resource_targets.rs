@@ -30,18 +30,7 @@ where
 
     async fn get_targets(&self, resource: Resource) -> HashSet<V2<usize>> {
         self.tx
-            .send_world(move |world| {
-                let mut out = HashSet::new();
-                for x in 0..world.width() {
-                    for y in 0..world.height() {
-                        let position = &v2(x, y);
-                        if resource_at(&world, resource, &position) {
-                            out.insert(*position);
-                        }
-                    }
-                }
-                out
-            })
+            .send_world(move |world| resource_positions(world, resource))
             .await
     }
 
@@ -51,6 +40,19 @@ where
             self.tx.load_target(target_set.clone(), target, true).await
         }
     }
+}
+
+fn resource_positions(world: &World, resource: Resource) -> HashSet<V2<usize>> {
+    let mut out = HashSet::new();
+    for x in 0..world.width() {
+        for y in 0..world.height() {
+            let position = &v2(x, y);
+            if resource_at(&world, resource, &position) {
+                out.insert(*position);
+            }
+        }
+    }
+    out
 }
 
 fn resource_at(world: &World, resource: Resource, position: &V2<usize>) -> bool {
