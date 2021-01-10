@@ -240,21 +240,6 @@ mod tests {
     use isometric::cell_traits::*;
     use std::time::Duration;
 
-    fn get_network_edge<'a, T>(
-        pathfinder: &'a Pathfinder<T>,
-        from: &V2<usize>,
-        to: &V2<usize>,
-    ) -> Option<&'a NetworkEdge>
-    where
-        T: TravelDuration,
-    {
-        pathfinder
-            .network
-            .get_out(&pathfinder.get_network_index(from))
-            .iter()
-            .find(|edge| edge.to == pathfinder.get_network_index(to))
-    }
-
     struct TestTravelDuration {
         max: Duration,
     }

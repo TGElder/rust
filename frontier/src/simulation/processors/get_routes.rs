@@ -269,6 +269,60 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_more_closest_targets_than_requested() {
+        // Given
+        let closest_targets = vec![
+            ClosestTargetResult {
+                position: v2(1, 5),
+                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                duration: Duration::from_secs(2),
+            },
+            ClosestTargetResult {
+                position: v2(5, 3),
+                path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
+                duration: Duration::from_secs(4),
+            },
+        ];
+        let mut processor = GetRoutes::new(HappyPathTx { closest_targets });
+        let demand = Demand {
+            position: v2(1, 3),
+            resource: Resource::Coal,
+            sources: 1,
+            quantity: 3,
+        };
+
+        // When
+        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
+
+        // Then
+        let mut route_set = HashMap::new();
+        route_set.insert(
+            RouteKey {
+                settlement: v2(1, 3),
+                resource: Resource::Coal,
+                destination: v2(1, 5),
+            },
+            Route {
+                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                start_micros: 101,
+                duration: Duration::from_secs(303),
+                traffic: 3,
+            },
+        );
+
+        assert_eq!(
+            state.instructions,
+            vec![Instruction::GetRouteChanges {
+                key: RouteSetKey {
+                    settlement: v2(1, 3),
+                    resource: Resource::Coal
+                },
+                route_set
+            }]
+        );
+    }
+
     struct PanicPathfinderTx {}
 
     #[async_trait]
@@ -354,60 +408,6 @@ mod tests {
                     resource: Resource::Coal
                 },
                 route_set: hashmap! {}
-            }]
-        );
-    }
-
-    #[test]
-    fn test_more_closest_targets_than_requested() {
-        // Given
-        let closest_targets = vec![
-            ClosestTargetResult {
-                position: v2(1, 5),
-                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
-                duration: Duration::from_secs(2),
-            },
-            ClosestTargetResult {
-                position: v2(5, 3),
-                path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
-                duration: Duration::from_secs(4),
-            },
-        ];
-        let mut processor = GetRoutes::new(HappyPathTx { closest_targets });
-        let demand = Demand {
-            position: v2(1, 3),
-            resource: Resource::Coal,
-            sources: 1,
-            quantity: 3,
-        };
-
-        // When
-        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
-
-        // Then
-        let mut route_set = HashMap::new();
-        route_set.insert(
-            RouteKey {
-                settlement: v2(1, 3),
-                resource: Resource::Coal,
-                destination: v2(1, 5),
-            },
-            Route {
-                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
-                start_micros: 101,
-                duration: Duration::from_secs(303),
-                traffic: 3,
-            },
-        );
-
-        assert_eq!(
-            state.instructions,
-            vec![Instruction::GetRouteChanges {
-                key: RouteSetKey {
-                    settlement: v2(1, 3),
-                    resource: Resource::Coal
-                },
-                route_set
             }]
         );
     }

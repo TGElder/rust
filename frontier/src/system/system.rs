@@ -66,10 +66,10 @@ impl System {
         let (cheats_tx, cheats_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
-        let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
         let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
         let (pathfinder_without_planned_roads_tx, pathfinder_without_planned_roads_rx) =
             fn_channel();
+        let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
         let (town_builder_tx, town_builder_rx) = fn_channel();
@@ -87,9 +87,9 @@ impl System {
             cheats_tx,
             object_builder_tx,
             resource_targets_tx,
-            pathfinding_avatar_controls_tx,
             pathfinder_with_planned_roads_tx,
             pathfinder_without_planned_roads_tx,
+            pathfinding_avatar_controls_tx,
             rotate_tx,
             simulation_tx,
             town_builder_tx,
@@ -141,15 +141,6 @@ impl System {
                 ResourceTargets::new(tx.clone_with_name("resource_targets")),
                 resource_targets_rx,
             ),
-            pathfinding_avatar_controls: Process::new(
-                PathfindingAvatarControls::new(
-                    tx.clone_with_name("pathfinding_avatar_controls"),
-                    Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
-                        &game_state.params.avatar_travel,
-                    )),
-                ),
-                pathfinding_avatar_controls_rx,
-            ),
             pathfinder_with_planned_roads: Process::new(
                 PathfinderService::new(
                     tx.clone_with_name("pathfinder_with_planned_roads"),
@@ -173,6 +164,15 @@ impl System {
                     ),
                 ),
                 pathfinder_without_planned_roads_rx,
+            ),
+            pathfinding_avatar_controls: Process::new(
+                PathfindingAvatarControls::new(
+                    tx.clone_with_name("pathfinding_avatar_controls"),
+                    Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
+                        &game_state.params.avatar_travel,
+                    )),
+                ),
+                pathfinding_avatar_controls_rx,
             ),
             rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
             simulation: Process::new(
