@@ -9,7 +9,8 @@ use isometric::IsometricEngine;
 use crate::actors::{
     AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, ObjectBuilder,
     PathfinderService, PathfindingAvatarControls, ResourceTargets, Rotate, SetupNewWorld,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
+    WorldArtistActor,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -38,14 +39,15 @@ pub struct System {
     pub cheats: Process<Cheats<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
-    pub resource_targets: Process<ResourceTargets<Polysender>>,
-    pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
     pub pathfinder_with_planned_roads: Process<PathfinderService<Polysender, AvatarTravelDuration>>,
     pub pathfinder_without_planned_roads:
         Process<PathfinderService<Polysender, AvatarTravelDuration>>,
+    pub resource_targets: Process<ResourceTargets<Polysender>>,
     pub rotate: Process<Rotate>,
+    pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub simulation: Process<Simulation<Polysender>>,
+    pub speed_control: Process<SpeedControl<Polysender>>,
     pub town_builder: Process<TownBuilderActor<Polysender>>,
     pub town_house_artist: Process<TownHouseArtist<Polysender>>,
     pub town_label_artist: Process<TownLabelArtist<Polysender>>,
@@ -66,14 +68,15 @@ impl System {
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
-        let (resource_targets_tx, resource_targets_rx) = fn_channel();
-        let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
         let (pathfinder_without_planned_roads_tx, pathfinder_without_planned_roads_rx) =
             fn_channel();
         let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
+        let (resource_targets_tx, resource_targets_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
+        let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
+        let (speed_control_tx, speed_control_rx) = fn_channel();
         let (town_builder_tx, town_builder_rx) = fn_channel();
         let (town_house_artist_tx, town_house_artist_rx) = fn_channel();
         let (town_label_artist_tx, town_label_artist_rx) = fn_channel();
@@ -88,13 +91,14 @@ impl System {
             basic_road_builder_tx,
             cheats_tx,
             object_builder_tx,
-            resource_targets_tx,
-            setup_new_world_tx,
             pathfinder_with_planned_roads_tx,
             pathfinder_without_planned_roads_tx,
             pathfinding_avatar_controls_tx,
+            resource_targets_tx,
+            setup_new_world_tx,
             rotate_tx,
             simulation_tx,
+            speed_control_tx,
             town_builder_tx,
             town_house_artist_tx,
             town_label_artist_tx,
@@ -140,10 +144,7 @@ impl System {
                 ObjectBuilder::new(tx.clone_with_name("object_builder"), game_state.params.seed),
                 object_builder_rx,
             ),
-            resource_targets: Process::new(
-                ResourceTargets::new(tx.clone_with_name("resource_targets")),
-                resource_targets_rx,
-            ),
+
             pathfinder_with_planned_roads: Process::new(
                 PathfinderService::new(
                     tx.clone_with_name("pathfinder_with_planned_roads"),
@@ -176,6 +177,10 @@ impl System {
                     )),
                 ),
                 pathfinding_avatar_controls_rx,
+            ),
+            resource_targets: Process::new(
+                ResourceTargets::new(tx.clone_with_name("resource_targets")),
+                resource_targets_rx,
             ),
             rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
             setup_new_world: Process::new(
@@ -234,6 +239,10 @@ impl System {
                     ],
                 ),
                 simulation_rx,
+            ),
+            speed_control: Process::new(
+                SpeedControl::new(tx.clone_with_name("speed_control")),
+                speed_control_rx,
             ),
             town_builder: Process::new(
                 TownBuilderActor::new(tx.clone_with_name("town_builder_actor")),
@@ -344,6 +353,7 @@ impl System {
         self.resource_targets.run_passive(&self.pool).await;
         self.rotate.run_passive(&self.pool).await;
         self.town_builder.run_passive(&self.pool).await;
+        self.speed_control.run_passive(&self.pool).await;
         self.simulation.run_active(&self.pool).await;
         self.pathfinding_avatar_controls
             .run_passive(&self.pool)
@@ -367,6 +377,7 @@ impl System {
             .drain(&self.pool, true)
             .await;
         self.simulation.drain(&self.pool, true).await;
+        self.speed_control.drain(&self.pool, true).await;
         self.town_builder.drain(&self.pool, true).await;
         self.rotate.drain(&self.pool, true).await;
         self.resource_targets.drain(&self.pool, true).await;

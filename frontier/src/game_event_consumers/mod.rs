@@ -8,10 +8,8 @@ use std::sync::Arc;
 
 mod labels;
 mod prime_mover;
-mod speed_control;
 mod visibility;
 
 pub use labels::*;
 pub use prime_mover::*;
-pub use speed_control::*;
 pub use visibility::*;

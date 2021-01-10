@@ -25,6 +25,7 @@ impl EventForwarderActor {
         send_event(&self.tx.object_builder_tx, &event);
         send_event(&self.tx.pathfinding_avatar_controls_tx, &event);
         send_event(&self.tx.rotate_tx, &event);
+        send_event(&self.tx.speed_control_tx, &event);
         send_event(&self.tx.town_builder_tx, &event);
         send_event(&self.tx.town_label_artist_tx, &event);
         send_event(&self.tx.world_artist_tx, &event);

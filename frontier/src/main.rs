@@ -90,7 +90,6 @@ fn main() {
 
     // Controls
     game.add_consumer(LabelEditorHandler::new(game.tx()));
-    game.add_consumer(SpeedControl::new(game.tx()));
 
     // Drawing
 

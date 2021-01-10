@@ -87,6 +87,7 @@ SendRotate _
 SendRoutes SendGame
 SendSettlements SendGame
 SendSetupNewWorld SendAvatars
+SendSetupNewWorld SendGameState
 SendSetupNewWorld SendNations
 SendSetupNewWorld SendParameters
 SendSetupNewWorld SendSettlements
@@ -116,6 +117,7 @@ SendSim Settlements
 SendSim UpdateSettlement
 SendSim UpdateTerritory
 SendSim WhoControlsTile
+SendSpeedControl SendGameState
 SendTerritory SendGame
 SendTownBuilder AddTown
 SendTownBuilder GetSettlement

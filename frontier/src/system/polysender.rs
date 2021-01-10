@@ -1,7 +1,8 @@
 use crate::actors::{
     AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, ObjectBuilder,
     PathfinderService, PathfindingAvatarControls, ResourceTargets, Rotate, SetupNewWorld,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
+    WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -42,6 +43,7 @@ pub struct Polysender {
     pub rotate_tx: FnSender<Rotate>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
+    pub speed_control_tx: FnSender<SpeedControl<Polysender>>,
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
     pub town_label_artist_tx: FnSender<TownLabelArtist<Polysender>>,
@@ -59,8 +61,6 @@ impl Polysender {
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             cheats_tx: self.cheats_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
-            resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
-            setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
                 .clone_with_name(name),
@@ -70,8 +70,11 @@ impl Polysender {
             pathfinder_without_planned_roads_tx: self
                 .pathfinder_without_planned_roads_tx
                 .clone_with_name(name),
+            resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
             rotate_tx: self.rotate_tx.clone_with_name(name),
+            setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
+            speed_control_tx: self.speed_control_tx.clone_with_name(name),
             town_builder_tx: self.town_builder_tx.clone_with_name(name),
             town_house_artist_tx: self.town_house_artist_tx.clone_with_name(name),
             town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
