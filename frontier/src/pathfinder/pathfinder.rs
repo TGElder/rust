@@ -222,7 +222,6 @@ where
             duration: self.travel_duration.get_duration_from_cost(result.cost),
         }
     }
-
 }
 
 #[derive(Clone, Debug, PartialEq)]

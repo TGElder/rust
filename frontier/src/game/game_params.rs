@@ -58,7 +58,7 @@ impl Default for GameParams {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HomelandParams {
     pub count: usize,
     pub edges: Vec<HomelandEdge>,

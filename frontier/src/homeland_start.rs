@@ -17,7 +17,7 @@ where
     existing_homelands: Vec<V2<usize>>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum HomelandEdge {
     North,
     South,
@@ -36,6 +36,7 @@ impl HomelandEdge {
     }
 }
 
+#[derive(Clone)]
 pub struct HomelandStart {
     pub homeland: V2<usize>,
     pub pre_landfall: V2<usize>,

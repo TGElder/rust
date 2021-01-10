@@ -1,66 +1,147 @@
 use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation, Vehicle};
-use crate::avatars::Avatars;
-use crate::game::{
-    CaptureEvent, Game, GameEvent, GameEventConsumer, GameParams, GameState, HomelandParams,
-};
+use crate::game::HomelandParams;
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
-use crate::nation::{skin_colors, Nation};
+use crate::nation::{skin_colors, Nation, NationDescription};
 use crate::settlement::{Settlement, SettlementClass};
-use crate::traits::{SendGame, Visibility};
+use crate::traits::{
+    SendAvatars, SendGameState, SendNations, SendParameters, SendSettlements, SendWorld, Visibility,
+};
 use crate::world::World;
 use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::V2;
-use isometric::{Color, Event};
+use isometric::Color;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::time::Duration;
 
 const AVATAR_NAME: &str = "avatar";
-const NAME: &str = "setup_homelands";
 
-pub struct SetupNewWorld<T>
-where
-    T: SendGame + Visibility,
-{
+pub struct SetupNewWorld<T> {
     tx: T,
 }
 
 impl<T> SetupNewWorld<T>
 where
-    T: SendGame + Visibility,
+    T: SendAvatars
+        + SendGameState
+        + SendNations
+        + SendParameters
+        + SendSettlements
+        + SendWorld
+        + Visibility,
 {
     pub fn new(tx: T) -> SetupNewWorld<T> {
         SetupNewWorld { tx }
     }
 
-    fn new_game(&mut self, game_state: &GameState) {
-        let params = &game_state.params;
-        let seed = params.seed;
+    pub async fn new_game(&self) {
+        let (avatar_color, homeland_params, homeland_distance, nations, seed) = self
+            .tx
+            .send_parameters(|params| {
+                (
+                    params.avatar_color,
+                    params.homeland.clone(),
+                    params.homeland_distance,
+                    params.nations.clone(),
+                    params.seed,
+                )
+            })
+            .await;
         let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
-        let world = &game_state.world;
-        let homeland_starts = gen_homeland_starts(world, &mut rng, &params.homeland);
-        let avatars = gen_avatars(world, &mut rng, &homeland_starts, params.avatar_color);
-        let nations = gen_nations(&mut rng, &params);
-        let initial_population = initial_population(&game_state.visible_land_positions, params);
-        let settlements = gen_settlements(params, &homeland_starts, &nations, &initial_population);
-        self.tx
-            .send_game_background(move |game| setup_game(game, avatars, nations, settlements));
+        let homeland_count = homeland_params.count;
 
+        let homeland_starts = self.gen_homeland_starts(rng.clone(), homeland_params).await;
+        let avatars = self
+            .gen_avatars(
+                homeland_starts.clone(),
+                avatar_color,
+                avatar_skin_color(&mut rng),
+            )
+            .await;
+        let nations = gen_nations(&mut rng, &nations, &homeland_count);
+        let initial_population = self.initial_population(&homeland_count).await;
+        let settlements = gen_settlements(
+            &homeland_distance,
+            &homeland_starts,
+            &nations,
+            &initial_population,
+        );
+
+        join!(
+            self.set_avatars(avatars),
+            self.set_nations(nations),
+            self.set_settlements(settlements)
+        );
+
+        self.set_visibility_from_voyage(&homeland_starts);
+    }
+
+    async fn gen_homeland_starts<R: Rng + Send + 'static>(
+        &self,
+        rng: R,
+        params: HomelandParams,
+    ) -> Vec<HomelandStart> {
+        self.tx
+            .send_world(move |world| gen_homeland_starts(rng, world, &params))
+            .await
+    }
+
+    async fn gen_avatars(
+        &self,
+        homeland_starts: Vec<HomelandStart>,
+        avatar_color: Color,
+        skin_color: Color,
+    ) -> HashMap<String, Avatar> {
+        self.tx
+            .send_world(move |world| gen_avatar(world, &homeland_starts, avatar_color, skin_color))
+            .await
+    }
+
+    async fn initial_population(&self, homeland_count: &usize) -> f64 {
+        let visible_land_positions = self
+            .tx
+            .send_game_state(|game_state| game_state.visible_land_positions)
+            .await;
+        visible_land_positions as f64 / *homeland_count as f64
+    }
+
+    async fn set_avatars(&self, new_avatars: HashMap<String, Avatar>) {
+        self.tx
+            .send_avatars(move |avatars| {
+                avatars.all = new_avatars;
+                avatars.selected = Some(AVATAR_NAME.to_string())
+            })
+            .await;
+    }
+
+    async fn set_nations(&self, new_nations: HashMap<String, Nation>) {
+        self.tx
+            .send_nations(move |nations| *nations = new_nations)
+            .await;
+    }
+
+    async fn set_settlements(&self, new_settlements: HashMap<V2<usize>, Settlement>) {
+        self.tx
+            .send_settlements(move |settlements| *settlements = new_settlements)
+            .await;
+    }
+
+    fn set_visibility_from_voyage(&self, homeland_starts: &[HomelandStart]) {
         let visited = get_visited_positions(&homeland_starts);
         self.tx.check_visibility_and_reveal(visited);
     }
 }
 
 fn gen_homeland_starts<R: Rng>(
+    mut rng: R,
     world: &World,
-    rng: &mut R,
     params: &HomelandParams,
 ) -> Vec<HomelandStart> {
     let min_distance_between_homelands =
         min_distance_between_homelands(world, params.count, &params.edges);
     let mut gen = HomelandStartGen::new(
         world,
-        rng,
+        &mut rng,
         &params.edges,
         Some(min_distance_between_homelands),
     );
@@ -91,11 +172,15 @@ fn get_visited_positions(homeland_starts: &[HomelandStart]) -> HashSet<V2<usize>
     homeland_starts[0].voyage.iter().cloned().collect()
 }
 
-fn gen_avatars<R: Rng>(
+fn avatar_skin_color<R: Rng>(rng: &mut R) -> Color {
+    *skin_colors().choose(rng).unwrap()
+}
+
+fn gen_avatar(
     world: &World,
-    rng: &mut R,
     homeland_starts: &[HomelandStart],
     color: Color,
+    skin_color: Color,
 ) -> HashMap<String, Avatar> {
     let mut avatars = HashMap::new();
     let position = homeland_starts[0].pre_landfall;
@@ -113,31 +198,26 @@ fn gen_avatars<R: Rng>(
                 vehicle: Vehicle::Boat,
             },
             color,
-            skin_color: avatar_skin_color(rng),
+            skin_color,
             load: AvatarLoad::None,
         },
     );
     avatars
 }
 
-fn avatar_skin_color<R: Rng>(rng: &mut R) -> Color {
-    *skin_colors().choose(rng).unwrap()
-}
-
-fn gen_nations<R: Rng>(rng: &mut R, params: &GameParams) -> HashMap<String, Nation> {
-    params
-        .nations
-        .choose_multiple(rng, params.homeland.count)
+fn gen_nations<R: Rng>(
+    rng: &mut R,
+    nations: &[NationDescription],
+    count: &usize,
+) -> HashMap<String, Nation> {
+    nations
+        .choose_multiple(rng, *count)
         .map(|nation| (nation.name.clone(), Nation::from_description(nation)))
         .collect()
 }
 
-fn initial_population(visible_land_positions: &usize, params: &GameParams) -> f64 {
-    *visible_land_positions as f64 / params.homeland.count as f64
-}
-
 fn gen_settlements(
-    params: &GameParams,
+    homeland_distance: &Duration,
     homeland_starts: &[HomelandStart],
     nations: &HashMap<String, Nation>,
     initial_population: &f64,
@@ -147,7 +227,7 @@ fn gen_settlements(
         .enumerate()
         .map(|(i, nation)| {
             get_settlement(
-                params,
+                homeland_distance,
                 &homeland_starts[i],
                 nation.to_string(),
                 *initial_population,
@@ -158,7 +238,7 @@ fn gen_settlements(
 }
 
 fn get_settlement(
-    params: &GameParams,
+    homeland_distance: &Duration,
     homeland_start: &HomelandStart,
     nation: String,
     initial_population: f64,
@@ -170,43 +250,8 @@ fn get_settlement(
         nation,
         current_population: initial_population,
         target_population: 0.0,
-        gap_half_life: (params.homeland_distance * 2).mul_f32(2.41), // 5.19 makes half life equivalent to '7/8th life'
+        gap_half_life: (*homeland_distance * 2).mul_f32(2.41), // 5.19 makes half life equivalent to '7/8th life'
         last_population_update_micros: 0,
-    }
-}
-
-fn setup_game(
-    game: &mut Game,
-    avatars: HashMap<String, Avatar>,
-    nations: HashMap<String, Nation>,
-    settlements: HashMap<V2<usize>, Settlement>,
-) {
-    let game_state = game.mut_state();
-    game_state.avatars = Avatars {
-        all: avatars,
-        selected: Some(AVATAR_NAME.to_string()),
-    };
-    game_state.nations = nations;
-    game_state.settlements = settlements;
-}
-
-impl<T> GameEventConsumer for SetupNewWorld<T>
-where
-    T: SendGame + Visibility + Send,
-{
-    fn name(&self) -> &'static str {
-        NAME
-    }
-
-    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent {
-        if let GameEvent::NewGame = event {
-            self.new_game(game_state)
-        };
-        CaptureEvent::No
-    }
-
-    fn consume_engine_event(&mut self, _: &GameState, _: Arc<Event>) -> CaptureEvent {
-        CaptureEvent::No
     }
 }
 

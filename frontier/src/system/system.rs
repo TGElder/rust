@@ -8,8 +8,8 @@ use isometric::IsometricEngine;
 
 use crate::actors::{
     AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, ObjectBuilder,
-    PathfinderService, PathfindingAvatarControls, ResourceTargets, Rotate, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    PathfinderService, PathfindingAvatarControls, ResourceTargets, Rotate, SetupNewWorld,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -39,6 +39,7 @@ pub struct System {
     pub event_forwarder: Process<EventForwarderActor>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub resource_targets: Process<ResourceTargets<Polysender>>,
+    pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
     pub pathfinder_with_planned_roads: Process<PathfinderService<Polysender, AvatarTravelDuration>>,
     pub pathfinder_without_planned_roads:
@@ -66,6 +67,7 @@ impl System {
         let (cheats_tx, cheats_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
+        let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
         let (pathfinder_without_planned_roads_tx, pathfinder_without_planned_roads_rx) =
             fn_channel();
@@ -87,6 +89,7 @@ impl System {
             cheats_tx,
             object_builder_tx,
             resource_targets_tx,
+            setup_new_world_tx,
             pathfinder_with_planned_roads_tx,
             pathfinder_without_planned_roads_tx,
             pathfinding_avatar_controls_tx,
@@ -175,6 +178,10 @@ impl System {
                 pathfinding_avatar_controls_rx,
             ),
             rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
+            setup_new_world: Process::new(
+                SetupNewWorld::new(tx.clone_with_name("setup_new_world")),
+                setup_new_world_rx,
+            ),
             simulation: Process::new(
                 Simulation::new(
                     tx.clone_with_name("simulation"),
@@ -306,6 +313,9 @@ impl System {
 
     pub fn new_game(&self) {
         self.tx
+            .setup_new_world_tx
+            .send_future(|setup_new_world| setup_new_world.new_game().boxed());
+        self.tx
             .simulation_tx
             .send_future(|simulation| simulation.new_game().boxed());
         self.tx
@@ -325,6 +335,7 @@ impl System {
             .run_passive(&self.pool)
             .await;
 
+        self.setup_new_world.run_passive(&self.pool).await;
         self.world_artist.run_passive(&self.pool).await;
         self.voyager.run_passive(&self.pool).await;
         self.visibility.run_passive(&self.pool).await;
@@ -364,6 +375,7 @@ impl System {
         self.visibility.drain(&self.pool, true).await;
         self.voyager.drain(&self.pool, true).await;
         self.world_artist.drain(&self.pool, true).await;
+        self.setup_new_world.drain(&self.pool, true).await;
 
         self.pathfinder_without_planned_roads
             .drain(&self.pool, true)
