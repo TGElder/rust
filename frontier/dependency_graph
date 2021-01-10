@@ -69,6 +69,7 @@ SendCheats SendWorld
 SendCheats UpdateAvatar
 SendCheats Visibility
 SendGameState SendGame
+SendLabels SendWorld
 SendNations SendGame
 SendObjectBuilder RemoveWorldObject
 SendObjectBuilder SetWorldObject

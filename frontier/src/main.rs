@@ -88,16 +88,10 @@ fn main() {
     }
     let tx = system.tx.clone_with_name("main");
 
-    // Controls
-    game.add_consumer(LabelEditorHandler::new(game.tx()));
-
-    // Drawing
-
     game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
-
-    // Visibility
-    let from_avatar = VisibilityFromAvatar::new(tx.clone_with_name("visibility_from_avatar"));
-    game.add_consumer(from_avatar);
+    game.add_consumer(VisibilityFromAvatar::new(
+        tx.clone_with_name("visibility_from_avatar"),
+    ));
 
     // Run
     let (system_tx, system_rx) = fn_channel();

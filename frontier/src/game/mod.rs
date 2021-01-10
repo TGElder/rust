@@ -11,10 +11,9 @@ use commons::fn_sender::*;
 use commons::V2;
 use commons::*;
 use futures::executor::block_on;
-use isometric::{Command, Event, EventConsumer, IsometricEngine};
+use isometric::{Event, EventConsumer, IsometricEngine};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -47,7 +46,6 @@ impl GameEvent {
 }
 
 pub enum CaptureEvent {
-    Yes,
     No,
 }
 
@@ -61,7 +59,6 @@ pub struct Game {
     game_state: GameState,
     previous_instant: Instant,
     consumers: Vec<Box<dyn GameEventConsumer>>,
-    engine_tx: Sender<Vec<Command>>,
     tx: FnSender<Game>,
     rx: FnReceiver<Game>,
     avatar_travel_duration: AvatarTravelDuration,
@@ -91,7 +88,6 @@ impl Game {
             ),
             game_state,
             consumers: vec![],
-            engine_tx: engine.command_tx(),
             tx,
             rx,
             run: true,
@@ -117,10 +113,6 @@ impl Game {
         self.consumers.push(Box::new(consumer));
     }
 
-    pub fn send_engine_commands(&mut self, commands: Vec<Command>) {
-        self.engine_tx.send(commands).unwrap();
-    }
-
     fn on_tick(&mut self) {
         let from_micros = self.game_state.game_micros;
         self.update_game_micros();
@@ -135,24 +127,18 @@ impl Game {
     fn consume_event(&mut self, event: GameEvent) {
         if let GameEvent::EngineEvent(event) = event {
             for consumer in self.consumers.iter_mut() {
-                let capture = consumer.consume_engine_event(&self.game_state, event.clone());
-                if let CaptureEvent::Yes = capture {
-                    return;
-                }
+                consumer.consume_engine_event(&self.game_state, event.clone());
             }
         } else {
             let log_duration_threshold = &self.game_state.params.log_duration_threshold;
             for consumer in self.consumers.iter_mut() {
                 let start = Instant::now();
-                let capture = consumer.consume_game_event(&self.game_state, &event);
+                consumer.consume_game_event(&self.game_state, &event);
                 log_time(
                     format!("event,{},{}", event.describe(), consumer.name()),
                     start.elapsed(),
                     log_duration_threshold,
                 );
-                if let CaptureEvent::Yes = capture {
-                    return;
-                }
             }
         }
     }

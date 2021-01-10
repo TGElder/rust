@@ -7,7 +7,7 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, ObjectBuilder,
+    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, Labels, ObjectBuilder,
     PathfinderService, PathfindingAvatarControls, ResourceTargets, Rotate, SetupNewWorld,
     SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
     WorldArtistActor,
@@ -38,6 +38,7 @@ pub struct System {
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub cheats: Process<Cheats<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
+    pub labels: Process<Labels<Polysender>>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
     pub pathfinder_with_planned_roads: Process<PathfinderService<Polysender, AvatarTravelDuration>>,
@@ -67,6 +68,7 @@ impl System {
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
+        let (labels_tx, labels_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
         let (pathfinder_without_planned_roads_tx, pathfinder_without_planned_roads_rx) =
@@ -90,6 +92,7 @@ impl System {
             basic_avatar_controls_tx,
             basic_road_builder_tx,
             cheats_tx,
+            labels_tx,
             object_builder_tx,
             pathfinder_with_planned_roads_tx,
             pathfinder_without_planned_roads_tx,
@@ -140,11 +143,14 @@ impl System {
                 EventForwarderActor::new(tx.clone_with_name("event_forwarder")),
                 event_forwarder_rx,
             ),
+            labels: Process::new(
+                Labels::new(tx.clone_with_name("labels"), engine.command_tx()),
+                labels_rx,
+            ),
             object_builder: Process::new(
                 ObjectBuilder::new(tx.clone_with_name("object_builder"), game_state.params.seed),
                 object_builder_rx,
             ),
-
             pathfinder_with_planned_roads: Process::new(
                 PathfinderService::new(
                     tx.clone_with_name("pathfinder_with_planned_roads"),
@@ -297,6 +303,7 @@ impl System {
         self.tx
             .avatar_artist_tx
             .send(|avatar_artist| avatar_artist.init());
+        self.tx.labels_tx.send(|labels| labels.init());
         self.tx
             .resource_targets_tx
             .send_future(|resource_targets| resource_targets.init().boxed());
@@ -359,6 +366,7 @@ impl System {
             .run_passive(&self.pool)
             .await;
         self.object_builder.run_passive(&self.pool).await;
+        self.labels.run_passive(&self.pool).await;
         self.cheats.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
         self.basic_avatar_controls.run_passive(&self.pool).await;
@@ -372,6 +380,7 @@ impl System {
         self.basic_avatar_controls.drain(&self.pool, true).await;
         self.basic_road_builder.drain(&self.pool, true).await;
         self.cheats.drain(&self.pool, true).await;
+        self.labels.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
         self.pathfinding_avatar_controls
             .drain(&self.pool, true)
@@ -401,6 +410,7 @@ impl System {
     }
 
     pub async fn save(&mut self, path: &str) {
+        self.labels.object_ref().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
 
@@ -409,6 +419,7 @@ impl System {
     }
 
     pub fn load(&mut self, path: &str) {
+        self.labels.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
     }
