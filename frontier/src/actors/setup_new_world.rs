@@ -11,7 +11,7 @@ use commons::grid::Grid;
 use commons::rand::prelude::*;
 use commons::V2;
 use isometric::Color;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::Duration;
 
 const AVATAR_NAME: &str = "avatar";
@@ -66,7 +66,7 @@ where
         join!(
             self.set_avatars(avatars),
             self.set_nations(nations),
-            self.set_settlements(settlements)
+            self.set_settlements(homelands)
         );
 
         self.set_visibility_from_voyage(&homeland_starts[0].voyage);
@@ -138,8 +138,8 @@ where
     }
 
     fn set_visibility_from_voyage(&self, voyage: &[V2<usize>]) {
-        let visited = get_visited_positions(&voyage);
-        self.tx.check_visibility_and_reveal(visited);
+        self.tx
+            .check_visibility_and_reveal(voyage.iter().cloned().collect());
     }
 }
 
@@ -256,10 +256,6 @@ fn gen_homeland(
         gap_half_life: (*homeland_distance * 2).mul_f32(2.41), // 5.19 makes half life equivalent to '7/8th life'
         last_population_update_micros: 0,
     }
-}
-
-fn get_visited_positions(voyage: &[V2<usize>]) -> HashSet<V2<usize>> {
-    voyage.iter().cloned().collect()
 }
 
 #[cfg(test)]
