@@ -60,19 +60,23 @@ where
         if demand.sources == 0 || demand.quantity == 0 {
             return vec![];
         }
+
         let target_set = target_set(demand.resource);
         let sources = demand.sources;
-
-        let mut corners_in_bounds = vec![];
-        for corner in get_corners(&demand.position) {
-            if self.tx.in_bounds(corner).await {
-                corners_in_bounds.push(corner);
-            }
-        }
-
+        let corners_in_bounds = self.corners_in_bound(&demand.position).await;
         self.tx
             .closest_targets(corners_in_bounds, target_set, sources)
             .await
+    }
+
+    async fn corners_in_bound(&self, position: &V2<usize>) -> Vec<V2<usize>> {
+        let mut out = vec![];
+        for corner in get_corners(&position) {
+            if self.tx.in_bounds(corner).await {
+                out.push(corner);
+            }
+        }
+        out
     }
 
     async fn route_set(
@@ -117,7 +121,7 @@ where
         self.tx
             .lowest_duration(path)
             .await
-            .expect("Route pathfinder found route but duration pathfinder did not!")
+            .expect("Found route with planned roads but not without planned roads!")
     }
 }
 
@@ -131,59 +135,61 @@ mod tests {
     use std::collections::HashMap;
     use std::time::Duration;
 
+    struct HappyPathTx {
+        closest_targets: Vec<ClosestTargetResult>,
+    }
+
+    #[async_trait]
+    impl Micros for HappyPathTx {
+        async fn micros(&self) -> u128 {
+            101
+        }
+    }
+
+    #[async_trait]
+    impl LowestDurationWithoutPlannedRoads for HappyPathTx {
+        async fn lowest_duration(&self, _: Vec<V2<usize>>) -> Option<Duration> {
+            Some(Duration::from_secs(303))
+        }
+    }
+
+    #[async_trait]
+    impl ClosestTargetsWithPlannedRoads for HappyPathTx {
+        async fn closest_targets(
+            &self,
+            positions: Vec<V2<usize>>,
+            target_set: String,
+            _: usize,
+        ) -> Vec<ClosestTargetResult> {
+            assert!(same_elements(&positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
+            assert_eq!(target_set, "resource-coal");
+            self.closest_targets.clone()
+        }
+    }
+
+    #[async_trait]
+    impl InBoundsWithPlannedRoads for HappyPathTx {
+        async fn in_bounds(&self, position: V2<usize>) -> bool {
+            position != v2(2, 4)
+        }
+    }
+
     #[test]
     fn test() {
-        struct Tx {}
-
-        #[async_trait]
-        impl Micros for Tx {
-            async fn micros(&self) -> u128 {
-                101
-            }
-        }
-
-        #[async_trait]
-        impl LowestDurationWithoutPlannedRoads for Tx {
-            async fn lowest_duration(&self, _: Vec<V2<usize>>) -> Option<Duration> {
-                Some(Duration::from_secs(303))
-            }
-        }
-
-        #[async_trait]
-        impl ClosestTargetsWithPlannedRoads for Tx {
-            async fn closest_targets(
-                &self,
-                positions: Vec<V2<usize>>,
-                target_set: String,
-                n_closest: usize,
-            ) -> Vec<ClosestTargetResult> {
-                assert!(same_elements(&positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
-                assert_eq!(target_set, "resource-coal");
-                assert_eq!(n_closest, 2);
-                vec![
-                    ClosestTargetResult {
-                        position: v2(1, 5),
-                        path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
-                        duration: Duration::from_secs(2),
-                    },
-                    ClosestTargetResult {
-                        position: v2(5, 3),
-                        path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
-                        duration: Duration::from_secs(4),
-                    },
-                ]
-            }
-        }
-
-        #[async_trait]
-        impl InBoundsWithPlannedRoads for Tx {
-            async fn in_bounds(&self, position: V2<usize>) -> bool {
-                position != v2(2, 4)
-            }
-        }
-
         // Given
-        let mut processor = GetRoutes::new(Tx {});
+        let closest_targets = vec![
+            ClosestTargetResult {
+                position: v2(1, 5),
+                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                duration: Duration::from_secs(2),
+            },
+            ClosestTargetResult {
+                position: v2(5, 3),
+                path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
+                duration: Duration::from_secs(4),
+            },
+        ];
+        let mut processor = GetRoutes::new(HappyPathTx { closest_targets });
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -237,46 +243,9 @@ mod tests {
 
     #[test]
     fn test_no_closest_targets() {
-        struct Tx {}
-
-        #[async_trait]
-        impl Micros for Tx {
-            async fn micros(&self) -> u128 {
-                101
-            }
-        }
-
-        #[async_trait]
-        impl LowestDurationWithoutPlannedRoads for Tx {
-            async fn lowest_duration(&self, _: Vec<V2<usize>>) -> Option<Duration> {
-                Some(Duration::from_secs(303))
-            }
-        }
-
-        #[async_trait]
-        impl ClosestTargetsWithPlannedRoads for Tx {
-            async fn closest_targets(
-                &self,
-                positions: Vec<V2<usize>>,
-                target_set: String,
-                n_closest: usize,
-            ) -> Vec<ClosestTargetResult> {
-                assert!(same_elements(&positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
-                assert_eq!(target_set, "resource-coal");
-                assert_eq!(n_closest, 2);
-                vec![]
-            }
-        }
-
-        #[async_trait]
-        impl InBoundsWithPlannedRoads for Tx {
-            async fn in_bounds(&self, position: V2<usize>) -> bool {
-                position != v2(2, 4)
-            }
-        }
-
         // Given
-        let mut processor = GetRoutes::new(Tx {});
+        let closest_targets = vec![];
+        let mut processor = GetRoutes::new(HappyPathTx { closest_targets });
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -300,45 +269,45 @@ mod tests {
         );
     }
 
+    struct PanicPathfinderTx {}
+
+    #[async_trait]
+    impl Micros for PanicPathfinderTx {
+        async fn micros(&self) -> u128 {
+            101
+        }
+    }
+
+    #[async_trait]
+    impl LowestDurationWithoutPlannedRoads for PanicPathfinderTx {
+        async fn lowest_duration(&self, _: Vec<V2<usize>>) -> Option<Duration> {
+            Some(Duration::from_secs(303))
+        }
+    }
+
+    #[async_trait]
+    impl ClosestTargetsWithPlannedRoads for PanicPathfinderTx {
+        async fn closest_targets(
+            &self,
+            _: Vec<V2<usize>>,
+            _: String,
+            _: usize,
+        ) -> Vec<ClosestTargetResult> {
+            panic!("closest_targets was called!");
+        }
+    }
+
+    #[async_trait]
+    impl InBoundsWithPlannedRoads for PanicPathfinderTx {
+        async fn in_bounds(&self, _: V2<usize>) -> bool {
+            panic!("in_bounds was called!");
+        }
+    }
+
     #[test]
     fn zero_source_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
-        struct Tx {}
-
-        #[async_trait]
-        impl Micros for Tx {
-            async fn micros(&self) -> u128 {
-                101
-            }
-        }
-
-        #[async_trait]
-        impl LowestDurationWithoutPlannedRoads for Tx {
-            async fn lowest_duration(&self, _: Vec<V2<usize>>) -> Option<Duration> {
-                Some(Duration::from_secs(303))
-            }
-        }
-
-        #[async_trait]
-        impl ClosestTargetsWithPlannedRoads for Tx {
-            async fn closest_targets(
-                &self,
-                _: Vec<V2<usize>>,
-                _: String,
-                _: usize,
-            ) -> Vec<ClosestTargetResult> {
-                panic!("closest_targets was called!");
-            }
-        }
-
-        #[async_trait]
-        impl InBoundsWithPlannedRoads for Tx {
-            async fn in_bounds(&self, _: V2<usize>) -> bool {
-                panic!("in_bounds was called!");
-            }
-        }
-
         // Given
-        let mut processor = GetRoutes::new(Tx {});
+        let mut processor = GetRoutes::new(PanicPathfinderTx {});
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -364,43 +333,8 @@ mod tests {
 
     #[test]
     fn zero_quantity_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
-        struct Tx {}
-
-        #[async_trait]
-        impl Micros for Tx {
-            async fn micros(&self) -> u128 {
-                101
-            }
-        }
-
-        #[async_trait]
-        impl LowestDurationWithoutPlannedRoads for Tx {
-            async fn lowest_duration(&self, _: Vec<V2<usize>>) -> Option<Duration> {
-                Some(Duration::from_secs(303))
-            }
-        }
-
-        #[async_trait]
-        impl ClosestTargetsWithPlannedRoads for Tx {
-            async fn closest_targets(
-                &self,
-                _: Vec<V2<usize>>,
-                _: String,
-                _: usize,
-            ) -> Vec<ClosestTargetResult> {
-                panic!("closest_targets was called!");
-            }
-        }
-
-        #[async_trait]
-        impl InBoundsWithPlannedRoads for Tx {
-            async fn in_bounds(&self, _: V2<usize>) -> bool {
-                panic!("in_bounds was called!");
-            }
-        }
-
         // Given
-        let mut processor = GetRoutes::new(Tx {});
+        let mut processor = GetRoutes::new(PanicPathfinderTx {});
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -426,57 +360,20 @@ mod tests {
 
     #[test]
     fn test_more_closest_targets_than_requested() {
-        struct Tx {}
-
-        #[async_trait]
-        impl Micros for Tx {
-            async fn micros(&self) -> u128 {
-                101
-            }
-        }
-
-        #[async_trait]
-        impl LowestDurationWithoutPlannedRoads for Tx {
-            async fn lowest_duration(&self, _: Vec<V2<usize>>) -> Option<Duration> {
-                Some(Duration::from_secs(303))
-            }
-        }
-
-        #[async_trait]
-        impl ClosestTargetsWithPlannedRoads for Tx {
-            async fn closest_targets(
-                &self,
-                positions: Vec<V2<usize>>,
-                target_set: String,
-                n_closest: usize,
-            ) -> Vec<ClosestTargetResult> {
-                assert!(same_elements(&positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
-                assert_eq!(target_set, "resource-coal");
-                assert_eq!(n_closest, 1);
-                vec![
-                    ClosestTargetResult {
-                        position: v2(1, 5),
-                        path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
-                        duration: Duration::from_secs(2),
-                    },
-                    ClosestTargetResult {
-                        position: v2(2, 4),
-                        path: vec![v2(1, 3), v2(1, 4), v2(2, 4)],
-                        duration: Duration::from_secs(2),
-                    },
-                ]
-            }
-        }
-
-        #[async_trait]
-        impl InBoundsWithPlannedRoads for Tx {
-            async fn in_bounds(&self, position: V2<usize>) -> bool {
-                position != v2(2, 4)
-            }
-        }
-
         // Given
-        let mut processor = GetRoutes::new(Tx {});
+        let closest_targets = vec![
+            ClosestTargetResult {
+                position: v2(1, 5),
+                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                duration: Duration::from_secs(2),
+            },
+            ClosestTargetResult {
+                position: v2(5, 3),
+                path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
+                duration: Duration::from_secs(4),
+            },
+        ];
+        let mut processor = GetRoutes::new(HappyPathTx { closest_targets });
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,

@@ -224,7 +224,7 @@ where
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ClosestTargetResult {
     pub position: V2<usize>,
     pub path: Vec<V2<usize>>,

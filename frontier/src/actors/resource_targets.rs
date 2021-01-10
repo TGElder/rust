@@ -141,7 +141,6 @@ mod tests {
             world.mut_cell_unsafe(&v2(0, 2)).resource = Resource::Coal;
         }
 
-
         let mut resource_targets = ResourceTargets::new(tx);
         block_on(resource_targets.init());
 
