@@ -1,7 +1,7 @@
 use crate::actors::{
     AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, ObjectBuilder,
-    PathfinderService, PathfindingAvatarControls, ResourceTargets, Rotate, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    PathfinderService, PathfindingAvatarControls, ResourceTargets, Rotate, SetupNewWorld,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -40,6 +40,7 @@ pub struct Polysender {
         FnSender<PathfinderService<Polysender, AvatarTravelDuration>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
     pub rotate_tx: FnSender<Rotate>,
+    pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
@@ -59,6 +60,7 @@ impl Polysender {
             cheats_tx: self.cheats_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
+            setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
                 .clone_with_name(name),

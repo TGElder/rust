@@ -98,9 +98,7 @@ fn main() {
 
     // Visibility
     let from_avatar = VisibilityFromAvatar::new(tx.clone_with_name("visibility_from_avatar"));
-    let setup_new_world = SetupNewWorld::new(tx.clone_with_name("setup_new_world"));
     game.add_consumer(from_avatar);
-    game.add_consumer(setup_new_world);
 
     // Run
     let (system_tx, system_rx) = fn_channel();

@@ -86,6 +86,11 @@ SendResourceTargets SendWorld
 SendRotate _
 SendRoutes SendGame
 SendSettlements SendGame
+SendSetupNewWorld SendAvatars
+SendSetupNewWorld SendNations
+SendSetupNewWorld SendParameters
+SendSetupNewWorld SendSettlements
+SendSetupNewWorld SendWorld
 SendSim AddCrops
 SendSim AddRoad
 SendSim AddTown
