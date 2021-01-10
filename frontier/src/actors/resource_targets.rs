@@ -67,6 +67,7 @@ mod tests {
 
     use commons::async_trait::async_trait;
     use commons::{v2, Arm, M};
+    use futures::executor::block_on;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
@@ -139,7 +140,8 @@ mod tests {
         }
 
 
-        let resource_targets = ResourceTargets::new(tx);
+        let mut resource_targets = ResourceTargets::new(tx);
+        block_on(resource_targets.init());
 
         assert_eq!(
             *resource_targets.tx
