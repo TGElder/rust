@@ -1,11 +1,13 @@
 use crate::avatar::{AvatarState, Rotation, Vehicle};
-use crate::system::HandleEngineEvent;
+
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{RevealAll, SendAvatars, SendWorld, UpdateAvatar, Visibility};
 use commons::async_trait::async_trait;
 use commons::grid::Grid;
 use isometric::{coords::*, Event};
 use isometric::{Button, ElementState, VirtualKeyCode};
 use std::default::Default;
+use std::sync::Arc;
 
 pub struct Cheats<T> {
     tx: T,
@@ -90,7 +92,7 @@ impl<T> HandleEngineEvent for Cheats<T>
 where
     T: RevealAll + SendAvatars + SendWorld + UpdateAvatar + Visibility + Send + Sync,
 {
-    async fn handle_engine_event(&mut self, event: std::sync::Arc<isometric::Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::WorldPositionChanged(world_coord) = *event {
             self.update_world_coord(world_coord);
         }
@@ -109,5 +111,6 @@ where
                 self.remove_avatar().await;
             }
         }
+        Capture::No
     }
 }

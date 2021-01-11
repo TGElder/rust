@@ -1,5 +1,5 @@
 use crate::avatar::{Avatar, AvatarState, AvatarTravelDuration, TravelArgs};
-use crate::system::HandleEngineEvent;
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SelectedAvatar, SendWorld, UpdateAvatar};
 use crate::travel_duration::TravelDuration;
 use commons::async_trait::async_trait;
@@ -96,7 +96,7 @@ impl<T> HandleEngineEvent for BasicAvatarControls<T>
 where
     T: Micros + SelectedAvatar + SendWorld + UpdateAvatar + Send + Sync,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
@@ -112,5 +112,6 @@ where
                 self.rotate_anticlockwise().await;
             };
         }
+        Capture::No
     }
 }

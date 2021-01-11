@@ -1,5 +1,6 @@
 use crate::avatar::{Avatar, AvatarState, AvatarTravelDuration, TravelArgs};
-use crate::system::HandleEngineEvent;
+
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
     FindPath, Micros, PathfinderWithoutPlannedRoads, SelectedAvatar, SendWorld, UpdateAvatar,
 };
@@ -144,7 +145,7 @@ where
         + Send
         + Sync,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::WorldPositionChanged(world_coord) = *event {
             self.update_world_coord(world_coord);
         }
@@ -161,5 +162,6 @@ where
                 self.stop().await;
             };
         }
+        Capture::No
     }
 }

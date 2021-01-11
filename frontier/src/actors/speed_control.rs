@@ -1,4 +1,6 @@
-use crate::system::HandleEngineEvent;
+use std::sync::Arc;
+
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::SendGameState;
 
 use commons::async_trait::async_trait;
@@ -59,7 +61,7 @@ impl<T> HandleEngineEvent for SpeedControl<T>
 where
     T: SendGameState + Send + Sync,
 {
-    async fn handle_engine_event(&mut self, event: std::sync::Arc<isometric::Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
@@ -73,5 +75,6 @@ where
                 self.speed_up().await;
             }
         }
+        Capture::No
     }
 }

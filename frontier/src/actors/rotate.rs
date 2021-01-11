@@ -5,7 +5,7 @@ use commons::async_trait::async_trait;
 use isometric::event_handlers::RotateHandler;
 use isometric::{Command, Event, EventHandler, VirtualKeyCode};
 
-use crate::system::HandleEngineEvent;
+use crate::system::{Capture, HandleEngineEvent};
 
 pub struct Rotate {
     command_tx: Sender<Vec<Command>>,
@@ -31,8 +31,9 @@ impl Rotate {
 
 #[async_trait]
 impl HandleEngineEvent for Rotate {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         let commands = self.engine_rotatehandler.handle_event(event);
         self.command_tx.send(commands).unwrap();
+        Capture::No
     }
 }

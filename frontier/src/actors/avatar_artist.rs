@@ -6,7 +6,7 @@ use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 
 use crate::artists::AvatarArtist;
 use crate::avatars::Avatars;
-use crate::system::HandleEngineEvent;
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendAvatars, SendRotate};
 
 pub struct AvatarArtistActor<T> {
@@ -91,7 +91,7 @@ impl<T> HandleEngineEvent for AvatarArtistActor<T>
 where
     T: SendAvatars + SendRotate + Micros + Send + Sync,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {
             Event::Tick => self.draw_avatars().await,
             Event::Button {
@@ -104,5 +104,6 @@ where
             }
             _ => (),
         }
+        Capture::No
     }
 }
