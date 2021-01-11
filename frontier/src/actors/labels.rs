@@ -1,5 +1,6 @@
 use crate::label_editor::*;
-use crate::system::HandleEngineEvent;
+
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::SendWorld;
 use commons::async_trait::async_trait;
 use commons::grid::Grid;
@@ -85,10 +86,11 @@ impl<T> HandleEngineEvent for Labels<T>
 where
     T: SendWorld + Send + Sync,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         let editor_commands = self.label_editor.handle_event(event.clone());
         if !editor_commands.is_empty() {
             self.command_tx.send(editor_commands).unwrap();
+            return capture_if_keypress(event);
         }
         match *event {
             Event::WorldPositionChanged(world_coord) => self.update_world_coord(world_coord),
@@ -99,5 +101,18 @@ where
             } if button == &self.binding && !modifiers.alt() => self.start_edit().await,
             _ => (),
         }
+        Capture::No
+    }
+}
+
+fn capture_if_keypress(event: Arc<Event>) -> Capture {
+    if let Event::Button {
+        button: Button::Key(..),
+        ..
+    } = *event
+    {
+        Capture::Yes
+    } else {
+        Capture::No
     }
 }

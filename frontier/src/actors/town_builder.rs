@@ -1,5 +1,6 @@
 use crate::settlement::{Settlement, SettlementClass};
-use crate::system::HandleEngineEvent;
+
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
     AddTown, GetSettlement, Micros, NationDescriptions, RandomTownName, RemoveTown, SetWorldObject,
 };
@@ -100,7 +101,7 @@ where
         + Sync
         + 'static,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {
             Event::WorldPositionChanged(world_coord) => self.update_world_coord(world_coord),
             Event::Button {
@@ -113,5 +114,6 @@ where
             }
             _ => (),
         }
+        Capture::No
     }
 }

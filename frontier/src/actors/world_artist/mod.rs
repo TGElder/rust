@@ -5,7 +5,7 @@ use commons::async_trait::async_trait;
 
 use crate::artists::{Slab, WorldArtist};
 use crate::game::Game;
-use crate::system::HandleEngineEvent;
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendGame};
 use coloring::world_coloring;
 use commons::V2;
@@ -139,7 +139,7 @@ impl<T> HandleEngineEvent for WorldArtistActor<T>
 where
     T: Micros + SendGame + Send + Sync,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {
             Event::Button {
                 ref button,
@@ -154,5 +154,6 @@ where
             }
             _ => (),
         }
+        Capture::No
     }
 }

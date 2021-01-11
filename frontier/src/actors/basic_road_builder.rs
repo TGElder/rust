@@ -1,6 +1,6 @@
 use crate::game::{Game, GameState};
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
-use crate::system::HandleEngineEvent;
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{SendGame, UpdateRoads};
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
@@ -61,7 +61,7 @@ impl<T> HandleEngineEvent for BasicRoadBuilder<T>
 where
     T: SendGame + UpdateRoads + Send + Sync + 'static,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::Button {
             ref button,
             state: ElementState::Pressed,
@@ -73,6 +73,7 @@ where
                 self.build_road().await;
             }
         }
+        Capture::No
     }
 }
 
