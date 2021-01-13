@@ -88,7 +88,6 @@ fn main() {
     }
     let tx = system.tx.clone_with_name("main");
 
-    game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
     game.add_consumer(VisibilityFromAvatar::new(
         tx.clone_with_name("visibility_from_avatar"),
     ));

@@ -57,18 +57,6 @@ impl AvatarState {
         }
     }
 
-    pub fn evolve(&self, instant: &u128) -> Option<AvatarState> {
-        match self {
-            AvatarState::Walking(ref path) if path.done(instant) => Some(AvatarState::Stationary {
-                position: path.final_frame().position,
-                elevation: path.final_frame().elevation,
-                rotation: path.compute_final_rotation().unwrap_or_default(),
-                vehicle: path.final_frame().vehicle,
-            }),
-            _ => None,
-        }
-    }
-
     pub fn rotate_clockwise(&self) -> Option<AvatarState> {
         if let AvatarState::Stationary {
             position,

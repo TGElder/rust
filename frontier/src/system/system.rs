@@ -342,6 +342,7 @@ impl System {
     }
 
     pub fn new_game(&self) {
+        self.tx.prime_mover_tx.send_future(|prime_mover| prime_mover.new_game().boxed());
         self.tx
             .setup_new_world_tx
             .send_future(|setup_new_world| setup_new_world.new_game().boxed());
@@ -376,6 +377,7 @@ impl System {
         self.town_builder.run_passive(&self.pool).await;
         self.speed_control.run_passive(&self.pool).await;
         self.simulation.run_active(&self.pool).await;
+        self.prime_mover.run_active(&self.pool).await;
         self.pathfinding_avatar_controls
             .run_passive(&self.pool)
             .await;
@@ -399,6 +401,7 @@ impl System {
         self.pathfinding_avatar_controls
             .drain(&self.pool, true)
             .await;
+        self.prime_mover.drain(&self.pool, true).await;
         self.simulation.drain(&self.pool, true).await;
         self.speed_control.drain(&self.pool, true).await;
         self.town_builder.drain(&self.pool, true).await;

@@ -1,7 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Duration;
 
+use commons::async_std::task::sleep;
 use commons::async_trait::async_trait;
+use commons::log::debug;
 use commons::process::Step;
 use commons::rand::prelude::*;
 use commons::rand::rngs::SmallRng;
@@ -18,6 +21,7 @@ pub struct PrimeMover<T> {
     avatars: usize,
     rng: SmallRng,
     travel_duration: Arc<AvatarTravelDuration>,
+    sleep: Duration,
 }
 
 impl<T> PrimeMover<T>
@@ -35,6 +39,7 @@ where
             avatars,
             rng: SeedableRng::seed_from_u64(seed),
             travel_duration,
+            sleep: Duration::from_secs(1),
         }
     }
 
@@ -150,9 +155,19 @@ where
 {
     async fn step(&mut self) {
         let micros = self.tx.micros().await;
-        let candidates = self.get_candidates().await;
+        debug!("Getting dormant");
         let dormant = self.get_dormant(micros).await;
+        debug!("Got {} dormant", dormant.len());
 
+        if (dormant.is_empty()) {
+            return;
+        }
+
+        debug!("Getting candidates");
+        let candidates = self.get_candidates().await;
+        debug!("Got {} candidates", candidates.len());
+
+        debug!("Selecting candidates");
         let selected_keys =
             candidates.choose_multiple_weighted(&mut self.rng, dormant.len(), |candidate| {
                 candidate.1 as f64
@@ -160,12 +175,21 @@ where
         let selected_keys = ok_or!(selected_keys, return)
             .map(|(key, _)| *key)
             .collect::<Vec<_>>();
+        debug!("Selected {} candidates", selected_keys.len());
 
+        debug!("Getting routes");
         let routes = self.get_routes(selected_keys).await;
+        debug!("Got {} routes", routes.len());
 
+        debug!("Getting states");
         let avatar_states = self.get_avatar_states(routes, micros).await;
+        debug!("Got {} states", avatar_states.len());
 
         let allocation = dormant.into_iter().zip(avatar_states.into_iter()).collect();
+        debug!("Updating avatars");
         self.update_avatars(allocation).await;
+        debug!("Updated avatars");
+
+        sleep(self.sleep).await;
     }
 }
