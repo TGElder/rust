@@ -146,7 +146,7 @@ impl AvatarArtist {
         let mut out = vec![];
         let name = &avatar.name;
         let state = &avatar.state;
-        let new_draw_state = avatar_draw_state(&state);
+        let new_draw_state = avatar_draw_state(&state, &instant);
         let last_draw_state = self.last_draw_state.get(name);
         if let Some(last_draw_state) = last_draw_state {
             if !Self::should_redraw_avatar(&last_draw_state, &new_draw_state) {
@@ -438,7 +438,7 @@ enum AvatarDrawState {
     Absent,
 }
 
-fn avatar_draw_state(state: &AvatarState) -> AvatarDrawState {
+fn avatar_draw_state(state: &AvatarState, instant: &u128) -> AvatarDrawState {
     match state {
         AvatarState::Stationary {
             position, rotation, ..
@@ -447,7 +447,13 @@ fn avatar_draw_state(state: &AvatarState) -> AvatarDrawState {
             rotation: *rotation,
         },
         AvatarState::Absent => AvatarDrawState::Absent,
-        AvatarState::Walking(..) => AvatarDrawState::Moving,
+        AvatarState::Walking(path) => {
+            if path.done(instant) {
+                AvatarDrawState::Absent
+            } else {
+                AvatarDrawState::Moving
+            }
+        },
     }
 }
 
