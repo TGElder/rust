@@ -1,4 +1,5 @@
 pub extern crate async_channel;
+pub extern crate async_std;
 pub extern crate async_trait;
 pub extern crate float_cmp;
 #[macro_use]

@@ -188,10 +188,6 @@ impl Path {
             .and_then(|index| self.compute_rotation_at_index(index))
     }
 
-    pub fn compute_final_rotation(&self) -> Option<Rotation> {
-        self.compute_rotation_at_index(self.frames.len() - 1)
-    }
-
     pub fn extend(
         &self,
         world: &World,
@@ -474,14 +470,6 @@ mod tests {
         let actual = path.compute_rotation(&0).unwrap();
 
         assert_eq!(actual, Rotation::Up);
-    }
-
-    #[test]
-    fn test_final_rotation() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        assert_eq!(path.compute_final_rotation(), Some(Rotation::Right));
     }
 
     #[test]

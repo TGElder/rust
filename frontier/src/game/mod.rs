@@ -117,7 +117,6 @@ impl Game {
         let from_micros = self.game_state.game_micros;
         self.update_game_micros();
         let to_micros = self.game_state.game_micros;
-        self.update_avatars();
         self.consume_event(GameEvent::Tick {
             from_micros,
             to_micros,
@@ -151,50 +150,6 @@ impl Game {
         let interval = (interval as f32 * self.game_state.speed).round();
         self.game_state.game_micros += interval as u128;
         self.previous_instant = current_instant;
-    }
-
-    fn update_avatars(&mut self) {
-        self.evolve_avatars();
-        self.prune_avatars();
-    }
-
-    fn evolve_avatars(&mut self) {
-        let game_micros = &self.game_state.game_micros;
-        self.game_state
-            .avatars
-            .all
-            .values_mut()
-            .for_each(|Avatar { state, .. }| {
-                if let Some(new_state) = Self::evolve_avatar(game_micros, state) {
-                    *state = new_state;
-                }
-            });
-    }
-
-    fn evolve_avatar(game_micros: &u128, state: &AvatarState) -> Option<AvatarState> {
-        if let Some(new_state) = Some(state.evolve(&game_micros)) {
-            new_state
-        } else {
-            None
-        }
-    }
-
-    fn prune_avatars(&mut self) {
-        let selected_avatar_name = self
-            .game_state
-            .avatars
-            .selected()
-            .map(|avatar| avatar.name.to_string());
-        self.game_state.avatars.all.retain(|_, avatar| {
-            !matches!(
-                avatar,
-                Avatar {
-                    state: AvatarState::Stationary { .. },
-                    ref name,
-                    ..
-                } if Some(name) != selected_avatar_name.as_ref()
-            )
-        })
     }
 
     pub fn walk_positions(
