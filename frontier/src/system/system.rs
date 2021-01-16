@@ -342,7 +342,9 @@ impl System {
     }
 
     pub fn new_game(&self) {
-        self.tx.prime_mover_tx.send_future(|prime_mover| prime_mover.new_game().boxed());
+        self.tx
+            .prime_mover_tx
+            .send_future(|prime_mover| prime_mover.new_game().boxed());
         self.tx
             .setup_new_world_tx
             .send_future(|setup_new_world| setup_new_world.new_game().boxed());

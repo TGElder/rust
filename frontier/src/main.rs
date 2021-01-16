@@ -39,7 +39,7 @@ use crate::world_gen::*;
 use commons::async_channel::unbounded;
 use commons::fn_sender::fn_channel;
 use commons::grid::Grid;
-use commons::log::info;
+use commons::log::{info, LevelFilter};
 use commons::process::run_passive;
 use futures::executor::{block_on, ThreadPool};
 use futures::FutureExt;
@@ -52,7 +52,10 @@ use std::thread;
 use std::time::Duration;
 
 fn main() {
-    SimpleLogger::new().init().unwrap();
+    SimpleLogger::new()
+        .with_level(LevelFilter::Debug)
+        .init()
+        .unwrap();
 
     let parsed_args = parse_args(env::args().collect());
 

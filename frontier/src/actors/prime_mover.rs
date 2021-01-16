@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use commons::async_std::task::sleep;
 use commons::async_trait::async_trait;
-use commons::log::debug;
 use commons::process::Step;
 use commons::rand::prelude::*;
 use commons::rand::rngs::SmallRng;
@@ -19,9 +18,9 @@ use crate::traits::{Micros, SendAvatars, SendRoutes, SendWorld};
 pub struct PrimeMover<T> {
     tx: T,
     avatars: usize,
-    rng: SmallRng,
     travel_duration: Arc<AvatarTravelDuration>,
     sleep: Duration,
+    rng: SmallRng,
 }
 
 impl<T> PrimeMover<T>
@@ -37,9 +36,9 @@ where
         PrimeMover {
             tx,
             avatars,
-            rng: SeedableRng::seed_from_u64(seed),
             travel_duration,
             sleep: Duration::from_secs(1),
+            rng: SeedableRng::seed_from_u64(seed),
         }
     }
 
@@ -77,20 +76,34 @@ where
             .await
     }
 
-    async fn get_candidates(&self) -> Vec<(RouteKey, usize)> {
+    async fn get_n_avatar_states(&mut self, n: usize, micros: &u128) -> Vec<AvatarState> {
+        let candidates = self.get_candidates().await;
+
+        let selected_keys =
+            candidates.choose_multiple_weighted(&mut self.rng, n, |candidate| candidate.1 as f64);
+        let selected_keys = ok_or!(selected_keys, return vec![])
+            .map(|(key, _)| *key)
+            .collect::<Vec<_>>();
+
+        let routes = self.get_paths(selected_keys).await;
+
+        return self.get_avatar_states(routes, *micros).await;
+    }
+
+    async fn get_candidates(&self) -> Vec<(RouteKey, u128)> {
         self.tx
             .send_routes(|routes| {
                 routes
                     .values()
                     .flat_map(|route_set| route_set.iter())
                     .filter(|(_, route)| route.path.len() > 1)
-                    .map(|(key, route)| (*key, route.traffic))
+                    .map(|(key, route)| (*key, route.duration.as_micros()))
                     .collect()
             })
             .await
     }
 
-    async fn get_routes(&self, keys: Vec<RouteKey>) -> Vec<Vec<V2<usize>>> {
+    async fn get_paths(&self, keys: Vec<RouteKey>) -> Vec<Vec<V2<usize>>> {
         self.tx
             .send_routes(move |routes| {
                 keys.iter()
@@ -155,40 +168,16 @@ where
 {
     async fn step(&mut self) {
         let micros = self.tx.micros().await;
-        debug!("Getting dormant");
         let dormant = self.get_dormant(micros).await;
-        debug!("Got {} dormant", dormant.len());
 
         if (dormant.is_empty()) {
             return;
         }
 
-        debug!("Getting candidates");
-        let candidates = self.get_candidates().await;
-        debug!("Got {} candidates", candidates.len());
-
-        debug!("Selecting candidates");
-        let selected_keys =
-            candidates.choose_multiple_weighted(&mut self.rng, dormant.len(), |candidate| {
-                candidate.1 as f64
-            });
-        let selected_keys = ok_or!(selected_keys, return)
-            .map(|(key, _)| *key)
-            .collect::<Vec<_>>();
-        debug!("Selected {} candidates", selected_keys.len());
-
-        debug!("Getting routes");
-        let routes = self.get_routes(selected_keys).await;
-        debug!("Got {} routes", routes.len());
-
-        debug!("Getting states");
-        let avatar_states = self.get_avatar_states(routes, micros).await;
-        debug!("Got {} states", avatar_states.len());
+        let avatar_states = self.get_n_avatar_states(dormant.len(), &micros).await;
 
         let allocation = dormant.into_iter().zip(avatar_states.into_iter()).collect();
-        debug!("Updating avatars");
         self.update_avatars(allocation).await;
-        debug!("Updated avatars");
 
         sleep(self.sleep).await;
     }

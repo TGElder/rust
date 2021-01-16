@@ -447,12 +447,9 @@ fn avatar_draw_state(state: &AvatarState, instant: &u128) -> AvatarDrawState {
             rotation: *rotation,
         },
         AvatarState::Absent => AvatarDrawState::Absent,
-        AvatarState::Walking(path) => {
-            if path.done(instant) {
-                AvatarDrawState::Absent
-            } else {
-                AvatarDrawState::Moving
-            }
+        AvatarState::Walking(path) => match path.done(instant) {
+            true => AvatarDrawState::Absent,
+            false => AvatarDrawState::Moving,
         },
     }
 }
