@@ -81,6 +81,10 @@ SendPathfindingAvatarControls SelectedAvatar
 SendPathfindingAvatarControls SendWorld
 SendPathfindingAvatarControls UpdateAvatar
 SendPathfinder SendWorld
+SendPrimeMover Micros
+SendPrimeMover SendAvatars
+SendPrimeMover SendRoutes
+SendPrimeMover SendWorld
 SendResourceTargets InitTargets
 SendResourceTargets LoadTarget
 SendResourceTargets SendWorld
