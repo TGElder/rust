@@ -11,7 +11,7 @@ use commons::rand::seq::SliceRandom;
 use commons::V2;
 use isometric::Color;
 
-use crate::avatar::{Avatar, AvatarLoad, AvatarState, AvatarTravelDuration, TravelArgs};
+use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Path};
 use crate::route::{RouteKey, RoutesExt};
 use crate::traits::{Micros, SendAvatars, SendRoutes, SendWorld};
 
@@ -51,7 +51,7 @@ where
                         i.to_string(),
                         Avatar {
                             name: i.to_string(),
-                            state: AvatarState::Absent,
+                            path: None,
                             load: AvatarLoad::None,
                             color: Color::new(1.0, 0.0, 0.0, 1.0),
                             skin_color: Color::new(0.0, 0.0, 1.0, 1.0),
@@ -69,14 +69,14 @@ where
                     .all
                     .values()
                     .filter(|avatar| Some(&avatar.name) != avatars.selected.as_ref())
-                    .filter(|avatar| is_done(avatar, &micros))
+                    .filter(|avatar| is_dormant(avatar, &micros))
                     .map(|avatar| avatar.name.clone())
                     .collect()
             })
             .await
     }
 
-    async fn get_n_avatar_states(&mut self, n: usize, micros: &u128) -> Vec<AvatarState> {
+    async fn get_n_avatar_states(&mut self, n: usize, micros: &u128) -> Vec<Path> {
         let candidates = self.get_candidates().await;
 
         let selected_keys =
@@ -87,7 +87,7 @@ where
 
         let routes = self.get_paths(selected_keys).await;
 
-        return self.get_avatar_states(routes, *micros).await;
+        return self.get_avatar_paths(routes, *micros).await;
     }
 
     async fn get_candidates(&self) -> Vec<(RouteKey, u128)> {
@@ -114,38 +114,32 @@ where
             .await
     }
 
-    async fn get_avatar_states(
-        &self,
-        paths: Vec<Vec<V2<usize>>>,
-        start_at: u128,
-    ) -> Vec<AvatarState> {
+    async fn get_avatar_paths(&self, paths: Vec<Vec<V2<usize>>>, start_at: u128) -> Vec<Path> {
         let travel_duration = self.travel_duration.clone();
         self.tx
             .send_world(move |world| {
                 paths
                     .into_iter()
-                    .flat_map(|path| {
-                        AvatarState::Absent.travel(TravelArgs {
+                    .map(|path| {
+                        Path::new(
                             world,
-                            positions: path,
-                            travel_duration: travel_duration.as_ref(),
-                            vehicle_fn: travel_duration.travel_mode_fn(),
+                            path,
+                            travel_duration.as_ref(),
+                            travel_duration.travel_mode_fn(),
                             start_at,
-                            pause_at_start: None,
-                            pause_at_end: None,
-                        })
+                        )
                     })
                     .collect()
             })
             .await
     }
 
-    async fn update_avatars(&self, allocation: HashMap<String, AvatarState>) {
+    async fn update_avatars(&self, allocation: HashMap<String, Path>) {
         self.tx
             .send_avatars(move |avatars| {
-                for (name, state) in allocation {
+                for (name, path) in allocation {
                     if let Some(avatar) = avatars.all.get_mut(&name) {
-                        avatar.state = state;
+                        avatar.path = Some(path);
                     }
                 }
             })
@@ -153,11 +147,10 @@ where
     }
 }
 
-fn is_done(avatar: &Avatar, at: &u128) -> bool {
-    match &avatar.state {
-        AvatarState::Stationary { .. } => true,
-        AvatarState::Walking(path) => path.done(at),
-        AvatarState::Absent => true,
+fn is_dormant(avatar: &Avatar, at: &u128) -> bool {
+    match &avatar.path {
+        Some(path) => path.done(at),
+        None => true,
     }
 }
 

@@ -163,6 +163,11 @@ impl Path {
     }
 
     pub fn stop(&self, instant: &u128) -> Path {
+        if self.done(instant) {
+            return Path {
+                frames: vec![*self.final_frame()],
+            };
+        }
         self.compute_current_index(instant)
             .map(|i| Path {
                 frames: vec![self.frames[i - 1], self.frames[i]],
@@ -202,9 +207,10 @@ impl Path {
         WorldCoord::new(interpolated.x, interpolated.y, interpolated.z)
     }
 
-    pub fn vehicle_at(&self, instant: &u128) -> Option<Vehicle> {
+    pub fn vehicle_at(&self, instant: &u128) -> Vehicle {
         self.compute_current_index(instant)
             .map(|index| self.frames[index].vehicle)
+            .unwrap_or(self.final_frame().vehicle)
     }
 
     fn compute_rotation_at_index(&self, index: usize) -> Option<Rotation> {
@@ -223,11 +229,12 @@ impl Path {
         }
     }
 
-    pub fn compute_rotation(&self, instant: &u128) -> Option<Rotation> {
+    pub fn compute_rotation(&self, instant: &u128) -> Rotation {
         let instant = instant.max(&self.frames[0].arrival);
 
         self.compute_current_index(instant)
             .and_then(|index| self.compute_rotation_at_index(index))
+            .unwrap_or(self.final_frame().rotation)
     }
 
     pub fn extend(
@@ -236,21 +243,21 @@ impl Path {
         extension: Vec<V2<usize>>,
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
+        start_at: u128,
     ) -> Option<Path> {
         if self.final_frame().position != extension[0] {
             return None;
         }
 
-        let mut positions: Vec<V2<usize>> =
-            self.frames.iter().map(|frame| frame.position).collect();
-        positions.append(&mut extension[1..].to_vec());
-        let frames = Path::compute_frames(
+        let mut frames = self.frames.clone();
+        frames.append(&mut Path::compute_frames(
             world,
-            &positions,
-            self.frames[0].arrival,
+            &extension,
+            start_at,
             travel_duration,
             vehicle_fn,
-        );
+        ));
+
         Some(Path { frames })
     }
 
@@ -519,10 +526,10 @@ mod tests {
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
-        assert_eq!(path.vehicle_at(&0), Some(Vehicle::Boat));
-        assert_eq!(path.vehicle_at(&2_999), Some(Vehicle::Boat));
-        assert_eq!(path.vehicle_at(&3_000), Some(Vehicle::None));
-        assert_eq!(path.vehicle_at(&10_000), None);
+        assert_eq!(path.vehicle_at(&0), Vehicle::Boat);
+        assert_eq!(path.vehicle_at(&2_999), Vehicle::Boat);
+        assert_eq!(path.vehicle_at(&3_000), Vehicle::None);
+        assert_eq!(path.vehicle_at(&10_000), Vehicle::None);
     }
 
     #[test]
@@ -543,7 +550,7 @@ mod tests {
         let start = 0;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let at = start + 1_500;
-        let actual = path.compute_rotation(&at).unwrap();
+        let actual = path.compute_rotation(&at);
         assert_eq!(actual, Rotation::Right);
     }
 
@@ -554,9 +561,20 @@ mod tests {
         let start = 10;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
-        let actual = path.compute_rotation(&0).unwrap();
+        let actual = path.compute_rotation(&0);
 
         assert_eq!(actual, Rotation::Up);
+    }
+
+    #[test]
+    fn test_compute_rotation_after_end() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+
+        let actual = path.compute_rotation(&20_000);
+
+        assert_eq!(actual, Rotation::Right);
     }
 
     #[test]
@@ -571,8 +589,27 @@ mod tests {
         assert_eq!(path.stop(&start).frames, vec![frames[0], frames[1]]);
         let at = start + 1_500;
         assert_eq!(path.stop(&at).frames, vec![frames[1], frames[2]]);
-        let done_at = start + 10_000;
-        assert!(path.stop(&done_at).frames.is_empty());
+    }
+
+    #[test]
+    fn test_stop_after_finished() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let frames = path.frames.clone();
+
+        assert_eq!(path.stop(&20000).frames, vec![frames[4]]);
+    }
+
+    #[test]
+    fn test_stop_stationary() {
+        let world = world();
+
+        let path = Path::stationary(&world, v2(0, 0), Vehicle::None, Rotation::Up);
+        let expected = path.clone();
+
+        assert_eq!(path.stop(&1500), expected);
     }
 
     #[test]
@@ -591,15 +628,57 @@ mod tests {
             vec![v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)],
             &travel_duration(),
             &vehicle_fn(),
+            10_000,
         );
-        let expected = Path::new(
-            &world,
-            vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)],
-            &travel_duration(),
-            &vehicle_fn(),
-            start,
+        assert_eq!(
+            actual,
+            Some(Path {
+                frames: vec![
+                    Frame {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                        arrival: 0,
+                        vehicle: Vehicle::Boat,
+                        rotation: Rotation::Up,
+                    },
+                    Frame {
+                        position: v2(0, 1),
+                        elevation: 0.5,
+                        arrival: 1_000,
+                        vehicle: Vehicle::Boat,
+                        rotation: Rotation::Up,
+                    },
+                    Frame {
+                        position: v2(0, 1),
+                        elevation: 0.5,
+                        arrival: 10_000,
+                        vehicle: Vehicle::Boat,
+                        rotation: Rotation::Right,
+                    },
+                    Frame {
+                        position: v2(1, 1),
+                        elevation: 1.0,
+                        arrival: 12_000,
+                        vehicle: Vehicle::Boat,
+                        rotation: Rotation::Right,
+                    },
+                    Frame {
+                        position: v2(1, 2),
+                        elevation: 2.0,
+                        arrival: 15_000,
+                        vehicle: Vehicle::None,
+                        rotation: Rotation::Up,
+                    },
+                    Frame {
+                        position: v2(2, 2),
+                        elevation: 3.0,
+                        arrival: 19_000,
+                        vehicle: Vehicle::None,
+                        rotation: Rotation::Right,
+                    },
+                ],
+            })
         );
-        assert_eq!(actual, Some(expected));
     }
 
     #[test]
@@ -618,6 +697,7 @@ mod tests {
             vec![v2(1, 1), v2(1, 2), v2(2, 2)],
             &travel_duration(),
             &vehicle_fn(),
+            10,
         );
         assert_eq!(actual, None);
     }

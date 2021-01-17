@@ -1,4 +1,4 @@
-use crate::avatar::{Avatar, AvatarState, AvatarTravelDuration, TravelArgs};
+use crate::avatar::{Avatar, AvatarTravelDuration, Path};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SelectedAvatar, SendWorld, UpdateAvatar};
 use crate::travel_duration::TravelDuration;
@@ -42,50 +42,49 @@ where
 
     async fn walk_forward(&self) {
         let (start_at, selected_avatar) = join!(self.tx.micros(), self.tx.selected_avatar(),);
-        let Avatar { name, state, .. } = unwrap_or!(selected_avatar, return);
+        let Avatar { name, path, .. } = unwrap_or!(selected_avatar, return);
+        let path = unwrap_or!(path, return);
 
-        let new_state = unwrap_or!(self.get_walk_forward_state(state, start_at).await, return);
+        let new_path = unwrap_or!(self.get_walk_forward_state(path, start_at).await, return);
 
-        self.tx.update_avatar_state(name, new_state).await;
+        self.tx.update_avatar_path(name, Some(new_path)).await;
     }
 
-    async fn get_walk_forward_state(
-        &self,
-        state: AvatarState,
-        start_at: u128,
-    ) -> Option<AvatarState> {
-        let path = state.forward_path()?;
+    async fn get_walk_forward_state(&self, path: Path, start_at: u128) -> Option<Path> {
+        let path = path.forward_path();
 
         let travel_duration = self.travel_duration.clone();
 
         self.tx
             .send_world(move |world| {
                 travel_duration.get_duration(&world, &path[0], &path[1])?;
-                state.travel(TravelArgs {
+                Some(Path::new(
                     world,
-                    positions: path,
-                    travel_duration: travel_duration.as_ref(),
-                    vehicle_fn: travel_duration.travel_mode_fn(),
+                    path,
+                    travel_duration.as_ref(),
+                    travel_duration.travel_mode_fn(),
                     start_at,
-                    pause_at_start: None,
-                    pause_at_end: None,
-                })
+                ))
             })
             .await
     }
 
     async fn rotate_clockwise(&self) {
-        if let Some(Avatar { name, state, .. }) = self.tx.selected_avatar().await {
-            if let Some(new_state) = state.rotate_clockwise() {
-                self.tx.update_avatar_state(name, new_state).await;
+        if let Some(Avatar { name, path, .. }) = self.tx.selected_avatar().await {
+            if let Some(path) = path {
+                self.tx
+                    .update_avatar_path(name, Some(path.then_rotate_clockwise()))
+                    .await;
             }
         }
     }
 
     async fn rotate_anticlockwise(&self) {
-        if let Some(Avatar { name, state, .. }) = self.tx.selected_avatar().await {
-            if let Some(new_state) = state.rotate_anticlockwise() {
-                self.tx.update_avatar_state(name, new_state).await;
+        if let Some(Avatar { name, path, .. }) = self.tx.selected_avatar().await {
+            if let Some(path) = path {
+                self.tx
+                    .update_avatar_path(name, Some(path.then_rotate_anticlockwise()))
+                    .await;
             }
         }
     }

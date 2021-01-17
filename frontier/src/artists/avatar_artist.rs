@@ -145,8 +145,8 @@ impl AvatarArtist {
     fn draw_avatar(&mut self, avatar: &Avatar, instant: &u128) -> Vec<Command> {
         let mut out = vec![];
         let name = &avatar.name;
-        let state = &avatar.state;
-        let new_draw_state = avatar_draw_state(&state, &instant);
+        let path = &avatar.path;
+        let new_draw_state = avatar_draw_state(&path, &instant);
         let last_draw_state = self.last_draw_state.get(name);
         if let Some(last_draw_state) = last_draw_state {
             if !Self::should_redraw_avatar(&last_draw_state, &new_draw_state) {
@@ -158,9 +158,10 @@ impl AvatarArtist {
         self.last_draw_state
             .insert(name.to_string(), new_draw_state);
 
-        if let Some(world_coord) = state.compute_world_coord(instant) {
+        if let Some(path) = path {
+            let world_coord = path.compute_world_coord(instant);
             out.append(&mut self.draw_body(&avatar, instant, world_coord));
-            out.append(&mut self.draw_boat_if_required(&name, state, world_coord, instant));
+            out.append(&mut self.draw_boat_if_required(&name, path, world_coord, instant));
             out.append(&mut self.draw_load(&name, &avatar.load, world_coord));
         } else {
             out.append(&mut self.hide(name));
@@ -180,8 +181,8 @@ impl AvatarArtist {
     }
 
     #[rustfmt::skip]
-    fn get_rotation_matrix(state: &AvatarState, instant: &u128) -> na::Matrix3<f32> {
-        let rotation = state.rotation(instant).unwrap_or_default();
+    fn get_rotation_matrix(path: &Path, instant: &u128) -> na::Matrix3<f32> {
+        let rotation = path.compute_rotation(instant);
         let cos = rotation.angle().cos();
         let sin = rotation.angle().sin();
         na::Matrix3::from_vec(vec![
@@ -219,7 +220,8 @@ impl AvatarArtist {
         world_coord: WorldCoord,
         part: &BodyPart,
     ) -> Vec<Command> {
-        let offset = AvatarArtist::get_rotation_matrix(&avatar.state, instant) * part.offset
+        let offset = AvatarArtist::get_rotation_matrix(&avatar.path.as_ref().unwrap(), instant)
+            * part.offset
             / self.params.pixels_per_cell;
         let world_coord = WorldCoord::new(
             world_coord.x + offset.x,
@@ -250,32 +252,32 @@ impl AvatarArtist {
     fn draw_boat_if_required(
         &self,
         name: &str,
-        state: &AvatarState,
+        path: &Path,
         world_coord: WorldCoord,
         instant: &u128,
     ) -> Vec<Command> {
-        if self.should_draw_boat(state, instant) {
-            self.draw_boat(name, state, world_coord, instant)
+        if self.should_draw_boat(path, instant) {
+            self.draw_boat(name, path, world_coord, instant)
         } else {
             vec![self.hide_boat(name)]
         }
     }
 
-    fn should_draw_boat(&self, state: &AvatarState, instant: &u128) -> bool {
-        state.vehicle_at(instant) == Some(Vehicle::Boat)
+    fn should_draw_boat(&self, path: &Path, instant: &u128) -> bool {
+        path.vehicle_at(instant) == Vehicle::Boat
     }
 
     fn draw_boat(
         &self,
         name: &str,
-        state: &AvatarState,
+        path: &Path,
         world_coord: WorldCoord,
         instant: &u128,
     ) -> Vec<Command> {
         draw_boat(
             &boat_drawing_name(name),
             world_coord,
-            AvatarArtist::get_rotation_matrix(state, instant),
+            AvatarArtist::get_rotation_matrix(path, instant),
             &self.params.boat_params,
         )
     }
@@ -430,27 +432,17 @@ fn resource_texture(resource: Resource) -> Option<&'static str> {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum AvatarDrawState {
-    Stationary {
-        position: V2<usize>,
-        rotation: Rotation,
-    },
     Moving,
     Absent,
 }
 
-fn avatar_draw_state(state: &AvatarState, instant: &u128) -> AvatarDrawState {
-    match state {
-        AvatarState::Stationary {
-            position, rotation, ..
-        } => AvatarDrawState::Stationary {
-            position: *position,
-            rotation: *rotation,
-        },
-        AvatarState::Absent => AvatarDrawState::Absent,
-        AvatarState::Walking(path) => match path.done(instant) {
+fn avatar_draw_state(path: &Option<Path>, instant: &u128) -> AvatarDrawState {
+    match path {
+        Some(path) => match path.done(instant) {
             true => AvatarDrawState::Absent,
             false => AvatarDrawState::Moving,
         },
+        None => AvatarDrawState::Absent,
     }
 }
 

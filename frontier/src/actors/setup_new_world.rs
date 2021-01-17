@@ -1,4 +1,4 @@
-use crate::avatar::{Avatar, AvatarLoad, AvatarState, Rotation, Vehicle};
+use crate::avatar::{Avatar, AvatarLoad, Path, Rotation, Vehicle};
 use crate::game::HomelandParams;
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation, NationDescription};
@@ -192,15 +192,12 @@ fn gen_avatar(
     hashmap! {
         AVATAR_NAME.to_string() => Avatar {
             name: AVATAR_NAME.to_string(),
-            state: AvatarState::Stationary {
-                elevation: world
-                    .get_cell_unsafe(&position)
-                    .elevation
-                    .max(world.sea_level()),
+            path: Some(Path::stationary(
+                world,
                 position,
-                rotation: Rotation::Up,
-                vehicle: Vehicle::Boat,
-            },
+                Vehicle::Boat,
+                Rotation::Up,
+            )),
             color,
             skin_color,
             load: AvatarLoad::None,

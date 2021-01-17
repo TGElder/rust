@@ -1,4 +1,4 @@
-use crate::avatar::{Avatar, AvatarState, AvatarTravelDuration, TravelArgs};
+use crate::avatar::{Avatar, AvatarTravelDuration, Path};
 
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
@@ -50,9 +50,9 @@ where
 
         let micros = self.tx.micros().await;
 
-        let (name, state) = unwrap_or!(self.stop_selected_avatar(&micros).await, return);
+        let (name, stopped) = unwrap_or!(self.stop_selected_avatar(&micros).await, return);
 
-        let stop_position = *unwrap_or!(stop_position(&state), return);
+        let stop_position = stopped.final_frame().position;
 
         let path = unwrap_or!(
             self.tx
@@ -62,49 +62,46 @@ where
             return
         );
 
-        let start_at = *stop_micros(&state).unwrap_or(&micros);
+        let start_at = stopped.final_frame().arrival.max(micros);
 
         let travelling = self
-            .travel(state, path, start_at, self.travel_duration.clone())
+            .extend(stopped, path, start_at, self.travel_duration.clone())
             .await;
 
-        if let Some(travelling) = travelling {
-            self.tx.update_avatar_state(name, travelling).await;
+        if travelling.is_some() {
+            self.tx.update_avatar_path(name, travelling).await;
         }
     }
 
-    async fn stop_selected_avatar(&self, micros: &u128) -> Option<(String, AvatarState)> {
-        let Avatar { name, state, .. } = self.tx.selected_avatar().await?;
+    async fn stop_selected_avatar(&self, micros: &u128) -> Option<(String, Path)> {
+        let Avatar { name, path, .. } = self.tx.selected_avatar().await?;
+        let path = path?;
 
-        let stopped = state.stop(&micros);
+        let stopped = path.stop(&micros);
 
-        if let Some(stopped) = &stopped {
-            self.tx
-                .update_avatar_state(name.clone(), stopped.clone())
-                .await;
-        }
+        self.tx
+            .update_avatar_path(name.clone(), Some(stopped.clone()))
+            .await; // TODO is this necessary?
 
-        Some((name, stopped.unwrap_or(state)))
+        Some((name, stopped))
     }
 
-    async fn travel(
+    async fn extend(
         &self,
-        state: AvatarState,
+        path: Path,
         positions: Vec<V2<usize>>,
         start_at: u128,
         travel_duration: Arc<AvatarTravelDuration>,
-    ) -> Option<AvatarState> {
+    ) -> Option<Path> {
         self.tx
             .send_world(move |world| {
-                state.travel(TravelArgs {
-                    world: &world,
+                path.extend(
+                    world,
                     positions,
-                    travel_duration: travel_duration.as_ref(),
-                    vehicle_fn: travel_duration.travel_mode_fn(),
+                    travel_duration.as_ref(),
+                    travel_duration.travel_mode_fn(),
                     start_at,
-                    pause_at_start: None,
-                    pause_at_end: None,
-                })
+                )
             })
             .await
     }
@@ -115,22 +112,6 @@ where
 
     fn update_world_coord(&mut self, world_coord: Option<WorldCoord>) {
         self.world_coord = world_coord;
-    }
-}
-
-fn stop_position(avatar_state: &AvatarState) -> Option<&V2<usize>> {
-    match avatar_state {
-        AvatarState::Stationary { position, .. } => Some(position),
-        AvatarState::Walking(path) => Some(&path.final_frame().position),
-        AvatarState::Absent => None,
-    }
-}
-
-fn stop_micros(avatar_state: &AvatarState) -> Option<&u128> {
-    match avatar_state {
-        AvatarState::Stationary { .. } => None,
-        AvatarState::Walking(path) => Some(&path.final_frame().arrival),
-        AvatarState::Absent => None,
     }
 }
 

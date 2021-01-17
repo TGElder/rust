@@ -1,9 +1,8 @@
-use crate::avatar::{AvatarState, Rotation, Vehicle};
+use crate::avatar::{Path, Rotation, Vehicle};
 
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{RevealAll, SendAvatars, SendWorld, UpdateAvatar, Visibility};
 use commons::async_trait::async_trait;
-use commons::grid::Grid;
 use isometric::{coords::*, Event};
 use isometric::{Button, ElementState, VirtualKeyCode};
 use std::default::Default;
@@ -60,23 +59,17 @@ where
 
         let moved = self
             .tx
-            .send_world(move |world| AvatarState::Stationary {
-                elevation: world
-                    .get_cell_unsafe(&position)
-                    .elevation
-                    .max(world.sea_level()),
-                position,
-                rotation: Rotation::Down,
-                vehicle: Vehicle::None,
+            .send_world(move |world| {
+                Path::stationary(world, position, Vehicle::None, Rotation::Down)
             })
             .await;
 
-        self.tx.update_avatar_state(name, moved).await;
+        self.tx.update_avatar_path(name, Some(moved)).await;
     }
 
     async fn remove_avatar(&mut self) {
         if let Some(name) = self.selected_avatar_name().await {
-            self.tx.update_avatar_state(name, AvatarState::Absent).await;
+            self.tx.update_avatar_path(name, None).await;
         }
     }
 
