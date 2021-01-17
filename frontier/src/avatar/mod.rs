@@ -17,7 +17,6 @@ pub use travel_mode_fn::*;
 pub use vehicle::*;
 
 use crate::resource::Resource;
-use crate::travel_duration::*;
 use crate::world::World;
 use commons::{v2, V2};
 use isometric::Color;
@@ -82,26 +81,4 @@ impl Rotation {
 pub enum AvatarLoad {
     None,
     Resource(Resource),
-}
-
-struct TestTravelDuration {
-    max: Duration,
-}
-
-impl TravelDuration for TestTravelDuration {
-    fn get_duration(&self, _: &World, _: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
-        if to.x <= 2 && to.y <= 2 {
-            Some(Duration::from_millis((to.x + to.y) as u64))
-        } else {
-            None
-        }
-    }
-
-    fn min_duration(&self) -> Duration {
-        Duration::from_millis(0)
-    }
-
-    fn max_duration(&self) -> Duration {
-        self.max
-    }
 }

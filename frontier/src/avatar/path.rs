@@ -21,11 +21,17 @@ pub struct Frame {
     pub rotation: Rotation,
 }
 
-impl Path {
-    pub fn empty() -> Path {
-        Path { frames: vec![] }
+impl Into<WorldCoord> for &Frame {
+    fn into(self) -> WorldCoord {
+        WorldCoord::new(
+            self.position.x as f32,
+            self.position.y as f32,
+            self.elevation,
+        )
     }
+}
 
+impl Path {
     pub fn new(
         world: &World,
         positions: Vec<V2<usize>>,
@@ -154,7 +160,7 @@ impl Path {
     }
 
     fn compute_current_index(&self, instant: &u128) -> Option<usize> {
-        for i in 0..self.frames.len() {
+        for i in 1..self.frames.len() {
             if *instant < self.frames[i].arrival {
                 return Some(i);
             }
@@ -163,29 +169,21 @@ impl Path {
     }
 
     pub fn stop(&self, instant: &u128) -> Path {
-        if self.done(instant) {
-            return Path {
-                frames: vec![*self.final_frame()],
-            };
-        }
         self.compute_current_index(instant)
             .map(|i| Path {
                 frames: vec![self.frames[i - 1], self.frames[i]],
             })
-            .unwrap_or_else(Path::empty)
+            .unwrap_or_else(|| Path {
+                frames: vec![*self.final_frame()],
+            })
     }
 
     pub fn compute_world_coord(&self, instant: &u128) -> WorldCoord {
-        let instant = instant.max(&self.frames[0].arrival);
-
         if self.done(instant) {
-            let frame = self.final_frame();
-            return WorldCoord::new(
-                frame.position.x as f32,
-                frame.position.y as f32,
-                frame.elevation,
-            );
+            return self.final_frame().into();
         }
+
+        let instant = instant.max(&self.frames[0].arrival);
 
         let i = self.compute_current_index(instant).unwrap();
 
@@ -208,37 +206,21 @@ impl Path {
     }
 
     pub fn vehicle_at(&self, instant: &u128) -> Vehicle {
-        self.compute_current_index(instant)
-            .map(|index| self.frames[index].vehicle)
-            .unwrap_or(self.final_frame().vehicle)
+        self.frame_at(instant).vehicle
     }
 
-    fn compute_rotation_at_index(&self, index: usize) -> Option<Rotation> {
-        let from = self.frames[index - 1].position;
-        let to = self.frames[index].position;
-        if to.x > from.x {
-            Some(Rotation::Right)
-        } else if from.x > to.x {
-            Some(Rotation::Left)
-        } else if to.y > from.y {
-            Some(Rotation::Up)
-        } else if from.y > to.y {
-            Some(Rotation::Down)
-        } else {
-            None
-        }
+    pub fn rotation_at(&self, instant: &u128) -> Rotation {
+        self.frame_at(instant).rotation
     }
 
-    pub fn compute_rotation(&self, instant: &u128) -> Rotation {
-        let instant = instant.max(&self.frames[0].arrival);
-
+    fn frame_at(&self, instant: &u128) -> &Frame {
         self.compute_current_index(instant)
-            .and_then(|index| self.compute_rotation_at_index(index))
-            .unwrap_or(self.final_frame().rotation)
+            .map(|index| &self.frames[index - 1])
+            .unwrap_or_else(|| self.final_frame())
     }
 
     pub fn extend(
-        &self,
+        self,
         world: &World,
         extension: Vec<V2<usize>>,
         travel_duration: &dyn TravelDuration,
@@ -249,7 +231,7 @@ impl Path {
             return None;
         }
 
-        let mut frames = self.frames.clone();
+        let mut frames = self.frames;
         frames.append(&mut Path::compute_frames(
             world,
             &extension,
@@ -340,6 +322,28 @@ mod tests {
     use super::*;
     use commons::almost::Almost;
     use commons::*;
+
+    struct TestTravelDuration {
+        max: Duration,
+    }
+
+    impl TravelDuration for TestTravelDuration {
+        fn get_duration(&self, _: &World, _: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
+            if to.x <= 2 && to.y <= 2 {
+                Some(Duration::from_millis((to.x + to.y) as u64))
+            } else {
+                None
+            }
+        }
+
+        fn min_duration(&self) -> Duration {
+            Duration::from_millis(0)
+        }
+
+        fn max_duration(&self) -> Duration {
+            self.max
+        }
+    }
 
     fn travel_duration() -> TestTravelDuration {
         TestTravelDuration {
@@ -527,54 +531,21 @@ mod tests {
         let start = 0;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         assert_eq!(path.vehicle_at(&0), Vehicle::Boat);
-        assert_eq!(path.vehicle_at(&2_999), Vehicle::Boat);
-        assert_eq!(path.vehicle_at(&3_000), Vehicle::None);
+        assert_eq!(path.vehicle_at(&5_999), Vehicle::Boat);
+        assert_eq!(path.vehicle_at(&6_000), Vehicle::None);
         assert_eq!(path.vehicle_at(&10_000), Vehicle::None);
     }
 
     #[test]
-    fn test_compute_rotation_at_index() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(0, 1), v2(0, 0)];
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        assert_eq!(path.compute_rotation_at_index(1), Some(Rotation::Up));
-        assert_eq!(path.compute_rotation_at_index(2), Some(Rotation::Right));
-        assert_eq!(path.compute_rotation_at_index(3), Some(Rotation::Left));
-        assert_eq!(path.compute_rotation_at_index(4), Some(Rotation::Down));
-    }
-
-    #[test]
-    fn test_compute_rotation() {
+    fn test_rotation_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
-        let at = start + 1_500;
-        let actual = path.compute_rotation(&at);
-        assert_eq!(actual, Rotation::Right);
-    }
-
-    #[test]
-    fn test_compute_rotation_before_start() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let start = 10;
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
-
-        let actual = path.compute_rotation(&0);
-
-        assert_eq!(actual, Rotation::Up);
-    }
-
-    #[test]
-    fn test_compute_rotation_after_end() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-
-        let actual = path.compute_rotation(&20_000);
-
-        assert_eq!(actual, Rotation::Right);
+        assert_eq!(path.rotation_at(&0), Rotation::Up);
+        assert_eq!(path.rotation_at(&2_999), Rotation::Up);
+        assert_eq!(path.rotation_at(&3_000), Rotation::Right);
+        assert_eq!(path.rotation_at(&10_000), Rotation::Right);
     }
 
     #[test]
@@ -954,8 +925,17 @@ mod tests {
 
     #[test]
     fn test_forward_path() {
-        let path = Path::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
-        assert_eq!(path.forward_path(), vec![v2(0, 0), v2(0, 1)]);
+        let path = Path::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Up);
+        assert_eq!(path.forward_path(), vec![v2(1, 1), v2(1, 2)]);
+
+        let path = Path::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Down);
+        assert_eq!(path.forward_path(), vec![v2(1, 1), v2(1, 0)]);
+
+        let path = Path::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Left);
+        assert_eq!(path.forward_path(), vec![v2(1, 1), v2(0, 1)]);
+
+        let path = Path::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Right);
+        assert_eq!(path.forward_path(), vec![v2(1, 1), v2(2, 1)]);
     }
 
     #[test]
@@ -1029,60 +1009,5 @@ mod tests {
             ],
         };
         assert_eq!(a + b, expected);
-    }
-
-    #[test]
-    fn test_add_empty_lhs() {
-        let a = Path::empty();
-        let b = Path {
-            frames: vec![
-                Frame {
-                    position: v2(2, 2),
-                    elevation: 2.0,
-                    arrival: 2,
-                    vehicle: Vehicle::Boat,
-                    rotation: Rotation::Left,
-                },
-                Frame {
-                    position: v2(3, 3),
-                    elevation: 3.0,
-                    arrival: 3,
-                    vehicle: Vehicle::None,
-                    rotation: Rotation::Right,
-                },
-            ],
-        };
-        assert_eq!(a + b.clone(), b);
-    }
-
-    #[test]
-    fn test_add_empty_rhs() {
-        let a = Path {
-            frames: vec![
-                Frame {
-                    position: v2(0, 0),
-                    elevation: 1.0,
-                    arrival: 0,
-                    vehicle: Vehicle::None,
-                    rotation: Rotation::Up,
-                },
-                Frame {
-                    position: v2(1, 1),
-                    elevation: 2.0,
-                    arrival: 1,
-                    vehicle: Vehicle::Boat,
-                    rotation: Rotation::Down,
-                },
-            ],
-        };
-        let b = Path::empty();
-        assert_eq!(a.clone() + b, a);
-    }
-
-    #[test]
-    fn test_add_both_empty() {
-        let a = Path::empty();
-        let b = Path::empty();
-        assert_eq!(a + b, Path::empty());
     }
 }

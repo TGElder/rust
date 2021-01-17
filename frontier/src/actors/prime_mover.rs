@@ -76,7 +76,7 @@ where
             .await
     }
 
-    async fn get_n_avatar_states(&mut self, n: usize, micros: &u128) -> Vec<Path> {
+    async fn get_n_avatar_paths(&mut self, n: usize, micros: &u128) -> Vec<Path> {
         let candidates = self.get_candidates().await;
 
         let selected_keys =
@@ -167,7 +167,7 @@ where
             return;
         }
 
-        let avatar_states = self.get_n_avatar_states(dormant.len(), &micros).await;
+        let avatar_states = self.get_n_avatar_paths(dormant.len(), &micros).await;
 
         let allocation = dormant.into_iter().zip(avatar_states.into_iter()).collect();
         self.update_avatars(allocation).await;

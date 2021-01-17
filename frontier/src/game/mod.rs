@@ -155,7 +155,7 @@ impl Game {
     pub fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
         let start_at = start_at.max(self.game_state.game_micros);
         if let Entry::Occupied(mut avatar) = self.game_state.avatars.all.entry(name) {
-            let path = avatar.get().path.as_ref().unwrap();
+            let path = avatar.get_mut().path.take().unwrap();
             if let Some(new_path) = path.extend(
                 &self.game_state.world,
                 positions,

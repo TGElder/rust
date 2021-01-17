@@ -58,14 +58,14 @@ where
         let (commands, avatar_artist) = self
             .tx
             .send_avatars(move |avatars| {
-                let draw_commands = draw_commands(avatars);
-                let mut commands = avatar_artist.update_avatars(&draw_commands, &micros);
+                let draw_commands = get_draw_commands(avatars);
+                let mut engine_commands = avatar_artist.update_avatars(&draw_commands, &micros);
 
                 if follow_avatar {
-                    commands.push(look_at_selected(avatars, &micros));
+                    engine_commands.push(look_at_selected(avatars, &micros));
                 }
 
-                (commands, avatar_artist)
+                (engine_commands, avatar_artist)
             })
             .await;
 
@@ -79,7 +79,7 @@ where
     }
 }
 
-fn draw_commands(avatars: &Avatars) -> Vec<AvatarDrawCommand> {
+fn get_draw_commands(avatars: &Avatars) -> Vec<AvatarDrawCommand> {
     avatars
         .all
         .values()

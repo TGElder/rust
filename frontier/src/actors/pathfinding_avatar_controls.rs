@@ -50,8 +50,9 @@ where
 
         let micros = self.tx.micros().await;
 
-        let (name, stopped) = unwrap_or!(self.stop_selected_avatar(&micros).await, return);
+        let (name, path) = unwrap_or!(self.get_selected_avatar().await, return);
 
+        let stopped = path.stop(&micros);
         let stop_position = stopped.final_frame().position;
 
         let path = unwrap_or!(
@@ -63,7 +64,6 @@ where
         );
 
         let start_at = stopped.final_frame().arrival.max(micros);
-
         let travelling = self
             .extend(stopped, path, start_at, self.travel_duration.clone())
             .await;
@@ -73,17 +73,11 @@ where
         }
     }
 
-    async fn stop_selected_avatar(&self, micros: &u128) -> Option<(String, Path)> {
+    async fn get_selected_avatar(&self) -> Option<(String, Path)> {
         let Avatar { name, path, .. } = self.tx.selected_avatar().await?;
         let path = path?;
 
-        let stopped = path.stop(&micros);
-
-        self.tx
-            .update_avatar_path(name.clone(), Some(stopped.clone()))
-            .await; // TODO is this necessary?
-
-        Some((name, stopped))
+        Some((name, path))
     }
 
     async fn extend(
@@ -107,7 +101,12 @@ where
     }
 
     async fn stop(&mut self) {
-        self.stop_selected_avatar(&self.tx.micros().await).await;
+        let micros = self.tx.micros().await;
+        let (name, path) = unwrap_or!(self.get_selected_avatar().await, return);
+
+        let stopped = path.stop(&micros);
+
+        self.tx.update_avatar_path(name, Some(stopped)).await;
     }
 
     fn update_world_coord(&mut self, world_coord: Option<WorldCoord>) {

@@ -16,7 +16,7 @@ use std::iter::once;
 pub struct AvatarArtist {
     params: AvatarArtistParams,
     body_parts: Vec<BodyPart>,
-    last_draw_action: HashMap<String, AvatarDrawAction>,
+    previous_draw_action: HashMap<String, AvatarDrawAction>,
 }
 
 pub struct AvatarArtistParams {
@@ -116,7 +116,7 @@ impl AvatarArtist {
                     }),
                 },
             ],
-            last_draw_action: HashMap::new(),
+            previous_draw_action: HashMap::new(),
         }
     }
 
@@ -142,43 +142,46 @@ impl AvatarArtist {
     fn draw_avatars(&mut self, commands: &[AvatarDrawCommand], instant: &u128) -> Vec<Command> {
         commands
             .iter()
-            .flat_map(|command| self.draw_avatar(command, instant))
+            .flat_map(|command| self.draw_command(command, instant))
             .collect()
     }
 
-    fn draw_avatar(&mut self, command: &AvatarDrawCommand, instant: &u128) -> Vec<Command> {
+    fn draw_command(&mut self, command: &AvatarDrawCommand, instant: &u128) -> Vec<Command> {
         let mut out = vec![];
         let avatar = command.avatar;
         let name = &avatar.name;
-        let path = &avatar.path;
         let new_draw_action = avatar_draw_action(&command, &instant);
-        let last_draw_action = self.last_draw_action.get(name);
-        if let Some(last_draw_action) = last_draw_action {
-            if !Self::should_redraw_avatar(&last_draw_action, &new_draw_action) {
+        let previous_draw_action = self.previous_draw_action.get(name);
+        if let Some(previous_draw_action) = previous_draw_action {
+            if !Self::should_redraw_avatar(&previous_draw_action, &new_draw_action) {
                 return vec![];
             }
         } else {
             out.append(&mut self.init(name));
         }
-        self.last_draw_action
+        self.previous_draw_action
             .insert(name.to_string(), new_draw_action);
 
         match new_draw_action {
-            AvatarDrawAction::Draw => {
-                let path = path.as_ref().unwrap();
-                let world_coord = path.compute_world_coord(instant);
-                out.append(&mut self.draw_body(&avatar, instant, world_coord));
-                out.append(&mut self.draw_boat_if_required(&name, &path, world_coord, instant));
-                out.append(&mut self.draw_load(&name, &avatar.load, world_coord));
-            }
+            AvatarDrawAction::Draw => out.append(&mut self.draw_avatar(avatar, instant)),
             AvatarDrawAction::Hide => out.append(&mut self.hide(name)),
         }
         out
     }
 
+    fn draw_avatar(&self, avatar: &Avatar, instant: &u128) -> Vec<Command> {
+        let path = avatar.path.as_ref().unwrap();
+        let world_coord = path.compute_world_coord(instant);
+        let mut out = vec![];
+        out.append(&mut self.draw_body(&avatar, instant, world_coord));
+        out.append(&mut self.draw_boat_if_required(&avatar.name, &path, world_coord, instant));
+        out.append(&mut self.draw_load(&avatar.name, &avatar.load, world_coord));
+        out
+    }
+
     #[rustfmt::skip]
     fn get_rotation_matrix(path: &Path, instant: &u128) -> na::Matrix3<f32> {
-        let rotation = path.compute_rotation(instant);
+        let rotation = path.rotation_at(instant);
         let cos = rotation.angle().cos();
         let sin = rotation.angle().sin();
         na::Matrix3::from_vec(vec![
@@ -189,13 +192,13 @@ impl AvatarArtist {
     }
 
     fn should_redraw_avatar(
-        last_draw_state: &AvatarDrawAction,
-        new_draw_state: &AvatarDrawAction,
+        previous_draw_action: &AvatarDrawAction,
+        new_draw_action: &AvatarDrawAction,
     ) -> bool {
-        if let AvatarDrawAction::Draw = new_draw_state {
+        if let AvatarDrawAction::Draw = new_draw_action {
             true
         } else {
-            last_draw_state != new_draw_state
+            previous_draw_action != new_draw_action
         }
     }
 
