@@ -152,26 +152,18 @@ impl Game {
         self.previous_instant = current_instant;
     }
 
-    pub fn walk_positions(
-        &mut self,
-        name: String,
-        positions: Vec<V2<usize>>,
-        start_at: u128,
-        pause_at_start: Option<Duration>,
-        pause_at_end: Option<Duration>,
-    ) {
+    pub fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
         let start_at = start_at.max(self.game_state.game_micros);
         if let Entry::Occupied(mut avatar) = self.game_state.avatars.all.entry(name) {
-            if let Some(new_state) = avatar.get().state.travel(TravelArgs {
-                world: &self.game_state.world,
+            let path = avatar.get_mut().path.take().unwrap();
+            if let Some(new_path) = path.extend(
+                &self.game_state.world,
                 positions,
-                travel_duration: &self.avatar_travel_duration,
-                vehicle_fn: self.avatar_travel_duration.travel_mode_fn(),
+                &self.avatar_travel_duration,
+                self.avatar_travel_duration.travel_mode_fn(),
                 start_at,
-                pause_at_start,
-                pause_at_end,
-            }) {
-                avatar.get_mut().state = new_state;
+            ) {
+                avatar.get_mut().path = Some(new_path);
             }
         }
     }

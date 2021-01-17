@@ -10,8 +10,14 @@ use isometric::drawing::{
 };
 use isometric::Color;
 use isometric::Command;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::iter::once;
+
+pub struct AvatarArtist {
+    params: AvatarArtistParams,
+    body_parts: Vec<BodyPart>,
+    previous_draw_actions: HashMap<String, AvatarDrawAction>,
+}
 
 pub struct AvatarArtistParams {
     pixels_per_cell: f32,
@@ -39,10 +45,9 @@ impl AvatarArtistParams {
     }
 }
 
-pub struct AvatarArtist {
-    params: AvatarArtistParams,
-    body_parts: Vec<BodyPart>,
-    last_draw_state: HashMap<String, AvatarDrawState>,
+pub struct AvatarDrawCommand<'a> {
+    pub avatar: &'a Avatar,
+    pub draw_when_done: bool,
 }
 
 impl AvatarArtist {
@@ -111,7 +116,7 @@ impl AvatarArtist {
                     }),
                 },
             ],
-            last_draw_state: HashMap::new(),
+            previous_draw_actions: HashMap::new(),
         }
     }
 
@@ -126,62 +131,57 @@ impl AvatarArtist {
 
     pub fn update_avatars(
         &mut self,
-        avatars: &HashMap<String, Avatar>,
+        commands: &[AvatarDrawCommand],
         instant: &u128,
     ) -> Vec<Command> {
         let mut out = vec![];
-        out.append(&mut self.draw_avatars(avatars, instant));
-        out.append(&mut self.erase_avatars(avatars));
+        out.append(&mut self.draw_avatars(commands, instant));
         out
     }
 
-    fn draw_avatars(&mut self, avatars: &HashMap<String, Avatar>, instant: &u128) -> Vec<Command> {
-        avatars
-            .values()
-            .flat_map(|avatar| self.draw_avatar(avatar, instant))
+    fn draw_avatars(&mut self, commands: &[AvatarDrawCommand], instant: &u128) -> Vec<Command> {
+        commands
+            .iter()
+            .flat_map(|command| self.draw_command(command, instant))
             .collect()
     }
 
-    fn draw_avatar(&mut self, avatar: &Avatar, instant: &u128) -> Vec<Command> {
+    fn draw_command(&mut self, command: &AvatarDrawCommand, instant: &u128) -> Vec<Command> {
         let mut out = vec![];
+        let avatar = command.avatar;
         let name = &avatar.name;
-        let state = &avatar.state;
-        let new_draw_state = avatar_draw_state(&state, &instant);
-        let last_draw_state = self.last_draw_state.get(name);
-        if let Some(last_draw_state) = last_draw_state {
-            if !Self::should_redraw_avatar(&last_draw_state, &new_draw_state) {
+        let new_draw_action = avatar_draw_action(&command, &instant);
+        let previous_draw_action = self.previous_draw_actions.get(name);
+        if let Some(previous_draw_action) = previous_draw_action {
+            if !Self::should_redraw_avatar(&previous_draw_action, &new_draw_action) {
                 return vec![];
             }
         } else {
             out.append(&mut self.init(name));
         }
-        self.last_draw_state
-            .insert(name.to_string(), new_draw_state);
+        self.previous_draw_actions
+            .insert(name.to_string(), new_draw_action);
 
-        if let Some(world_coord) = state.compute_world_coord(instant) {
-            out.append(&mut self.draw_body(&avatar, instant, world_coord));
-            out.append(&mut self.draw_boat_if_required(&name, state, world_coord, instant));
-            out.append(&mut self.draw_load(&name, &avatar.load, world_coord));
-        } else {
-            out.append(&mut self.hide(name));
+        match new_draw_action {
+            AvatarDrawAction::Draw => out.append(&mut self.draw_avatar(avatar, instant)),
+            AvatarDrawAction::Hide => out.append(&mut self.hide(name)),
         }
         out
     }
 
-    fn erase_avatars(&mut self, avatars: &HashMap<String, Avatar>) -> Vec<Command> {
-        let mut to_erase: HashSet<String> = self.last_draw_state.keys().cloned().collect();
-        to_erase.retain(|avatar| !avatars.contains_key(avatar));
-        self.last_draw_state
-            .retain(|avatar, _| !to_erase.contains(avatar));
-        to_erase
-            .drain()
-            .flat_map(|avatar| self.erase(&avatar))
-            .collect()
+    fn draw_avatar(&self, avatar: &Avatar, instant: &u128) -> Vec<Command> {
+        let path = avatar.path.as_ref().unwrap();
+        let world_coord = path.compute_world_coord(instant);
+        let mut out = vec![];
+        out.append(&mut self.draw_body(&avatar, instant, world_coord));
+        out.append(&mut self.draw_boat_if_required(&avatar.name, &path, world_coord, instant));
+        out.append(&mut self.draw_load(&avatar.name, &avatar.load, world_coord));
+        out
     }
 
     #[rustfmt::skip]
-    fn get_rotation_matrix(state: &AvatarState, instant: &u128) -> na::Matrix3<f32> {
-        let rotation = state.rotation(instant).unwrap_or_default();
+    fn get_rotation_matrix(path: &Path, instant: &u128) -> na::Matrix3<f32> {
+        let rotation = path.rotation_at(instant);
         let cos = rotation.angle().cos();
         let sin = rotation.angle().sin();
         na::Matrix3::from_vec(vec![
@@ -192,13 +192,13 @@ impl AvatarArtist {
     }
 
     fn should_redraw_avatar(
-        last_draw_state: &AvatarDrawState,
-        new_draw_state: &AvatarDrawState,
+        previous_draw_action: &AvatarDrawAction,
+        new_draw_action: &AvatarDrawAction,
     ) -> bool {
-        if let AvatarDrawState::Moving = new_draw_state {
+        if let AvatarDrawAction::Draw = new_draw_action {
             true
         } else {
-            last_draw_state != new_draw_state
+            previous_draw_action != new_draw_action
         }
     }
 
@@ -219,7 +219,8 @@ impl AvatarArtist {
         world_coord: WorldCoord,
         part: &BodyPart,
     ) -> Vec<Command> {
-        let offset = AvatarArtist::get_rotation_matrix(&avatar.state, instant) * part.offset
+        let offset = AvatarArtist::get_rotation_matrix(&avatar.path.as_ref().unwrap(), instant)
+            * part.offset
             / self.params.pixels_per_cell;
         let world_coord = WorldCoord::new(
             world_coord.x + offset.x,
@@ -250,32 +251,32 @@ impl AvatarArtist {
     fn draw_boat_if_required(
         &self,
         name: &str,
-        state: &AvatarState,
+        path: &Path,
         world_coord: WorldCoord,
         instant: &u128,
     ) -> Vec<Command> {
-        if self.should_draw_boat(state, instant) {
-            self.draw_boat(name, state, world_coord, instant)
+        if self.should_draw_boat(path, instant) {
+            self.draw_boat(name, path, world_coord, instant)
         } else {
             vec![self.hide_boat(name)]
         }
     }
 
-    fn should_draw_boat(&self, state: &AvatarState, instant: &u128) -> bool {
-        state.vehicle_at(instant) == Some(Vehicle::Boat)
+    fn should_draw_boat(&self, path: &Path, instant: &u128) -> bool {
+        path.vehicle_at(instant) == Vehicle::Boat
     }
 
     fn draw_boat(
         &self,
         name: &str,
-        state: &AvatarState,
+        path: &Path,
         world_coord: WorldCoord,
         instant: &u128,
     ) -> Vec<Command> {
         draw_boat(
             &boat_drawing_name(name),
             world_coord,
-            AvatarArtist::get_rotation_matrix(state, instant),
+            AvatarArtist::get_rotation_matrix(path, instant),
             &self.params.boat_params,
         )
     }
@@ -335,27 +336,6 @@ impl AvatarArtist {
             name: load_drawing_name(name),
             visible: false,
         }
-    }
-
-    fn erase(&self, name: &str) -> Vec<Command> {
-        self.body_parts
-            .iter()
-            .map(|part| self.erase_part(name, part))
-            .chain(once(self.erase_boat(name)))
-            .chain(once(self.erase_load(name)))
-            .collect()
-    }
-
-    fn erase_part(&self, name: &str, part: &BodyPart) -> Command {
-        Command::Erase(part_drawing_name(name, part))
-    }
-
-    fn erase_boat(&self, name: &str) -> Command {
-        Command::Erase(boat_drawing_name(name))
-    }
-
-    fn erase_load(&self, name: &str) -> Command {
-        Command::Erase(load_drawing_name(name))
     }
 }
 
@@ -429,28 +409,18 @@ fn resource_texture(resource: Resource) -> Option<&'static str> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum AvatarDrawState {
-    Stationary {
-        position: V2<usize>,
-        rotation: Rotation,
-    },
-    Moving,
-    Absent,
+enum AvatarDrawAction {
+    Draw,
+    Hide,
 }
 
-fn avatar_draw_state(state: &AvatarState, instant: &u128) -> AvatarDrawState {
-    match state {
-        AvatarState::Stationary {
-            position, rotation, ..
-        } => AvatarDrawState::Stationary {
-            position: *position,
-            rotation: *rotation,
+fn avatar_draw_action(command: &AvatarDrawCommand, instant: &u128) -> AvatarDrawAction {
+    match &command.avatar.path {
+        Some(path) => match command.draw_when_done || !path.done(instant) {
+            true => AvatarDrawAction::Draw,
+            false => AvatarDrawAction::Hide,
         },
-        AvatarState::Absent => AvatarDrawState::Absent,
-        AvatarState::Walking(path) => match path.done(instant) {
-            true => AvatarDrawState::Absent,
-            false => AvatarDrawState::Moving,
-        },
+        None => AvatarDrawAction::Hide,
     }
 }
 

@@ -1,11 +1,10 @@
-use crate::avatar::*;
 use crate::game::*;
 use crate::traits::Visibility;
 use commons::V2;
 use isometric::Event;
 use std::sync::Arc;
 
-use std::iter::{empty, once};
+use std::iter::empty;
 
 const NAME: &str = "visibility_from_avatar";
 
@@ -36,13 +35,9 @@ fn avatar_visited<'a>(
     to: &'a u128,
 ) -> Box<dyn Iterator<Item = V2<usize>> + 'a> {
     if let Some(avatar) = game_state.avatars.selected() {
-        match &avatar.state {
-            AvatarState::Walking(path) => {
-                let edges = path.edges_between_times(from, to);
-                return Box::new(edges.into_iter().map(|edge| *edge.to()));
-            }
-            AvatarState::Stationary { position, .. } => return Box::new(once(*position)),
-            _ => (),
+        if let Some(path) = &avatar.path {
+            let edges = path.edges_between_times(from, to);
+            return Box::new(edges.into_iter().map(|edge| *edge.to()));
         }
     }
     Box::new(empty())

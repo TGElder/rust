@@ -4,7 +4,7 @@ use std::sync::Arc;
 use commons::async_trait::async_trait;
 use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 
-use crate::artists::AvatarArtist;
+use crate::artists::{AvatarArtist, AvatarDrawCommand};
 use crate::avatars::Avatars;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendAvatars, SendRotate};
@@ -58,13 +58,14 @@ where
         let (commands, avatar_artist) = self
             .tx
             .send_avatars(move |avatars| {
-                let mut commands = avatar_artist.update_avatars(&avatars.all, &micros);
+                let draw_commands = get_draw_commands(avatars);
+                let mut engine_commands = avatar_artist.update_avatars(&draw_commands, &micros);
 
                 if follow_avatar {
-                    commands.push(look_at_selected(avatars, &micros));
+                    engine_commands.push(look_at_selected(avatars, &micros));
                 }
 
-                (commands, avatar_artist)
+                (engine_commands, avatar_artist)
             })
             .await;
 
@@ -78,11 +79,23 @@ where
     }
 }
 
+fn get_draw_commands(avatars: &Avatars) -> Vec<AvatarDrawCommand> {
+    avatars
+        .all
+        .values()
+        .map(|avatar| AvatarDrawCommand {
+            avatar,
+            draw_when_done: Some(&avatar.name) == avatars.selected.as_ref(),
+        })
+        .collect()
+}
+
 fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {
     Command::LookAt(
         avatars
             .selected()
-            .and_then(|avatar| avatar.state.compute_world_coord(micros)),
+            .and_then(|avatar| avatar.path.as_ref())
+            .map(|path| path.compute_world_coord(micros)),
     )
 }
 
