@@ -3,6 +3,7 @@ use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SelectedAvatar, SendWorld, UpdateAvatar};
 use crate::travel_duration::TravelDuration;
 use commons::async_trait::async_trait;
+use commons::log::debug;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::default::Default;
 use std::sync::Arc;
@@ -41,30 +42,32 @@ where
     }
 
     async fn walk_forward(&self) {
-        let (start_at, selected_avatar) = join!(self.tx.micros(), self.tx.selected_avatar(),);
+        let (stop_at, selected_avatar) = join!(self.tx.micros(), self.tx.selected_avatar(),);
         let Avatar { name, path, .. } = unwrap_or!(selected_avatar, return);
         let path = unwrap_or!(path, return);
 
-        let new_path = unwrap_or!(self.get_walk_forward_state(path, start_at).await, return);
+        let stopped = path.stop(&stop_at);
+        let start_at = stopped.final_frame().arrival.max(stop_at);
+        let new_path = unwrap_or!(self.get_walk_forward_state(stopped, start_at).await, return);
 
         self.tx.update_avatar_path(name, Some(new_path)).await;
     }
 
     async fn get_walk_forward_state(&self, path: Path, start_at: u128) -> Option<Path> {
-        let path = path.forward_path();
+        let positions = path.forward_path();
 
         let travel_duration = self.travel_duration.clone();
 
         self.tx
             .send_world(move |world| {
-                travel_duration.get_duration(&world, &path[0], &path[1])?;
-                Some(Path::new(
+                travel_duration.get_duration(&world, &positions[0], &positions[1])?;
+                path.extend(
                     world,
-                    path,
+                    positions,
                     travel_duration.as_ref(),
                     travel_duration.travel_mode_fn(),
                     start_at,
-                ))
+                )
             })
             .await
     }

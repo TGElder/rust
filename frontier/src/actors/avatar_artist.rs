@@ -4,7 +4,7 @@ use std::sync::Arc;
 use commons::async_trait::async_trait;
 use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 
-use crate::artists::AvatarArtist;
+use crate::artists::{AvatarArtist, AvatarDrawCommand};
 use crate::avatars::Avatars;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendAvatars, SendRotate};
@@ -58,7 +58,8 @@ where
         let (commands, avatar_artist) = self
             .tx
             .send_avatars(move |avatars| {
-                let mut commands = avatar_artist.update_avatars(&avatars.all, &micros);
+                let draw_commands = draw_commands(avatars);
+                let mut commands = avatar_artist.update_avatars(&draw_commands, &micros);
 
                 if follow_avatar {
                     commands.push(look_at_selected(avatars, &micros));
@@ -76,6 +77,17 @@ where
         self.follow_avatar = !self.follow_avatar;
         self.send_messages();
     }
+}
+
+fn draw_commands(avatars: &Avatars) -> Vec<AvatarDrawCommand> {
+    avatars
+        .all
+        .values()
+        .map(|avatar| AvatarDrawCommand {
+            avatar,
+            draw_when_done: Some(&avatar.name) == avatars.selected.as_ref(),
+        })
+        .collect()
 }
 
 fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {

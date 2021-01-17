@@ -6,6 +6,7 @@ use crate::travel_duration::TravelDuration;
 use crate::world::World;
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
+use commons::log::debug;
 use commons::V2;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
