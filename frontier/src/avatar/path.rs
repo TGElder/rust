@@ -290,6 +290,30 @@ impl Path {
         self.frames.push(last_frame);
         self
     }
+
+    pub fn then_rotate_clockwise(mut self) -> Path {
+        let mut last_frame = *unwrap_or!(self.frames.last(), return self);
+        last_frame.rotation = last_frame.rotation.clockwise();
+        self.frames.push(last_frame);
+        self
+    }
+
+    pub fn then_rotate_anticlockwise(mut self) -> Path {
+        let mut last_frame = *unwrap_or!(self.frames.last(), return self);
+        last_frame.rotation = last_frame.rotation.anticlockwise();
+        self.frames.push(last_frame);
+        self
+    }
+
+    pub fn forward_path(&self) -> Vec<V2<usize>> {
+        let from = self.final_frame().position;
+        let rotation = self.final_frame().rotation;
+        let to = v2(
+            (from.x as f32 + rotation.angle().cos()).round() as usize,
+            (from.y as f32 + rotation.angle().sin()).round() as usize,
+        );
+        vec![from, to]
+    }
 }
 
 impl Add for Path {
@@ -792,6 +816,66 @@ mod tests {
         let actual = path.with_pause_at_end(1);
         let expected = Path { frames: vec![] };
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_then_rotate_clockwise() {
+        let path = Path::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
+        let path = path.then_rotate_clockwise();
+        assert_eq!(
+            path,
+            Path {
+                frames: vec![
+                    Frame {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                        arrival: 0,
+                        vehicle: Vehicle::None,
+                        rotation: Rotation::Up,
+                    },
+                    Frame {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                        arrival: 0,
+                        vehicle: Vehicle::None,
+                        rotation: Rotation::Right,
+                    }
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn test_then_rotate_anticlockwise() {
+        let path = Path::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
+        let path = path.then_rotate_anticlockwise();
+        assert_eq!(
+            path,
+            Path {
+                frames: vec![
+                    Frame {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                        arrival: 0,
+                        vehicle: Vehicle::None,
+                        rotation: Rotation::Up,
+                    },
+                    Frame {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                        arrival: 0,
+                        vehicle: Vehicle::None,
+                        rotation: Rotation::Left,
+                    }
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn test_forward_path() {
+        let path = Path::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
+        assert_eq!(path.forward_path(), vec![v2(0, 0), v2(0, 1)]);
     }
 
     #[test]
