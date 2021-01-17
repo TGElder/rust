@@ -160,7 +160,7 @@ impl Path {
     }
 
     fn compute_current_index(&self, instant: &u128) -> Option<usize> {
-        for i in 1..self.frames.len() {
+        for i in 0..self.frames.len() {
             if *instant < self.frames[i].arrival {
                 return Some(i);
             }
@@ -215,7 +215,7 @@ impl Path {
 
     fn frame_at(&self, instant: &u128) -> &Frame {
         self.compute_current_index(instant)
-            .map(|index| &self.frames[index - 1])
+            .map(|index| &self.frames[index])
             .unwrap_or_else(|| self.final_frame())
     }
 
@@ -531,8 +531,8 @@ mod tests {
         let start = 0;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         assert_eq!(path.vehicle_at(&0), Vehicle::Boat);
-        assert_eq!(path.vehicle_at(&5_999), Vehicle::Boat);
-        assert_eq!(path.vehicle_at(&6_000), Vehicle::None);
+        assert_eq!(path.vehicle_at(&2_999), Vehicle::Boat);
+        assert_eq!(path.vehicle_at(&3_000), Vehicle::None);
         assert_eq!(path.vehicle_at(&10_000), Vehicle::None);
     }
 
@@ -543,8 +543,8 @@ mod tests {
         let start = 0;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         assert_eq!(path.rotation_at(&0), Rotation::Up);
-        assert_eq!(path.rotation_at(&2_999), Rotation::Up);
-        assert_eq!(path.rotation_at(&3_000), Rotation::Right);
+        assert_eq!(path.rotation_at(&2_999), Rotation::Right);
+        assert_eq!(path.rotation_at(&3_000), Rotation::Up);
         assert_eq!(path.rotation_at(&10_000), Rotation::Right);
     }
 
