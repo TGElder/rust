@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 
-use crate::avatar::{Avatar, AvatarState};
+use crate::avatar::{Avatar, Path};
 use crate::traits::SendAvatars;
 
 #[async_trait]
@@ -21,7 +21,7 @@ where
 
 #[async_trait]
 pub trait UpdateAvatar {
-    async fn update_avatar_state(&self, name: String, state: AvatarState);
+    async fn update_avatar_path(&self, name: String, path: Option<Path>);
 }
 
 #[async_trait]
@@ -29,10 +29,10 @@ impl<T> UpdateAvatar for T
 where
     T: SendAvatars + Send + Sync,
 {
-    async fn update_avatar_state(&self, name: String, state: AvatarState) {
+    async fn update_avatar_path(&self, name: String, path: Option<Path>) {
         self.send_avatars(move |avatars| {
             if let Some(avatar) = avatars.all.get_mut(&name) {
-                avatar.state = state;
+                avatar.path = path;
             }
         })
         .await

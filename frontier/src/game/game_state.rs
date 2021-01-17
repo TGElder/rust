@@ -83,12 +83,12 @@ mod tests {
             "avatar".to_string(),
             Avatar {
                 name: "avatar".to_string(),
-                state: AvatarState::Stationary {
-                    position: v2(1, 1),
-                    elevation: 0.3,
-                    rotation: Rotation::Down,
-                    vehicle: Vehicle::Boat,
-                },
+                path: Some(Path::stationary(
+                    &world,
+                    v2(1, 1),
+                    Vehicle::Boat,
+                    Rotation::Down,
+                )),
                 load: AvatarLoad::Resource(Resource::Gold),
                 color: Color::new(0.2, 0.4, 0.6, 0.8),
                 skin_color: Color::new(0.3, 0.5, 0.7, 0.9),
