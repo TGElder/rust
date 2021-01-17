@@ -16,7 +16,7 @@ use std::iter::once;
 pub struct AvatarArtist {
     params: AvatarArtistParams,
     body_parts: Vec<BodyPart>,
-    previous_draw_action: HashMap<String, AvatarDrawAction>,
+    previous_draw_actions: HashMap<String, AvatarDrawAction>,
 }
 
 pub struct AvatarArtistParams {
@@ -116,7 +116,7 @@ impl AvatarArtist {
                     }),
                 },
             ],
-            previous_draw_action: HashMap::new(),
+            previous_draw_actions: HashMap::new(),
         }
     }
 
@@ -151,7 +151,7 @@ impl AvatarArtist {
         let avatar = command.avatar;
         let name = &avatar.name;
         let new_draw_action = avatar_draw_action(&command, &instant);
-        let previous_draw_action = self.previous_draw_action.get(name);
+        let previous_draw_action = self.previous_draw_actions.get(name);
         if let Some(previous_draw_action) = previous_draw_action {
             if !Self::should_redraw_avatar(&previous_draw_action, &new_draw_action) {
                 return vec![];
@@ -159,7 +159,7 @@ impl AvatarArtist {
         } else {
             out.append(&mut self.init(name));
         }
-        self.previous_draw_action
+        self.previous_draw_actions
             .insert(name.to_string(), new_draw_action);
 
         match new_draw_action {

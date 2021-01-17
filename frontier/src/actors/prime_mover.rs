@@ -167,9 +167,9 @@ where
             return;
         }
 
-        let avatar_states = self.get_n_avatar_paths(dormant.len(), &micros).await;
+        let avatar_paths = self.get_n_avatar_paths(dormant.len(), &micros).await;
 
-        let allocation = dormant.into_iter().zip(avatar_states.into_iter()).collect();
+        let allocation = dormant.into_iter().zip(avatar_paths.into_iter()).collect();
         self.update_avatars(allocation).await;
 
         sleep(self.sleep).await;

@@ -50,7 +50,7 @@ where
 
         let micros = self.tx.micros().await;
 
-        let (name, path) = unwrap_or!(self.get_selected_avatar().await, return);
+        let (name, path) = unwrap_or!(self.get_selected_avatar_name_and_path().await, return);
 
         let stopped = path.stop(&micros);
         let stop_position = stopped.final_frame().position;
@@ -73,7 +73,7 @@ where
         }
     }
 
-    async fn get_selected_avatar(&self) -> Option<(String, Path)> {
+    async fn get_selected_avatar_name_and_path(&self) -> Option<(String, Path)> {
         let Avatar { name, path, .. } = self.tx.selected_avatar().await?;
         let path = path?;
 
@@ -102,7 +102,7 @@ where
 
     async fn stop(&mut self) {
         let micros = self.tx.micros().await;
-        let (name, path) = unwrap_or!(self.get_selected_avatar().await, return);
+        let (name, path) = unwrap_or!(self.get_selected_avatar_name_and_path().await, return);
 
         let stopped = path.stop(&micros);
 
