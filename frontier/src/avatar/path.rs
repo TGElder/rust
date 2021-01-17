@@ -18,6 +18,7 @@ pub struct Frame {
     pub elevation: f32,
     pub arrival: u128,
     pub vehicle: Vehicle,
+    pub rotation: Rotation,
 }
 
 impl Path {
@@ -37,6 +38,23 @@ impl Path {
         }
     }
 
+    pub fn stationary(
+        world: &World,
+        position: V2<usize>,
+        vehicle: Vehicle,
+        rotation: Rotation,
+    ) -> Path {
+        Path {
+            frames: vec![Frame {
+                position,
+                elevation: Self::get_elevation(world, &position),
+                arrival: 0,
+                vehicle,
+                rotation,
+            }],
+        }
+    }
+
     fn compute_frames(
         world: &World,
         positions: &[V2<usize>],
@@ -51,6 +69,7 @@ impl Path {
             elevation: Self::get_elevation(world, &positions[0]),
             arrival: next_arrival_time,
             vehicle: Self::vehicle(world, &positions[0], &positions[1], vehicle_fn),
+            rotation: Self::rotation(&positions[0], &positions[1]),
         });
         for p in 0..positions.len() - 1 {
             let from = positions[p];
@@ -62,6 +81,7 @@ impl Path {
                 elevation: Self::get_elevation(world, &to),
                 arrival: next_arrival_time,
                 vehicle: Self::vehicle(world, &from, &to, vehicle_fn),
+                rotation: Self::rotation(&from, &to),
             });
         }
         out
@@ -82,6 +102,23 @@ impl Path {
                     world.get_cell(to).unwrap()
                 )
             })
+    }
+
+    fn rotation(from: &V2<usize>, to: &V2<usize>) -> Rotation {
+        if to.x > from.x {
+            Rotation::Right
+        } else if from.x > to.x {
+            Rotation::Left
+        } else if to.y > from.y {
+            Rotation::Up
+        } else if from.y > to.y {
+            Rotation::Down
+        } else {
+            panic!(
+                "Tried to create avatar path over invalid edge from {:?} to {:?}",
+                from, to
+            );
+        }
     }
 
     fn travel_duration(
@@ -133,10 +170,19 @@ impl Path {
             .unwrap_or_else(Path::empty)
     }
 
-    pub fn compute_world_coord(&self, instant: &u128) -> Option<WorldCoord> {
+    pub fn compute_world_coord(&self, instant: &u128) -> WorldCoord {
         let instant = instant.max(&self.frames[0].arrival);
 
-        let i = self.compute_current_index(instant)?;
+        if self.done(instant) {
+            let frame = self.final_frame();
+            return WorldCoord::new(
+                frame.position.x as f32,
+                frame.position.y as f32,
+                frame.elevation,
+            );
+        }
+
+        let i = self.compute_current_index(instant).unwrap();
 
         let from = self.frames[i - 1];
         let to = self.frames[i];
@@ -153,11 +199,7 @@ impl Path {
         let to = v3(to.position.x as f32, to.position.y as f32, to.elevation);
 
         let interpolated = from + (to - from) * p;
-        Some(WorldCoord::new(
-            interpolated.x,
-            interpolated.y,
-            interpolated.z,
-        ))
+        WorldCoord::new(interpolated.x, interpolated.y, interpolated.z)
     }
 
     pub fn vehicle_at(&self, instant: &u128) -> Option<Vehicle> {
@@ -321,30 +363,35 @@ mod tests {
                     elevation: 1.0,
                     arrival: 0,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(0, 1),
                     elevation: 0.5,
                     arrival: 1_000,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(1, 1),
                     elevation: 1.0,
                     arrival: 3_000,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Right,
                 },
                 Frame {
                     position: v2(1, 2),
                     elevation: 2.0,
                     arrival: 6_000,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(2, 2),
                     elevation: 3.0,
                     arrival: 10_000,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
             ],
         };
@@ -363,6 +410,7 @@ mod tests {
                 elevation: 3.0,
                 arrival: 10_000,
                 vehicle: Vehicle::None,
+                rotation: Rotation::Right,
             }
         );
     }
@@ -404,7 +452,7 @@ mod tests {
         let start = 0;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let at = start + 1_500;
-        let actual = path.compute_world_coord(&at).unwrap();
+        let actual = path.compute_world_coord(&at);
         let expected = WorldCoord::new(0.25, 1.0, 0.625);
         assert!(actual.x.almost(&expected.x));
         assert!(actual.y.almost(&expected.y));
@@ -418,9 +466,24 @@ mod tests {
         let start = 10;
         let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
-        let actual = path.compute_world_coord(&0).unwrap();
+        let actual = path.compute_world_coord(&0);
 
         let expected = WorldCoord::new(0.0, 0.0, 1.0);
+        assert!(actual.x.almost(&expected.x));
+        assert!(actual.y.almost(&expected.y));
+        assert!(actual.z.almost(&expected.z));
+    }
+
+    #[test]
+    fn test_compute_world_coord_after_end() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let start = 0;
+        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+
+        let actual = path.compute_world_coord(&20_000);
+
+        let expected = WorldCoord::new(2.0, 2.0, 3.0);
         assert!(actual.x.almost(&expected.x));
         assert!(actual.y.almost(&expected.y));
         assert!(actual.z.almost(&expected.z));
@@ -594,18 +657,21 @@ mod tests {
                     elevation: 1.0,
                     arrival: 0,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(1, 0),
                     elevation: 2.0,
                     arrival: 10,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 20,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
             ],
         };
@@ -619,24 +685,28 @@ mod tests {
                     elevation: 1.0,
                     arrival: 0,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(0, 0),
                     elevation: 1.0,
                     arrival: 1,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(1, 0),
                     elevation: 2.0,
                     arrival: 11,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 21,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
             ],
         };
@@ -660,18 +730,21 @@ mod tests {
                     elevation: 1.0,
                     arrival: 0,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
                 Frame {
                     position: v2(1, 0),
                     elevation: 2.0,
                     arrival: 10,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 20,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
                 },
             ],
         };
@@ -685,24 +758,28 @@ mod tests {
                     elevation: 1.0,
                     arrival: 0,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
                 Frame {
                     position: v2(1, 0),
                     elevation: 2.0,
                     arrival: 10,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 20,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 21,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
                 },
             ],
         };
@@ -726,12 +803,14 @@ mod tests {
                     elevation: 1.0,
                     arrival: 0,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(1, 1),
                     elevation: 2.0,
                     arrival: 1,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
                 },
             ],
         };
@@ -742,12 +821,14 @@ mod tests {
                     elevation: 2.0,
                     arrival: 2,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
                 },
                 Frame {
                     position: v2(3, 3),
                     elevation: 3.0,
                     arrival: 3,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
             ],
         };
@@ -758,24 +839,28 @@ mod tests {
                     elevation: 1.0,
                     arrival: 0,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(1, 1),
                     elevation: 2.0,
                     arrival: 1,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
                 },
                 Frame {
                     position: v2(2, 2),
                     elevation: 2.0,
                     arrival: 2,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
                 },
                 Frame {
                     position: v2(3, 3),
                     elevation: 3.0,
                     arrival: 3,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
             ],
         };
@@ -792,12 +877,14 @@ mod tests {
                     elevation: 2.0,
                     arrival: 2,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
                 },
                 Frame {
                     position: v2(3, 3),
                     elevation: 3.0,
                     arrival: 3,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
                 },
             ],
         };
@@ -813,12 +900,14 @@ mod tests {
                     elevation: 1.0,
                     arrival: 0,
                     vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
                 },
                 Frame {
                     position: v2(1, 1),
                     elevation: 2.0,
                     arrival: 1,
                     vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
                 },
             ],
         };

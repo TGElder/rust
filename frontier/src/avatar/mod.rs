@@ -156,7 +156,7 @@ impl AvatarState {
                 position.y as f32,
                 *elevation,
             )),
-            AvatarState::Walking(path) => path.compute_world_coord(instant),
+            AvatarState::Walking(path) => Some(path.compute_world_coord(instant)),
             _ => None,
         }
     }
