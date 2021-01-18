@@ -80,6 +80,10 @@ where
             .await
     }
 
+    fn remove_from_active(&mut self, dormant: &HashSet<String>) {
+        self.active.retain(|key, _| !dormant.contains(key));
+    }
+
     async fn get_n_avatar_paths(&mut self, n: usize, micros: &u128) -> HashMap<RouteKey, Path> {
         let candidates = self.get_candidates().await;
 
@@ -96,14 +100,14 @@ where
     }
 
     async fn get_candidates(&self) -> Vec<(RouteKey, u128)> {
-        let active = self.active.values().cloned().collect::<HashSet<_>>();
+        let active_keys = self.active.values().cloned().collect::<HashSet<_>>();
         self.tx
             .send_routes(move |routes| {
                 routes
                     .values()
                     .flat_map(|route_set| route_set.iter())
                     .filter(|(_, route)| route.path.len() > 1)
-                    .filter(|(key, _)| !active.contains(key))
+                    .filter(|(key, _)| !active_keys.contains(key))
                     .map(|(key, route)| (*key, route.duration.as_micros()))
                     .collect()
             })
@@ -149,7 +153,7 @@ where
             .await
     }
 
-    fn update_active(&mut self, allocation: &HashMap<String, (RouteKey, Path)>) {
+    fn add_to_active(&mut self, allocation: &HashMap<String, (RouteKey, Path)>) {
         for (avatar, (key, _)) in allocation {
             self.active.insert(avatar.clone(), *key);
         }
@@ -201,12 +205,12 @@ where
         let dormant = self.get_dormant(micros).await;
 
         if (!dormant.is_empty()) {
-            self.active.retain(|key, _| !dormant.contains(key));
+            self.remove_from_active(&dormant);
 
             let avatar_paths = self.get_n_avatar_paths(dormant.len(), &micros).await;
 
             let allocation = dormant.into_iter().zip(avatar_paths.into_iter()).collect();
-            self.update_active(&allocation);
+            self.add_to_active(&allocation);
             self.update_avatars(allocation).await;
         }
 
