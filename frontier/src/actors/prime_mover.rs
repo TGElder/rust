@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -21,6 +23,7 @@ pub struct PrimeMover<T> {
     travel_duration: Arc<AvatarTravelDuration>,
     sleep: Duration,
     rng: SmallRng,
+    active: HashMap<String, RouteKey>,
 }
 
 impl<T> PrimeMover<T>
@@ -39,6 +42,7 @@ where
             travel_duration,
             sleep: Duration::from_secs(1),
             rng: SeedableRng::seed_from_u64(seed),
+            active: HashMap::with_capacity(avatars),
         }
     }
 
@@ -76,12 +80,13 @@ where
             .await
     }
 
-    async fn get_n_avatar_paths(&mut self, n: usize, micros: &u128) -> Vec<Path> {
+    async fn get_n_avatar_paths(&mut self, n: usize, micros: &u128) -> HashMap<RouteKey, Path> {
         let candidates = self.get_candidates().await;
 
         let selected_keys =
             candidates.choose_multiple_weighted(&mut self.rng, n, |candidate| candidate.1 as f64);
-        let selected_keys = ok_or!(selected_keys, return vec![])
+        let selected_keys = selected_keys
+            .unwrap()
             .map(|(key, _)| *key)
             .collect::<Vec<_>>();
 
@@ -91,59 +96,91 @@ where
     }
 
     async fn get_candidates(&self) -> Vec<(RouteKey, u128)> {
+        let active = self.active.values().cloned().collect::<HashSet<_>>();
         self.tx
-            .send_routes(|routes| {
+            .send_routes(move |routes| {
                 routes
                     .values()
                     .flat_map(|route_set| route_set.iter())
                     .filter(|(_, route)| route.path.len() > 1)
+                    .filter(|(key, _)| !active.contains(key))
                     .map(|(key, route)| (*key, route.duration.as_micros()))
                     .collect()
             })
             .await
     }
 
-    async fn get_paths(&self, keys: Vec<RouteKey>) -> Vec<Vec<V2<usize>>> {
+    async fn get_paths(&self, keys: Vec<RouteKey>) -> HashMap<RouteKey, Vec<V2<usize>>> {
         self.tx
             .send_routes(move |routes| {
-                keys.iter()
-                    .flat_map(|key| routes.get_route(key))
-                    .map(|route| route.path.clone())
-                    .collect()
-            })
-            .await
-    }
-
-    async fn get_avatar_paths(&self, paths: Vec<Vec<V2<usize>>>, start_at: u128) -> Vec<Path> {
-        let travel_duration = self.travel_duration.clone();
-        self.tx
-            .send_world(move |world| {
-                paths
-                    .into_iter()
-                    .map(|path| {
-                        Path::new(
-                            world,
-                            path,
-                            travel_duration.as_ref(),
-                            travel_duration.travel_mode_fn(),
-                            start_at,
-                        )
+                keys.into_iter()
+                    .flat_map(|key| {
+                        routes
+                            .get_route(&key)
+                            .map(|route| (key, route.path.clone()))
                     })
                     .collect()
             })
             .await
     }
 
-    async fn update_avatars(&self, allocation: HashMap<String, Path>) {
+    async fn get_avatar_paths(
+        &self,
+        paths: HashMap<RouteKey, Vec<V2<usize>>>,
+        start_at: u128,
+    ) -> HashMap<RouteKey, Path> {
+        let travel_duration = self.travel_duration.clone();
+        self.tx
+            .send_world(move |world| {
+                paths
+                    .into_iter()
+                    .map(|(key, path)| {
+                        let path = Path::new(
+                            world,
+                            path,
+                            travel_duration.as_ref(),
+                            travel_duration.travel_mode_fn(),
+                            start_at,
+                        );
+                        (key, path)
+                    })
+                    .collect()
+            })
+            .await
+    }
+
+    fn update_active(&mut self, allocation: &HashMap<String, (RouteKey, Path)>) {
+        for (avatar, (key, _)) in allocation {
+            self.active.insert(avatar.clone(), *key);
+        }
+    }
+
+    async fn update_avatars(&self, allocation: HashMap<String, (RouteKey, Path)>) {
         self.tx
             .send_avatars(move |avatars| {
-                for (name, path) in allocation {
+                for (name, (_, path)) in allocation {
                     if let Some(avatar) = avatars.all.get_mut(&name) {
                         avatar.path = Some(path);
                     }
                 }
             })
             .await
+    }
+
+    pub fn save(&self, path: &str) {
+        let path = Self::get_path(path);
+        let mut file = BufWriter::new(File::create(path).unwrap());
+        bincode::serialize_into(&mut file, &self.active).unwrap();
+    }
+
+    pub fn load(&mut self, path: &str) {
+        let path = Self::get_path(path);
+        let file = BufReader::new(File::open(path).unwrap());
+        self.active = bincode::deserialize_from(file).unwrap();
+    }
+
+    fn get_path(path: &str) -> String {
+        format!("{}.prime_mover", path)
     }
 }
 
@@ -163,14 +200,15 @@ where
         let micros = self.tx.micros().await;
         let dormant = self.get_dormant(micros).await;
 
-        if (dormant.is_empty()) {
-            return;
+        if (!dormant.is_empty()) {
+            self.active.retain(|key, _| !dormant.contains(key));
+
+            let avatar_paths = self.get_n_avatar_paths(dormant.len(), &micros).await;
+
+            let allocation = dormant.into_iter().zip(avatar_paths.into_iter()).collect();
+            self.update_active(&allocation);
+            self.update_avatars(allocation).await;
         }
-
-        let avatar_paths = self.get_n_avatar_paths(dormant.len(), &micros).await;
-
-        let allocation = dormant.into_iter().zip(avatar_paths.into_iter()).collect();
-        self.update_avatars(allocation).await;
 
         sleep(self.sleep).await;
     }
