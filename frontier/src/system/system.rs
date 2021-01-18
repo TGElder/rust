@@ -430,6 +430,7 @@ impl System {
 
     pub async fn save(&mut self, path: &str) {
         self.labels.object_ref().unwrap().save(path);
+        self.prime_mover.object_ref().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
 
@@ -439,6 +440,7 @@ impl System {
 
     pub fn load(&mut self, path: &str) {
         self.labels.object_mut().unwrap().load(path);
+        self.prime_mover.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
     }
