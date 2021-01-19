@@ -16,14 +16,36 @@ use isometric::Color;
 use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Path};
 use crate::route::{RouteKey, RoutesExt};
 use crate::traits::{Micros, SendAvatars, SendRoutes, SendWorld};
+use crate::world::World;
 
 pub struct PrimeMover<T> {
     tx: T,
     avatars: usize,
     travel_duration: Arc<AvatarTravelDuration>,
-    sleep: Duration,
+    durations: Durations,
     rng: SmallRng,
     active: HashMap<String, RouteKey>,
+}
+
+#[derive(Clone, Copy)]
+struct Durations {
+    pause_at_start: Duration,
+    pause_in_middle: Duration,
+    pause_at_end: Duration,
+    pause_after_done: Duration,
+    refresh_interval: Duration,
+}
+
+impl Default for Durations {
+    fn default() -> Self {
+        Durations {
+            pause_at_start: Duration::from_secs(60 * 30),
+            pause_in_middle: Duration::from_secs(60 * 60),
+            pause_at_end: Duration::from_secs(60 * 30),
+            pause_after_done: Duration::from_secs(60 * 60),
+            refresh_interval: Duration::from_secs(1),
+        }
+    }
 }
 
 impl<T> PrimeMover<T>
@@ -40,7 +62,7 @@ where
             tx,
             avatars,
             travel_duration,
-            sleep: Duration::from_secs(1),
+            durations: Durations::default(),
             rng: SeedableRng::seed_from_u64(seed),
             active: HashMap::with_capacity(avatars),
         }
@@ -67,13 +89,14 @@ where
     }
 
     async fn get_dormant(&self, micros: u128) -> HashSet<String> {
+        let pause_after_done = self.durations.pause_after_done.as_micros();
         self.tx
             .send_avatars(move |avatars| {
                 avatars
                     .all
                     .values()
                     .filter(|avatar| Some(&avatar.name) != avatars.selected.as_ref())
-                    .filter(|avatar| is_dormant(avatar, &micros))
+                    .filter(|avatar| is_dormant(avatar, &micros, &pause_after_done))
                     .map(|avatar| avatar.name.clone())
                     .collect()
             })
@@ -134,23 +157,57 @@ where
         start_at: u128,
     ) -> HashMap<RouteKey, Path> {
         let travel_duration = self.travel_duration.clone();
+        let durations = self.durations;
         self.tx
             .send_world(move |world| {
                 paths
                     .into_iter()
-                    .map(|(key, path)| {
-                        let path = Path::new(
+                    .map(|(key, outbound)| {
+                        let path = Self::get_out_and_back_avatar_path(
                             world,
-                            path,
-                            travel_duration.as_ref(),
-                            travel_duration.travel_mode_fn(),
-                            start_at,
+                            &travel_duration,
+                            &durations,
+                            &start_at,
+                            outbound,
                         );
                         (key, path)
                     })
                     .collect()
             })
             .await
+    }
+
+    fn get_out_and_back_avatar_path(
+        world: &World,
+        travel_duration: &AvatarTravelDuration,
+        durations: &Durations,
+        start_at: &u128,
+        outbound: Vec<V2<usize>>,
+    ) -> Path {
+        let mut inbound = outbound.clone();
+        inbound.reverse();
+
+        let outbound_path = Path::new(
+            world,
+            outbound,
+            travel_duration,
+            travel_duration.travel_mode_fn(),
+            *start_at,
+        )
+        .with_pause_at_start(durations.pause_at_start.as_micros())
+        .with_pause_at_end(durations.pause_in_middle.as_micros());
+
+        let inbound_start = outbound_path.final_frame().arrival;
+        outbound_path
+            .extend(
+                world,
+                inbound,
+                travel_duration,
+                travel_duration.travel_mode_fn(),
+                inbound_start,
+            )
+            .unwrap()
+            .with_pause_at_end(durations.pause_at_end.as_micros())
     }
 
     fn add_to_active(&mut self, allocation: &HashMap<String, (RouteKey, Path)>) {
@@ -188,9 +245,9 @@ where
     }
 }
 
-fn is_dormant(avatar: &Avatar, at: &u128) -> bool {
+fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done: &u128) -> bool {
     match &avatar.path {
-        Some(path) => path.done(at),
+        Some(path) => path.done(&(at - pause_after_done)),
         None => true,
     }
 }
@@ -214,6 +271,6 @@ where
             self.update_avatars(allocation).await;
         }
 
-        sleep(self.sleep).await;
+        sleep(self.durations.refresh_interval).await;
     }
 }
