@@ -195,6 +195,7 @@ impl System {
                     Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
                         &game_state.params.avatar_travel,
                     )),
+                    &game_state.params.nations,
                 ),
                 prime_mover_rx,
             ),
@@ -327,9 +328,6 @@ impl System {
         self.tx
             .pathfinder_without_planned_roads_tx
             .send_future(|pathfinder| pathfinder.init().boxed());
-        self.tx
-            .prime_mover_tx
-            .send_future(|prime_mover| prime_mover.init().boxed());
         self.tx
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());

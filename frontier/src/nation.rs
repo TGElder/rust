@@ -30,16 +30,8 @@ impl Nation {
         &self.description
     }
 
-    pub fn name(&self) -> &str {
-        &self.description.name
-    }
-
     pub fn color(&self) -> &Color {
         &self.description.color
-    }
-
-    pub fn skin_color(&self) -> &Color {
-        &self.description.skin_color
     }
 
     fn lazy_town_namer(&mut self) -> &mut ListNamer {

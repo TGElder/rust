@@ -14,6 +14,7 @@ use commons::V2;
 use isometric::Color;
 
 use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Path};
+use crate::nation::NationDescription;
 use crate::route::{RouteKey, RoutesExt};
 use crate::traits::{Micros, SendAvatars, SendNations, SendRoutes, SendSettlements, SendWorld};
 use crate::world::World;
@@ -51,8 +52,17 @@ impl Default for Durations {
 
 #[derive(Clone, Copy)]
 struct NationColors {
-    color: Color,
+    primary: Color,
     skin: Color,
+}
+
+impl From<&NationDescription> for NationColors {
+    fn from(description: &NationDescription) -> Self {
+        NationColors {
+            primary: description.color,
+            skin: description.skin_color,
+        }
+    }
 }
 
 impl<T> PrimeMover<T>
@@ -64,6 +74,7 @@ where
         avatars: usize,
         seed: u64,
         travel_duration: Arc<AvatarTravelDuration>,
+        nation_descriptions: &[NationDescription],
     ) -> PrimeMover<T> {
         PrimeMover {
             tx,
@@ -72,8 +83,17 @@ where
             durations: Durations::default(),
             rng: SeedableRng::seed_from_u64(seed),
             active: HashMap::with_capacity(avatars),
-            colors: HashMap::new(),
+            colors: Self::get_nation_colors(nation_descriptions),
         }
+    }
+
+    fn get_nation_colors(
+        nation_descriptions: &[NationDescription],
+    ) -> HashMap<String, NationColors> {
+        nation_descriptions
+            .iter()
+            .map(|description| (description.name.clone(), description.into()))
+            .collect()
     }
 
     pub async fn new_game(&self) {
@@ -94,26 +114,6 @@ where
                 }
             })
             .await;
-    }
-
-    pub async fn init(&mut self) {
-        self.colors = self
-            .tx
-            .send_nations(|nations| {
-                nations
-                    .values()
-                    .map(|nation| {
-                        (
-                            nation.name().to_string(),
-                            NationColors {
-                                color: *nation.color(),
-                                skin: *nation.skin_color(),
-                            },
-                        )
-                    })
-                    .collect()
-            })
-            .await
     }
 
     async fn try_update_dormant(&mut self, dormant: HashSet<String>, micros: u128) {
@@ -301,7 +301,7 @@ where
                     name: avatar,
                     path: Some(path),
                     load: AvatarLoad::None,
-                    color: colors.color,
+                    color: colors.primary,
                     skin_color: colors.skin,
                 },
             );
