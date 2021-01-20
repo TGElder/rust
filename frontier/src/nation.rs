@@ -30,6 +30,10 @@ impl Nation {
         &self.description
     }
 
+    pub fn name(&self) -> &str {
+        &self.description.name
+    }
+
     pub fn color(&self) -> &Color {
         &self.description.color
     }
