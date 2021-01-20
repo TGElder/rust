@@ -16,7 +16,7 @@ use isometric::Color;
 use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Path};
 use crate::nation::NationDescription;
 use crate::route::{RouteKey, RoutesExt};
-use crate::traits::{Micros, SendAvatars, SendNations, SendRoutes, SendSettlements, SendWorld};
+use crate::traits::{Micros, SendAvatars, SendRoutes, SendSettlements, SendWorld};
 use crate::world::World;
 
 pub struct PrimeMover<T> {
@@ -67,7 +67,7 @@ impl From<&NationDescription> for NationColors {
 
 impl<T> PrimeMover<T>
 where
-    T: Micros + SendAvatars + SendNations + SendRoutes + SendSettlements + SendWorld,
+    T: Micros + SendAvatars + SendRoutes + SendSettlements + SendWorld,
 {
     pub fn new(
         tx: T,
@@ -349,7 +349,7 @@ fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done_micros: &u128) -> boo
 #[async_trait]
 impl<T> Step for PrimeMover<T>
 where
-    T: Micros + SendAvatars + SendNations + SendRoutes + SendSettlements + SendWorld + Send + Sync,
+    T: Micros + SendAvatars + SendRoutes + SendSettlements + SendWorld + Send + Sync,
 {
     async fn step(&mut self) {
         let micros = self.tx.micros().await;
