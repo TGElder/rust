@@ -84,6 +84,7 @@ SendPathfinder SendWorld
 SendPrimeMover Micros
 SendPrimeMover SendAvatars
 SendPrimeMover SendRoutes
+SendPrimeMover SendSettlements
 SendPrimeMover SendWorld
 SendResourceTargets InitTargets
 SendResourceTargets LoadTarget

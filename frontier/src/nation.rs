@@ -34,10 +34,6 @@ impl Nation {
         &self.description.color
     }
 
-    pub fn skin_color(&self) -> &Color {
-        &self.description.skin_color
-    }
-
     fn lazy_town_namer(&mut self) -> &mut ListNamer {
         let town_name_file = &self.description.town_name_file;
         self.town_namer

@@ -14,8 +14,9 @@ use commons::V2;
 use isometric::Color;
 
 use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Path};
+use crate::nation::NationDescription;
 use crate::route::{RouteKey, RoutesExt};
-use crate::traits::{Micros, SendAvatars, SendRoutes, SendWorld};
+use crate::traits::{Micros, SendAvatars, SendRoutes, SendSettlements, SendWorld};
 use crate::world::World;
 
 pub struct PrimeMover<T> {
@@ -25,6 +26,7 @@ pub struct PrimeMover<T> {
     durations: Durations,
     rng: SmallRng,
     active: HashMap<String, RouteKey>,
+    colors: HashMap<String, NationColors>,
 }
 
 #[derive(Clone, Copy)]
@@ -48,15 +50,31 @@ impl Default for Durations {
     }
 }
 
+#[derive(Clone, Copy)]
+struct NationColors {
+    primary: Color,
+    skin: Color,
+}
+
+impl From<&NationDescription> for NationColors {
+    fn from(description: &NationDescription) -> Self {
+        NationColors {
+            primary: description.color,
+            skin: description.skin_color,
+        }
+    }
+}
+
 impl<T> PrimeMover<T>
 where
-    T: Micros + SendAvatars + SendRoutes + SendWorld,
+    T: Micros + SendAvatars + SendRoutes + SendSettlements + SendWorld,
 {
     pub fn new(
         tx: T,
         avatars: usize,
         seed: u64,
         travel_duration: Arc<AvatarTravelDuration>,
+        nation_descriptions: &[NationDescription],
     ) -> PrimeMover<T> {
         PrimeMover {
             tx,
@@ -65,7 +83,17 @@ where
             durations: Durations::default(),
             rng: SeedableRng::seed_from_u64(seed),
             active: HashMap::with_capacity(avatars),
+            colors: Self::get_nation_colors(nation_descriptions),
         }
+    }
+
+    fn get_nation_colors(
+        nation_descriptions: &[NationDescription],
+    ) -> HashMap<String, NationColors> {
+        nation_descriptions
+            .iter()
+            .map(|description| (description.name.clone(), description.into()))
+            .collect()
     }
 
     pub async fn new_game(&self) {
@@ -88,6 +116,29 @@ where
             .await;
     }
 
+    async fn try_update_dormant(&mut self, dormant: HashSet<String>, micros: u128) {
+        self.remove_from_active(&dormant);
+
+        let keys = self.get_n_route_keys(dormant.len()).await;
+        if keys.is_empty() {
+            return;
+        }
+
+        let allocation = keys
+            .into_iter()
+            .zip(dormant.into_iter())
+            .collect::<HashMap<_, _>>();
+        let keys_for_journies = allocation.keys().cloned().collect::<Vec<_>>();
+        let keys_for_colors = keys_for_journies.clone();
+        let (journies, colors) = join!(
+            self.get_journies(keys_for_journies, micros),
+            self.get_colors(keys_for_colors)
+        );
+
+        let avatars = self.get_avatars(allocation, journies, colors).await;
+        self.update_avatars(avatars).await;
+    }
+
     async fn get_dormant(&self, micros: u128) -> HashSet<String> {
         let pause_after_done = self.durations.pause_after_done.as_micros();
         self.tx
@@ -107,19 +158,15 @@ where
         self.active.retain(|key, _| !dormant.contains(key));
     }
 
-    async fn get_n_avatar_paths(&mut self, n: usize, micros: &u128) -> HashMap<RouteKey, Path> {
+    async fn get_n_route_keys(&mut self, n: usize) -> Vec<RouteKey> {
         let candidates = self.get_candidates().await;
 
         let selected_keys =
             candidates.choose_multiple_weighted(&mut self.rng, n, |candidate| candidate.1 as f64);
-        let selected_keys = selected_keys
+        return selected_keys
             .unwrap()
             .map(|(key, _)| *key)
             .collect::<Vec<_>>();
-
-        let routes = self.get_paths(selected_keys).await;
-
-        return self.get_avatar_paths(routes, *micros).await;
     }
 
     async fn get_candidates(&self) -> Vec<(RouteKey, u128)> {
@@ -137,6 +184,11 @@ where
             .await
     }
 
+    async fn get_journies(&self, keys: Vec<RouteKey>, start_at: u128) -> HashMap<RouteKey, Path> {
+        let paths = self.get_paths(keys).await;
+        self.get_journies_from_paths(paths, start_at).await
+    }
+
     async fn get_paths(&self, keys: Vec<RouteKey>) -> HashMap<RouteKey, Vec<V2<usize>>> {
         self.tx
             .send_routes(move |routes| {
@@ -151,7 +203,7 @@ where
             .await
     }
 
-    async fn get_avatar_paths(
+    async fn get_journies_from_paths(
         &self,
         paths: HashMap<RouteKey, Vec<V2<usize>>>,
         start_at: u128,
@@ -163,7 +215,7 @@ where
                 paths
                     .into_iter()
                     .map(|(key, outbound)| {
-                        let path = Self::get_out_and_back_avatar_path(
+                        let path = Self::get_out_and_back_journey(
                             world,
                             &travel_duration,
                             &durations,
@@ -177,7 +229,7 @@ where
             .await
     }
 
-    fn get_out_and_back_avatar_path(
+    fn get_out_and_back_journey(
         world: &World,
         travel_duration: &AvatarTravelDuration,
         durations: &Durations,
@@ -210,19 +262,61 @@ where
             .with_pause_at_end(durations.pause_at_end.as_micros())
     }
 
-    fn add_to_active(&mut self, allocation: &HashMap<String, (RouteKey, Path)>) {
-        for (avatar, (key, _)) in allocation {
-            self.active.insert(avatar.clone(), *key);
-        }
+    async fn get_colors(&self, keys: Vec<RouteKey>) -> HashMap<RouteKey, NationColors> {
+        self.get_nations(keys)
+            .await
+            .into_iter()
+            .flat_map(|(key, nation)| self.colors.get(&nation).map(|colors| (key, *colors)))
+            .collect()
     }
 
-    async fn update_avatars(&self, allocation: HashMap<String, (RouteKey, Path)>) {
+    async fn get_nations(&self, keys: Vec<RouteKey>) -> HashMap<RouteKey, String> {
+        self.tx
+            .send_settlements(move |settlements| {
+                keys.into_iter()
+                    .flat_map(|key| {
+                        settlements
+                            .get(&key.settlement)
+                            .map(|settlement| (key, settlement.nation.clone()))
+                    })
+                    .collect()
+            })
+            .await
+    }
+
+    async fn get_avatars(
+        &mut self,
+        allocation: HashMap<RouteKey, String>,
+        mut journies: HashMap<RouteKey, Path>,
+        colors: HashMap<RouteKey, NationColors>,
+    ) -> HashMap<String, Avatar> {
+        let mut out = HashMap::new();
+        for (key, avatar) in allocation {
+            let path = unwrap_or!(journies.remove(&key), continue);
+            let colors = unwrap_or!(colors.get(&key), continue);
+            self.active.insert(avatar.clone(), key);
+            out.insert(
+                avatar.clone(),
+                Avatar {
+                    name: avatar,
+                    path: Some(path),
+                    load: AvatarLoad::None,
+                    color: colors.primary,
+                    skin_color: colors.skin,
+                },
+            );
+        }
+        out
+    }
+
+    async fn update_avatars(&self, updated: HashMap<String, Avatar>) {
+        if updated.is_empty() {
+            return;
+        }
         self.tx
             .send_avatars(move |avatars| {
-                for (name, (_, path)) in allocation {
-                    if let Some(avatar) = avatars.all.get_mut(&name) {
-                        avatar.path = Some(path);
-                    }
+                for (name, avatar) in updated {
+                    avatars.all.insert(name, avatar);
                 }
             })
             .await
@@ -245,9 +339,9 @@ where
     }
 }
 
-fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done: &u128) -> bool {
+fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done_micros: &u128) -> bool {
     match &avatar.path {
-        Some(path) => path.done(&(at - pause_after_done)),
+        Some(path) => path.done(&(at - pause_after_done_micros)),
         None => true,
     }
 }
@@ -255,20 +349,14 @@ fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done: &u128) -> bool {
 #[async_trait]
 impl<T> Step for PrimeMover<T>
 where
-    T: Micros + SendAvatars + SendRoutes + SendWorld + Send + Sync,
+    T: Micros + SendAvatars + SendRoutes + SendSettlements + SendWorld + Send + Sync,
 {
     async fn step(&mut self) {
         let micros = self.tx.micros().await;
         let dormant = self.get_dormant(micros).await;
 
         if (!dormant.is_empty()) {
-            self.remove_from_active(&dormant);
-
-            let avatar_paths = self.get_n_avatar_paths(dormant.len(), &micros).await;
-
-            let allocation = dormant.into_iter().zip(avatar_paths.into_iter()).collect();
-            self.add_to_active(&allocation);
-            self.update_avatars(allocation).await;
+            self.try_update_dormant(dormant, micros).await;
         }
 
         sleep(self.durations.refresh_interval).await;

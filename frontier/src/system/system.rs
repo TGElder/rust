@@ -195,6 +195,7 @@ impl System {
                     Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
                         &game_state.params.avatar_travel,
                     )),
+                    &game_state.params.nations,
                 ),
                 prime_mover_rx,
             ),
