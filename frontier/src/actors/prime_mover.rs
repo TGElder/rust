@@ -15,6 +15,7 @@ use isometric::Color;
 
 use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Journey};
 use crate::nation::NationDescription;
+use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
 use crate::traits::{Micros, SendAvatars, SendRoutes, SendSettlements, SendWorld};
 use crate::world::World;
@@ -106,7 +107,6 @@ where
                         Avatar {
                             name: i.to_string(),
                             journey: None,
-                            load: AvatarLoad::None,
                             color: Color::new(1.0, 0.0, 0.0, 1.0),
                             skin_color: Color::new(0.0, 0.0, 1.0, 1.0),
                         },
@@ -225,6 +225,7 @@ where
                             &durations,
                             &start_at,
                             outbound,
+                            key.resource,
                         );
                         (key, journey)
                     })
@@ -239,6 +240,7 @@ where
         durations: &Durations,
         start_at: &u128,
         outbound: Vec<V2<usize>>,
+        resource: Resource,
     ) -> Journey {
         let mut inbound = outbound.clone();
         inbound.reverse();
@@ -251,19 +253,21 @@ where
             *start_at,
         )
         .with_pause_at_start(durations.pause_at_start.as_micros())
-        .with_pause_at_end(durations.pause_in_middle.as_micros());
+        .with_pause_at_end(durations.pause_in_middle.as_micros() / 2);
 
         let inbound_start = outbound.final_frame().arrival;
-        outbound
-            .extend(
-                world,
-                inbound,
-                travel_duration,
-                travel_duration.travel_mode_fn(),
-                inbound_start,
-            )
-            .unwrap()
-            .with_pause_at_end(durations.pause_at_end.as_micros())
+        let inbound = Journey::new(
+            world,
+            inbound,
+            travel_duration,
+            travel_duration.travel_mode_fn(),
+            inbound_start,
+        )
+        .with_pause_at_start(durations.pause_in_middle.as_micros() / 2)
+        .with_pause_at_end(durations.pause_at_end.as_micros())
+        .with_load(AvatarLoad::Resource(resource));
+
+        outbound.append(inbound).unwrap()
     }
 
     async fn get_colors(&self, keys: Vec<RouteKey>) -> HashMap<RouteKey, NationColors> {
@@ -304,7 +308,6 @@ where
                 Avatar {
                     name: avatar,
                     journey: Some(path),
-                    load: AvatarLoad::None,
                     color: colors.primary,
                     skin_color: colors.skin,
                 },

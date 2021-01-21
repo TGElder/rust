@@ -1,4 +1,4 @@
-use crate::avatar::{Avatar, AvatarLoad, Journey, Rotation, Vehicle};
+use crate::avatar::{Avatar, Journey, Rotation, Vehicle};
 use crate::game::HomelandParams;
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation, NationDescription};
@@ -200,7 +200,6 @@ fn gen_avatar(
             )),
             color,
             skin_color,
-            load: AvatarLoad::None,
         }
     }
 }

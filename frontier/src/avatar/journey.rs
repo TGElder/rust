@@ -19,6 +19,7 @@ pub struct Frame {
     pub arrival: u128,
     pub vehicle: Vehicle,
     pub rotation: Rotation,
+    pub load: AvatarLoad,
 }
 
 impl Into<WorldCoord> for &Frame {
@@ -63,6 +64,7 @@ impl Journey {
                 arrival: 0,
                 vehicle,
                 rotation,
+                load: AvatarLoad::None,
             }],
         }
     }
@@ -82,6 +84,7 @@ impl Journey {
             arrival: next_arrival_time,
             vehicle: Self::vehicle(world, &positions[0], &positions[1], vehicle_fn),
             rotation: Self::rotation(&positions[0], &positions[1]),
+            load: AvatarLoad::None,
         });
         for p in 0..positions.len() - 1 {
             let from = positions[p];
@@ -94,6 +97,7 @@ impl Journey {
                 arrival: next_arrival_time,
                 vehicle: Self::vehicle(world, &from, &to, vehicle_fn),
                 rotation: Self::rotation(&from, &to),
+                load: AvatarLoad::None,
             });
         }
         out
@@ -219,34 +223,22 @@ impl Journey {
         self.frame_at(instant).rotation
     }
 
+    pub fn load_at(&self, instant: &u128) -> AvatarLoad {
+        self.frame_at(instant).load
+    }
+
     fn frame_at(&self, instant: &u128) -> &Frame {
         self.compute_current_index(instant)
             .map(|index| &self.frames[index])
             .unwrap_or_else(|| self.final_frame())
     }
 
-    pub fn extend(
-        self,
-        world: &World,
-        extension: Vec<V2<usize>>,
-        travel_duration: &dyn TravelDuration,
-        vehicle_fn: &dyn VehicleFn,
-        start_at: u128,
-    ) -> Option<Journey> {
-        if self.final_frame().position != extension[0] {
+    pub fn append(self, journey: Journey) -> Option<Journey> {
+        if self.final_frame().position != journey.frames[0].position {
             return None;
         }
 
-        let mut frames = self.frames;
-        frames.append(&mut Journey::compute_frames(
-            world,
-            &extension,
-            start_at,
-            travel_duration,
-            vehicle_fn,
-        ));
-
-        Some(Journey { frames })
+        Some(self + journey)
     }
 
     fn compute_between_times<T>(
@@ -308,6 +300,13 @@ impl Journey {
             (from.y as f32 + rotation.angle().sin()).round() as usize,
         );
         vec![from, to]
+    }
+
+    pub fn with_load(mut self, load: AvatarLoad) -> Journey {
+        for mut frame in &mut self.frames {
+            frame.load = load
+        }
+        self
     }
 }
 
@@ -405,6 +404,7 @@ mod tests {
                     arrival: 0,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(0, 1),
@@ -412,6 +412,7 @@ mod tests {
                     arrival: 1_000,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(1, 1),
@@ -419,6 +420,7 @@ mod tests {
                     arrival: 3_000,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(1, 2),
@@ -426,6 +428,7 @@ mod tests {
                     arrival: 6_000,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(2, 2),
@@ -433,6 +436,7 @@ mod tests {
                     arrival: 10_000,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
             ],
         };
@@ -452,6 +456,7 @@ mod tests {
                 arrival: 10_000,
                 vehicle: Vehicle::None,
                 rotation: Rotation::Right,
+                load: AvatarLoad::None,
             }
         );
     }
@@ -534,24 +539,53 @@ mod tests {
     fn test_vehicle_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let start = 0;
+        let start = 1;
         let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         assert_eq!(path.vehicle_at(&0), Vehicle::Boat);
-        assert_eq!(path.vehicle_at(&2_999), Vehicle::Boat);
-        assert_eq!(path.vehicle_at(&3_000), Vehicle::None);
-        assert_eq!(path.vehicle_at(&10_000), Vehicle::None);
+        assert_eq!(path.vehicle_at(&3_000), Vehicle::Boat);
+        assert_eq!(path.vehicle_at(&3_001), Vehicle::None);
+        assert_eq!(path.vehicle_at(&10_001), Vehicle::None);
     }
 
     #[test]
     fn test_rotation_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let start = 0;
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1);
         assert_eq!(path.rotation_at(&0), Rotation::Up);
-        assert_eq!(path.rotation_at(&2_999), Rotation::Right);
-        assert_eq!(path.rotation_at(&3_000), Rotation::Up);
-        assert_eq!(path.rotation_at(&10_000), Rotation::Right);
+        assert_eq!(path.rotation_at(&3_000), Rotation::Right);
+        assert_eq!(path.rotation_at(&3_001), Rotation::Up);
+        assert_eq!(path.rotation_at(&10_001), Rotation::Right);
+    }
+
+    #[test]
+    fn test_load_at() {
+        let journey = Journey {
+            frames: vec![
+                Frame {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    arrival: 1,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
+                    load: AvatarLoad::None,
+                },
+                Frame {
+                    position: v2(0, 1),
+                    elevation: 0.5,
+                    arrival: 1_000,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Up,
+                    load: AvatarLoad::Resource(Resource::Ivory),
+                },
+            ],
+        };
+        assert_eq!(journey.load_at(&0), AvatarLoad::None);
+        assert_eq!(journey.load_at(&500), AvatarLoad::Resource(Resource::Ivory));
+        assert_eq!(
+            journey.load_at(&3_000),
+            AvatarLoad::Resource(Resource::Ivory)
+        );
     }
 
     #[test]
@@ -591,92 +625,108 @@ mod tests {
 
     #[test]
     fn test_extend_compatible() {
-        let world = world();
-        let start = 0;
-        let actual = Journey::new(
-            &world,
-            vec![v2(0, 0), v2(0, 1)],
-            &travel_duration(),
-            &vehicle_fn(),
-            start,
-        );
-        let actual = actual.extend(
-            &world,
-            vec![v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)],
-            &travel_duration(),
-            &vehicle_fn(),
-            10_000,
-        );
-        assert_eq!(
-            actual,
-            Some(Journey {
-                frames: vec![
-                    Frame {
-                        position: v2(0, 0),
-                        elevation: 1.0,
-                        arrival: 0,
-                        vehicle: Vehicle::Boat,
-                        rotation: Rotation::Up,
-                    },
-                    Frame {
-                        position: v2(0, 1),
-                        elevation: 0.5,
-                        arrival: 1_000,
-                        vehicle: Vehicle::Boat,
-                        rotation: Rotation::Up,
-                    },
-                    Frame {
-                        position: v2(0, 1),
-                        elevation: 0.5,
-                        arrival: 10_000,
-                        vehicle: Vehicle::Boat,
-                        rotation: Rotation::Right,
-                    },
-                    Frame {
-                        position: v2(1, 1),
-                        elevation: 1.0,
-                        arrival: 12_000,
-                        vehicle: Vehicle::Boat,
-                        rotation: Rotation::Right,
-                    },
-                    Frame {
-                        position: v2(1, 2),
-                        elevation: 2.0,
-                        arrival: 15_000,
-                        vehicle: Vehicle::None,
-                        rotation: Rotation::Up,
-                    },
-                    Frame {
-                        position: v2(2, 2),
-                        elevation: 3.0,
-                        arrival: 19_000,
-                        vehicle: Vehicle::None,
-                        rotation: Rotation::Right,
-                    },
-                ],
-            })
-        );
+        let a = Journey {
+            frames: vec![
+                Frame {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    arrival: 0,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
+                    load: AvatarLoad::None,
+                },
+                Frame {
+                    position: v2(1, 1),
+                    elevation: 2.0,
+                    arrival: 1,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::Resource(Resource::Crabs),
+                },
+            ],
+        };
+        let b = Journey {
+            frames: vec![
+                Frame {
+                    position: v2(1, 1),
+                    elevation: 2.0,
+                    arrival: 2,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
+                    load: AvatarLoad::Resource(Resource::Crabs),
+                },
+                Frame {
+                    position: v2(2, 2),
+                    elevation: 3.0,
+                    arrival: 3,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
+                    load: AvatarLoad::None,
+                },
+            ],
+        };
+        let expected = Journey {
+            frames: vec![
+                Frame {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    arrival: 0,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
+                    load: AvatarLoad::None,
+                },
+                Frame {
+                    position: v2(1, 1),
+                    elevation: 2.0,
+                    arrival: 1,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::Resource(Resource::Crabs),
+                },
+                Frame {
+                    position: v2(1, 1),
+                    elevation: 2.0,
+                    arrival: 2,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
+                    load: AvatarLoad::Resource(Resource::Crabs),
+                },
+                Frame {
+                    position: v2(2, 2),
+                    elevation: 3.0,
+                    arrival: 3,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
+                    load: AvatarLoad::None,
+                },
+            ],
+        };
+        assert_eq!(a.append(b), Some(expected));
     }
 
     #[test]
     fn test_extend_incompatible() {
-        let world = world();
-        let start = 0;
-        let actual = Journey::new(
-            &world,
-            vec![v2(0, 0), v2(0, 1)],
-            &travel_duration(),
-            &vehicle_fn(),
-            start,
-        );
-        let actual = actual.extend(
-            &world,
-            vec![v2(1, 1), v2(1, 2), v2(2, 2)],
-            &travel_duration(),
-            &vehicle_fn(),
-            10,
-        );
-        assert_eq!(actual, None);
+        let a = Journey {
+            frames: vec![Frame {
+                position: v2(0, 0),
+                elevation: 1.0,
+                arrival: 0,
+                vehicle: Vehicle::None,
+                rotation: Rotation::Up,
+                load: AvatarLoad::None,
+            }],
+        };
+        let b = Journey {
+            frames: vec![Frame {
+                position: v2(1, 1),
+                elevation: 2.0,
+                arrival: 1,
+                vehicle: Vehicle::Boat,
+                rotation: Rotation::Down,
+                load: AvatarLoad::Resource(Resource::Crabs),
+            }],
+        };
+        assert_eq!(a.append(b), None);
     }
 
     #[test]
@@ -739,6 +789,7 @@ mod tests {
                     arrival: 0,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::Resource(Resource::Bananas),
                 },
                 Frame {
                     position: v2(1, 0),
@@ -746,6 +797,7 @@ mod tests {
                     arrival: 10,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(2, 0),
@@ -753,6 +805,7 @@ mod tests {
                     arrival: 20,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
             ],
         };
@@ -767,6 +820,7 @@ mod tests {
                     arrival: 0,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::Resource(Resource::Bananas),
                 },
                 Frame {
                     position: v2(0, 0),
@@ -774,6 +828,7 @@ mod tests {
                     arrival: 1,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::Resource(Resource::Bananas),
                 },
                 Frame {
                     position: v2(1, 0),
@@ -781,6 +836,7 @@ mod tests {
                     arrival: 11,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(2, 0),
@@ -788,6 +844,7 @@ mod tests {
                     arrival: 21,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
             ],
         };
@@ -812,6 +869,7 @@ mod tests {
                     arrival: 0,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(1, 0),
@@ -819,6 +877,7 @@ mod tests {
                     arrival: 10,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(2, 0),
@@ -826,6 +885,7 @@ mod tests {
                     arrival: 20,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::Resource(Resource::Bananas),
                 },
             ],
         };
@@ -840,6 +900,7 @@ mod tests {
                     arrival: 0,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(1, 0),
@@ -847,6 +908,7 @@ mod tests {
                     arrival: 10,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(2, 0),
@@ -854,6 +916,7 @@ mod tests {
                     arrival: 20,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::Resource(Resource::Bananas),
                 },
                 Frame {
                     position: v2(2, 0),
@@ -861,6 +924,7 @@ mod tests {
                     arrival: 21,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::Resource(Resource::Bananas),
                 },
             ],
         };
@@ -889,6 +953,7 @@ mod tests {
                         arrival: 0,
                         vehicle: Vehicle::None,
                         rotation: Rotation::Up,
+                        load: AvatarLoad::None,
                     },
                     Frame {
                         position: v2(0, 0),
@@ -896,6 +961,7 @@ mod tests {
                         arrival: 0,
                         vehicle: Vehicle::None,
                         rotation: Rotation::Right,
+                        load: AvatarLoad::None,
                     }
                 ]
             }
@@ -916,6 +982,7 @@ mod tests {
                         arrival: 0,
                         vehicle: Vehicle::None,
                         rotation: Rotation::Up,
+                        load: AvatarLoad::None,
                     },
                     Frame {
                         position: v2(0, 0),
@@ -923,6 +990,7 @@ mod tests {
                         arrival: 0,
                         vehicle: Vehicle::None,
                         rotation: Rotation::Left,
+                        load: AvatarLoad::None,
                     }
                 ]
             }
@@ -945,7 +1013,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add() {
+    fn test_with_load() {
         let a = Journey {
             frames: vec![
                 Frame {
@@ -954,6 +1022,7 @@ mod tests {
                     arrival: 0,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::None,
                 },
                 Frame {
                     position: v2(1, 1),
@@ -961,24 +1030,7 @@ mod tests {
                     arrival: 1,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Down,
-                },
-            ],
-        };
-        let b = Journey {
-            frames: vec![
-                Frame {
-                    position: v2(2, 2),
-                    elevation: 2.0,
-                    arrival: 2,
-                    vehicle: Vehicle::Boat,
-                    rotation: Rotation::Left,
-                },
-                Frame {
-                    position: v2(3, 3),
-                    elevation: 3.0,
-                    arrival: 3,
-                    vehicle: Vehicle::None,
-                    rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
             ],
         };
@@ -990,6 +1042,7 @@ mod tests {
                     arrival: 0,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Up,
+                    load: AvatarLoad::Resource(Resource::Deer),
                 },
                 Frame {
                     position: v2(1, 1),
@@ -997,13 +1050,44 @@ mod tests {
                     arrival: 1,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Down,
+                    load: AvatarLoad::Resource(Resource::Deer),
                 },
+            ],
+        };
+        assert_eq!(a.with_load(AvatarLoad::Resource(Resource::Deer)), expected);
+    }
+
+    #[test]
+    fn test_add() {
+        let a = Journey {
+            frames: vec![
+                Frame {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    arrival: 0,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
+                    load: AvatarLoad::None,
+                },
+                Frame {
+                    position: v2(1, 1),
+                    elevation: 2.0,
+                    arrival: 1,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::Resource(Resource::Crabs),
+                },
+            ],
+        };
+        let b = Journey {
+            frames: vec![
                 Frame {
                     position: v2(2, 2),
                     elevation: 2.0,
                     arrival: 2,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,
+                    load: AvatarLoad::Resource(Resource::Crabs),
                 },
                 Frame {
                     position: v2(3, 3),
@@ -1011,6 +1095,43 @@ mod tests {
                     arrival: 3,
                     vehicle: Vehicle::None,
                     rotation: Rotation::Right,
+                    load: AvatarLoad::None,
+                },
+            ],
+        };
+        let expected = Journey {
+            frames: vec![
+                Frame {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    arrival: 0,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
+                    load: AvatarLoad::None,
+                },
+                Frame {
+                    position: v2(1, 1),
+                    elevation: 2.0,
+                    arrival: 1,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::Resource(Resource::Crabs),
+                },
+                Frame {
+                    position: v2(2, 2),
+                    elevation: 2.0,
+                    arrival: 2,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
+                    load: AvatarLoad::Resource(Resource::Crabs),
+                },
+                Frame {
+                    position: v2(3, 3),
+                    elevation: 3.0,
+                    arrival: 3,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Right,
+                    load: AvatarLoad::None,
                 },
             ],
         };

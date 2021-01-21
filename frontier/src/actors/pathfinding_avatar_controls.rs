@@ -89,13 +89,13 @@ where
     ) -> Option<Journey> {
         self.tx
             .send_world(move |world| {
-                journey.extend(
+                journey.append(Journey::new(
                     world,
                     positions,
                     travel_duration.as_ref(),
                     travel_duration.travel_mode_fn(),
                     start_at,
-                )
+                ))
             })
             .await
     }
