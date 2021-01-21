@@ -539,8 +539,7 @@ mod tests {
     fn test_vehicle_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let start = 1;
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1);
         assert_eq!(path.vehicle_at(&0), Vehicle::Boat);
         assert_eq!(path.vehicle_at(&3_000), Vehicle::Boat);
         assert_eq!(path.vehicle_at(&3_001), Vehicle::None);
