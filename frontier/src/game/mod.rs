@@ -156,13 +156,13 @@ impl Game {
         let start_at = start_at.max(self.game_state.game_micros);
         if let Entry::Occupied(mut avatar) = self.game_state.avatars.all.entry(name) {
             let journey = avatar.get_mut().journey.take().unwrap();
-            if let Some(new_journey) = journey.extend(
+            if let Some(new_journey) = journey.append(Journey::new(
                 &self.game_state.world,
                 positions,
                 &self.avatar_travel_duration,
                 self.avatar_travel_duration.travel_mode_fn(),
                 start_at,
-            ) {
+            )) {
                 avatar.get_mut().journey = Some(new_journey);
             }
         }

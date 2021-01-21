@@ -89,7 +89,6 @@ mod tests {
                     Vehicle::Boat,
                     Rotation::Down,
                 )),
-                load: AvatarLoad::Resource(Resource::Gold),
                 color: Color::new(0.2, 0.4, 0.6, 0.8),
                 skin_color: Color::new(0.3, 0.5, 0.7, 0.9),
             },

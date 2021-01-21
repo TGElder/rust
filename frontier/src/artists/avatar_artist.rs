@@ -175,7 +175,7 @@ impl AvatarArtist {
         let mut out = vec![];
         out.append(&mut self.draw_body(&avatar, instant, world_coord));
         out.append(&mut self.draw_boat_if_required(&avatar.name, &journey, world_coord, instant));
-        out.append(&mut self.draw_load(&avatar.name, &avatar.load, world_coord));
+        out.append(&mut self.draw_load(&avatar.name, &journey.load_at(instant), world_coord));
         out
     }
 

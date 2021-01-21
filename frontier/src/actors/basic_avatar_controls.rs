@@ -63,13 +63,13 @@ where
         self.tx
             .send_world(move |world| {
                 travel_duration.get_duration(&world, &positions[0], &positions[1])?;
-                journey.extend(
+                journey.append(Journey::new(
                     world,
                     positions,
                     travel_duration.as_ref(),
                     travel_duration.travel_mode_fn(),
                     start_at,
-                )
+                ))
             })
             .await
     }
