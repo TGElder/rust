@@ -29,7 +29,6 @@ use std::time::Duration;
 pub struct Avatar {
     pub name: String,
     pub journey: Option<Journey>,
-    pub load: AvatarLoad,
     pub color: Color,
     pub skin_color: Color,
 }
@@ -77,7 +76,7 @@ impl Rotation {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub enum AvatarLoad {
     None,
     Resource(Resource),
