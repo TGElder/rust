@@ -8,7 +8,7 @@ use isometric::coords::*;
 use std::ops::Add;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct Path {
+pub struct Journey {
     frames: Vec<Frame>,
 }
 
@@ -31,16 +31,22 @@ impl Into<WorldCoord> for &Frame {
     }
 }
 
-impl Path {
+impl Journey {
     pub fn new(
         world: &World,
         positions: Vec<V2<usize>>,
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
         start_at: u128,
-    ) -> Path {
-        Path {
-            frames: Path::compute_frames(world, &positions, start_at, travel_duration, vehicle_fn),
+    ) -> Journey {
+        Journey {
+            frames: Journey::compute_frames(
+                world,
+                &positions,
+                start_at,
+                travel_duration,
+                vehicle_fn,
+            ),
         }
     }
 
@@ -49,8 +55,8 @@ impl Path {
         position: V2<usize>,
         vehicle: Vehicle,
         rotation: Rotation,
-    ) -> Path {
-        Path {
+    ) -> Journey {
+        Journey {
             frames: vec![Frame {
                 position,
                 elevation: Self::get_elevation(world, &position),
@@ -168,12 +174,12 @@ impl Path {
         None
     }
 
-    pub fn stop(&self, instant: &u128) -> Path {
+    pub fn stop(&self, instant: &u128) -> Journey {
         self.compute_current_index(instant)
-            .map(|i| Path {
+            .map(|i| Journey {
                 frames: vec![self.frames[i - 1], self.frames[i]],
             })
-            .unwrap_or_else(|| Path {
+            .unwrap_or_else(|| Journey {
                 frames: vec![*self.final_frame()],
             })
     }
@@ -226,13 +232,13 @@ impl Path {
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
         start_at: u128,
-    ) -> Option<Path> {
+    ) -> Option<Journey> {
         if self.final_frame().position != extension[0] {
             return None;
         }
 
         let mut frames = self.frames;
-        frames.append(&mut Path::compute_frames(
+        frames.append(&mut Journey::compute_frames(
             world,
             &extension,
             start_at,
@@ -240,7 +246,7 @@ impl Path {
             vehicle_fn,
         ));
 
-        Some(Path { frames })
+        Some(Journey { frames })
     }
 
     fn compute_between_times<T>(
@@ -264,7 +270,7 @@ impl Path {
         })
     }
 
-    pub fn with_pause_at_start(mut self, pause: u128) -> Path {
+    pub fn with_pause_at_start(mut self, pause: u128) -> Journey {
         let first_frame = *unwrap_or!(self.frames.first(), return self);
         self.frames
             .iter_mut()
@@ -273,21 +279,21 @@ impl Path {
         self
     }
 
-    pub fn with_pause_at_end(mut self, pause: u128) -> Path {
+    pub fn with_pause_at_end(mut self, pause: u128) -> Journey {
         let mut last_frame = *unwrap_or!(self.frames.last(), return self);
         last_frame.arrival += pause;
         self.frames.push(last_frame);
         self
     }
 
-    pub fn then_rotate_clockwise(mut self) -> Path {
+    pub fn then_rotate_clockwise(mut self) -> Journey {
         let mut last_frame = *unwrap_or!(self.frames.last(), return self);
         last_frame.rotation = last_frame.rotation.clockwise();
         self.frames.push(last_frame);
         self
     }
 
-    pub fn then_rotate_anticlockwise(mut self) -> Path {
+    pub fn then_rotate_anticlockwise(mut self) -> Journey {
         let mut last_frame = *unwrap_or!(self.frames.last(), return self);
         last_frame.rotation = last_frame.rotation.anticlockwise();
         self.frames.push(last_frame);
@@ -305,7 +311,7 @@ impl Path {
     }
 }
 
-impl Add for Path {
+impl Add for Journey {
     type Output = Self;
 
     fn add(mut self, mut other: Self) -> Self {
@@ -390,8 +396,8 @@ mod tests {
     fn test_new() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let actual = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let expected = Path {
+        let actual = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let expected = Journey {
             frames: vec![
                 Frame {
                     position: v2(0, 0),
@@ -437,7 +443,7 @@ mod tests {
     fn test_final_frame() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         assert_eq!(
             path.final_frame(),
             &Frame {
@@ -455,7 +461,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let instant = 0;
-        let path = Path::new(
+        let path = Journey::new(
             &world,
             positions,
             &travel_duration(),
@@ -472,7 +478,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         assert_eq!(path.compute_current_index(&start), Some(1));
         let at = start + 1_500;
         assert_eq!(path.compute_current_index(&at), Some(2));
@@ -485,7 +491,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let at = start + 1_500;
         let actual = path.compute_world_coord(&at);
         let expected = WorldCoord::new(0.25, 1.0, 0.625);
@@ -499,7 +505,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 10;
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
         let actual = path.compute_world_coord(&0);
 
@@ -514,7 +520,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
         let actual = path.compute_world_coord(&20_000);
 
@@ -529,7 +535,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         assert_eq!(path.vehicle_at(&0), Vehicle::Boat);
         assert_eq!(path.vehicle_at(&2_999), Vehicle::Boat);
         assert_eq!(path.vehicle_at(&3_000), Vehicle::None);
@@ -541,7 +547,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         assert_eq!(path.rotation_at(&0), Rotation::Up);
         assert_eq!(path.rotation_at(&2_999), Rotation::Right);
         assert_eq!(path.rotation_at(&3_000), Rotation::Up);
@@ -554,7 +560,7 @@ mod tests {
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
 
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let frames = path.frames.clone();
 
         assert_eq!(path.stop(&start).frames, vec![frames[0], frames[1]]);
@@ -567,7 +573,7 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
 
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let frames = path.frames.clone();
 
         assert_eq!(path.stop(&20000).frames, vec![frames[4]]);
@@ -577,7 +583,7 @@ mod tests {
     fn test_stop_stationary() {
         let world = world();
 
-        let path = Path::stationary(&world, v2(0, 0), Vehicle::None, Rotation::Up);
+        let path = Journey::stationary(&world, v2(0, 0), Vehicle::None, Rotation::Up);
         let expected = path.clone();
 
         assert_eq!(path.stop(&1500), expected);
@@ -587,7 +593,7 @@ mod tests {
     fn test_extend_compatible() {
         let world = world();
         let start = 0;
-        let actual = Path::new(
+        let actual = Journey::new(
             &world,
             vec![v2(0, 0), v2(0, 1)],
             &travel_duration(),
@@ -603,7 +609,7 @@ mod tests {
         );
         assert_eq!(
             actual,
-            Some(Path {
+            Some(Journey {
                 frames: vec![
                     Frame {
                         position: v2(0, 0),
@@ -656,7 +662,7 @@ mod tests {
     fn test_extend_incompatible() {
         let world = world();
         let start = 0;
-        let actual = Path::new(
+        let actual = Journey::new(
             &world,
             vec![v2(0, 0), v2(0, 1)],
             &travel_duration(),
@@ -677,7 +683,7 @@ mod tests {
     fn test_edges_between_times() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let actual = path.edges_between_times(&1_500, &6_500);
         let expected = vec![Edge::new(v2(0, 1), v2(1, 1)), Edge::new(v2(1, 1), v2(1, 2))];
         assert_eq!(actual, expected);
@@ -687,7 +693,7 @@ mod tests {
     fn test_edges_between_times_start_not_included() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let actual = path.edges_between_times(&0, &1_500);
         let expected = vec![Edge::new(v2(0, 0), v2(0, 1))];
         assert_eq!(actual, expected);
@@ -697,7 +703,7 @@ mod tests {
     fn test_edges_between_times_end_is_included() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let actual = path.edges_between_times(&6_500, &10_000);
         let expected = vec![Edge::new(v2(1, 2), v2(2, 2))];
         assert_eq!(actual, expected);
@@ -707,7 +713,7 @@ mod tests {
     fn test_edges_between_times_before() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 1_000);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1_000);
         let actual = path.edges_between_times(&0, &500);
         let expected = vec![];
         assert_eq!(actual, expected);
@@ -717,7 +723,7 @@ mod tests {
     fn test_edges_between_times_after() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Path::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         let actual = path.edges_between_times(&10_000, &10_500);
         let expected = vec![];
         assert_eq!(actual, expected);
@@ -725,7 +731,7 @@ mod tests {
 
     #[test]
     fn test_with_pause_at_start() {
-        let path = Path {
+        let path = Journey {
             frames: vec![
                 Frame {
                     position: v2(0, 0),
@@ -753,7 +759,7 @@ mod tests {
 
         let actual = path.with_pause_at_start(1);
 
-        let expected = Path {
+        let expected = Journey {
             frames: vec![
                 Frame {
                     position: v2(0, 0),
@@ -790,15 +796,15 @@ mod tests {
 
     #[test]
     fn test_with_pause_at_start_empty() {
-        let path = Path { frames: vec![] };
+        let path = Journey { frames: vec![] };
         let actual = path.with_pause_at_start(1);
-        let expected = Path { frames: vec![] };
+        let expected = Journey { frames: vec![] };
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_with_pause_at_end() {
-        let path = Path {
+        let path = Journey {
             frames: vec![
                 Frame {
                     position: v2(0, 0),
@@ -826,7 +832,7 @@ mod tests {
 
         let actual = path.with_pause_at_end(1);
 
-        let expected = Path {
+        let expected = Journey {
             frames: vec![
                 Frame {
                     position: v2(0, 0),
@@ -863,19 +869,19 @@ mod tests {
 
     #[test]
     fn test_with_pause_at_end_empty() {
-        let path = Path { frames: vec![] };
+        let path = Journey { frames: vec![] };
         let actual = path.with_pause_at_end(1);
-        let expected = Path { frames: vec![] };
+        let expected = Journey { frames: vec![] };
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_then_rotate_clockwise() {
-        let path = Path::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
+        let path = Journey::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
         let path = path.then_rotate_clockwise();
         assert_eq!(
             path,
-            Path {
+            Journey {
                 frames: vec![
                     Frame {
                         position: v2(0, 0),
@@ -898,11 +904,11 @@ mod tests {
 
     #[test]
     fn test_then_rotate_anticlockwise() {
-        let path = Path::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
+        let path = Journey::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
         let path = path.then_rotate_anticlockwise();
         assert_eq!(
             path,
-            Path {
+            Journey {
                 frames: vec![
                     Frame {
                         position: v2(0, 0),
@@ -925,22 +931,22 @@ mod tests {
 
     #[test]
     fn test_forward_path() {
-        let path = Path::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Up);
+        let path = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Up);
         assert_eq!(path.forward_path(), vec![v2(1, 1), v2(1, 2)]);
 
-        let path = Path::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Down);
+        let path = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Down);
         assert_eq!(path.forward_path(), vec![v2(1, 1), v2(1, 0)]);
 
-        let path = Path::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Left);
+        let path = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Left);
         assert_eq!(path.forward_path(), vec![v2(1, 1), v2(0, 1)]);
 
-        let path = Path::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Right);
+        let path = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Right);
         assert_eq!(path.forward_path(), vec![v2(1, 1), v2(2, 1)]);
     }
 
     #[test]
     fn test_add() {
-        let a = Path {
+        let a = Journey {
             frames: vec![
                 Frame {
                     position: v2(0, 0),
@@ -958,7 +964,7 @@ mod tests {
                 },
             ],
         };
-        let b = Path {
+        let b = Journey {
             frames: vec![
                 Frame {
                     position: v2(2, 2),
@@ -976,7 +982,7 @@ mod tests {
                 },
             ],
         };
-        let expected = Path {
+        let expected = Journey {
             frames: vec![
                 Frame {
                     position: v2(0, 0),

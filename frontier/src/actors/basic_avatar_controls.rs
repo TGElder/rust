@@ -1,6 +1,6 @@
-use crate::avatar::{Avatar, AvatarTravelDuration, Path};
+use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, SelectedAvatar, SendWorld, UpdateAvatar};
+use crate::traits::{Micros, SelectedAvatar, SendWorld, UpdateAvatarJourney};
 use crate::travel_duration::TravelDuration;
 use commons::async_trait::async_trait;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
@@ -30,7 +30,7 @@ impl Default for BasicAvatarBindings {
 
 impl<T> BasicAvatarControls<T>
 where
-    T: Micros + SelectedAvatar + SendWorld + UpdateAvatar,
+    T: Micros + SelectedAvatar + SendWorld + UpdateAvatarJourney,
 {
     pub fn new(tx: T, travel_duration: Arc<AvatarTravelDuration>) -> BasicAvatarControls<T> {
         BasicAvatarControls {
@@ -42,25 +42,28 @@ where
 
     async fn walk_forward(&self) {
         let (micros, selected_avatar) = join!(self.tx.micros(), self.tx.selected_avatar(),);
-        let Avatar { name, path, .. } = unwrap_or!(selected_avatar, return);
-        let path = unwrap_or!(path, return);
+        let Avatar { name, journey, .. } = unwrap_or!(selected_avatar, return);
+        let journey = unwrap_or!(journey, return);
 
-        let stopped = path.stop(&micros);
+        let stopped = journey.stop(&micros);
         let start_at = stopped.final_frame().arrival.max(micros);
-        let new_path = unwrap_or!(self.get_walk_forward_path(stopped, start_at).await, return);
+        let new_journey = unwrap_or!(
+            self.get_walk_forward_journey(stopped, start_at).await,
+            return
+        );
 
-        self.tx.update_avatar_path(name, Some(new_path)).await;
+        self.tx.update_avatar_journey(name, Some(new_journey)).await;
     }
 
-    async fn get_walk_forward_path(&self, path: Path, start_at: u128) -> Option<Path> {
-        let positions = path.forward_path();
+    async fn get_walk_forward_journey(&self, journey: Journey, start_at: u128) -> Option<Journey> {
+        let positions = journey.forward_path();
 
         let travel_duration = self.travel_duration.clone();
 
         self.tx
             .send_world(move |world| {
                 travel_duration.get_duration(&world, &positions[0], &positions[1])?;
-                path.extend(
+                journey.extend(
                     world,
                     positions,
                     travel_duration.as_ref(),
@@ -72,20 +75,20 @@ where
     }
 
     async fn rotate_clockwise(&self) {
-        if let Some(Avatar { name, path, .. }) = self.tx.selected_avatar().await {
-            if let Some(path) = path {
+        if let Some(Avatar { name, journey, .. }) = self.tx.selected_avatar().await {
+            if let Some(journey) = journey {
                 self.tx
-                    .update_avatar_path(name, Some(path.then_rotate_clockwise()))
+                    .update_avatar_journey(name, Some(journey.then_rotate_clockwise()))
                     .await;
             }
         }
     }
 
     async fn rotate_anticlockwise(&self) {
-        if let Some(Avatar { name, path, .. }) = self.tx.selected_avatar().await {
-            if let Some(path) = path {
+        if let Some(Avatar { name, journey, .. }) = self.tx.selected_avatar().await {
+            if let Some(journey) = journey {
                 self.tx
-                    .update_avatar_path(name, Some(path.then_rotate_anticlockwise()))
+                    .update_avatar_journey(name, Some(journey.then_rotate_anticlockwise()))
                     .await;
             }
         }
@@ -95,7 +98,7 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for BasicAvatarControls<T>
 where
-    T: Micros + SelectedAvatar + SendWorld + UpdateAvatar + Send + Sync,
+    T: Micros + SelectedAvatar + SendWorld + UpdateAvatarJourney + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::Button {

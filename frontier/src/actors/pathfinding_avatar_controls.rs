@@ -1,8 +1,8 @@
-use crate::avatar::{Avatar, AvatarTravelDuration, Path};
+use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
-    FindPath, Micros, PathfinderWithoutPlannedRoads, SelectedAvatar, SendWorld, UpdateAvatar,
+    FindPath, Micros, PathfinderWithoutPlannedRoads, SelectedAvatar, SendWorld, UpdateAvatarJourney,
 };
 use commons::async_trait::async_trait;
 use commons::V2;
@@ -34,7 +34,7 @@ impl Default for PathfinderAvatarBindings {
 
 impl<T> PathfindingAvatarControls<T>
 where
-    T: Micros + PathfinderWithoutPlannedRoads + SelectedAvatar + SendWorld + UpdateAvatar,
+    T: Micros + PathfinderWithoutPlannedRoads + SelectedAvatar + SendWorld + UpdateAvatarJourney,
 {
     pub fn new(tx: T, travel_duration: Arc<AvatarTravelDuration>) -> PathfindingAvatarControls<T> {
         PathfindingAvatarControls {
@@ -50,9 +50,9 @@ where
 
         let micros = self.tx.micros().await;
 
-        let (name, path) = unwrap_or!(self.get_selected_avatar_name_and_path().await, return);
+        let (name, journey) = unwrap_or!(self.get_selected_avatar_name_and_journey().await, return);
 
-        let stopped = path.stop(&micros);
+        let stopped = journey.stop(&micros);
         let stop_position = stopped.final_frame().position;
 
         let path = unwrap_or!(
@@ -69,27 +69,27 @@ where
             .await;
 
         if travelling.is_some() {
-            self.tx.update_avatar_path(name, travelling).await;
+            self.tx.update_avatar_journey(name, travelling).await;
         }
     }
 
-    async fn get_selected_avatar_name_and_path(&self) -> Option<(String, Path)> {
-        let Avatar { name, path, .. } = self.tx.selected_avatar().await?;
-        let path = path?;
+    async fn get_selected_avatar_name_and_journey(&self) -> Option<(String, Journey)> {
+        let Avatar { name, journey, .. } = self.tx.selected_avatar().await?;
+        let journey = journey?;
 
-        Some((name, path))
+        Some((name, journey))
     }
 
     async fn extend(
         &self,
-        path: Path,
+        journey: Journey,
         positions: Vec<V2<usize>>,
         start_at: u128,
         travel_duration: Arc<AvatarTravelDuration>,
-    ) -> Option<Path> {
+    ) -> Option<Journey> {
         self.tx
             .send_world(move |world| {
-                path.extend(
+                journey.extend(
                     world,
                     positions,
                     travel_duration.as_ref(),
@@ -102,11 +102,11 @@ where
 
     async fn stop(&mut self) {
         let micros = self.tx.micros().await;
-        let (name, path) = unwrap_or!(self.get_selected_avatar_name_and_path().await, return);
+        let (name, journey) = unwrap_or!(self.get_selected_avatar_name_and_journey().await, return);
 
-        let stopped = path.stop(&micros);
+        let stopped = journey.stop(&micros);
 
-        self.tx.update_avatar_path(name, Some(stopped)).await;
+        self.tx.update_avatar_journey(name, Some(stopped)).await;
     }
 
     fn update_world_coord(&mut self, world_coord: Option<WorldCoord>) {
@@ -121,7 +121,7 @@ where
         + PathfinderWithoutPlannedRoads
         + SelectedAvatar
         + SendWorld
-        + UpdateAvatar
+        + UpdateAvatarJourney
         + Send
         + Sync,
 {

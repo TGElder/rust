@@ -83,7 +83,7 @@ mod tests {
             "avatar".to_string(),
             Avatar {
                 name: "avatar".to_string(),
-                path: Some(Path::stationary(
+                journey: Some(Journey::stationary(
                     &world,
                     v2(1, 1),
                     Vehicle::Boat,

@@ -94,8 +94,8 @@ fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {
     Command::LookAt(
         avatars
             .selected()
-            .and_then(|avatar| avatar.path.as_ref())
-            .map(|path| path.compute_world_coord(micros)),
+            .and_then(|avatar| avatar.journey.as_ref())
+            .map(|journey| journey.compute_world_coord(micros)),
     )
 }
 

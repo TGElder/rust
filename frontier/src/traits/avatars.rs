@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 
-use crate::avatar::{Avatar, Path};
+use crate::avatar::{Avatar, Journey};
 use crate::traits::SendAvatars;
 
 #[async_trait]
@@ -20,19 +20,19 @@ where
 }
 
 #[async_trait]
-pub trait UpdateAvatar {
-    async fn update_avatar_path(&self, name: String, path: Option<Path>);
+pub trait UpdateAvatarJourney {
+    async fn update_avatar_journey(&self, name: String, journey: Option<Journey>);
 }
 
 #[async_trait]
-impl<T> UpdateAvatar for T
+impl<T> UpdateAvatarJourney for T
 where
     T: SendAvatars + Send + Sync,
 {
-    async fn update_avatar_path(&self, name: String, path: Option<Path>) {
+    async fn update_avatar_journey(&self, name: String, journey: Option<Journey>) {
         self.send_avatars(move |avatars| {
             if let Some(avatar) = avatars.all.get_mut(&name) {
-                avatar.path = path;
+                avatar.journey = journey;
             }
         })
         .await
