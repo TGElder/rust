@@ -1,4 +1,4 @@
-use crate::avatar::{Avatar, AvatarLoad, Path, Rotation, Vehicle};
+use crate::avatar::{Avatar, AvatarLoad, Journey, Rotation, Vehicle};
 use crate::game::HomelandParams;
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation, NationDescription};
@@ -192,7 +192,7 @@ fn gen_avatar(
     hashmap! {
         AVATAR_NAME.to_string() => Avatar {
             name: AVATAR_NAME.to_string(),
-            path: Some(Path::stationary(
+            journey: Some(Journey::stationary(
                 world,
                 position,
                 Vehicle::Boat,

@@ -155,15 +155,15 @@ impl Game {
     pub fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
         let start_at = start_at.max(self.game_state.game_micros);
         if let Entry::Occupied(mut avatar) = self.game_state.avatars.all.entry(name) {
-            let path = avatar.get_mut().path.take().unwrap();
-            if let Some(new_path) = path.extend(
+            let journey = avatar.get_mut().journey.take().unwrap();
+            if let Some(new_journey) = journey.extend(
                 &self.game_state.world,
                 positions,
                 &self.avatar_travel_duration,
                 self.avatar_travel_duration.travel_mode_fn(),
                 start_at,
             ) {
-                avatar.get_mut().path = Some(new_path);
+                avatar.get_mut().journey = Some(new_journey);
             }
         }
     }

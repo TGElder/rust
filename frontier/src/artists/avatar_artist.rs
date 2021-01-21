@@ -170,18 +170,18 @@ impl AvatarArtist {
     }
 
     fn draw_avatar(&self, avatar: &Avatar, instant: &u128) -> Vec<Command> {
-        let path = avatar.path.as_ref().unwrap();
-        let world_coord = path.compute_world_coord(instant);
+        let journey = avatar.journey.as_ref().unwrap();
+        let world_coord = journey.compute_world_coord(instant);
         let mut out = vec![];
         out.append(&mut self.draw_body(&avatar, instant, world_coord));
-        out.append(&mut self.draw_boat_if_required(&avatar.name, &path, world_coord, instant));
+        out.append(&mut self.draw_boat_if_required(&avatar.name, &journey, world_coord, instant));
         out.append(&mut self.draw_load(&avatar.name, &avatar.load, world_coord));
         out
     }
 
     #[rustfmt::skip]
-    fn get_rotation_matrix(path: &Path, instant: &u128) -> na::Matrix3<f32> {
-        let rotation = path.rotation_at(instant);
+    fn get_rotation_matrix(journey: &Journey, instant: &u128) -> na::Matrix3<f32> {
+        let rotation = journey.rotation_at(instant);
         let cos = rotation.angle().cos();
         let sin = rotation.angle().sin();
         na::Matrix3::from_vec(vec![
@@ -219,7 +219,7 @@ impl AvatarArtist {
         world_coord: WorldCoord,
         part: &BodyPart,
     ) -> Vec<Command> {
-        let offset = AvatarArtist::get_rotation_matrix(&avatar.path.as_ref().unwrap(), instant)
+        let offset = AvatarArtist::get_rotation_matrix(&avatar.journey.as_ref().unwrap(), instant)
             * part.offset
             / self.params.pixels_per_cell;
         let world_coord = WorldCoord::new(
@@ -251,32 +251,32 @@ impl AvatarArtist {
     fn draw_boat_if_required(
         &self,
         name: &str,
-        path: &Path,
+        journey: &Journey,
         world_coord: WorldCoord,
         instant: &u128,
     ) -> Vec<Command> {
-        if self.should_draw_boat(path, instant) {
-            self.draw_boat(name, path, world_coord, instant)
+        if self.should_draw_boat(journey, instant) {
+            self.draw_boat(name, journey, world_coord, instant)
         } else {
             vec![self.hide_boat(name)]
         }
     }
 
-    fn should_draw_boat(&self, path: &Path, instant: &u128) -> bool {
-        path.vehicle_at(instant) == Vehicle::Boat
+    fn should_draw_boat(&self, journey: &Journey, instant: &u128) -> bool {
+        journey.vehicle_at(instant) == Vehicle::Boat
     }
 
     fn draw_boat(
         &self,
         name: &str,
-        path: &Path,
+        journey: &Journey,
         world_coord: WorldCoord,
         instant: &u128,
     ) -> Vec<Command> {
         draw_boat(
             &boat_drawing_name(name),
             world_coord,
-            AvatarArtist::get_rotation_matrix(path, instant),
+            AvatarArtist::get_rotation_matrix(journey, instant),
             &self.params.boat_params,
         )
     }
@@ -415,8 +415,8 @@ enum AvatarDrawAction {
 }
 
 fn avatar_draw_action(command: &AvatarDrawCommand, instant: &u128) -> AvatarDrawAction {
-    match &command.avatar.path {
-        Some(path) => match command.draw_when_done || !path.done(instant) {
+    match &command.avatar.journey {
+        Some(journey) => match command.draw_when_done || !journey.done(instant) {
             true => AvatarDrawAction::Draw,
             false => AvatarDrawAction::Hide,
         },

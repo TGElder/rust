@@ -88,7 +88,7 @@ fn get_plan(game: &Game) -> Option<Plan> {
     let game_state = game.game_state();
 
     let avatar = game.game_state().avatars.selected()?;
-    let forward_path = avatar.path.as_ref()?.forward_path();
+    let forward_path = avatar.journey.as_ref()?.forward_path();
 
     if !is_buildable(game_state, &forward_path) {
         return None;

@@ -1,6 +1,6 @@
 mod avatar_travel_mode_fn;
 mod check_for_port;
-mod path;
+mod journey;
 mod travel_duration;
 mod travel_mode;
 mod travel_mode_change;
@@ -9,7 +9,7 @@ mod vehicle;
 
 pub use avatar_travel_mode_fn::*;
 pub use check_for_port::*;
-pub use path::*;
+pub use journey::*;
 pub use travel_duration::*;
 pub use travel_mode::*;
 pub use travel_mode_change::*;
@@ -28,7 +28,7 @@ use std::time::Duration;
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Avatar {
     pub name: String,
-    pub path: Option<Path>,
+    pub journey: Option<Journey>,
     pub load: AvatarLoad,
     pub color: Color,
     pub skin_color: Color,

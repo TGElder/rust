@@ -60,13 +60,13 @@ SendAvatarArtist SendRotate
 SendBasicAvatarControls Micros
 SendBasicAvatarControls SelectedAvatar
 SendBasicAvatarControls SendWorld
-SendBasicAvatarControls UpdateAvatar
+SendBasicAvatarControls UpdateAvatarJourney
 SendBasicRoadBuilder SendGame
 SendBasicRoadBuilder UpdateRoads
 SendCheats RevealAll
 SendCheats SendAvatars
 SendCheats SendWorld
-SendCheats UpdateAvatar
+SendCheats UpdateAvatarJourney
 SendCheats Visibility
 SendGameState SendGame
 SendLabels SendWorld
@@ -79,7 +79,7 @@ SendPathfindingAvatarControls Micros
 SendPathfindingAvatarControls SendPathfinder
 SendPathfindingAvatarControls SelectedAvatar
 SendPathfindingAvatarControls SendWorld
-SendPathfindingAvatarControls UpdateAvatar
+SendPathfindingAvatarControls UpdateAvatarJourney
 SendPathfinder SendWorld
 SendPrimeMover Micros
 SendPrimeMover SendAvatars
@@ -157,7 +157,7 @@ Settlements SendSettlements
 SetWorldObject DrawWorld
 SetWorldObject Micros
 SetWorldObject SendWorld
-UpdateAvatar SendAvatars
+UpdateAvatarJourney SendAvatars
 UpdatePathfinderPositions SendPathfinder
 UpdatePathfinderPositions SendWorld
 UpdatePositionsAllPathfinders SendPathfinder

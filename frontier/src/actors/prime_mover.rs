@@ -13,7 +13,7 @@ use commons::rand::seq::SliceRandom;
 use commons::V2;
 use isometric::Color;
 
-use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Path};
+use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Journey};
 use crate::nation::NationDescription;
 use crate::route::{RouteKey, RoutesExt};
 use crate::traits::{Micros, SendAvatars, SendRoutes, SendSettlements, SendWorld};
@@ -105,7 +105,7 @@ where
                         i.to_string(),
                         Avatar {
                             name: i.to_string(),
-                            path: None,
+                            journey: None,
                             load: AvatarLoad::None,
                             color: Color::new(1.0, 0.0, 0.0, 1.0),
                             skin_color: Color::new(0.0, 0.0, 1.0, 1.0),
@@ -184,7 +184,11 @@ where
             .await
     }
 
-    async fn get_journies(&self, keys: Vec<RouteKey>, start_at: u128) -> HashMap<RouteKey, Path> {
+    async fn get_journies(
+        &self,
+        keys: Vec<RouteKey>,
+        start_at: u128,
+    ) -> HashMap<RouteKey, Journey> {
         let paths = self.get_paths(keys).await;
         self.get_journies_from_paths(paths, start_at).await
     }
@@ -207,7 +211,7 @@ where
         &self,
         paths: HashMap<RouteKey, Vec<V2<usize>>>,
         start_at: u128,
-    ) -> HashMap<RouteKey, Path> {
+    ) -> HashMap<RouteKey, Journey> {
         let travel_duration = self.travel_duration.clone();
         let durations = self.durations;
         self.tx
@@ -215,14 +219,14 @@ where
                 paths
                     .into_iter()
                     .map(|(key, outbound)| {
-                        let path = Self::get_out_and_back_journey(
+                        let journey = Self::get_out_and_back_journey(
                             world,
                             &travel_duration,
                             &durations,
                             &start_at,
                             outbound,
                         );
-                        (key, path)
+                        (key, journey)
                     })
                     .collect()
             })
@@ -235,11 +239,11 @@ where
         durations: &Durations,
         start_at: &u128,
         outbound: Vec<V2<usize>>,
-    ) -> Path {
+    ) -> Journey {
         let mut inbound = outbound.clone();
         inbound.reverse();
 
-        let outbound_path = Path::new(
+        let outbound = Journey::new(
             world,
             outbound,
             travel_duration,
@@ -249,8 +253,8 @@ where
         .with_pause_at_start(durations.pause_at_start.as_micros())
         .with_pause_at_end(durations.pause_in_middle.as_micros());
 
-        let inbound_start = outbound_path.final_frame().arrival;
-        outbound_path
+        let inbound_start = outbound.final_frame().arrival;
+        outbound
             .extend(
                 world,
                 inbound,
@@ -287,7 +291,7 @@ where
     async fn get_avatars(
         &mut self,
         allocation: HashMap<RouteKey, String>,
-        mut journies: HashMap<RouteKey, Path>,
+        mut journies: HashMap<RouteKey, Journey>,
         colors: HashMap<RouteKey, NationColors>,
     ) -> HashMap<String, Avatar> {
         let mut out = HashMap::new();
@@ -299,7 +303,7 @@ where
                 avatar.clone(),
                 Avatar {
                     name: avatar,
-                    path: Some(path),
+                    journey: Some(path),
                     load: AvatarLoad::None,
                     color: colors.primary,
                     skin_color: colors.skin,
@@ -340,8 +344,8 @@ where
 }
 
 fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done_micros: &u128) -> bool {
-    match &avatar.path {
-        Some(path) => path.done(&(at - pause_after_done_micros)),
+    match &avatar.journey {
+        Some(journey) => journey.done(&(at - pause_after_done_micros)),
         None => true,
     }
 }
