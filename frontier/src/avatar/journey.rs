@@ -113,7 +113,7 @@ impl Journey {
             .vehicle_between(world, &from, &to)
             .unwrap_or_else(|| {
                 panic!(
-                    "Tried to create avatar path over edge without vehicle from {:?} to {:?}",
+                    "Tried to create avatar journey over edge without vehicle from {:?} to {:?}",
                     world.get_cell(from).unwrap(),
                     world.get_cell(to).unwrap()
                 )
@@ -131,7 +131,7 @@ impl Journey {
             Rotation::Down
         } else {
             panic!(
-                "Tried to create avatar path over invalid edge from {:?} to {:?}",
+                "Tried to create avatar journey over invalid edge from {:?} to {:?}",
                 from, to
             );
         }
@@ -147,7 +147,7 @@ impl Journey {
             .get_duration(world, &from, &to)
             .unwrap_or_else(|| {
                 panic!(
-                    "Tried to create avatar path over impassable edge from {:?} to {:?}",
+                    "Tried to create avatar journey over impassable edge from {:?} to {:?}",
                     world.get_cell(from).unwrap(),
                     world.get_cell(to).unwrap()
                 )
@@ -447,9 +447,9 @@ mod tests {
     fn test_final_frame() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
         assert_eq!(
-            path.final_frame(),
+            journey.final_frame(),
             &Frame {
                 position: v2(2, 2),
                 elevation: 3.0,
@@ -466,16 +466,16 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let instant = 0;
-        let path = Journey::new(
+        let journey = Journey::new(
             &world,
             positions,
             &travel_duration(),
             &vehicle_fn(),
             instant,
         );
-        assert!(!path.done(&instant));
+        assert!(!journey.done(&instant));
         let done_at = instant + 10_000;
-        assert!(path.done(&done_at));
+        assert!(journey.done(&done_at));
     }
 
     #[test]
@@ -483,12 +483,12 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
-        assert_eq!(path.compute_current_index(&start), Some(1));
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        assert_eq!(journey.compute_current_index(&start), Some(1));
         let at = start + 1_500;
-        assert_eq!(path.compute_current_index(&at), Some(2));
+        assert_eq!(journey.compute_current_index(&at), Some(2));
         let done_at = start + 10_000;
-        assert_eq!(path.compute_current_index(&done_at), None);
+        assert_eq!(journey.compute_current_index(&done_at), None);
     }
 
     #[test]
@@ -496,9 +496,9 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let at = start + 1_500;
-        let actual = path.compute_world_coord(&at);
+        let actual = journey.compute_world_coord(&at);
         let expected = WorldCoord::new(0.25, 1.0, 0.625);
         assert!(actual.x.almost(&expected.x));
         assert!(actual.y.almost(&expected.y));
@@ -510,9 +510,9 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 10;
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
-        let actual = path.compute_world_coord(&0);
+        let actual = journey.compute_world_coord(&0);
 
         let expected = WorldCoord::new(0.0, 0.0, 1.0);
         assert!(actual.x.almost(&expected.x));
@@ -525,9 +525,9 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
-        let actual = path.compute_world_coord(&20_000);
+        let actual = journey.compute_world_coord(&20_000);
 
         let expected = WorldCoord::new(2.0, 2.0, 3.0);
         assert!(actual.x.almost(&expected.x));
@@ -539,22 +539,22 @@ mod tests {
     fn test_vehicle_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1);
-        assert_eq!(path.vehicle_at(&0), Vehicle::Boat);
-        assert_eq!(path.vehicle_at(&3_000), Vehicle::Boat);
-        assert_eq!(path.vehicle_at(&3_001), Vehicle::None);
-        assert_eq!(path.vehicle_at(&10_001), Vehicle::None);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1);
+        assert_eq!(journey.vehicle_at(&0), Vehicle::Boat);
+        assert_eq!(journey.vehicle_at(&3_000), Vehicle::Boat);
+        assert_eq!(journey.vehicle_at(&3_001), Vehicle::None);
+        assert_eq!(journey.vehicle_at(&10_001), Vehicle::None);
     }
 
     #[test]
     fn test_rotation_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1);
-        assert_eq!(path.rotation_at(&0), Rotation::Up);
-        assert_eq!(path.rotation_at(&3_000), Rotation::Right);
-        assert_eq!(path.rotation_at(&3_001), Rotation::Up);
-        assert_eq!(path.rotation_at(&10_001), Rotation::Right);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1);
+        assert_eq!(journey.rotation_at(&0), Rotation::Up);
+        assert_eq!(journey.rotation_at(&3_000), Rotation::Right);
+        assert_eq!(journey.rotation_at(&3_001), Rotation::Up);
+        assert_eq!(journey.rotation_at(&10_001), Rotation::Right);
     }
 
     #[test]
@@ -593,12 +593,12 @@ mod tests {
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
 
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
-        let frames = path.frames.clone();
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let frames = journey.frames.clone();
 
-        assert_eq!(path.stop(&start).frames, vec![frames[0], frames[1]]);
+        assert_eq!(journey.stop(&start).frames, vec![frames[0], frames[1]]);
         let at = start + 1_500;
-        assert_eq!(path.stop(&at).frames, vec![frames[1], frames[2]]);
+        assert_eq!(journey.stop(&at).frames, vec![frames[1], frames[2]]);
     }
 
     #[test]
@@ -606,20 +606,20 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
 
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let frames = path.frames.clone();
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let frames = journey.frames.clone();
 
-        assert_eq!(path.stop(&20000).frames, vec![frames[4]]);
+        assert_eq!(journey.stop(&20000).frames, vec![frames[4]]);
     }
 
     #[test]
     fn test_stop_stationary() {
         let world = world();
 
-        let path = Journey::stationary(&world, v2(0, 0), Vehicle::None, Rotation::Up);
-        let expected = path.clone();
+        let journey = Journey::stationary(&world, v2(0, 0), Vehicle::None, Rotation::Up);
+        let expected = journey.clone();
 
-        assert_eq!(path.stop(&1500), expected);
+        assert_eq!(journey.stop(&1500), expected);
     }
 
     #[test]
@@ -732,8 +732,8 @@ mod tests {
     fn test_edges_between_times() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let actual = path.edges_between_times(&1_500, &6_500);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let actual = journey.edges_between_times(&1_500, &6_500);
         let expected = vec![Edge::new(v2(0, 1), v2(1, 1)), Edge::new(v2(1, 1), v2(1, 2))];
         assert_eq!(actual, expected);
     }
@@ -742,8 +742,8 @@ mod tests {
     fn test_edges_between_times_start_not_included() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let actual = path.edges_between_times(&0, &1_500);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let actual = journey.edges_between_times(&0, &1_500);
         let expected = vec![Edge::new(v2(0, 0), v2(0, 1))];
         assert_eq!(actual, expected);
     }
@@ -752,8 +752,8 @@ mod tests {
     fn test_edges_between_times_end_is_included() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let actual = path.edges_between_times(&6_500, &10_000);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let actual = journey.edges_between_times(&6_500, &10_000);
         let expected = vec![Edge::new(v2(1, 2), v2(2, 2))];
         assert_eq!(actual, expected);
     }
@@ -762,8 +762,8 @@ mod tests {
     fn test_edges_between_times_before() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1_000);
-        let actual = path.edges_between_times(&0, &500);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1_000);
+        let actual = journey.edges_between_times(&0, &500);
         let expected = vec![];
         assert_eq!(actual, expected);
     }
@@ -772,15 +772,15 @@ mod tests {
     fn test_edges_between_times_after() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let path = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let actual = path.edges_between_times(&10_000, &10_500);
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let actual = journey.edges_between_times(&10_000, &10_500);
         let expected = vec![];
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_with_pause_at_start() {
-        let path = Journey {
+        let journey = Journey {
             frames: vec![
                 Frame {
                     position: v2(0, 0),
@@ -809,7 +809,7 @@ mod tests {
             ],
         };
 
-        let actual = path.with_pause_at_start(1);
+        let actual = journey.with_pause_at_start(1);
 
         let expected = Journey {
             frames: vec![
@@ -852,15 +852,15 @@ mod tests {
 
     #[test]
     fn test_with_pause_at_start_empty() {
-        let path = Journey { frames: vec![] };
-        let actual = path.with_pause_at_start(1);
+        let journey = Journey { frames: vec![] };
+        let actual = journey.with_pause_at_start(1);
         let expected = Journey { frames: vec![] };
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_with_pause_at_end() {
-        let path = Journey {
+        let journey = Journey {
             frames: vec![
                 Frame {
                     position: v2(0, 0),
@@ -889,7 +889,7 @@ mod tests {
             ],
         };
 
-        let actual = path.with_pause_at_end(1);
+        let actual = journey.with_pause_at_end(1);
 
         let expected = Journey {
             frames: vec![
@@ -932,18 +932,18 @@ mod tests {
 
     #[test]
     fn test_with_pause_at_end_empty() {
-        let path = Journey { frames: vec![] };
-        let actual = path.with_pause_at_end(1);
+        let journey = Journey { frames: vec![] };
+        let actual = journey.with_pause_at_end(1);
         let expected = Journey { frames: vec![] };
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_then_rotate_clockwise() {
-        let path = Journey::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
-        let path = path.then_rotate_clockwise();
+        let journey = Journey::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
+        let journey = journey.then_rotate_clockwise();
         assert_eq!(
-            path,
+            journey,
             Journey {
                 frames: vec![
                     Frame {
@@ -969,10 +969,10 @@ mod tests {
 
     #[test]
     fn test_then_rotate_anticlockwise() {
-        let path = Journey::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
-        let path = path.then_rotate_anticlockwise();
+        let journey = Journey::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
+        let journey = journey.then_rotate_anticlockwise();
         assert_eq!(
-            path,
+            journey,
             Journey {
                 frames: vec![
                     Frame {
@@ -998,17 +998,17 @@ mod tests {
 
     #[test]
     fn test_forward_path() {
-        let path = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Up);
-        assert_eq!(path.forward_path(), vec![v2(1, 1), v2(1, 2)]);
+        let journey = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Up);
+        assert_eq!(journey.forward_path(), vec![v2(1, 1), v2(1, 2)]);
 
-        let path = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Down);
-        assert_eq!(path.forward_path(), vec![v2(1, 1), v2(1, 0)]);
+        let journey = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Down);
+        assert_eq!(journey.forward_path(), vec![v2(1, 1), v2(1, 0)]);
 
-        let path = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Left);
-        assert_eq!(path.forward_path(), vec![v2(1, 1), v2(0, 1)]);
+        let journey = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Left);
+        assert_eq!(journey.forward_path(), vec![v2(1, 1), v2(0, 1)]);
 
-        let path = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Right);
-        assert_eq!(path.forward_path(), vec![v2(1, 1), v2(2, 1)]);
+        let journey = Journey::stationary(&world(), v2(1, 1), Vehicle::None, Rotation::Right);
+        assert_eq!(journey.forward_path(), vec![v2(1, 1), v2(2, 1)]);
     }
 
     #[test]
