@@ -58,10 +58,6 @@ impl Game {
         &self.tx
     }
 
-    fn on_tick(&mut self) {
-        self.update_game_micros();
-    }
-
     fn update_game_micros(&mut self) {
         let current_instant = Instant::now();
         let interval = current_instant
@@ -94,8 +90,8 @@ impl Game {
 
     pub fn run(&mut self) {
         while self.run {
-            self.on_tick();
             for message in self.rx.get_messages() {
+                self.update_game_micros();
                 self.handle_message(message);
             }
         }
