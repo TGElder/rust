@@ -11,10 +11,8 @@ use commons::fn_sender::*;
 use commons::V2;
 use commons::*;
 use futures::executor::block_on;
-use isometric::{Event, EventConsumer, IsometricEngine};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, PartialEq)]
@@ -23,42 +21,9 @@ pub struct TerritoryState {
     pub durations: HashMap<V2<usize>, Duration>,
 }
 
-pub enum GameEvent {
-    NewGame,
-    Init,
-    Tick { from_micros: u128, to_micros: u128 },
-    Save(String),
-    Load(String),
-    EngineEvent(Arc<Event>),
-}
-
-impl GameEvent {
-    fn describe(&self) -> &'static str {
-        match self {
-            GameEvent::NewGame => "new_game",
-            GameEvent::Init => "init",
-            GameEvent::Tick { .. } => "tick",
-            GameEvent::Save(..) => "save",
-            GameEvent::Load(..) => "save",
-            GameEvent::EngineEvent(..) => "engine event",
-        }
-    }
-}
-
-pub enum CaptureEvent {
-    No,
-}
-
-pub trait GameEventConsumer: Send {
-    fn name(&self) -> &'static str;
-    fn consume_game_event(&mut self, game_state: &GameState, event: &GameEvent) -> CaptureEvent;
-    fn consume_engine_event(&mut self, game_state: &GameState, event: Arc<Event>) -> CaptureEvent;
-}
-
 pub struct Game {
     game_state: GameState,
     previous_instant: Instant,
-    consumers: Vec<Box<dyn GameEventConsumer>>,
     tx: FnSender<Game>,
     rx: FnReceiver<Game>,
     avatar_travel_duration: AvatarTravelDuration,
@@ -66,20 +31,8 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(
-        game_state: GameState,
-        engine: &mut IsometricEngine,
-        mut init_events: Vec<GameEvent>,
-    ) -> Game {
+    pub fn new(game_state: GameState) -> Game {
         let (tx, rx) = fn_channel();
-
-        engine.add_event_consumer(EventForwarder::new(tx.clone_with_name("event_forwarder")));
-
-        tx.send(move |game| {
-            init_events
-                .drain(..)
-                .for_each(|event| game.consume_event(event))
-        });
 
         Game {
             previous_instant: Instant::now(),
@@ -87,7 +40,6 @@ impl Game {
                 &game_state.params.avatar_travel,
             ),
             game_state,
-            consumers: vec![],
             tx,
             rx,
             run: true,
@@ -106,40 +58,8 @@ impl Game {
         &self.tx
     }
 
-    pub fn add_consumer<T>(&mut self, consumer: T)
-    where
-        T: GameEventConsumer + 'static,
-    {
-        self.consumers.push(Box::new(consumer));
-    }
-
     fn on_tick(&mut self) {
-        let from_micros = self.game_state.game_micros;
         self.update_game_micros();
-        let to_micros = self.game_state.game_micros;
-        self.consume_event(GameEvent::Tick {
-            from_micros,
-            to_micros,
-        });
-    }
-
-    fn consume_event(&mut self, event: GameEvent) {
-        if let GameEvent::EngineEvent(event) = event {
-            for consumer in self.consumers.iter_mut() {
-                consumer.consume_engine_event(&self.game_state, event.clone());
-            }
-        } else {
-            let log_duration_threshold = &self.game_state.params.log_duration_threshold;
-            for consumer in self.consumers.iter_mut() {
-                let start = Instant::now();
-                consumer.consume_game_event(&self.game_state, &event);
-                log_time(
-                    format!("event,{},{}", event.describe(), consumer.name()),
-                    start.elapsed(),
-                    log_duration_threshold,
-                );
-            }
-        }
     }
 
     fn update_game_micros(&mut self) {
@@ -170,7 +90,6 @@ impl Game {
 
     pub fn save(&mut self, path: String) {
         self.game_state.to_file(&path);
-        self.consume_event(GameEvent::Save(path));
     }
 
     pub fn run(&mut self) {
@@ -203,22 +122,5 @@ fn log_time(description: String, duration: Duration, threshold: &Option<Duration
         if duration >= *threshold {
             warn!("{},{}ms", description, duration.as_millis());
         }
-    }
-}
-
-struct EventForwarder {
-    game_tx: FnSender<Game>,
-}
-
-impl EventForwarder {
-    pub fn new(game_tx: FnSender<Game>) -> EventForwarder {
-        EventForwarder { game_tx }
-    }
-}
-
-impl EventConsumer for EventForwarder {
-    fn consume_event(&mut self, event: Arc<Event>) {
-        self.game_tx
-            .send(move |game| game.consume_event(GameEvent::EngineEvent(event)));
     }
 }
