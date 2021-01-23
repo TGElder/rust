@@ -5,7 +5,7 @@ use crate::settlement::Settlement;
 use crate::territory::Claim;
 use crate::world::{World, WorldCell, WorldObject};
 use commons::grid::Grid;
-use commons::{V2, V3};
+use commons::{M, V2, V3, v2};
 use isometric::drawing::{
     LayerColoring, NoneColoring, SeaLevelColoring, ShadedTileTerrainColoring, TerrainColoring,
 };
@@ -20,7 +20,24 @@ pub struct WorldColoringParameters {
 
 pub fn world_coloring(game_state: &GameState, territory_layer: bool) -> WorldColoring {
     WorldColoring {
-        terrain: terrain(game_state, territory_layer),
+        terrain: 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        +(game_state, territory_layer),
         crops: crops(game_state, territory_layer),
     }
 }
@@ -208,6 +225,24 @@ impl<'a> TerrainColoring<WorldCell> for TerritoryColoring<'a> {
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
         let color = self.tile_color(tile);
+        [color, color, color]
+    }
+}
+
+pub struct SlabOverlay{
+    from: V2<usize>,
+    colors: M<Option<Color>>,
+}
+
+impl TerrainColoring<WorldCell> for SlabOverlay{
+    fn color(
+        &self,
+        _: &dyn Grid<WorldCell>,
+        tile: &V2<usize>,
+        _: &[V3<f32>; 3],
+    ) -> [Option<Color>; 3] {
+        let position = v2(tile.x - self.from.x, tile.y - self.from.y);
+        let color = *self.colors.get_cell_unsafe(&position);
         [color, color, color]
     }
 }
