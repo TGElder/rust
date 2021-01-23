@@ -1,4 +1,5 @@
 mod avatar_artist;
+mod avatar_visibility;
 mod basic_avatar_controls;
 mod basic_road_builder;
 mod cheats;
@@ -18,6 +19,7 @@ mod voyager;
 mod world_artist;
 
 pub use avatar_artist::*;
+pub use avatar_visibility::*;
 pub use basic_avatar_controls::*;
 pub use basic_road_builder::*;
 pub use cheats::*;

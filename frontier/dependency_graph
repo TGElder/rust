@@ -57,6 +57,9 @@ SendAvatars SendGame
 SendAvatarArtist Micros
 SendAvatarArtist SendAvatars
 SendAvatarArtist SendRotate
+SendAvatarVisibility Micros
+SendAvatarVisibility SelectedAvatar
+SendAvatarVisibility Visibility
 SendBasicAvatarControls Micros
 SendBasicAvatarControls SelectedAvatar
 SendBasicAvatarControls SendWorld

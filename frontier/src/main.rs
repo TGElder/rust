@@ -10,7 +10,6 @@ mod artists;
 mod avatar;
 mod avatars;
 mod game;
-mod game_event_consumers;
 mod homeland_start;
 mod label_editor;
 mod names;
@@ -43,7 +42,6 @@ use commons::log::{info, LevelFilter};
 use commons::process::run_passive;
 use futures::executor::{block_on, ThreadPool};
 use futures::FutureExt;
-use game_event_consumers::*;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use simple_logger::SimpleLogger;
 use std::collections::HashMap;
@@ -90,10 +88,6 @@ fn main() {
         ParsedArgs::Load { path } => system.load(&path),
     }
     let tx = system.tx.clone_with_name("main");
-
-    game.add_consumer(VisibilityFromAvatar::new(
-        tx.clone_with_name("visibility_from_avatar"),
-    ));
 
     // Run
     let (system_tx, system_rx) = fn_channel();

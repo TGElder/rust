@@ -7,9 +7,9 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, Labels, ObjectBuilder,
-    PathfinderService, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
-    SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Labels,
+    ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, ResourceTargets,
+    Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist,
     VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
@@ -34,6 +34,7 @@ pub struct System {
     pub tx: Polysender,
     pub pool: ThreadPool,
     pub avatar_artist: Process<AvatarArtistActor<Polysender>>,
+    pub avatar_visibility: Process<AvatarVisibility<Polysender>>,
     pub basic_avatar_controls: Process<BasicAvatarControls<Polysender>>,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub cheats: Process<Cheats<Polysender>>,
@@ -66,6 +67,7 @@ impl System {
         pool: ThreadPool,
     ) -> System {
         let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
+        let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
@@ -91,6 +93,7 @@ impl System {
         let tx = Polysender {
             game_tx: game_tx.clone_with_name("polysender"),
             avatar_artist_tx,
+            avatar_visibility_tx,
             basic_avatar_controls_tx,
             basic_road_builder_tx,
             cheats_tx,
@@ -127,6 +130,10 @@ impl System {
                     AvatarArtist::new(AvatarArtistParams::new(&game_state.params.light_direction)),
                 ),
                 avatar_artist_rx,
+            ),
+            avatar_visibility: Process::new(
+                AvatarVisibility::new(tx.clone_with_name("avatar_visibility")),
+                avatar_visibility_rx,
             ),
             basic_avatar_controls: Process::new(
                 BasicAvatarControls::new(
@@ -389,6 +396,7 @@ impl System {
         self.cheats.run_passive(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
         self.basic_avatar_controls.run_passive(&self.pool).await;
+        self.avatar_visibility.run_active(&self.pool).await;
         self.avatar_artist.run_passive(&self.pool).await;
         self.event_forwarder.run_passive(&self.pool).await;
     }
@@ -396,6 +404,7 @@ impl System {
     pub async fn pause(&mut self) {
         self.event_forwarder.drain(&self.pool, false).await;
         self.avatar_artist.drain(&self.pool, true).await;
+        self.avatar_visibility.drain(&self.pool, true).await;
         self.basic_avatar_controls.drain(&self.pool, true).await;
         self.basic_road_builder.drain(&self.pool, true).await;
         self.cheats.drain(&self.pool, true).await;
