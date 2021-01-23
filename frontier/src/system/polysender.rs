@@ -1,7 +1,7 @@
 use crate::actors::{
-    AvatarArtistActor, BasicAvatarControls, BasicRoadBuilder, Cheats, Labels, ObjectBuilder,
-    PathfinderService, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
-    SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Labels,
+    ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, ResourceTargets,
+    Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist,
     VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
@@ -30,6 +30,7 @@ use std::collections::HashMap;
 pub struct Polysender {
     pub game_tx: FnSender<Game>,
     pub avatar_artist_tx: FnSender<AvatarArtistActor<Polysender>>,
+    pub avatar_visibility_tx: FnSender<AvatarVisibility<Polysender>>,
     pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Polysender>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
     pub cheats_tx: FnSender<Cheats<Polysender>>,
@@ -59,6 +60,7 @@ impl Polysender {
         Polysender {
             game_tx: self.game_tx.clone_with_name(name),
             avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
+            avatar_visibility_tx: self.avatar_visibility_tx.clone_with_name(name),
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             cheats_tx: self.cheats_tx.clone_with_name(name),

@@ -2,8 +2,8 @@ use super::*;
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::grid::Grid;
+use commons::v3;
 use commons::V2;
-use commons::{edge::*, v3};
 use isometric::coords::*;
 use std::ops::Add;
 
@@ -241,25 +241,14 @@ impl Journey {
         Some(self + journey)
     }
 
-    fn compute_between_times<T>(
-        &self,
-        from_exclusive: &u128,
-        to_inclusive: &u128,
-        function: &dyn Fn(&Self, usize) -> T,
-    ) -> Vec<T> {
-        (0..self.frames.len())
-            .filter(|i| {
-                let arrival = self.frames[*i].arrival;
+    pub fn frames_between_times(&self, from_exclusive: &u128, to_inclusive: &u128) -> Vec<&Frame> {
+        self.frames
+            .iter()
+            .filter(|frame| {
+                let arrival = frame.arrival;
                 arrival > *from_exclusive && arrival <= *to_inclusive
             })
-            .map(|i| function(self, i))
             .collect()
-    }
-
-    pub fn edges_between_times(&self, from_exclusive: &u128, to_inclusive: &u128) -> Vec<Edge> {
-        self.compute_between_times(from_exclusive, to_inclusive, &|s, i| {
-            Edge::new(s.frames[i - 1].position, s.frames[i].position)
-        })
     }
 
     pub fn with_pause_at_start(mut self, pause: u128) -> Journey {
@@ -729,53 +718,85 @@ mod tests {
     }
 
     #[test]
-    fn test_edges_between_times() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let actual = journey.edges_between_times(&1_500, &6_500);
-        let expected = vec![Edge::new(v2(0, 1), v2(1, 1)), Edge::new(v2(1, 1), v2(1, 2))];
-        assert_eq!(actual, expected);
+    fn test_frames_between_times() {
+        let journey = Journey {
+            frames: vec![
+                Frame {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    arrival: 50,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
+                    load: AvatarLoad::None,
+                },
+                Frame {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    arrival: 100,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
+                    load: AvatarLoad::None,
+                },
+                Frame {
+                    position: v2(2, 0),
+                    elevation: 1.0,
+                    arrival: 150,
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Up,
+                    load: AvatarLoad::None,
+                },
+            ],
+        };
+        let actual = journey.frames_between_times(&75, &125);
+        assert_eq!(actual, vec![&journey.frames[1]]);
     }
 
     #[test]
-    fn test_edges_between_times_start_not_included() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let actual = journey.edges_between_times(&0, &1_500);
-        let expected = vec![Edge::new(v2(0, 0), v2(0, 1))];
-        assert_eq!(actual, expected);
+    fn test_frames_between_start_not_included() {
+        let journey = Journey {
+            frames: vec![Frame {
+                position: v2(0, 0),
+                elevation: 1.0,
+                arrival: 50,
+                vehicle: Vehicle::None,
+                rotation: Rotation::Up,
+                load: AvatarLoad::None,
+            }],
+        };
+        let actual = journey.frames_between_times(&50, &125);
+        assert!(actual.is_empty());
     }
 
     #[test]
-    fn test_edges_between_times_end_is_included() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let actual = journey.edges_between_times(&6_500, &10_000);
-        let expected = vec![Edge::new(v2(1, 2), v2(2, 2))];
-        assert_eq!(actual, expected);
+    fn test_frames_between_end_is_included() {
+        let journey = Journey {
+            frames: vec![Frame {
+                position: v2(0, 0),
+                elevation: 1.0,
+                arrival: 50,
+                vehicle: Vehicle::None,
+                rotation: Rotation::Up,
+                load: AvatarLoad::None,
+            }],
+        };
+        let actual = journey.frames_between_times(&0, &50);
+        assert_eq!(actual, vec![&journey.frames[0]]);
     }
 
     #[test]
-    fn test_edges_between_times_before() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1_000);
-        let actual = journey.edges_between_times(&0, &500);
-        let expected = vec![];
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn test_edges_between_times_after() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
-        let actual = journey.edges_between_times(&10_000, &10_500);
-        let expected = vec![];
-        assert_eq!(actual, expected);
+    fn test_frames_between_before_start_and_after_end() {
+        let journey = Journey {
+            frames: vec![Frame {
+                position: v2(0, 0),
+                elevation: 1.0,
+                arrival: 50,
+                vehicle: Vehicle::None,
+                rotation: Rotation::Up,
+                load: AvatarLoad::None,
+            }],
+        };
+        let actual = journey.frames_between_times(&0, &100);
+        assert_eq!(actual, vec![&journey.frames[0]]);
     }
 
     #[test]
