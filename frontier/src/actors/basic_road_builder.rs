@@ -70,17 +70,9 @@ where
             .await
     }
 
-    async fn get_mode(&self, forward_path: Vec<V2<usize>>) -> RoadBuildMode {
-        self.tx
-            .send_world(move |world| {
-                let edge = Edge::new(forward_path[0], forward_path[1]);
-                if world.is_road(&edge) {
-                    RoadBuildMode::Demolish
-                } else {
-                    RoadBuildMode::Build
-                }
-            })
-            .await
+    async fn move_avatar(&self, name: String, forward_path: Vec<V2<usize>>, micros: u128) {
+        let journey = self.get_journey(forward_path.clone(), micros).await;
+        self.tx.update_avatar_journey(name, Some(journey)).await;
     }
 
     async fn get_journey(&self, forward_path: Vec<V2<usize>>, start_at: u128) -> Journey {
@@ -98,15 +90,23 @@ where
             .await
     }
 
-    async fn move_avatar(&self, name: String, forward_path: Vec<V2<usize>>, micros: u128) {
-        let journey = self.get_journey(forward_path.clone(), micros).await;
-        self.tx.update_avatar_journey(name, Some(journey)).await;
-    }
-
     async fn update_roads(&self, forward_path: Vec<V2<usize>>) {
         let mode = self.get_mode(forward_path.clone()).await;
         let result = RoadBuilderResult::new(vec![forward_path[0], forward_path[1]], mode);
         self.tx.update_roads(result).await;
+    }
+
+    async fn get_mode(&self, forward_path: Vec<V2<usize>>) -> RoadBuildMode {
+        self.tx
+            .send_world(move |world| {
+                let edge = Edge::new(forward_path[0], forward_path[1]);
+                if world.is_road(&edge) {
+                    RoadBuildMode::Demolish
+                } else {
+                    RoadBuildMode::Build
+                }
+            })
+            .await
     }
 }
 

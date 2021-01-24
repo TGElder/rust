@@ -120,9 +120,12 @@ impl System {
         engine.add_event_consumer(EventForwarderConsumer::new(event_forwarder_tx));
         engine.add_event_handler(ZoomHandler::default());
 
-        let avatar_travel_duration = Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
-            &game_state.params.avatar_travel,
-        ));
+        let avatar_travel_duration_with_planned_roads = Arc::new(
+            AvatarTravelDuration::with_planned_roads_as_roads(&game_state.params.avatar_travel),
+        );
+        let avatar_travel_duration_without_planned_roads = Arc::new(
+            AvatarTravelDuration::with_planned_roads_ignored(&game_state.params.avatar_travel),
+        );
         let road_build_travel_duration = Arc::new(AutoRoadTravelDuration::from_params(
             &game_state.params.auto_road_travel,
         ));
@@ -145,15 +148,15 @@ impl System {
             basic_avatar_controls: Process::new(
                 BasicAvatarControls::new(
                     tx.clone_with_name("basic_avatar_controls"),
-                    avatar_travel_duration.clone(),
+                    avatar_travel_duration_without_planned_roads.clone(),
                 ),
                 basic_avatar_controls_rx,
             ),
             basic_road_builder: Process::new(
                 BasicRoadBuilder::new(
                     tx.clone_with_name("basic_road_builder"),
-                    avatar_travel_duration.clone(),
-                    road_build_travel_duration,
+                    avatar_travel_duration_without_planned_roads.clone(),
+                    road_build_travel_duration.clone(),
                 ),
                 basic_road_builder_rx,
             ),
@@ -173,12 +176,7 @@ impl System {
             pathfinder_with_planned_roads: Process::new(
                 PathfinderService::new(
                     tx.clone_with_name("pathfinder_with_planned_roads"),
-                    Pathfinder::new(
-                        &game_state.world,
-                        AvatarTravelDuration::with_planned_roads_as_roads(
-                            &game_state.params.avatar_travel,
-                        ),
-                    ),
+                    Pathfinder::new(&game_state.world, avatar_travel_duration_with_planned_roads),
                 ),
                 pathfinder_with_planned_roads_rx,
             ),
@@ -187,9 +185,7 @@ impl System {
                     tx.clone_with_name("pathfinder_without_planned_roads"),
                     Pathfinder::new(
                         &game_state.world,
-                        AvatarTravelDuration::with_planned_roads_ignored(
-                            &game_state.params.avatar_travel,
-                        ),
+                        avatar_travel_duration_without_planned_roads.clone(),
                     ),
                 ),
                 pathfinder_without_planned_roads_rx,
@@ -197,7 +193,7 @@ impl System {
             pathfinding_avatar_controls: Process::new(
                 PathfindingAvatarControls::new(
                     tx.clone_with_name("pathfinding_avatar_controls"),
-                    avatar_travel_duration.clone(),
+                    avatar_travel_duration_without_planned_roads.clone(),
                 ),
                 pathfinding_avatar_controls_rx,
             ),
@@ -206,7 +202,7 @@ impl System {
                     tx.clone_with_name("prime_mover"),
                     game_state.params.avatars,
                     game_state.params.seed,
-                    avatar_travel_duration,
+                    avatar_travel_duration_without_planned_roads,
                     &game_state.params.nations,
                 ),
                 prime_mover_rx,
@@ -263,9 +259,7 @@ impl System {
                         Box::new(RemoveCrops::new(tx.clone_with_name("remove_crops"))),
                         Box::new(BuildRoad::new(
                             tx.clone_with_name("build_road"),
-                            Arc::new(AutoRoadTravelDuration::from_params(
-                                &game_state.params.auto_road_travel,
-                            )),
+                            road_build_travel_duration,
                         )),
                         Box::new(RemoveRoad::new(tx.clone_with_name("remove_road"))),
                         Box::new(UpdateRouteToPorts::new(game_tx)),

@@ -24,10 +24,10 @@ impl<T> Pathfinder<T>
 where
     T: TravelDuration,
 {
-    pub fn new(world: &World, travel_duration: T) -> Pathfinder<T> {
+    pub fn new(world: &World, travel_duration: Arc<T>) -> Pathfinder<T> {
         Pathfinder {
             index: Index2D::new(world.width(), world.height()),
-            travel_duration: Arc::new(travel_duration),
+            travel_duration,
             network: Network::new(world.width() * world.height(), &[]),
         }
     }
