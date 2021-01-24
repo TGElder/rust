@@ -1,72 +1,24 @@
 use crate::artists::WorldColoring;
-use crate::game::GameState;
-use crate::nation::Nation;
-use crate::settlement::Settlement;
-use crate::territory::Claim;
 use crate::world::{World, WorldCell, WorldObject};
 use commons::grid::Grid;
-use commons::{V2, V3};
+use commons::{v2, M, V2, V3};
 use isometric::drawing::{
-    LayerColoring, NoneColoring, SeaLevelColoring, ShadedTileTerrainColoring, TerrainColoring,
+    LayerColoring, SeaLevelColoring, ShadedTileTerrainColoring, TerrainColoring,
 };
 use isometric::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WorldColoringParameters {
-    pub base: BaseColoringParameters,
-    pub territory: TerritoryColoringParameters,
+    pub colors: BaseColors,
+    pub beach_level: f32,
+    pub cliff_gradient: f32,
+    pub snow_temperature: f32,
+    pub light_direction: V3<f32>,
 }
 
-pub fn world_coloring(game_state: &GameState, territory_layer: bool) -> WorldColoring {
-    WorldColoring {
-        terrain: terrain(game_state, territory_layer),
-        crops: crops(game_state, territory_layer),
-    }
-}
-
-fn terrain<'a>(
-    game_state: &'a GameState,
-    territory_layer: bool,
-) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
-    let params = &game_state.params.world_coloring;
-    let base = Box::new(BaseColoring::new(&params.base, game_state));
-    let shaded = Box::new(ShadedTileTerrainColoring::new(
-        base,
-        game_state.params.light_direction,
-    ));
-    let coloring: Box<dyn TerrainColoring<WorldCell>> = if territory_layer {
-        let territory = Box::new(TerritoryColoring::new(&params.territory, game_state));
-        Box::new(LayerColoring::new(vec![shaded, territory]))
-    } else {
-        shaded
-    };
-    Box::new(SeaLevelColoring::new(
-        coloring,
-        Some(params.base.sea),
-        game_state.params.world_gen.sea_level as f32,
-    ))
-}
-
-fn crops<'a>(
-    game_state: &'a GameState,
-    territory_layer: bool,
-) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
-    if territory_layer {
-        let params = &game_state.params.world_coloring;
-        let territory = Box::new(TerritoryColoring::new(&params.territory, game_state));
-        Box::new(SeaLevelColoring::new(
-            territory,
-            None,
-            game_state.params.world_gen.sea_level as f32,
-        ))
-    } else {
-        Box::new(NoneColoring::new())
-    }
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct BaseColoringParameters {
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BaseColors {
     sea: Color,
     cliff: Color,
     beach: Color,
@@ -75,9 +27,9 @@ pub struct BaseColoringParameters {
     snow: Color,
 }
 
-impl Default for BaseColoringParameters {
-    fn default() -> BaseColoringParameters {
-        BaseColoringParameters {
+impl Default for BaseColors {
+    fn default() -> BaseColors {
+        BaseColors {
             sea: Color::new(0.0, 0.0, 1.0, 1.0),
             cliff: Color::new(0.5, 0.4, 0.3, 1.0),
             beach: Color::new(1.0, 1.0, 0.0, 1.0),
@@ -88,14 +40,52 @@ impl Default for BaseColoringParameters {
     }
 }
 
+pub fn world_coloring<'a>(
+    world: &'a World,
+    params: &'a WorldColoringParameters,
+    overlay: &'a Option<Overlay>,
+) -> WorldColoring<'a> {
+    WorldColoring {
+        terrain: terrain(world, params, overlay),
+        crops: crops(world, overlay),
+    }
+}
+
+fn terrain<'a>(
+    world: &'a World,
+    params: &'a WorldColoringParameters,
+    overlay: &'a Option<Overlay>,
+) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
+    let base = Box::new(BaseColoring::new(&params, world));
+    let shaded = Box::new(ShadedTileTerrainColoring::new(base, params.light_direction));
+    let with_overlay: Box<dyn TerrainColoring<WorldCell>> =
+        Box::new(LayerColoring::new(vec![shaded, Box::new(overlay)]));
+    Box::new(SeaLevelColoring::new(
+        with_overlay,
+        Some(params.colors.sea),
+        world.sea_level(),
+    ))
+}
+
+fn crops<'a>(
+    world: &'a World,
+    overlay: &'a Option<Overlay>,
+) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
+    Box::new(SeaLevelColoring::new(
+        Box::new(overlay),
+        None,
+        world.sea_level(),
+    ))
+}
+
 pub struct BaseColoring<'a> {
-    params: &'a BaseColoringParameters,
-    game_state: &'a GameState,
+    params: &'a WorldColoringParameters,
+    world: &'a World,
 }
 
 impl<'a> BaseColoring<'a> {
-    fn new(params: &'a BaseColoringParameters, game_state: &'a GameState) -> BaseColoring<'a> {
-        BaseColoring { params, game_state }
+    fn new(params: &'a WorldColoringParameters, world: &'a World) -> BaseColoring<'a> {
+        BaseColoring { params, world }
     }
 
     fn get_groundwater(world: &World, position: &V2<usize>) -> f32 {
@@ -103,26 +93,27 @@ impl<'a> BaseColoring<'a> {
     }
 
     fn get_color(&self, world: &World, position: &V2<usize>) -> Color {
-        let beach_level = self.game_state.params.world_gen.beach_level;
-        let cliff_gradient = self.game_state.params.world_gen.cliff_gradient;
-        let snow_temperature = self.game_state.params.snow_temperature;
+        let beach_level = self.params.beach_level;
+        let cliff_gradient = self.params.cliff_gradient;
+        let snow_temperature = self.params.snow_temperature;
         let max_gradient = world.get_max_abs_rise(&position);
         let min_elevation = world.get_lowest_corner(&position);
         if max_gradient > cliff_gradient {
-            self.params.cliff
+            self.params.colors.cliff
         } else if world
             .tile_avg_temperature(position)
             .map(|temperature| temperature < snow_temperature)
             .unwrap_or_default()
         {
-            self.params.snow
+            self.params.colors.snow
         } else if min_elevation <= beach_level {
-            self.params.beach
+            self.params.colors.beach
         } else {
             let groundwater = Self::get_groundwater(&world, &position);
             self.params
+                .colors
                 .vegetation
-                .blend(groundwater, &self.params.desert)
+                .blend(groundwater, &self.params.colors.desert)
         }
     }
 }
@@ -134,80 +125,30 @@ impl<'a> TerrainColoring<WorldCell> for BaseColoring<'a> {
         tile: &V2<usize>,
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        if let WorldObject::Crop { .. } = self.game_state.world.get_cell_unsafe(tile).object {
+        if let WorldObject::Crop { .. } = self.world.get_cell_unsafe(tile).object {
             [None, None, None]
         } else {
-            let color = Some(self.get_color(&self.game_state.world, tile));
+            let color = Some(self.get_color(&self.world, tile));
             [color, color, color]
         }
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct TerritoryColoringParameters {
-    territory_exclusive_alpha: f32,
-    territory_non_exclusive_alpha: f32,
+#[derive(Clone)]
+pub struct Overlay {
+    pub from: V2<usize>,
+    pub colors: M<Option<Color>>,
 }
 
-impl Default for TerritoryColoringParameters {
-    fn default() -> TerritoryColoringParameters {
-        TerritoryColoringParameters {
-            territory_exclusive_alpha: 0.3,
-            territory_non_exclusive_alpha: 0.15,
-        }
-    }
-}
-
-pub struct TerritoryColoring<'a> {
-    params: &'a TerritoryColoringParameters,
-    game_state: &'a GameState,
-}
-
-impl<'a> TerritoryColoring<'a> {
-    fn new(
-        params: &'a TerritoryColoringParameters,
-        game_state: &'a GameState,
-    ) -> TerritoryColoring<'a> {
-        TerritoryColoring { params, game_state }
-    }
-
-    pub fn tile_color(&self, tile: &V2<usize>) -> Option<Color> {
-        let game_state = self.game_state;
-        if let Some(Claim {
-            controller,
-            duration,
-            ..
-        }) = game_state.territory.who_controls_tile(tile)
-        {
-            let settlement = game_state.settlements.get(&controller)?;
-            let nation = self.nation(&settlement);
-            let mut color = *nation.color();
-            color.a = if *duration <= game_state.params.town_travel_duration {
-                self.params.territory_exclusive_alpha
-            } else {
-                self.params.territory_non_exclusive_alpha
-            };
-            return Some(color);
-        }
-        None
-    }
-
-    fn nation(&self, settlement: &Settlement) -> &Nation {
-        self.game_state
-            .nations
-            .get(&settlement.nation)
-            .unwrap_or_else(|| panic!("Unknown nation {}", &settlement.nation))
-    }
-}
-
-impl<'a> TerrainColoring<WorldCell> for TerritoryColoring<'a> {
+impl TerrainColoring<WorldCell> for Overlay {
     fn color(
         &self,
         _: &dyn Grid<WorldCell>,
         tile: &V2<usize>,
         _: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        let color = self.tile_color(tile);
+        let position = v2(tile.x - self.from.x, tile.y - self.from.y);
+        let color = *self.colors.get_cell_unsafe(&position);
         [color, color, color]
     }
 }

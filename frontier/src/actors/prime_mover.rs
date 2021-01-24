@@ -14,7 +14,7 @@ use commons::V2;
 use isometric::Color;
 
 use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Journey};
-use crate::nation::NationDescription;
+use crate::nation::{NationColors, NationDescription};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
 use crate::traits::{Micros, SendAvatars, SendRoutes, SendSettlements, SendWorld};
@@ -51,21 +51,6 @@ impl Default for Durations {
     }
 }
 
-#[derive(Clone, Copy)]
-struct NationColors {
-    primary: Color,
-    skin: Color,
-}
-
-impl From<&NationDescription> for NationColors {
-    fn from(description: &NationDescription) -> Self {
-        NationColors {
-            primary: description.color,
-            skin: description.skin_color,
-        }
-    }
-}
-
 impl<T> PrimeMover<T>
 where
     T: Micros + SendAvatars + SendRoutes + SendSettlements + SendWorld,
@@ -93,7 +78,7 @@ where
     ) -> HashMap<String, NationColors> {
         nation_descriptions
             .iter()
-            .map(|description| (description.name.clone(), description.into()))
+            .map(|description| (description.name.clone(), description.colors))
             .collect()
     }
 
