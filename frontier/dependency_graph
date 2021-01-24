@@ -144,7 +144,7 @@ SendTownLabelArtist GetSettlement
 SendTownLabelArtist SendWorld
 SendTownLabelArtist Settlements
 SendVisibility RevealPositions
-SendVisibility SendGame
+SendVisibility SendParameters
 SendVisibility SendWorld
 SendVoyager RevealPositionsVoyager
 SendVoyager SendSettlements

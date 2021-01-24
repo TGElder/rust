@@ -1,5 +1,4 @@
-use crate::game::Game;
-use crate::traits::{RevealPositions, SendGame, SendWorld};
+use crate::traits::{RevealPositions, SendParameters, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
 use commons::grid::Grid;
@@ -38,7 +37,7 @@ impl WithElevation for Elevation {
 
 impl<T> VisibilityActor<T>
 where
-    T: RevealPositions + SendGame + SendWorld + Send,
+    T: RevealPositions + SendParameters + SendWorld + Send,
 {
     pub fn new(tx: T) -> VisibilityActor<T> {
         VisibilityActor {
@@ -60,7 +59,7 @@ where
     }
 
     async fn try_disable_visibility_computation(&mut self) {
-        if self.tx.send_game(|game| get_reveal_all(game)).await {
+        if self.tx.send_parameters(|params| params.reveal_all).await {
             self.disable_visibility_computation();
         }
     }
@@ -130,10 +129,6 @@ where
         let file = BufReader::new(File::open(path).unwrap());
         self.state = bincode::deserialize_from(file).unwrap();
     }
-}
-
-fn get_reveal_all(game: &Game) -> bool {
-    game.game_state().params.reveal_all
 }
 
 fn get_dimensions(world: &World) -> (usize, usize) {
