@@ -53,6 +53,9 @@ where
         let (name, journey) = unwrap_or!(self.get_selected_avatar_name_and_journey().await, return);
 
         let stopped = journey.stop(&micros);
+        self.tx
+            .update_avatar_journey(name.clone(), Some(stopped.clone()))
+            .await;
         let stop_position = stopped.final_frame().position;
 
         let path = unwrap_or!(
