@@ -7,7 +7,6 @@ use crate::artists::{Slab, WorldArtist};
 use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendSettlements, SendTerritory, SendWorld};
-use crate::world::World;
 use coloring::{world_coloring, Overlay};
 use commons::{v2, M, V2};
 use isometric::{Button, Color, Command, ElementState, Event, VirtualKeyCode};
@@ -102,7 +101,7 @@ where
     async fn draw_slab(&mut self, slab: Slab) {
         let world_artist = self.world_artist.clone();
         let params = self.coloring_params;
-        let overlay = self.territory_overlay(&slab).await;
+        let overlay = self.get_territory_overlay(&slab).await;
         let commands = self
             .tx
             .send_world(move |world| {
@@ -119,18 +118,18 @@ where
             .unwrap_or(false)
     }
 
-    async fn territory_overlay(&mut self, slab: &Slab) -> Option<Overlay> {
+    async fn get_territory_overlay(&mut self, slab: &Slab) -> Option<Overlay> {
         if !self.territory_layer {
             None
         } else {
             Some(Overlay {
                 from: slab.from,
-                colors: self.get_colors(*slab).await,
+                colors: self.get_territory_colors(*slab).await,
             })
         }
     }
 
-    async fn get_colors(&mut self, slab: Slab) -> M<Option<Color>> {
+    async fn get_territory_colors(&mut self, slab: Slab) -> M<Option<Color>> {
         let territory = self.get_territory(slab).await;
         let nations = self.get_nations(&territory).await;
 
