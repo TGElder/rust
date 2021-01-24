@@ -6,7 +6,6 @@ use commons::async_trait::async_trait;
 use crate::artists::{Slab, WorldArtist};
 use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::territory::Territory;
 use crate::traits::{Micros, SendSettlements, SendTerritory, SendWorld};
 use crate::world::World;
 use coloring::{world_coloring, SlabOverlay};
@@ -48,6 +47,7 @@ where
         command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
         coloring_params: WorldColoringParameters,
+        overlay_alpha: f32,
         nation_descriptions: &[NationDescription],
     ) -> WorldArtistActor<T> {
         WorldArtistActor {
@@ -57,7 +57,7 @@ where
             last_redraw: hashmap! {},
             world_artist,
             coloring_params,
-            nation_colors: get_nation_colors(nation_descriptions, 0.3),
+            nation_colors: get_nation_colors(nation_descriptions, overlay_alpha),
             territory_layer: false,
         }
     }
@@ -93,16 +93,22 @@ where
             return;
         }
 
+        let generated_after = self.tx.micros().await;
+        self.draw_slab(slab).await;
+
+        self.last_redraw.insert(slab.from, generated_after);
+    }
+
+    async fn draw_slab(&mut self, slab: Slab) {
         let world_artist = self.world_artist.clone();
         let params = self.coloring_params;
-        let generated_after = self.tx.micros().await;
         let overlay = self.territory_overlay(&slab).await;
         let commands = self
             .tx
-            .send_world(move |world| draw_slab(&world, world_artist, params, overlay, slab))
+            .send_world(move |world| {
+                world_artist.draw_slab(&world, &world_coloring(&world, &params, &overlay), &slab)
+            })
             .await;
-
-        self.last_redraw.insert(slab.from, generated_after);
         self.command_tx.send(commands).unwrap();
     }
 
@@ -115,28 +121,36 @@ where
 
     async fn territory_overlay(&mut self, slab: &Slab) -> Option<SlabOverlay> {
         if !self.territory_layer {
-            return None;
+            None
+        } else {
+            Some(SlabOverlay {
+                from: slab.from,
+                colors: self.get_colors(*slab).await,
+            })
         }
+    }
 
-        let territory = self.get_territory(*slab).await;
+    async fn get_colors(&mut self, slab: Slab) -> M<Option<Color>> {
+        let territory = self.get_territory(slab).await;
         let nations = self.get_nations(&territory).await;
 
-        let colors = territory.map(|settlement| {
+        territory.map(|settlement| {
             settlement
                 .and_then(|settlement| nations.get(&settlement))
                 .and_then(|nation| self.nation_colors.get(nation))
                 .copied()
-        });
-
-        Some(SlabOverlay {
-            from: slab.from,
-            colors,
         })
     }
 
     async fn get_territory(&mut self, slab: Slab) -> M<Option<V2<usize>>> {
         self.tx
-            .send_territory(move |territory| get_territory(territory, slab))
+            .send_territory(move |territory| {
+                M::from_fn(slab.slab_size, slab.slab_size, |x, y| {
+                    territory
+                        .who_controls_tile(&v2(slab.from.x + x, slab.from.y + y))
+                        .map(|claim| claim.controller)
+                })
+            })
             .await
     }
 
@@ -175,24 +189,6 @@ fn get_nation_colors(
             )
         })
         .collect()
-}
-
-fn draw_slab(
-    world: &World,
-    world_artist: WorldArtist,
-    params: WorldColoringParameters,
-    overlay: Option<SlabOverlay>,
-    slab: Slab,
-) -> Vec<Command> {
-    world_artist.draw_slab(&world, &world_coloring(&world, &params, &overlay), &slab)
-}
-
-fn get_territory(territory: &Territory, slab: Slab) -> M<Option<V2<usize>>> {
-    M::from_fn(slab.slab_size, slab.slab_size, |x, y| {
-        territory
-            .who_controls_tile(&v2(slab.from.x + x, slab.from.y + y))
-            .map(|claim| claim.controller)
-    })
 }
 
 #[async_trait]

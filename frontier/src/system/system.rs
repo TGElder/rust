@@ -318,6 +318,7 @@ impl System {
                         snow_temperature: game_state.params.snow_temperature,
                         light_direction: game_state.params.light_direction,
                     },
+                    0.3,
                     &game_state.params.nations,
                 ),
                 world_artist_rx,

@@ -108,4 +108,13 @@ mod tests {
         assert!(result.b.almost(&(0.3 * 0.4 + 0.7 * 0.6)));
         assert!(result.a.almost(&1.0));
     }
+
+    #[test]
+    fn test_with_alpha() {
+        let result = Color::new(0.1, 0.2, 0.3, 0.4).with_alpha(0.5);
+        assert!(result.r.almost(&0.1));
+        assert!(result.g.almost(&0.2));
+        assert!(result.b.almost(&0.3));
+        assert!(result.a.almost(&0.5));
+    }
 }

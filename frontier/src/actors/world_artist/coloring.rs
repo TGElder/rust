@@ -17,44 +17,6 @@ pub struct WorldColoringParameters {
     pub light_direction: V3<f32>,
 }
 
-pub fn world_coloring<'a>(
-    world: &'a World,
-    params: &'a WorldColoringParameters,
-    overlay: &'a Option<SlabOverlay>,
-) -> WorldColoring<'a> {
-    WorldColoring {
-        terrain: terrain(world, params, overlay),
-        crops: crops(world, overlay),
-    }
-}
-
-fn terrain<'a>(
-    world: &'a World,
-    params: &'a WorldColoringParameters,
-    overlay: &'a Option<SlabOverlay>,
-) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
-    let base = Box::new(BaseColoring::new(&params, world));
-    let shaded = Box::new(ShadedTileTerrainColoring::new(base, params.light_direction));
-    let layered: Box<dyn TerrainColoring<WorldCell>> =
-        Box::new(LayerColoring::new(vec![shaded, Box::new(overlay)]));
-    Box::new(SeaLevelColoring::new(
-        layered,
-        Some(params.colors.sea),
-        world.sea_level(),
-    ))
-}
-
-fn crops<'a>(
-    world: &'a World,
-    overlay: &'a Option<SlabOverlay>,
-) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
-    Box::new(SeaLevelColoring::new(
-        Box::new(overlay),
-        None,
-        world.sea_level(),
-    ))
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BaseColors {
     sea: Color,
@@ -76,6 +38,44 @@ impl Default for BaseColors {
             snow: Color::new(1.0, 1.0, 1.0, 1.0),
         }
     }
+}
+
+pub fn world_coloring<'a>(
+    world: &'a World,
+    params: &'a WorldColoringParameters,
+    overlay: &'a Option<SlabOverlay>,
+) -> WorldColoring<'a> {
+    WorldColoring {
+        terrain: terrain(world, params, overlay),
+        crops: crops(world, overlay),
+    }
+}
+
+fn terrain<'a>(
+    world: &'a World,
+    params: &'a WorldColoringParameters,
+    overlay: &'a Option<SlabOverlay>,
+) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
+    let base = Box::new(BaseColoring::new(&params, world));
+    let shaded = Box::new(ShadedTileTerrainColoring::new(base, params.light_direction));
+    let with_overlay: Box<dyn TerrainColoring<WorldCell>> =
+        Box::new(LayerColoring::new(vec![shaded, Box::new(overlay)]));
+    Box::new(SeaLevelColoring::new(
+        with_overlay,
+        Some(params.colors.sea),
+        world.sea_level(),
+    ))
+}
+
+fn crops<'a>(
+    world: &'a World,
+    overlay: &'a Option<SlabOverlay>,
+) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
+    Box::new(SeaLevelColoring::new(
+        Box::new(overlay),
+        None,
+        world.sea_level(),
+    ))
 }
 
 pub struct BaseColoring<'a> {
