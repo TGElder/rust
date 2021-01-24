@@ -43,7 +43,7 @@ impl Default for BaseColors {
 pub fn world_coloring<'a>(
     world: &'a World,
     params: &'a WorldColoringParameters,
-    overlay: &'a Option<SlabOverlay>,
+    overlay: &'a Option<Overlay>,
 ) -> WorldColoring<'a> {
     WorldColoring {
         terrain: terrain(world, params, overlay),
@@ -54,7 +54,7 @@ pub fn world_coloring<'a>(
 fn terrain<'a>(
     world: &'a World,
     params: &'a WorldColoringParameters,
-    overlay: &'a Option<SlabOverlay>,
+    overlay: &'a Option<Overlay>,
 ) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
     let base = Box::new(BaseColoring::new(&params, world));
     let shaded = Box::new(ShadedTileTerrainColoring::new(base, params.light_direction));
@@ -69,7 +69,7 @@ fn terrain<'a>(
 
 fn crops<'a>(
     world: &'a World,
-    overlay: &'a Option<SlabOverlay>,
+    overlay: &'a Option<Overlay>,
 ) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
     Box::new(SeaLevelColoring::new(
         Box::new(overlay),
@@ -135,12 +135,12 @@ impl<'a> TerrainColoring<WorldCell> for BaseColoring<'a> {
 }
 
 #[derive(Clone)]
-pub struct SlabOverlay {
+pub struct Overlay {
     pub from: V2<usize>,
     pub colors: M<Option<Color>>,
 }
 
-impl TerrainColoring<WorldCell> for SlabOverlay {
+impl TerrainColoring<WorldCell> for Overlay {
     fn color(
         &self,
         _: &dyn Grid<WorldCell>,

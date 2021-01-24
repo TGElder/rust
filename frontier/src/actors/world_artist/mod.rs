@@ -8,7 +8,7 @@ use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendSettlements, SendTerritory, SendWorld};
 use crate::world::World;
-use coloring::{world_coloring, SlabOverlay};
+use coloring::{world_coloring, Overlay};
 use commons::{v2, M, V2};
 use isometric::{Button, Color, Command, ElementState, Event, VirtualKeyCode};
 use std::collections::{HashMap, HashSet};
@@ -119,11 +119,11 @@ where
             .unwrap_or(false)
     }
 
-    async fn territory_overlay(&mut self, slab: &Slab) -> Option<SlabOverlay> {
+    async fn territory_overlay(&mut self, slab: &Slab) -> Option<Overlay> {
         if !self.territory_layer {
             None
         } else {
-            Some(SlabOverlay {
+            Some(Overlay {
                 from: slab.from,
                 colors: self.get_colors(*slab).await,
             })
