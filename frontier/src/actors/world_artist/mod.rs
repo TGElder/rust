@@ -56,9 +56,24 @@ where
             last_redraw: hashmap! {},
             world_artist,
             coloring_params,
-            nation_colors: get_nation_colors(nation_descriptions, overlay_alpha),
+            nation_colors: Self::get_nation_colors(nation_descriptions, overlay_alpha),
             territory_layer: false,
         }
+    }
+
+    fn get_nation_colors(
+        nation_descriptions: &[NationDescription],
+        overlay_alpha: f32,
+    ) -> HashMap<String, Color> {
+        nation_descriptions
+            .iter()
+            .map(|description| {
+                (
+                    description.name.clone(),
+                    description.colors.primary.with_alpha(overlay_alpha),
+                )
+            })
+            .collect()
     }
 
     pub async fn init(&mut self) {
@@ -173,21 +188,6 @@ where
         self.territory_layer = !self.territory_layer;
         self.redraw_all().await;
     }
-}
-
-fn get_nation_colors(
-    nation_descriptions: &[NationDescription],
-    overlay_alpha: f32,
-) -> HashMap<String, Color> {
-    nation_descriptions
-        .iter()
-        .map(|description| {
-            (
-                description.name.clone(),
-                description.colors.primary.with_alpha(overlay_alpha),
-            )
-        })
-        .collect()
 }
 
 #[async_trait]
