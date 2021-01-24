@@ -150,7 +150,9 @@ SendVoyager RevealPositionsVoyager
 SendVoyager SendSettlements
 SendVoyager SendWorld
 SendWorldArtist Micros
-SendWorldArtist SendGame
+SendWorldArtist SendSettlements
+SendWorldArtist SendTerritory
+SendWorldArtist SendWorld
 SetControlDurations DrawWorld
 SetControlDurations ExpandPositions
 SetControlDurations Micros
