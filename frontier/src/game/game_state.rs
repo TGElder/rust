@@ -67,6 +67,7 @@ impl GameState {
 mod tests {
 
     use super::*;
+    use crate::avatar::{Avatar, Journey, Rotation, Vehicle};
     use crate::nation::{NationColors, NationDescription};
     use crate::resource::Resource;
     use commons::*;

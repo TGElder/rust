@@ -120,6 +120,13 @@ impl System {
         engine.add_event_consumer(EventForwarderConsumer::new(event_forwarder_tx));
         engine.add_event_handler(ZoomHandler::default());
 
+        let avatar_travel_duration = Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
+            &game_state.params.avatar_travel,
+        ));
+        let road_build_travel_duration = Arc::new(AutoRoadTravelDuration::from_params(
+            &game_state.params.auto_road_travel,
+        ));
+
         let config = System {
             tx: tx.clone_with_name("processes"),
             pool,
@@ -138,14 +145,16 @@ impl System {
             basic_avatar_controls: Process::new(
                 BasicAvatarControls::new(
                     tx.clone_with_name("basic_avatar_controls"),
-                    Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
-                        &game_state.params.avatar_travel,
-                    )),
+                    avatar_travel_duration.clone(),
                 ),
                 basic_avatar_controls_rx,
             ),
             basic_road_builder: Process::new(
-                BasicRoadBuilder::new(tx.clone_with_name("basic_road_builder")),
+                BasicRoadBuilder::new(
+                    tx.clone_with_name("basic_road_builder"),
+                    avatar_travel_duration.clone(),
+                    road_build_travel_duration,
+                ),
                 basic_road_builder_rx,
             ),
             cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
@@ -188,9 +197,7 @@ impl System {
             pathfinding_avatar_controls: Process::new(
                 PathfindingAvatarControls::new(
                     tx.clone_with_name("pathfinding_avatar_controls"),
-                    Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
-                        &game_state.params.avatar_travel,
-                    )),
+                    avatar_travel_duration.clone(),
                 ),
                 pathfinding_avatar_controls_rx,
             ),
@@ -199,9 +206,7 @@ impl System {
                     tx.clone_with_name("prime_mover"),
                     game_state.params.avatars,
                     game_state.params.seed,
-                    Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
-                        &game_state.params.avatar_travel,
-                    )),
+                    avatar_travel_duration,
                     &game_state.params.nations,
                 ),
                 prime_mover_rx,

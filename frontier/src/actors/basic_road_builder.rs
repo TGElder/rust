@@ -1,51 +1,111 @@
-use crate::game::{Game, GameState};
+use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{SendGame, UpdateRoads};
+use crate::traits::{Micros, SelectedAvatar, SendWorld, UpdateAvatarJourney, UpdateRoads};
 use crate::travel_duration::TravelDuration;
-use crate::world::World;
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
-use commons::V2;
+use commons::{unwrap_or, V2};
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
 
 pub struct BasicRoadBuilder<T> {
     tx: T,
+    avatar_travel_duration: Arc<AvatarTravelDuration>,
+    road_build_travel_duration: Arc<AutoRoadTravelDuration>,
     binding: Button,
 }
 
 impl<T> BasicRoadBuilder<T>
 where
-    T: SendGame + UpdateRoads,
+    T: Micros + SelectedAvatar + SendWorld + UpdateAvatarJourney + UpdateRoads,
 {
-    pub fn new(tx: T) -> BasicRoadBuilder<T> {
+    pub fn new(
+        tx: T,
+        avatar_travel_duration: Arc<AvatarTravelDuration>,
+        road_build_travel_duration: Arc<AutoRoadTravelDuration>,
+    ) -> BasicRoadBuilder<T> {
         BasicRoadBuilder {
             tx,
+            avatar_travel_duration,
+            road_build_travel_duration,
             binding: Button::Key(VirtualKeyCode::R),
         }
     }
 
     async fn build_road(&mut self) {
-        let plan = unwrap_or!(self.get_plan().await, return);
-        let result = plan.get_road_builder_result();
-        self.walk_positions(plan).await;
-        self.update_roads(result).await;
-    }
+        let (micros, selected_avatar) = join!(self.tx.micros(), self.tx.selected_avatar());
+        let selected_avatar = unwrap_or!(selected_avatar, return);
+        let forward_path = unwrap_or!(self.get_forward_path(&selected_avatar, &micros), return);
+        if !self.is_buildable(forward_path.clone()).await {
+            return;
+        }
 
-    async fn get_plan(&mut self) -> Option<Plan> {
-        self.tx.send_game(|game| get_plan(game)).await
-    }
-
-    async fn walk_positions(&mut self, plan: Plan) {
-        self.tx
-            .send_game(|game| {
-                game.walk_positions(plan.avatar_name, plan.forward_path, plan.start_at)
-            })
+        self.move_avatar(selected_avatar.name, forward_path.clone(), micros)
             .await;
+        self.update_roads(forward_path).await;
     }
 
-    async fn update_roads(&mut self, result: RoadBuilderResult) {
+    fn get_forward_path(&self, avatar: &Avatar, micros: &u128) -> Option<Vec<V2<usize>>> {
+        match avatar.journey.as_ref() {
+            Some(journey) => {
+                if journey.done(micros) {
+                    Some(journey.forward_path())
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    async fn is_buildable(&self, forward_path: Vec<V2<usize>>) -> bool {
+        let travel_duration = self.road_build_travel_duration.clone();
+        self.tx
+            .send_world(move |world| {
+                travel_duration
+                    .get_duration(world, &forward_path[0], &forward_path[1])
+                    .is_some()
+            })
+            .await
+    }
+
+    async fn get_mode(&self, forward_path: Vec<V2<usize>>) -> RoadBuildMode {
+        self.tx
+            .send_world(move |world| {
+                let edge = Edge::new(forward_path[0], forward_path[1]);
+                if world.is_road(&edge) {
+                    RoadBuildMode::Demolish
+                } else {
+                    RoadBuildMode::Build
+                }
+            })
+            .await
+    }
+
+    async fn get_journey(&self, forward_path: Vec<V2<usize>>, start_at: u128) -> Journey {
+        let travel_duration = self.avatar_travel_duration.clone();
+        self.tx
+            .send_world(move |world| {
+                Journey::new(
+                    world,
+                    forward_path,
+                    travel_duration.as_ref(),
+                    travel_duration.travel_mode_fn(),
+                    start_at,
+                )
+            })
+            .await
+    }
+
+    async fn move_avatar(&self, name: String, forward_path: Vec<V2<usize>>, micros: u128) {
+        let journey = self.get_journey(forward_path.clone(), micros).await;
+        self.tx.update_avatar_journey(name, Some(journey)).await;
+    }
+
+    async fn update_roads(&self, forward_path: Vec<V2<usize>>) {
+        let mode = self.get_mode(forward_path.clone()).await;
+        let result = RoadBuilderResult::new(vec![forward_path[0], forward_path[1]], mode);
         self.tx.update_roads(result).await;
     }
 }
@@ -53,7 +113,14 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for BasicRoadBuilder<T>
 where
-    T: SendGame + UpdateRoads + Send + Sync + 'static,
+    T: Micros
+        + SelectedAvatar
+        + SendWorld
+        + UpdateAvatarJourney
+        + UpdateRoads
+        + Send
+        + Sync
+        + 'static,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::Button {
@@ -68,53 +135,5 @@ where
             }
         }
         Capture::No
-    }
-}
-
-struct Plan {
-    avatar_name: String,
-    forward_path: Vec<V2<usize>>,
-    mode: RoadBuildMode,
-    start_at: u128,
-}
-
-impl Plan {
-    fn get_road_builder_result(&self) -> RoadBuilderResult {
-        RoadBuilderResult::new(vec![self.forward_path[0], self.forward_path[1]], self.mode)
-    }
-}
-
-fn get_plan(game: &Game) -> Option<Plan> {
-    let game_state = game.game_state();
-
-    let avatar = game.game_state().avatars.selected()?;
-    let forward_path = avatar.journey.as_ref()?.forward_path();
-
-    if !is_buildable(game_state, &forward_path) {
-        return None;
-    }
-
-    Some(Plan {
-        avatar_name: avatar.name.clone(),
-        mode: get_mode(&game_state.world, &forward_path),
-        forward_path,
-        start_at: game_state.game_micros,
-    })
-}
-
-fn is_buildable(game_state: &GameState, forward_path: &[V2<usize>]) -> bool {
-    let travel_duration_params = &game_state.params.auto_road_travel;
-    let travel_duration = AutoRoadTravelDuration::from_params(travel_duration_params);
-    travel_duration
-        .get_duration(&game_state.world, &forward_path[0], &forward_path[1])
-        .is_some()
-}
-
-fn get_mode(world: &World, forward_path: &[V2<usize>]) -> RoadBuildMode {
-    let edge = Edge::new(forward_path[0], forward_path[1]);
-    if world.is_road(&edge) {
-        RoadBuildMode::Demolish
-    } else {
-        RoadBuildMode::Build
     }
 }

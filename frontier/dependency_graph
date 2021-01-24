@@ -64,7 +64,10 @@ SendBasicAvatarControls Micros
 SendBasicAvatarControls SelectedAvatar
 SendBasicAvatarControls SendWorld
 SendBasicAvatarControls UpdateAvatarJourney
-SendBasicRoadBuilder SendGame
+SendBasicRoadBuilder Micros
+SendBasicRoadBuilder SelectedAvatar
+SendBasicRoadBuilder SendWorld
+SendBasicRoadBuilder UpdateAvatarJourney
 SendBasicRoadBuilder UpdateRoads
 SendCheats RevealAll
 SendCheats SendAvatars
