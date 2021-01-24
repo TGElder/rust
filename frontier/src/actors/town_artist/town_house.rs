@@ -69,7 +69,8 @@ where
             .get_nation_description(nation)
             .await
             .unwrap_or_else(|| panic!("Unknown nation"))
-            .color
+            .colors
+            .primary
     }
 
     async fn draw_house(&mut self, params: DrawHouseParams, settlement: Settlement) {

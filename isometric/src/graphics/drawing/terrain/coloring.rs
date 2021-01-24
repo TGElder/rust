@@ -273,3 +273,35 @@ where
         [None, None, None]
     }
 }
+
+impl<'a, T, U> TerrainColoring<T> for &'a U
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+    U: TerrainColoring<T>,
+{
+    fn color(
+        &self,
+        terrain: &dyn Grid<T>,
+        tile: &V2<usize>,
+        triangle: &[V3<f32>; 3],
+    ) -> [Option<Color>; 3] {
+        U::color(self, terrain, tile, triangle)
+    }
+}
+
+impl<'a, T, U> TerrainColoring<T> for Option<U>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+    U: TerrainColoring<T>,
+{
+    fn color(
+        &self,
+        terrain: &dyn Grid<T>,
+        tile: &V2<usize>,
+        triangle: &[V3<f32>; 3],
+    ) -> [Option<Color>; 3] {
+        self.as_ref()
+            .map(|coloring| coloring.color(terrain, tile, triangle))
+            .unwrap_or([None, None, None])
+    }
+}

@@ -67,6 +67,10 @@ impl Color {
         )
     }
 
+    pub fn with_alpha(self, a: f32) -> Color {
+        Color { a, ..self }
+    }
+
     pub fn transparent() -> Color {
         Color::new(0.0, 0.0, 0.0, 0.0)
     }

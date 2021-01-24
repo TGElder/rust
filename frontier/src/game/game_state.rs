@@ -67,7 +67,7 @@ impl GameState {
 mod tests {
 
     use super::*;
-    use crate::nation::NationDescription;
+    use crate::nation::{NationColors, NationDescription};
     use crate::resource::Resource;
     use commons::*;
     use isometric::Color;
@@ -98,8 +98,10 @@ mod tests {
             "China".to_string(),
             Nation::from_description(&NationDescription {
                 name: "China".to_string(),
-                color: Color::new(1.0, 0.0, 0.0, 1.0),
-                skin_color: Color::new(0.0, 0.0, 1.0, 1.0),
+                colors: NationColors {
+                    primary: Color::new(1.0, 0.0, 0.0, 1.0),
+                    skin: Color::new(0.0, 0.0, 1.0, 1.0),
+                },
                 town_name_file: "china".to_string(),
             }),
         );

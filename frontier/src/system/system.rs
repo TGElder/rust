@@ -10,7 +10,7 @@ use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Labels,
     ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, ResourceTargets,
     Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor,
+    VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -311,6 +311,14 @@ impl System {
                             ..WorldArtistParameters::default()
                         },
                     ),
+                    WorldColoringParameters {
+                        colors: game_state.params.base_colors,
+                        beach_level: game_state.params.world_gen.beach_level,
+                        cliff_gradient: game_state.params.world_gen.cliff_gradient,
+                        snow_temperature: game_state.params.snow_temperature,
+                        light_direction: game_state.params.light_direction,
+                    },
+                    &game_state.params.nations,
                 ),
                 world_artist_rx,
             ),
