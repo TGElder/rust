@@ -6,12 +6,10 @@ use commons::log::warn;
 pub use game_params::*;
 pub use game_state::*;
 
-use crate::avatar::*;
 use commons::fn_sender::*;
 use commons::V2;
 use commons::*;
 use futures::executor::block_on;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
@@ -26,7 +24,6 @@ pub struct Game {
     previous_instant: Instant,
     tx: FnSender<Game>,
     rx: FnReceiver<Game>,
-    avatar_travel_duration: AvatarTravelDuration,
     run: bool,
 }
 
@@ -36,9 +33,6 @@ impl Game {
 
         Game {
             previous_instant: Instant::now(),
-            avatar_travel_duration: AvatarTravelDuration::with_planned_roads_ignored(
-                &game_state.params.avatar_travel,
-            ),
             game_state,
             tx,
             rx,
@@ -66,22 +60,6 @@ impl Game {
         let interval = (interval as f32 * self.game_state.speed).round();
         self.game_state.game_micros += interval as u128;
         self.previous_instant = current_instant;
-    }
-
-    pub fn walk_positions(&mut self, name: String, positions: Vec<V2<usize>>, start_at: u128) {
-        let start_at = start_at.max(self.game_state.game_micros);
-        if let Entry::Occupied(mut avatar) = self.game_state.avatars.all.entry(name) {
-            let journey = avatar.get_mut().journey.take().unwrap();
-            if let Some(new_journey) = journey.append(Journey::new(
-                &self.game_state.world,
-                positions,
-                &self.avatar_travel_duration,
-                self.avatar_travel_duration.travel_mode_fn(),
-                start_at,
-            )) {
-                avatar.get_mut().journey = Some(new_journey);
-            }
-        }
     }
 
     pub fn save(&mut self, path: String) {
