@@ -24,7 +24,6 @@ pub struct GameState {
     pub routes: HashMap<RouteSetKey, RouteSet>,
     pub territory: Territory,
     pub speed: f32,
-    pub visible_land_positions: usize,
 }
 
 impl Default for GameState {
@@ -40,7 +39,6 @@ impl Default for GameState {
             territory: Territory::new(&world),
             speed: 0.0,
             world,
-            visible_land_positions: 0,
         }
     }
 }
@@ -155,7 +153,6 @@ mod tests {
             settlements,
             routes,
             speed: 1.0,
-            visible_land_positions: 2020,
         };
         game_state.to_file("test_save");
         let loaded = GameState::from_file("test_save");

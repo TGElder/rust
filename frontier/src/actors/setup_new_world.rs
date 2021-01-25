@@ -4,7 +4,7 @@ use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation, NationDescription};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{
-    SendAvatars, SendGameState, SendNations, SendParameters, SendSettlements, SendWorld, Visibility,
+    SendAvatars, SendNations, SendParameters, SendSettlements, SendWorld, Visibility,
 };
 use crate::world::World;
 use commons::grid::Grid;
@@ -22,13 +22,7 @@ pub struct SetupNewWorld<T> {
 
 impl<T> SetupNewWorld<T>
 where
-    T: SendAvatars
-        + SendGameState
-        + SendNations
-        + SendParameters
-        + SendSettlements
-        + SendWorld
-        + Visibility,
+    T: SendAvatars + SendNations + SendParameters + SendSettlements + SendWorld + Visibility,
 {
     pub fn new(tx: T) -> SetupNewWorld<T> {
         SetupNewWorld { tx }
@@ -99,21 +93,7 @@ where
         homeland_starts: &[HomelandStart],
         nations: &HashMap<String, Nation>,
     ) -> HashMap<V2<usize>, Settlement> {
-        let initial_population = self.initial_population(&nations.len()).await;
-        gen_homelands(
-            &homeland_distance,
-            &homeland_starts,
-            &nations,
-            &initial_population,
-        )
-    }
-
-    async fn initial_population(&self, homeland_count: &usize) -> f64 {
-        let visible_land_positions = self
-            .tx
-            .send_game_state(|game_state| game_state.visible_land_positions)
-            .await;
-        visible_land_positions as f64 / *homeland_count as f64
+        gen_homelands(&homeland_distance, &homeland_starts, &nations)
     }
 
     async fn set_avatars(&self, new_avatars: HashMap<String, Avatar>) {
@@ -219,19 +199,11 @@ fn gen_homelands(
     homeland_distance: &Duration,
     homeland_starts: &[HomelandStart],
     nations: &HashMap<String, Nation>,
-    initial_population: &f64,
 ) -> HashMap<V2<usize>, Settlement> {
     nations
         .keys()
         .enumerate()
-        .map(|(i, nation)| {
-            gen_homeland(
-                homeland_distance,
-                &homeland_starts[i],
-                nation.to_string(),
-                *initial_population,
-            )
-        })
+        .map(|(i, nation)| gen_homeland(homeland_distance, &homeland_starts[i], nation.to_string()))
         .map(|settlement| (settlement.position, settlement))
         .collect()
 }
@@ -240,14 +212,13 @@ fn gen_homeland(
     homeland_distance: &Duration,
     homeland_start: &HomelandStart,
     nation: String,
-    initial_population: f64,
 ) -> Settlement {
     Settlement {
         class: SettlementClass::Homeland,
         position: homeland_start.homeland,
         name: nation.clone(),
         nation,
-        current_population: initial_population,
+        current_population: 0.0,
         target_population: 0.0,
         gap_half_life: (*homeland_distance * 2).mul_f32(2.41), // 5.19 makes half life equivalent to '7/8th life'
         last_population_update_micros: 0,

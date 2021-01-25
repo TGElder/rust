@@ -37,7 +37,6 @@ use crate::world_gen::*;
 
 use commons::async_channel::unbounded;
 use commons::fn_sender::fn_channel;
-use commons::grid::Grid;
 use commons::log::{info, LevelFilter};
 use commons::process::run_passive;
 use futures::executor::{block_on, ThreadPool};
@@ -122,11 +121,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
     if reveal_all {
         world.reveal_all();
     }
-    let visible_land_positions = if reveal_all {
-        world.width() * world.height()
-    } else {
-        0
-    };
     GameState {
         territory: Territory::new(&world),
         world,
@@ -137,7 +131,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
         nations: HashMap::new(),
         settlements: HashMap::new(),
         routes: HashMap::new(),
-        visible_land_positions,
     }
 }
 
