@@ -1,6 +1,6 @@
 use super::*;
 use crate::settlement::{Settlement, SettlementClass::Homeland};
-use crate::traits::{SendGameState, Settlements, UpdateSettlement};
+use crate::traits::{SendWorld, Settlements, UpdateSettlement};
 
 pub struct UpdateHomelandPopulation<T> {
     tx: T,
@@ -9,7 +9,7 @@ pub struct UpdateHomelandPopulation<T> {
 #[async_trait]
 impl<T> Processor for UpdateHomelandPopulation<T>
 where
-    T: SendGameState + Settlements + UpdateSettlement + Send + Sync + 'static,
+    T: SendWorld + Settlements + UpdateSettlement + Send + Sync + 'static,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         match instruction {
@@ -24,7 +24,7 @@ where
 
 impl<T> UpdateHomelandPopulation<T>
 where
-    T: SendGameState + Settlements + UpdateSettlement + Send + Sync + 'static,
+    T: SendWorld + Settlements + UpdateSettlement + Send + Sync + 'static,
 {
     pub fn new(tx: T) -> UpdateHomelandPopulation<T> {
         UpdateHomelandPopulation { tx }
@@ -32,7 +32,13 @@ where
 
     async fn visibile_land_positions(&self) -> usize {
         self.tx
-            .send_game_state(|state| state.visible_land_positions)
+            .send_world(|world| {
+                world
+                    .cells()
+                    .filter(|cell| cell.visible)
+                    .filter(|cell| !world.is_sea(&cell.position))
+                    .count()
+            })
             .await
     }
 
@@ -65,25 +71,34 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::game::GameState;
-    use commons::{v2, Arm};
+    use crate::world::World;
+    use commons::grid::Grid;
+    use commons::{v2, Arm, M};
     use futures::executor::block_on;
     use std::collections::HashMap;
     use std::sync::Mutex;
 
     struct Tx {
         settlements: Arm<HashMap<V2<usize>, Settlement>>,
-        game_state: Arm<GameState>,
+        world: Arm<World>,
     }
 
     #[async_trait]
-    impl SendGameState for Tx {
-        async fn send_game_state<F, O>(&self, function: F) -> O
+    impl SendWorld for Tx {
+        async fn send_world<F, O>(&self, function: F) -> O
         where
             O: Send + 'static,
-            F: FnOnce(&mut GameState) -> O + Send + 'static,
+            F: FnOnce(&mut World) -> O + Send + 'static,
         {
-            function(&mut self.game_state.lock().unwrap())
+            function(&mut self.world.lock().unwrap())
+        }
+
+        fn send_world_background<F, O>(&self, function: F)
+        where
+            O: Send + 'static,
+            F: FnOnce(&mut World) -> O + Send + 'static,
+        {
+            function(&mut self.world.lock().unwrap());
         }
     }
 
@@ -119,12 +134,17 @@ mod tests {
                 ..Settlement::default()
             },
         }));
+
+        // 2 visible cells above sea level
+        let mut world = World::new(M::from_fn(3, 3, |x, _| if x == 1 { 1.0 } else { 0.0 }), 0.5);
+        world.mut_cell_unsafe(&v2(0, 0)).visible = true;
+        world.mut_cell_unsafe(&v2(0, 1)).visible = true;
+        world.mut_cell_unsafe(&v2(1, 0)).visible = true;
+        world.mut_cell_unsafe(&v2(1, 1)).visible = true;
+
         let tx = Tx {
             settlements,
-            game_state: Arc::new(Mutex::new(GameState {
-                visible_land_positions: 202,
-                ..GameState::default()
-            })),
+            world: Arc::new(Mutex::new(world)),
         };
         let mut processor = UpdateHomelandPopulation::new(tx);
 
@@ -137,13 +157,13 @@ mod tests {
             v2(0, 1) => Settlement{
                 position: v2(0, 1),
                 class: Homeland,
-                target_population: 101.0,
+                target_population: 1.0,
                 ..Settlement::default()
             },
             v2(0, 2) => Settlement{
                 position: v2(0, 2),
                 class: Homeland,
-                target_population: 101.0,
+                target_population: 1.0,
                 ..Settlement::default()
             },
         };

@@ -66,6 +66,10 @@ impl World {
         }
     }
 
+    pub fn cells(&self) -> impl Iterator<Item = &WorldCell> {
+        self.cells.iter()
+    }
+
     pub fn sea_level(&self) -> f32 {
         self.sea_level
     }

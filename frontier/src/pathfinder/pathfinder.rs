@@ -295,7 +295,7 @@ mod tests {
 
     fn pathfinder() -> Pathfinder<TestTravelDuration> {
         let world = &world();
-        let mut out = Pathfinder::new(world, travel_duration());
+        let mut out = Pathfinder::new(world, Arc::new(travel_duration()));
         out.reset_edges(world);
         out
     }

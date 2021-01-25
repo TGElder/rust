@@ -121,7 +121,6 @@ SendSim RemoveRoad
 SendSim RemoveTown
 SendSim RemoveWorldObject
 SendSim RoadPlanned
-SendSim SendGameState
 SendSim SendResourceTargets
 SendSim SendRoutes
 SendSim SendWorld
