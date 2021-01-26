@@ -72,7 +72,7 @@ impl System {
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
-        let (micros_tx, micros_rx) = fn_channel();
+        let (clock_tx, clock_rx) = fn_channel();
         let (labels_tx, labels_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
@@ -99,8 +99,8 @@ impl System {
             basic_avatar_controls_tx,
             basic_road_builder_tx,
             cheats_tx,
+            clock_tx,
             labels_tx,
-            clock_tx: micros_tx,
             object_builder_tx,
             pathfinder_with_planned_roads_tx,
             pathfinder_without_planned_roads_tx,
@@ -166,7 +166,7 @@ impl System {
             cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
             clock: Process::new(
                 Clock::new(RealTime {}, game_state.params.default_speed),
-                micros_rx,
+                clock_rx,
             ),
             event_forwarder: Process::new(
                 EventForwarderActor::new(tx.clone_with_name("event_forwarder")),
@@ -340,8 +340,8 @@ impl System {
         self.tx
             .avatar_artist_tx
             .send(|avatar_artist| avatar_artist.init());
-        self.tx.labels_tx.send(|labels| labels.init());
         self.tx.clock_tx.send(|micros| micros.init());
+        self.tx.labels_tx.send(|labels| labels.init());
         self.tx
             .resource_targets_tx
             .send_future(|resource_targets| resource_targets.init().boxed());
@@ -455,8 +455,8 @@ impl System {
     }
 
     pub async fn save(&mut self, path: &str) {
-        self.labels.object_ref().unwrap().save(path);
         self.clock.object_mut().unwrap().save(path);
+        self.labels.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
@@ -466,8 +466,8 @@ impl System {
     }
 
     pub fn load(&mut self, path: &str) {
-        self.labels.object_mut().unwrap().load(path);
         self.clock.object_mut().unwrap().load(path);
+        self.labels.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);

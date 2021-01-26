@@ -7,22 +7,14 @@ pub struct Clock<T>
 where
     T: Now,
 {
-    now: T,
     baseline_instant: Instant,
+    now: T,
     default_speed: f32,
     state: ClockState,
 }
 
 pub trait Now {
-    fn now(&mut self) -> Instant;
-}
-
-pub struct RealTime {}
-
-impl Now for RealTime {
-    fn now(&mut self) -> Instant {
-        Instant::now()
-    }
+    fn instant(&mut self) -> Instant;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -37,7 +29,7 @@ where
 {
     pub fn new(mut now: T, default_speed: f32) -> Clock<T> {
         Clock {
-            baseline_instant: now.now(),
+            baseline_instant: now.instant(),
             now,
             default_speed,
             state: ClockState {
@@ -48,12 +40,12 @@ where
     }
 
     pub fn init(&mut self) {
-        self.baseline_instant = self.now.now();
+        self.baseline_instant = self.now.instant();
     }
 
     pub fn get_micros(&mut self) -> u128 {
-        let now = &self.now.now();
-        self.get_micros_at(now)
+        let instant = &self.now.instant();
+        self.get_micros_at(instant)
     }
 
     fn get_micros_at(&self, instant: &Instant) -> u128 {
@@ -80,7 +72,7 @@ where
     }
 
     fn update_baseline(&mut self) {
-        let new_baseline_instant = self.now.now();
+        let new_baseline_instant = self.now.instant();
         self.state.baseline_micros = self.get_micros_at(&new_baseline_instant);
         self.baseline_instant = new_baseline_instant;
     }
@@ -93,15 +85,23 @@ where
     }
 
     pub fn load(&mut self, path: &str) {
-        self.baseline_instant = self.now.now();
         let path = get_path(path);
         let file = BufReader::new(File::open(path).unwrap());
         self.state = bincode::deserialize_from(file).unwrap();
+        self.baseline_instant = self.now.instant();
     }
 }
 
 fn get_path(path: &str) -> String {
     format!("{}.clock", path)
+}
+
+pub struct RealTime {}
+
+impl Now for RealTime {
+    fn instant(&mut self) -> Instant {
+        Instant::now()
+    }
 }
 
 #[cfg(test)]
@@ -114,23 +114,23 @@ mod tests {
     use super::*;
 
     struct MockNow {
-        baseline: Instant,
+        baseline_instant: Instant,
         offset_micros: u64,
     }
 
     impl Default for MockNow {
         fn default() -> Self {
             MockNow {
-                baseline: Instant::now(),
+                baseline_instant: Instant::now(),
                 offset_micros: 0,
             }
         }
     }
 
     impl Now for Arm<MockNow> {
-        fn now(&mut self) -> Instant {
+        fn instant(&mut self) -> Instant {
             let mock_now = self.lock().unwrap();
-            mock_now.baseline + Duration::from_micros(mock_now.offset_micros)
+            mock_now.baseline_instant + Duration::from_micros(mock_now.offset_micros)
         }
     }
 
@@ -208,9 +208,9 @@ mod tests {
         // Given
         let now = Arc::new(Mutex::new(MockNow::default()));
         let mut clock = Clock::new(now.clone(), 2.0);
+        clock.pause();
 
         // When
-        clock.pause();
         now.lock().unwrap().offset_micros = 1;
         clock.resume();
         now.lock().unwrap().offset_micros = 2;

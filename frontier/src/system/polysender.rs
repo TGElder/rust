@@ -6,7 +6,7 @@ use crate::actors::{
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
-use crate::game::{Game, GameParams, GameState};
+use crate::game::{Game, GameParams};
 use crate::nation::Nation;
 use crate::pathfinder::Pathfinder;
 use crate::route::Routes;
@@ -15,9 +15,9 @@ use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
-    SendGame, SendGameState, SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes,
-    SendSettlements, SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
-    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
+    SendGame, SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes, SendSettlements,
+    SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
+    SendWorld, SendWorldArtist,
 };
 use crate::world::World;
 use commons::async_trait::async_trait;
@@ -116,6 +116,19 @@ impl SendAvatars for Polysender {
 }
 
 #[async_trait]
+impl SendClock for Polysender {
+    type T = RealTime;
+
+    async fn send_clock<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Clock<RealTime>) -> O + Send + 'static,
+    {
+        self.clock_tx.send(move |clock| function(clock)).await
+    }
+}
+
+#[async_trait]
 impl SendGame for Polysender {
     async fn send_game<F, O>(&self, function: F) -> O
     where
@@ -131,32 +144,6 @@ impl SendGame for Polysender {
         F: FnOnce(&mut Game) -> O + Send + 'static,
     {
         self.game_tx.send(function);
-    }
-}
-
-#[async_trait]
-impl SendGameState for Polysender {
-    async fn send_game_state<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut GameState) -> O + Send + 'static,
-    {
-        self.game_tx
-            .send(move |game| function(game.mut_state()))
-            .await
-    }
-}
-
-#[async_trait]
-impl SendClock for Polysender {
-    type T = RealTime;
-
-    async fn send_clock<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut Clock<RealTime>) -> O + Send + 'static,
-    {
-        self.clock_tx.send(move |clock| function(clock)).await
     }
 }
 
