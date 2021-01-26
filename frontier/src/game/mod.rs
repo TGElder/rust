@@ -21,7 +21,6 @@ pub struct TerritoryState {
 
 pub struct Game {
     game_state: GameState,
-    previous_instant: Instant,
     tx: FnSender<Game>,
     rx: FnReceiver<Game>,
     run: bool,
@@ -32,7 +31,6 @@ impl Game {
         let (tx, rx) = fn_channel();
 
         Game {
-            previous_instant: Instant::now(),
             game_state,
             tx,
             rx,
@@ -52,16 +50,6 @@ impl Game {
         &self.tx
     }
 
-    fn update_game_micros(&mut self) {
-        let current_instant = Instant::now();
-        let interval = current_instant
-            .duration_since(self.previous_instant)
-            .as_micros();
-        let interval = (interval as f32 * self.game_state.speed).round();
-        self.game_state.game_micros += interval as u128;
-        self.previous_instant = current_instant;
-    }
-
     pub fn save(&mut self, path: String) {
         self.game_state.to_file(&path);
     }
@@ -69,7 +57,6 @@ impl Game {
     pub fn run(&mut self) {
         while self.run {
             for message in self.rx.get_messages() {
-                self.update_game_micros();
                 self.handle_message(message);
             }
         }

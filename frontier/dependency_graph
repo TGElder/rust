@@ -24,7 +24,7 @@ InitTargets SendPathfinder
 IsRoad SendWorld
 LoadTarget SendPathfinder
 LowestDuration SendPathfinder
-Micros SendGame
+Micros SendClock
 NationDescriptions SendNations
 PlanRoad SendPathfinder
 PlanRoad SendWorld

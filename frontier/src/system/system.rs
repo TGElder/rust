@@ -6,7 +6,12 @@ use futures::future::FutureExt;
 use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
-use crate::actors::{AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Labels, Micros, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters};
+use crate::actors::{
+    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Clock,
+    Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, RealTime,
+    ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters,
+};
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
 use crate::game::{Game, GameState};
@@ -22,7 +27,7 @@ use crate::simulation::processors::{
 };
 use crate::simulation::Simulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
-use crate::traits::{SendGame, SendGameState};
+use crate::traits::{SendClock, SendGame};
 use commons::process::Process;
 
 pub struct System {
@@ -34,7 +39,7 @@ pub struct System {
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub cheats: Process<Cheats<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
-    pub micros: Process<Micros>,
+    pub clock: Process<Clock<RealTime>>,
     pub labels: Process<Labels<Polysender>>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
@@ -95,7 +100,7 @@ impl System {
             basic_road_builder_tx,
             cheats_tx,
             labels_tx,
-            micros_tx,
+            clock_tx: micros_tx,
             object_builder_tx,
             pathfinder_with_planned_roads_tx,
             pathfinder_without_planned_roads_tx,
@@ -159,7 +164,10 @@ impl System {
                 basic_road_builder_rx,
             ),
             cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
-            micros: Process::new(Micros::new(game_state.params.default_speed), micros_rx),
+            clock: Process::new(
+                Clock::new(RealTime {}, game_state.params.default_speed),
+                micros_rx,
+            ),
             event_forwarder: Process::new(
                 EventForwarderActor::new(tx.clone_with_name("event_forwarder")),
                 event_forwarder_rx,
@@ -329,11 +337,11 @@ impl System {
     }
 
     pub fn send_init_messages(&self) {
-        // TODO init micros
         self.tx
             .avatar_artist_tx
             .send(|avatar_artist| avatar_artist.init());
         self.tx.labels_tx.send(|labels| labels.init());
+        self.tx.clock_tx.send(|micros| micros.init());
         self.tx
             .resource_targets_tx
             .send_future(|resource_targets| resource_targets.init().boxed());
@@ -373,12 +381,8 @@ impl System {
     }
 
     pub async fn start(&mut self) {
-        // TODO dependencies
-        self.tx
-            .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
-            .await;
-        self.micros.run_passive(&self.pool).await;
-        
+        self.clock.run_passive(&self.pool).await;
+
         self.pathfinder_with_planned_roads
             .run_passive(&self.pool)
             .await;
@@ -409,9 +413,13 @@ impl System {
         self.avatar_visibility.run_active(&self.pool).await;
         self.avatar_artist.run_passive(&self.pool).await;
         self.event_forwarder.run_passive(&self.pool).await;
+
+        self.tx.send_clock(|clock| clock.resume()).await;
     }
 
     pub async fn pause(&mut self) {
+        self.tx.send_clock(|clock| clock.pause()).await;
+
         self.event_forwarder.drain(&self.pool, false).await;
         self.avatar_artist.drain(&self.pool, true).await;
         self.avatar_visibility.drain(&self.pool, true).await;
@@ -435,23 +443,20 @@ impl System {
         self.voyager.drain(&self.pool, true).await;
         self.world_artist.drain(&self.pool, true).await;
         self.setup_new_world.drain(&self.pool, true).await;
-        
+
         self.pathfinder_without_planned_roads
             .drain(&self.pool, true)
             .await;
-            self.pathfinder_with_planned_roads
+        self.pathfinder_with_planned_roads
             .drain(&self.pool, true)
             .await;
-            
-        self.micros.drain(&self.pool, true).await;
-        self.tx
-            .send_game_state(|game_state| game_state.speed = 0.0)
-            .await;
+
+        self.clock.drain(&self.pool, true).await;
     }
 
     pub async fn save(&mut self, path: &str) {
         self.labels.object_ref().unwrap().save(path);
-        self.micros.object_mut().unwrap().save(path);
+        self.clock.object_mut().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
@@ -462,7 +467,7 @@ impl System {
 
     pub fn load(&mut self, path: &str) {
         self.labels.object_mut().unwrap().load(path);
-        self.micros.object_mut().unwrap().load(path);
+        self.clock.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);

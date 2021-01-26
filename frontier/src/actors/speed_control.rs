@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::SendGameState;
+use crate::traits::SendClock;
 
 use commons::async_trait::async_trait;
-use commons::log::info;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 
 pub struct SpeedControlBindings {
@@ -28,7 +27,7 @@ pub struct SpeedControl<T> {
 
 impl<T> SpeedControl<T>
 where
-    T: SendGameState,
+    T: SendClock,
 {
     pub fn new(tx: T) -> SpeedControl<T> {
         SpeedControl {
@@ -38,28 +37,18 @@ where
     }
 
     async fn slow_down(&mut self) {
-        self.tx
-            .send_game_state(move |state| {
-                state.speed /= 2.0;
-                info!("speed = {}", state.speed);
-            })
-            .await;
+        self.tx.send_clock(|clock| clock.adjust_speed(0.5)).await;
     }
 
     async fn speed_up(&mut self) {
-        self.tx
-            .send_game_state(move |state| {
-                state.speed *= 2.0;
-                info!("speed = {}", state.speed);
-            })
-            .await;
+        self.tx.send_clock(|clock| clock.adjust_speed(2.0)).await;
     }
 }
 
 #[async_trait]
 impl<T> HandleEngineEvent for SpeedControl<T>
 where
-    T: SendGameState + Send + Sync,
+    T: SendClock + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::Button {
