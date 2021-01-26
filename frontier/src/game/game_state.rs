@@ -1,6 +1,5 @@
 use super::*;
 
-use crate::avatars::Avatars;
 use crate::nation::Nation;
 use crate::route::*;
 use crate::settlement::*;
@@ -17,7 +16,6 @@ use std::io::{BufReader, BufWriter};
 pub struct GameState {
     pub world: World,
     pub params: GameParams,
-    pub avatars: Avatars,
     pub nations: HashMap<String, Nation>,
     pub settlements: HashMap<V2<usize>, Settlement>,
     pub routes: HashMap<RouteSetKey, RouteSet>,
@@ -29,7 +27,6 @@ impl Default for GameState {
         let world = World::new(M::zeros(1, 1), 0.0);
         GameState {
             params: GameParams::default(),
-            avatars: Avatars::default(),
             nations: HashMap::new(),
             settlements: HashMap::new(),
             routes: HashMap::new(),
@@ -61,7 +58,6 @@ impl GameState {
 mod tests {
 
     use super::*;
-    use crate::avatar::{Avatar, Journey, Rotation, Vehicle};
     use crate::nation::{NationColors, NationDescription};
     use crate::resource::Resource;
     use commons::*;
@@ -72,21 +68,6 @@ mod tests {
         let world = World::new(
             M::from_vec(3, 3, vec![1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0]),
             0.5,
-        );
-        let mut avatars = HashMap::new();
-        avatars.insert(
-            "avatar".to_string(),
-            Avatar {
-                name: "avatar".to_string(),
-                journey: Some(Journey::stationary(
-                    &world,
-                    v2(1, 1),
-                    Vehicle::Boat,
-                    Rotation::Down,
-                )),
-                color: Color::new(0.2, 0.4, 0.6, 0.8),
-                skin_color: Color::new(0.3, 0.5, 0.7, 0.9),
-            },
         );
         let mut nations = HashMap::new();
         nations.insert(
@@ -140,10 +121,6 @@ mod tests {
             territory: Territory::new(&world),
             world,
             params: GameParams::default(),
-            avatars: Avatars {
-                all: avatars,
-                selected: Some("avatar".to_string()),
-            },
             nations,
             settlements,
             routes,

@@ -1,5 +1,4 @@
 use crate::label_editor::*;
-
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::SendWorld;
 use commons::async_trait::async_trait;

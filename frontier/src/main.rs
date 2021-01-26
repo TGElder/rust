@@ -28,7 +28,6 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
-use crate::avatars::Avatars;
 use crate::game::*;
 use crate::system::{System, SystemController};
 use crate::territory::*;
@@ -74,7 +73,7 @@ fn main() {
     });
 
     let mut game = Game::new(game_state);
-    let thread_pool = ThreadPool::new().unwrap();
+    let thread_pool = ThreadPool::builder().pool_size(4).create().unwrap();
 
     let mut system = System::new(
         &game.game_state(),
@@ -125,7 +124,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
         territory: Territory::new(&world),
         world,
         params,
-        avatars: Avatars::default(),
         nations: HashMap::new(),
         settlements: HashMap::new(),
         routes: HashMap::new(),
