@@ -1,47 +1,35 @@
 use super::*;
 
-use crate::game::traits::Micros;
+use crate::traits::Micros;
 
-const NAME: &str = "builder";
-
-pub struct BuildSim<G>
-where
-    G: Micros + Send,
-{
-    game: FnSender<G>,
+pub struct BuildSim<T> {
+    tx: T,
     builders: Vec<Box<dyn Builder + Send>>,
 }
 
 #[async_trait]
-impl<G> Processor for BuildSim<G>
+impl<T> Processor for BuildSim<T>
 where
-    G: Micros + Send,
+    T: Micros + Send + Sync,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::Build => (),
             _ => return state,
         };
-        let micros = self.micros().await;
+        let micros = self.tx.micros().await;
         self.build_all(state.build_queue.take_instructions_before(micros))
             .await;
         state
     }
 }
 
-impl<G> BuildSim<G>
+impl<T> BuildSim<T>
 where
-    G: Micros + Send,
+    T: Micros,
 {
-    pub fn new(game: &FnSender<G>, builders: Vec<Box<dyn Builder + Send>>) -> BuildSim<G> {
-        BuildSim {
-            game: game.clone_with_name(NAME),
-            builders,
-        }
-    }
-
-    async fn micros(&mut self) -> u128 {
-        self.game.send(|game| *game.micros()).await
+    pub fn new(tx: T, builders: Vec<Box<dyn Builder + Send>>) -> BuildSim<T> {
+        BuildSim { tx, builders }
     }
 
     async fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
@@ -66,7 +54,6 @@ mod tests {
     use super::*;
 
     use commons::edge::Edge;
-    use commons::fn_sender::FnThread;
     use commons::v2;
     use futures::executor::block_on;
     use std::sync::{Arc, Mutex};
@@ -93,15 +80,20 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl Micros for u128 {
+        async fn micros(&self) -> u128 {
+            *self
+        }
+    }
+
     #[test]
     fn should_hand_build_to_builder_if_when_elapsed() {
         // Given
-        let game = FnThread::new(1000);
-
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
 
-        let mut processor = BuildSim::new(&game.tx(), vec![Box::new(retriever)]);
+        let mut processor = BuildSim::new(1000, vec![Box::new(retriever)]);
         let mut state = State::default();
         state.build_queue.insert(BuildInstruction {
             what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
@@ -122,12 +114,10 @@ mod tests {
     #[test]
     fn should_not_hand_build_to_builder_if_when_not_elapsed() {
         // Given
-        let game = FnThread::new(1000);
-
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
 
-        let mut processor = BuildSim::new(&game.tx(), vec![Box::new(retriever)]);
+        let mut processor = BuildSim::new(1000, vec![Box::new(retriever)]);
         let instruction_1 = BuildInstruction {
             what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
             when: 100,
@@ -155,12 +145,11 @@ mod tests {
 
     #[test]
     fn should_order_builds_by_when() {
-        let game = FnThread::new(1000);
-
+        // Given
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
 
-        let mut processor = BuildSim::new(&game.tx(), vec![Box::new(retriever)]);
+        let mut processor = BuildSim::new(1000, vec![Box::new(retriever)]);
         let mut state = State::default();
         state.build_queue.insert(BuildInstruction {
             what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),

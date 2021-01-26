@@ -222,7 +222,7 @@ impl System {
                     vec![
                         Box::new(InstructionLogger::new()),
                         Box::new(BuildSim::new(
-                            game_tx,
+                            tx.clone_with_name("build_sim"),
                             vec![
                                 Box::new(TownBuilder::new(tx.clone_with_name("town_builder"))),
                                 Box::new(RoadBuilder::new(tx.clone_with_name("road_builder"))),

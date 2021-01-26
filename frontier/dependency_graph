@@ -102,7 +102,6 @@ SendRotate _
 SendRoutes SendGame
 SendSettlements SendGame
 SendSetupNewWorld SendAvatars
-SendSetupNewWorld SendGameState
 SendSetupNewWorld SendNations
 SendSetupNewWorld SendParameters
 SendSetupNewWorld SendSettlements
