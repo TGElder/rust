@@ -32,7 +32,7 @@ use temperature::*;
 use validation::*;
 use vegetation_gen::*;
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct WorldGenParameters {
     pub river_width_range: (f64, f64),
     pub latitude_range: (f64, f64),

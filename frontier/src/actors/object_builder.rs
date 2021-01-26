@@ -1,4 +1,4 @@
-use crate::system::HandleEngineEvent;
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{RemoveWorldObject, SetWorldObject};
 use crate::world::WorldObject;
 use commons::async_trait::async_trait;
@@ -70,7 +70,7 @@ impl<T> HandleEngineEvent for ObjectBuilder<T>
 where
     T: RemoveWorldObject + SetWorldObject + Send + Sync + 'static,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::WorldPositionChanged(world_coord) = *event {
             self.update_world_coord(world_coord);
         }
@@ -88,5 +88,6 @@ where
                 self.clear_object_at_cursor().await;
             }
         }
+        Capture::No
     }
 }

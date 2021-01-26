@@ -1,9 +1,11 @@
+mod send_avatars;
 mod send_game;
 mod send_game_state;
 mod send_micros;
 mod send_nations;
 mod send_parameters;
 mod send_pathfinder;
+mod send_rotate;
 mod send_routes;
 mod send_settlements;
 mod send_sim;
@@ -15,12 +17,14 @@ mod send_voyager;
 mod send_world;
 mod send_world_artist;
 
+pub use send_avatars::*;
 pub use send_game::*;
 pub use send_game_state::*;
 pub use send_micros::*;
 pub use send_nations::*;
 pub use send_parameters::*;
 pub use send_pathfinder::*;
+pub use send_rotate::*;
 pub use send_routes::*;
 pub use send_settlements::*;
 pub use send_sim::*;

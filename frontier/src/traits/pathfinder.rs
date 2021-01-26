@@ -4,10 +4,59 @@ use std::time::Duration;
 
 use commons::V2;
 
+use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
     PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendPathfinder, SendWorld,
 };
 use crate::travel_duration::{EdgeDuration, TravelDuration};
+
+#[async_trait]
+pub trait FindPath {
+    async fn find_path(&self, from: Vec<V2<usize>>, to: Vec<V2<usize>>) -> Option<Vec<V2<usize>>>;
+}
+
+#[async_trait]
+impl<T> FindPath for T
+where
+    T: SendPathfinder + Sync,
+{
+    async fn find_path(&self, from: Vec<V2<usize>>, to: Vec<V2<usize>>) -> Option<Vec<V2<usize>>> {
+        self.send_pathfinder(move |pathfinder| pathfinder.find_path(&from, &to))
+            .await
+    }
+}
+
+#[async_trait]
+pub trait InBounds {
+    async fn in_bounds(&self, position: V2<usize>) -> bool;
+}
+
+#[async_trait]
+impl<T> InBounds for T
+where
+    T: SendPathfinder + Sync,
+{
+    async fn in_bounds(&self, position: V2<usize>) -> bool {
+        self.send_pathfinder(move |pathfinder| pathfinder.in_bounds(&position))
+            .await
+    }
+}
+
+#[async_trait]
+pub trait LowestDuration {
+    async fn lowest_duration(&self, path: Vec<V2<usize>>) -> Option<Duration>;
+}
+
+#[async_trait]
+impl<T> LowestDuration for T
+where
+    T: SendPathfinder + Sync,
+{
+    async fn lowest_duration(&self, path: Vec<V2<usize>>) -> Option<Duration> {
+        self.send_pathfinder(move |pathfinder| pathfinder.lowest_duration(&path))
+            .await
+    }
+}
 
 #[async_trait]
 pub trait PositionsWithin {
@@ -103,5 +152,65 @@ where
             self.update_pathfinder_positions(pathfinder_with, positions.clone()),
             self.update_pathfinder_positions(pathfinder_without, positions),
         );
+    }
+}
+
+#[async_trait]
+pub trait InitTargets {
+    async fn init_targets(&self, name: String);
+}
+
+#[async_trait]
+impl<T> InitTargets for T
+where
+    T: SendPathfinder + Sync,
+{
+    async fn init_targets(&self, name: String) {
+        self.send_pathfinder(move |pathfinder| pathfinder.init_targets(name))
+            .await
+    }
+}
+
+#[async_trait]
+pub trait LoadTarget {
+    async fn load_target(&self, name: String, position: V2<usize>, target: bool);
+}
+
+#[async_trait]
+impl<T> LoadTarget for T
+where
+    T: SendPathfinder + Sync,
+{
+    async fn load_target(&self, name: String, position: V2<usize>, target: bool) {
+        self.send_pathfinder(move |pathfinder| pathfinder.load_target(&name, &position, target))
+            .await
+    }
+}
+
+#[async_trait]
+pub trait ClosestTargets {
+    async fn closest_targets(
+        &self,
+        positions: Vec<V2<usize>>,
+        targets: String,
+        n_closest: usize,
+    ) -> Vec<ClosestTargetResult>;
+}
+
+#[async_trait]
+impl<T> ClosestTargets for T
+where
+    T: SendPathfinder + Sync,
+{
+    async fn closest_targets(
+        &self,
+        positions: Vec<V2<usize>>,
+        targets: String,
+        n_closest: usize,
+    ) -> Vec<ClosestTargetResult> {
+        self.send_pathfinder(move |pathfinder| {
+            pathfinder.closest_targets(&positions, &targets, n_closest)
+        })
+        .await
     }
 }

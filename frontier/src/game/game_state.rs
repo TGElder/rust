@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::avatar::*;
+use crate::avatars::Avatars;
 use crate::nation::Nation;
 use crate::route::*;
 use crate::settlement::*;
@@ -18,15 +18,12 @@ pub struct GameState {
     pub world: World,
     pub game_micros: u128,
     pub params: GameParams,
-    pub avatars: HashMap<String, Avatar>,
+    pub avatars: Avatars,
     pub nations: HashMap<String, Nation>,
     pub settlements: HashMap<V2<usize>, Settlement>,
-    pub selected_avatar: Option<String>,
-    pub follow_avatar: bool,
     pub routes: HashMap<RouteSetKey, RouteSet>,
     pub territory: Territory,
     pub speed: f32,
-    pub visible_land_positions: usize,
 }
 
 impl Default for GameState {
@@ -35,16 +32,13 @@ impl Default for GameState {
         GameState {
             game_micros: 0,
             params: GameParams::default(),
-            avatars: HashMap::new(),
+            avatars: Avatars::default(),
             nations: HashMap::new(),
             settlements: HashMap::new(),
-            selected_avatar: None,
-            follow_avatar: false,
             routes: HashMap::new(),
             territory: Territory::new(&world),
             speed: 0.0,
             world,
-            visible_land_positions: 0,
         }
     }
 }
@@ -65,20 +59,14 @@ impl GameState {
         let mut file = BufWriter::new(File::create(file_name).unwrap());
         bincode::serialize_into(&mut file, &self).unwrap();
     }
-
-    pub fn selected_avatar(&self) -> Option<&Avatar> {
-        match &self.selected_avatar {
-            Some(name) => self.avatars.get(name),
-            None => None,
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use crate::nation::NationDescription;
+    use crate::avatar::{Avatar, Journey, Rotation, Vehicle};
+    use crate::nation::{NationColors, NationDescription};
     use crate::resource::Resource;
     use commons::*;
     use isometric::Color;
@@ -94,11 +82,12 @@ mod tests {
             "avatar".to_string(),
             Avatar {
                 name: "avatar".to_string(),
-                state: AvatarState::Stationary {
-                    position: v2(1, 1),
-                    rotation: Rotation::Down,
-                },
-                load: AvatarLoad::Resource(Resource::Gold),
+                journey: Some(Journey::stationary(
+                    &world,
+                    v2(1, 1),
+                    Vehicle::Boat,
+                    Rotation::Down,
+                )),
                 color: Color::new(0.2, 0.4, 0.6, 0.8),
                 skin_color: Color::new(0.3, 0.5, 0.7, 0.9),
             },
@@ -108,8 +97,10 @@ mod tests {
             "China".to_string(),
             Nation::from_description(&NationDescription {
                 name: "China".to_string(),
-                color: Color::new(1.0, 0.0, 0.0, 1.0),
-                skin_color: Color::new(0.0, 0.0, 1.0, 1.0),
+                colors: NationColors {
+                    primary: Color::new(1.0, 0.0, 0.0, 1.0),
+                    skin: Color::new(0.0, 0.0, 1.0, 1.0),
+                },
                 town_name_file: "china".to_string(),
             }),
         );
@@ -154,14 +145,14 @@ mod tests {
             world,
             game_micros: 123,
             params: GameParams::default(),
-            avatars,
+            avatars: Avatars {
+                all: avatars,
+                selected: Some("avatar".to_string()),
+            },
             nations,
             settlements,
-            selected_avatar: Some("avatar".to_string()),
-            follow_avatar: false,
             routes,
             speed: 1.0,
-            visible_land_positions: 2020,
         };
         game_state.to_file("test_save");
         let loaded = GameState::from_file("test_save");

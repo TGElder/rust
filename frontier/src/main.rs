@@ -8,8 +8,8 @@ extern crate futures;
 mod actors;
 mod artists;
 mod avatar;
+mod avatars;
 mod game;
-mod game_event_consumers;
 mod homeland_start;
 mod label_editor;
 mod names;
@@ -28,6 +28,7 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
+use crate::avatars::Avatars;
 use crate::game::*;
 use crate::system::{System, SystemController};
 use crate::territory::*;
@@ -36,27 +37,26 @@ use crate::world_gen::*;
 
 use commons::async_channel::unbounded;
 use commons::fn_sender::fn_channel;
-use commons::grid::Grid;
-use commons::log::info;
+use commons::log::{info, LevelFilter};
 use commons::process::run_passive;
 use futures::executor::{block_on, ThreadPool};
 use futures::FutureExt;
-use game_event_consumers::*;
-use isometric::event_handlers::ZoomHandler;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use simple_logger::SimpleLogger;
-use simulation::game_event_consumers::ResourceTargets;
 use std::collections::HashMap;
 use std::env;
 use std::thread;
 use std::time::Duration;
 
 fn main() {
-    SimpleLogger::new().init().unwrap();
+    SimpleLogger::new()
+        .with_level(LevelFilter::Debug)
+        .init()
+        .unwrap();
 
     let parsed_args = parse_args(env::args().collect());
 
-    let (game_state, init_events) = match &parsed_args {
+    let game_state = match &parsed_args {
         ParsedArgs::New {
             power,
             seed,
@@ -73,7 +73,7 @@ fn main() {
         label_padding: game_state.params.label_padding,
     });
 
-    let mut game = Game::new(game_state, &mut engine, init_events);
+    let mut game = Game::new(game_state);
     let thread_pool = ThreadPool::new().unwrap();
 
     let mut system = System::new(
@@ -87,42 +87,6 @@ fn main() {
         ParsedArgs::Load { path } => system.load(&path),
     }
     let tx = system.tx.clone_with_name("main");
-
-    game.add_consumer(EventHandlerAdapter::new(ZoomHandler::default(), game.tx()));
-
-    // Controls
-    game.add_consumer(LabelEditorHandler::new(game.tx()));
-    game.add_consumer(RotateHandler::new(game.tx()));
-    game.add_consumer(BasicAvatarControls::new(game.tx()));
-    game.add_consumer(PathfindingAvatarControls::new(
-        game.tx(),
-        &tx.pathfinder_without_planned_roads,
-        thread_pool.clone(),
-    ));
-    game.add_consumer(SelectAvatar::new(game.tx()));
-    game.add_consumer(SpeedControl::new(game.tx()));
-    game.add_consumer(ResourceTargets::new(&tx.pathfinder_with_planned_roads));
-
-    // Drawing
-
-    game.add_consumer(AvatarArtistHandler::new(engine.command_tx()));
-
-    game.add_consumer(FollowAvatar::new(engine.command_tx(), game.tx()));
-
-    game.add_consumer(PrimeMover::new(game.game_state().params.seed, game.tx()));
-    game.add_consumer(PathfinderUpdater::new(&tx.pathfinder_with_planned_roads));
-    game.add_consumer(PathfinderUpdater::new(&tx.pathfinder_without_planned_roads));
-
-    // Visibility
-    let from_avatar = VisibilityFromAvatar::new(tx.clone_with_name("visibility_from_avatar"));
-    let setup_new_world = SetupNewWorld::new(tx.clone_with_name("setup_new_world"));
-    game.add_consumer(from_avatar);
-    game.add_consumer(setup_new_world);
-
-    game.add_consumer(Cheats::new(
-        tx.clone_with_name("cheats"),
-        thread_pool.clone(),
-    ));
 
     // Run
     let (system_tx, system_rx) = fn_channel();
@@ -145,7 +109,7 @@ fn main() {
     game_handle.join().unwrap();
 }
 
-fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>) {
+fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
     let mut rng = rng(seed);
     let params = GameParams {
         seed,
@@ -153,38 +117,25 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> (GameState, Vec<GameEvent>)
         homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(power as f32)) as u64),
         ..GameParams::default()
     };
-    let init_events = vec![GameEvent::NewGame, GameEvent::Init];
     let mut world = generate_world(power, &mut rng, &params.world_gen);
     if reveal_all {
         world.reveal_all();
     }
-    let visible_land_positions = if reveal_all {
-        world.width() * world.height()
-    } else {
-        0
-    };
-    let game_state = GameState {
+    GameState {
         territory: Territory::new(&world),
         world,
         game_micros: 0,
         speed: params.default_speed,
         params,
-        avatars: HashMap::new(),
+        avatars: Avatars::default(),
         nations: HashMap::new(),
         settlements: HashMap::new(),
-        selected_avatar: None,
-        follow_avatar: true,
         routes: HashMap::new(),
-        visible_land_positions,
-    };
-
-    (game_state, init_events)
+    }
 }
 
-fn load(path: &str) -> (GameState, Vec<GameEvent>) {
-    let game_state = GameState::from_file(path);
-    let init_events = vec![GameEvent::Load(path.to_string()), GameEvent::Init];
-    (game_state, init_events)
+fn load(path: &str) -> GameState {
+    GameState::from_file(path)
 }
 
 enum ParsedArgs {

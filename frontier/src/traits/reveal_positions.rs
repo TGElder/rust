@@ -5,9 +5,7 @@ use commons::grid::Grid;
 use commons::V2;
 use futures::FutureExt;
 
-use crate::traits::{
-    DrawWorld, Micros, SendGame, SendVoyager, SendWorld, UpdatePositionsAllPathfinders,
-};
+use crate::traits::{DrawWorld, Micros, SendVoyager, SendWorld, UpdatePositionsAllPathfinders};
 use crate::world::World;
 
 #[async_trait]
@@ -18,11 +16,10 @@ pub trait RevealPositions {
 #[async_trait]
 impl<T> RevealPositions for T
 where
-    T: DrawWorld + Micros + SendGame + SendVoyager + SendWorld + UpdatePositionsAllPathfinders,
+    T: DrawWorld + Micros + SendVoyager + SendWorld + UpdatePositionsAllPathfinders,
 {
     async fn reveal_positions(&self, positions: HashSet<V2<usize>>, revealed_by: &'static str) {
         let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
-        update_visible_land_positions(self, newly_visible.len()).await;
         voyage(self, newly_visible.clone(), revealed_by);
         join!(
             redraw(self, &newly_visible),
@@ -56,14 +53,6 @@ fn set_visible_get_newly_visible(
         }
     }
     out
-}
-
-async fn update_visible_land_positions<T>(tx: &T, newly_visible_count: usize)
-where
-    T: SendGame,
-{
-    tx.send_game(move |game| game.mut_state().visible_land_positions += newly_visible_count)
-        .await
 }
 
 fn voyage<T>(tx: &T, positions: HashSet<V2<usize>>, revealed_by: &'static str)

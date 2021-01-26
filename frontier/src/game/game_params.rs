@@ -1,4 +1,4 @@
-use crate::actors::{TownArtistParameters, WorldColoringParameters};
+use crate::actors::{BaseColors, TownArtistParameters};
 use crate::avatar::*;
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
@@ -16,7 +16,7 @@ pub struct GameParams {
     pub seed: u64,
     pub reveal_all: bool,
     pub world_gen: WorldGenParameters,
-    pub world_coloring: WorldColoringParameters,
+    pub base_colors: BaseColors,
     pub avatar_travel: AvatarTravelParams,
     pub auto_road_travel: AutoRoadTravelParams,
     pub light_direction: V3<f32>,
@@ -39,13 +39,13 @@ impl Default for GameParams {
             seed: 0,
             reveal_all: false,
             world_gen: WorldGenParameters::default(),
-            world_coloring: WorldColoringParameters::default(),
+            base_colors: BaseColors::default(),
             avatar_travel: AvatarTravelParams::default(),
             auto_road_travel: AutoRoadTravelParams::default(),
             light_direction: v3(0.0, 8.0, -1.0),
             snow_temperature: 0.0,
             town_travel_duration: Duration::from_secs(60 * 60 * 6),
-            avatars: 4096,
+            avatars: 1024,
             homeland: HomelandParams::default(),
             avatar_color: Color::new(0.5, 0.5, 0.5, 1.0),
             town_artist: TownArtistParameters::default(),
@@ -58,7 +58,7 @@ impl Default for GameParams {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HomelandParams {
     pub count: usize,
     pub edges: Vec<HomelandEdge>,

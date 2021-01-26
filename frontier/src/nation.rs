@@ -6,9 +6,14 @@ use std::fmt::Debug;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NationDescription {
     pub name: String,
-    pub color: Color,
-    pub skin_color: Color,
+    pub colors: NationColors,
     pub town_name_file: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct NationColors {
+    pub primary: Color,
+    pub skin: Color,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -28,14 +33,6 @@ impl Nation {
 
     pub fn description(&self) -> &NationDescription {
         &self.description
-    }
-
-    pub fn color(&self) -> &Color {
-        &self.description.color
-    }
-
-    pub fn skin_color(&self) -> &Color {
-        &self.description.skin_color
     }
 
     fn lazy_town_namer(&mut self) -> &mut ListNamer {
@@ -68,86 +65,114 @@ pub fn nation_descriptions() -> Vec<NationDescription> {
     vec![
         NationDescription {
             name: "China".to_string(),
-            color: Color::new(1.0, 0.7, 0.0, 1.0),
-            skin_color: medium_light_skin(),
+            colors: NationColors {
+                primary: Color::new(1.0, 0.7, 0.0, 1.0),
+                skin: medium_light_skin(),
+            },
             town_name_file: "resources/names/towns/china".to_string(),
         },
         NationDescription {
             name: "France".to_string(),
-            color: Color::new(0.0, 0.0, 0.5, 1.0),
-            skin_color: light_skin(),
+            colors: NationColors {
+                primary: Color::new(0.0, 0.0, 0.5, 1.0),
+                skin: light_skin(),
+            },
             town_name_file: "resources/names/towns/france".to_string(),
         },
         NationDescription {
             name: "Germany".to_string(),
-            color: Color::new(0.0, 0.0, 0.0, 1.0),
-            skin_color: light_skin(),
+            colors: NationColors {
+                primary: Color::new(0.0, 0.0, 0.0, 1.0),
+                skin: light_skin(),
+            },
             town_name_file: "resources/names/towns/germany".to_string(),
         },
         NationDescription {
             name: "India".to_string(),
-            color: Color::new(1.0, 0.4, 0.0, 1.0),
-            skin_color: medium_dark_skin(),
+            colors: NationColors {
+                primary: Color::new(1.0, 0.4, 0.0, 1.0),
+                skin: medium_dark_skin(),
+            },
             town_name_file: "resources/names/towns/india".to_string(),
         },
         NationDescription {
             name: "Indonesia".to_string(),
-            color: Color::new(1.0, 0.0, 0.0, 1.0),
-            skin_color: medium_skin(),
+            colors: NationColors {
+                primary: Color::new(1.0, 0.0, 0.0, 1.0),
+                skin: medium_skin(),
+            },
             town_name_file: "resources/names/towns/indonesia".to_string(),
         },
         NationDescription {
             name: "Iran".to_string(),
-            color: Color::new(0.0, 1.0, 0.0, 1.0),
-            skin_color: medium_light_skin(),
+            colors: NationColors {
+                primary: Color::new(0.0, 1.0, 0.0, 1.0),
+                skin: medium_light_skin(),
+            },
             town_name_file: "resources/names/towns/iran".to_string(),
         },
         NationDescription {
             name: "Italy".to_string(),
-            color: Color::new(1.0, 1.0, 1.0, 1.0),
-            skin_color: medium_light_skin(),
+            colors: NationColors {
+                primary: Color::new(1.0, 1.0, 1.0, 1.0),
+                skin: medium_light_skin(),
+            },
             town_name_file: "resources/names/towns/italy".to_string(),
         },
         NationDescription {
             name: "Japan".to_string(),
-            color: Color::new(0.5, 0.0, 0.0, 1.0),
-            skin_color: medium_light_skin(),
+            colors: NationColors {
+                primary: Color::new(0.5, 0.0, 0.0, 1.0),
+                skin: medium_light_skin(),
+            },
             town_name_file: "resources/names/towns/japan".to_string(),
         },
         NationDescription {
             name: "Nigeria".to_string(),
-            color: Color::new(0.5, 1.0, 0.5, 1.0),
-            skin_color: dark_skin(),
+            colors: NationColors {
+                primary: Color::new(0.5, 1.0, 0.5, 1.0),
+                skin: dark_skin(),
+            },
             town_name_file: "resources/names/towns/nigeria".to_string(),
         },
         NationDescription {
             name: "Russia".to_string(),
-            color: Color::new(0.0, 0.0, 1.0, 1.0),
-            skin_color: light_skin(),
+            colors: NationColors {
+                primary: Color::new(0.0, 0.0, 1.0, 1.0),
+                skin: light_skin(),
+            },
             town_name_file: "resources/names/towns/russia".to_string(),
         },
         NationDescription {
             name: "Spain".to_string(),
-            color: Color::new(1.0, 1.0, 0.0, 1.0),
-            skin_color: medium_light_skin(),
+            colors: NationColors {
+                primary: Color::new(1.0, 1.0, 0.0, 1.0),
+                skin: medium_light_skin(),
+            },
             town_name_file: "resources/names/towns/spain".to_string(),
         },
         NationDescription {
             name: "Thailand".to_string(),
-            color: Color::new(0.5, 0.0, 0.5, 1.0),
-            skin_color: medium_skin(),
+            colors: NationColors {
+                primary: Color::new(0.5, 0.0, 0.5, 1.0),
+                skin: medium_skin(),
+            },
             town_name_file: "resources/names/towns/thailand".to_string(),
         },
         NationDescription {
             name: "Turkey".to_string(),
-            color: Color::new(0.0, 1.0, 1.0, 1.0),
-            skin_color: medium_light_skin(),
+            colors: NationColors {
+                primary: Color::new(0.0, 1.0, 1.0, 1.0),
+                skin: medium_light_skin(),
+            },
             town_name_file: "resources/names/towns/turkey".to_string(),
         },
         NationDescription {
             name: "United Kingdom".to_string(),
-            color: Color::new(1.0, 0.0, 1.0, 1.0),
-            skin_color: light_skin(),
+            colors: NationColors {
+                primary: Color::new(1.0, 0.0, 1.0, 1.0),
+                skin: light_skin(),
+            },
             town_name_file: "resources/names/towns/united_kingdom".to_string(),
         },
     ]

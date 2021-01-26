@@ -4,7 +4,8 @@ use std::sync::Arc;
 use crate::actors::town_artist::get_house_height_with_roof;
 use crate::actors::TownArtistParameters;
 use crate::settlement::*;
-use crate::system::HandleEngineEvent;
+
+use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{GetNationDescription, GetSettlement, SendWorld, Settlements};
 use crate::world::World;
 use commons::async_trait::async_trait;
@@ -140,7 +141,7 @@ impl<T> HandleEngineEvent for TownLabelArtist<T>
 where
     T: GetNationDescription + GetSettlement + SendWorld + Settlements + Send + Sync + 'static,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) {
+    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {
             Event::Button {
                 ref button,
@@ -152,6 +153,7 @@ where
             }
             _ => (),
         }
+        Capture::No
     }
 }
 

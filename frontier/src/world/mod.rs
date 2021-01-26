@@ -16,7 +16,6 @@ use commons::junction::*;
 use commons::unsafe_ordering;
 use commons::*;
 use isometric::cell_traits::*;
-use isometric::coords::WorldCoord;
 use serde::{Deserialize, Serialize};
 
 const ROAD_WIDTH: f32 = 0.05;
@@ -65,6 +64,10 @@ impl World {
             sea_level,
             max_height,
         }
+    }
+
+    pub fn cells(&self) -> impl Iterator<Item = &WorldCell> {
+        self.cells.iter()
     }
 
     pub fn sea_level(&self) -> f32 {
@@ -151,42 +154,6 @@ impl World {
                 self.mut_cell_unsafe(&v2(x, y)).visible = true;
             }
         }
-    }
-
-    pub fn snap(&self, world_coord: WorldCoord) -> WorldCoord {
-        let z = if let Some(cell) = self.get_cell(&world_coord.to_v2_round()) {
-            cell.elevation()
-        } else {
-            world_coord.z
-        };
-        WorldCoord::new(world_coord.x.round(), world_coord.y.round(), z)
-    }
-
-    #[allow(clippy::many_single_char_names)]
-    pub fn snap_to_edge(&self, position: &V2<f32>) -> f32 {
-        let x = position.x;
-        let y = position.y;
-        let (a, b, p) = if x.fract() == 0.0 {
-            (
-                v2(x as usize, y.floor() as usize),
-                v2(x as usize, y.ceil() as usize),
-                y.fract(),
-            )
-        } else if y.fract() == 0.0 {
-            (
-                v2(x.floor() as usize, y as usize),
-                v2(x.ceil() as usize, y as usize),
-                x.fract(),
-            )
-        } else {
-            panic!(
-                "Trying to snap x={}, y={} to line. One of x or y must be a whole number.",
-                x, y
-            );
-        };
-        let a = self.get_cell(&a).unwrap().elevation();
-        let b = self.get_cell(&b).unwrap().elevation();
-        (b - a) * p + a
     }
 
     pub fn snap_to_middle(&self, position: &V2<f32>) -> Option<f32> {
@@ -364,24 +331,6 @@ mod tests {
                 },
             }
         );
-    }
-
-    #[test]
-    fn test_snap() {
-        assert_eq!(
-            world().snap(WorldCoord::new(0.3, 1.7, 1.2)),
-            WorldCoord::new(0.0, 2.0, 1.0)
-        );
-    }
-
-    #[test]
-    fn test_snap_to_edge_x() {
-        assert!(world().snap_to_edge(&v2(0.3, 1.0)).almost(&1.3));
-    }
-
-    #[test]
-    fn test_snap_to_edge_y() {
-        assert!(world().snap_to_edge(&v2(1.0, 1.6)).almost(&1.4));
     }
 
     #[test]
