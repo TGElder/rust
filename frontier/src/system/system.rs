@@ -7,10 +7,10 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Labels,
-    ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, ResourceTargets,
-    Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters,
+    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Clock,
+    Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, RealTime,
+    ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -27,7 +27,7 @@ use crate::simulation::processors::{
 };
 use crate::simulation::Simulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
-use crate::traits::{SendGame, SendGameState};
+use crate::traits::{SendClock, SendGame};
 use commons::process::Process;
 
 pub struct System {
@@ -39,6 +39,7 @@ pub struct System {
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub cheats: Process<Cheats<Polysender>>,
     pub event_forwarder: Process<EventForwarderActor>,
+    pub clock: Process<Clock<RealTime>>,
     pub labels: Process<Labels<Polysender>>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
@@ -71,6 +72,7 @@ impl System {
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
+        let (clock_tx, clock_rx) = fn_channel();
         let (labels_tx, labels_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
@@ -97,6 +99,7 @@ impl System {
             basic_avatar_controls_tx,
             basic_road_builder_tx,
             cheats_tx,
+            clock_tx,
             labels_tx,
             object_builder_tx,
             pathfinder_with_planned_roads_tx,
@@ -161,6 +164,10 @@ impl System {
                 basic_road_builder_rx,
             ),
             cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
+            clock: Process::new(
+                Clock::new(RealTime {}, game_state.params.default_speed),
+                clock_rx,
+            ),
             event_forwarder: Process::new(
                 EventForwarderActor::new(tx.clone_with_name("event_forwarder")),
                 event_forwarder_rx,
@@ -333,6 +340,7 @@ impl System {
         self.tx
             .avatar_artist_tx
             .send(|avatar_artist| avatar_artist.init());
+        self.tx.clock_tx.send(|micros| micros.init());
         self.tx.labels_tx.send(|labels| labels.init());
         self.tx
             .resource_targets_tx
@@ -373,9 +381,7 @@ impl System {
     }
 
     pub async fn start(&mut self) {
-        self.tx
-            .send_game_state(|game_state| game_state.speed = game_state.params.default_speed)
-            .await;
+        self.clock.run_passive(&self.pool).await;
 
         self.pathfinder_with_planned_roads
             .run_passive(&self.pool)
@@ -407,9 +413,13 @@ impl System {
         self.avatar_visibility.run_active(&self.pool).await;
         self.avatar_artist.run_passive(&self.pool).await;
         self.event_forwarder.run_passive(&self.pool).await;
+
+        self.tx.send_clock(|clock| clock.resume()).await;
     }
 
     pub async fn pause(&mut self) {
+        self.tx.send_clock(|clock| clock.pause()).await;
+
         self.event_forwarder.drain(&self.pool, false).await;
         self.avatar_artist.drain(&self.pool, true).await;
         self.avatar_visibility.drain(&self.pool, true).await;
@@ -441,12 +451,11 @@ impl System {
             .drain(&self.pool, true)
             .await;
 
-        self.tx
-            .send_game_state(|game_state| game_state.speed = 0.0)
-            .await;
+        self.clock.drain(&self.pool, true).await;
     }
 
     pub async fn save(&mut self, path: &str) {
+        self.clock.object_mut().unwrap().save(path);
         self.labels.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
@@ -457,6 +466,7 @@ impl System {
     }
 
     pub fn load(&mut self, path: &str) {
+        self.clock.object_mut().unwrap().load(path);
         self.labels.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);

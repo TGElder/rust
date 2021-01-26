@@ -1,4 +1,4 @@
-use crate::traits::send::SendGame;
+use crate::traits::SendClock;
 use commons::async_trait::async_trait;
 
 #[async_trait]
@@ -9,9 +9,9 @@ pub trait Micros {
 #[async_trait]
 impl<T> Micros for T
 where
-    T: SendGame + Send + Sync + 'static,
+    T: SendClock + Send + Sync + 'static,
 {
     async fn micros(&self) -> u128 {
-        self.send_game(|game| game.game_state().game_micros).await
+        self.send_clock(|micros| micros.get_micros()).await
     }
 }

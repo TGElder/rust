@@ -1,12 +1,12 @@
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Labels,
-    ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, ResourceTargets,
-    Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor,
+    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Clock,
+    Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, RealTime,
+    ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
-use crate::game::{Game, GameParams, GameState};
+use crate::game::{Game, GameParams};
 use crate::nation::Nation;
 use crate::pathfinder::Pathfinder;
 use crate::route::Routes;
@@ -14,10 +14,10 @@ use crate::settlement::Settlement;
 use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
-    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendGame,
-    SendGameState, SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes,
-    SendSettlements, SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
-    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
+    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
+    SendGame, SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes, SendSettlements,
+    SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
+    SendWorld, SendWorldArtist,
 };
 use crate::world::World;
 use commons::async_trait::async_trait;
@@ -34,6 +34,7 @@ pub struct Polysender {
     pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Polysender>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
     pub cheats_tx: FnSender<Cheats<Polysender>>,
+    pub clock_tx: FnSender<Clock<RealTime>>,
     pub labels_tx: FnSender<Labels<Polysender>>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
@@ -64,6 +65,7 @@ impl Polysender {
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             cheats_tx: self.cheats_tx.clone_with_name(name),
+            clock_tx: self.clock_tx.clone_with_name(name),
             labels_tx: self.labels_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             pathfinding_avatar_controls_tx: self
@@ -114,6 +116,19 @@ impl SendAvatars for Polysender {
 }
 
 #[async_trait]
+impl SendClock for Polysender {
+    type T = RealTime;
+
+    async fn send_clock<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut Clock<RealTime>) -> O + Send + 'static,
+    {
+        self.clock_tx.send(move |clock| function(clock)).await
+    }
+}
+
+#[async_trait]
 impl SendGame for Polysender {
     async fn send_game<F, O>(&self, function: F) -> O
     where
@@ -129,19 +144,6 @@ impl SendGame for Polysender {
         F: FnOnce(&mut Game) -> O + Send + 'static,
     {
         self.game_tx.send(function);
-    }
-}
-
-#[async_trait]
-impl SendGameState for Polysender {
-    async fn send_game_state<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut GameState) -> O + Send + 'static,
-    {
-        self.game_tx
-            .send(move |game| function(game.mut_state()))
-            .await
     }
 }
 

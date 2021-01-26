@@ -16,28 +16,24 @@ use std::io::{BufReader, BufWriter};
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct GameState {
     pub world: World,
-    pub game_micros: u128,
     pub params: GameParams,
     pub avatars: Avatars,
     pub nations: HashMap<String, Nation>,
     pub settlements: HashMap<V2<usize>, Settlement>,
     pub routes: HashMap<RouteSetKey, RouteSet>,
     pub territory: Territory,
-    pub speed: f32,
 }
 
 impl Default for GameState {
     fn default() -> GameState {
         let world = World::new(M::zeros(1, 1), 0.0);
         GameState {
-            game_micros: 0,
             params: GameParams::default(),
             avatars: Avatars::default(),
             nations: HashMap::new(),
             settlements: HashMap::new(),
             routes: HashMap::new(),
             territory: Territory::new(&world),
-            speed: 0.0,
             world,
         }
     }
@@ -143,7 +139,6 @@ mod tests {
         let game_state = GameState {
             territory: Territory::new(&world),
             world,
-            game_micros: 123,
             params: GameParams::default(),
             avatars: Avatars {
                 all: avatars,
@@ -152,7 +147,6 @@ mod tests {
             nations,
             settlements,
             routes,
-            speed: 1.0,
         };
         game_state.to_file("test_save");
         let loaded = GameState::from_file("test_save");

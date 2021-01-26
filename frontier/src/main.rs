@@ -124,8 +124,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
     GameState {
         territory: Territory::new(&world),
         world,
-        game_micros: 0,
-        speed: params.default_speed,
         params,
         avatars: Avatars::default(),
         nations: HashMap::new(),
