@@ -73,7 +73,7 @@ fn main() {
     });
 
     let mut game = Game::new(game_state);
-    let thread_pool = ThreadPool::builder().pool_size(4).create().unwrap();
+    let thread_pool = ThreadPool::new().unwrap();
 
     let mut system = System::new(
         &game.game_state(),
