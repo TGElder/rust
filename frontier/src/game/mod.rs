@@ -10,14 +10,7 @@ use commons::fn_sender::*;
 use commons::V2;
 use commons::*;
 use futures::executor::block_on;
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
-
-#[derive(Debug, PartialEq)]
-pub struct TerritoryState {
-    pub controller: V2<usize>,
-    pub durations: HashMap<V2<usize>, Duration>,
-}
 
 pub struct Game {
     game_state: GameState,

@@ -247,7 +247,7 @@ impl System {
                             game_tx,
                             tx.clone_with_name("get_territory"),
                         )),
-                        Box::new(GetTownTraffic::new(game_tx)),
+                        Box::new(GetTownTraffic::new(tx.clone_with_name("get_town_traffic"))),
                         Box::new(UpdateTown::new(tx.clone_with_name("update_town"))),
                         Box::new(RemoveTown::new(tx.clone_with_name("remove_town"))),
                         Box::new(UpdateHomelandPopulation::new(

@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
+use crate::route::{Route, RouteKey, RouteSet, RouteSetKey, Routes};
 use crate::traits::SendRoutes;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
@@ -50,7 +50,7 @@ where
 }
 
 pub fn update_routes_and_get_changes(
-    routes: &mut HashMap<RouteSetKey, RouteSet>,
+    routes: &mut Routes,
     key: RouteSetKey,
     route_set: RouteSet,
 ) -> Vec<RouteChange> {
@@ -63,7 +63,7 @@ pub fn update_routes_and_get_changes(
 }
 
 fn add_and_get_new_and_changed(
-    routes: &mut HashMap<RouteSetKey, RouteSet>,
+    routes: &mut Routes,
     set_key: &RouteSetKey,
     route_set: &RouteSet,
 ) -> Vec<RouteChange> {
@@ -74,7 +74,7 @@ fn add_and_get_new_and_changed(
 }
 
 fn add_and_get_change(
-    routes: &mut HashMap<RouteSetKey, RouteSet>,
+    routes: &mut Routes,
     set_key: RouteSetKey,
     key: RouteKey,
     route: Route,
@@ -101,7 +101,7 @@ fn add_and_get_change(
 }
 
 fn remove_and_get_removed(
-    routes: &mut HashMap<RouteSetKey, RouteSet>,
+    routes: &mut Routes,
     set_key: &RouteSetKey,
     new_route_set: &RouteSet,
 ) -> Vec<RouteChange> {
@@ -129,7 +129,7 @@ mod tests {
     use std::time::Duration;
 
     #[async_trait]
-    impl SendRoutes for Arm<HashMap<RouteSetKey, RouteSet>> {
+    impl SendRoutes for Arm<Routes> {
         async fn send_routes<F, O>(&self, function: F) -> O
         where
             O: Send + 'static,
