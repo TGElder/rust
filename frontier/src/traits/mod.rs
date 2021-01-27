@@ -16,6 +16,7 @@ mod territory;
 mod towns;
 mod update_roads;
 mod visibility;
+mod world;
 mod world_object;
 
 pub use avatars::*;
@@ -36,6 +37,7 @@ pub use territory::*;
 pub use towns::*;
 pub use update_roads::*;
 pub use visibility::*;
+pub use world::*;
 pub use world_object::*;
 
 pub trait NotMock {}
