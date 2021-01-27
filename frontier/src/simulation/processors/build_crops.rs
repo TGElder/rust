@@ -4,9 +4,8 @@ use commons::grid::Grid;
 use commons::rand::prelude::SmallRng;
 use commons::rand::{Rng, SeedableRng};
 
-use crate::game::traits::GetRoute;
 use crate::resource::Resource;
-use crate::route::RouteKey;
+use crate::route::{RouteKey, RoutesExt};
 use crate::traits::{SendRoutes, SendWorld};
 use crate::world::{World, WorldObject};
 

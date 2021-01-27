@@ -1,23 +1,18 @@
 use super::*;
 
-use crate::game::traits::Routes;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
+use crate::traits::SendRoutes;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 
-const NAME: &str = "get_route_changes";
-
-pub struct GetRouteChanges<G>
-where
-    G: Routes + Send,
-{
-    game: FnSender<G>,
+pub struct GetRouteChanges<T> {
+    tx: T,
 }
 
 #[async_trait]
-impl<G> Processor for GetRouteChanges<G>
+impl<T> Processor for GetRouteChanges<T>
 where
-    G: Routes + Send,
+    T: SendRoutes + Send + Sync,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (key, route_set) = match instruction {
@@ -35,14 +30,12 @@ where
     }
 }
 
-impl<G> GetRouteChanges<G>
+impl<T> GetRouteChanges<T>
 where
-    G: Routes + Send,
+    T: SendRoutes,
 {
-    pub fn new(game: &FnSender<G>) -> GetRouteChanges<G> {
-        GetRouteChanges {
-            game: game.clone_with_name(NAME),
-        }
+    pub fn new(tx: T) -> GetRouteChanges<T> {
+        GetRouteChanges { tx }
     }
 
     async fn update_routes_and_get_changes(
@@ -50,14 +43,14 @@ where
         key: RouteSetKey,
         route_set: RouteSet,
     ) -> Vec<RouteChange> {
-        self.game
-            .send(move |game| update_routes_and_get_changes(game, key, route_set))
+        self.tx
+            .send_routes(move |routes| update_routes_and_get_changes(routes, key, route_set))
             .await
     }
 }
 
 pub fn update_routes_and_get_changes(
-    routes: &mut dyn Routes,
+    routes: &mut HashMap<RouteSetKey, RouteSet>,
     key: RouteSetKey,
     route_set: RouteSet,
 ) -> Vec<RouteChange> {
@@ -70,7 +63,7 @@ pub fn update_routes_and_get_changes(
 }
 
 fn add_and_get_new_and_changed(
-    routes: &mut dyn Routes,
+    routes: &mut HashMap<RouteSetKey, RouteSet>,
     set_key: &RouteSetKey,
     route_set: &RouteSet,
 ) -> Vec<RouteChange> {
@@ -81,15 +74,12 @@ fn add_and_get_new_and_changed(
 }
 
 fn add_and_get_change(
-    routes: &mut dyn Routes,
+    routes: &mut HashMap<RouteSetKey, RouteSet>,
     set_key: RouteSetKey,
     key: RouteKey,
     route: Route,
 ) -> Option<RouteChange> {
-    let route_set = routes
-        .routes_mut()
-        .entry(set_key)
-        .or_insert_with(HashMap::new);
+    let route_set = routes.entry(set_key).or_insert_with(HashMap::new);
     match route_set.entry(key) {
         Entry::Occupied(mut entry) => {
             if *entry.get() == route {
@@ -111,14 +101,11 @@ fn add_and_get_change(
 }
 
 fn remove_and_get_removed(
-    routes: &mut dyn Routes,
+    routes: &mut HashMap<RouteSetKey, RouteSet>,
     set_key: &RouteSetKey,
     new_route_set: &RouteSet,
 ) -> Vec<RouteChange> {
-    let old_route_set = routes
-        .routes_mut()
-        .entry(*set_key)
-        .or_insert_with(HashMap::new);
+    let old_route_set = routes.entry(*set_key).or_insert_with(HashMap::new);
     let new_keys: HashSet<RouteKey> = new_route_set.keys().cloned().collect();
     let old_keys: HashSet<RouteKey> = old_route_set.keys().cloned().collect();
     let to_remove = old_keys.difference(&new_keys);
@@ -135,11 +122,22 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use commons::fn_sender::FnThread;
-    use commons::same_elements;
     use commons::v2;
+    use commons::{same_elements, Arm};
     use futures::executor::block_on;
+    use std::sync::Mutex;
     use std::time::Duration;
+
+    #[async_trait]
+    impl SendRoutes for Arm<HashMap<RouteSetKey, RouteSet>> {
+        async fn send_routes<F, O>(&self, function: F) -> O
+        where
+            O: Send + 'static,
+            F: FnOnce(&mut crate::route::Routes) -> O + Send + 'static,
+        {
+            function(&mut self.lock().unwrap())
+        }
+    }
 
     #[test]
     fn should_add_route_and_new_route_change_if_route_is_new() {
@@ -166,14 +164,14 @@ mod tests {
             key => route.clone()
         };
 
-        let game = FnThread::new(routes);
+        let routes = Arc::new(Mutex::new(routes));
 
         // When
         let instruction = Instruction::GetRouteChanges {
             key: set_key,
             route_set,
         };
-        let mut processor = GetRouteChanges::new(&game.tx());
+        let mut processor = GetRouteChanges::new(routes.clone());
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
@@ -184,9 +182,9 @@ mod tests {
                 route: route.clone()
             }])]
         );
-        let routes = game.join();
+        let routes = routes.lock().unwrap();
         assert_eq!(
-            routes,
+            *routes,
             hashmap! {
                 set_key => hashmap! {
                     key => route
@@ -230,14 +228,14 @@ mod tests {
             key => new.clone()
         };
 
-        let game = FnThread::new(routes);
+        let routes = Arc::new(Mutex::new(routes));
 
         // When
         let instruction = Instruction::GetRouteChanges {
             key: set_key,
             route_set,
         };
-        let mut processor = GetRouteChanges::new(&game.tx());
+        let mut processor = GetRouteChanges::new(routes.clone());
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
@@ -251,9 +249,9 @@ mod tests {
                 }
             ])]
         );
-        let routes = game.join();
+        let routes = routes.lock().unwrap();
         assert_eq!(
-            routes,
+            *routes,
             hashmap! {
                 set_key => hashmap! {
                     key => new
@@ -289,14 +287,14 @@ mod tests {
             set_key => route_set.clone()
         };
 
-        let game = FnThread::new(routes);
+        let routes = Arc::new(Mutex::new(routes));
 
         // When
         let instruction = Instruction::GetRouteChanges {
             key: set_key,
             route_set: route_set.clone(),
         };
-        let mut processor = GetRouteChanges::new(&game.tx());
+        let mut processor = GetRouteChanges::new(routes.clone());
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
@@ -306,9 +304,9 @@ mod tests {
                 RouteChange::NoChange { key, route }
             ])],
         );
-        let routes = game.join();
+        let routes = routes.lock().unwrap();
         assert_eq!(
-            routes,
+            *routes,
             hashmap! {
                 set_key => route_set
             }
@@ -342,14 +340,14 @@ mod tests {
 
         let route_set = hashmap! {};
 
-        let game = FnThread::new(routes);
+        let routes = Arc::new(Mutex::new(routes));
 
         // When
         let instruction = Instruction::GetRouteChanges {
             key: set_key,
             route_set,
         };
-        let mut processor = GetRouteChanges::new(&game.tx());
+        let mut processor = GetRouteChanges::new(routes.clone());
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
@@ -359,9 +357,9 @@ mod tests {
                 RouteChange::Removed { key, route }
             ])]
         );
-        let routes = game.join();
+        let routes = routes.lock().unwrap();
         assert_eq!(
-            routes,
+            *routes,
             hashmap! {
                 set_key => hashmap!{}
             }
@@ -405,14 +403,14 @@ mod tests {
             key_2 => route_2.clone()
         };
 
-        let game = FnThread::new(routes);
+        let routes = Arc::new(Mutex::new(routes));
 
         // When
         let instruction = Instruction::GetRouteChanges {
             key: set_key,
             route_set,
         };
-        let mut processor = GetRouteChanges::new(&game.tx());
+        let mut processor = GetRouteChanges::new(routes.clone());
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
@@ -433,9 +431,9 @@ mod tests {
                 }
             ]
         ));
-        let routes = game.join();
+        let routes = routes.lock().unwrap();
         assert_eq!(
-            routes,
+            *routes,
             hashmap! {
                 set_key => hashmap!{
                     key_1 => route_1,

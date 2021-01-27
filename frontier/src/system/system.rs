@@ -260,7 +260,9 @@ impl System {
                         Box::new(GetDemand::new(town_demand_fn)),
                         Box::new(GetDemand::new(homeland_demand_fn)),
                         Box::new(GetRoutes::new(tx.clone_with_name("get_routes"))),
-                        Box::new(GetRouteChanges::new(game_tx)),
+                        Box::new(GetRouteChanges::new(
+                            tx.clone_with_name("get_route_changes"),
+                        )),
                         Box::new(UpdatePositionTraffic::new()),
                         Box::new(UpdateEdgeTraffic::new()),
                         Box::new(BuildTown::new(tx.clone_with_name("build_town"))),

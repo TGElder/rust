@@ -2,8 +2,7 @@ use std::collections::HashSet;
 
 use commons::edge::Edge;
 
-use crate::game::traits::GetRoute;
-use crate::route::{Route, RouteKey, Routes};
+use crate::route::{Route, RouteKey, Routes, RoutesExt};
 use crate::traits::{PlanRoad, RoadPlanned, SendRoutes, SendWorld};
 use crate::travel_duration::TravelDuration;
 use crate::world::World;

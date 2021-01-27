@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use commons::grid::Grid;
 
-use crate::game::traits::GetRoute;
-use crate::route::RouteKey;
+use crate::route::{RouteKey, RoutesExt};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{AnyoneControls, GetSettlement, RandomTownName, SendRoutes, SendWorld};
 
