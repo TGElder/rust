@@ -56,7 +56,7 @@ RevealPositionsVoyager SendWorld
 RevealPositionsVoyager UpdatePositionsAllPathfinders
 RoadPlanned SendWorld
 SelectedAvatar SendAvatars
-SendAvatars SendGame
+SendAvatars SendAvatarsActor
 SendAvatarArtist Micros
 SendAvatarArtist SendAvatars
 SendAvatarArtist SendRotate

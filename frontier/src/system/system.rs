@@ -7,10 +7,11 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Clock,
-    Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, RealTime,
-    ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters,
+    AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
+    Cheats, Clock, Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover,
+    RealTime, ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -33,6 +34,7 @@ use commons::process::Process;
 pub struct System {
     pub tx: Polysender,
     pub pool: ThreadPool,
+    pub avatars: Process<AvatarsActor>,
     pub avatar_artist: Process<AvatarArtistActor<Polysender>>,
     pub avatar_visibility: Process<AvatarVisibility<Polysender>>,
     pub basic_avatar_controls: Process<BasicAvatarControls<Polysender>>,
@@ -69,6 +71,7 @@ impl System {
     ) -> System {
         let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
         let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();
+        let (avatars_tx, avatars_rx) = fn_channel();
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
@@ -96,6 +99,7 @@ impl System {
             game_tx: game_tx.clone_with_name("polysender"),
             avatar_artist_tx,
             avatar_visibility_tx,
+            avatars_tx,
             basic_avatar_controls_tx,
             basic_road_builder_tx,
             cheats_tx,
@@ -148,6 +152,7 @@ impl System {
                 AvatarVisibility::new(tx.clone_with_name("avatar_visibility")),
                 avatar_visibility_rx,
             ),
+            avatars: Process::new(AvatarsActor::new(), avatars_rx),
             basic_avatar_controls: Process::new(
                 BasicAvatarControls::new(
                     tx.clone_with_name("basic_avatar_controls"),
@@ -381,6 +386,7 @@ impl System {
     }
 
     pub async fn start(&mut self) {
+        self.avatars.run_passive(&self.pool).await;
         self.clock.run_passive(&self.pool).await;
 
         self.pathfinder_with_planned_roads
@@ -452,9 +458,11 @@ impl System {
             .await;
 
         self.clock.drain(&self.pool, true).await;
+        self.avatars.drain(&self.pool, true).await;
     }
 
     pub async fn save(&mut self, path: &str) {
+        self.avatars.object_ref().unwrap().save(path);
         self.clock.object_mut().unwrap().save(path);
         self.labels.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
@@ -466,6 +474,7 @@ impl System {
     }
 
     pub fn load(&mut self, path: &str) {
+        self.avatars.object_mut().unwrap().load(path);
         self.clock.object_mut().unwrap().load(path);
         self.labels.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);

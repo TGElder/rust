@@ -1,8 +1,8 @@
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, Cheats, Clock,
-    Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover, RealTime,
-    ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
+    Cheats, Clock, Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover,
+    RealTime, ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -31,6 +31,7 @@ pub struct Polysender {
     pub game_tx: FnSender<Game>,
     pub avatar_artist_tx: FnSender<AvatarArtistActor<Polysender>>,
     pub avatar_visibility_tx: FnSender<AvatarVisibility<Polysender>>,
+    pub avatars_tx: FnSender<AvatarsActor>,
     pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Polysender>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
     pub cheats_tx: FnSender<Cheats<Polysender>>,
@@ -62,6 +63,7 @@ impl Polysender {
             game_tx: self.game_tx.clone_with_name(name),
             avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
             avatar_visibility_tx: self.avatar_visibility_tx.clone_with_name(name),
+            avatars_tx: self.avatars_tx.clone_with_name(name),
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             cheats_tx: self.cheats_tx.clone_with_name(name),
@@ -100,8 +102,8 @@ impl SendAvatars for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut Avatars) -> O + Send + 'static,
     {
-        self.game_tx
-            .send(move |game| function(&mut game.mut_state().avatars))
+        self.avatars_tx
+            .send(move |avatars| function(&mut avatars.state()))
             .await
     }
 
@@ -110,8 +112,8 @@ impl SendAvatars for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut Avatars) -> O + Send + 'static,
     {
-        self.game_tx
-            .send(move |game| function(&mut game.mut_state().avatars));
+        self.avatars_tx
+            .send(move |avatars| function(&mut avatars.state()));
     }
 }
 
