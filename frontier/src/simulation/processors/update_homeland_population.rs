@@ -1,6 +1,6 @@
 use super::*;
 use crate::settlement::{Settlement, SettlementClass::Homeland};
-use crate::traits::{SendWorld, Settlements, UpdateSettlement};
+use crate::traits::{Settlements, UpdateSettlement, VisibleLandPositions};
 
 pub struct UpdateHomelandPopulation<T> {
     tx: T,
@@ -9,14 +9,14 @@ pub struct UpdateHomelandPopulation<T> {
 #[async_trait]
 impl<T> Processor for UpdateHomelandPopulation<T>
 where
-    T: SendWorld + Settlements + UpdateSettlement + Send + Sync + 'static,
+    T: Settlements + UpdateSettlement + VisibleLandPositions + Send + Sync + 'static,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::UpdateHomelandPopulation => (),
             _ => return state,
         };
-        let visibile_land_positions = self.visibile_land_positions().await;
+        let visibile_land_positions = self.tx.visible_land_positions().await;
         self.update_homelands(visibile_land_positions as f64).await;
         state
     }
@@ -24,22 +24,10 @@ where
 
 impl<T> UpdateHomelandPopulation<T>
 where
-    T: SendWorld + Settlements + UpdateSettlement + Send + Sync + 'static,
+    T: Settlements + UpdateSettlement + VisibleLandPositions + Send + Sync + 'static,
 {
     pub fn new(tx: T) -> UpdateHomelandPopulation<T> {
         UpdateHomelandPopulation { tx }
-    }
-
-    async fn visibile_land_positions(&self) -> usize {
-        self.tx
-            .send_world(|world| {
-                world
-                    .cells()
-                    .filter(|cell| cell.visible)
-                    .filter(|cell| !world.is_sea(&cell.position))
-                    .count()
-            })
-            .await
     }
 
     async fn update_homelands(&self, total_population: f64) {
@@ -71,34 +59,20 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world::World;
-    use commons::grid::Grid;
-    use commons::{v2, Arm, M};
+    use commons::{v2, Arm};
     use futures::executor::block_on;
     use std::collections::HashMap;
     use std::sync::Mutex;
 
     struct Tx {
         settlements: Arm<HashMap<V2<usize>, Settlement>>,
-        world: Arm<World>,
+        visible_land_positions: usize,
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap())
-        }
-
-        fn send_world_background<F, O>(&self, function: F)
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap());
+    impl VisibleLandPositions for Tx {
+        async fn visible_land_positions(&self) -> usize {
+            self.visible_land_positions
         }
     }
 
@@ -135,16 +109,9 @@ mod tests {
             },
         }));
 
-        // 2 visible cells above sea level
-        let mut world = World::new(M::from_fn(3, 3, |x, _| if x == 1 { 1.0 } else { 0.0 }), 0.5);
-        world.mut_cell_unsafe(&v2(0, 0)).visible = true;
-        world.mut_cell_unsafe(&v2(0, 1)).visible = true;
-        world.mut_cell_unsafe(&v2(1, 0)).visible = true;
-        world.mut_cell_unsafe(&v2(1, 1)).visible = true;
-
         let tx = Tx {
             settlements,
-            world: Arc::new(Mutex::new(world)),
+            visible_land_positions: 202,
         };
         let mut processor = UpdateHomelandPopulation::new(tx);
 
@@ -157,13 +124,13 @@ mod tests {
             v2(0, 1) => Settlement{
                 position: v2(0, 1),
                 class: Homeland,
-                target_population: 1.0,
+                target_population: 101.0,
                 ..Settlement::default()
             },
             v2(0, 2) => Settlement{
                 position: v2(0, 2),
                 class: Homeland,
-                target_population: 1.0,
+                target_population: 101.0,
                 ..Settlement::default()
             },
         };

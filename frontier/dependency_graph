@@ -106,6 +106,7 @@ SendSetupNewWorld SendNations
 SendSetupNewWorld SendParameters
 SendSetupNewWorld SendSettlements
 SendSetupNewWorld SendWorld
+SendSetupNewWorld VisibleLandPositions
 SendSim AddCrops
 SendSim AddRoad
 SendSim AddTown
@@ -129,6 +130,7 @@ SendSim SendWorld
 SendSim Settlements
 SendSim UpdateSettlement
 SendSim UpdateTerritory
+SendSim VisibleLandPositions
 SendSim WhoControlsTile
 SendSpeedControl SendGameState
 SendTerritory SendGame
@@ -187,4 +189,5 @@ UpdateTerritory SendPathfinder
 UpdateTerritory SendParameters
 UpdateTerritory SetControlDurations
 Visibility SendVisibility
+VisibleLandPositions SendWorld
 WhoControlsTile SendTerritory
