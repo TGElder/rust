@@ -2,7 +2,6 @@ use super::*;
 
 use crate::nation::Nation;
 use crate::settlement::*;
-use crate::territory::*;
 use crate::world::*;
 
 use serde::{Deserialize, Serialize};
@@ -17,7 +16,6 @@ pub struct GameState {
     pub params: GameParams,
     pub nations: HashMap<String, Nation>,
     pub settlements: HashMap<V2<usize>, Settlement>,
-    pub territory: Territory,
 }
 
 impl Default for GameState {
@@ -27,7 +25,6 @@ impl Default for GameState {
             params: GameParams::default(),
             nations: HashMap::new(),
             settlements: HashMap::new(),
-            territory: Territory::new(&world),
             world,
         }
     }
@@ -92,7 +89,6 @@ mod tests {
             },
         );
         let game_state = GameState {
-            territory: Territory::new(&world),
             world,
             params: GameParams::default(),
             nations,

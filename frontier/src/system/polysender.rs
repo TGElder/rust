@@ -1,8 +1,8 @@
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
     Cheats, Clock, Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover,
-    RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl, TerritoryActor,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -50,6 +50,7 @@ pub struct Polysender {
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
     pub speed_control_tx: FnSender<SpeedControl<Polysender>>,
+    pub territory_tx: FnSender<TerritoryActor>,
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
     pub town_label_artist_tx: FnSender<TownLabelArtist<Polysender>>,
@@ -87,6 +88,7 @@ impl Polysender {
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
             speed_control_tx: self.speed_control_tx.clone_with_name(name),
+            territory_tx: self.territory_tx.clone_with_name(name),
             town_builder_tx: self.town_builder_tx.clone_with_name(name),
             town_house_artist_tx: self.town_house_artist_tx.clone_with_name(name),
             town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
@@ -240,8 +242,8 @@ impl SendTerritory for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut Territory) -> O + Send + 'static,
     {
-        self.game_tx
-            .send(move |game| function(&mut game.mut_state().territory))
+        self.territory_tx
+            .send(move |territory| function(&mut territory.state()))
             .await
     }
 }
