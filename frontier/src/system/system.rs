@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::sync::Arc;
 
 use commons::fn_sender::{fn_channel, FnSender};
@@ -143,7 +142,6 @@ impl System {
         let road_build_travel_duration = Arc::new(AutoRoadTravelDuration::from_params(
             &game_state.params.auto_road_travel,
         ));
-        let width = 2usize.pow(game_state.params.power.try_into().unwrap());
 
         let config = System {
             tx: tx.clone_with_name("processes"),
@@ -291,7 +289,10 @@ impl System {
                 SpeedControl::new(tx.clone_with_name("speed_control")),
                 speed_control_rx,
             ),
-            territory: Process::new(TerritoryActor::new(width, width), territory_rx),
+            territory: Process::new(
+                TerritoryActor::new(game_state.params.width, game_state.params.width),
+                territory_rx,
+            ),
             town_builder: Process::new(
                 TownBuilderActor::new(tx.clone_with_name("town_builder_actor")),
                 town_builder_rx,
