@@ -1,24 +1,15 @@
 use super::*;
-use crate::game::traits::{Controlled, Settlements};
-use crate::settlement::{Settlement, SettlementClass::Town};
-use crate::traits::UpdateTerritory;
-use std::collections::HashSet;
+use crate::settlement::SettlementClass::Town;
+use crate::traits::{Controlled, GetSettlement, UpdateTerritory};
 
-const NAME: &str = "get_territory";
-
-pub struct GetTerritory<G, T>
-where
-    G: Send,
-{
-    game: FnSender<G>,
+pub struct GetTerritory<T> {
     tx: T,
 }
 
 #[async_trait]
-impl<G, T> Processor for GetTerritory<G, T>
+impl<T> Processor for GetTerritory<T>
 where
-    G: Controlled + Settlements + Send,
-    T: UpdateTerritory + Send,
+    T: Controlled + GetSettlement + UpdateTerritory + Send + Sync,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let settlement = match instruction {
@@ -26,13 +17,13 @@ where
             _ => return state,
         };
 
-        let settlement = unwrap_or!(self.settlement(settlement).await, return state);
+        let settlement = unwrap_or!(self.tx.get_settlement(settlement).await, return state);
         if settlement.class != Town {
             return state;
         };
 
         self.tx.update_territory(settlement.position).await;
-        let territory = self.territory(settlement.position).await;
+        let territory = self.tx.controlled(settlement.position).await;
 
         state.instructions.push(Instruction::GetTownTraffic {
             settlement,
@@ -43,75 +34,49 @@ where
     }
 }
 
-impl<G, T> GetTerritory<G, T>
+impl<T> GetTerritory<T>
 where
-    G: Controlled + Settlements + Send,
-    T: UpdateTerritory,
+    T: Controlled + GetSettlement + UpdateTerritory + Send,
 {
-    pub fn new(game: &FnSender<G>, tx: T) -> GetTerritory<G, T> {
-        GetTerritory {
-            game: game.clone_with_name(NAME),
-            tx,
-        }
+    pub fn new(tx: T) -> GetTerritory<T> {
+        GetTerritory { tx }
     }
-
-    async fn settlement(&mut self, position: V2<usize>) -> Option<Settlement> {
-        self.game.send(move |game| settlement(game, position)).await
-    }
-
-    async fn territory(&mut self, settlement: V2<usize>) -> HashSet<V2<usize>> {
-        self.game
-            .send(move |game| territory(game, settlement))
-            .await
-    }
-}
-
-fn settlement<G>(game: &mut G, settlement: V2<usize>) -> Option<Settlement>
-where
-    G: Settlements,
-{
-    game.get_settlement(&settlement).cloned()
-}
-
-fn territory<G>(game: &mut G, settlement: V2<usize>) -> HashSet<V2<usize>>
-where
-    G: Controlled,
-{
-    game.controlled(&settlement)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use crate::settlement::Settlement;
     use crate::settlement::SettlementClass::Homeland;
-    use commons::fn_sender::FnThread;
     use commons::{v2, Arm};
     use futures::executor::block_on;
-    use std::collections::HashMap;
-    use std::sync::{Arc, Mutex};
+    use std::collections::{HashMap, HashSet};
 
-    struct MockGame {
+    struct Tx {
         territory: HashSet<V2<usize>>,
         settlements: HashMap<V2<usize>, Settlement>,
+        updated_territory: Arm<Vec<V2<usize>>>,
     }
 
-    impl Controlled for MockGame {
-        fn controlled(&self, _: &V2<usize>) -> HashSet<V2<usize>> {
+    #[async_trait]
+    impl Controlled for Tx {
+        async fn controlled(&self, _: V2<usize>) -> HashSet<V2<usize>> {
             self.territory.clone()
         }
     }
 
-    impl Settlements for MockGame {
-        fn settlements(&self) -> &HashMap<V2<usize>, Settlement> {
-            &self.settlements
+    #[async_trait]
+    impl GetSettlement for Tx {
+        async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
+            self.settlements.get(&position).cloned()
         }
     }
 
     #[async_trait]
-    impl UpdateTerritory for Arm<Vec<V2<usize>>> {
+    impl UpdateTerritory for Tx {
         async fn update_territory(&mut self, controller: V2<usize>) {
-            self.lock().unwrap().push(controller);
+            self.updated_territory.lock().unwrap().push(controller);
         }
     }
 
@@ -125,22 +90,24 @@ mod tests {
         };
         let territory = hashset! { v2(1, 2), v2(3, 4) };
         let settlements = hashmap! {settlement.position => settlement.clone() };
-        let game = MockGame {
+        let updated_territory = Arm::default();
+        let tx = Tx {
             territory: territory.clone(),
             settlements,
+            updated_territory: updated_territory.clone(),
         };
-        let game = FnThread::new(game);
 
-        let updated_territory = Arc::new(Mutex::new(vec![]));
-
-        let mut processor = GetTerritory::new(&game.tx(), updated_territory);
+        let mut processor = GetTerritory::new(tx);
 
         // Given
         let instruction = Instruction::GetTerritory(settlement.position);
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert_eq!(*processor.tx.lock().unwrap(), vec![settlement.position]);
+        assert_eq!(
+            *updated_territory.lock().unwrap(),
+            vec![settlement.position]
+        );
         assert_eq!(
             state.instructions[0],
             Instruction::GetTownTraffic {
@@ -148,9 +115,6 @@ mod tests {
                 territory
             }
         );
-
-        // Finally
-        game.join();
     }
 
     #[test]
@@ -162,51 +126,43 @@ mod tests {
         };
         let territory = hashset! {};
         let settlements = hashmap! {settlement.position => settlement.clone() };
-        let game = MockGame {
+        let updated_territory = Arm::default();
+        let tx = Tx {
             territory,
             settlements,
+            updated_territory: updated_territory.clone(),
         };
-        let game = FnThread::new(game);
 
-        let updated_territory = Arc::new(Mutex::new(vec![]));
-
-        let mut processor = GetTerritory::new(&game.tx(), updated_territory);
+        let mut processor = GetTerritory::new(tx);
 
         // Given
         let instruction = Instruction::GetTerritory(settlement.position);
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert!(processor.tx.lock().unwrap().is_empty());
+        assert!(updated_territory.lock().unwrap().is_empty());
         assert_eq!(state.instructions, vec![]);
-
-        // Finally
-        game.join();
     }
 
     #[test]
     fn should_do_nothing_if_settlement_does_not_exist() {
         let territory = hashset! {};
         let settlements = hashmap! {};
-        let game = MockGame {
+        let updated_territory = Arm::default();
+        let tx = Tx {
             territory,
             settlements,
+            updated_territory: updated_territory.clone(),
         };
-        let game = FnThread::new(game);
 
-        let updated_territory = Arc::new(Mutex::new(vec![]));
-
-        let mut processor = GetTerritory::new(&game.tx(), updated_territory);
+        let mut processor = GetTerritory::new(tx);
 
         // Given
         let instruction = Instruction::GetTerritory(v2(5, 6));
         let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
-        assert!(processor.tx.lock().unwrap().is_empty());
+        assert!(updated_territory.lock().unwrap().is_empty());
         assert_eq!(state.instructions, vec![]);
-
-        // Finally
-        game.join();
     }
 }

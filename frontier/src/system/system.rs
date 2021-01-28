@@ -247,10 +247,7 @@ impl System {
                         )),
                         Box::new(StepHomeland::new(game_tx)),
                         Box::new(StepTown::new(game_tx)),
-                        Box::new(GetTerritory::new(
-                            game_tx,
-                            tx.clone_with_name("get_territory"),
-                        )),
+                        Box::new(GetTerritory::new(tx.clone_with_name("get_territory"))),
                         Box::new(GetTownTraffic::new(tx.clone_with_name("get_town_traffic"))),
                         Box::new(UpdateTown::new(tx.clone_with_name("update_town"))),
                         Box::new(RemoveTown::new(tx.clone_with_name("remove_town"))),
