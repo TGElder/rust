@@ -59,9 +59,7 @@ struct RoadRiverPositionsResult {
 }
 
 impl WorldArtist {
-    pub fn new(world: &World, params: WorldArtistParameters) -> WorldArtist {
-        let width = world.width();
-        let height = world.height();
+    pub fn new(width: usize, height: usize, params: WorldArtistParameters) -> WorldArtist {
         WorldArtist {
             width,
             height,

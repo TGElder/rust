@@ -15,7 +15,7 @@ use crate::actors::{
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
-use crate::game::{Game, GameState};
+use crate::game::{Game, GameParams};
 use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};
@@ -66,7 +66,7 @@ pub struct System {
 
 impl System {
     pub fn new(
-        game_state: &GameState,
+        params: &GameParams,
         engine: &mut IsometricEngine,
         game_tx: &FnSender<Game>,
         pool: ThreadPool,
@@ -134,13 +134,13 @@ impl System {
         engine.add_event_handler(ZoomHandler::default());
 
         let avatar_travel_duration_with_planned_roads = Arc::new(
-            AvatarTravelDuration::with_planned_roads_as_roads(&game_state.params.avatar_travel),
+            AvatarTravelDuration::with_planned_roads_as_roads(&params.avatar_travel),
         );
         let avatar_travel_duration_without_planned_roads = Arc::new(
-            AvatarTravelDuration::with_planned_roads_ignored(&game_state.params.avatar_travel),
+            AvatarTravelDuration::with_planned_roads_ignored(&params.avatar_travel),
         );
         let road_build_travel_duration = Arc::new(AutoRoadTravelDuration::from_params(
-            &game_state.params.auto_road_travel,
+            &params.auto_road_travel,
         ));
 
         let config = System {
@@ -150,7 +150,7 @@ impl System {
                 AvatarArtistActor::new(
                     tx.clone_with_name("avatar_artist"),
                     engine.command_tx(),
-                    AvatarArtist::new(AvatarArtistParams::new(&game_state.params.light_direction)),
+                    AvatarArtist::new(AvatarArtistParams::new(&params.light_direction)),
                 ),
                 avatar_artist_rx,
             ),
@@ -175,10 +175,7 @@ impl System {
                 basic_road_builder_rx,
             ),
             cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
-            clock: Process::new(
-                Clock::new(RealTime {}, game_state.params.default_speed),
-                clock_rx,
-            ),
+            clock: Process::new(Clock::new(RealTime {}, params.default_speed), clock_rx),
             event_forwarder: Process::new(
                 EventForwarderActor::new(tx.clone_with_name("event_forwarder")),
                 event_forwarder_rx,
@@ -188,13 +185,17 @@ impl System {
                 labels_rx,
             ),
             object_builder: Process::new(
-                ObjectBuilder::new(tx.clone_with_name("object_builder"), game_state.params.seed),
+                ObjectBuilder::new(tx.clone_with_name("object_builder"), params.seed),
                 object_builder_rx,
             ),
             pathfinder_with_planned_roads: Process::new(
                 PathfinderService::new(
                     tx.clone_with_name("pathfinder_with_planned_roads"),
-                    Pathfinder::new(&game_state.world, avatar_travel_duration_with_planned_roads),
+                    Pathfinder::new(
+                        params.width,
+                        params.width,
+                        avatar_travel_duration_with_planned_roads,
+                    ),
                 ),
                 pathfinder_with_planned_roads_rx,
             ),
@@ -202,7 +203,8 @@ impl System {
                 PathfinderService::new(
                     tx.clone_with_name("pathfinder_without_planned_roads"),
                     Pathfinder::new(
-                        &game_state.world,
+                        params.width,
+                        params.width,
                         avatar_travel_duration_without_planned_roads.clone(),
                     ),
                 ),
@@ -218,10 +220,10 @@ impl System {
             prime_mover: Process::new(
                 PrimeMover::new(
                     tx.clone_with_name("prime_mover"),
-                    game_state.params.avatars,
-                    game_state.params.seed,
+                    params.avatars,
+                    params.seed,
                     avatar_travel_duration_without_planned_roads,
-                    &game_state.params.nations,
+                    &params.nations,
                 ),
                 prime_mover_rx,
             ),
@@ -272,7 +274,7 @@ impl System {
                         Box::new(BuildTown::new(tx.clone_with_name("build_town"))),
                         Box::new(BuildCrops::new(
                             tx.clone_with_name("build_crops"),
-                            game_state.params.seed,
+                            params.seed,
                         )),
                         Box::new(RemoveCrops::new(tx.clone_with_name("remove_crops"))),
                         Box::new(BuildRoad::new(
@@ -290,7 +292,7 @@ impl System {
                 speed_control_rx,
             ),
             territory: Process::new(
-                TerritoryActor::new(game_state.params.width, game_state.params.width),
+                TerritoryActor::new(params.width, params.width),
                 territory_rx,
             ),
             town_builder: Process::new(
@@ -301,7 +303,7 @@ impl System {
                 TownHouseArtist::new(
                     tx.clone_with_name("town_houses"),
                     engine.command_tx(),
-                    game_state.params.town_artist,
+                    params.town_artist,
                 ),
                 town_house_artist_rx,
             ),
@@ -309,7 +311,7 @@ impl System {
                 TownLabelArtist::new(
                     tx.clone_with_name("town_labels"),
                     engine.command_tx(),
-                    game_state.params.town_artist,
+                    params.town_artist,
                 ),
                 town_label_artist_rx,
             ),
@@ -323,24 +325,22 @@ impl System {
                     tx.clone_with_name("world_artist_actor"),
                     engine.command_tx(),
                     WorldArtist::new(
-                        &game_state.world,
+                        params.width,
+                        params.width,
                         WorldArtistParameters {
-                            waterfall_gradient: game_state
-                                .params
-                                .avatar_travel
-                                .max_navigable_river_gradient,
+                            waterfall_gradient: params.avatar_travel.max_navigable_river_gradient,
                             ..WorldArtistParameters::default()
                         },
                     ),
                     WorldColoringParameters {
-                        colors: game_state.params.base_colors,
-                        beach_level: game_state.params.world_gen.beach_level,
-                        cliff_gradient: game_state.params.world_gen.cliff_gradient,
-                        snow_temperature: game_state.params.snow_temperature,
-                        light_direction: game_state.params.light_direction,
+                        colors: params.base_colors,
+                        beach_level: params.world_gen.beach_level,
+                        cliff_gradient: params.world_gen.cliff_gradient,
+                        snow_temperature: params.snow_temperature,
+                        light_direction: params.light_direction,
                     },
                     0.3,
-                    &game_state.params.nations,
+                    &params.nations,
                 ),
                 world_artist_rx,
             ),

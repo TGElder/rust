@@ -24,11 +24,11 @@ impl<T> Pathfinder<T>
 where
     T: TravelDuration,
 {
-    pub fn new(world: &World, travel_duration: Arc<T>) -> Pathfinder<T> {
+    pub fn new(width: usize, height: usize, travel_duration: Arc<T>) -> Pathfinder<T> {
         Pathfinder {
-            index: Index2D::new(world.width(), world.height()),
+            index: Index2D::new(width, height),
             travel_duration,
-            network: Network::new(world.width() * world.height(), &[]),
+            network: Network::new(width * height, &[]),
         }
     }
 
@@ -295,7 +295,7 @@ mod tests {
 
     fn pathfinder() -> Pathfinder<TestTravelDuration> {
         let world = &world();
-        let mut out = Pathfinder::new(world, Arc::new(travel_duration()));
+        let mut out = Pathfinder::new(world.width(), world.height(), Arc::new(travel_duration()));
         out.reset_edges(world);
         out
     }

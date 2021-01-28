@@ -75,7 +75,7 @@ fn main() {
     let thread_pool = ThreadPool::new().unwrap();
 
     let mut system = System::new(
-        &game.game_state(),
+        &game.game_state().params,
         &mut engine,
         game.tx(),
         thread_pool.clone(),
