@@ -176,13 +176,13 @@ mod tests {
     use std::time::Duration;
 
     #[derive(Default)]
-    struct MockGame {
+    struct Tx {
         routes: Mutex<Routes>,
         settlements: Mutex<HashMap<V2<usize>, Settlement>>,
     }
 
     #[async_trait]
-    impl SendRoutes for MockGame {
+    impl SendRoutes for Tx {
         async fn send_routes<F, O>(&self, function: F) -> O
         where
             O: Send + 'static,
@@ -193,7 +193,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendSettlements for MockGame {
+    impl SendSettlements for Tx {
         async fn send_settlements<F, O>(&self, function: F) -> O
         where
             O: Send + 'static,
@@ -223,7 +223,7 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -231,7 +231,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key = RouteKey {
@@ -245,9 +245,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
+        add_route(route_key, route, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -285,7 +285,7 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(2, 0) => Settlement{
                     position: v2(2, 0),
@@ -293,7 +293,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key = RouteKey {
@@ -307,9 +307,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
+        add_route(route_key, route, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -348,7 +348,7 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(2, 0) => Settlement{
                     position: v2(2, 0),
@@ -356,7 +356,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key = RouteKey {
@@ -370,9 +370,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
+        add_route(route_key, route, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -411,7 +411,7 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -419,7 +419,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key = RouteKey {
@@ -433,9 +433,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
+        add_route(route_key, route, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -474,7 +474,7 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -487,7 +487,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key_1 = RouteKey {
@@ -501,7 +501,7 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key_1, route_1, &game.routes, &mut traffic);
+        add_route(route_key_1, route_1, &tx.routes, &mut traffic);
 
         let route_key_2 = RouteKey {
             settlement: v2(3, 3),
@@ -514,9 +514,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(3),
         };
-        add_route(route_key_2, route_2, &game.routes, &mut traffic);
+        add_route(route_key_2, route_2, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -554,7 +554,7 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -567,7 +567,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key_1 = RouteKey {
@@ -581,7 +581,7 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key_1, route_1, &game.routes, &mut traffic);
+        add_route(route_key_1, route_1, &tx.routes, &mut traffic);
 
         let route_key_2 = RouteKey {
             settlement: v2(3, 3),
@@ -594,9 +594,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(3),
         };
-        add_route(route_key_2, route_2, &game.routes, &mut traffic);
+        add_route(route_key_2, route_2, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -646,14 +646,14 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key = RouteKey {
@@ -675,9 +675,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
+        add_route(route_key, route, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -712,14 +712,14 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(3, 1) => Settlement{
                     position: v2(3, 1),
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
         let route_key = RouteKey {
             settlement: v2(3, 1),
@@ -732,9 +732,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
+        add_route(route_key, route, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -769,14 +769,14 @@ mod tests {
         let territory = hashset! { v2(2, 0), v2(2, 1), v2(2, 2), v2(2, 3) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 1) => Settlement{
                     position: v2(0, 1),
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key = RouteKey {
@@ -790,9 +790,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
+        add_route(route_key, route, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -829,7 +829,7 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let mut game = MockGame {
+        let mut tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -837,7 +837,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key = RouteKey {
@@ -851,10 +851,10 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
-        game.routes = Mutex::default(); // Removing route to create invalid state
+        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.routes = Mutex::default(); // Removing route to create invalid state
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -888,7 +888,7 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame {
+        let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -896,7 +896,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..MockGame::default()
+            ..Tx::default()
         };
 
         let route_key = RouteKey {
@@ -910,9 +910,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
+        add_route(route_key, route, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
@@ -950,7 +950,7 @@ mod tests {
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
-        let game = MockGame::default();
+        let tx = Tx::default();
 
         let route_key = RouteKey {
             settlement: v2(0, 0),
@@ -963,9 +963,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &game.routes, &mut traffic);
+        add_route(route_key, route, &tx.routes, &mut traffic);
 
-        let mut processor = GetTownTraffic::new(game);
+        let mut processor = GetTownTraffic::new(tx);
 
         let state = State {
             traffic,
