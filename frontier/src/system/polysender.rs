@@ -1,8 +1,9 @@
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
-    Cheats, Clock, Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover,
-    RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl, TerritoryActor,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService, PathfindingAvatarControls,
+    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl,
+    TerritoryActor, TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
+    WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -37,6 +38,7 @@ pub struct Polysender {
     pub cheats_tx: FnSender<Cheats<Polysender>>,
     pub clock_tx: FnSender<Clock<RealTime>>,
     pub labels_tx: FnSender<Labels<Polysender>>,
+    pub nations_tx: FnSender<Nations>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
     pub pathfinder_with_planned_roads_tx:
@@ -71,6 +73,7 @@ impl Polysender {
             cheats_tx: self.cheats_tx.clone_with_name(name),
             clock_tx: self.clock_tx.clone_with_name(name),
             labels_tx: self.labels_tx.clone_with_name(name),
+            nations_tx: self.nations_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
@@ -160,8 +163,8 @@ impl SendNations for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut HashMap<String, Nation>) -> O + Send + 'static,
     {
-        self.game_tx
-            .send(move |game| function(&mut game.mut_state().nations))
+        self.nations_tx
+            .send(move |nations| function(&mut nations.state()))
             .await
     }
 }

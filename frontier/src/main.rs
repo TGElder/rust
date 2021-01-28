@@ -123,7 +123,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
     GameState {
         world,
         params,
-        nations: HashMap::new(),
         settlements: HashMap::new(),
     }
 }

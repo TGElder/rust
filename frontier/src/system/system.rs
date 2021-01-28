@@ -8,10 +8,10 @@ use isometric::IsometricEngine;
 
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
-    Cheats, Clock, Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover,
-    RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl, TerritoryActor,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
-    WorldColoringParameters,
+    Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService, PathfindingAvatarControls,
+    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl,
+    TerritoryActor, TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
+    WorldArtistActor, WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -43,6 +43,7 @@ pub struct System {
     pub clock: Process<Clock<RealTime>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub labels: Process<Labels<Polysender>>,
+    pub nations: Process<Nations>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
     pub pathfinder_with_planned_roads: Process<PathfinderService<Polysender, AvatarTravelDuration>>,
@@ -79,6 +80,7 @@ impl System {
         let (cheats_tx, cheats_rx) = fn_channel();
         let (clock_tx, clock_rx) = fn_channel();
         let (labels_tx, labels_rx) = fn_channel();
+        let (nations_tx, nations_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
         let (pathfinder_without_planned_roads_tx, pathfinder_without_planned_roads_rx) =
@@ -109,6 +111,7 @@ impl System {
             cheats_tx,
             clock_tx,
             labels_tx,
+            nations_tx,
             object_builder_tx,
             pathfinder_with_planned_roads_tx,
             pathfinder_without_planned_roads_tx,
@@ -184,6 +187,7 @@ impl System {
                 Labels::new(tx.clone_with_name("labels"), engine.command_tx()),
                 labels_rx,
             ),
+            nations: Process::new(Nations::new(), nations_rx),
             object_builder: Process::new(
                 ObjectBuilder::new(tx.clone_with_name("object_builder"), params.seed),
                 object_builder_rx,
@@ -398,6 +402,7 @@ impl System {
     pub async fn start(&mut self) {
         self.avatars.run_passive(&self.pool).await;
         self.clock.run_passive(&self.pool).await;
+        self.nations.run_passive(&self.pool).await;
         self.routes.run_passive(&self.pool).await;
         self.territory.run_passive(&self.pool).await;
 
@@ -471,6 +476,7 @@ impl System {
 
         self.territory.drain(&self.pool, true).await;
         self.routes.drain(&self.pool, true).await;
+        self.nations.drain(&self.pool, true).await;
         self.clock.drain(&self.pool, true).await;
         self.avatars.drain(&self.pool, true).await;
     }
@@ -479,6 +485,7 @@ impl System {
         self.avatars.object_ref().unwrap().save(path);
         self.clock.object_mut().unwrap().save(path);
         self.labels.object_ref().unwrap().save(path);
+        self.nations.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
         self.routes.object_ref().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
@@ -493,6 +500,7 @@ impl System {
         self.avatars.object_mut().unwrap().load(path);
         self.clock.object_mut().unwrap().load(path);
         self.labels.object_mut().unwrap().load(path);
+        self.nations.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);
         self.routes.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);

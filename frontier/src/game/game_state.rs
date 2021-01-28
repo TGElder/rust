@@ -1,6 +1,5 @@
 use super::*;
 
-use crate::nation::Nation;
 use crate::settlement::*;
 use crate::world::*;
 
@@ -14,7 +13,6 @@ use std::io::{BufReader, BufWriter};
 pub struct GameState {
     pub world: World,
     pub params: GameParams,
-    pub nations: HashMap<String, Nation>,
     pub settlements: HashMap<V2<usize>, Settlement>,
 }
 
@@ -23,7 +21,6 @@ impl Default for GameState {
         let world = World::new(M::zeros(1, 1), 0.0);
         GameState {
             params: GameParams::default(),
-            nations: HashMap::new(),
             settlements: HashMap::new(),
             world,
         }
@@ -52,27 +49,13 @@ impl GameState {
 mod tests {
 
     use super::*;
-    use crate::nation::{NationColors, NationDescription};
     use commons::*;
-    use isometric::Color;
 
     #[test]
     fn save_load_round_trip() {
         let world = World::new(
             M::from_vec(3, 3, vec![1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0]),
             0.5,
-        );
-        let mut nations = HashMap::new();
-        nations.insert(
-            "China".to_string(),
-            Nation::from_description(&NationDescription {
-                name: "China".to_string(),
-                colors: NationColors {
-                    primary: Color::new(1.0, 0.0, 0.0, 1.0),
-                    skin: Color::new(0.0, 0.0, 1.0, 1.0),
-                },
-                town_name_file: "china".to_string(),
-            }),
         );
         let mut settlements = HashMap::new();
         settlements.insert(
@@ -91,7 +74,6 @@ mod tests {
         let game_state = GameState {
             world,
             params: GameParams::default(),
-            nations,
             settlements,
         };
         game_state.to_file("test_save");
