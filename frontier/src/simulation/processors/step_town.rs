@@ -1,34 +1,29 @@
+use std::collections::HashMap;
+
 use super::*;
-use crate::game::traits::Settlements;
 use crate::settlement::{Settlement, SettlementClass::Town};
+use crate::traits::SendSettlements;
 
-const NAME: &str = "step_town";
-
-pub struct StepTown<G>
-where
-    G: Settlements + Send,
-{
-    game: FnSender<G>,
+pub struct StepTown<T> {
+    tx: T,
 }
 
 #[async_trait]
-impl<G> Processor for StepTown<G>
+impl<T> Processor for StepTown<T>
 where
-    G: Settlements + Send,
+    T: SendSettlements + Send + Sync,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         self.process(state, instruction).await
     }
 }
 
-impl<G> StepTown<G>
+impl<T> StepTown<T>
 where
-    G: Settlements + Send,
+    T: SendSettlements,
 {
-    pub fn new(game: &FnSender<G>) -> StepTown<G> {
-        StepTown {
-            game: game.clone_with_name(NAME),
-        }
+    pub fn new(tx: T) -> StepTown<T> {
+        StepTown { tx }
     }
 
     pub async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
@@ -44,15 +39,14 @@ where
     }
 
     async fn get_town_positions(&mut self) -> Vec<V2<usize>> {
-        self.game
-            .send(|settlements| get_town_positions(settlements))
+        self.tx
+            .send_settlements(|settlements| get_town_positions(settlements))
             .await
     }
 }
 
-fn get_town_positions(settlements: &dyn Settlements) -> Vec<V2<usize>> {
+fn get_town_positions(settlements: &HashMap<V2<usize>, Settlement>) -> Vec<V2<usize>> {
     settlements
-        .settlements()
         .values()
         .filter(|Settlement { class, .. }| *class == Town)
         .map(|Settlement { position, .. }| *position)
@@ -64,10 +58,10 @@ mod tests {
     use super::*;
 
     use crate::settlement::{SettlementClass, SettlementClass::Homeland};
-    use commons::fn_sender::FnThread;
     use commons::{same_elements, v2};
     use futures::executor::block_on;
     use std::collections::HashMap;
+    use std::sync::Mutex;
 
     fn settlement(class: SettlementClass, position: V2<usize>) -> Settlement {
         Settlement {
@@ -83,9 +77,8 @@ mod tests {
         let mut settlements = HashMap::new();
         settlements.insert(v2(1, 1), settlement(Town, v2(1, 1)));
         settlements.insert(v2(2, 2), settlement(Town, v2(2, 2)));
-        let game = FnThread::new(settlements);
 
-        let mut processor = StepTown::new(&game.tx());
+        let mut processor = StepTown::new(Mutex::new(settlements));
 
         // When
         let state = block_on(processor.process(State::default(), &Instruction::Step));
@@ -100,9 +93,6 @@ mod tests {
                 Instruction::GetTerritory(v2(2, 2)),
             ],
         ));
-
-        // Finally
-        game.join();
     }
 
     #[test]
@@ -111,9 +101,8 @@ mod tests {
         let mut settlements = HashMap::new();
         settlements.insert(v2(1, 1), settlement(Homeland, v2(1, 1)));
         settlements.insert(v2(2, 2), settlement(Town, v2(2, 2)));
-        let game = FnThread::new(settlements);
 
-        let mut processor = StepTown::new(&game.tx());
+        let mut processor = StepTown::new(Mutex::new(settlements));
 
         // When
         let state = block_on(processor.process(State::default(), &Instruction::Step));
@@ -123,8 +112,5 @@ mod tests {
             state.instructions,
             vec![Instruction::Build, Instruction::GetTerritory(v2(2, 2)),]
         );
-
-        // Finally
-        game.join();
     }
 }

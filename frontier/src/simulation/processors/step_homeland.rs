@@ -1,34 +1,29 @@
+use std::collections::HashMap;
+
 use super::*;
-use crate::game::traits::Settlements;
 use crate::settlement::{Settlement, SettlementClass::Homeland};
+use crate::traits::SendSettlements;
 
-const NAME: &str = "step_homeland";
-
-pub struct StepHomeland<G>
-where
-    G: Settlements + Send,
-{
-    game: FnSender<G>,
+pub struct StepHomeland<T> {
+    tx: T,
 }
 
 #[async_trait]
-impl<G> Processor for StepHomeland<G>
+impl<T> Processor for StepHomeland<T>
 where
-    G: Settlements + Send,
+    T: SendSettlements + Send + Sync,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         self.process(state, instruction).await
     }
 }
 
-impl<G> StepHomeland<G>
+impl<T> StepHomeland<T>
 where
-    G: Settlements + Send,
+    T: SendSettlements,
 {
-    pub fn new(game: &FnSender<G>) -> StepHomeland<G> {
-        StepHomeland {
-            game: game.clone_with_name(NAME),
-        }
+    pub fn new(tx: T) -> StepHomeland<T> {
+        StepHomeland { tx }
     }
 
     pub async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
@@ -49,15 +44,14 @@ where
     }
 
     async fn get_homeland_positions(&mut self) -> Vec<V2<usize>> {
-        self.game
-            .send(|settlements| get_homeland_positions(settlements))
+        self.tx
+            .send_settlements(|settlements| get_homeland_positions(settlements))
             .await
     }
 }
 
-fn get_homeland_positions(settlements: &dyn Settlements) -> Vec<V2<usize>> {
+fn get_homeland_positions(settlements: &HashMap<V2<usize>, Settlement>) -> Vec<V2<usize>> {
     settlements
-        .settlements()
         .values()
         .filter(|Settlement { class, .. }| *class == Homeland)
         .map(|Settlement { position, .. }| *position)
@@ -69,10 +63,10 @@ mod tests {
     use super::*;
 
     use crate::settlement::{SettlementClass, SettlementClass::Town};
-    use commons::fn_sender::FnThread;
     use commons::{same_elements, v2};
     use futures::executor::block_on;
     use std::collections::HashMap;
+    use std::sync::Mutex;
 
     fn settlement(class: SettlementClass, position: V2<usize>) -> Settlement {
         Settlement {
@@ -88,9 +82,8 @@ mod tests {
         let mut settlements = HashMap::new();
         settlements.insert(v2(1, 1), settlement(Homeland, v2(1, 1)));
         settlements.insert(v2(2, 2), settlement(Homeland, v2(2, 2)));
-        let game = FnThread::new(settlements);
 
-        let mut processor = StepHomeland::new(&game.tx());
+        let mut processor = StepHomeland::new(Mutex::new(settlements));
 
         // When
         let state = block_on(processor.process(State::default(), &Instruction::Step));
@@ -106,9 +99,6 @@ mod tests {
                 Instruction::UpdateHomelandPopulation
             ],
         ));
-
-        // Finally
-        game.join();
     }
 
     #[test]
@@ -117,9 +107,8 @@ mod tests {
         let mut settlements = HashMap::new();
         settlements.insert(v2(1, 1), settlement(Town, v2(1, 1)));
         settlements.insert(v2(2, 2), settlement(Homeland, v2(2, 2)));
-        let game = FnThread::new(settlements);
 
-        let mut processor = StepHomeland::new(&game.tx());
+        let mut processor = StepHomeland::new(Mutex::new(settlements));
 
         // When
         let state = block_on(processor.process(State::default(), &Instruction::Step));
@@ -133,8 +122,5 @@ mod tests {
                 Instruction::UpdateHomelandPopulation
             ],
         );
-
-        // Finally
-        game.join();
     }
 }
