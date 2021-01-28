@@ -1,9 +1,9 @@
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
     Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService, PathfindingAvatarControls,
-    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl,
-    TerritoryActor, TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
-    WorldArtistActor,
+    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
+    SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -49,6 +49,7 @@ pub struct Polysender {
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
     pub rotate_tx: FnSender<Rotate>,
     pub routes_tx: FnSender<RoutesActor>,
+    pub settlements_tx: FnSender<Settlements>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
     pub speed_control_tx: FnSender<SpeedControl<Polysender>>,
@@ -88,6 +89,7 @@ impl Polysender {
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
             rotate_tx: self.rotate_tx.clone_with_name(name),
             routes_tx: self.routes_tx.clone_with_name(name),
+            settlements_tx: self.settlements_tx.clone_with_name(name),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
             speed_control_tx: self.speed_control_tx.clone_with_name(name),
@@ -213,8 +215,8 @@ impl SendSettlements for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut HashMap<V2<usize>, Settlement>) -> O + Send + 'static,
     {
-        self.game_tx
-            .send(move |game| function(&mut game.mut_state().settlements))
+        self.settlements_tx
+            .send(move |settlements| function(&mut settlements.state()))
             .await
     }
 }

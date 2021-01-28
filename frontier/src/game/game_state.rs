@@ -1,10 +1,8 @@
 use super::*;
 
-use crate::settlement::*;
 use crate::world::*;
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::default::Default;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -13,7 +11,6 @@ use std::io::{BufReader, BufWriter};
 pub struct GameState {
     pub world: World,
     pub params: GameParams,
-    pub settlements: HashMap<V2<usize>, Settlement>,
 }
 
 impl Default for GameState {
@@ -21,7 +18,6 @@ impl Default for GameState {
         let world = World::new(M::zeros(1, 1), 0.0);
         GameState {
             params: GameParams::default(),
-            settlements: HashMap::new(),
             world,
         }
     }
@@ -57,24 +53,9 @@ mod tests {
             M::from_vec(3, 3, vec![1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0]),
             0.5,
         );
-        let mut settlements = HashMap::new();
-        settlements.insert(
-            v2(3, 2),
-            Settlement {
-                class: SettlementClass::Town,
-                position: v2(3, 2),
-                nation: "China".to_string(),
-                name: "name".to_string(),
-                current_population: 71.4,
-                target_population: 41.1,
-                gap_half_life: Duration::from_secs(3),
-                last_population_update_micros: 81,
-            },
-        );
         let game_state = GameState {
             world,
             params: GameParams::default(),
-            settlements,
         };
         game_state.to_file("test_save");
         let loaded = GameState::from_file("test_save");

@@ -41,7 +41,6 @@ use futures::executor::{block_on, ThreadPool};
 use futures::FutureExt;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use simple_logger::SimpleLogger;
-use std::collections::HashMap;
 use std::env;
 use std::thread;
 use std::time::Duration;
@@ -120,11 +119,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
     if reveal_all {
         world.reveal_all();
     }
-    GameState {
-        world,
-        params,
-        settlements: HashMap::new(),
-    }
+    GameState { world, params }
 }
 
 fn load(path: &str) -> GameState {

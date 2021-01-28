@@ -9,9 +9,9 @@ use isometric::IsometricEngine;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
     Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService, PathfindingAvatarControls,
-    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl,
-    TerritoryActor, TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager,
-    WorldArtistActor, WorldColoringParameters,
+    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
+    SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist, TownLabelArtist,
+    VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -53,6 +53,7 @@ pub struct System {
     pub resource_targets: Process<ResourceTargets<Polysender>>,
     pub rotate: Process<Rotate>,
     pub routes: Process<RoutesActor>,
+    pub settlements: Process<Settlements>,
     pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub simulation: Process<Simulation<Polysender>>,
     pub speed_control: Process<SpeedControl<Polysender>>,
@@ -90,6 +91,7 @@ impl System {
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
         let (routes_tx, routes_rx) = fn_channel();
+        let (settlements_tx, settlements_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
         let (speed_control_tx, speed_control_rx) = fn_channel();
@@ -121,6 +123,7 @@ impl System {
             routes_tx,
             setup_new_world_tx,
             rotate_tx,
+            settlements_tx,
             simulation_tx,
             speed_control_tx,
             territory_tx,
@@ -237,6 +240,7 @@ impl System {
             ),
             rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
             routes: Process::new(RoutesActor::new(), routes_rx),
+            settlements: Process::new(Settlements::new(), settlements_rx),
             setup_new_world: Process::new(
                 SetupNewWorld::new(tx.clone_with_name("setup_new_world")),
                 setup_new_world_rx,
@@ -404,6 +408,7 @@ impl System {
         self.clock.run_passive(&self.pool).await;
         self.nations.run_passive(&self.pool).await;
         self.routes.run_passive(&self.pool).await;
+        self.settlements.run_passive(&self.pool).await;
         self.territory.run_passive(&self.pool).await;
 
         self.pathfinder_with_planned_roads
@@ -475,6 +480,7 @@ impl System {
             .await;
 
         self.territory.drain(&self.pool, true).await;
+        self.settlements.drain(&self.pool, true).await;
         self.routes.drain(&self.pool, true).await;
         self.nations.drain(&self.pool, true).await;
         self.clock.drain(&self.pool, true).await;
@@ -488,6 +494,7 @@ impl System {
         self.nations.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
         self.routes.object_ref().unwrap().save(path);
+        self.settlements.object_ref().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
         self.territory.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
@@ -503,6 +510,7 @@ impl System {
         self.nations.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);
         self.routes.object_mut().unwrap().load(path);
+        self.settlements.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);
         self.territory.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
