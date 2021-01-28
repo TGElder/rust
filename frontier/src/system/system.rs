@@ -9,8 +9,8 @@ use isometric::IsometricEngine;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
     Cheats, Clock, Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover,
-    RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl, TerritoryActor,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
     WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
@@ -55,6 +55,7 @@ pub struct System {
     pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub simulation: Process<Simulation<Polysender>>,
     pub speed_control: Process<SpeedControl<Polysender>>,
+    pub territory: Process<TerritoryActor>,
     pub town_builder: Process<TownBuilderActor<Polysender>>,
     pub town_house_artist: Process<TownHouseArtist<Polysender>>,
     pub town_label_artist: Process<TownLabelArtist<Polysender>>,
@@ -90,6 +91,7 @@ impl System {
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
         let (speed_control_tx, speed_control_rx) = fn_channel();
+        let (territory_tx, territory_rx) = fn_channel();
         let (town_builder_tx, town_builder_rx) = fn_channel();
         let (town_house_artist_tx, town_house_artist_rx) = fn_channel();
         let (town_label_artist_tx, town_label_artist_rx) = fn_channel();
@@ -118,6 +120,7 @@ impl System {
             rotate_tx,
             simulation_tx,
             speed_control_tx,
+            territory_tx,
             town_builder_tx,
             town_house_artist_tx,
             town_label_artist_tx,
@@ -286,6 +289,10 @@ impl System {
                 SpeedControl::new(tx.clone_with_name("speed_control")),
                 speed_control_rx,
             ),
+            territory: Process::new(
+                TerritoryActor::new(game_state.params.width, game_state.params.width),
+                territory_rx,
+            ),
             town_builder: Process::new(
                 TownBuilderActor::new(tx.clone_with_name("town_builder_actor")),
                 town_builder_rx,
@@ -392,6 +399,7 @@ impl System {
         self.avatars.run_passive(&self.pool).await;
         self.clock.run_passive(&self.pool).await;
         self.routes.run_passive(&self.pool).await;
+        self.territory.run_passive(&self.pool).await;
 
         self.pathfinder_with_planned_roads
             .run_passive(&self.pool)
@@ -461,6 +469,7 @@ impl System {
             .drain(&self.pool, true)
             .await;
 
+        self.territory.drain(&self.pool, true).await;
         self.routes.drain(&self.pool, true).await;
         self.clock.drain(&self.pool, true).await;
         self.avatars.drain(&self.pool, true).await;
@@ -473,6 +482,7 @@ impl System {
         self.prime_mover.object_ref().unwrap().save(path);
         self.routes.object_ref().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
+        self.territory.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
 
         let path = path.to_string();
@@ -486,6 +496,7 @@ impl System {
         self.prime_mover.object_mut().unwrap().load(path);
         self.routes.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);
+        self.territory.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
     }
 }

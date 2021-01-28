@@ -69,10 +69,10 @@ pub struct Territory {
 }
 
 impl Territory {
-    pub fn new<T>(grid: &dyn Grid<T>) -> Territory {
+    pub fn new(width: usize, height: usize) -> Territory {
         Territory {
             territory: HashMap::new(),
-            claims: Vec2D::same_size_as(grid, HashMap::new()),
+            claims: Vec2D::new(width, height, HashMap::new()),
         }
     }
 
@@ -250,12 +250,8 @@ mod tests {
 
     use super::*;
 
-    fn grid() -> M<u8> {
-        M::zeros(3, 3)
-    }
-
     fn territory() -> Territory {
-        Territory::new::<u8>(&grid())
+        Territory::new(3, 3)
     }
 
     #[test]

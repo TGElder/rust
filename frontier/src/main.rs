@@ -30,7 +30,6 @@ mod world_gen;
 
 use crate::game::*;
 use crate::system::{System, SystemController};
-use crate::territory::*;
 use crate::traits::SendGame;
 use crate::world_gen::*;
 
@@ -112,6 +111,7 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
     let mut rng = rng(seed);
     let params = GameParams {
         seed,
+        width: 2usize.pow(power as u32),
         reveal_all,
         homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(power as f32)) as u64),
         ..GameParams::default()
@@ -121,7 +121,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
         world.reveal_all();
     }
     GameState {
-        territory: Territory::new(&world),
         world,
         params,
         nations: HashMap::new(),
