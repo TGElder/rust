@@ -126,7 +126,6 @@ fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
         params,
         nations: HashMap::new(),
         settlements: HashMap::new(),
-        routes: HashMap::new(),
     }
 }
 

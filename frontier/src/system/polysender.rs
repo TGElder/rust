@@ -1,7 +1,7 @@
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
     Cheats, Clock, Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover,
-    RealTime, ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor,
+    RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl, TownBuilderActor,
     TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
@@ -46,6 +46,7 @@ pub struct Polysender {
     pub prime_mover_tx: FnSender<PrimeMover<Polysender>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
     pub rotate_tx: FnSender<Rotate>,
+    pub routes_tx: FnSender<RoutesActor>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
     pub speed_control_tx: FnSender<SpeedControl<Polysender>>,
@@ -82,6 +83,7 @@ impl Polysender {
             prime_mover_tx: self.prime_mover_tx.clone_with_name(name),
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
             rotate_tx: self.rotate_tx.clone_with_name(name),
+            routes_tx: self.routes_tx.clone_with_name(name),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
             speed_control_tx: self.speed_control_tx.clone_with_name(name),
@@ -193,8 +195,8 @@ impl SendRoutes for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut Routes) -> O + Send + 'static,
     {
-        self.game_tx
-            .send(move |game| function(&mut game.mut_state().routes))
+        self.routes_tx
+            .send(move |routes| function(&mut routes.state()))
             .await
     }
 }

@@ -9,7 +9,7 @@ use isometric::IsometricEngine;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
     Cheats, Clock, Labels, ObjectBuilder, PathfinderService, PathfindingAvatarControls, PrimeMover,
-    RealTime, ResourceTargets, Rotate, SetupNewWorld, SpeedControl, TownBuilderActor,
+    RealTime, ResourceTargets, Rotate, RoutesActor, SetupNewWorld, SpeedControl, TownBuilderActor,
     TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
     WorldColoringParameters,
 };
@@ -40,8 +40,8 @@ pub struct System {
     pub basic_avatar_controls: Process<BasicAvatarControls<Polysender>>,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub cheats: Process<Cheats<Polysender>>,
-    pub event_forwarder: Process<EventForwarderActor>,
     pub clock: Process<Clock<RealTime>>,
+    pub event_forwarder: Process<EventForwarderActor>,
     pub labels: Process<Labels<Polysender>>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
@@ -51,6 +51,7 @@ pub struct System {
     pub prime_mover: Process<PrimeMover<Polysender>>,
     pub resource_targets: Process<ResourceTargets<Polysender>>,
     pub rotate: Process<Rotate>,
+    pub routes: Process<RoutesActor>,
     pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub simulation: Process<Simulation<Polysender>>,
     pub speed_control: Process<SpeedControl<Polysender>>,
@@ -85,6 +86,7 @@ impl System {
         let (prime_mover_tx, prime_mover_rx) = fn_channel();
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
+        let (routes_tx, routes_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (simulation_tx, simulation_rx) = fn_channel();
         let (speed_control_tx, speed_control_rx) = fn_channel();
@@ -111,6 +113,7 @@ impl System {
             pathfinding_avatar_controls_tx,
             prime_mover_tx,
             resource_targets_tx,
+            routes_tx,
             setup_new_world_tx,
             rotate_tx,
             simulation_tx,
@@ -224,6 +227,7 @@ impl System {
                 resource_targets_rx,
             ),
             rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
+            routes: Process::new(RoutesActor::new(), routes_rx),
             setup_new_world: Process::new(
                 SetupNewWorld::new(tx.clone_with_name("setup_new_world")),
                 setup_new_world_rx,
@@ -390,6 +394,7 @@ impl System {
     pub async fn start(&mut self) {
         self.avatars.run_passive(&self.pool).await;
         self.clock.run_passive(&self.pool).await;
+        self.routes.run_passive(&self.pool).await;
 
         self.pathfinder_with_planned_roads
             .run_passive(&self.pool)
@@ -459,6 +464,7 @@ impl System {
             .drain(&self.pool, true)
             .await;
 
+        self.routes.drain(&self.pool, true).await;
         self.clock.drain(&self.pool, true).await;
         self.avatars.drain(&self.pool, true).await;
     }
@@ -468,6 +474,7 @@ impl System {
         self.clock.object_mut().unwrap().save(path);
         self.labels.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
+        self.routes.object_ref().unwrap().save(path);
         self.simulation.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
 
@@ -480,6 +487,7 @@ impl System {
         self.clock.object_mut().unwrap().load(path);
         self.labels.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);
+        self.routes.object_mut().unwrap().load(path);
         self.simulation.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
     }

@@ -1,7 +1,6 @@
 use super::*;
 
 use crate::nation::Nation;
-use crate::route::*;
 use crate::settlement::*;
 use crate::territory::*;
 use crate::world::*;
@@ -18,7 +17,6 @@ pub struct GameState {
     pub params: GameParams,
     pub nations: HashMap<String, Nation>,
     pub settlements: HashMap<V2<usize>, Settlement>,
-    pub routes: HashMap<RouteSetKey, RouteSet>,
     pub territory: Territory,
 }
 
@@ -29,7 +27,6 @@ impl Default for GameState {
             params: GameParams::default(),
             nations: HashMap::new(),
             settlements: HashMap::new(),
-            routes: HashMap::new(),
             territory: Territory::new(&world),
             world,
         }
@@ -59,7 +56,6 @@ mod tests {
 
     use super::*;
     use crate::nation::{NationColors, NationDescription};
-    use crate::resource::Resource;
     use commons::*;
     use isometric::Color;
 
@@ -95,35 +91,12 @@ mod tests {
                 last_population_update_micros: 81,
             },
         );
-        let mut route_set = HashMap::new();
-        route_set.insert(
-            RouteKey {
-                settlement: v2(4, 1),
-                resource: Resource::Bananas,
-                destination: v2(2, 0),
-            },
-            Route {
-                path: vec![v2(1, 0), v2(2, 0)],
-                traffic: 2,
-                start_micros: 1232,
-                duration: Duration::from_secs(3),
-            },
-        );
-        let mut routes = HashMap::new();
-        routes.insert(
-            RouteSetKey {
-                settlement: v2(4, 1),
-                resource: Resource::Bananas,
-            },
-            route_set,
-        );
         let game_state = GameState {
             territory: Territory::new(&world),
             world,
             params: GameParams::default(),
             nations,
             settlements,
-            routes,
         };
         game_state.to_file("test_save");
         let loaded = GameState::from_file("test_save");
