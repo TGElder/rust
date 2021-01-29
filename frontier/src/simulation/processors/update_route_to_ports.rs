@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 pub struct UpdateRouteToPorts<T, C> {
     tx: T,
-    check_for_port: Arc<C>,
+    port_checker: Arc<C>,
 }
 
 #[async_trait]
@@ -32,8 +32,8 @@ where
     T: SendWorld,
     C: CheckForPort + Clone + Send + Sync + 'static,
 {
-    pub fn new(tx: T, check_for_port: Arc<C>) -> UpdateRouteToPorts<T, C> {
-        UpdateRouteToPorts { tx, check_for_port }
+    pub fn new(tx: T, port_checker: Arc<C>) -> UpdateRouteToPorts<T, C> {
+        UpdateRouteToPorts { tx, port_checker }
     }
 
     async fn update_many_route_to_ports(
@@ -41,10 +41,10 @@ where
         state: State,
         route_changes: Vec<RouteChange>,
     ) -> State {
-        let check_for_port = self.check_for_port.clone();
+        let port_checker = self.port_checker.clone();
         self.tx
             .send_world(move |world| {
-                update_many_route_to_ports(world, check_for_port, state, route_changes)
+                update_many_route_to_ports(world, port_checker, state, route_changes)
             })
             .await
     }
@@ -52,7 +52,7 @@ where
 
 pub fn update_many_route_to_ports<C>(
     world: &World,
-    check_for_port: Arc<C>,
+    port_checker: Arc<C>,
     mut state: State,
     route_changes: Vec<RouteChange>,
 ) -> State
@@ -60,39 +60,35 @@ where
     C: CheckForPort,
 {
     for route_change in route_changes {
-        update_route_to_ports(world, check_for_port.as_ref(), &mut state, &route_change);
+        update_route_to_ports(world, port_checker.as_ref(), &mut state, &route_change);
     }
     state
 }
 
-pub fn update_route_to_ports<C>(
+pub fn update_route_to_ports(
     world: &World,
-    check_for_port: &C,
+    port_checker: &dyn CheckForPort,
     state: &mut State,
     route_change: &RouteChange,
-) where
-    C: CheckForPort,
-{
+) {
     match route_change {
-        RouteChange::New { key, route } => update(world, check_for_port, state, key, route),
+        RouteChange::New { key, route } => update(world, port_checker, state, key, route),
         RouteChange::Updated { key, new, old } if new.path != old.path => {
-            update(world, check_for_port, state, key, new)
+            update(world, port_checker, state, key, new)
         }
         RouteChange::Removed { key, .. } => remove(state, key),
         _ => (),
     }
 }
 
-fn update<C>(
+fn update(
     world: &World,
-    check_for_port: &C,
+    port_checker: &dyn CheckForPort,
     state: &mut State,
     route_key: &RouteKey,
     route: &Route,
-) where
-    C: CheckForPort,
-{
-    let ports = get_ports(world, check_for_port, &route.path);
+) {
+    let ports = get_ports(world, port_checker, &route.path);
     if ports.is_empty() {
         remove(state, route_key);
     } else {
@@ -100,12 +96,13 @@ fn update<C>(
     }
 }
 
-fn get_ports<C>(world: &World, check_for_port: &C, path: &[V2<usize>]) -> HashSet<V2<usize>>
-where
-    C: CheckForPort,
-{
+fn get_ports(
+    world: &World,
+    port_checker: &dyn CheckForPort,
+    path: &[V2<usize>],
+) -> HashSet<V2<usize>> {
     path.edges()
-        .flat_map(|edge| check_for_port.check_for_port(world, edge.from(), edge.to()))
+        .flat_map(|edge| port_checker.check_for_port(world, edge.from(), edge.to()))
         .collect()
 }
 
