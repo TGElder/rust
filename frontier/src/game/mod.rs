@@ -1,6 +1,5 @@
 mod game_params;
 mod game_state;
-pub mod traits;
 
 use commons::log::warn;
 pub use game_params::*;

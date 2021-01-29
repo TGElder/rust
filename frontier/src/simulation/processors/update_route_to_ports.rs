@@ -1,24 +1,22 @@
 use super::*;
 
 use crate::avatar::CheckForPort;
-use crate::game::traits::HasWorld;
 use crate::route::{Route, RouteKey};
+use crate::traits::SendWorld;
+use crate::world::World;
 use commons::edge::Edges;
 use std::collections::HashSet;
 
-const NAME: &str = "update_route_to_ports";
-
-pub struct UpdateRouteToPorts<G>
-where
-    G: CheckForPort + HasWorld + Send,
-{
-    game: FnSender<G>,
+pub struct UpdateRouteToPorts<T, C> {
+    tx: T,
+    port_checker: Arc<C>,
 }
 
 #[async_trait]
-impl<G> Processor for UpdateRouteToPorts<G>
+impl<T, C> Processor for UpdateRouteToPorts<T, C>
 where
-    G: CheckForPort + HasWorld + Send,
+    T: SendWorld + Send + Sync,
+    C: CheckForPort + Clone + Send + Sync + 'static,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let route_changes = match instruction {
@@ -29,14 +27,13 @@ where
     }
 }
 
-impl<G> UpdateRouteToPorts<G>
+impl<T, C> UpdateRouteToPorts<T, C>
 where
-    G: CheckForPort + HasWorld + Send,
+    T: SendWorld,
+    C: CheckForPort + Clone + Send + Sync + 'static,
 {
-    pub fn new(game: &FnSender<G>) -> UpdateRouteToPorts<G> {
-        UpdateRouteToPorts {
-            game: game.clone_with_name(NAME),
-        }
+    pub fn new(tx: T, port_checker: Arc<C>) -> UpdateRouteToPorts<T, C> {
+        UpdateRouteToPorts { tx, port_checker }
     }
 
     async fn update_many_route_to_ports(
@@ -44,45 +41,54 @@ where
         state: State,
         route_changes: Vec<RouteChange>,
     ) -> State {
-        self.game
-            .send(move |game| update_many_route_to_ports(game, state, route_changes))
+        let port_checker = self.port_checker.clone();
+        self.tx
+            .send_world(move |world| {
+                update_many_route_to_ports(world, port_checker, state, route_changes)
+            })
             .await
     }
 }
 
-pub fn update_many_route_to_ports<G>(
-    game: &mut G,
+pub fn update_many_route_to_ports<C>(
+    world: &World,
+    port_checker: Arc<C>,
     mut state: State,
     route_changes: Vec<RouteChange>,
 ) -> State
 where
-    G: CheckForPort + HasWorld + Send,
+    C: CheckForPort,
 {
     for route_change in route_changes {
-        update_route_to_ports(game, &mut state, &route_change);
+        update_route_to_ports(world, port_checker.as_ref(), &mut state, &route_change);
     }
     state
 }
 
-pub fn update_route_to_ports<G>(game: &G, state: &mut State, route_change: &RouteChange)
-where
-    G: CheckForPort + HasWorld + Send,
-{
+pub fn update_route_to_ports(
+    world: &World,
+    port_checker: &dyn CheckForPort,
+    state: &mut State,
+    route_change: &RouteChange,
+) {
     match route_change {
-        RouteChange::New { key, route } => update(game, state, key, route),
+        RouteChange::New { key, route } => update(world, port_checker, state, key, route),
         RouteChange::Updated { key, new, old } if new.path != old.path => {
-            update(game, state, key, new)
+            update(world, port_checker, state, key, new)
         }
         RouteChange::Removed { key, .. } => remove(state, key),
         _ => (),
     }
 }
 
-fn update<G>(game: &G, state: &mut State, route_key: &RouteKey, route: &Route)
-where
-    G: CheckForPort + HasWorld + Send,
-{
-    let ports = get_ports(game, &route.path);
+fn update(
+    world: &World,
+    port_checker: &dyn CheckForPort,
+    state: &mut State,
+    route_key: &RouteKey,
+    route: &Route,
+) {
+    let ports = get_ports(world, port_checker, &route.path);
     if ports.is_empty() {
         remove(state, route_key);
     } else {
@@ -90,13 +96,13 @@ where
     }
 }
 
-fn get_ports<G>(game: &G, path: &[V2<usize>]) -> HashSet<V2<usize>>
-where
-    G: CheckForPort + HasWorld + Send,
-{
-    let world = game.world();
+fn get_ports(
+    world: &World,
+    port_checker: &dyn CheckForPort,
+    path: &[V2<usize>],
+) -> HashSet<V2<usize>> {
     path.edges()
-        .flat_map(|edge| game.check_for_port(world, edge.from(), edge.to()))
+        .flat_map(|edge| port_checker.check_for_port(world, edge.from(), edge.to()))
         .collect()
 }
 
@@ -110,32 +116,18 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::Route;
     use crate::world::World;
-    use commons::fn_sender::FnThread;
     use commons::{v2, M};
     use futures::executor::block_on;
+    use std::sync::Mutex;
     use std::time::Duration;
 
-    fn world() -> World {
-        World::new(M::zeros(3, 3), 0.0)
+    fn world() -> Mutex<World> {
+        Mutex::new(World::new(M::zeros(3, 3), 0.0))
     }
 
-    struct MockGame {
-        ports: HashSet<V2<usize>>,
-        world: World,
-    }
-
-    impl Default for MockGame {
-        fn default() -> MockGame {
-            MockGame {
-                ports: hashset! {},
-                world: world(),
-            }
-        }
-    }
-
-    impl CheckForPort for MockGame {
+    impl CheckForPort for HashSet<V2<usize>> {
         fn check_for_port(&self, _: &World, from: &V2<usize>, _: &V2<usize>) -> Option<V2<usize>> {
-            if self.ports.contains(from) {
+            if self.contains(from) {
                 Some(*from)
             } else {
                 None
@@ -143,25 +135,9 @@ mod tests {
         }
     }
 
-    impl HasWorld for MockGame {
-        fn world(&self) -> &World {
-            &self.world
-        }
-
-        fn world_mut(&mut self) -> &mut World {
-            &mut self.world
-        }
-    }
-
     #[test]
     fn should_insert_entry_for_new_route_with_ports() {
         // Given
-        let game = MockGame {
-            ports: hashset! {v2(0, 1), v2(1, 2)},
-            ..MockGame::default()
-        };
-        let game = FnThread::new(game);
-
         let key = RouteKey {
             settlement: v2(0, 0),
             resource: Resource::Truffles,
@@ -176,7 +152,8 @@ mod tests {
 
         let state = State::default();
 
-        let mut processor = UpdateRouteToPorts::new(&game.tx());
+        let mut processor =
+            UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(0, 1), v2(1, 2)}));
 
         // When
         let route_change = RouteChange::New { key, route };
@@ -188,17 +165,11 @@ mod tests {
             state.route_to_ports,
             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
         );
-
-        // Finally
-        game.join();
     }
 
     #[test]
     fn should_do_nothing_for_new_route_with_no_ports() {
         // Given
-        let game = MockGame::default();
-        let game = FnThread::new(game);
-
         let key = RouteKey {
             settlement: v2(0, 0),
             resource: Resource::Truffles,
@@ -213,7 +184,7 @@ mod tests {
 
         let state = State::default();
 
-        let mut processor = UpdateRouteToPorts::new(&game.tx());
+        let mut processor = UpdateRouteToPorts::new(world(), Arc::new(hashset! {}));
 
         // When
         let route_change = RouteChange::New { key, route };
@@ -222,20 +193,11 @@ mod tests {
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
-
-        // Finally
-        game.join();
     }
 
     #[test]
     fn should_update_entry_for_updated_route_with_updated_path_with_ports() {
         // Given
-        let game = MockGame {
-            ports: hashset! {v2(0, 1), v2(1, 0), v2(1, 2)},
-            ..MockGame::default()
-        };
-        let game = FnThread::new(game);
-
         let key = RouteKey {
             settlement: v2(0, 0),
             resource: Resource::Truffles,
@@ -259,7 +221,8 @@ mod tests {
             ..State::default()
         };
 
-        let mut processor = UpdateRouteToPorts::new(&game.tx());
+        let mut processor =
+            UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}));
 
         // When
         let route_change = RouteChange::Updated { key, old, new };
@@ -271,20 +234,11 @@ mod tests {
             state.route_to_ports,
             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
         );
-
-        // Finally
-        game.join();
     }
 
     #[test]
     fn should_remove_entry_for_updated_route_with_no_ports() {
         // Given
-        let game = MockGame {
-            ports: hashset! {v2(1, 0)},
-            ..MockGame::default()
-        };
-        let game = FnThread::new(game);
-
         let key = RouteKey {
             settlement: v2(0, 0),
             resource: Resource::Truffles,
@@ -308,7 +262,7 @@ mod tests {
             ..State::default()
         };
 
-        let mut processor = UpdateRouteToPorts::new(&game.tx());
+        let mut processor = UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(1, 0)}));
 
         // When
         let route_change = RouteChange::Updated { key, old, new };
@@ -317,20 +271,11 @@ mod tests {
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
-
-        // Finally
-        game.join();
     }
 
     #[test]
     fn should_do_nothing_for_updated_route_with_same_path() {
         // Given
-        let game = MockGame {
-            ports: hashset! {v2(0, 1), v2(1, 0), v2(1, 2)},
-            ..MockGame::default()
-        };
-        let game = FnThread::new(game);
-
         let key = RouteKey {
             settlement: v2(0, 0),
             resource: Resource::Truffles,
@@ -354,7 +299,8 @@ mod tests {
             ..State::default()
         };
 
-        let mut processor = UpdateRouteToPorts::new(&game.tx());
+        let mut processor =
+            UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}));
 
         // When
         let route_change = RouteChange::Updated { key, old, new };
@@ -363,17 +309,11 @@ mod tests {
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
-
-        // Finally
-        game.join();
     }
 
     #[test]
     fn should_remove_entry_for_removed_route() {
         // Given
-        let game = MockGame::default();
-        let game = FnThread::new(game);
-
         let key = RouteKey {
             settlement: v2(0, 0),
             resource: Resource::Truffles,
@@ -391,7 +331,7 @@ mod tests {
             ..State::default()
         };
 
-        let mut processor = UpdateRouteToPorts::new(&game.tx());
+        let mut processor = UpdateRouteToPorts::new(world(), Arc::new(hashset! {}));
 
         // When
         let route_change = RouteChange::Removed { key, route };
@@ -400,20 +340,11 @@ mod tests {
 
         // Then
         assert_eq!(state.route_to_ports, hashmap! {});
-
-        // Finally
-        game.join();
     }
 
     #[test]
     fn multiple_changes() {
         // Given
-        let game = MockGame {
-            ports: hashset! {v2(0, 1), v2(1, 2)},
-            ..MockGame::default()
-        };
-        let game = FnThread::new(game);
-
         let key_new = RouteKey {
             settlement: v2(0, 0),
             resource: Resource::Truffles,
@@ -442,7 +373,8 @@ mod tests {
             ..State::default()
         };
 
-        let mut processor = UpdateRouteToPorts::new(&game.tx());
+        let mut processor =
+            UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(0, 1), v2(1, 2)}));
 
         // When
         let route_changes = vec![
@@ -463,8 +395,5 @@ mod tests {
             state.route_to_ports,
             hashmap! { key_new => hashset!{ v2(0, 1), v2(1, 2) } }
         );
-
-        // Finally
-        game.join();
     }
 }
