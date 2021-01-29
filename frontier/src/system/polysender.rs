@@ -3,7 +3,7 @@ use crate::actors::{
     Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService, PathfindingAvatarControls,
     PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
     SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor,
+    VisibilityActor, Voyager, WorldActor, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -59,6 +59,7 @@ pub struct Polysender {
     pub town_label_artist_tx: FnSender<TownLabelArtist<Polysender>>,
     pub visibility_tx: FnSender<VisibilityActor<Polysender>>,
     pub voyager_tx: FnSender<Voyager<Polysender>>,
+    pub world_tx: FnSender<WorldActor<Polysender>>,
     pub world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
 }
 
@@ -99,6 +100,7 @@ impl Polysender {
             town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
             visibility_tx: self.visibility_tx.clone_with_name(name),
             voyager_tx: self.voyager_tx.clone_with_name(name),
+            world_tx: self.world_tx.clone_with_name(name),
             world_artist_tx: self.world_artist_tx.clone_with_name(name),
         }
     }
@@ -315,8 +317,8 @@ impl SendWorld for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut World) -> O + Send + 'static,
     {
-        self.game_tx
-            .send(move |game| function(&mut game.mut_state().world))
+        self.world_tx
+            .send(move |world| function(&mut world.state()))
             .await
     }
 
@@ -325,8 +327,8 @@ impl SendWorld for Polysender {
         O: Send + 'static,
         F: FnOnce(&mut World) -> O + Send + 'static,
     {
-        self.game_tx
-            .send(move |game| function(&mut game.mut_state().world));
+        self.world_tx
+            .send(move |world| function(&mut world.state()));
     }
 }
 

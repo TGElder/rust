@@ -31,7 +31,6 @@ mod world_gen;
 use crate::game::*;
 use crate::system::{System, SystemController};
 use crate::traits::SendGame;
-use crate::world_gen::*;
 
 use commons::async_channel::unbounded;
 use commons::fn_sender::fn_channel;
@@ -107,19 +106,15 @@ fn main() {
 }
 
 fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
-    let mut rng = rng(seed);
     let params = GameParams {
         seed,
+        power,
         width: 2usize.pow(power as u32),
         reveal_all,
         homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(power as f32)) as u64),
         ..GameParams::default()
     };
-    let mut world = generate_world(power, &mut rng, &params.world_gen);
-    if reveal_all {
-        world.reveal_all();
-    }
-    GameState { world, params }
+    GameState { params }
 }
 
 fn load(path: &str) -> GameState {

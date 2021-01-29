@@ -6,8 +6,6 @@ pub use game_params::*;
 pub use game_state::*;
 
 use commons::fn_sender::*;
-use commons::V2;
-use commons::*;
 use futures::executor::block_on;
 use std::time::{Duration, Instant};
 
@@ -32,10 +30,6 @@ impl Game {
 
     pub fn game_state(&self) -> &GameState {
         &self.game_state
-    }
-
-    pub fn mut_state(&mut self) -> &mut GameState {
-        &mut self.game_state
     }
 
     pub fn tx(&self) -> &FnSender<Game> {
