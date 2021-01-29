@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::*;
 
 pub trait CheckForPort {
@@ -23,6 +25,15 @@ where
         } else {
             None
         }
+    }
+}
+
+impl<T> CheckForPort for Arc<T>
+where
+    T: TravelModeFn,
+{
+    fn check_for_port(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<V2<usize>> {
+        T::check_for_port(self, world, from, to)
     }
 }
 

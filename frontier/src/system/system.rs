@@ -14,7 +14,7 @@ use crate::actors::{
     VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
-use crate::avatar::AvatarTravelDuration;
+use crate::avatar::{AvatarTravelDuration, AvatarTravelModeFn};
 use crate::game::{Game, GameParams};
 use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
@@ -290,7 +290,12 @@ impl System {
                             road_build_travel_duration,
                         )),
                         Box::new(RemoveRoad::new(tx.clone_with_name("remove_road"))),
-                        Box::new(UpdateRouteToPorts::new(game_tx)),
+                        Box::new(UpdateRouteToPorts::new(
+                            tx.clone_with_name("update_route_to_ports"),
+                            Arc::new(AvatarTravelModeFn::new(
+                                params.avatar_travel.min_navigable_river_width,
+                            )),
+                        )),
                     ],
                 ),
                 simulation_rx,
