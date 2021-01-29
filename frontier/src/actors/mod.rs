@@ -22,6 +22,7 @@ mod town_artist;
 mod town_builder;
 mod visibility;
 mod voyager;
+mod world;
 mod world_artist;
 
 pub use avatar_artist::*;
@@ -48,5 +49,6 @@ pub use town_artist::*;
 pub use town_builder::*;
 pub use visibility::*;
 pub use voyager::*;
+pub use world::*;
 pub use world_artist::*;
 pub use world_artist::*;

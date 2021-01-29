@@ -11,7 +11,7 @@ use crate::actors::{
     Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService, PathfindingAvatarControls,
     PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
     SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters,
+    VisibilityActor, Voyager, WorldActor, WorldArtistActor, WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::{AvatarTravelDuration, AvatarTravelModeFn};
@@ -63,6 +63,7 @@ pub struct System {
     pub town_label_artist: Process<TownLabelArtist<Polysender>>,
     pub visibility: Process<VisibilityActor<Polysender>>,
     pub voyager: Process<Voyager<Polysender>>,
+    pub world: Process<WorldActor<Polysender>>,
     pub world_artist: Process<WorldArtistActor<Polysender>>,
 }
 
@@ -101,6 +102,7 @@ impl System {
         let (town_label_artist_tx, town_label_artist_rx) = fn_channel();
         let (visibility_tx, visibility_rx) = fn_channel();
         let (voyager_tx, voyager_rx) = fn_channel();
+        let (world_tx, world_rx) = fn_channel();
         let (world_artist_tx, world_artist_rx) = fn_channel();
 
         let tx = Polysender {
@@ -132,6 +134,7 @@ impl System {
             town_label_artist_tx,
             visibility_tx,
             voyager_tx,
+            world_tx,
             world_artist_tx,
         };
 
@@ -333,6 +336,7 @@ impl System {
                 visibility_rx,
             ),
             voyager: Process::new(Voyager::new(tx.clone_with_name("voyager")), voyager_rx),
+            world: Process::new(WorldActor::new(tx.clone_with_name("world")), world_rx),
             world_artist: Process::new(
                 WorldArtistActor::new(
                     tx.clone_with_name("world_artist_actor"),
@@ -406,6 +410,9 @@ impl System {
         self.tx
             .visibility_tx
             .send_future(|visibility| visibility.new_game().boxed());
+        self.tx
+            .world_tx
+            .send_future(|world| world.new_game().boxed());
     }
 
     pub async fn start(&mut self) {
@@ -415,6 +422,7 @@ impl System {
         self.routes.run_passive(&self.pool).await;
         self.settlements.run_passive(&self.pool).await;
         self.territory.run_passive(&self.pool).await;
+        self.world.run_passive(&self.pool).await;
 
         self.pathfinder_with_planned_roads
             .run_passive(&self.pool)
@@ -484,6 +492,7 @@ impl System {
             .drain(&self.pool, true)
             .await;
 
+        self.world.drain(&self.pool, true).await;
         self.territory.drain(&self.pool, true).await;
         self.settlements.drain(&self.pool, true).await;
         self.routes.drain(&self.pool, true).await;
@@ -503,6 +512,7 @@ impl System {
         self.simulation.object_ref().unwrap().save(path);
         self.territory.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
+        self.world.object_ref().unwrap().save(path);
 
         let path = path.to_string();
         self.tx.send_game(|game| game.save(path)).await;
@@ -519,5 +529,6 @@ impl System {
         self.simulation.object_mut().unwrap().load(path);
         self.territory.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
+        self.world.object_mut().unwrap().load(path);
     }
 }
