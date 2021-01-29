@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 pub struct UpdateRouteToPorts<T, C> {
     tx: T,
-    check_for_port: C,
+    check_for_port: Arc<C>,
 }
 
 #[async_trait]
@@ -30,9 +30,9 @@ where
 impl<T, C> UpdateRouteToPorts<T, C>
 where
     T: SendWorld,
-    C: CheckForPort + Clone + Send + 'static,
+    C: CheckForPort + Clone + Send + Sync + 'static,
 {
-    pub fn new(tx: T, check_for_port: C) -> UpdateRouteToPorts<T, C> {
+    pub fn new(tx: T, check_for_port: Arc<C>) -> UpdateRouteToPorts<T, C> {
         UpdateRouteToPorts { tx, check_for_port }
     }
 
@@ -52,7 +52,7 @@ where
 
 pub fn update_many_route_to_ports<C>(
     world: &World,
-    check_for_port: C,
+    check_for_port: Arc<C>,
     mut state: State,
     route_changes: Vec<RouteChange>,
 ) -> State
@@ -60,7 +60,7 @@ where
     C: CheckForPort,
 {
     for route_change in route_changes {
-        update_route_to_ports(world, &check_for_port, &mut state, &route_change);
+        update_route_to_ports(world, check_for_port.as_ref(), &mut state, &route_change);
     }
     state
 }
@@ -155,7 +155,8 @@ mod tests {
 
         let state = State::default();
 
-        let mut processor = UpdateRouteToPorts::new(world(), hashset! {v2(0, 1), v2(1, 2)});
+        let mut processor =
+            UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(0, 1), v2(1, 2)}));
 
         // When
         let route_change = RouteChange::New { key, route };
@@ -186,7 +187,7 @@ mod tests {
 
         let state = State::default();
 
-        let mut processor = UpdateRouteToPorts::new(world(), hashset! {});
+        let mut processor = UpdateRouteToPorts::new(world(), Arc::new(hashset! {}));
 
         // When
         let route_change = RouteChange::New { key, route };
@@ -224,7 +225,7 @@ mod tests {
         };
 
         let mut processor =
-            UpdateRouteToPorts::new(world(), hashset! {v2(0, 1), v2(1, 0), v2(1, 2)});
+            UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}));
 
         // When
         let route_change = RouteChange::Updated { key, old, new };
@@ -264,7 +265,7 @@ mod tests {
             ..State::default()
         };
 
-        let mut processor = UpdateRouteToPorts::new(world(), hashset! {v2(1, 0)});
+        let mut processor = UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(1, 0)}));
 
         // When
         let route_change = RouteChange::Updated { key, old, new };
@@ -302,7 +303,7 @@ mod tests {
         };
 
         let mut processor =
-            UpdateRouteToPorts::new(world(), hashset! {v2(0, 1), v2(1, 0), v2(1, 2)});
+            UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}));
 
         // When
         let route_change = RouteChange::Updated { key, old, new };
@@ -333,7 +334,7 @@ mod tests {
             ..State::default()
         };
 
-        let mut processor = UpdateRouteToPorts::new(world(), hashset! {});
+        let mut processor = UpdateRouteToPorts::new(world(), Arc::new(hashset! {}));
 
         // When
         let route_change = RouteChange::Removed { key, route };
@@ -375,7 +376,8 @@ mod tests {
             ..State::default()
         };
 
-        let mut processor = UpdateRouteToPorts::new(world(), hashset! {v2(0, 1), v2(1, 2)});
+        let mut processor =
+            UpdateRouteToPorts::new(world(), Arc::new(hashset! {v2(0, 1), v2(1, 2)}));
 
         // When
         let route_changes = vec![
