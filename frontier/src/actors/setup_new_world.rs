@@ -1,7 +1,7 @@
 use crate::avatar::{Avatar, Journey, Rotation, Vehicle};
-use crate::game::HomelandParams;
 use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation, NationDescription};
+use crate::parameters::HomelandParams;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{
     SendAvatars, SendNations, SendParameters, SendSettlements, SendWorld, Visibility,

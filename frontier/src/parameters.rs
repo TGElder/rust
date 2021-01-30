@@ -1,18 +1,21 @@
 use crate::actors::{BaseColors, TownArtistParameters};
-use crate::avatar::*;
+use crate::args::Args;
+use crate::avatar::AvatarTravelParams;
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
-use crate::road_builder::*;
-use crate::world_gen::*;
-use commons::*;
+use crate::road_builder::AutoRoadTravelParams;
+use crate::world_gen::WorldGenParameters;
+use commons::{v3, V3};
 use isometric::Color;
 
 use serde::{Deserialize, Serialize};
 use std::default::Default;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 use std::time::Duration;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct GameParams {
+pub struct Parameters {
     pub seed: u64,
     pub power: usize,
     pub width: usize,
@@ -35,9 +38,9 @@ pub struct GameParams {
     pub default_speed: f32,
 }
 
-impl Default for GameParams {
-    fn default() -> GameParams {
-        GameParams {
+impl Default for Parameters {
+    fn default() -> Parameters {
+        Parameters {
             seed: 0,
             power: 0,
             width: 0,
@@ -73,6 +76,44 @@ impl Default for HomelandParams {
         HomelandParams {
             count: 8,
             edges: vec![HomelandEdge::East, HomelandEdge::West],
+        }
+    }
+}
+
+impl Parameters {
+    pub fn save(&self, path: &str) {
+        let path = get_path(path);
+        let mut file = BufWriter::new(File::create(path).unwrap());
+        bincode::serialize_into(&mut file, &self).unwrap();
+    }
+
+    fn load(path: &str) -> Parameters {
+        let path = get_path(path);
+        let file = BufReader::new(File::open(path).unwrap());
+        bincode::deserialize_from(file).unwrap()
+    }
+}
+
+fn get_path(path: &str) -> String {
+    format!("{}.parameters", path)
+}
+
+impl From<&Args> for Parameters {
+    fn from(args: &Args) -> Self {
+        match args {
+            Args::New {
+                power,
+                seed,
+                reveal_all,
+            } => Parameters {
+                seed: *seed,
+                power: *power,
+                width: 2usize.pow(*power as u32),
+                reveal_all: *reveal_all,
+                homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(*power as f32)) as u64),
+                ..Parameters::default()
+            },
+            Args::Load { path } => Self::load(&path),
         }
     }
 }
