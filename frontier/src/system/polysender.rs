@@ -7,8 +7,8 @@ use crate::actors::{
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
-use crate::game::{Game, GameParams};
 use crate::nation::Nation;
+use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::route::Routes;
 use crate::settlement::Settlement;
@@ -16,8 +16,8 @@ use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
-    SendGame, SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes, SendSettlements,
-    SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
+    SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes, SendSettlements, SendSim,
+    SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
     SendWorld, SendWorldArtist,
 };
 use crate::world::World;
@@ -29,7 +29,6 @@ use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Polysender {
-    pub game_tx: FnSender<Game>,
     pub avatar_artist_tx: FnSender<AvatarArtistActor<Polysender>>,
     pub avatar_visibility_tx: FnSender<AvatarVisibility<Polysender>>,
     pub avatars_tx: FnSender<AvatarsActor>,
@@ -40,6 +39,7 @@ pub struct Polysender {
     pub labels_tx: FnSender<Labels<Polysender>>,
     pub nations_tx: FnSender<Nations>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
+    pub parameters_tx: FnSender<Parameters>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
     pub pathfinder_with_planned_roads_tx:
         FnSender<PathfinderService<Polysender, AvatarTravelDuration>>,
@@ -66,7 +66,6 @@ pub struct Polysender {
 impl Polysender {
     pub fn clone_with_name(&self, name: &'static str) -> Polysender {
         Polysender {
-            game_tx: self.game_tx.clone_with_name(name),
             avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
             avatar_visibility_tx: self.avatar_visibility_tx.clone_with_name(name),
             avatars_tx: self.avatars_tx.clone_with_name(name),
@@ -77,6 +76,7 @@ impl Polysender {
             labels_tx: self.labels_tx.clone_with_name(name),
             nations_tx: self.nations_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
+            parameters_tx: self.parameters_tx.clone_with_name(name),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
                 .clone_with_name(name),
@@ -142,25 +142,6 @@ impl SendClock for Polysender {
 }
 
 #[async_trait]
-impl SendGame for Polysender {
-    async fn send_game<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut Game) -> O + Send + 'static,
-    {
-        self.game_tx.send(function).await
-    }
-
-    fn send_game_background<F, O>(&self, function: F)
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut Game) -> O + Send + 'static,
-    {
-        self.game_tx.send(function);
-    }
-}
-
-#[async_trait]
 impl SendNations for Polysender {
     async fn send_nations<F, O>(&self, function: F) -> O
     where
@@ -178,10 +159,10 @@ impl SendParameters for Polysender {
     async fn send_parameters<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
-        F: FnOnce(&GameParams) -> O + Send + 'static,
+        F: FnOnce(&Parameters) -> O + Send + 'static,
     {
-        self.game_tx
-            .send(move |game| function(&game.game_state().params))
+        self.parameters_tx
+            .send(move |params| function(params))
             .await
     }
 }

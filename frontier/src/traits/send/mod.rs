@@ -1,6 +1,5 @@
 mod send_avatars;
 mod send_clock;
-mod send_game;
 mod send_nations;
 mod send_parameters;
 mod send_pathfinder;
@@ -18,7 +17,6 @@ mod send_world_artist;
 
 pub use send_avatars::*;
 pub use send_clock::*;
-pub use send_game::*;
 pub use send_nations::*;
 pub use send_parameters::*;
 pub use send_pathfinder::*;

@@ -6,14 +6,15 @@ extern crate commons;
 extern crate futures;
 
 mod actors;
+mod args;
 mod artists;
 mod avatar;
 mod avatars;
-mod game;
 mod homeland_start;
 mod label_editor;
 mod names;
 mod nation;
+mod parameters;
 mod pathfinder;
 mod resource;
 mod road_builder;
@@ -28,9 +29,9 @@ mod visibility_computer;
 mod world;
 mod world_gen;
 
-use crate::game::*;
+use crate::args::Args;
+use crate::parameters::Parameters;
 use crate::system::{System, SystemController};
-use crate::traits::SendGame;
 
 use commons::async_channel::unbounded;
 use commons::fn_sender::fn_channel;
@@ -41,8 +42,6 @@ use futures::FutureExt;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use simple_logger::SimpleLogger;
 use std::env;
-use std::thread;
-use std::time::Duration;
 
 fn main() {
     SimpleLogger::new()
@@ -50,101 +49,37 @@ fn main() {
         .init()
         .unwrap();
 
-    let parsed_args = parse_args(env::args().collect());
+    let args = Args::new(env::args().collect());
 
-    let game_state = match &parsed_args {
-        ParsedArgs::New {
-            power,
-            seed,
-            reveal_all,
-        } => new(*power, *seed, *reveal_all),
-        ParsedArgs::Load { path } => load(&path),
-    };
+    let params: Parameters = (&args).into();
 
     let mut engine = IsometricEngine::new(IsometricEngineParameters {
         title: "Frontier",
         width: 1024,
         height: 1024,
-        max_z: game_state.params.world_gen.max_height as f32 + 1.2, // +1.2 for resources at top
-        label_padding: game_state.params.label_padding,
+        max_z: params.world_gen.max_height as f32 + 1.2, // +1.2 for resources at top
+        label_padding: params.label_padding,
     });
 
-    let mut game = Game::new(game_state);
     let thread_pool = ThreadPool::new().unwrap();
 
-    let mut system = System::new(
-        &game.game_state().params,
-        &mut engine,
-        game.tx(),
-        thread_pool.clone(),
-    );
-    match parsed_args {
-        ParsedArgs::New { .. } => system.new_game(),
-        ParsedArgs::Load { path } => system.load(&path),
+    let mut system = System::new(params, &mut engine, thread_pool.clone());
+    match args {
+        Args::New { .. } => system.new_game(),
+        Args::Load { path } => system.load(&path),
     }
-    let tx = system.tx.clone_with_name("main");
 
     // Run
     let (system_tx, system_rx) = fn_channel();
     system_tx.send_future(|system: &mut System| system.start().boxed());
     let (shutdown_tx, shutdown_rx) = unbounded();
     engine.add_event_consumer(SystemController::new(system_tx, shutdown_tx));
-
     let system_handle = run_passive(system, system_rx, shutdown_rx, &thread_pool);
-    let game_handle = thread::spawn(move || game.run());
+
     engine.run();
 
     // Wait
 
     info!("Joining system");
     block_on(system_handle);
-    info!("Shutting down game");
-    block_on(tx.send_game(|game| game.shutdown()));
-    info!("Shut down game");
-    println!("Joining game");
-    game_handle.join().unwrap();
-}
-
-fn new(power: usize, seed: u64, reveal_all: bool) -> GameState {
-    let params = GameParams {
-        seed,
-        power,
-        width: 2usize.pow(power as u32),
-        reveal_all,
-        homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(power as f32)) as u64),
-        ..GameParams::default()
-    };
-    GameState { params }
-}
-
-fn load(path: &str) -> GameState {
-    GameState::from_file(path)
-}
-
-enum ParsedArgs {
-    New {
-        power: usize,
-        seed: u64,
-        reveal_all: bool,
-    },
-    Load {
-        path: String,
-    },
-}
-
-#[allow(clippy::comparison_chain)]
-fn parse_args(args: Vec<String>) -> ParsedArgs {
-    if args.len() > 2 {
-        ParsedArgs::New {
-            power: args[1].parse().unwrap(),
-            seed: args[2].parse().unwrap(),
-            reveal_all: args.contains(&"-r".to_string()),
-        }
-    } else if args.len() == 2 {
-        ParsedArgs::Load {
-            path: args[1].clone(),
-        }
-    } else {
-        panic!("Invalid command line arguments");
-    }
 }
