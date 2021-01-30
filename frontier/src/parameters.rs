@@ -86,12 +86,12 @@ impl Parameters {
         let mut file = BufWriter::new(File::create(path).unwrap());
         bincode::serialize_into(&mut file, &self).unwrap();
     }
-}
 
-fn load(path: &str) -> Parameters {
-    let path = get_path(path);
-    let file = BufReader::new(File::open(path).unwrap());
-    bincode::deserialize_from(file).unwrap()
+    fn load(path: &str) -> Parameters {
+        let path = get_path(path);
+        let file = BufReader::new(File::open(path).unwrap());
+        bincode::deserialize_from(file).unwrap()
+    }
 }
 
 fn get_path(path: &str) -> String {
@@ -113,7 +113,7 @@ impl From<&Args> for Parameters {
                 homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(*power as f32)) as u64),
                 ..Parameters::default()
             },
-            Args::Load { path } => load(&path),
+            Args::Load { path } => Self::load(&path),
         }
     }
 }
