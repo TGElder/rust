@@ -50,6 +50,7 @@ RevealAll SendWorld
 RevealAll UpdatePositionsAllPathfinders
 RevealPositions DrawWorld
 RevealPositions Micros
+RevealPositions SendSim
 RevealPositions SendVoyager
 RevealPositions SendWorld
 RevealPositions UpdatePositionsAllPathfinders
@@ -75,8 +76,14 @@ SendBasicRoadBuilder SelectedAvatar
 SendBasicRoadBuilder SendWorld
 SendBasicRoadBuilder UpdateAvatarJourney
 SendBasicRoadBuilder UpdateRoads
+SendBuildActor AddCrops
+SendBuildActor AddRoad
+SendBuildActor AddTown
+SendBuildActor GetSettlement
 SendBuildActor Micros
 SendBuildActor TakeBuildInstructionsBefore
+SendBuildActor UpdateTerritory
+SendBuildActor WhoControlsTile
 SendCheats RevealAll
 SendCheats SendAvatars
 SendCheats SendWorld
@@ -85,7 +92,6 @@ SendCheats Visibility
 SendLabels SendWorld
 SendObjectBuilder RemoveWorldObject
 SendObjectBuilder SetWorldObject
-SendParameters SendGame
 SendPathfindingAvatarControls FindPath
 SendPathfindingAvatarControls Micros
 SendPathfindingAvatarControls SendPathfinder
@@ -107,9 +113,6 @@ SendSetupNewWorld SendParameters
 SendSetupNewWorld SendSettlements
 SendSetupNewWorld SendWorld
 SendSetupNewWorld VisibleLandPositions
-SendSim AddCrops
-SendSim AddRoad
-SendSim AddTown
 SendSim AnyoneControls
 SendSim ClosestTargets
 SendSim Controlled
@@ -135,7 +138,6 @@ SendSim Settlements
 SendSim UpdateSettlement
 SendSim UpdateTerritory
 SendSim VisibleLandPositions
-SendSim WhoControlsTile
 SendSpeedControl SendClock
 SendTownBuilder AddTown
 SendTownBuilder GetSettlement
