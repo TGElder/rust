@@ -1,35 +1,28 @@
-use super::*;
+use std::time::Duration;
 
+use commons::async_std::task::sleep;
+use commons::async_trait::async_trait;
+use commons::process::Step;
+
+use crate::simulation::{Build, BuildInstruction, Builder};
 use crate::traits::{Micros, TakeBuildInstructionsBefore};
 
-pub struct BuildSim<T> {
+pub struct BuilderActor<T> {
     tx: T,
     builders: Vec<Box<dyn Builder + Send>>,
+    build_interval: Duration,
 }
 
-#[async_trait]
-impl<T> Processor for BuildSim<T>
-where
-    T: Micros + TakeBuildInstructionsBefore + Send + Sync,
-{
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        match instruction {
-            Instruction::Build => (),
-            _ => return state,
-        };
-        let micros = self.tx.micros().await;
-        self.build_all(self.tx.take_build_instructions_before(&micros).await)
-            .await;
-        state
-    }
-}
-
-impl<T> BuildSim<T>
+impl<T> BuilderActor<T>
 where
     T: Micros + TakeBuildInstructionsBefore,
 {
-    pub fn new(tx: T, builders: Vec<Box<dyn Builder + Send>>) -> BuildSim<T> {
-        BuildSim { tx, builders }
+    pub fn new(tx: T, builders: Vec<Box<dyn Builder + Send>>) -> BuilderActor<T> {
+        BuilderActor {
+            tx,
+            builders,
+            build_interval: Duration::from_millis(100),
+        }
     }
 
     async fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
@@ -46,6 +39,19 @@ where
                 return;
             }
         }
+    }
+}
+
+#[async_trait]
+impl<T> Step for BuilderActor<T>
+where
+    T: Micros + TakeBuildInstructionsBefore + Send + Sync,
+{
+    async fn step(&mut self) {
+        let micros = self.tx.micros().await;
+        self.build_all(self.tx.take_build_instructions_before(&micros).await)
+            .await;
+        sleep(self.build_interval).await;
     }
 }
 
@@ -119,10 +125,10 @@ mod tests {
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
 
-        let mut processor = BuildSim::new(tx, vec![Box::new(retriever)]);
+        let mut builder = BuilderActor::new(tx, vec![Box::new(retriever)]);
 
         // When
-        block_on(processor.process(State::default(), &Instruction::Build));
+        block_on(builder.step());
 
         // Then
         assert_eq!(

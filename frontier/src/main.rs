@@ -66,7 +66,7 @@ fn main() {
     let mut system = System::new(params, &mut engine, thread_pool.clone());
     match args {
         Args::New { .. } => system.new_game(),
-        Args::Load { path } => system.load(&path),
+        Args::Load { path } => block_on(system.load(&path)),
     }
 
     // Run
