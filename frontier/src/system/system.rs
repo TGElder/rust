@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use commons::async_std::sync::RwLock;
 use commons::fn_sender::fn_channel;
 use futures::executor::ThreadPool;
 use futures::future::FutureExt;
@@ -26,7 +27,7 @@ use crate::simulation::processors::{
     RemoveRoad, RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateEdgeTraffic,
     UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
 };
-use crate::simulation::Simulation;
+use crate::simulation::{BuildQueue, Simulation};
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traits::SendClock;
 use commons::process::Process;
@@ -108,6 +109,7 @@ impl System {
             avatars_tx,
             basic_avatar_controls_tx,
             basic_road_builder_tx,
+            build_queue: Arc::new(RwLock::new(BuildQueue::default())),
             cheats_tx,
             clock_tx,
             labels_tx,

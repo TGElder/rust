@@ -26,11 +26,11 @@ impl BuildQueue {
         self.queue.remove(build_key);
     }
 
-    pub fn take_instructions_before(&mut self, micros: u128) -> Vec<BuildInstruction> {
+    pub fn take_instructions_before(&mut self, micros: &u128) -> Vec<BuildInstruction> {
         let (to_build, to_retain) = self
             .queue
             .drain()
-            .partition(|(_, BuildInstruction { when, .. })| *when <= micros);
+            .partition(|(_, BuildInstruction { when, .. })| when <= micros);
         self.queue = to_retain;
         to_build
             .into_iter()
@@ -143,7 +143,7 @@ mod tests {
         build_queue.insert(after.clone());
 
         // When
-        let actual = build_queue.take_instructions_before(50);
+        let actual = build_queue.take_instructions_before(&50);
 
         // Then
         assert_eq!(actual, vec![before]);
@@ -167,7 +167,7 @@ mod tests {
         build_queue.insert(after.clone());
 
         // When
-        let actual = build_queue.take_instructions_before(50);
+        let actual = build_queue.take_instructions_before(&50);
 
         // Then
         assert_eq!(actual, vec![]);
@@ -191,7 +191,7 @@ mod tests {
         build_queue.insert(before.clone());
 
         // When
-        let actual = build_queue.take_instructions_before(50);
+        let actual = build_queue.take_instructions_before(&50);
 
         // Then
         assert_eq!(actual, vec![before]);

@@ -10,7 +10,7 @@ mod state;
 mod traffic;
 
 pub use build::builders;
-use build::*;
+pub use build::*;
 pub use demand::demand_fn;
 use demand::*;
 use instruction::*;

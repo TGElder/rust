@@ -12,20 +12,22 @@ use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::route::Routes;
 use crate::settlement::Settlement;
-use crate::simulation::Simulation;
+use crate::simulation::{BuildQueue, Simulation};
 use crate::territory::Territory;
 use crate::traits::{
-    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
-    SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes, SendSettlements, SendSim,
-    SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
-    SendWorld, SendWorldArtist,
+    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars,
+    SendBuildQueue, SendClock, SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes,
+    SendSettlements, SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
+    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::world::World;
+use commons::async_std::sync::RwLock;
 use commons::async_trait::async_trait;
 use commons::fn_sender::FnSender;
 use commons::V2;
 use futures::future::BoxFuture;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Polysender {
@@ -34,6 +36,7 @@ pub struct Polysender {
     pub avatars_tx: FnSender<AvatarsActor>,
     pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Polysender>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
+    pub build_queue: Arc<RwLock<BuildQueue>>,
     pub cheats_tx: FnSender<Cheats<Polysender>>,
     pub clock_tx: FnSender<Clock<RealTime>>,
     pub labels_tx: FnSender<Labels<Polysender>>,
@@ -71,6 +74,7 @@ impl Polysender {
             avatars_tx: self.avatars_tx.clone_with_name(name),
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
+            build_queue: self.build_queue.clone(),
             cheats_tx: self.cheats_tx.clone_with_name(name),
             clock_tx: self.clock_tx.clone_with_name(name),
             labels_tx: self.labels_tx.clone_with_name(name),
@@ -125,6 +129,25 @@ impl SendAvatars for Polysender {
     {
         self.avatars_tx
             .send(move |avatars| function(&mut avatars.state()));
+    }
+}
+
+#[async_trait]
+impl SendBuildQueue for Polysender {
+    async fn get_build_queue<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&BuildQueue) -> O + Send,
+    {
+        let build_queue = self.build_queue.read().await;
+        function(&build_queue)
+    }
+
+    async fn mut_build_queue<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut BuildQueue) -> O + Send,
+    {
+        let mut build_queue = self.build_queue.write().await;
+        function(&mut build_queue)
     }
 }
 
