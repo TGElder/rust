@@ -17,9 +17,11 @@ DrawTown SendTownLabelArtist
 DrawWorld SendWorldArtist
 ExpandPositions SendWorld
 FindPath SendPathfinder
+GetBuildInstruction SendBuildQueue
 GetNationDescription SendNations
 GetSettlement SendSettlements
 InBounds SendPathfinder
+InsertBuildInstruction SendBuildQueue
 InitTargets SendPathfinder
 IsRoad SendWorld
 LoadTarget SendPathfinder
@@ -29,6 +31,7 @@ NationDescriptions SendNations
 PlanRoad SendPathfinder
 PlanRoad SendWorld
 RandomTownName SendNations
+RemoveBuildInstruction SendBuildQueue
 RemoveController SendTerritory
 RemoveRoad IsRoad
 RemoveRoad UpdateRoads
@@ -163,6 +166,7 @@ Settlements SendSettlements
 SetWorldObject DrawWorld
 SetWorldObject Micros
 SetWorldObject SendWorld
+TakeBuildInstructionsBefore SendBuildQueue
 UpdateAvatarJourney SendAvatars
 UpdatePathfinderPositions SendPathfinder
 UpdatePathfinderPositions SendWorld

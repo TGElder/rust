@@ -12,7 +12,6 @@ pub struct State {
     pub traffic: Traffic,
     pub edge_traffic: EdgeTraffic,
     pub route_to_ports: HashMap<RouteKey, HashSet<V2<usize>>>,
-    pub build_queue: BuildQueue,
 }
 
 impl Default for State {
@@ -23,7 +22,6 @@ impl Default for State {
             traffic: Vec2D::new(1, 1, HashSet::new()),
             edge_traffic: hashmap! {},
             route_to_ports: hashmap! {},
-            build_queue: BuildQueue::default(),
         }
     }
 }

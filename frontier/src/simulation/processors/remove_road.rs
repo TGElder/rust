@@ -1,6 +1,8 @@
 use commons::edge::Edge;
 
-use crate::traits::{IsRoad, PlanRoad, RemoveRoad as RemoveRoadTrait, RoadPlanned};
+use crate::traits::{
+    IsRoad, PlanRoad, RemoveBuildInstruction, RemoveRoad as RemoveRoadTrait, RoadPlanned,
+};
 
 use super::*;
 
@@ -11,7 +13,14 @@ pub struct RemoveRoad<T> {
 #[async_trait]
 impl<T> Processor for RemoveRoad<T>
 where
-    T: IsRoad + PlanRoad + RemoveRoadTrait + RoadPlanned + Send + Sync + 'static,
+    T: IsRoad
+        + PlanRoad
+        + RemoveBuildInstruction
+        + RemoveRoadTrait
+        + RoadPlanned
+        + Send
+        + Sync
+        + 'static,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let edges = match instruction {
@@ -29,7 +38,7 @@ where
 
 impl<T> RemoveRoad<T>
 where
-    T: IsRoad + PlanRoad + RemoveRoadTrait + RoadPlanned,
+    T: IsRoad + PlanRoad + RemoveBuildInstruction + RemoveRoadTrait + RoadPlanned,
 {
     pub fn new(tx: T) -> RemoveRoad<T> {
         RemoveRoad { tx }
@@ -48,7 +57,9 @@ where
             return;
         }
 
-        state.build_queue.remove(&BuildKey::Road(edge));
+        self.tx
+            .remove_build_instruction(&BuildKey::Road(edge))
+            .await;
         self.tx.remove_road(edge).await;
         self.tx.plan_road(edge, None).await;
     }
@@ -56,7 +67,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use commons::{v2, Arm};
+    use std::collections::HashSet;
+    use std::sync::Mutex;
+
+    use commons::v2;
     use futures::executor::block_on;
 
     use crate::resource::Resource;
@@ -67,8 +81,9 @@ mod tests {
     #[derive(Default)]
     struct Tx {
         is_road: bool,
-        planned_roads: Arm<Vec<(Edge, Option<u128>)>>,
-        removed_roads: Arm<Vec<Edge>>,
+        planned_roads: Mutex<Vec<(Edge, Option<u128>)>>,
+        removed_build_instructions: Mutex<HashSet<BuildKey>>,
+        removed_roads: Mutex<Vec<Edge>>,
         road_planned: Option<u128>,
     }
 
@@ -83,6 +98,16 @@ mod tests {
     impl PlanRoad for Tx {
         async fn plan_road(&self, edge: Edge, when: Option<u128>) {
             self.planned_roads.lock().unwrap().push((edge, when))
+        }
+    }
+
+    #[async_trait]
+    impl RemoveBuildInstruction for Tx {
+        async fn remove_build_instruction(&self, build_key: &BuildKey) {
+            self.removed_build_instructions
+                .lock()
+                .unwrap()
+                .insert(*build_key);
         }
     }
 
@@ -149,23 +174,18 @@ mod tests {
 
         let edge = Edge::new(v2(0, 0), v2(1, 0));
 
-        let mut build_queue = BuildQueue::default();
-        build_queue.insert(BuildInstruction {
-            what: Build::Road(edge),
-            when: 123,
-        });
-        let state = State {
-            build_queue,
-            ..State::default()
-        };
+        let state = State::default();
 
         let mut processor = RemoveRoad::new(tx);
 
         // When
-        let state = block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
+        block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
 
         // Then
-        assert_eq!(state.build_queue, BuildQueue::default());
+        assert_eq!(
+            *processor.tx.removed_build_instructions.lock().unwrap(),
+            hashset! {BuildKey::Road(edge)}
+        );
     }
 
     #[test]
@@ -179,13 +199,7 @@ mod tests {
 
         let edge = Edge::new(v2(0, 0), v2(1, 0));
 
-        let mut build_queue = BuildQueue::default();
-        build_queue.insert(BuildInstruction {
-            what: Build::Road(edge),
-            when: 123,
-        });
         let state = State {
-            build_queue,
             edge_traffic: hashmap! {
                 edge => hashset!{
                     RouteKey{
@@ -201,12 +215,17 @@ mod tests {
         let mut processor = RemoveRoad::new(tx);
 
         // When
-        let state = block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
+        block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
 
         // Then
-        assert!(state.build_queue.get(&BuildKey::Road(edge)).is_some());
-        assert_eq!(*processor.tx.removed_roads.lock().unwrap(), vec![]);
-        assert_eq!(*processor.tx.planned_roads.lock().unwrap(), vec![]);
+        assert!(processor
+            .tx
+            .removed_build_instructions
+            .lock()
+            .unwrap()
+            .is_empty());
+        assert!(processor.tx.removed_roads.lock().unwrap().is_empty());
+        assert!(processor.tx.planned_roads.lock().unwrap().is_empty());
     }
 
     #[test]

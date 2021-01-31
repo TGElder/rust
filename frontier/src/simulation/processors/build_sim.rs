@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::traits::Micros;
+use crate::traits::{Micros, TakeBuildInstructionsBefore};
 
 pub struct BuildSim<T> {
     tx: T,
@@ -10,15 +10,15 @@ pub struct BuildSim<T> {
 #[async_trait]
 impl<T> Processor for BuildSim<T>
 where
-    T: Micros + Send + Sync,
+    T: Micros + TakeBuildInstructionsBefore + Send + Sync,
 {
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::Build => (),
             _ => return state,
         };
         let micros = self.tx.micros().await;
-        self.build_all(state.build_queue.take_instructions_before(micros))
+        self.build_all(self.tx.take_build_instructions_before(&micros).await)
             .await;
         state
     }
@@ -26,7 +26,7 @@ where
 
 impl<T> BuildSim<T>
 where
-    T: Micros,
+    T: Micros + TakeBuildInstructionsBefore,
 {
     pub fn new(tx: T, builders: Vec<Box<dyn Builder + Send>>) -> BuildSim<T> {
         BuildSim { tx, builders }
@@ -57,6 +57,26 @@ mod tests {
     use commons::v2;
     use futures::executor::block_on;
     use std::sync::{Arc, Mutex};
+
+    struct Tx {
+        build_instructions: Vec<BuildInstruction>,
+        micros: u128,
+    }
+
+    #[async_trait]
+    impl Micros for Tx {
+        async fn micros(&self) -> u128 {
+            self.micros
+        }
+    }
+
+    #[async_trait]
+    impl TakeBuildInstructionsBefore for Tx {
+        async fn take_build_instructions_before(&self, _: &u128) -> Vec<BuildInstruction> {
+            self.build_instructions.clone()
+        }
+    }
+
     struct BuildRetriever {
         builds: Arc<Mutex<Vec<Build>>>,
     }
@@ -80,88 +100,29 @@ mod tests {
         }
     }
 
-    #[async_trait]
-    impl Micros for u128 {
-        async fn micros(&self) -> u128 {
-            *self
-        }
-    }
-
     #[test]
-    fn should_hand_build_to_builder_if_when_elapsed() {
+    fn should_pass_build_instructions_to_builders_ordered_by_when() {
         // Given
-        let retriever = BuildRetriever::new();
-        let builds = retriever.builds.clone();
-
-        let mut processor = BuildSim::new(1000, vec![Box::new(retriever)]);
-        let mut state = State::default();
-        state.build_queue.insert(BuildInstruction {
-            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
-            when: 100,
-        });
-
-        // When
-        let state = block_on(processor.process(state, &Instruction::Build));
-
-        // Then
-        assert_eq!(
-            *builds.lock().unwrap(),
-            vec![Build::Road(Edge::new(v2(1, 2), v2(1, 3)))]
-        );
-        assert_eq!(state.build_queue, BuildQueue::default());
-    }
-
-    #[test]
-    fn should_not_hand_build_to_builder_if_when_not_elapsed() {
-        // Given
-        let retriever = BuildRetriever::new();
-        let builds = retriever.builds.clone();
-
-        let mut processor = BuildSim::new(1000, vec![Box::new(retriever)]);
-        let instruction_1 = BuildInstruction {
-            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
-            when: 100,
+        let tx = Tx {
+            build_instructions: vec![
+                BuildInstruction {
+                    what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
+                    when: 200,
+                },
+                BuildInstruction {
+                    what: Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
+                    when: 100,
+                },
+            ],
+            micros: 1000,
         };
-        let instruction_2 = BuildInstruction {
-            what: Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
-            when: 2000,
-        };
-        let mut state = State::default();
-        state.build_queue.insert(instruction_1);
-        state.build_queue.insert(instruction_2.clone());
-
-        // When
-        let state = block_on(processor.process(state, &Instruction::Build));
-
-        // Then
-        assert_eq!(
-            *builds.lock().unwrap(),
-            vec![Build::Road(Edge::new(v2(1, 2), v2(1, 3)))]
-        );
-        let mut expected = BuildQueue::default();
-        expected.insert(instruction_2);
-        assert_eq!(state.build_queue, expected);
-    }
-
-    #[test]
-    fn should_order_builds_by_when() {
-        // Given
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
 
-        let mut processor = BuildSim::new(1000, vec![Box::new(retriever)]);
-        let mut state = State::default();
-        state.build_queue.insert(BuildInstruction {
-            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
-            when: 200,
-        });
-        state.build_queue.insert(BuildInstruction {
-            what: Build::Road(Edge::new(v2(3, 4), v2(3, 5))),
-            when: 100,
-        });
+        let mut processor = BuildSim::new(tx, vec![Box::new(retriever)]);
 
         // When
-        block_on(processor.process(state, &Instruction::Build));
+        block_on(processor.process(State::default(), &Instruction::Build));
 
         // Then
         assert_eq!(

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use commons::grid::Grid;
 
 use crate::resource::Resource;
-use crate::traits::{RemoveWorldObject, SendWorld};
+use crate::traits::{GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, SendWorld};
 use crate::world::{World, WorldCell, WorldObject};
 
 use super::*;
@@ -14,9 +14,15 @@ pub struct RemoveCrops<T> {
 #[async_trait]
 impl<T> Processor for RemoveCrops<T>
 where
-    T: RemoveWorldObject + SendWorld + Send + Sync + 'static,
+    T: GetBuildInstruction
+        + RemoveBuildInstruction
+        + RemoveWorldObject
+        + SendWorld
+        + Send
+        + Sync
+        + 'static,
 {
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let mut positions = match instruction {
             Instruction::RefreshPositions(positions) => positions.clone(),
             _ => return state,
@@ -24,8 +30,10 @@ where
 
         positions.retain(|position| !has_crop_routes(&state, position));
 
-        for position in have_crops_build_instruction(&state, &positions) {
-            state.build_queue.remove(&BuildKey::Crops(position));
+        for position in self.have_crops_build_instruction(&positions).await {
+            self.tx
+                .remove_build_instruction(&BuildKey::Crops(position))
+                .await;
         }
 
         for position in self.have_crops(positions).await {
@@ -38,10 +46,27 @@ where
 
 impl<T> RemoveCrops<T>
 where
-    T: RemoveWorldObject + SendWorld,
+    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + SendWorld,
 {
     pub fn new(tx: T) -> RemoveCrops<T> {
         RemoveCrops { tx }
+    }
+
+    async fn have_crops_build_instruction(&self, positions: &HashSet<V2<usize>>) -> Vec<V2<usize>> {
+        let mut out = vec![];
+        for position in positions {
+            if self.has_crops_build_instruction(position).await {
+                out.push(*position);
+            }
+        }
+        out
+    }
+
+    async fn has_crops_build_instruction(&self, position: &V2<usize>) -> bool {
+        self.tx
+            .get_build_instruction(&BuildKey::Crops(*position))
+            .await
+            .is_some()
     }
 
     async fn have_crops(&self, positions: HashSet<V2<usize>>) -> Vec<V2<usize>> {
@@ -55,18 +80,6 @@ fn has_crop_routes(state: &State, position: &V2<usize>) -> bool {
     ok_or!(state.traffic.get(&position), return false)
         .iter()
         .any(|route| route.resource == Resource::Crops && route.destination == *position)
-}
-
-fn have_crops_build_instruction(state: &State, positions: &HashSet<V2<usize>>) -> Vec<V2<usize>> {
-    positions
-        .iter()
-        .filter(|position| has_crops_build_instruction(state, position))
-        .cloned()
-        .collect()
-}
-
-fn has_crops_build_instruction(state: &State, position: &V2<usize>) -> bool {
-    state.build_queue.get(&BuildKey::Crops(*position)).is_some()
 }
 
 fn have_crops(world: &World, positions: HashSet<V2<usize>>) -> Vec<V2<usize>> {
@@ -90,7 +103,7 @@ fn has_crops(world: &World, position: &V2<usize>) -> bool {
 mod tests {
     use std::sync::Mutex;
 
-    use commons::{v2, Arm, M};
+    use commons::{v2, M};
     use futures::executor::block_on;
 
     use crate::route::RouteKey;
@@ -98,8 +111,27 @@ mod tests {
     use super::*;
 
     struct Tx {
-        removed_world_objects: Arm<Vec<V2<usize>>>,
-        world: Arm<World>,
+        get_build_instruction: Option<BuildInstruction>,
+        removed_build_instructions: Mutex<HashSet<BuildKey>>,
+        removed_world_objects: Mutex<Vec<V2<usize>>>,
+        world: Mutex<World>,
+    }
+
+    #[async_trait]
+    impl GetBuildInstruction for Tx {
+        async fn get_build_instruction(&self, _: &BuildKey) -> Option<BuildInstruction> {
+            self.get_build_instruction.to_owned()
+        }
+    }
+
+    #[async_trait]
+    impl RemoveBuildInstruction for Tx {
+        async fn remove_build_instruction(&self, build_key: &BuildKey) {
+            self.removed_build_instructions
+                .lock()
+                .unwrap()
+                .insert(*build_key);
+        }
     }
 
     #[async_trait]
@@ -132,8 +164,10 @@ mod tests {
         let mut world = World::new(M::zeros(3, 3), 0.0);
         world.mut_cell_unsafe(&v2(1, 1)).object = WorldObject::Crop { rotated: true };
         Tx {
-            removed_world_objects: Arm::default(),
-            world: Arc::new(Mutex::new(world)),
+            get_build_instruction: None,
+            removed_build_instructions: Mutex::default(),
+            removed_world_objects: Mutex::default(),
+            world: Mutex::new(world),
         }
     }
 
@@ -198,26 +232,29 @@ mod tests {
     #[test]
     fn should_remove_instruction_from_build_queue() {
         // Given
-        let tx = happy_path_tx();
-        tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
-
-        let mut state = happy_path_state();
-        state.build_queue.insert(BuildInstruction {
+        let mut tx = happy_path_tx();
+        tx.get_build_instruction = Some(BuildInstruction {
             what: Build::Crops {
                 position: v2(1, 1),
                 rotated: true,
             },
             when: 1,
         });
+        tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
         let mut processor = RemoveCrops::new(tx);
 
         // When
-        let state =
-            block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
+        block_on(processor.process(
+            happy_path_state(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
+        ));
 
         // Then
-        assert_eq!(state.build_queue, BuildQueue::default());
+        assert_eq!(
+            *processor.tx.removed_build_instructions.lock().unwrap(),
+            hashset! { BuildKey::Crops(v2(1, 1)) }
+        );
     }
 
     #[test]
@@ -257,17 +294,17 @@ mod tests {
     #[test]
     fn should_not_remove_build_instruction_if_crop_traffic() {
         // Given
-        let tx = happy_path_tx();
-        tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
-
-        let mut state = happy_path_state();
-        state.build_queue.insert(BuildInstruction {
+        let mut tx = happy_path_tx();
+        tx.get_build_instruction = Some(BuildInstruction {
             what: Build::Crops {
                 position: v2(1, 1),
                 rotated: true,
             },
             when: 1,
         });
+        tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
+
+        let mut state = happy_path_state();
         state
             .traffic
             .set(
@@ -285,10 +322,14 @@ mod tests {
         let mut processor = RemoveCrops::new(tx);
 
         // When
-        let state =
-            block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
+        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
 
         // Then
-        assert!(state.build_queue.get(&BuildKey::Crops(v2(1, 1))).is_some());
+        assert!(processor
+            .tx
+            .removed_build_instructions
+            .lock()
+            .unwrap()
+            .is_empty());
     }
 }

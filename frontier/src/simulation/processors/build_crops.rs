@@ -6,7 +6,7 @@ use commons::rand::{Rng, SeedableRng};
 
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
-use crate::traits::{SendRoutes, SendWorld};
+use crate::traits::{InsertBuildInstruction, SendRoutes, SendWorld};
 use crate::world::{World, WorldObject};
 
 use super::*;
@@ -18,9 +18,9 @@ pub struct BuildCrops<T> {
 #[async_trait]
 impl<T> Processor for BuildCrops<T>
 where
-    T: SendRoutes + SendWorld + Send + Sync + 'static,
+    T: InsertBuildInstruction + SendRoutes + SendWorld + Send + Sync + 'static,
 {
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let positions = match instruction {
             Instruction::RefreshPositions(positions) => positions.clone(),
             _ => return state,
@@ -32,8 +32,7 @@ where
             .await;
 
         for (position, route_keys) in crop_routes {
-            self.process_position(&mut state, position, route_keys)
-                .await;
+            self.process_position(position, route_keys).await;
         }
 
         state
@@ -42,7 +41,7 @@ where
 
 impl<T> BuildCrops<T>
 where
-    T: SendRoutes + SendWorld,
+    T: InsertBuildInstruction + SendRoutes + SendWorld,
 {
     pub fn new(tx: T, seed: u64) -> BuildCrops<T> {
         BuildCrops {
@@ -60,19 +59,16 @@ where
             .await
     }
 
-    async fn process_position(
-        &mut self,
-        state: &mut State,
-        position: V2<usize>,
-        route_keys: HashSet<RouteKey>,
-    ) {
-        state.build_queue.insert(BuildInstruction {
-            what: Build::Crops {
-                position,
-                rotated: self.rng.gen(),
-            },
-            when: unwrap_or!(self.first_visit(route_keys).await, return),
-        });
+    async fn process_position(&mut self, position: V2<usize>, route_keys: HashSet<RouteKey>) {
+        self.tx
+            .insert_build_instruction(BuildInstruction {
+                what: Build::Crops {
+                    position,
+                    rotated: self.rng.gen(),
+                },
+                when: unwrap_or!(self.first_visit(route_keys).await, return),
+            })
+            .await;
     }
 
     async fn first_visit(&self, route_keys: HashSet<RouteKey>) -> Option<u128> {
@@ -141,7 +137,7 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
 
-    use commons::{v2, Arm, M};
+    use commons::{v2, M};
     use futures::executor::block_on;
 
     use crate::route::{Route, RouteKey, Routes, RoutesExt};
@@ -149,8 +145,19 @@ mod tests {
     use super::*;
 
     struct Tx {
-        routes: Arm<Routes>,
-        world: Arm<World>,
+        build_instructions: Mutex<Vec<BuildInstruction>>,
+        routes: Mutex<Routes>,
+        world: Mutex<World>,
+    }
+
+    #[async_trait]
+    impl InsertBuildInstruction for Tx {
+        async fn insert_build_instruction(&self, build_instruction: BuildInstruction) {
+            self.build_instructions
+                .lock()
+                .unwrap()
+                .push(build_instruction)
+        }
     }
 
     #[async_trait]
@@ -206,8 +213,9 @@ mod tests {
         let world = World::new(M::from_element(3, 3, 1.0), 0.5);
 
         Tx {
-            routes: Arc::new(Mutex::new(routes)),
-            world: Arc::new(Mutex::new(world)),
+            build_instructions: Mutex::default(),
+            routes: Mutex::new(routes),
+            world: Mutex::new(world),
         }
     }
 
@@ -224,19 +232,22 @@ mod tests {
 
     #[test]
     fn should_build_crops_if_crop_route_ends_at_position() {
+        // Given
+        let mut processor = BuildCrops::new(happy_path_tx(), 0);
+
         // When
-        let state = block_on(BuildCrops::new(happy_path_tx(), 0).process(
+        block_on(processor.process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
         // Then
         assert!(matches!(
-            state.build_queue.get(&BuildKey::Crops(v2(1, 1))),
-            Some(BuildInstruction{
+            processor.tx.build_instructions.lock().unwrap()[0],
+            BuildInstruction{
                 what: Build::Crops{position, .. },
                 when: 11
-            }) if *position == v2(1, 1)
+            } if position == v2(1, 1)
         ));
     }
 
@@ -259,27 +270,31 @@ mod tests {
                 },
             );
         }
+        let mut processor = BuildCrops::new(tx, 0);
 
         // When
-        let state = block_on(BuildCrops::new(tx, 0).process(
+        block_on(processor.process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 2)}),
         ));
 
         // Then
-        assert_eq!(state.build_queue, BuildQueue::default());
+        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_crops_if_crop_route_not_ending_at_position() {
+        // Given
+        let mut processor = BuildCrops::new(happy_path_tx(), 0);
+
         // When
-        let state = block_on(BuildCrops::new(happy_path_tx(), 0).process(
+        block_on(processor.process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 0)}),
         ));
 
         // Then
-        assert_eq!(state.build_queue, BuildQueue::default());
+        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -290,15 +305,16 @@ mod tests {
             tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object =
                 WorldObject::Crop { rotated: true };
         }
+        let mut processor = BuildCrops::new(tx, 0);
 
         // When
-        let state = block_on(BuildCrops::new(tx, 0).process(
+        block_on(processor.process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
         // Then
-        assert_eq!(state.build_queue, BuildQueue::default());
+        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -307,14 +323,13 @@ mod tests {
         let mut state = happy_path_state();
         state.traffic = Traffic::new(3, 3, HashSet::new());
 
+        let mut processor = BuildCrops::new(happy_path_tx(), 0);
+
         // When
-        let state = block_on(
-            BuildCrops::new(happy_path_tx(), 0)
-                .process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})),
-        );
+        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
 
         // Then
-        assert_eq!(state.build_queue, BuildQueue::default());
+        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -323,29 +338,30 @@ mod tests {
         let mut state = happy_path_state();
         state.traffic.set(&v2(1, 1), HashSet::new()).unwrap();
 
+        let mut processor = BuildCrops::new(happy_path_tx(), 0);
+
         // When
-        let state = block_on(
-            BuildCrops::new(happy_path_tx(), 0)
-                .process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})),
-        );
+        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
 
         // Then
-        assert_eq!(state.build_queue, BuildQueue::default());
+        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_crops_if_invalid_route() {
         // Given
         let mut tx = happy_path_tx();
-        tx.routes = Arm::default();
+        tx.routes = Mutex::default();
+
+        let mut processor = BuildCrops::new(tx, 0);
 
         // When
-        let state = block_on(BuildCrops::new(tx, 0).process(
+        block_on(processor.process(
             happy_path_state(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
         // Then
-        assert_eq!(state.build_queue, BuildQueue::default());
+        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
     }
 }

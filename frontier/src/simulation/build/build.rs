@@ -11,7 +11,7 @@ pub enum Build {
     Crops { position: V2<usize>, rotated: bool },
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum BuildKey {
     Road(Edge),
     Town(V2<usize>),
