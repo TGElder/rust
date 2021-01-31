@@ -4,6 +4,7 @@ use commons::grid::Grid;
 use commons::rand::prelude::SmallRng;
 use commons::rand::{Rng, SeedableRng};
 
+use crate::build::{Build, BuildInstruction};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
 use crate::traits::{InsertBuildInstruction, SendRoutes, SendWorld};

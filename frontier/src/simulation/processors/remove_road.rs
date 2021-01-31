@@ -1,5 +1,6 @@
 use commons::edge::Edge;
 
+use crate::build::BuildKey;
 use crate::traits::{
     IsRoad, PlanRoad, RemoveBuildInstruction, RemoveRoad as RemoveRoadTrait, RoadPlanned,
 };

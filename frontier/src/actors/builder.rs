@@ -4,7 +4,7 @@ use commons::async_std::task::sleep;
 use commons::async_trait::async_trait;
 use commons::process::Step;
 
-use crate::simulation::{Build, BuildInstruction, Builder};
+use crate::build::{Build, BuildInstruction, Builder};
 use crate::traits::{Micros, TakeBuildInstructionsBefore};
 
 pub struct BuilderActor<T> {

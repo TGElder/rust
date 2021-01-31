@@ -7,12 +7,13 @@ use crate::actors::{
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
+use crate::build::BuildQueue;
 use crate::nation::Nation;
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::route::Routes;
 use crate::settlement::Settlement;
-use crate::simulation::{BuildQueue, Simulation};
+use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars,

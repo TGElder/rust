@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 
-use crate::simulation::BuildQueue;
+use crate::build::BuildQueue;
 
 #[async_trait]
 pub trait SendBuildQueue {

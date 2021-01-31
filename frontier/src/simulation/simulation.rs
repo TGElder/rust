@@ -234,11 +234,6 @@ mod tests {
             resource: Resource::Crabs,
             destination: v2(3, 4),
         };
-        let mut build_queue = BuildQueue::default();
-        build_queue.insert(BuildInstruction {
-            when: 808,
-            what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
-        });
         sim_1.state = Some(State {
             params: SimulationParams {
                 road_build_threshold: 8,

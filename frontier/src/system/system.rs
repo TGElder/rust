@@ -17,10 +17,11 @@ use crate::actors::{
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::{AvatarTravelDuration, AvatarTravelModeFn};
+use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
+use crate::build::BuildQueue;
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
-use crate::simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
 use crate::simulation::processors::{
     max_abs_population_change, BuildCrops, BuildRoad, BuildTown, GetDemand, GetRouteChanges,
@@ -28,7 +29,7 @@ use crate::simulation::processors::{
     RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateEdgeTraffic,
     UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
 };
-use crate::simulation::{BuildQueue, Simulation};
+use crate::simulation::Simulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traits::SendClock;
 use commons::process::Process;

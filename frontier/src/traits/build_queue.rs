@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 
-use crate::simulation::{BuildInstruction, BuildKey};
+use crate::build::{BuildInstruction, BuildKey};
 use crate::traits::SendBuildQueue;
 
 #[async_trait]

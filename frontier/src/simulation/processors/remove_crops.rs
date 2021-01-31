@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use commons::grid::Grid;
 
+use crate::build::BuildKey;
 use crate::resource::Resource;
 use crate::traits::{GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, SendWorld};
 use crate::world::{World, WorldCell, WorldObject};
@@ -98,6 +99,7 @@ mod tests {
     use commons::{v2, M};
     use futures::executor::block_on;
 
+    use crate::build::{Build, BuildInstruction};
     use crate::route::RouteKey;
 
     use super::*;
