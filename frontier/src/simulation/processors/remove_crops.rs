@@ -30,10 +30,12 @@ where
 
         positions.retain(|position| !has_crop_routes(&state, position));
 
-        for position in self.have_crops_build_instruction(&positions).await {
-            self.tx
-                .remove_build_instruction(&BuildKey::Crops(position))
-                .await;
+        for position in positions.iter() {
+            if self.has_crops_build_instruction(position).await {
+                self.tx
+                    .remove_build_instruction(&BuildKey::Crops(*position))
+                    .await;
+            }
         }
 
         for position in self.have_crops(positions).await {
@@ -50,16 +52,6 @@ where
 {
     pub fn new(tx: T) -> RemoveCrops<T> {
         RemoveCrops { tx }
-    }
-
-    async fn have_crops_build_instruction(&self, positions: &HashSet<V2<usize>>) -> Vec<V2<usize>> {
-        let mut out = vec![];
-        for position in positions {
-            if self.has_crops_build_instruction(position).await {
-                out.push(*position);
-            }
-        }
-        out
     }
 
     async fn has_crops_build_instruction(&self, position: &V2<usize>) -> bool {

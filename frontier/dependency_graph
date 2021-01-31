@@ -111,13 +111,16 @@ SendSim AddTown
 SendSim AnyoneControls
 SendSim ClosestTargets
 SendSim Controlled
+SendSim GetBuildInstruction
 SendSim GetSettlement
+SendSim InsertBuildInstruction
 SendSim InBounds
 SendSim IsRoad
 SendSim LowestDuration
 SendSim Micros
 SendSim PlanRoad
 SendSim RandomTownName
+SendSim RemoveBuildInstruction
 SendSim RemoveRoad
 SendSim RemoveTown
 SendSim RemoveWorldObject
@@ -127,6 +130,7 @@ SendSim SendRoutes
 SendSim SendWorld
 SendSim SendSettlements
 SendSim Settlements
+SendSim TakeBuildInstructionsBefore
 SendSim UpdateSettlement
 SendSim UpdateTerritory
 SendSim VisibleLandPositions
