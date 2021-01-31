@@ -82,20 +82,20 @@ impl Default for HomelandParams {
 
 impl Parameters {
     pub fn save(&self, path: &str) {
-        let path = get_path(path);
+        let path = Self::get_path(path);
         let mut file = BufWriter::new(File::create(path).unwrap());
         bincode::serialize_into(&mut file, &self).unwrap();
     }
 
     fn load(path: &str) -> Parameters {
-        let path = get_path(path);
+        let path = Self::get_path(path);
         let file = BufReader::new(File::open(path).unwrap());
         bincode::deserialize_from(file).unwrap()
     }
-}
 
-fn get_path(path: &str) -> String {
-    format!("{}.parameters", path)
+    fn get_path(path: &str) -> String {
+        format!("{}.parameters", path)
+    }
 }
 
 impl From<&Args> for Parameters {

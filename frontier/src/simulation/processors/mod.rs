@@ -2,7 +2,6 @@ use super::*;
 
 mod build_crops;
 mod build_road;
-mod build_sim;
 mod build_town;
 mod get_demand;
 mod get_route_changes;
@@ -24,7 +23,6 @@ mod update_town;
 
 pub use build_crops::*;
 pub use build_road::*;
-pub use build_sim::*;
 pub use build_town::*;
 pub use get_demand::*;
 pub use get_route_changes::*;

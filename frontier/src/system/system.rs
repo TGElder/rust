@@ -9,10 +9,11 @@ use isometric::IsometricEngine;
 
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
-    Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService, PathfindingAvatarControls,
-    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
-    SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist, TownLabelArtist,
-    VisibilityActor, Voyager, WorldActor, WorldArtistActor, WorldColoringParameters,
+    BuildActor, Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService,
+    PathfindingAvatarControls, PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor,
+    Settlements, SetupNewWorld, SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, VisibilityActor, Voyager, WorldActor, WorldArtistActor,
+    WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::{AvatarTravelDuration, AvatarTravelModeFn};
@@ -22,9 +23,9 @@ use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
 use crate::simulation::processors::{
-    max_abs_population_change, BuildCrops, BuildRoad, BuildSim, BuildTown, GetDemand,
-    GetRouteChanges, GetRoutes, GetTerritory, GetTownTraffic, InstructionLogger, RemoveCrops,
-    RemoveRoad, RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateEdgeTraffic,
+    max_abs_population_change, BuildCrops, BuildRoad, BuildTown, GetDemand, GetRouteChanges,
+    GetRoutes, GetTerritory, GetTownTraffic, InstructionLogger, RemoveCrops, RemoveRoad,
+    RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateEdgeTraffic,
     UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
 };
 use crate::simulation::{BuildQueue, Simulation};
@@ -40,6 +41,7 @@ pub struct System {
     pub avatar_visibility: Process<AvatarVisibility<Polysender>>,
     pub basic_avatar_controls: Process<BasicAvatarControls<Polysender>>,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
+    pub build_actor: Process<BuildActor<Polysender>>,
     pub cheats: Process<Cheats<Polysender>>,
     pub clock: Process<Clock<RealTime>>,
     pub event_forwarder: Process<EventForwarderActor>,
@@ -76,6 +78,7 @@ impl System {
         let (avatars_tx, avatars_rx) = fn_channel();
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
+        let (build_actor_tx, build_actor_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
         let (clock_tx, clock_rx) = fn_channel();
         let (labels_tx, labels_rx) = fn_channel();
@@ -109,6 +112,7 @@ impl System {
             avatars_tx,
             basic_avatar_controls_tx,
             basic_road_builder_tx,
+            build_actor_tx,
             build_queue: Arc::new(RwLock::new(BuildQueue::default())),
             cheats_tx,
             clock_tx,
@@ -182,6 +186,17 @@ impl System {
                 ),
                 basic_road_builder_rx,
             ),
+            build_actor: Process::new(
+                BuildActor::new(
+                    tx.clone_with_name("build_actor"),
+                    vec![
+                        Box::new(TownBuilder::new(tx.clone_with_name("town_builder"))),
+                        Box::new(RoadBuilder::new(tx.clone_with_name("road_builder"))),
+                        Box::new(CropsBuilder::new(tx.clone_with_name("crops_builder"))),
+                    ],
+                ),
+                build_actor_rx,
+            ),
             cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
             clock: Process::new(Clock::new(RealTime {}, params.default_speed), clock_rx),
             event_forwarder: Process::new(
@@ -252,14 +267,6 @@ impl System {
                     tx.clone_with_name("simulation"),
                     vec![
                         Box::new(InstructionLogger::new()),
-                        Box::new(BuildSim::new(
-                            tx.clone_with_name("build_sim"),
-                            vec![
-                                Box::new(TownBuilder::new(tx.clone_with_name("town_builder"))),
-                                Box::new(RoadBuilder::new(tx.clone_with_name("road_builder"))),
-                                Box::new(CropsBuilder::new(tx.clone_with_name("crops_builder"))),
-                            ],
-                        )),
                         Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
                         Box::new(StepTown::new(tx.clone_with_name("step_town"))),
                         Box::new(GetTerritory::new(tx.clone_with_name("get_territory"))),
@@ -450,6 +457,7 @@ impl System {
         self.object_builder.run_passive(&self.pool).await;
         self.labels.run_passive(&self.pool).await;
         self.cheats.run_passive(&self.pool).await;
+        self.build_actor.run_active(&self.pool).await;
         self.basic_road_builder.run_passive(&self.pool).await;
         self.basic_avatar_controls.run_passive(&self.pool).await;
         self.avatar_visibility.run_active(&self.pool).await;
@@ -467,6 +475,7 @@ impl System {
         self.avatar_visibility.drain(&self.pool, true).await;
         self.basic_avatar_controls.drain(&self.pool, true).await;
         self.basic_road_builder.drain(&self.pool, true).await;
+        self.build_actor.drain(&self.pool, true).await;
         self.cheats.drain(&self.pool, true).await;
         self.labels.drain(&self.pool, true).await;
         self.object_builder.drain(&self.pool, true).await;
@@ -516,9 +525,11 @@ impl System {
         self.territory.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
         self.world.object_ref().unwrap().save(path);
+
+        self.tx.build_queue.write().await.save(path);
     }
 
-    pub fn load(&mut self, path: &str) {
+    pub async fn load(&mut self, path: &str) {
         self.avatars.object_mut().unwrap().load(path);
         self.clock.object_mut().unwrap().load(path);
         self.labels.object_mut().unwrap().load(path);
@@ -530,5 +541,7 @@ impl System {
         self.territory.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
         self.world.object_mut().unwrap().load(path);
+
+        *self.tx.build_queue.write().await = BuildQueue::load(path);
     }
 }

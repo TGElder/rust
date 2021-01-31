@@ -75,6 +75,8 @@ SendBasicRoadBuilder SelectedAvatar
 SendBasicRoadBuilder SendWorld
 SendBasicRoadBuilder UpdateAvatarJourney
 SendBasicRoadBuilder UpdateRoads
+SendBuildActor Micros
+SendBuildActor TakeBuildInstructionsBefore
 SendCheats RevealAll
 SendCheats SendAvatars
 SendCheats SendWorld
@@ -130,7 +132,6 @@ SendSim SendRoutes
 SendSim SendWorld
 SendSim SendSettlements
 SendSim Settlements
-SendSim TakeBuildInstructionsBefore
 SendSim UpdateSettlement
 SendSim UpdateTerritory
 SendSim VisibleLandPositions

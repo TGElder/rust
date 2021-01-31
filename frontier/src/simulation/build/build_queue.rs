@@ -2,6 +2,8 @@ use super::*;
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct BuildQueue {
@@ -40,6 +42,22 @@ impl BuildQueue {
 
     pub fn get(&self, build_key: &BuildKey) -> Option<&BuildInstruction> {
         self.queue.get(build_key)
+    }
+
+    pub fn save(&self, path: &str) {
+        let path = Self::get_path(path);
+        let mut file = BufWriter::new(File::create(path).unwrap());
+        bincode::serialize_into(&mut file, &self).unwrap();
+    }
+
+    pub fn load(path: &str) -> BuildQueue {
+        let path = Self::get_path(path);
+        let file = BufReader::new(File::open(path).unwrap());
+        bincode::deserialize_from(file).unwrap()
+    }
+
+    fn get_path(path: &str) -> String {
+        format!("{}.build_queue", path)
     }
 }
 
