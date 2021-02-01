@@ -1,7 +1,7 @@
 use commons::async_trait::async_trait;
 
 use crate::build::{BuildInstruction, BuildKey};
-use crate::traits::SendBuildQueue;
+use crate::traits::WithBuildQueue;
 
 #[async_trait]
 pub trait InsertBuildInstruction {
@@ -11,7 +11,7 @@ pub trait InsertBuildInstruction {
 #[async_trait]
 impl<T> InsertBuildInstruction for T
 where
-    T: SendBuildQueue + Send + Sync,
+    T: WithBuildQueue + Send + Sync,
 {
     async fn insert_build_instruction(&self, build_instruction: BuildInstruction) {
         self.mut_build_queue(move |queue| queue.insert(build_instruction))
@@ -27,7 +27,7 @@ pub trait RemoveBuildInstruction {
 #[async_trait]
 impl<T> RemoveBuildInstruction for T
 where
-    T: SendBuildQueue + Send + Sync,
+    T: WithBuildQueue + Send + Sync,
 {
     async fn remove_build_instruction(&self, build_key: &BuildKey) {
         self.mut_build_queue(move |queue| queue.remove(build_key))
@@ -43,7 +43,7 @@ pub trait TakeBuildInstructionsBefore {
 #[async_trait]
 impl<T> TakeBuildInstructionsBefore for T
 where
-    T: SendBuildQueue + Send + Sync,
+    T: WithBuildQueue + Send + Sync,
 {
     async fn take_build_instructions_before(&self, micros: &u128) -> Vec<BuildInstruction> {
         self.mut_build_queue(move |queue| queue.take_instructions_before(micros))
@@ -59,7 +59,7 @@ pub trait GetBuildInstruction {
 #[async_trait]
 impl<T> GetBuildInstruction for T
 where
-    T: SendBuildQueue + Send + Sync,
+    T: WithBuildQueue + Send + Sync,
 {
     async fn get_build_instruction(&self, build_key: &BuildKey) -> Option<BuildInstruction> {
         self.get_build_queue(|queue| queue.get(build_key).cloned())
