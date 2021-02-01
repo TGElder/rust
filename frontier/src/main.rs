@@ -24,6 +24,7 @@ mod settlement;
 mod simulation;
 mod system;
 mod territory;
+mod traffic;
 mod traits;
 mod travel_duration;
 mod visibility_computer;

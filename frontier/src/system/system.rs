@@ -30,8 +30,9 @@ use crate::simulation::processors::{
     RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateEdgeTraffic,
     UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
 };
-use crate::simulation::{Simulation, Traffic};
+use crate::simulation::Simulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
+use crate::traffic::Traffic;
 use crate::traits::SendClock;
 use commons::process::Process;
 
