@@ -195,7 +195,9 @@ mod tests {
         #[async_trait]
         impl Processor for InstructionIntroducer {
             async fn process(&mut self, mut state: State, _: &Instruction) -> State {
-                state.instructions.push(Instruction::Build);
+                state
+                    .instructions
+                    .push(Instruction::UpdateHomelandPopulation);
                 state
             }
         }
@@ -210,7 +212,10 @@ mod tests {
         block_on(sim.step());
 
         // Then
-        assert_eq!(sim.state.unwrap().instructions, vec![Instruction::Build]);
+        assert_eq!(
+            sim.state.unwrap().instructions,
+            vec![Instruction::UpdateHomelandPopulation]
+        );
     }
 
     #[test]

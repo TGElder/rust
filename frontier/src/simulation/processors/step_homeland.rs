@@ -32,7 +32,6 @@ where
             _ => return state,
         };
         for position in self.get_homeland_positions().await {
-            state.instructions.push(Instruction::Build);
             state
                 .instructions
                 .push(Instruction::UpdateCurrentPopulation(position));
@@ -92,9 +91,7 @@ mod tests {
         assert!(same_elements(
             &state.instructions,
             &[
-                Instruction::Build,
                 Instruction::UpdateCurrentPopulation(v2(1, 1)),
-                Instruction::Build,
                 Instruction::UpdateCurrentPopulation(v2(2, 2)),
                 Instruction::UpdateHomelandPopulation
             ],
@@ -117,7 +114,6 @@ mod tests {
         assert_eq!(
             state.instructions,
             vec![
-                Instruction::Build,
                 Instruction::UpdateCurrentPopulation(v2(2, 2)),
                 Instruction::UpdateHomelandPopulation
             ],

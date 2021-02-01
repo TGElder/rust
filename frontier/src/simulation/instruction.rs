@@ -28,7 +28,6 @@ pub enum Instruction {
     ProcessRouteChanges(Vec<RouteChange>),
     RefreshPositions(HashSet<V2<usize>>),
     RefreshEdges(HashSet<Edge>),
-    Build,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

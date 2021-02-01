@@ -32,7 +32,6 @@ where
             _ => return state,
         };
         for position in self.get_town_positions().await {
-            state.instructions.push(Instruction::Build);
             state.instructions.push(Instruction::GetTerritory(position));
         }
         state
@@ -87,9 +86,7 @@ mod tests {
         assert!(same_elements(
             &state.instructions,
             &[
-                Instruction::Build,
                 Instruction::GetTerritory(v2(1, 1)),
-                Instruction::Build,
                 Instruction::GetTerritory(v2(2, 2)),
             ],
         ));
@@ -110,7 +107,7 @@ mod tests {
         // Then
         assert_eq!(
             state.instructions,
-            vec![Instruction::Build, Instruction::GetTerritory(v2(2, 2)),]
+            vec![Instruction::GetTerritory(v2(2, 2)),]
         );
     }
 }
