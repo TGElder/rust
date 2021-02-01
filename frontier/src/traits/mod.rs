@@ -17,6 +17,7 @@ mod territory;
 mod towns;
 mod update_roads;
 mod visibility;
+pub mod with;
 mod world;
 mod world_object;
 
@@ -39,6 +40,7 @@ pub use territory::*;
 pub use towns::*;
 pub use update_roads::*;
 pub use visibility::*;
+pub use with::*;
 pub use world::*;
 pub use world_object::*;
 
