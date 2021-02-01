@@ -15,7 +15,7 @@ pub use params::*;
 use processor::*;
 pub use simulation::*;
 use state::*;
-use traffic::*;
+pub use traffic::*;
 
 use commons::async_trait::async_trait;
 use commons::V2;

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use commons::async_std::sync::RwLock;
@@ -29,7 +30,7 @@ use crate::simulation::processors::{
     RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateEdgeTraffic,
     UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
 };
-use crate::simulation::Simulation;
+use crate::simulation::{Simulation, Traffic};
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traits::SendClock;
 use commons::process::Process;
@@ -114,9 +115,10 @@ impl System {
             basic_avatar_controls_tx,
             basic_road_builder_tx,
             builder_tx,
-            build_queue: Arc::new(RwLock::new(BuildQueue::default())),
+            build_queue: Arc::default(),
             cheats_tx,
             clock_tx,
+            edge_traffic: Arc::default(),
             labels_tx,
             nations_tx,
             object_builder_tx,
@@ -128,7 +130,13 @@ impl System {
             resource_targets_tx,
             routes_tx,
             setup_new_world_tx,
+            traffic: Arc::new(RwLock::new(Traffic::new(
+                params.width,
+                params.width,
+                HashSet::with_capacity(0),
+            ))),
             rotate_tx,
+            route_to_ports: Arc::default(),
             settlements_tx,
             simulation_tx,
             speed_control_tx,

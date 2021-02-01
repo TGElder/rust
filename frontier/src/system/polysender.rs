@@ -11,23 +11,24 @@ use crate::build::BuildQueue;
 use crate::nation::Nation;
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
-use crate::route::Routes;
+use crate::route::{RouteKey, Routes};
 use crate::settlement::Settlement;
-use crate::simulation::Simulation;
+use crate::simulation::{EdgeTraffic, Simulation, Traffic};
 use crate::territory::Territory;
 use crate::traits::{
-    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars,
-    SendBuildQueue, SendClock, SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes,
-    SendSettlements, SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
-    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
+    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
+    SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes, SendSettlements, SendSim,
+    SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
+    SendWorld, SendWorldArtist,
 };
+use crate::traits::{WithBuildQueue, WithEdgeTraffic, WithRouteToPorts, WithTraffic};
 use crate::world::World;
 use commons::async_std::sync::RwLock;
 use commons::async_trait::async_trait;
 use commons::fn_sender::FnSender;
 use commons::V2;
 use futures::future::BoxFuture;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -41,6 +42,7 @@ pub struct Polysender {
     pub build_queue: Arc<RwLock<BuildQueue>>,
     pub cheats_tx: FnSender<Cheats<Polysender>>,
     pub clock_tx: FnSender<Clock<RealTime>>,
+    pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
     pub labels_tx: FnSender<Labels<Polysender>>,
     pub nations_tx: FnSender<Nations>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
@@ -54,6 +56,7 @@ pub struct Polysender {
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
     pub rotate_tx: FnSender<Rotate>,
     pub routes_tx: FnSender<RoutesActor>,
+    pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub settlements_tx: FnSender<Settlements>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
@@ -62,6 +65,7 @@ pub struct Polysender {
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
     pub town_label_artist_tx: FnSender<TownLabelArtist<Polysender>>,
+    pub traffic: Arc<RwLock<Traffic>>,
     pub visibility_tx: FnSender<VisibilityActor<Polysender>>,
     pub voyager_tx: FnSender<Voyager<Polysender>>,
     pub world_tx: FnSender<WorldActor<Polysender>>,
@@ -80,6 +84,7 @@ impl Polysender {
             build_queue: self.build_queue.clone(),
             cheats_tx: self.cheats_tx.clone_with_name(name),
             clock_tx: self.clock_tx.clone_with_name(name),
+            edge_traffic: self.edge_traffic.clone(),
             labels_tx: self.labels_tx.clone_with_name(name),
             nations_tx: self.nations_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
@@ -97,11 +102,13 @@ impl Polysender {
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
             rotate_tx: self.rotate_tx.clone_with_name(name),
             routes_tx: self.routes_tx.clone_with_name(name),
+            route_to_ports: self.route_to_ports.clone(),
             settlements_tx: self.settlements_tx.clone_with_name(name),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
             speed_control_tx: self.speed_control_tx.clone_with_name(name),
             territory_tx: self.territory_tx.clone_with_name(name),
+            traffic: self.traffic.clone(),
             town_builder_tx: self.town_builder_tx.clone_with_name(name),
             town_house_artist_tx: self.town_house_artist_tx.clone_with_name(name),
             town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
@@ -132,25 +139,6 @@ impl SendAvatars for Polysender {
     {
         self.avatars_tx
             .send(move |avatars| function(&mut avatars.state()));
-    }
-}
-
-#[async_trait]
-impl SendBuildQueue for Polysender {
-    async fn get_build_queue<F, O>(&self, function: F) -> O
-    where
-        F: FnOnce(&BuildQueue) -> O + Send,
-    {
-        let build_queue = self.build_queue.read().await;
-        function(&build_queue)
-    }
-
-    async fn mut_build_queue<F, O>(&self, function: F) -> O
-    where
-        F: FnOnce(&mut BuildQueue) -> O + Send,
-    {
-        let mut build_queue = self.build_queue.write().await;
-        function(&mut build_queue)
     }
 }
 
@@ -389,3 +377,79 @@ impl SendPathfinder for FnSender<PathfinderService<Polysender, AvatarTravelDurat
 }
 
 impl NotMock for Polysender {}
+
+#[async_trait]
+impl WithBuildQueue for Polysender {
+    async fn get_build_queue<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&BuildQueue) -> O + Send,
+    {
+        let build_queue = self.build_queue.read().await;
+        function(&build_queue)
+    }
+
+    async fn mut_build_queue<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut BuildQueue) -> O + Send,
+    {
+        let mut build_queue = self.build_queue.write().await;
+        function(&mut build_queue)
+    }
+}
+
+#[async_trait]
+impl WithEdgeTraffic for Polysender {
+    async fn get_edge_traffic<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&EdgeTraffic) -> O + Send,
+    {
+        let edge_traffic = self.edge_traffic.read().await;
+        function(&edge_traffic)
+    }
+
+    async fn mut_edge_traffic<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut EdgeTraffic) -> O + Send,
+    {
+        let mut edge_traffic = self.edge_traffic.write().await;
+        function(&mut edge_traffic)
+    }
+}
+
+#[async_trait]
+impl WithRouteToPorts for Polysender {
+    async fn get_route_to_ports<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
+    {
+        let route_to_ports = self.route_to_ports.read().await;
+        function(&route_to_ports)
+    }
+
+    async fn mut_route_to_ports<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
+    {
+        let mut route_to_ports = self.route_to_ports.write().await;
+        function(&mut route_to_ports)
+    }
+}
+
+#[async_trait]
+impl WithTraffic for Polysender {
+    async fn get_traffic<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&Traffic) -> O + Send,
+    {
+        let traffic = self.traffic.read().await;
+        function(&traffic)
+    }
+
+    async fn mut_traffic<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut Traffic) -> O + Send,
+    {
+        let mut traffic = self.traffic.write().await;
+        function(&mut traffic)
+    }
+}
