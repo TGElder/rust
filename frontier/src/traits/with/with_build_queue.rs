@@ -3,7 +3,7 @@ use commons::async_trait::async_trait;
 use crate::build::BuildQueue;
 
 #[async_trait]
-pub trait SendBuildQueue {
+pub trait WithBuildQueue {
     async fn get_build_queue<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&BuildQueue) -> O + Send;
