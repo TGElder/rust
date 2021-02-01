@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 
-use crate::simulation::Traffic;
+use crate::traffic::Traffic;
 
 #[async_trait]
 pub trait WithTraffic {

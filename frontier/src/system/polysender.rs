@@ -13,8 +13,9 @@ use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::route::{RouteKey, Routes};
 use crate::settlement::Settlement;
-use crate::simulation::{EdgeTraffic, Simulation, Traffic};
+use crate::simulation::Simulation;
 use crate::territory::Territory;
+use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
     SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes, SendSettlements, SendSim,
@@ -55,8 +56,8 @@ pub struct Polysender {
     pub prime_mover_tx: FnSender<PrimeMover<Polysender>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
     pub rotate_tx: FnSender<Rotate>,
-    pub routes_tx: FnSender<RoutesActor>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
+    pub routes_tx: FnSender<RoutesActor>,
     pub settlements_tx: FnSender<Settlements>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
     pub simulation_tx: FnSender<Simulation<Polysender>>,
@@ -101,8 +102,8 @@ impl Polysender {
             prime_mover_tx: self.prime_mover_tx.clone_with_name(name),
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
             rotate_tx: self.rotate_tx.clone_with_name(name),
-            routes_tx: self.routes_tx.clone_with_name(name),
             route_to_ports: self.route_to_ports.clone(),
+            routes_tx: self.routes_tx.clone_with_name(name),
             settlements_tx: self.settlements_tx.clone_with_name(name),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             simulation_tx: self.simulation_tx.clone_with_name(name),
