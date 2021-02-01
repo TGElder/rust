@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 
-use crate::simulation::EdgeTraffic;
+use crate::traffic::EdgeTraffic;
 
 #[async_trait]
 pub trait WithEdgeTraffic {
