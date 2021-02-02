@@ -1,6 +1,7 @@
 use crate::traits::{RevealPositions, SendParameters, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
+use commons::bincode::{deserialize_from, serialize_into};
 use commons::grid::Grid;
 use commons::{v2, M, V2};
 use isometric::cell_traits::WithElevation;
@@ -121,13 +122,13 @@ where
     pub fn save(&self, path: &str) {
         let path = get_path(path);
         let mut file = BufWriter::new(File::create(path).unwrap());
-        bincode::serialize_into(&mut file, &self.state).unwrap();
+        serialize_into(&mut file, &self.state).unwrap();
     }
 
     pub fn load(&mut self, path: &str) {
         let path = get_path(path);
         let file = BufReader::new(File::open(path).unwrap());
-        self.state = bincode::deserialize_from(file).unwrap();
+        self.state = deserialize_from(file).unwrap();
     }
 }
 

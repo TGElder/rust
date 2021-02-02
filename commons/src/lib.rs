@@ -1,6 +1,7 @@
 pub extern crate async_channel;
 pub extern crate async_std;
 pub extern crate async_trait;
+pub extern crate bincode;
 pub extern crate float_cmp;
 #[macro_use]
 extern crate futures;
@@ -24,6 +25,7 @@ pub mod index2d;
 pub mod junction;
 pub mod manhattan;
 pub mod perlin;
+pub mod persistence;
 pub mod process;
 pub mod rectangle;
 pub mod scale;

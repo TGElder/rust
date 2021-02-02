@@ -122,13 +122,15 @@ impl Label {
 
 #[cfg(test)]
 mod tests {
+    use commons::bincode::{deserialize, serialize};
+
     use super::*;
 
     #[test]
     fn round_trip_label() {
         let original = Label::new(WorldCoord::new(0.1, 2.0, 30.0), "test".to_string());
-        let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
-        let reconstructed: Label = bincode::deserialize(&encoded[..]).unwrap();
+        let encoded: Vec<u8> = serialize(&original).unwrap();
+        let reconstructed: Label = deserialize(&encoded[..]).unwrap();
         assert_eq!(original, reconstructed);
     }
 }
