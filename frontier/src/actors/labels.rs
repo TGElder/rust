@@ -2,6 +2,7 @@ use crate::label_editor::*;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::SendWorld;
 use commons::async_trait::async_trait;
+use commons::bincode::{deserialize_from, serialize_into};
 use commons::grid::Grid;
 use commons::V2;
 use isometric::EventHandler;
@@ -65,13 +66,13 @@ where
     pub fn save(&self, path: &str) {
         let path = Self::get_path(path);
         let mut file = BufWriter::new(File::create(path).unwrap());
-        bincode::serialize_into(&mut file, &self.label_editor.labels()).unwrap();
+        serialize_into(&mut file, &self.label_editor.labels()).unwrap();
     }
 
     pub fn load(&mut self, path: &str) {
         let path = Self::get_path(path);
         let file = BufReader::new(File::open(path).unwrap());
-        let labels = bincode::deserialize_from(file).unwrap();
+        let labels = deserialize_from(file).unwrap();
         self.label_editor = LabelEditor::new(labels);
     }
 

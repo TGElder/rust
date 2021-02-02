@@ -127,6 +127,7 @@ mod tests {
 
     use super::*;
     use commons::almost::Almost;
+    use commons::bincode::{deserialize, serialize};
 
     #[derive(Clone, Copy, Debug, PartialEq)]
     struct Elevation {
@@ -352,8 +353,8 @@ mod tests {
             planet_radius: Some(100.0),
             max_distance: 0,
         };
-        let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
-        let reconstructed: VisibilityComputer = bincode::deserialize(&encoded[..]).unwrap();
+        let encoded: Vec<u8> = serialize(&original).unwrap();
+        let reconstructed: VisibilityComputer = deserialize(&encoded[..]).unwrap();
         assert_eq!(original, reconstructed);
     }
 }
