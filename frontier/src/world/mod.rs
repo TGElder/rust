@@ -256,6 +256,7 @@ mod tests {
 
     use super::*;
     use commons::almost::Almost;
+    use commons::bincode::{deserialize, serialize};
 
     #[rustfmt::skip]
     fn world() -> World {
@@ -572,8 +573,8 @@ mod tests {
     #[test]
     fn round_trip() {
         let original = world();
-        let encoded: Vec<u8> = bincode::serialize(&original).unwrap();
-        let reconstructed: World = bincode::deserialize(&encoded[..]).unwrap();
+        let encoded: Vec<u8> = serialize(&original).unwrap();
+        let reconstructed: World = deserialize(&encoded[..]).unwrap();
         assert_eq!(original, reconstructed);
     }
 }

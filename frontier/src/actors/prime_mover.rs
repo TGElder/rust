@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use commons::async_std::task::sleep;
 use commons::async_trait::async_trait;
+use commons::bincode::{deserialize_from, serialize_into};
 use commons::process::Step;
 use commons::rand::prelude::*;
 use commons::rand::rngs::SmallRng;
@@ -317,13 +318,13 @@ where
     pub fn save(&self, path: &str) {
         let path = Self::get_path(path);
         let mut file = BufWriter::new(File::create(path).unwrap());
-        bincode::serialize_into(&mut file, &self.active).unwrap();
+        serialize_into(&mut file, &self.active).unwrap();
     }
 
     pub fn load(&mut self, path: &str) {
         let path = Self::get_path(path);
         let file = BufReader::new(File::open(path).unwrap());
-        self.active = bincode::deserialize_from(file).unwrap();
+        self.active = deserialize_from(file).unwrap();
     }
 
     fn get_path(path: &str) -> String {
