@@ -1,3 +1,4 @@
+use commons::bincode::{deserialize_from, serialize_into};
 use commons::M;
 
 use crate::traits::SendParameters;
@@ -43,13 +44,13 @@ where
     pub fn save(&self, path: &str) {
         let path = Self::get_path(path);
         let mut file = BufWriter::new(File::create(path).unwrap());
-        bincode::serialize_into(&mut file, &self.state).unwrap();
+        serialize_into(&mut file, &self.state).unwrap();
     }
 
     pub fn load(&mut self, path: &str) {
         let path = Self::get_path(path);
         let file = BufReader::new(File::open(path).unwrap());
-        self.state = bincode::deserialize_from(file).unwrap();
+        self.state = deserialize_from(file).unwrap();
     }
 
     fn get_path(path: &str) -> String {

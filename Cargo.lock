@@ -390,6 +390,7 @@ dependencies = [
  "async-channel",
  "async-std",
  "async-trait",
+ "bincode",
  "float-cmp",
  "futures",
  "image",
@@ -692,7 +693,6 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 name = "frontier"
 version = "0.1.0"
 dependencies = [
- "bincode",
  "commons",
  "futures",
  "isometric",

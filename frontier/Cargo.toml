@@ -5,7 +5,6 @@ authors = ["Thomas Elder <tgelder@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-bincode = "1.3"
 commons = { path = "../commons" }
 futures = { version = "0.3", features = ["thread-pool"] }
 isometric = { path = "../isometric" }

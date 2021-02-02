@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use commons::async_std::sync::RwLock;
 use commons::fn_sender::fn_channel;
+use commons::persistence::{Load, Save};
 use futures::executor::ThreadPool;
 use futures::future::FutureExt;
 use isometric::event_handlers::ZoomHandler;
@@ -19,7 +20,6 @@ use crate::actors::{
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::{AvatarTravelDuration, AvatarTravelModeFn};
 use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
-use crate::build::BuildQueue;
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
@@ -536,7 +536,26 @@ impl System {
         self.visibility.object_ref().unwrap().save(path);
         self.world.object_ref().unwrap().save(path);
 
-        self.tx.build_queue.write().await.save(path);
+        self.tx
+            .build_queue
+            .read()
+            .await
+            .save(&format!("{}.build_queue", path));
+        self.tx
+            .edge_traffic
+            .read()
+            .await
+            .save(&format!("{}.edge_traffic", path));
+        self.tx
+            .route_to_ports
+            .read()
+            .await
+            .save(&format!("{}.route_to_ports", path));
+        self.tx
+            .traffic
+            .read()
+            .await
+            .save(&format!("{}.traffic", path));
     }
 
     pub async fn load(&mut self, path: &str) {
@@ -552,6 +571,9 @@ impl System {
         self.visibility.object_mut().unwrap().load(path);
         self.world.object_mut().unwrap().load(path);
 
-        *self.tx.build_queue.write().await = BuildQueue::load(path);
+        *self.tx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
+        *self.tx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
+        *self.tx.route_to_ports.write().await = <_>::load(&format!("{}.route_to_ports", path));
+        *self.tx.traffic.write().await = <_>::load(&format!("{}.traffic", path));
     }
 }
