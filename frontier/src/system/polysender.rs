@@ -381,7 +381,7 @@ impl NotMock for Polysender {}
 
 #[async_trait]
 impl WithBuildQueue for Polysender {
-    async fn get_build_queue<F, O>(&self, function: F) -> O
+    async fn with_build_queue<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&BuildQueue) -> O + Send,
     {
@@ -400,7 +400,7 @@ impl WithBuildQueue for Polysender {
 
 #[async_trait]
 impl WithEdgeTraffic for Polysender {
-    async fn get_edge_traffic<F, O>(&self, function: F) -> O
+    async fn with_edge_traffic<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&EdgeTraffic) -> O + Send,
     {
@@ -419,7 +419,7 @@ impl WithEdgeTraffic for Polysender {
 
 #[async_trait]
 impl WithRouteToPorts for Polysender {
-    async fn get_route_to_ports<F, O>(&self, function: F) -> O
+    async fn with_route_to_ports<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
     {
@@ -438,7 +438,7 @@ impl WithRouteToPorts for Polysender {
 
 #[async_trait]
 impl WithTraffic for Polysender {
-    async fn get_traffic<F, O>(&self, function: F) -> O
+    async fn with_traffic<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&Traffic) -> O + Send,
     {

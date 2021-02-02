@@ -7,7 +7,7 @@ use commons::rand::{Rng, SeedableRng};
 use crate::build::{Build, BuildInstruction};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
-use crate::traits::{InsertBuildInstruction, SendRoutes, SendWorld};
+use crate::traits::{InsertBuildInstruction, SendRoutes, SendWorld, WithTraffic};
 use crate::world::{World, WorldObject};
 
 use super::*;
@@ -19,7 +19,7 @@ pub struct BuildCrops<T> {
 #[async_trait]
 impl<T> Processor for BuildCrops<T>
 where
-    T: InsertBuildInstruction + SendRoutes + SendWorld + Send + Sync + 'static,
+    T: InsertBuildInstruction + SendRoutes + SendWorld + WithTraffic + Send + Sync + 'static,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let positions = match instruction {
@@ -27,7 +27,7 @@ where
             _ => return state,
         };
 
-        let crop_routes = get_crop_routes(&state, positions);
+        let crop_routes = self.get_crop_routes(positions).await;
         let crop_routes = self
             .filter_crop_routes_with_free_destination(crop_routes)
             .await;
@@ -42,13 +42,22 @@ where
 
 impl<T> BuildCrops<T>
 where
-    T: InsertBuildInstruction + SendRoutes + SendWorld,
+    T: InsertBuildInstruction + SendRoutes + SendWorld + WithTraffic,
 {
     pub fn new(tx: T, seed: u64) -> BuildCrops<T> {
         BuildCrops {
             tx,
             rng: SeedableRng::seed_from_u64(seed),
         }
+    }
+
+    async fn get_crop_routes(
+        &self,
+        positions: HashSet<V2<usize>>,
+    ) -> HashMap<V2<usize>, HashSet<RouteKey>> {
+        self.tx
+            .with_traffic(|traffic| get_crop_routes(&traffic, positions))
+            .await
     }
 
     async fn filter_crop_routes_with_free_destination(
@@ -86,20 +95,20 @@ where
 }
 
 fn get_crop_routes(
-    state: &State,
+    traffic: &Traffic,
     positions: HashSet<V2<usize>>,
 ) -> HashMap<V2<usize>, HashSet<RouteKey>> {
     positions
         .into_iter()
-        .flat_map(|position| get_crop_routes_for_position(state, position))
+        .flat_map(|position| get_crop_routes_for_position(traffic, position))
         .collect()
 }
 
 fn get_crop_routes_for_position(
-    state: &State,
+    traffic: &Traffic,
     position: V2<usize>,
 ) -> Option<(V2<usize>, HashSet<RouteKey>)> {
-    let route_keys = ok_or!(state.traffic.get(&position), return None);
+    let route_keys = ok_or!(traffic.get(&position), return None);
     let crop_route_keys = route_keys
         .iter()
         .filter(|route_key| {
@@ -148,6 +157,7 @@ mod tests {
     struct Tx {
         build_instructions: Mutex<Vec<BuildInstruction>>,
         routes: Mutex<Routes>,
+        traffic: Mutex<Traffic>,
         world: Mutex<World>,
     }
 
@@ -191,6 +201,23 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl WithTraffic for Tx {
+        async fn with_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&Traffic) -> O + Send,
+        {
+            function(&self.traffic.lock().unwrap())
+        }
+
+        async fn mut_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Traffic) -> O + Send,
+        {
+            function(&mut self.traffic.lock().unwrap())
+        }
+    }
+
     fn happy_path_route_key() -> RouteKey {
         RouteKey {
             settlement: v2(0, 0),
@@ -211,23 +238,18 @@ mod tests {
             },
         );
 
+        let mut traffic = Traffic::new(3, 3, HashSet::new());
+        traffic
+            .set(&v2(1, 1), hashset! {happy_path_route_key()})
+            .unwrap();
+
         let world = World::new(M::from_element(3, 3, 1.0), 0.5);
 
         Tx {
             build_instructions: Mutex::default(),
             routes: Mutex::new(routes),
+            traffic: Mutex::new(traffic),
             world: Mutex::new(world),
-        }
-    }
-
-    fn happy_path_state() -> State {
-        let mut traffic = Traffic::new(3, 3, HashSet::new());
-        traffic
-            .set(&v2(1, 1), hashset! {happy_path_route_key()})
-            .unwrap();
-        State {
-            traffic,
-            ..State::default()
         }
     }
 
@@ -238,7 +260,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -275,7 +297,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 2)}),
         ));
 
@@ -290,7 +312,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 0)}),
         ));
 
@@ -310,7 +332,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -321,13 +343,16 @@ mod tests {
     #[test]
     fn should_not_build_crops_if_no_traffic_entry() {
         // Given
-        let mut state = happy_path_state();
-        state.traffic = Traffic::new(3, 3, HashSet::new());
+        let tx = happy_path_tx();
+        *tx.traffic.lock().unwrap() = Traffic::new(3, 3, HashSet::new());
 
-        let mut processor = BuildCrops::new(happy_path_tx(), 0);
+        let mut processor = BuildCrops::new(tx, 0);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
+        ));
 
         // Then
         assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
@@ -336,13 +361,20 @@ mod tests {
     #[test]
     fn should_not_build_crops_if_empty_traffic_entry() {
         // Given
-        let mut state = happy_path_state();
-        state.traffic.set(&v2(1, 1), HashSet::new()).unwrap();
+        let tx = happy_path_tx();
+        tx.traffic
+            .lock()
+            .unwrap()
+            .set(&v2(1, 1), HashSet::new())
+            .unwrap();
 
-        let mut processor = BuildCrops::new(happy_path_tx(), 0);
+        let mut processor = BuildCrops::new(tx, 0);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
+        ));
 
         // Then
         assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
@@ -358,7 +390,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 

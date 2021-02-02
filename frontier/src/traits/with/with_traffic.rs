@@ -4,7 +4,7 @@ use crate::traffic::Traffic;
 
 #[async_trait]
 pub trait WithTraffic {
-    async fn get_traffic<F, O>(&self, function: F) -> O
+    async fn with_traffic<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&Traffic) -> O + Send;
 

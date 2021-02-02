@@ -4,7 +4,7 @@ use crate::build::BuildQueue;
 
 #[async_trait]
 pub trait WithBuildQueue {
-    async fn get_build_queue<F, O>(&self, function: F) -> O
+    async fn with_build_queue<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&BuildQueue) -> O + Send;
 
