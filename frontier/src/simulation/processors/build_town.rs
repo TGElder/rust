@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use commons::grid::Grid;
@@ -7,6 +8,7 @@ use crate::route::{RouteKey, RoutesExt};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{
     AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, SendRoutes, SendWorld,
+    WithRouteToPorts, WithTraffic,
 };
 
 use super::*;
@@ -23,6 +25,8 @@ where
         + RandomTownName
         + SendRoutes
         + SendWorld
+        + WithRouteToPorts
+        + WithTraffic
         + Send
         + Sync
         + 'static,
@@ -48,24 +52,22 @@ where
         + InsertBuildInstruction
         + RandomTownName
         + SendRoutes
-        + SendWorld,
+        + SendWorld
+        + WithRouteToPorts
+        + WithTraffic,
 {
     pub fn new(tx: T) -> BuildTown<T> {
         BuildTown { tx }
     }
 
     async fn process_position(&mut self, state: &mut State, position: V2<usize>) {
-        let route_keys = self.get_route_keys(state, &position);
-        if route_keys.is_empty() {
-            return;
-        }
+        let (route_keys, anyone_controls_position, tiles) = join!(
+            self.get_route_keys(&position),
+            self.tx.anyone_controls(position),
+            self.get_tiles(position)
+        );
 
-        if self.tx.anyone_controls(position).await {
-            return;
-        }
-
-        let tiles = self.get_tiles(position).await;
-        if tiles.is_empty() {
+        if route_keys.is_empty() || anyone_controls_position || tiles.is_empty() {
             return;
         }
 
@@ -100,19 +102,46 @@ where
         }
     }
 
-    fn get_route_keys(&self, state: &State, position: &V2<usize>) -> Vec<RouteKey> {
-        let traffic = ok_or!(state.traffic.get(&position), return vec![]);
+    async fn get_route_keys(&self, position: &V2<usize>) -> Vec<RouteKey> {
+        let traffic = self.get_traffic(position).await;
+        let route_to_ports = self.get_route_to_ports(&traffic).await;
         traffic
             .iter()
             .filter(|route| {
                 route.destination == *position
-                    || state
-                        .route_to_ports
+                    || route_to_ports
                         .get(route)
                         .map_or(false, |ports| ports.contains(&position))
             })
             .cloned()
             .collect()
+    }
+
+    async fn get_traffic(&self, position: &V2<usize>) -> HashSet<RouteKey> {
+        self.tx
+            .with_traffic(|traffic| traffic.get(position).map(|traffic| traffic.clone()))
+            .await
+            .unwrap_or(hashset! {})
+    }
+
+    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
+    async fn get_route_to_ports<'a>(
+        &self,
+        route_keys: &'a HashSet<RouteKey>,
+    ) -> HashMap<&'a RouteKey, HashSet<V2<usize>>> {
+        self.tx
+            .with_route_to_ports(|route_to_ports| {
+                route_keys
+                    .iter()
+                    .map(|route_key| {
+                        (
+                            route_key,
+                            route_to_ports.get(route_key).cloned().unwrap_or_default(),
+                        )
+                    })
+                    .collect()
+            })
+            .await
     }
 
     async fn get_tiles(&self, position: V2<usize>) -> Vec<V2<usize>> {
@@ -184,6 +213,8 @@ mod tests {
         get_settlement: Option<Settlement>,
         random_town_name: String,
         routes: Mutex<Routes>,
+        route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
+        traffic: Mutex<Traffic>,
         world: Mutex<World>,
     }
 
@@ -197,6 +228,8 @@ mod tests {
                 get_settlement: None,
                 random_town_name: String::default(),
                 routes: Mutex::default(),
+                route_to_ports: Mutex::default(),
+                traffic: Mutex::new(Traffic::same_size_as(&world, hashset! {})),
                 world: Mutex::new(world),
             }
         }
@@ -263,6 +296,40 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl WithRouteToPorts for Tx {
+        async fn with_route_to_ports<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
+        {
+            function(&self.route_to_ports.lock().unwrap())
+        }
+
+        async fn mut_route_to_ports<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
+        {
+            function(&mut self.route_to_ports.lock().unwrap())
+        }
+    }
+
+    #[async_trait]
+    impl WithTraffic for Tx {
+        async fn with_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&Traffic) -> O + Send,
+        {
+            function(&self.traffic.lock().unwrap())
+        }
+
+        async fn mut_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Traffic) -> O + Send,
+        {
+            function(&mut self.traffic.lock().unwrap())
+        }
+    }
+
     fn happy_path_route_key() -> RouteKey {
         RouteKey {
             settlement: v2(0, 0),
@@ -292,6 +359,22 @@ mod tests {
             },
         );
 
+        {
+            let mut traffic = tx.traffic.lock().unwrap();
+            traffic
+                .get_mut(&v2(0, 0))
+                .unwrap()
+                .insert(happy_path_route_key());
+            traffic
+                .get_mut(&v2(1, 0))
+                .unwrap()
+                .insert(happy_path_route_key());
+            traffic
+                .get_mut(&v2(1, 1))
+                .unwrap()
+                .insert(happy_path_route_key());
+        }
+
         tx
     }
 
@@ -300,21 +383,6 @@ mod tests {
             traffic: Vec2D::new(3, 3, HashSet::new()),
             ..State::default()
         };
-        state
-            .traffic
-            .get_mut(&v2(0, 0))
-            .unwrap()
-            .insert(happy_path_route_key());
-        state
-            .traffic
-            .get_mut(&v2(1, 0))
-            .unwrap()
-            .insert(happy_path_route_key());
-        state
-            .traffic
-            .get_mut(&v2(1, 1))
-            .unwrap()
-            .insert(happy_path_route_key());
         state.params.initial_town_population = 1.1;
         state
     }
@@ -369,12 +437,15 @@ mod tests {
     #[test]
     fn should_build_if_port_at_position() {
         // Given
-        let mut state = happy_path_state();
-        state
-            .route_to_ports
+        let tx = happy_path_tx();
+        tx.route_to_ports
+            .lock()
+            .unwrap()
             .insert(happy_path_route_key(), hashset! {v2(1, 0)});
 
-        let mut processor = BuildTown::new(happy_path_tx());
+        let state = happy_path_state();
+
+        let mut processor = BuildTown::new(tx);
 
         // When
         block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 0)})));
@@ -388,13 +459,16 @@ mod tests {
     #[test]
     fn should_not_build_if_no_traffic_entry() {
         // Given
-        let mut state = happy_path_state();
-        state.traffic = Vec2D::new(3, 3, HashSet::new());
+        let tx = happy_path_tx();
+        *tx.traffic.lock().unwrap() = Vec2D::new(3, 3, HashSet::new());
 
-        let mut processor = BuildTown::new(happy_path_tx());
+        let mut processor = BuildTown::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
+        block_on(processor.process(
+            happy_path_state(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
+        ));
 
         // Then
         assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
