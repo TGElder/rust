@@ -299,7 +299,9 @@ impl System {
                         Box::new(GetRouteChanges::new(
                             tx.clone_with_name("get_route_changes"),
                         )),
-                        Box::new(UpdatePositionTraffic::new()),
+                        Box::new(UpdatePositionTraffic::new(
+                            tx.clone_with_name("update_position_traffic"),
+                        )),
                         Box::new(UpdateEdgeTraffic::new()),
                         Box::new(BuildTown::new(
                             tx.clone_with_name("build_town"),
