@@ -3,6 +3,7 @@ use crate::traits::{Controlled, RemoveTown as RemoveTownTrait};
 
 pub struct RemoveTown<T> {
     tx: T,
+    town_removal_population: f64,
 }
 
 #[async_trait]
@@ -18,9 +19,7 @@ where
             } => (settlement, traffic),
             _ => return state,
         };
-        if settlement.current_population >= state.params.town_removal_population
-            || !traffic.is_empty()
-        {
+        if settlement.current_population >= self.town_removal_population || !traffic.is_empty() {
             return state;
         }
         let controlled = self.tx.controlled(settlement.position).await;
@@ -36,8 +35,11 @@ impl<T> RemoveTown<T>
 where
     T: Controlled + RemoveTownTrait + Send,
 {
-    pub fn new(tx: T) -> RemoveTown<T> {
-        RemoveTown { tx }
+    pub fn new(tx: T, town_removal_population: f64) -> RemoveTown<T> {
+        RemoveTown {
+            tx,
+            town_removal_population,
+        }
     }
 }
 
@@ -81,21 +83,14 @@ mod tests {
             ..Settlement::default()
         };
         let tx = Tx::default();
-        let mut processor = RemoveTown::new(tx);
-        let state = State {
-            params: SimulationParams {
-                town_removal_population: 0.5,
-                ..SimulationParams::default()
-            },
-            ..State::default()
-        };
+        let mut processor = RemoveTown::new(tx, 0.5);
 
         // When
         let instruction = Instruction::UpdateTown {
             settlement: settlement.clone(),
             traffic: vec![],
         };
-        block_on(processor.process(state, &instruction));
+        block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -112,14 +107,7 @@ mod tests {
             ..Settlement::default()
         };
         let tx = Tx::default();
-        let mut processor = RemoveTown::new(tx);
-        let state = State {
-            params: SimulationParams {
-                town_removal_population: 0.5,
-                ..SimulationParams::default()
-            },
-            ..State::default()
-        };
+        let mut processor = RemoveTown::new(tx, 0.5);
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -130,7 +118,7 @@ mod tests {
                 total_duration: Duration::default(),
             }],
         };
-        block_on(processor.process(state, &instruction));
+        block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert!(processor.tx.removed.lock().unwrap().is_empty());
@@ -144,21 +132,14 @@ mod tests {
             ..Settlement::default()
         };
         let tx = Tx::default();
-        let mut processor = RemoveTown::new(tx);
-        let state = State {
-            params: SimulationParams {
-                town_removal_population: 0.5,
-                ..SimulationParams::default()
-            },
-            ..State::default()
-        };
+        let mut processor = RemoveTown::new(tx, 0.5);
 
         // When
         let instruction = Instruction::UpdateTown {
             settlement,
             traffic: vec![],
         };
-        block_on(processor.process(state, &instruction));
+        block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert!(processor.tx.removed.lock().unwrap().is_empty());
@@ -175,21 +156,14 @@ mod tests {
             controlled: hashset! { v2(1, 2), v2(3, 4) },
             ..Tx::default()
         };
-        let mut processor = RemoveTown::new(tx);
-        let state = State {
-            params: SimulationParams {
-                town_removal_population: 0.5,
-                ..SimulationParams::default()
-            },
-            ..State::default()
-        };
+        let mut processor = RemoveTown::new(tx, 0.5);
 
         // When
         let instruction = Instruction::UpdateTown {
             settlement,
             traffic: vec![],
         };
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         assert_eq!(
             state.instructions,
