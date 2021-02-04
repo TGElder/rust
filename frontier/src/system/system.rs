@@ -62,7 +62,7 @@ pub struct System {
     pub routes: Process<RoutesActor>,
     pub settlements: Process<Settlements>,
     pub setup_new_world: Process<SetupNewWorld<Polysender>>,
-    pub simulation: Process<Simulation<Polysender>>,
+    pub simulation: Process<Simulation>,
     pub speed_control: Process<SpeedControl<Polysender>>,
     pub territory: Process<TerritoryActor>,
     pub town_builder: Process<TownBuilderActor<Polysender>>,
@@ -273,58 +273,55 @@ impl System {
                 setup_new_world_rx,
             ),
             simulation: Process::new(
-                Simulation::new(
-                    tx.clone_with_name("simulation"),
-                    vec![
-                        Box::new(InstructionLogger::new()),
-                        Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
-                        Box::new(StepTown::new(tx.clone_with_name("step_town"))),
-                        Box::new(GetTerritory::new(tx.clone_with_name("get_territory"))),
-                        Box::new(GetTownTraffic::new(tx.clone_with_name("get_town_traffic"))),
-                        Box::new(UpdateTown::new(tx.clone_with_name("update_town"))),
-                        Box::new(RemoveTown::new(
-                            tx.clone_with_name("remove_town"),
-                            params.simulation.town_removal_population,
+                Simulation::new(vec![
+                    Box::new(InstructionLogger::new()),
+                    Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
+                    Box::new(StepTown::new(tx.clone_with_name("step_town"))),
+                    Box::new(GetTerritory::new(tx.clone_with_name("get_territory"))),
+                    Box::new(GetTownTraffic::new(tx.clone_with_name("get_town_traffic"))),
+                    Box::new(UpdateTown::new(tx.clone_with_name("update_town"))),
+                    Box::new(RemoveTown::new(
+                        tx.clone_with_name("remove_town"),
+                        params.simulation.town_removal_population,
+                    )),
+                    Box::new(UpdateHomelandPopulation::new(
+                        tx.clone_with_name("update_homeland_population"),
+                    )),
+                    Box::new(UpdateCurrentPopulation::new(
+                        tx.clone_with_name("update_current_population"),
+                        max_abs_population_change,
+                    )),
+                    Box::new(GetDemand::new(town_demand_fn)),
+                    Box::new(GetDemand::new(homeland_demand_fn)),
+                    Box::new(GetRoutes::new(tx.clone_with_name("get_routes"))),
+                    Box::new(GetRouteChanges::new(
+                        tx.clone_with_name("get_route_changes"),
+                    )),
+                    Box::new(UpdatePositionTraffic::new(
+                        tx.clone_with_name("update_position_traffic"),
+                    )),
+                    Box::new(UpdateEdgeTraffic::new()),
+                    Box::new(BuildTown::new(
+                        tx.clone_with_name("build_town"),
+                        params.simulation.initial_town_population,
+                    )),
+                    Box::new(BuildCrops::new(
+                        tx.clone_with_name("build_crops"),
+                        params.seed,
+                    )),
+                    Box::new(RemoveCrops::new(tx.clone_with_name("remove_crops"))),
+                    Box::new(BuildRoad::new(
+                        tx.clone_with_name("build_road"),
+                        road_build_travel_duration,
+                    )),
+                    Box::new(RemoveRoad::new(tx.clone_with_name("remove_road"))),
+                    Box::new(UpdateRouteToPorts::new(
+                        tx.clone_with_name("update_route_to_ports"),
+                        Arc::new(AvatarTravelModeFn::new(
+                            params.avatar_travel.min_navigable_river_width,
                         )),
-                        Box::new(UpdateHomelandPopulation::new(
-                            tx.clone_with_name("update_homeland_population"),
-                        )),
-                        Box::new(UpdateCurrentPopulation::new(
-                            tx.clone_with_name("update_current_population"),
-                            max_abs_population_change,
-                        )),
-                        Box::new(GetDemand::new(town_demand_fn)),
-                        Box::new(GetDemand::new(homeland_demand_fn)),
-                        Box::new(GetRoutes::new(tx.clone_with_name("get_routes"))),
-                        Box::new(GetRouteChanges::new(
-                            tx.clone_with_name("get_route_changes"),
-                        )),
-                        Box::new(UpdatePositionTraffic::new(
-                            tx.clone_with_name("update_position_traffic"),
-                        )),
-                        Box::new(UpdateEdgeTraffic::new()),
-                        Box::new(BuildTown::new(
-                            tx.clone_with_name("build_town"),
-                            params.simulation.initial_town_population,
-                        )),
-                        Box::new(BuildCrops::new(
-                            tx.clone_with_name("build_crops"),
-                            params.seed,
-                        )),
-                        Box::new(RemoveCrops::new(tx.clone_with_name("remove_crops"))),
-                        Box::new(BuildRoad::new(
-                            tx.clone_with_name("build_road"),
-                            road_build_travel_duration,
-                        )),
-                        Box::new(RemoveRoad::new(tx.clone_with_name("remove_road"))),
-                        Box::new(UpdateRouteToPorts::new(
-                            tx.clone_with_name("update_route_to_ports"),
-                            Arc::new(AvatarTravelModeFn::new(
-                                params.avatar_travel.min_navigable_river_width,
-                            )),
-                        )),
-                    ],
-                ),
+                    )),
+                ]),
                 simulation_rx,
             ),
             speed_control: Process::new(

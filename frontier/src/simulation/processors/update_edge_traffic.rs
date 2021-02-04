@@ -119,10 +119,8 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use commons::index2d::Vec2D;
     use commons::v2;
     use futures::executor::block_on;
-    use std::collections::HashSet;
     use std::time::Duration;
 
     fn key() -> RouteKey {
@@ -151,17 +149,6 @@ mod tests {
         }
     }
 
-    fn traffic() -> Traffic {
-        Vec2D::new(6, 6, HashSet::with_capacity(0))
-    }
-
-    fn state() -> State {
-        State {
-            traffic: traffic(),
-            ..State::default()
-        }
-    }
-
     #[test]
     fn new_route_should_refresh_all_edges_in_route() {
         // Given
@@ -171,10 +158,10 @@ mod tests {
         };
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state(), &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        let state = block_on(UpdateEdgeTraffic::new().process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         assert_eq!(
@@ -195,7 +182,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let state = state();
+        let state = State::default();
 
         // When
         let state = block_on(
@@ -219,7 +206,7 @@ mod tests {
             old: route_1(),
             new: route_2(),
         };
-        let mut state = state();
+        let mut state = State::default();
         for edge in route_1().path.edges() {
             state.edge_traffic.insert(edge, hashset! {key()});
         }
@@ -252,7 +239,7 @@ mod tests {
             old: route_1(),
             new: route_2(),
         };
-        let mut state = state();
+        let mut state = State::default();
         for edge in route_1().path.edges() {
             state.edge_traffic.insert(edge, hashset! {key()});
         }
@@ -279,7 +266,7 @@ mod tests {
             old: route_2(),
             new: route_1(),
         };
-        let mut state = state();
+        let mut state = State::default();
         for edge in route_2().path.edges() {
             state.edge_traffic.insert(edge, hashset! {key()});
         }
@@ -305,7 +292,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut state = state();
+        let mut state = State::default();
         for edge in route_1().path.edges() {
             state.edge_traffic.insert(edge, hashset! {key()});
         }
@@ -335,7 +322,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut state = state();
+        let mut state = State::default();
         for edge in route_1().path.edges() {
             state.edge_traffic.insert(edge, hashset! {key()});
         }
@@ -358,7 +345,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let state = state();
+        let state = State::default();
 
         // When
         let state = block_on(
@@ -385,7 +372,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let state = state();
+        let state = State::default();
 
         // When
         let state = block_on(
@@ -409,7 +396,7 @@ mod tests {
             resource: Resource::Coal,
             destination: v2(1, 5),
         };
-        let mut state = state();
+        let mut state = State::default();
         for edge in route_1().path.edges() {
             state.edge_traffic.insert(edge, hashset! {key_2});
         }
@@ -440,7 +427,7 @@ mod tests {
             resource: Resource::Coal,
             destination: v2(1, 5),
         };
-        let mut state = state();
+        let mut state = State::default();
         for edge in route_1().path.edges() {
             state.edge_traffic.insert(edge, hashset! {key_2, key()});
         }
@@ -477,7 +464,7 @@ mod tests {
 
         // When
         let state = block_on(UpdateEdgeTraffic::new().process(
-            state(),
+            State::default(),
             &Instruction::ProcessRouteChanges(vec![change_1, change_2]),
         ));
 
