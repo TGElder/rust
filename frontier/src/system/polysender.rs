@@ -60,7 +60,7 @@ pub struct Polysender {
     pub routes_tx: FnSender<RoutesActor>,
     pub settlements_tx: FnSender<Settlements>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
-    pub simulation_tx: FnSender<Simulation<Polysender>>,
+    pub simulation_tx: FnSender<Simulation>,
     pub speed_control_tx: FnSender<SpeedControl<Polysender>>,
     pub territory_tx: FnSender<TerritoryActor>,
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
@@ -224,7 +224,7 @@ impl SendSim for Polysender {
     async fn send_sim<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
-        F: FnOnce(&mut Simulation<Self>) -> O + Send + 'static,
+        F: FnOnce(&mut Simulation) -> O + Send + 'static,
     {
         self.simulation_tx.send(function).await
     }
@@ -232,7 +232,7 @@ impl SendSim for Polysender {
     fn send_sim_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut Simulation<Self>) -> O + Send + 'static,
+        F: FnOnce(&mut Simulation) -> O + Send + 'static,
     {
         self.simulation_tx.send(function);
     }

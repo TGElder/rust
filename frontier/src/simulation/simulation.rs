@@ -1,27 +1,20 @@
-use crate::traits::SendWorld;
 use commons::bincode::{deserialize_from, serialize_into};
 use commons::process::Step;
 
 use super::*;
 
-use commons::index2d::Vec2D;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
-pub struct Simulation<T> {
-    tx: T,
+pub struct Simulation {
     processors: Vec<Box<dyn Processor + Send>>,
     state: Option<State>,
 }
 
-impl<T> Simulation<T>
-where
-    T: SendWorld + Send,
-{
-    pub fn new(tx: T, processors: Vec<Box<dyn Processor + Send>>) -> Simulation<T> {
+impl Simulation {
+    pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> Simulation {
         Simulation {
-            tx,
             processors,
             state: None,
         }
@@ -31,10 +24,6 @@ where
         self.state = Some(State {
             params: SimulationParams::default(),
             instructions: vec![],
-            traffic: self
-                .tx
-                .send_world(|world| Vec2D::same_size_as(world, HashSet::with_capacity(0)))
-                .await,
             edge_traffic: hashmap! {},
             route_to_ports: hashmap! {},
         });
@@ -89,10 +78,7 @@ fn get_path(path: &str) -> String {
 }
 
 #[async_trait]
-impl<T> Step for Simulation<T>
-where
-    T: SendWorld + Send,
-{
+impl Step for Simulation {
     async fn step(&mut self) {
         let state = unwrap_or!(self.state.take(), return);
         let mut state = self.process_instruction(state).await;
@@ -107,36 +93,10 @@ mod tests {
 
     use crate::resource::Resource;
     use crate::route::RouteKey;
-    use crate::world::World;
     use commons::edge::Edge;
-    use commons::index2d::Vec2D;
-    use commons::{v2, Arm, M};
+    use commons::{v2, Arm};
     use futures::executor::block_on;
     use std::fs::remove_file;
-    use std::sync::{Arc, Mutex};
-
-    fn world() -> Arm<World> {
-        Arc::new(Mutex::new(World::new(M::zeros(3, 3), 0.0)))
-    }
-
-    #[async_trait]
-    impl SendWorld for Arm<World> {
-        async fn send_world<F, O>(&self, function: F) -> O
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.lock().unwrap())
-        }
-
-        fn send_world_background<F, O>(&self, function: F)
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.lock().unwrap());
-        }
-    }
 
     #[test]
     fn should_hand_instructions_to_all_processors() {
@@ -161,7 +121,7 @@ mod tests {
         let retriever_2 = InstructionRetriever {
             instructions: instructions_2.clone(),
         };
-        let mut sim = Simulation::new(world(), vec![Box::new(retriever_1), Box::new(retriever_2)]);
+        let mut sim = Simulation::new(vec![Box::new(retriever_1), Box::new(retriever_2)]);
         sim.state = Some(State {
             instructions: vec![Instruction::Step],
             ..State::default()
@@ -178,7 +138,7 @@ mod tests {
     #[test]
     fn should_add_step_instruction_if_instructions_are_empty() {
         // Given
-        let mut sim = Simulation::new(world(), vec![]);
+        let mut sim = Simulation::new(vec![]);
         sim.state = Some(State::default());
 
         // When
@@ -203,7 +163,7 @@ mod tests {
             }
         }
 
-        let mut sim = Simulation::new(world(), vec![Box::new(InstructionIntroducer {})]);
+        let mut sim = Simulation::new(vec![Box::new(InstructionIntroducer {})]);
         sim.state = Some(State {
             instructions: vec![Instruction::Step],
             ..State::default()
@@ -220,21 +180,11 @@ mod tests {
     }
 
     #[test]
-    fn traffic_should_be_initialised_same_size_as_world_with_empty_maps() {
-        let mut sim = Simulation::new(world(), vec![]);
-        block_on(sim.new_game());
-        assert_eq!(
-            sim.state.unwrap().traffic,
-            Vec2D::new(3, 3, HashSet::with_capacity(0))
-        );
-    }
-
-    #[test]
     fn save_load_round_trip() {
         // Given
         let file_name = "test_save.simulation.round_trip";
 
-        let mut sim_1 = Simulation::new(world(), vec![]);
+        let mut sim_1 = Simulation::new(vec![]);
         let route_key = RouteKey {
             settlement: v2(1, 2),
             resource: Resource::Crabs,
@@ -253,14 +203,13 @@ mod tests {
                 Instruction::GetTerritory(v2(2, 2)),
                 Instruction::GetTerritory(v2(3, 3)),
             ],
-            traffic: Vec2D::new(3, 5, [route_key].iter().cloned().collect()),
             edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
             route_to_ports: hashmap! { route_key => hashset!{ v2(1, 2), v2(3, 4) } },
         });
         sim_1.save(file_name);
 
         // When
-        let mut sim_2 = Simulation::new(world(), vec![]);
+        let mut sim_2 = Simulation::new(vec![]);
         sim_2.load(file_name);
 
         // Then
