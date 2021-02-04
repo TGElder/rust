@@ -4,7 +4,9 @@ use commons::grid::Grid;
 
 use crate::build::BuildKey;
 use crate::resource::Resource;
-use crate::traits::{GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, SendWorld};
+use crate::traits::{
+    GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, SendWorld, WithTraffic,
+};
 use crate::world::{World, WorldCell, WorldObject};
 
 use super::*;
@@ -19,6 +21,7 @@ where
         + RemoveBuildInstruction
         + RemoveWorldObject
         + SendWorld
+        + WithTraffic
         + Send
         + Sync
         + 'static,
@@ -29,7 +32,7 @@ where
             _ => return state,
         };
 
-        positions.retain(|position| !has_crop_routes(&state, position));
+        self.filter_without_crop_routes(&mut positions).await;
 
         for position in positions.iter() {
             if self.has_crops_build_instruction(position).await {
@@ -49,10 +52,18 @@ where
 
 impl<T> RemoveCrops<T>
 where
-    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + SendWorld,
+    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + SendWorld + WithTraffic,
 {
     pub fn new(tx: T) -> RemoveCrops<T> {
         RemoveCrops { tx }
+    }
+
+    async fn filter_without_crop_routes(&self, positions: &mut HashSet<V2<usize>>) {
+        self.tx
+            .with_traffic(move |traffic| {
+                positions.retain(|position| !has_crop_routes(&traffic, position))
+            })
+            .await
     }
 
     async fn has_crops_build_instruction(&self, position: &V2<usize>) -> bool {
@@ -69,8 +80,8 @@ where
     }
 }
 
-fn has_crop_routes(state: &State, position: &V2<usize>) -> bool {
-    ok_or!(state.traffic.get(&position), return false)
+fn has_crop_routes(traffic: &Traffic, position: &V2<usize>) -> bool {
+    ok_or!(traffic.get(&position), return false)
         .iter()
         .any(|route| route.resource == Resource::Crops && route.destination == *position)
 }
@@ -108,6 +119,7 @@ mod tests {
         get_build_instruction: Option<BuildInstruction>,
         removed_build_instructions: Mutex<HashSet<BuildKey>>,
         removed_world_objects: Mutex<Vec<V2<usize>>>,
+        traffic: Mutex<Traffic>,
         world: Mutex<World>,
     }
 
@@ -154,6 +166,23 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl WithTraffic for Tx {
+        async fn with_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&Traffic) -> O + Send,
+        {
+            function(&self.traffic.lock().unwrap())
+        }
+
+        async fn mut_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Traffic) -> O + Send,
+        {
+            function(&mut self.traffic.lock().unwrap())
+        }
+    }
+
     fn happy_path_tx() -> Tx {
         let mut world = World::new(M::zeros(3, 3), 0.0);
         world.mut_cell_unsafe(&v2(1, 1)).object = WorldObject::Crop { rotated: true };
@@ -161,14 +190,8 @@ mod tests {
             get_build_instruction: None,
             removed_build_instructions: Mutex::default(),
             removed_world_objects: Mutex::default(),
+            traffic: Mutex::new(Traffic::same_size_as(&world, hashset! {})),
             world: Mutex::new(world),
-        }
-    }
-
-    fn happy_path_state() -> State {
-        State {
-            traffic: Traffic::new(3, 3, HashSet::new()),
-            ..State::default()
         }
     }
 
@@ -180,7 +203,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -195,10 +218,9 @@ mod tests {
     fn should_remove_crops_if_non_crop_traffic() {
         // Given
         let tx = happy_path_tx();
-
-        let mut state = happy_path_state();
-        state
-            .traffic
+        tx.traffic
+            .lock()
+            .unwrap()
             .set(
                 &v2(1, 1),
                 hashset! {
@@ -214,7 +236,10 @@ mod tests {
         let mut processor = RemoveCrops::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
+        ));
 
         // Then
         assert_eq!(
@@ -240,7 +265,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -255,10 +280,9 @@ mod tests {
     fn should_not_remove_crops_if_crop_traffic() {
         // Given
         let tx = happy_path_tx();
-
-        let mut state = happy_path_state();
-        state
-            .traffic
+        tx.traffic
+            .lock()
+            .unwrap()
             .set(
                 &v2(1, 1),
                 hashset! {
@@ -274,7 +298,10 @@ mod tests {
         let mut processor = RemoveCrops::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
+        ));
 
         // Then
         assert!(processor
@@ -296,11 +323,9 @@ mod tests {
             },
             when: 1,
         });
-        tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
-
-        let mut state = happy_path_state();
-        state
-            .traffic
+        tx.traffic
+            .lock()
+            .unwrap()
             .set(
                 &v2(1, 1),
                 hashset! {
@@ -312,11 +337,15 @@ mod tests {
                 },
             )
             .unwrap();
+        tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
         let mut processor = RemoveCrops::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 1)})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
+        ));
 
         // Then
         assert!(processor
