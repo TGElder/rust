@@ -298,7 +298,10 @@ impl System {
                         )),
                         Box::new(UpdatePositionTraffic::new()),
                         Box::new(UpdateEdgeTraffic::new()),
-                        Box::new(BuildTown::new(tx.clone_with_name("build_town"))),
+                        Box::new(BuildTown::new(
+                            tx.clone_with_name("build_town"),
+                            params.simulation.initial_town_population,
+                        )),
                         Box::new(BuildCrops::new(
                             tx.clone_with_name("build_crops"),
                             params.seed,

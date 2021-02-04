@@ -14,6 +14,7 @@ use crate::traits::{
 use super::*;
 pub struct BuildTown<T> {
     tx: T,
+    initial_town_population: f64,
 }
 
 #[async_trait]
@@ -31,14 +32,14 @@ where
         + Sync
         + 'static,
 {
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let positions = match instruction {
             Instruction::RefreshPositions(positions) => positions.clone(),
             _ => return state,
         };
 
         for position in positions {
-            self.process_position(&mut state, position).await
+            self.process_position(position).await
         }
 
         state
@@ -56,11 +57,14 @@ where
         + WithRouteToPorts
         + WithTraffic,
 {
-    pub fn new(tx: T) -> BuildTown<T> {
-        BuildTown { tx }
+    pub fn new(tx: T, initial_town_population: f64) -> BuildTown<T> {
+        BuildTown {
+            tx,
+            initial_town_population,
+        }
     }
 
-    async fn process_position(&mut self, state: &mut State, position: V2<usize>) {
+    async fn process_position(&mut self, position: V2<usize>) {
         let (route_keys, anyone_controls_position, tiles) = join!(
             self.get_route_keys(&position),
             self.tx.anyone_controls(position),
@@ -87,8 +91,8 @@ where
                 position: tile,
                 name: name.clone(),
                 nation: nation.clone(),
-                current_population: state.params.initial_town_population,
-                target_population: state.params.initial_town_population,
+                current_population: self.initial_town_population,
+                target_population: self.initial_town_population,
                 gap_half_life: Duration::from_millis(0),
                 last_population_update_micros: route.first_visit,
             };
@@ -212,8 +216,8 @@ mod tests {
         build_instructions: Mutex<HashMap<BuildKey, BuildInstruction>>,
         get_settlement: Option<Settlement>,
         random_town_name: String,
-        routes: Mutex<Routes>,
         route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
+        routes: Mutex<Routes>,
         traffic: Mutex<Traffic>,
         world: Mutex<World>,
     }
@@ -227,8 +231,8 @@ mod tests {
                 build_instructions: Mutex::default(),
                 get_settlement: None,
                 random_town_name: String::default(),
-                routes: Mutex::default(),
                 route_to_ports: Mutex::default(),
+                routes: Mutex::default(),
                 traffic: Mutex::new(Traffic::same_size_as(&world, hashset! {})),
                 world: Mutex::new(world),
             }
@@ -390,7 +394,7 @@ mod tests {
     #[test]
     fn should_build_if_route_ends_at_position() {
         // Given
-        let mut processor = BuildTown::new(happy_path_tx());
+        let mut processor = BuildTown::new(happy_path_tx(), 1.1);
 
         // When
         block_on(processor.process(
@@ -425,7 +429,7 @@ mod tests {
     fn should_not_build_for_any_route() {
         // Given
         let state = happy_path_state();
-        let mut processor = BuildTown::new(happy_path_tx());
+        let mut processor = BuildTown::new(happy_path_tx(), 0.0);
 
         // When
         block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 0)})));
@@ -445,7 +449,7 @@ mod tests {
 
         let state = happy_path_state();
 
-        let mut processor = BuildTown::new(tx);
+        let mut processor = BuildTown::new(tx, 0.0);
 
         // When
         block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 0)})));
@@ -462,7 +466,7 @@ mod tests {
         let tx = happy_path_tx();
         *tx.traffic.lock().unwrap() = Vec2D::new(3, 3, HashSet::new());
 
-        let mut processor = BuildTown::new(tx);
+        let mut processor = BuildTown::new(tx, 0.0);
 
         // When
         block_on(processor.process(
@@ -488,7 +492,7 @@ mod tests {
             },
         );
 
-        let mut processor = BuildTown::new(tx);
+        let mut processor = BuildTown::new(tx, 0.0);
 
         // When
         block_on(processor.process(
@@ -512,7 +516,7 @@ mod tests {
             world.mut_cell_unsafe(&v2(1, 1)).visible = false;
         }
 
-        let mut processor = BuildTown::new(tx);
+        let mut processor = BuildTown::new(tx, 0.0);
 
         // When
         block_on(processor.process(
@@ -530,7 +534,7 @@ mod tests {
         let tx = happy_path_tx();
         *tx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
 
-        let mut processor = BuildTown::new(tx);
+        let mut processor = BuildTown::new(tx, 0.0);
 
         // When
         block_on(processor.process(
@@ -548,7 +552,7 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.anyone_controls = true;
 
-        let mut processor = BuildTown::new(tx);
+        let mut processor = BuildTown::new(tx, 0.0);
 
         // When
         block_on(processor.process(
@@ -566,7 +570,7 @@ mod tests {
         let tx = happy_path_tx();
         *tx.routes.lock().unwrap() = Routes::default();
 
-        let mut processor = BuildTown::new(tx);
+        let mut processor = BuildTown::new(tx, 0.0);
 
         // When
         block_on(processor.process(
@@ -584,7 +588,7 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.get_settlement = None;
 
-        let mut processor = BuildTown::new(tx);
+        let mut processor = BuildTown::new(tx, 0.0);
 
         // When
         block_on(processor.process(
