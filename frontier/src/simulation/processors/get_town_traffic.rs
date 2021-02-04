@@ -1,7 +1,7 @@
 use super::*;
 use crate::route::{Route, RouteKey, RoutesExt};
 use crate::settlement::Settlement;
-use crate::traits::{SendRoutes, SendSettlements};
+use crate::traits::{SendRoutes, SendSettlements, WithRouteToPorts, WithTraffic};
 use commons::grid::get_corners;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -13,7 +13,7 @@ pub struct GetTownTraffic<T> {
 #[async_trait]
 impl<T> Processor for GetTownTraffic<T>
 where
-    T: SendRoutes + SendSettlements + Send + Sync,
+    T: SendRoutes + SendSettlements + WithRouteToPorts + WithTraffic + Send + Sync,
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let (settlement, territory) = match instruction {
@@ -24,8 +24,8 @@ where
             _ => return state,
         };
 
-        let route_keys = get_route_keys(territory, &state);
-        let route_to_ports = get_route_to_ports(route_keys, &state);
+        let route_keys = self.get_route_keys(territory).await;
+        let route_to_ports = self.get_route_to_ports(route_keys).await;
         let traffic_summaries = self
             .get_traffic_summaries(route_to_ports, territory.clone())
             .await;
@@ -42,10 +42,25 @@ where
 
 impl<T> GetTownTraffic<T>
 where
-    T: SendRoutes + SendSettlements + Send,
+    T: SendRoutes + SendSettlements + WithRouteToPorts + WithTraffic,
 {
     pub fn new(tx: T) -> GetTownTraffic<T> {
         GetTownTraffic { tx }
+    }
+
+    async fn get_route_keys(&self, territory: &HashSet<V2<usize>>) -> HashSet<RouteKey> {
+        self.tx
+            .with_traffic(|traffic| get_route_keys(traffic, territory))
+            .await
+    }
+
+    async fn get_route_to_ports(
+        &self,
+        keys: HashSet<RouteKey>,
+    ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
+        self.tx
+            .with_route_to_ports(|route_to_ports| get_route_to_ports(route_to_ports, keys))
+            .await
     }
 
     async fn get_traffic_summaries(
@@ -112,29 +127,25 @@ where
     }
 }
 
-fn get_route_keys(territory: &HashSet<V2<usize>>, state: &State) -> HashSet<RouteKey> {
+fn get_route_keys(traffic: &Traffic, territory: &HashSet<V2<usize>>) -> HashSet<RouteKey> {
     territory
         .iter()
-        .flat_map(|position| state.traffic.get(position))
+        .flat_map(|position| traffic.get(position))
         .flatten()
         .cloned()
         .collect()
 }
 
 fn get_route_to_ports(
+    route_to_ports: &HashMap<RouteKey, HashSet<V2<usize>>>,
     route_keys: HashSet<RouteKey>,
-    state: &State,
 ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
     route_keys
         .into_iter()
         .map(|route_key| {
             (
                 route_key,
-                state
-                    .route_to_ports
-                    .get(&route_key)
-                    .cloned()
-                    .unwrap_or_default(),
+                route_to_ports.get(&route_key).cloned().unwrap_or_default(),
             )
         })
         .collect()
@@ -170,15 +181,43 @@ mod tests {
     use commons::v2;
     use futures::executor::block_on;
 
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
     use std::default::Default;
     use std::sync::Mutex;
     use std::time::Duration;
 
-    #[derive(Default)]
     struct Tx {
+        route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
         routes: Mutex<Routes>,
         settlements: Mutex<HashMap<V2<usize>, Settlement>>,
+        traffic: Mutex<Traffic>,
+    }
+
+    impl Default for Tx {
+        fn default() -> Self {
+            Tx {
+                route_to_ports: Mutex::default(),
+                routes: Mutex::default(),
+                settlements: Mutex::default(),
+                traffic: Mutex::new(Traffic::new(5, 5, hashset! {})),
+            }
+        }
+    }
+
+    impl Tx {
+        fn add_route(&self, route_key: RouteKey, route: Route) {
+            for position in route.path.iter() {
+                self.traffic
+                    .lock()
+                    .unwrap()
+                    .mut_cell_unsafe(position)
+                    .insert(route_key);
+            }
+
+            let mut routes = self.routes.lock().unwrap();
+            let route_set = routes.entry(route_key.into()).or_default();
+            route_set.insert(route_key, route);
+        }
     }
 
     #[async_trait]
@@ -203,14 +242,38 @@ mod tests {
         }
     }
 
-    fn add_route(route_key: RouteKey, route: Route, routes: &Mutex<Routes>, traffic: &mut Traffic) {
-        for position in route.path.iter() {
-            traffic.mut_cell_unsafe(position).insert(route_key);
+    #[async_trait]
+    impl WithRouteToPorts for Tx {
+        async fn with_route_to_ports<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
+        {
+            function(&self.route_to_ports.lock().unwrap())
         }
 
-        let mut routes = routes.lock().unwrap();
-        let route_set = routes.entry(route_key.into()).or_default();
-        route_set.insert(route_key, route);
+        async fn mut_route_to_ports<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
+        {
+            function(&mut self.route_to_ports.lock().unwrap())
+        }
+    }
+
+    #[async_trait]
+    impl WithTraffic for Tx {
+        async fn with_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&Traffic) -> O + Send,
+        {
+            function(&self.traffic.lock().unwrap())
+        }
+
+        async fn mut_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Traffic) -> O + Send,
+        {
+            function(&mut self.traffic.lock().unwrap())
+        }
     }
 
     #[test]
@@ -222,7 +285,6 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
@@ -245,21 +307,17 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -284,8 +342,14 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
+        let route_key = RouteKey {
+            settlement: v2(2, 0),
+            resource: Resource::Gems,
+            destination: v2(2, 3),
+        };
+
         let tx = Tx {
+            route_to_ports: Mutex::new(hashmap! {route_key => hashset!{v2(2, 1)}}),
             settlements: Mutex::new(hashmap! {
                 v2(2, 0) => Settlement{
                     position: v2(2, 0),
@@ -296,33 +360,23 @@ mod tests {
             ..Tx::default()
         };
 
-        let route_key = RouteKey {
-            settlement: v2(2, 0),
-            resource: Resource::Gems,
-            destination: v2(2, 3),
-        };
         let route = Route {
             path: vec![v2(2, 0), v2(2, 1), v2(2, 2), v2(2, 3)],
             traffic: 14,
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            route_to_ports: hashmap! {route_key => hashset!{v2(2, 1)}},
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -347,8 +401,14 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
+        let route_key = RouteKey {
+            settlement: v2(2, 0),
+            resource: Resource::Gems,
+            destination: v2(2, 2),
+        };
+
         let tx = Tx {
+            route_to_ports: Mutex::new(hashmap! {route_key => hashset!{v2(2, 1)}}),
             settlements: Mutex::new(hashmap! {
                 v2(2, 0) => Settlement{
                     position: v2(2, 0),
@@ -359,33 +419,23 @@ mod tests {
             ..Tx::default()
         };
 
-        let route_key = RouteKey {
-            settlement: v2(2, 0),
-            resource: Resource::Gems,
-            destination: v2(2, 2),
-        };
         let route = Route {
             path: vec![v2(2, 0), v2(2, 1), v2(2, 2)],
             traffic: 14,
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            route_to_ports: hashmap! {route_key => hashset!{v2(2, 1)}},
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -410,8 +460,14 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
+        let route_key = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Gems,
+            destination: v2(2, 1),
+        };
+
         let tx = Tx {
+            route_to_ports: Mutex::new(hashmap! {route_key => hashset!{v2(1, 0)}}),
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -422,33 +478,23 @@ mod tests {
             ..Tx::default()
         };
 
-        let route_key = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Gems,
-            destination: v2(2, 1),
-        };
         let route = Route {
             path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
             traffic: 14,
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            route_to_ports: hashmap! {route_key => hashset!{v2(1, 0)}},
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -473,7 +519,6 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
@@ -501,7 +546,7 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key_1, route_1, &tx.routes, &mut traffic);
+        tx.add_route(route_key_1, route_1);
 
         let route_key_2 = RouteKey {
             settlement: v2(3, 3),
@@ -514,21 +559,17 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(3),
         };
-        add_route(route_key_2, route_2, &tx.routes, &mut traffic);
+        tx.add_route(route_key_2, route_2);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -553,7 +594,6 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
@@ -581,7 +621,7 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key_1, route_1, &tx.routes, &mut traffic);
+        tx.add_route(route_key_1, route_1);
 
         let route_key_2 = RouteKey {
             settlement: v2(3, 3),
@@ -594,21 +634,17 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(3),
         };
-        add_route(route_key_2, route_2, &tx.routes, &mut traffic);
+        tx.add_route(route_key_2, route_2);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement,
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         if let Some(Instruction::UpdateTown {
@@ -645,7 +681,6 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
@@ -675,21 +710,17 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -711,7 +742,6 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(3, 1) => Settlement{
@@ -732,21 +762,17 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -768,8 +794,16 @@ mod tests {
         };
         let territory = hashset! { v2(2, 0), v2(2, 1), v2(2, 2), v2(2, 3) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
+        let route_key = RouteKey {
+            settlement: v2(0, 1),
+            resource: Resource::Gems,
+            destination: v2(3, 1),
+        };
+
         let tx = Tx {
+            route_to_ports: Mutex::new(hashmap! {
+                route_key => hashset! { v2(0, 1) }
+            }),
             settlements: Mutex::new(hashmap! {
                 v2(0, 1) => Settlement{
                     position: v2(0, 1),
@@ -778,36 +812,23 @@ mod tests {
             }),
             ..Tx::default()
         };
-
-        let route_key = RouteKey {
-            settlement: v2(0, 1),
-            resource: Resource::Gems,
-            destination: v2(3, 1),
-        };
         let route = Route {
             path: vec![v2(0, 1), v2(1, 1), v2(2, 1), v2(3, 1)],
             traffic: 32,
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            route_to_ports: hashmap! {
-                route_key => hashset! { v2(0, 1) }
-            },
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -828,7 +849,6 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let mut tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
@@ -851,22 +871,18 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
         tx.routes = Mutex::default(); // Removing route to create invalid state
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -887,7 +903,6 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let tx = Tx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
@@ -910,21 +925,17 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
@@ -949,7 +960,6 @@ mod tests {
         };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut traffic = Traffic::new(5, 5, HashSet::with_capacity(0));
         let tx = Tx::default();
 
         let route_key = RouteKey {
@@ -963,21 +973,17 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        add_route(route_key, route, &tx.routes, &mut traffic);
+        tx.add_route(route_key, route);
 
         let mut processor = GetTownTraffic::new(tx);
 
-        let state = State {
-            traffic,
-            ..State::default()
-        };
         let instruction = Instruction::GetTownTraffic {
             settlement: settlement.clone(),
             territory,
         };
 
         // When
-        let state = block_on(processor.process(state, &instruction));
+        let state = block_on(processor.process(State::default(), &instruction));
 
         // Then
         assert_eq!(
