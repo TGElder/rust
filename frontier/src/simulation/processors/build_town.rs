@@ -382,15 +382,6 @@ mod tests {
         tx
     }
 
-    fn happy_path_state() -> State {
-        let mut state = State {
-            traffic: Vec2D::new(3, 3, HashSet::new()),
-            ..State::default()
-        };
-        state.params.initial_town_population = 1.1;
-        state
-    }
-
     #[test]
     fn should_build_if_route_ends_at_position() {
         // Given
@@ -398,7 +389,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -428,11 +419,13 @@ mod tests {
     #[test]
     fn should_not_build_for_any_route() {
         // Given
-        let state = happy_path_state();
         let mut processor = BuildTown::new(happy_path_tx(), 0.0);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 0)})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 0)}),
+        ));
 
         // Then
         assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
@@ -447,12 +440,13 @@ mod tests {
             .unwrap()
             .insert(happy_path_route_key(), hashset! {v2(1, 0)});
 
-        let state = happy_path_state();
-
         let mut processor = BuildTown::new(tx, 0.0);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshPositions(hashset! {v2(1, 0)})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshPositions(hashset! {v2(1, 0)}),
+        ));
 
         // Then
         let build_instructions = processor.tx.build_instructions.lock().unwrap();
@@ -470,7 +464,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -496,7 +490,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -520,7 +514,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -538,7 +532,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -556,7 +550,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -574,7 +568,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
@@ -592,7 +586,7 @@ mod tests {
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
         ));
 
