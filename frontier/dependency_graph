@@ -138,6 +138,8 @@ SendSim Settlements
 SendSim UpdateSettlement
 SendSim UpdateTerritory
 SendSim VisibleLandPositions
+SendSim WithTraffic
+SendSim WithRouteToPorts
 SendSpeedControl SendClock
 SendTownBuilder AddTown
 SendTownBuilder GetSettlement
