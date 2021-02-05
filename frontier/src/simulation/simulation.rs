@@ -25,7 +25,6 @@ impl Simulation {
             params: SimulationParams::default(),
             instructions: vec![],
             edge_traffic: hashmap! {},
-            route_to_ports: hashmap! {},
         });
     }
 
@@ -204,7 +203,6 @@ mod tests {
                 Instruction::GetTerritory(v2(3, 3)),
             ],
             edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
-            route_to_ports: hashmap! { route_key => hashset!{ v2(1, 2), v2(3, 4) } },
         });
         sim_1.save(file_name);
 
