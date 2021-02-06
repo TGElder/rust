@@ -22,7 +22,6 @@ impl Simulation {
 
     pub async fn new_game(&mut self) {
         self.state = Some(State {
-            params: SimulationParams::default(),
             instructions: vec![],
         });
     }
@@ -181,13 +180,6 @@ mod tests {
 
         let mut sim_1 = Simulation::new(vec![]);
         sim_1.state = Some(State {
-            params: SimulationParams {
-                road_build_threshold: 8,
-                traffic_to_population: 0.123,
-                nation_flip_traffic_pc: 0.456,
-                initial_town_population: 0.234,
-                town_removal_population: 0.789,
-            },
             instructions: vec![
                 Instruction::GetTerritory(v2(1, 1)),
                 Instruction::GetTerritory(v2(2, 2)),
