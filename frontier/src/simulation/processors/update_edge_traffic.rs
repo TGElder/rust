@@ -1,19 +1,27 @@
 use super::*;
 
 use crate::route::{Route, RouteKey};
+use crate::traits::WithEdgeTraffic;
 use commons::edge::{Edge, Edges};
 use std::collections::HashSet;
 
-pub struct UpdateEdgeTraffic {}
+pub struct UpdateEdgeTraffic<T> {
+    tx: T,
+}
 
 #[async_trait]
-impl Processor for UpdateEdgeTraffic {
+impl<T> Processor for UpdateEdgeTraffic<T>
+where
+    T: WithEdgeTraffic + Send + Sync,
+{
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let route_changes = match instruction {
             Instruction::ProcessRouteChanges(route_changes) => route_changes,
             _ => return state,
         };
-        let changed_edges = update_all_edge_traffic_and_get_changes(&mut state, route_changes);
+        let changed_edges = self
+            .update_all_edge_traffic_and_get_changes(route_changes)
+            .await;
         state
             .instructions
             .push(Instruction::RefreshEdges(changed_edges));
@@ -21,38 +29,54 @@ impl Processor for UpdateEdgeTraffic {
     }
 }
 
-impl UpdateEdgeTraffic {
-    pub fn new() -> UpdateEdgeTraffic {
-        UpdateEdgeTraffic {}
+impl<T> UpdateEdgeTraffic<T>
+where
+    T: WithEdgeTraffic,
+{
+    pub fn new(tx: T) -> UpdateEdgeTraffic<T> {
+        UpdateEdgeTraffic { tx }
+    }
+
+    async fn update_all_edge_traffic_and_get_changes(
+        &self,
+        route_changes: &[RouteChange],
+    ) -> HashSet<Edge> {
+        self.tx
+            .mut_edge_traffic(|edge_traffic| {
+                update_all_edge_traffic_and_get_changes(edge_traffic, route_changes)
+            })
+            .await
     }
 }
 
 pub fn update_all_edge_traffic_and_get_changes(
-    state: &mut State,
+    edge_traffic: &mut EdgeTraffic,
     route_changes: &[RouteChange],
 ) -> HashSet<Edge> {
     route_changes
         .iter()
-        .flat_map(|route_change| update_edge_traffic_and_get_changes(state, route_change))
+        .flat_map(|route_change| update_edge_traffic_and_get_changes(edge_traffic, route_change))
         .collect()
 }
 
-fn update_edge_traffic_and_get_changes(state: &mut State, route_change: &RouteChange) -> Vec<Edge> {
+fn update_edge_traffic_and_get_changes(
+    edge_traffic: &mut EdgeTraffic,
+    route_change: &RouteChange,
+) -> Vec<Edge> {
     let out = match route_change {
-        RouteChange::New { key, route } => new(state, &key, &route),
-        RouteChange::Updated { key, old, new } => updated(state, &key, &old, &new),
-        RouteChange::Removed { key, route } => removed(state, &key, &route),
+        RouteChange::New { key, route } => new(edge_traffic, &key, &route),
+        RouteChange::Updated { key, old, new } => updated(edge_traffic, &key, &old, &new),
+        RouteChange::Removed { key, route } => removed(edge_traffic, &key, &route),
         RouteChange::NoChange { route, .. } => no_change(&route),
     };
-    remove_zero_traffic_entries(state);
+    remove_zero_traffic_entries(edge_traffic);
     out
 }
 
-fn new(state: &mut State, key: &RouteKey, route: &Route) -> Vec<Edge> {
+fn new(edge_traffic: &mut EdgeTraffic, key: &RouteKey, route: &Route) -> Vec<Edge> {
     let mut out = vec![];
     for edge in route.path.edges() {
-        state
-            .edge_traffic
+        edge_traffic
             .entry(edge)
             .or_insert_with(HashSet::new)
             .insert(*key);
@@ -61,7 +85,7 @@ fn new(state: &mut State, key: &RouteKey, route: &Route) -> Vec<Edge> {
     out
 }
 
-fn updated(state: &mut State, key: &RouteKey, old: &Route, new: &Route) -> Vec<Edge> {
+fn updated(edge_traffic: &mut EdgeTraffic, key: &RouteKey, old: &Route, new: &Route) -> Vec<Edge> {
     let mut out = vec![];
     let old_edges: HashSet<Edge> = old.path.edges().collect();
     let new_edges: HashSet<Edge> = new.path.edges().collect();
@@ -71,16 +95,14 @@ fn updated(state: &mut State, key: &RouteKey, old: &Route, new: &Route) -> Vec<E
     let union = new_edges.union(&old_edges).cloned();
 
     for edge in added {
-        state
-            .edge_traffic
+        edge_traffic
             .entry(edge)
             .or_insert_with(HashSet::new)
             .insert(*key);
     }
 
     for edge in removed {
-        state
-            .edge_traffic
+        edge_traffic
             .entry(edge)
             .or_insert_with(HashSet::new)
             .remove(key);
@@ -93,11 +115,10 @@ fn updated(state: &mut State, key: &RouteKey, old: &Route, new: &Route) -> Vec<E
     out
 }
 
-fn removed(state: &mut State, key: &RouteKey, route: &Route) -> Vec<Edge> {
+fn removed(edge_traffic: &mut EdgeTraffic, key: &RouteKey, route: &Route) -> Vec<Edge> {
     let mut out = vec![];
     for edge in route.path.edges() {
-        state
-            .edge_traffic
+        edge_traffic
             .entry(edge)
             .or_insert_with(HashSet::new)
             .remove(key);
@@ -110,8 +131,8 @@ fn no_change(route: &Route) -> Vec<Edge> {
     route.path.edges().collect()
 }
 
-fn remove_zero_traffic_entries(state: &mut State) {
-    state.edge_traffic.retain(|_, traffic| !traffic.is_empty());
+fn remove_zero_traffic_entries(edge_traffic: &mut EdgeTraffic) {
+    edge_traffic.retain(|_, traffic| !traffic.is_empty());
 }
 
 #[cfg(test)]
@@ -121,6 +142,7 @@ mod tests {
     use crate::resource::Resource;
     use commons::v2;
     use futures::executor::block_on;
+    use std::sync::Mutex;
     use std::time::Duration;
 
     fn key() -> RouteKey {
@@ -149,6 +171,23 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl WithEdgeTraffic for Mutex<EdgeTraffic> {
+        async fn with_edge_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&EdgeTraffic) -> O + Send,
+        {
+            function(&self.lock().unwrap())
+        }
+
+        async fn mut_edge_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut EdgeTraffic) -> O + Send,
+        {
+            function(&mut self.lock().unwrap())
+        }
+    }
+
     #[test]
     fn new_route_should_refresh_all_edges_in_route() {
         // Given
@@ -158,7 +197,7 @@ mod tests {
         };
 
         // When
-        let state = block_on(UpdateEdgeTraffic::new().process(
+        let state = block_on(UpdateEdgeTraffic::new(Mutex::default()).process(
             State::default(),
             &Instruction::ProcessRouteChanges(vec![change]),
         ));
@@ -182,20 +221,21 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let state = State::default();
+        let tx = Mutex::default();
+        let mut processor = UpdateEdgeTraffic::new(tx);
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        block_on(processor.process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_1().path.edges() {
             expected.insert(edge, hashset! {key()});
         }
-        assert_eq!(state.edge_traffic, expected);
+        assert_eq!(*processor.tx.lock().unwrap(), expected);
     }
 
     #[test]
@@ -206,16 +246,17 @@ mod tests {
             old: route_1(),
             new: route_2(),
         };
-        let mut state = State::default();
+        let mut edge_traffic = EdgeTraffic::default();
         for edge in route_1().path.edges() {
-            state.edge_traffic.insert(edge, hashset! {key()});
+            edge_traffic.insert(edge, hashset! {key()});
         }
+        let tx = Mutex::new(edge_traffic);
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        let state = block_on(UpdateEdgeTraffic::new(tx).process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         assert_eq!(
@@ -239,23 +280,25 @@ mod tests {
             old: route_1(),
             new: route_2(),
         };
-        let mut state = State::default();
+        let mut edge_traffic = EdgeTraffic::default();
         for edge in route_1().path.edges() {
-            state.edge_traffic.insert(edge, hashset! {key()});
+            edge_traffic.insert(edge, hashset! {key()});
         }
+        let tx = Mutex::new(edge_traffic);
+        let mut processor = UpdateEdgeTraffic::new(tx);
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        block_on(processor.process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_2().path.edges() {
             expected.insert(edge, hashset! {key()});
         }
-        assert_eq!(state.edge_traffic, expected);
+        assert_eq!(*processor.tx.lock().unwrap(), expected);
     }
 
     #[test]
@@ -266,23 +309,25 @@ mod tests {
             old: route_2(),
             new: route_1(),
         };
-        let mut state = State::default();
+        let mut edge_traffic = EdgeTraffic::default();
         for edge in route_2().path.edges() {
-            state.edge_traffic.insert(edge, hashset! {key()});
+            edge_traffic.insert(edge, hashset! {key()});
         }
+        let tx = Mutex::new(edge_traffic);
+        let mut processor = UpdateEdgeTraffic::new(tx);
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        block_on(processor.process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_1().path.edges() {
             expected.insert(edge, hashset! {key()});
         }
-        assert_eq!(state.edge_traffic, expected);
+        assert_eq!(*processor.tx.lock().unwrap(), expected);
     }
 
     #[test]
@@ -292,16 +337,17 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut state = State::default();
+        let mut edge_traffic = EdgeTraffic::default();
         for edge in route_1().path.edges() {
-            state.edge_traffic.insert(edge, hashset! {key()});
+            edge_traffic.insert(edge, hashset! {key()});
         }
+        let tx = Mutex::new(edge_traffic);
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        let state = block_on(UpdateEdgeTraffic::new(tx).process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         assert_eq!(
@@ -322,20 +368,22 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut state = State::default();
+        let mut edge_traffic = EdgeTraffic::default();
         for edge in route_1().path.edges() {
-            state.edge_traffic.insert(edge, hashset! {key()});
+            edge_traffic.insert(edge, hashset! {key()});
         }
+        let tx = Mutex::new(edge_traffic);
+        let mut processor = UpdateEdgeTraffic::new(tx);
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        block_on(processor.process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         let expected = hashmap! {};
-        assert_eq!(state.edge_traffic, expected);
+        assert_eq!(*processor.tx.lock().unwrap(), expected);
     }
 
     #[test]
@@ -345,13 +393,12 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let state = State::default();
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        let state = block_on(UpdateEdgeTraffic::new(Mutex::default()).process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         assert_eq!(
@@ -372,16 +419,16 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let state = State::default();
+        let mut processor = UpdateEdgeTraffic::new(Mutex::default());
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        block_on(processor.process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
-        assert_eq!(state.edge_traffic, hashmap! {},);
+        assert_eq!(*processor.tx.lock().unwrap(), hashmap! {},);
     }
 
     #[test]
@@ -396,23 +443,25 @@ mod tests {
             resource: Resource::Coal,
             destination: v2(1, 5),
         };
-        let mut state = State::default();
+        let mut edge_traffic = EdgeTraffic::default();
         for edge in route_1().path.edges() {
-            state.edge_traffic.insert(edge, hashset! {key_2});
+            edge_traffic.insert(edge, hashset! {key_2});
         }
+        let tx = Mutex::new(edge_traffic);
+        let mut processor = UpdateEdgeTraffic::new(tx);
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        block_on(processor.process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_1().path.edges() {
             expected.insert(edge, hashset! {key_2, key()});
         }
-        assert_eq!(state.edge_traffic, expected);
+        assert_eq!(*processor.tx.lock().unwrap(), expected);
     }
 
     #[test]
@@ -427,23 +476,25 @@ mod tests {
             resource: Resource::Coal,
             destination: v2(1, 5),
         };
-        let mut state = State::default();
+        let mut edge_traffic = EdgeTraffic::default();
         for edge in route_1().path.edges() {
-            state.edge_traffic.insert(edge, hashset! {key_2, key()});
+            edge_traffic.insert(edge, hashset! {key_2, key()});
         }
+        let tx = Mutex::new(edge_traffic);
+        let mut processor = UpdateEdgeTraffic::new(tx);
 
         // When
-        let state = block_on(
-            UpdateEdgeTraffic::new()
-                .process(state, &Instruction::ProcessRouteChanges(vec![change])),
-        );
+        block_on(processor.process(
+            State::default(),
+            &Instruction::ProcessRouteChanges(vec![change]),
+        ));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_1().path.edges() {
             expected.insert(edge, hashset! {key_2});
         }
-        assert_eq!(state.edge_traffic, expected);
+        assert_eq!(*processor.tx.lock().unwrap(), expected);
     }
 
     #[test]
@@ -463,7 +514,7 @@ mod tests {
         };
 
         // When
-        let state = block_on(UpdateEdgeTraffic::new().process(
+        let state = block_on(UpdateEdgeTraffic::new(Mutex::default()).process(
             State::default(),
             &Instruction::ProcessRouteChanges(vec![change_1, change_2]),
         ));

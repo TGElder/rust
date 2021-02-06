@@ -300,7 +300,9 @@ impl System {
                     Box::new(UpdatePositionTraffic::new(
                         tx.clone_with_name("update_position_traffic"),
                     )),
-                    Box::new(UpdateEdgeTraffic::new()),
+                    Box::new(UpdateEdgeTraffic::new(
+                        tx.clone_with_name("update_edge_traffic"),
+                    )),
                     Box::new(BuildTown::new(
                         tx.clone_with_name("build_town"),
                         params.simulation.initial_town_population,
