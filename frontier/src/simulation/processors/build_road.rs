@@ -32,14 +32,14 @@ where
         + 'static,
     D: TravelDuration + 'static,
 {
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let edges = match instruction {
             Instruction::RefreshEdges(edges) => edges.clone(),
             _ => return state,
         };
 
         for candidate in self.get_candidates(edges).await {
-            self.process_edge(&mut state, candidate).await;
+            self.process_edge(candidate).await;
         }
 
         state
@@ -66,14 +66,14 @@ where
             .await
     }
 
-    async fn process_edge(&mut self, state: &mut State, edge: Edge) {
+    async fn process_edge(&mut self, edge: Edge) {
         let routes = self.get_route_summaries(&edge).await;
 
         if routes.iter().map(|route| route.traffic).sum::<usize>() < self.road_build_threshold {
             return;
         }
 
-        let when = get_when(&state, routes);
+        let when = self.get_when(routes);
 
         if !self.try_plan_road(edge, when).await {
             return;
@@ -102,6 +102,21 @@ where
         self.tx
             .with_edge_traffic(|edge_traffic| edge_traffic.get(edge).cloned().unwrap_or_default())
             .await
+    }
+
+    fn get_when(&self, mut routes: Vec<RouteSummary>) -> u128 {
+        routes.sort_by_key(|route| route.first_visit);
+        let mut traffic_cum = 0;
+        for route in routes {
+            traffic_cum += route.traffic;
+            if traffic_cum >= self.road_build_threshold {
+                return route.first_visit;
+            }
+        }
+        panic!(
+            "Total traffic {} does not exceed threshold for building road {}",
+            traffic_cum, self.road_build_threshold
+        );
     }
 
     async fn try_plan_road(&self, edge: Edge, when: u128) -> bool {
@@ -138,21 +153,6 @@ fn get_route_summaries(routes: &Routes, route_keys: HashSet<RouteKey>) -> Vec<Ro
         .flat_map(|route_key| routes.get_route(&route_key))
         .map(|route| route.into())
         .collect()
-}
-
-fn get_when(state: &State, mut routes: Vec<RouteSummary>) -> u128 {
-    routes.sort_by_key(|route| route.first_visit);
-    let mut traffic_cum = 0;
-    for route in routes {
-        traffic_cum += route.traffic;
-        if traffic_cum >= state.params.road_build_threshold {
-            return route.first_visit;
-        }
-    }
-    panic!(
-        "Total traffic {} does not exceed threshold for building road {}",
-        traffic_cum, state.params.road_build_threshold
-    );
 }
 
 struct RouteSummary {

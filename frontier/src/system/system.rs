@@ -279,7 +279,11 @@ impl System {
                     Box::new(StepTown::new(tx.clone_with_name("step_town"))),
                     Box::new(GetTerritory::new(tx.clone_with_name("get_territory"))),
                     Box::new(GetTownTraffic::new(tx.clone_with_name("get_town_traffic"))),
-                    Box::new(UpdateTown::new(tx.clone_with_name("update_town"))),
+                    Box::new(UpdateTown::new(
+                        tx.clone_with_name("update_town"),
+                        params.simulation.traffic_to_population,
+                        params.simulation.nation_flip_traffic_pc,
+                    )),
                     Box::new(RemoveTown::new(
                         tx.clone_with_name("remove_town"),
                         params.simulation.town_removal_population,

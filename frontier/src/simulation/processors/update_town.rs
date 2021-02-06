@@ -7,6 +7,8 @@ use commons::unsafe_ordering;
 
 pub struct UpdateTown<T> {
     tx: T,
+    traffic_to_population: f64,
+    nation_flip_traffic_pc: f64,
 }
 
 #[async_trait]
@@ -25,15 +27,8 @@ where
 
         self.tx
             .update_settlement(Settlement {
-                target_population: get_target_population(
-                    traffic,
-                    state.params.traffic_to_population,
-                ),
-                nation: get_nation(
-                    &settlement.nation,
-                    traffic,
-                    state.params.nation_flip_traffic_pc,
-                ),
+                target_population: get_target_population(traffic, self.traffic_to_population),
+                nation: get_nation(&settlement.nation, traffic, self.nation_flip_traffic_pc),
                 gap_half_life: get_gap_half_life(settlement.gap_half_life, traffic),
                 ..settlement.clone()
             })
@@ -51,8 +46,12 @@ impl<T> UpdateTown<T>
 where
     T: UpdateSettlement + Send + Sync + 'static,
 {
-    pub fn new(tx: T) -> UpdateTown<T> {
-        UpdateTown { tx }
+    pub fn new(tx: T, traffic_to_population: f64, nation_flip_traffic_pc: f64) -> UpdateTown<T> {
+        UpdateTown {
+            tx,
+            traffic_to_population,
+            nation_flip_traffic_pc,
+        }
     }
 }
 
@@ -129,7 +128,7 @@ mod tests {
     fn should_update_target_population_based_on_total_traffic_share() {
         // Given
         let settlement = Settlement::default();
-        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})), 0.5, 0.67);
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -147,14 +146,7 @@ mod tests {
                 },
             ],
         };
-        let state = State {
-            params: SimulationParams {
-                traffic_to_population: 0.5,
-                ..SimulationParams::default()
-            },
-            ..State::default()
-        };
-        block_on(processor.process(state, &instruction));
+        block_on(processor.process(State::default(), &instruction));
 
         // Then
         let updated_settlements = processor.tx.lock().unwrap();
@@ -170,7 +162,7 @@ mod tests {
             target_population: 0.5,
             ..Settlement::default()
         };
-        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})), 0.5, 0.67);
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -193,7 +185,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})), 0.5, 0.67);
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -211,14 +203,7 @@ mod tests {
                 },
             ],
         };
-        let state = State {
-            params: SimulationParams {
-                nation_flip_traffic_pc: 0.67,
-                ..SimulationParams::default()
-            },
-            ..State::default()
-        };
-        block_on(processor.process(state, &instruction));
+        block_on(processor.process(State::default(), &instruction));
 
         // Then
         let updated_settlements = processor.tx.lock().unwrap();
@@ -232,7 +217,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})), 0.5, 0.67);
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -250,14 +235,7 @@ mod tests {
                 },
             ],
         };
-        let state = State {
-            params: SimulationParams {
-                nation_flip_traffic_pc: 0.67,
-                ..SimulationParams::default()
-            },
-            ..State::default()
-        };
-        block_on(processor.process(state, &instruction));
+        block_on(processor.process(State::default(), &instruction));
 
         // Then
         let updated_settlements = processor.tx.lock().unwrap();
@@ -268,7 +246,7 @@ mod tests {
     fn should_add_update_current_population_instruction() {
         // Given
         let settlement = Settlement::default();
-        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})), 0.5, 0.67);
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -294,7 +272,7 @@ mod tests {
     ) {
         // Given
         let settlement = Settlement::default();
-        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})), 0.5, 0.67);
 
         // When
         let instruction = Instruction::UpdateTown {
@@ -312,14 +290,7 @@ mod tests {
                 },
             ],
         };
-        let state = State {
-            params: SimulationParams {
-                traffic_to_population: 0.5,
-                ..SimulationParams::default()
-            },
-            ..State::default()
-        };
-        block_on(processor.process(state, &instruction));
+        block_on(processor.process(State::default(), &instruction));
 
         // Then
         let updated_settlements = processor.tx.lock().unwrap();
@@ -336,7 +307,7 @@ mod tests {
             gap_half_life: Duration::from_millis(4),
             ..Settlement::default()
         };
-        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})));
+        let mut processor = UpdateTown::new(Arc::new(Mutex::new(hashmap! {})), 0.5, 0.67);
 
         // When
         let instruction = Instruction::UpdateTown {
