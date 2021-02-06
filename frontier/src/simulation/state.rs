@@ -6,7 +6,6 @@ use std::default::Default;
 pub struct State {
     pub params: SimulationParams,
     pub instructions: Vec<Instruction>,
-    pub edge_traffic: EdgeTraffic,
 }
 
 impl Default for State {
@@ -14,7 +13,6 @@ impl Default for State {
         State {
             params: SimulationParams::default(),
             instructions: vec![],
-            edge_traffic: hashmap! {},
         }
     }
 }

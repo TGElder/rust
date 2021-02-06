@@ -24,7 +24,6 @@ impl Simulation {
         self.state = Some(State {
             params: SimulationParams::default(),
             instructions: vec![],
-            edge_traffic: hashmap! {},
         });
     }
 
@@ -90,9 +89,6 @@ impl Step for Simulation {
 mod tests {
     use super::*;
 
-    use crate::resource::Resource;
-    use crate::route::RouteKey;
-    use commons::edge::Edge;
     use commons::{v2, Arm};
     use futures::executor::block_on;
     use std::fs::remove_file;
@@ -184,11 +180,6 @@ mod tests {
         let file_name = "test_save.simulation.round_trip";
 
         let mut sim_1 = Simulation::new(vec![]);
-        let route_key = RouteKey {
-            settlement: v2(1, 2),
-            resource: Resource::Crabs,
-            destination: v2(3, 4),
-        };
         sim_1.state = Some(State {
             params: SimulationParams {
                 road_build_threshold: 8,
@@ -202,7 +193,6 @@ mod tests {
                 Instruction::GetTerritory(v2(2, 2)),
                 Instruction::GetTerritory(v2(3, 3)),
             ],
-            edge_traffic: hashmap! { Edge::new(v2(1, 2), v2(1, 3)) => hashset!{route_key} },
         });
         sim_1.save(file_name);
 
