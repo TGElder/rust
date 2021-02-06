@@ -24,10 +24,9 @@ where
             _ => return state,
         };
 
-        let (_, updated) = join!(
-            self.remove_removed(route_changes),
+        let (_, updated) = join!(self.remove_removed(route_changes), async {
             get_all_updated(route_changes)
-        );
+        });
         let ports = self.get_all_ports(updated).await;
         self.update_ports(ports).await;
 
