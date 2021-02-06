@@ -3,7 +3,6 @@ use commons::process::Step;
 
 use super::*;
 
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
@@ -24,14 +23,6 @@ impl Simulation {
         self.state = Some(State {
             instructions: vec![],
         });
-    }
-
-    pub fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
-        if let Some(state) = &mut self.state {
-            state
-                .instructions
-                .push(Instruction::RefreshPositions(positions));
-        }
     }
 
     pub fn update_homeland_population(&mut self) {
@@ -118,7 +109,6 @@ mod tests {
         let mut sim = Simulation::new(vec![Box::new(retriever_1), Box::new(retriever_2)]);
         sim.state = Some(State {
             instructions: vec![Instruction::Step],
-            ..State::default()
         });
 
         // When
@@ -160,7 +150,6 @@ mod tests {
         let mut sim = Simulation::new(vec![Box::new(InstructionIntroducer {})]);
         sim.state = Some(State {
             instructions: vec![Instruction::Step],
-            ..State::default()
         });
 
         // When

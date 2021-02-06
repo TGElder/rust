@@ -1,7 +1,6 @@
 use super::*;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::settlement::Settlement;
-use commons::edge::Edge;
 use std::collections::HashSet;
 use std::time::Duration;
 
@@ -26,8 +25,6 @@ pub enum Instruction {
         route_set: RouteSet,
     },
     ProcessRouteChanges(Vec<RouteChange>),
-    RefreshPositions(HashSet<V2<usize>>),
-    RefreshEdges(HashSet<Edge>),
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

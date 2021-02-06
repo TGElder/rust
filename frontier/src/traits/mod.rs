@@ -1,5 +1,6 @@
 mod avatars;
 mod build_queue;
+mod build_sim;
 mod crops;
 mod draw_town;
 mod draw_world;
@@ -23,6 +24,7 @@ mod world_object;
 
 pub use avatars::*;
 pub use build_queue::*;
+pub use build_sim::*;
 pub use crops::*;
 pub use draw_town::*;
 pub use draw_world::*;

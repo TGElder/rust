@@ -1,5 +1,5 @@
 use super::*;
-use crate::traits::{Controlled, RemoveTown as RemoveTownTrait};
+use crate::traits::{Controlled, RefreshBuildSim, RemoveTown as RemoveTownTrait};
 
 pub struct RemoveTown<T> {
     tx: T,
@@ -9,9 +9,9 @@ pub struct RemoveTown<T> {
 #[async_trait]
 impl<T> Processor for RemoveTown<T>
 where
-    T: Controlled + RemoveTownTrait + Send + Sync,
+    T: Controlled + RefreshBuildSim + RemoveTownTrait + Send + Sync,
 {
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
             Instruction::UpdateTown {
                 settlement,
@@ -24,16 +24,14 @@ where
         }
         let controlled = self.tx.controlled(settlement.position).await;
         self.tx.remove_town(settlement.position).await;
-        state
-            .instructions
-            .push(Instruction::RefreshPositions(controlled));
+        self.tx.refresh_positions(controlled);
         state
     }
 }
 
 impl<T> RemoveTown<T>
 where
-    T: Controlled + RemoveTownTrait + Send,
+    T: Controlled + RefreshBuildSim + RemoveTownTrait + Send,
 {
     pub fn new(tx: T, town_removal_population: f64) -> RemoveTown<T> {
         RemoveTown {
@@ -52,11 +50,13 @@ mod tests {
     use futures::executor::block_on;
     use std::collections::HashSet;
     use std::default::Default;
+    use std::sync::Mutex;
     use std::time::Duration;
 
     #[derive(Default)]
     struct Tx {
         controlled: HashSet<V2<usize>>,
+        refreshed_positions: Mutex<HashSet<V2<usize>>>,
         removed: Arm<Vec<V2<usize>>>,
     }
 
@@ -64,6 +64,14 @@ mod tests {
     impl Controlled for Tx {
         async fn controlled(&self, _: V2<usize>) -> HashSet<V2<usize>> {
             self.controlled.clone()
+        }
+    }
+
+    impl RefreshBuildSim for Tx {
+        fn refresh_edges(&self, _: HashSet<commons::edge::Edge>) {}
+
+        fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
+            self.refreshed_positions.lock().unwrap().extend(positions);
         }
     }
 
@@ -163,13 +171,11 @@ mod tests {
             settlement,
             traffic: vec![],
         };
-        let state = block_on(processor.process(State::default(), &instruction));
+        block_on(processor.process(State::default(), &instruction));
 
         assert_eq!(
-            state.instructions,
-            vec![Instruction::RefreshPositions(
-                hashset! { v2(1, 2), v2(3, 4) },
-            )]
+            *processor.tx.refreshed_positions.lock().unwrap(),
+            hashset! { v2(1, 2), v2(3, 4) },
         );
     }
 }

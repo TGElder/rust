@@ -6,7 +6,8 @@ use commons::V2;
 use futures::FutureExt;
 
 use crate::traits::{
-    DrawWorld, Micros, SendSim, SendVoyager, SendWorld, UpdatePositionsAllPathfinders,
+    DrawWorld, Micros, RefreshBuildSim, SendSim, SendVoyager, SendWorld,
+    UpdatePositionsAllPathfinders,
 };
 use crate::world::World;
 
@@ -18,12 +19,21 @@ pub trait RevealPositions {
 #[async_trait]
 impl<T> RevealPositions for T
 where
-    T: DrawWorld + Micros + SendSim + SendVoyager + SendWorld + UpdatePositionsAllPathfinders,
+    T: DrawWorld
+        + Micros
+        + RefreshBuildSim
+        + SendSim
+        + SendVoyager
+        + SendWorld
+        + UpdatePositionsAllPathfinders,
 {
     async fn reveal_positions(&self, positions: HashSet<V2<usize>>, revealed_by: &'static str) {
         let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
         voyage(self, newly_visible.clone(), revealed_by);
-        update_sim(self, newly_visible.clone());
+        self.send_sim_background(move |sim| {
+            sim.update_homeland_population();
+        });
+        self.refresh_positions(newly_visible.clone());
         join!(
             redraw(self, &newly_visible),
             self.update_positions_all_pathfinders(newly_visible.clone()),
@@ -64,16 +74,6 @@ where
 {
     tx.send_voyager_future_background(move |voyager| {
         voyager.voyage_to(positions, revealed_by).boxed()
-    });
-}
-
-fn update_sim<T>(tx: &T, positions: HashSet<V2<usize>>)
-where
-    T: SendSim,
-{
-    tx.send_sim_background(move |sim| {
-        sim.refresh_positions(positions);
-        sim.update_homeland_population();
     });
 }
 

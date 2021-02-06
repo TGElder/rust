@@ -11,6 +11,7 @@ mod artists;
 mod avatar;
 mod avatars;
 mod build;
+mod build_sim;
 mod homeland_start;
 mod label_editor;
 mod names;

@@ -20,15 +20,17 @@ use crate::actors::{
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::{AvatarTravelDuration, AvatarTravelModeFn};
 use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
+use crate::build_sim::processors::{BuildCrops, BuildRoad, BuildTown, RemoveCrops, RemoveRoad};
+use crate::build_sim::BuildSimulation;
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::demand_fn::{homeland_demand_fn, town_demand_fn};
 use crate::simulation::processors::{
-    max_abs_population_change, BuildCrops, BuildRoad, BuildTown, GetDemand, GetRouteChanges,
-    GetRoutes, GetTerritory, GetTownTraffic, InstructionLogger, RemoveCrops, RemoveRoad,
-    RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateEdgeTraffic,
-    UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts, UpdateTown,
+    max_abs_population_change, GetDemand, GetRouteChanges, GetRoutes, GetTerritory, GetTownTraffic,
+    InstructionLogger, RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation,
+    UpdateEdgeTraffic, UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts,
+    UpdateTown,
 };
 use crate::simulation::Simulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
@@ -44,6 +46,7 @@ pub struct System {
     pub avatar_visibility: Process<AvatarVisibility<Polysender>>,
     pub basic_avatar_controls: Process<BasicAvatarControls<Polysender>>,
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
+    pub build_sim: Process<BuildSimulation>,
     pub builder: Process<BuilderActor<Polysender>>,
     pub cheats: Process<Cheats<Polysender>>,
     pub clock: Process<Clock<RealTime>>,
@@ -81,6 +84,7 @@ impl System {
         let (avatars_tx, avatars_rx) = fn_channel();
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
+        let (build_sim_tx, build_sim_rx) = fn_channel();
         let (builder_tx, builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
         let (clock_tx, clock_rx) = fn_channel();
@@ -115,6 +119,7 @@ impl System {
             avatars_tx,
             basic_avatar_controls_tx,
             basic_road_builder_tx,
+            build_sim_tx,
             builder_tx,
             build_queue: Arc::default(),
             cheats_tx,
@@ -195,6 +200,26 @@ impl System {
                     road_build_travel_duration.clone(),
                 ),
                 basic_road_builder_rx,
+            ),
+            build_sim: Process::new(
+                BuildSimulation::new(vec![
+                    Box::new(BuildTown::new(
+                        tx.clone_with_name("build_town"),
+                        params.simulation.initial_town_population,
+                    )),
+                    Box::new(BuildCrops::new(
+                        tx.clone_with_name("build_crops"),
+                        params.seed,
+                    )),
+                    Box::new(RemoveCrops::new(tx.clone_with_name("remove_crops"))),
+                    Box::new(BuildRoad::new(
+                        tx.clone_with_name("build_road"),
+                        road_build_travel_duration,
+                        params.simulation.road_build_threshold,
+                    )),
+                    Box::new(RemoveRoad::new(tx.clone_with_name("remove_road"))),
+                ]),
+                build_sim_rx,
             ),
             builder: Process::new(
                 BuilderActor::new(
@@ -304,29 +329,14 @@ impl System {
                     Box::new(UpdatePositionTraffic::new(
                         tx.clone_with_name("update_position_traffic"),
                     )),
-                    Box::new(UpdateEdgeTraffic::new(
-                        tx.clone_with_name("update_edge_traffic"),
-                    )),
-                    Box::new(BuildTown::new(
-                        tx.clone_with_name("build_town"),
-                        params.simulation.initial_town_population,
-                    )),
-                    Box::new(BuildCrops::new(
-                        tx.clone_with_name("build_crops"),
-                        params.seed,
-                    )),
-                    Box::new(RemoveCrops::new(tx.clone_with_name("remove_crops"))),
-                    Box::new(BuildRoad::new(
-                        tx.clone_with_name("build_road"),
-                        road_build_travel_duration,
-                        params.simulation.road_build_threshold,
-                    )),
-                    Box::new(RemoveRoad::new(tx.clone_with_name("remove_road"))),
                     Box::new(UpdateRouteToPorts::new(
                         tx.clone_with_name("update_route_to_ports"),
                         Arc::new(AvatarTravelModeFn::new(
                             params.avatar_travel.min_navigable_river_width,
                         )),
+                    )),
+                    Box::new(UpdateEdgeTraffic::new(
+                        tx.clone_with_name("update_edge_traffic"),
                     )),
                 ]),
                 simulation_rx,
@@ -428,6 +438,9 @@ impl System {
 
     pub fn new_game(&self) {
         self.tx
+            .build_sim_tx
+            .send_future(|build_sim| build_sim.new_game().boxed());
+        self.tx
             .prime_mover_tx
             .send_future(|prime_mover| prime_mover.new_game().boxed());
         self.tx
@@ -471,6 +484,7 @@ impl System {
         self.rotate.run_passive(&self.pool).await;
         self.town_builder.run_passive(&self.pool).await;
         self.speed_control.run_passive(&self.pool).await;
+        self.build_sim.run_active(&self.pool).await;
         self.simulation.run_active(&self.pool).await;
         self.prime_mover.run_active(&self.pool).await;
         self.pathfinding_avatar_controls
@@ -506,6 +520,7 @@ impl System {
             .await;
         self.prime_mover.drain(&self.pool, true).await;
         self.simulation.drain(&self.pool, true).await;
+        self.build_sim.drain(&self.pool, true).await;
         self.speed_control.drain(&self.pool, true).await;
         self.town_builder.drain(&self.pool, true).await;
         self.rotate.drain(&self.pool, true).await;
@@ -536,6 +551,7 @@ impl System {
 
     pub async fn save(&mut self, path: &str) {
         self.avatars.object_ref().unwrap().save(path);
+        self.build_sim.object_ref().unwrap().save(path);
         self.clock.object_mut().unwrap().save(path);
         self.labels.object_ref().unwrap().save(path);
         self.nations.object_ref().unwrap().save(path);
@@ -572,6 +588,7 @@ impl System {
 
     pub async fn load(&mut self, path: &str) {
         self.avatars.object_mut().unwrap().load(path);
+        self.build_sim.object_mut().unwrap().load(path);
         self.clock.object_mut().unwrap().load(path);
         self.labels.object_mut().unwrap().load(path);
         self.nations.object_mut().unwrap().load(path);

@@ -8,6 +8,7 @@ use crate::actors::{
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
 use crate::build::BuildQueue;
+use crate::build_sim::BuildSimulation;
 use crate::nation::Nation;
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
@@ -17,10 +18,10 @@ use crate::simulation::Simulation;
 use crate::territory::Territory;
 use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::{
-    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
-    SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes, SendSettlements, SendSim,
-    SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
-    SendWorld, SendWorldArtist,
+    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendBuildSim,
+    SendClock, SendNations, SendParameters, SendPathfinder, SendRotate, SendRoutes,
+    SendSettlements, SendSim, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
+    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::traits::{WithBuildQueue, WithEdgeTraffic, WithRouteToPorts, WithTraffic};
 use crate::world::World;
@@ -41,6 +42,7 @@ pub struct Polysender {
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
     pub builder_tx: FnSender<BuilderActor<Polysender>>,
     pub build_queue: Arc<RwLock<BuildQueue>>,
+    pub build_sim_tx: FnSender<BuildSimulation>,
     pub cheats_tx: FnSender<Cheats<Polysender>>,
     pub clock_tx: FnSender<Clock<RealTime>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
@@ -82,6 +84,7 @@ impl Polysender {
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             builder_tx: self.builder_tx.clone_with_name(name),
+            build_sim_tx: self.build_sim_tx.clone_with_name(name),
             build_queue: self.build_queue.clone(),
             cheats_tx: self.cheats_tx.clone_with_name(name),
             clock_tx: self.clock_tx.clone_with_name(name),
@@ -153,6 +156,17 @@ impl SendClock for Polysender {
         F: FnOnce(&mut Clock<RealTime>) -> O + Send + 'static,
     {
         self.clock_tx.send(move |clock| function(clock)).await
+    }
+}
+
+#[async_trait]
+impl SendBuildSim for Polysender {
+    fn send_build_sim_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut BuildSimulation) -> O + Send + 'static,
+    {
+        self.build_sim_tx.send(move |build_sim| function(build_sim));
     }
 }
 

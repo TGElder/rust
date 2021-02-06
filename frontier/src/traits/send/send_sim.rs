@@ -1,10 +1,9 @@
 use commons::async_trait::async_trait;
 
 use crate::simulation::Simulation;
-use crate::traits::SendWorld;
 
 #[async_trait]
-pub trait SendSim: SendWorld + Send {
+pub trait SendSim: Send {
     async fn send_sim<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
