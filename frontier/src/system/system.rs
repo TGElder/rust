@@ -313,6 +313,7 @@ impl System {
                     Box::new(BuildRoad::new(
                         tx.clone_with_name("build_road"),
                         road_build_travel_duration,
+                        params.simulation.road_build_threshold,
                     )),
                     Box::new(RemoveRoad::new(tx.clone_with_name("remove_road"))),
                     Box::new(UpdateRouteToPorts::new(
