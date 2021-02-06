@@ -4,7 +4,9 @@ use commons::edge::Edge;
 
 use crate::build::{Build, BuildInstruction};
 use crate::route::{Route, RouteKey, Routes, RoutesExt};
-use crate::traits::{InsertBuildInstruction, PlanRoad, RoadPlanned, SendRoutes, SendWorld};
+use crate::traits::{
+    InsertBuildInstruction, PlanRoad, RoadPlanned, SendRoutes, SendWorld, WithEdgeTraffic,
+};
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
 
@@ -13,6 +15,7 @@ use super::*;
 pub struct BuildRoad<T, D> {
     tx: T,
     travel_duration: Arc<D>,
+    road_build_threshold: usize,
 }
 
 #[async_trait]
@@ -23,6 +26,7 @@ where
         + RoadPlanned
         + SendRoutes
         + SendWorld
+        + WithEdgeTraffic
         + Send
         + Sync
         + 'static,
@@ -44,13 +48,14 @@ where
 
 impl<T, D> BuildRoad<T, D>
 where
-    T: InsertBuildInstruction + PlanRoad + RoadPlanned + SendRoutes + SendWorld,
+    T: InsertBuildInstruction + PlanRoad + RoadPlanned + SendRoutes + SendWorld + WithEdgeTraffic,
     D: TravelDuration + 'static,
 {
-    pub fn new(tx: T, travel_duration: Arc<D>) -> BuildRoad<T, D> {
+    pub fn new(tx: T, travel_duration: Arc<D>, road_build_threshold: usize) -> BuildRoad<T, D> {
         BuildRoad {
             tx,
             travel_duration,
+            road_build_threshold,
         }
     }
 
@@ -62,11 +67,9 @@ where
     }
 
     async fn process_edge(&mut self, state: &mut State, edge: Edge) {
-        let routes = self.get_route_summaries(state, &edge).await;
+        let routes = self.get_route_summaries(&edge).await;
 
-        if routes.iter().map(|route| route.traffic).sum::<usize>()
-            < state.params.road_build_threshold
-        {
+        if routes.iter().map(|route| route.traffic).sum::<usize>() < self.road_build_threshold {
             return;
         }
 
@@ -84,14 +87,20 @@ where
             .await;
     }
 
-    async fn get_route_summaries(&self, state: &State, edge: &Edge) -> Vec<RouteSummary> {
-        let route_keys = unwrap_or!(state.edge_traffic.get(&edge), return vec![]).clone();
+    async fn get_route_summaries(&self, edge: &Edge) -> Vec<RouteSummary> {
+        let route_keys = self.get_edge_traffic(edge).await;
         if route_keys.is_empty() {
             return vec![];
         }
 
         self.tx
             .send_routes(move |routes| get_route_summaries(routes, route_keys))
+            .await
+    }
+
+    async fn get_edge_traffic(&self, edge: &Edge) -> HashSet<RouteKey> {
+        self.tx
+            .with_edge_traffic(|edge_traffic| edge_traffic.get(edge).cloned().unwrap_or_default())
             .await
     }
 
@@ -175,6 +184,7 @@ mod tests {
 
     struct Tx {
         build_instructions: Mutex<Vec<BuildInstruction>>,
+        edge_traffic: Mutex<EdgeTraffic>,
         planned_roads: Mutex<Vec<(Edge, Option<u128>)>>,
         road_planned: Option<u128>,
         routes: Mutex<Routes>,
@@ -235,6 +245,23 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl WithEdgeTraffic for Tx {
+        async fn with_edge_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&EdgeTraffic) -> O + Send,
+        {
+            function(&self.edge_traffic.lock().unwrap())
+        }
+
+        async fn mut_edge_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut EdgeTraffic) -> O + Send,
+        {
+            function(&mut self.edge_traffic.lock().unwrap())
+        }
+    }
+
     struct MockTravelDuration {
         duration: Option<Duration>,
     }
@@ -286,51 +313,43 @@ mod tests {
             },
         );
 
+        let edge_traffic = hashmap! {
+            Edge::new(v2(0, 0), v2(1, 0)) => hashset!{
+                RouteKey{
+                    settlement: v2(0, 0),
+                    resource: Resource::Truffles,
+                    destination: v2(1, 1),
+                }
+            },
+            Edge::new(v2(2, 0), v2(1, 0)) => hashset!{
+                RouteKey{
+                    settlement: v2(2, 0),
+                    resource: Resource::Truffles,
+                    destination: v2(1, 1),
+                }
+            },
+            Edge::new(v2(1, 0), v2(1, 1)) => hashset!{
+                RouteKey{
+                    settlement: v2(0, 0),
+                    resource: Resource::Truffles,
+                    destination: v2(1, 1),
+                }, RouteKey{
+                    settlement: v2(2, 0),
+                    resource: Resource::Truffles,
+                    destination: v2(1, 1),
+                }
+            },
+        };
+
         let world = World::new(M::from_element(3, 3, 1.0), 0.5);
 
         Tx {
             build_instructions: Mutex::default(),
+            edge_traffic: Mutex::new(edge_traffic),
             planned_roads: Mutex::default(),
             road_planned: None,
             routes: Mutex::new(routes),
             world: Mutex::new(world),
-        }
-    }
-
-    fn happy_path_state() -> State {
-        State {
-            edge_traffic: hashmap! {
-                Edge::new(v2(0, 0), v2(1, 0)) => hashset!{
-                    RouteKey{
-                        settlement: v2(0, 0),
-                        resource: Resource::Truffles,
-                        destination: v2(1, 1),
-                    }
-                },
-                Edge::new(v2(2, 0), v2(1, 0)) => hashset!{
-                    RouteKey{
-                        settlement: v2(2, 0),
-                        resource: Resource::Truffles,
-                        destination: v2(1, 1),
-                    }
-                },
-                Edge::new(v2(1, 0), v2(1, 1)) => hashset!{
-                    RouteKey{
-                        settlement: v2(0, 0),
-                        resource: Resource::Truffles,
-                        destination: v2(1, 1),
-                    }, RouteKey{
-                        settlement: v2(2, 0),
-                        resource: Resource::Truffles,
-                        destination: v2(1, 1),
-                    }
-                },
-            },
-            params: SimulationParams {
-                road_build_threshold: 8,
-                ..SimulationParams::default()
-            },
-            ..State::default()
         }
     }
 
@@ -343,11 +362,11 @@ mod tests {
     #[test]
     fn should_build_road_if_traffic_meets_threshold() {
         // Given
-        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration());
+        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration(), 8);
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
         ));
 
@@ -370,13 +389,13 @@ mod tests {
     #[test]
     fn should_not_build_if_no_traffic_entry() {
         // Given
-        let mut state = happy_path_state();
-        state.edge_traffic = hashmap! {};
-        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration());
+        let mut tx = happy_path_tx();
+        tx.edge_traffic = Mutex::default();
+        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
         block_on(processor.process(
-            state,
+            State::default(),
             &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
         ));
 
@@ -387,11 +406,11 @@ mod tests {
     #[test]
     fn should_not_build_if_traffic_below_threshold() {
         // Given
-        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration());
+        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration(), 8);
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshEdges(hashset! {Edge::new(v2(0, 0), v2(1, 0))}),
         ));
 
@@ -407,11 +426,11 @@ mod tests {
             let mut world = tx.world.lock().unwrap();
             world.set_road(&happy_path_edge(), true);
         }
-        let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
+        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
         ));
 
@@ -424,11 +443,11 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.road_planned = Some(1);
-        let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
+        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
         ));
 
@@ -441,11 +460,11 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.road_planned = Some(12);
-        let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
+        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
         ));
 
@@ -470,11 +489,12 @@ mod tests {
         let mut processor = BuildRoad::new(
             happy_path_tx(),
             Arc::new(MockTravelDuration { duration: None }),
+            8,
         );
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
         ));
 
@@ -487,11 +507,11 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.routes = Mutex::default();
-        let mut processor = BuildRoad::new(tx, happy_path_travel_duration());
+        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
         block_on(processor.process(
-            happy_path_state(),
+            State::default(),
             &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
         ));
 
