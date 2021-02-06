@@ -1,8 +1,12 @@
+use std::collections::HashSet;
+
 use commons::edge::Edge;
 
 use crate::build::BuildKey;
+use crate::route::RouteKey;
 use crate::traits::{
     IsRoad, PlanRoad, RemoveBuildInstruction, RemoveRoad as RemoveRoadTrait, RoadPlanned,
+    WithEdgeTraffic,
 };
 
 use super::*;
@@ -19,18 +23,19 @@ where
         + RemoveBuildInstruction
         + RemoveRoadTrait
         + RoadPlanned
+        + WithEdgeTraffic
         + Send
         + Sync
         + 'static,
 {
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let edges = match instruction {
-            Instruction::RefreshEdges(edges) => edges.clone(),
+            Instruction::RefreshEdges(edges) => edges,
             _ => return state,
         };
 
-        for edge in edges {
-            self.process_edge(&mut state, edge).await;
+        for edge in self.get_edges_with_no_traffic(edges).await {
+            self.process_edge(edge).await;
         }
 
         state
@@ -39,30 +44,41 @@ where
 
 impl<T> RemoveRoad<T>
 where
-    T: IsRoad + PlanRoad + RemoveBuildInstruction + RemoveRoadTrait + RoadPlanned,
+    T: IsRoad + PlanRoad + RemoveBuildInstruction + RemoveRoadTrait + RoadPlanned + WithEdgeTraffic,
 {
     pub fn new(tx: T) -> RemoveRoad<T> {
         RemoveRoad { tx }
     }
 
-    async fn process_edge(&mut self, state: &mut State, edge: Edge) {
-        if !state
-            .edge_traffic
-            .get(&edge)
-            .map_or(true, |routes| routes.is_empty())
-        {
-            return;
-        }
+    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
+    async fn get_edges_with_no_traffic<'a>(&self, edges: &'a HashSet<Edge>) -> HashSet<&'a Edge> {
+        self.tx
+            .with_edge_traffic(|edge_traffic| {
+                edges
+                    .iter()
+                    .filter(|edge| traffic_is_empty(edge_traffic.get(edge)))
+                    .collect()
+            })
+            .await
+    }
 
-        if !self.tx.is_road(edge).await && self.tx.road_planned(edge).await.is_none() {
+    async fn process_edge(&mut self, edge: &Edge) {
+        if !self.tx.is_road(*edge).await && self.tx.road_planned(*edge).await.is_none() {
             return;
         }
 
         self.tx
-            .remove_build_instruction(&BuildKey::Road(edge))
+            .remove_build_instruction(&BuildKey::Road(*edge))
             .await;
-        self.tx.remove_road(edge).await;
-        self.tx.plan_road(edge, None).await;
+        self.tx.remove_road(*edge).await;
+        self.tx.plan_road(*edge, None).await;
+    }
+}
+
+fn traffic_is_empty(traffic: Option<&HashSet<RouteKey>>) -> bool {
+    match traffic {
+        Some(traffic) => traffic.is_empty(),
+        None => true,
     }
 }
 
@@ -82,6 +98,7 @@ mod tests {
     #[derive(Default)]
     struct Tx {
         is_road: bool,
+        edge_traffic: Mutex<EdgeTraffic>,
         planned_roads: Mutex<Vec<(Edge, Option<u128>)>>,
         removed_build_instructions: Mutex<HashSet<BuildKey>>,
         removed_roads: Mutex<Vec<Edge>>,
@@ -126,6 +143,23 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl WithEdgeTraffic for Tx {
+        async fn with_edge_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&EdgeTraffic) -> O + Send,
+        {
+            function(&self.edge_traffic.lock().unwrap())
+        }
+
+        async fn mut_edge_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut EdgeTraffic) -> O + Send,
+        {
+            function(&mut self.edge_traffic.lock().unwrap())
+        }
+    }
+
     #[test]
     fn should_remove_existing_road() {
         // Given
@@ -134,11 +168,13 @@ mod tests {
             ..Tx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let state = State::default();
         let mut processor = RemoveRoad::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshEdges(hashset! {edge}),
+        ));
 
         // Then
         assert_eq!(*processor.tx.removed_roads.lock().unwrap(), vec![edge]);
@@ -152,11 +188,13 @@ mod tests {
             ..Tx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let state = State::default();
         let mut processor = RemoveRoad::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshEdges(hashset! {edge}),
+        ));
 
         // Then
         assert_eq!(
@@ -175,12 +213,13 @@ mod tests {
 
         let edge = Edge::new(v2(0, 0), v2(1, 0));
 
-        let state = State::default();
-
         let mut processor = RemoveRoad::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshEdges(hashset! {edge}),
+        ));
 
         // Then
         assert_eq!(
@@ -199,24 +238,23 @@ mod tests {
         };
 
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-
-        let state = State {
-            edge_traffic: hashmap! {
-                edge => hashset!{
-                    RouteKey{
-                        settlement: v2(0, 0),
-                        resource: Resource::Coal,
-                        destination: v2(1, 1),
-                    }
+        *tx.edge_traffic.lock().unwrap() = hashmap! {
+            edge => hashset!{
+                RouteKey{
+                    settlement: v2(0, 0),
+                    resource: Resource::Coal,
+                    destination: v2(1, 1),
                 }
-            },
-            ..State::default()
+            }
         };
 
         let mut processor = RemoveRoad::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshEdges(hashset! {edge}),
+        ));
 
         // Then
         assert!(processor
@@ -237,16 +275,16 @@ mod tests {
             ..Tx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let state = State {
-            edge_traffic: hashmap! {
-                edge => hashset!{}
-            },
-            ..State::default()
+        *tx.edge_traffic.lock().unwrap() = hashmap! {
+            edge => hashset!{}
         };
         let mut processor = RemoveRoad::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshEdges(hashset! {edge}),
+        ));
 
         // Then
         assert_eq!(*processor.tx.removed_roads.lock().unwrap(), vec![edge]);
@@ -261,11 +299,13 @@ mod tests {
             ..Tx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let state = State::default();
         let mut processor = RemoveRoad::new(tx);
 
         // When
-        block_on(processor.process(state, &Instruction::RefreshEdges(hashset! {edge})));
+        block_on(processor.process(
+            State::default(),
+            &Instruction::RefreshEdges(hashset! {edge}),
+        ));
 
         // Then
         assert_eq!(*processor.tx.removed_roads.lock().unwrap(), vec![]);
