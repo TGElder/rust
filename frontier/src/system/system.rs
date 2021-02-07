@@ -31,8 +31,8 @@ use crate::simulation::settlement::demand_fn::{homeland_demand_fn, town_demand_f
 use crate::simulation::settlement::processors::{
     max_abs_population_change, GetDemand, GetRouteChanges, GetRoutes, GetTerritory, GetTownTraffic,
     InstructionLogger, RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation,
-    UpdateEdgeTraffic, UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts,
-    UpdateSettlement, UpdateTown,
+    UpdateEdgeTraffic, UpdateHomeland, UpdatePositionTraffic, UpdateRouteToPorts, UpdateSettlement,
+    UpdateTown,
 };
 use crate::simulation::settlement::SettlementSimulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
@@ -307,6 +307,10 @@ impl System {
                         get_town_traffic: GetTownTraffic::new(
                             tx.clone_with_name("get_town_traffic"),
                         ),
+                        update_homeland: UpdateHomeland::new(
+                            tx.clone_with_name("update_homeland_population"),
+                            params.homeland.count,
+                        ),
                     }),
                     Box::new(InstructionLogger::new()),
                     Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
@@ -319,9 +323,6 @@ impl System {
                     Box::new(RemoveTown::new(
                         tx.clone_with_name("remove_town"),
                         params.simulation.town_removal_population,
-                    )),
-                    Box::new(UpdateHomelandPopulation::new(
-                        tx.clone_with_name("update_homeland_population"),
                     )),
                     Box::new(UpdateCurrentPopulation::new(
                         tx.clone_with_name("update_current_population"),

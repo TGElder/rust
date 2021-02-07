@@ -1,19 +1,15 @@
 use super::*;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::settlement::Settlement;
-use std::collections::HashSet;
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
     UpdateSettlement(V2<usize>),
     Step,
+    UpdateHomelandPopulation(V2<usize>),
     GetTerritory(V2<usize>),
-    GetTownTraffic {
-        settlement: Settlement,
-        territory: HashSet<V2<usize>>,
-    },
-    UpdateHomelandPopulation,
+
     UpdateTown {
         settlement: Settlement,
         traffic: Vec<TownTrafficSummary>,

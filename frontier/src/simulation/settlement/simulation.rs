@@ -134,7 +134,7 @@ mod tests {
             async fn process(&mut self, mut state: State, _: &Instruction) -> State {
                 state
                     .instructions
-                    .push(Instruction::UpdateHomelandPopulation);
+                    .push(Instruction::UpdateHomelandPopulation(v2(1, 2)));
                 state
             }
         }
@@ -150,7 +150,7 @@ mod tests {
         // Then
         assert_eq!(
             sim.state.unwrap().instructions,
-            vec![Instruction::UpdateHomelandPopulation]
+            vec![Instruction::UpdateHomelandPopulation(v2(1, 2))]
         );
     }
 
