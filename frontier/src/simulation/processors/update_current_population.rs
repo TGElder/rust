@@ -86,8 +86,8 @@ fn clamp_population_change(population_change: f64, max_abs_change: f64) -> f64 {
 
 pub fn max_abs_population_change(settlement_class: &SettlementClass) -> f64 {
     match settlement_class {
-        SettlementClass::Town => 2.0,
-        SettlementClass::Homeland => 16.0,
+        SettlementClass::Town => 16.0,
+        SettlementClass::Homeland => 128.0,
     }
 }
 
