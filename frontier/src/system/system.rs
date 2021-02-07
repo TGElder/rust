@@ -311,15 +311,15 @@ impl System {
                             tx.clone_with_name("update_homeland_population"),
                             params.homeland.count,
                         ),
+                        update_town: UpdateTown::new(
+                            tx.clone_with_name("update_town"),
+                            params.simulation.traffic_to_population,
+                            params.simulation.nation_flip_traffic_pc,
+                        ),
                     }),
                     Box::new(InstructionLogger::new()),
                     Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
                     Box::new(StepTown::new(tx.clone_with_name("step_town"))),
-                    Box::new(UpdateTown::new(
-                        tx.clone_with_name("update_town"),
-                        params.simulation.traffic_to_population,
-                        params.simulation.nation_flip_traffic_pc,
-                    )),
                     Box::new(RemoveTown::new(
                         tx.clone_with_name("remove_town"),
                         params.simulation.town_removal_population,
