@@ -1,36 +1,29 @@
 use std::collections::HashSet;
 
 use commons::grid::Grid;
+use commons::V2;
 
 use crate::build::BuildKey;
 use crate::resource::Resource;
+use crate::traffic::Traffic;
 use crate::traits::{
     GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, SendWorld, WithTraffic,
 };
 use crate::world::{World, WorldCell, WorldObject};
 
-use super::*;
 pub struct RemoveCrops<T> {
     tx: T,
 }
 
-#[async_trait]
-impl<T> Processor for RemoveCrops<T>
+impl<T> RemoveCrops<T>
 where
-    T: GetBuildInstruction
-        + RemoveBuildInstruction
-        + RemoveWorldObject
-        + SendWorld
-        + WithTraffic
-        + Send
-        + Sync
-        + 'static,
+    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + SendWorld + WithTraffic,
 {
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let mut positions = match instruction {
-            Instruction::RefreshPositions(positions) => positions.clone(),
-        };
+    pub fn new(tx: T) -> RemoveCrops<T> {
+        RemoveCrops { tx }
+    }
 
+    pub async fn refresh_positions(&self, mut positions: HashSet<V2<usize>>) {
         self.filter_without_crop_routes(&mut positions).await;
 
         for position in positions.iter() {
@@ -44,17 +37,6 @@ where
         for position in self.have_crops(positions).await {
             self.tx.remove_world_object(position).await;
         }
-
-        state
-    }
-}
-
-impl<T> RemoveCrops<T>
-where
-    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + SendWorld + WithTraffic,
-{
-    pub fn new(tx: T) -> RemoveCrops<T> {
-        RemoveCrops { tx }
     }
 
     async fn filter_without_crop_routes(&self, positions: &mut HashSet<V2<usize>>) {
@@ -106,6 +88,7 @@ fn has_crops(world: &World, position: &V2<usize>) -> bool {
 mod tests {
     use std::sync::Mutex;
 
+    use commons::async_trait::async_trait;
     use commons::{v2, M};
     use futures::executor::block_on;
 
@@ -198,17 +181,14 @@ mod tests {
     fn should_remove_crops_if_no_traffic() {
         // Given
         let tx = happy_path_tx();
-        let mut processor = RemoveCrops::new(tx);
+        let build_crops = RemoveCrops::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
         assert_eq!(
-            *processor.tx.removed_world_objects.lock().unwrap(),
+            *build_crops.tx.removed_world_objects.lock().unwrap(),
             vec![v2(1, 1)]
         );
     }
@@ -232,17 +212,14 @@ mod tests {
             )
             .unwrap();
 
-        let mut processor = RemoveCrops::new(tx);
+        let build_crops = RemoveCrops::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
         assert_eq!(
-            *processor.tx.removed_world_objects.lock().unwrap(),
+            *build_crops.tx.removed_world_objects.lock().unwrap(),
             vec![v2(1, 1)]
         );
     }
@@ -260,17 +237,14 @@ mod tests {
         });
         tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
-        let mut processor = RemoveCrops::new(tx);
+        let build_crops = RemoveCrops::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
         assert_eq!(
-            *processor.tx.removed_build_instructions.lock().unwrap(),
+            *build_crops.tx.removed_build_instructions.lock().unwrap(),
             hashset! { BuildKey::Crops(v2(1, 1)) }
         );
     }
@@ -294,16 +268,13 @@ mod tests {
             )
             .unwrap();
 
-        let mut processor = RemoveCrops::new(tx);
+        let build_crops = RemoveCrops::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor
+        assert!(build_crops
             .tx
             .removed_world_objects
             .lock()
@@ -338,16 +309,13 @@ mod tests {
             .unwrap();
         tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
-        let mut processor = RemoveCrops::new(tx);
+        let build_crops = RemoveCrops::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor
+        assert!(build_crops
             .tx
             .removed_build_instructions
             .lock()

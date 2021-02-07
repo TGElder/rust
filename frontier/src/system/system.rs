@@ -61,7 +61,7 @@ pub struct System {
     pub pathfinder_with_planned_roads: Process<PathfinderService<Polysender, AvatarTravelDuration>>,
     pub pathfinder_without_planned_roads:
         Process<PathfinderService<Polysender, AvatarTravelDuration>>,
-    pub position_sim: Process<PositionBuildSimulation>,
+    pub position_sim: Process<PositionBuildSimulation<Polysender>>,
     pub prime_mover: Process<PrimeMover<Polysender>>,
     pub resource_targets: Process<ResourceTargets<Polysender>>,
     pub rotate: Process<Rotate>,
@@ -273,17 +273,14 @@ impl System {
                 pathfinding_avatar_controls_rx,
             ),
             position_sim: Process::new(
-                PositionBuildSimulation::new(vec![
-                    Box::new(BuildTown::new(
+                PositionBuildSimulation {
+                    build_crops: BuildCrops::new(tx.clone_with_name("build_crops"), params.seed),
+                    build_town: BuildTown::new(
                         tx.clone_with_name("build_town"),
                         params.simulation.initial_town_population,
-                    )),
-                    Box::new(BuildCrops::new(
-                        tx.clone_with_name("build_crops"),
-                        params.seed,
-                    )),
-                    Box::new(RemoveCrops::new(tx.clone_with_name("remove_crops"))),
-                ]),
+                    ),
+                    remove_crops: RemoveCrops::new(tx.clone_with_name("remove_crops")),
+                },
                 position_sim_rx,
             ),
             prime_mover: Process::new(
@@ -483,7 +480,7 @@ impl System {
 
         self.setup_new_world.run_passive(&self.pool).await;
         self.world_artist.run_passive(&self.pool).await;
-        self.position_sim.run_active(&self.pool).await;
+        self.position_sim.run_passive(&self.pool).await;
         self.voyager.run_passive(&self.pool).await;
         self.visibility.run_passive(&self.pool).await;
         self.town_house_artist.run_passive(&self.pool).await;
