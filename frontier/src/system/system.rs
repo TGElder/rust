@@ -32,7 +32,7 @@ use crate::simulation::settlement::processors::{
     max_abs_population_change, GetDemand, GetRouteChanges, GetRoutes, GetTerritory, GetTownTraffic,
     InstructionLogger, RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation,
     UpdateEdgeTraffic, UpdateHomelandPopulation, UpdatePositionTraffic, UpdateRouteToPorts,
-    UpdateTown,
+    UpdateSettlement, UpdateTown,
 };
 use crate::simulation::settlement::SettlementSimulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
@@ -301,10 +301,13 @@ impl System {
             routes: Process::new(RoutesActor::new(), routes_rx),
             settlement_sim: Process::new(
                 SettlementSimulation::new(vec![
+                    Box::new(UpdateSettlement {
+                        tx: tx.clone_with_name("update_settlement"),
+                        get_territory: GetTerritory::new(tx.clone_with_name("get_territory")),
+                    }),
                     Box::new(InstructionLogger::new()),
                     Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
                     Box::new(StepTown::new(tx.clone_with_name("step_town"))),
-                    Box::new(GetTerritory::new(tx.clone_with_name("get_territory"))),
                     Box::new(GetTownTraffic::new(tx.clone_with_name("get_town_traffic"))),
                     Box::new(UpdateTown::new(
                         tx.clone_with_name("update_town"),

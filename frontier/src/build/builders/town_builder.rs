@@ -70,7 +70,7 @@ mod tests {
 
     #[async_trait]
     impl UpdateTerritory for Tx {
-        async fn update_territory(&mut self, controller: V2<usize>) {
+        async fn update_territory(&self, controller: V2<usize>) {
             self.updated_territory.lock().unwrap().push(controller);
         }
     }
