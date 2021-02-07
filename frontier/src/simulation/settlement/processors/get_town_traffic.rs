@@ -10,42 +10,24 @@ pub struct GetTownTraffic<T> {
     tx: T,
 }
 
-#[async_trait]
-impl<T> Processor for GetTownTraffic<T>
-where
-    T: SendRoutes + SendSettlements + WithRouteToPorts + WithTraffic + Send + Sync,
-{
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let (settlement, territory) = match instruction {
-            Instruction::GetTownTraffic {
-                settlement,
-                territory,
-            } => (settlement, territory),
-            _ => return state,
-        };
-
-        let route_keys = self.get_route_keys(territory).await;
-        let route_to_ports = self.get_route_to_ports(route_keys).await;
-        let traffic_summaries = self
-            .get_traffic_summaries(route_to_ports, territory.clone())
-            .await;
-        let aggregated_traffic_summaries = aggregate_by_nation(traffic_summaries);
-
-        state.instructions.push(Instruction::UpdateTown {
-            settlement: settlement.clone(),
-            traffic: aggregated_traffic_summaries,
-        });
-
-        state
-    }
-}
-
 impl<T> GetTownTraffic<T>
 where
     T: SendRoutes + SendSettlements + WithRouteToPorts + WithTraffic,
 {
     pub fn new(tx: T) -> GetTownTraffic<T> {
         GetTownTraffic { tx }
+    }
+
+    pub async fn get_town_traffic(
+        &self,
+        territory: &HashSet<V2<usize>>,
+    ) -> Vec<TownTrafficSummary> {
+        let route_keys = self.get_route_keys(territory).await;
+        let route_to_ports = self.get_route_to_ports(route_keys).await;
+        let traffic_summaries = self
+            .get_traffic_summaries(route_to_ports, territory.clone())
+            .await;
+        aggregate_by_nation(traffic_summaries)
     }
 
     async fn get_route_keys(&self, territory: &HashSet<V2<usize>>) -> HashSet<RouteKey> {
@@ -279,10 +261,6 @@ mod tests {
     #[test]
     fn should_include_routes_ending_in_territory() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let tx = Tx {
@@ -309,26 +287,18 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![TownTrafficSummary {
-                    nation: "A".to_string(),
-                    traffic_share: 39.0,
-                    total_duration: Duration::from_millis(78)
-                }]
+            traffic_summaries,
+            vec![TownTrafficSummary {
+                nation: "A".to_string(),
+                traffic_share: 39.0,
+                total_duration: Duration::from_millis(78)
             }]
         );
     }
@@ -336,10 +306,6 @@ mod tests {
     #[test]
     fn should_include_route_with_port_in_territory() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let route_key = RouteKey {
@@ -368,26 +334,18 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![TownTrafficSummary {
-                    nation: "A".to_string(),
-                    traffic_share: 7.0, // half because destination not in territory,
-                    total_duration: Duration::from_millis(14)
-                }]
+            traffic_summaries,
+            vec![TownTrafficSummary {
+                nation: "A".to_string(),
+                traffic_share: 7.0, // half because destination not in territory,
+                total_duration: Duration::from_millis(14)
             }]
         );
     }
@@ -395,10 +353,6 @@ mod tests {
     #[test]
     fn should_include_route_with_destination_and_port_in_territory() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let route_key = RouteKey {
@@ -427,26 +381,18 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![TownTrafficSummary {
-                    nation: "A".to_string(),
-                    traffic_share: 14.0,
-                    total_duration: Duration::from_millis(28)
-                }]
+            traffic_summaries,
+            vec![TownTrafficSummary {
+                nation: "A".to_string(),
+                traffic_share: 14.0,
+                total_duration: Duration::from_millis(28)
             }]
         );
     }
@@ -454,10 +400,6 @@ mod tests {
     #[test]
     fn should_include_routes_ending_in_territory_with_port_outside_territory() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let route_key = RouteKey {
@@ -486,26 +428,18 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![TownTrafficSummary {
-                    nation: "A".to_string(),
-                    traffic_share: 7.0, // half because port not in territory,
-                    total_duration: Duration::from_millis(14)
-                }]
+            traffic_summaries,
+            vec![TownTrafficSummary {
+                nation: "A".to_string(),
+                traffic_share: 7.0, // half because port not in territory,
+                total_duration: Duration::from_millis(14)
             }]
         );
     }
@@ -513,10 +447,6 @@ mod tests {
     #[test]
     fn should_aggregate_routes_from_same_nation() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let tx = Tx {
@@ -561,26 +491,18 @@ mod tests {
         };
         tx.add_route(route_key_2, route_2);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![TownTrafficSummary {
-                    nation: "A".to_string(),
-                    traffic_share: 10.0,
-                    total_duration: Duration::from_millis(27)
-                }]
+            traffic_summaries,
+            vec![TownTrafficSummary {
+                nation: "A".to_string(),
+                traffic_share: 10.0,
+                total_duration: Duration::from_millis(27)
             }]
         );
     }
@@ -588,10 +510,6 @@ mod tests {
     #[test]
     fn should_split_routes_from_different_nations() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let tx = Tx {
@@ -636,49 +554,33 @@ mod tests {
         };
         tx.add_route(route_key_2, route_2);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement,
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
-        if let Some(Instruction::UpdateTown {
-            traffic: expected, ..
-        }) = state.instructions.get(0)
-        {
-            assert!(same_elements(
-                &expected,
-                &[
-                    TownTrafficSummary {
-                        nation: "A".to_string(),
-                        traffic_share: 3.0,
-                        total_duration: Duration::from_millis(6),
-                    },
-                    TownTrafficSummary {
-                        nation: "B".to_string(),
-                        traffic_share: 7.0,
-                        total_duration: Duration::from_millis(21),
-                    }
-                ]
-            ));
-        } else {
-            panic!("No update town instruction!");
-        }
+
+        assert!(same_elements(
+            &traffic_summaries,
+            &[
+                TownTrafficSummary {
+                    nation: "A".to_string(),
+                    traffic_share: 3.0,
+                    total_duration: Duration::from_millis(6),
+                },
+                TownTrafficSummary {
+                    nation: "B".to_string(),
+                    traffic_share: 7.0,
+                    total_duration: Duration::from_millis(21),
+                }
+            ]
+        ));
     }
 
     #[test]
     fn should_ignore_routes_not_ending_in_territory() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            target_population: 10.0,
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let tx = Tx {
@@ -712,34 +614,18 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
-        assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![]
-            }]
-        );
+        assert_eq!(traffic_summaries, vec![]);
     }
 
     #[test]
     fn should_ignore_routes_starting_in_territory() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            target_population: 10.0,
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let tx = Tx {
@@ -764,34 +650,18 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
-        assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![]
-            }]
-        );
+        assert_eq!(traffic_summaries, vec![]);
     }
 
     #[test]
     fn should_ignore_ports_outside_territory() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            target_population: 10.0,
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 0), v2(2, 1), v2(2, 2), v2(2, 3) };
 
         let route_key = RouteKey {
@@ -820,33 +690,18 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
-        assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![]
-            }]
-        );
+        assert_eq!(traffic_summaries, vec![]);
     }
 
     #[test]
     fn should_ignore_invalid_route() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let mut tx = Tx {
@@ -874,33 +729,18 @@ mod tests {
         tx.add_route(route_key, route);
         tx.routes = Mutex::default(); // Removing route to create invalid state
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
-        assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![]
-            }]
-        );
+        assert_eq!(traffic_summaries, vec![]);
     }
 
     #[test]
     fn should_link_route_from_corner_of_settlement_to_correct_settlement() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let tx = Tx {
@@ -927,26 +767,18 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![TownTrafficSummary {
-                    nation: "A".to_string(),
-                    traffic_share: 10.0,
-                    total_duration: Duration::from_millis(20),
-                }]
+            traffic_summaries,
+            vec![TownTrafficSummary {
+                nation: "A".to_string(),
+                traffic_share: 10.0,
+                total_duration: Duration::from_millis(20),
             }]
         );
     }
@@ -954,10 +786,6 @@ mod tests {
     #[test]
     fn should_ignore_route_from_invalid_settlement() {
         // Given
-        let settlement = Settlement {
-            position: v2(3, 1),
-            ..Settlement::default()
-        };
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
         let tx = Tx::default();
@@ -975,23 +803,12 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let mut processor = GetTownTraffic::new(tx);
-
-        let instruction = Instruction::GetTownTraffic {
-            settlement: settlement.clone(),
-            territory,
-        };
+        let processor = GetTownTraffic::new(tx);
 
         // When
-        let state = block_on(processor.process(State::default(), &instruction));
+        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
 
         // Then
-        assert_eq!(
-            state.instructions,
-            vec![Instruction::UpdateTown {
-                settlement,
-                traffic: vec![]
-            }]
-        );
+        assert_eq!(traffic_summaries, vec![]);
     }
 }
