@@ -51,7 +51,7 @@ pub struct System {
     pub builder: Process<BuilderActor<Polysender>>,
     pub cheats: Process<Cheats<Polysender>>,
     pub clock: Process<Clock<RealTime>>,
-    pub edge_sim: Process<EdgeBuildSimulation>,
+    pub edge_sim: Process<EdgeBuildSimulation<Polysender, AutoRoadTravelDuration>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub labels: Process<Labels<Polysender>>,
     pub nations: Process<Nations>,
@@ -220,14 +220,14 @@ impl System {
             cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
             clock: Process::new(Clock::new(RealTime {}, params.default_speed), clock_rx),
             edge_sim: Process::new(
-                EdgeBuildSimulation::new(vec![
-                    Box::new(BuildRoad::new(
+                EdgeBuildSimulation {
+                    build_road: BuildRoad::new(
                         tx.clone_with_name("build_road"),
                         road_build_travel_duration,
                         params.simulation.road_build_threshold,
-                    )),
-                    Box::new(RemoveRoad::new(tx.clone_with_name("remove_road"))),
-                ]),
+                    ),
+                    remove_road: RemoveRoad::new(tx.clone_with_name("remove_road")),
+                },
                 edge_sim_rx,
             ),
             event_forwarder: Process::new(
@@ -488,7 +488,7 @@ impl System {
         self.visibility.run_passive(&self.pool).await;
         self.town_house_artist.run_passive(&self.pool).await;
         self.town_label_artist.run_passive(&self.pool).await;
-        self.edge_sim.run_active(&self.pool).await;
+        self.edge_sim.run_passive(&self.pool).await;
         self.resource_targets.run_passive(&self.pool).await;
         self.rotate.run_passive(&self.pool).await;
         self.town_builder.run_passive(&self.pool).await;
