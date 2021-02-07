@@ -3,40 +3,18 @@ use std::collections::{HashMap, HashSet};
 use commons::grid::Grid;
 use commons::rand::prelude::SmallRng;
 use commons::rand::{Rng, SeedableRng};
+use commons::V2;
 
 use crate::build::{Build, BuildInstruction};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
+use crate::traffic::Traffic;
 use crate::traits::{InsertBuildInstruction, SendRoutes, SendWorld, WithTraffic};
 use crate::world::{World, WorldObject};
 
-use super::*;
 pub struct BuildCrops<T> {
     tx: T,
     rng: SmallRng,
-}
-
-#[async_trait]
-impl<T> Processor for BuildCrops<T>
-where
-    T: InsertBuildInstruction + SendRoutes + SendWorld + WithTraffic + Send + Sync + 'static,
-{
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let positions = match instruction {
-            Instruction::RefreshPositions(positions) => positions.clone(),
-        };
-
-        let crop_routes = self.get_crop_routes(positions).await;
-        let crop_routes = self
-            .filter_crop_routes_with_free_destination(crop_routes)
-            .await;
-
-        for (position, route_keys) in crop_routes {
-            self.process_position(position, route_keys).await;
-        }
-
-        state
-    }
 }
 
 impl<T> BuildCrops<T>
@@ -47,6 +25,17 @@ where
         BuildCrops {
             tx,
             rng: SeedableRng::seed_from_u64(seed),
+        }
+    }
+
+    pub async fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
+        let crop_routes = self.get_crop_routes(positions).await;
+        let crop_routes = self
+            .filter_crop_routes_with_free_destination(crop_routes)
+            .await;
+
+        for (position, route_keys) in crop_routes {
+            self.process_position(position, route_keys).await;
         }
     }
 
@@ -146,6 +135,7 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
 
+    use commons::async_trait::async_trait;
     use commons::{v2, M};
     use futures::executor::block_on;
 
@@ -255,17 +245,14 @@ mod tests {
     #[test]
     fn should_build_crops_if_crop_route_ends_at_position() {
         // Given
-        let mut processor = BuildCrops::new(happy_path_tx(), 0);
+        let mut build_crops = BuildCrops::new(happy_path_tx(), 0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
         assert!(matches!(
-            processor.tx.build_instructions.lock().unwrap()[0],
+            build_crops.tx.build_instructions.lock().unwrap()[0],
             BuildInstruction{
                 what: Build::Crops{position, .. },
                 when: 11
@@ -292,31 +279,25 @@ mod tests {
                 },
             );
         }
-        let mut processor = BuildCrops::new(tx, 0);
+        let mut build_crops = BuildCrops::new(tx, 0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 2)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 2)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_crops_if_crop_route_not_ending_at_position() {
         // Given
-        let mut processor = BuildCrops::new(happy_path_tx(), 0);
+        let mut build_crops = BuildCrops::new(happy_path_tx(), 0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 0)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 0)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -327,16 +308,13 @@ mod tests {
             tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object =
                 WorldObject::Crop { rotated: true };
         }
-        let mut processor = BuildCrops::new(tx, 0);
+        let mut build_crops = BuildCrops::new(tx, 0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -345,16 +323,13 @@ mod tests {
         let tx = happy_path_tx();
         *tx.traffic.lock().unwrap() = Traffic::new(3, 3, HashSet::new());
 
-        let mut processor = BuildCrops::new(tx, 0);
+        let mut build_crops = BuildCrops::new(tx, 0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -367,16 +342,13 @@ mod tests {
             .set(&v2(1, 1), HashSet::new())
             .unwrap();
 
-        let mut processor = BuildCrops::new(tx, 0);
+        let mut build_crops = BuildCrops::new(tx, 0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -385,15 +357,12 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.routes = Mutex::default();
 
-        let mut processor = BuildCrops::new(tx, 0);
+        let mut build_crops = BuildCrops::new(tx, 0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
     }
 }
