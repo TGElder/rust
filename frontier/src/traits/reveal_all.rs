@@ -5,7 +5,7 @@ use commons::grid::Grid;
 use commons::{v2, V2};
 
 use crate::traits::{
-    DrawWorld, Micros, RefreshBuildSim, SendSim, SendWorld, UpdatePositionsAllPathfinders,
+    DrawWorld, Micros, RefreshPositions, SendWorld, UpdatePositionsAllPathfinders,
 };
 
 #[async_trait]
@@ -18,8 +18,7 @@ impl<T> RevealAll for T
 where
     T: DrawWorld
         + Micros
-        + RefreshBuildSim
-        + SendSim
+        + RefreshPositions
         + SendWorld
         + UpdatePositionsAllPathfinders
         + Send
@@ -28,9 +27,6 @@ where
     async fn reveal_all(&self) {
         let (width, height) = reveal_all_get_dimensions(self).await;
         let positions = all_positions(width, height);
-        self.send_sim_background(move |sim| {
-            sim.update_homeland_population();
-        });
         self.refresh_positions(positions.clone());
         join!(
             redraw_all(self),

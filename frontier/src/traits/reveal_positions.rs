@@ -6,8 +6,7 @@ use commons::V2;
 use futures::FutureExt;
 
 use crate::traits::{
-    DrawWorld, Micros, RefreshBuildSim, SendSim, SendVoyager, SendWorld,
-    UpdatePositionsAllPathfinders,
+    DrawWorld, Micros, RefreshPositions, SendVoyager, SendWorld, UpdatePositionsAllPathfinders,
 };
 use crate::world::World;
 
@@ -21,8 +20,7 @@ impl<T> RevealPositions for T
 where
     T: DrawWorld
         + Micros
-        + RefreshBuildSim
-        + SendSim
+        + RefreshPositions
         + SendVoyager
         + SendWorld
         + UpdatePositionsAllPathfinders,
@@ -30,9 +28,6 @@ where
     async fn reveal_positions(&self, positions: HashSet<V2<usize>>, revealed_by: &'static str) {
         let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
         voyage(self, newly_visible.clone(), revealed_by);
-        self.send_sim_background(move |sim| {
-            sim.update_homeland_population();
-        });
         self.refresh_positions(newly_visible.clone());
         join!(
             redraw(self, &newly_visible),

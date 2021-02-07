@@ -1,5 +1,5 @@
 use super::*;
-use crate::traits::{Controlled, RefreshBuildSim, RemoveTown as RemoveTownTrait};
+use crate::traits::{Controlled, RefreshPositions, RemoveTown as RemoveTownTrait};
 
 pub struct RemoveTown<T> {
     tx: T,
@@ -9,7 +9,7 @@ pub struct RemoveTown<T> {
 #[async_trait]
 impl<T> Processor for RemoveTown<T>
 where
-    T: Controlled + RefreshBuildSim + RemoveTownTrait + Send + Sync,
+    T: Controlled + RefreshPositions + RemoveTownTrait + Send + Sync,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let (settlement, traffic) = match instruction {
@@ -31,7 +31,7 @@ where
 
 impl<T> RemoveTown<T>
 where
-    T: Controlled + RefreshBuildSim + RemoveTownTrait + Send,
+    T: Controlled + RefreshPositions + RemoveTownTrait + Send,
 {
     pub fn new(tx: T, town_removal_population: f64) -> RemoveTown<T> {
         RemoveTown {
@@ -67,9 +67,7 @@ mod tests {
         }
     }
 
-    impl RefreshBuildSim for Tx {
-        fn refresh_edges(&self, _: HashSet<commons::edge::Edge>) {}
-
+    impl RefreshPositions for Tx {
         fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
             self.refreshed_positions.lock().unwrap().extend(positions);
         }

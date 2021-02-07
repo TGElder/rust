@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::route::{Route, RouteKey};
-use crate::traits::{RefreshBuildSim, WithTraffic};
+use crate::traits::{RefreshPositions, WithTraffic};
 use commons::grid::Grid;
 use std::collections::HashSet;
 
@@ -12,7 +12,7 @@ pub struct UpdatePositionTraffic<T> {
 #[async_trait]
 impl<T> Processor for UpdatePositionTraffic<T>
 where
-    T: RefreshBuildSim + WithTraffic + Send + Sync,
+    T: RefreshPositions + WithTraffic + Send + Sync,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let route_changes = match instruction {
@@ -29,7 +29,7 @@ where
 
 impl<T> UpdatePositionTraffic<T>
 where
-    T: RefreshBuildSim + WithTraffic,
+    T: RefreshPositions + WithTraffic,
 {
     pub fn new(tx: T) -> UpdatePositionTraffic<T> {
         UpdatePositionTraffic { tx }
@@ -171,9 +171,7 @@ mod tests {
         }
     }
 
-    impl RefreshBuildSim for Tx {
-        fn refresh_edges(&self, _: HashSet<commons::edge::Edge>) {}
-
+    impl RefreshPositions for Tx {
         fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
             self.refreshed_positions
                 .lock()
