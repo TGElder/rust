@@ -1,47 +1,39 @@
-use commons::process::Step;
+use commons::V2;
 
-use super::*;
+use crate::simulation::build::positions::processors::{BuildCrops, BuildTown, RemoveCrops};
+use crate::traits::{
+    AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, RandomTownName,
+    RemoveBuildInstruction, RemoveWorldObject, SendRoutes, SendWorld, WithRouteToPorts,
+    WithTraffic,
+};
 
 use std::collections::HashSet;
 
-pub struct PositionBuildSimulation {
-    processors: Vec<Box<dyn Processor + Send>>,
-    state: Option<State>,
+pub struct PositionBuildSimulation<T> {
+    pub build_crops: BuildCrops<T>,
+    pub build_town: BuildTown<T>,
+    pub remove_crops: RemoveCrops<T>,
 }
 
-impl PositionBuildSimulation {
-    pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> PositionBuildSimulation {
-        PositionBuildSimulation {
-            processors,
-            state: Some(State {
-                instructions: vec![],
-            }),
-        }
-    }
-
-    pub fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
-        if let Some(state) = &mut self.state {
-            state
-                .instructions
-                .push(Instruction::RefreshPositions(positions));
-        }
-    }
-
-    async fn process_instruction(&mut self, mut state: State) -> State {
-        if let Some(instruction) = state.instructions.pop() {
-            for processor in self.processors.iter_mut() {
-                state = processor.process(state, &instruction).await;
-            }
-        }
-        state
-    }
-}
-
-#[async_trait]
-impl Step for PositionBuildSimulation {
-    async fn step(&mut self) {
-        let state = unwrap_or!(self.state.take(), return);
-        let state = self.process_instruction(state).await;
-        self.state = Some(state);
+impl<T> PositionBuildSimulation<T>
+where
+    T: AnyoneControls
+        + GetBuildInstruction
+        + GetSettlement
+        + InsertBuildInstruction
+        + RandomTownName
+        + RemoveBuildInstruction
+        + RemoveWorldObject
+        + SendRoutes
+        + SendWorld
+        + WithRouteToPorts
+        + WithTraffic,
+{
+    pub async fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
+        join!(
+            self.build_crops.refresh_positions(positions.clone()),
+            self.build_town.refresh_positions(positions.clone()),
+            self.remove_crops.refresh_positions(positions),
+        );
     }
 }

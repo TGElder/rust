@@ -57,7 +57,7 @@ pub struct Polysender {
         FnSender<PathfinderService<Polysender, AvatarTravelDuration>>,
     pub pathfinder_without_planned_roads_tx:
         FnSender<PathfinderService<Polysender, AvatarTravelDuration>>,
-    pub position_sim_tx: FnSender<PositionBuildSimulation>,
+    pub position_sim_tx: FnSender<PositionBuildSimulation<Polysender>>,
     pub prime_mover_tx: FnSender<PrimeMover<Polysender>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
     pub rotate_tx: FnSender<Rotate>,
@@ -165,13 +165,13 @@ impl SendClock for Polysender {
 
 #[async_trait]
 impl SendPositionBuildSim for Polysender {
-    fn send_position_build_sim_background<F, O>(&self, function: F)
+    fn send_position_build_sim_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut PositionBuildSimulation) -> O + Send + 'static,
+        F: FnOnce(&mut PositionBuildSimulation<Self>) -> BoxFuture<O> + Send + 'static,
     {
         self.position_sim_tx
-            .send(move |position_sim| function(position_sim));
+            .send_future(move |position_sim| function(position_sim));
     }
 }
 
