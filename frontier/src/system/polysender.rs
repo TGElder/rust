@@ -11,6 +11,7 @@ use crate::build::BuildQueue;
 use crate::nation::Nation;
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
+use crate::road_builder::AutoRoadTravelDuration;
 use crate::route::{RouteKey, Routes};
 use crate::settlement::Settlement;
 use crate::simulation::build::edges::EdgeBuildSimulation;
@@ -45,7 +46,7 @@ pub struct Polysender {
     pub build_queue: Arc<RwLock<BuildQueue>>,
     pub cheats_tx: FnSender<Cheats<Polysender>>,
     pub clock_tx: FnSender<Clock<RealTime>>,
-    pub edge_sim_tx: FnSender<EdgeBuildSimulation>,
+    pub edge_sim_tx: FnSender<EdgeBuildSimulation<Polysender, AutoRoadTravelDuration>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
     pub labels_tx: FnSender<Labels<Polysender>>,
     pub nations_tx: FnSender<Nations>,
@@ -202,12 +203,15 @@ impl SendParameters for Polysender {
 
 #[async_trait]
 impl SendEdgeBuildSim for Polysender {
-    fn send_edge_build_sim_background<F, O>(&self, function: F)
+    type D = AutoRoadTravelDuration;
+
+    fn send_edge_build_sim_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut EdgeBuildSimulation) -> O + Send + 'static,
+        F: FnOnce(&mut EdgeBuildSimulation<Self, Self::D>) -> BoxFuture<O> + Send + 'static,
     {
-        self.edge_sim_tx.send(move |edge_sim| function(edge_sim));
+        self.edge_sim_tx
+            .send_future(move |edge_sim| function(edge_sim));
     }
 }
 
