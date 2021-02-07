@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use commons::edge::Edge;
+use futures::FutureExt;
 
 use super::SendEdgeBuildSim;
 
@@ -13,6 +14,8 @@ where
     T: SendEdgeBuildSim,
 {
     fn refresh_edges(&self, edges: HashSet<Edge>) {
-        self.send_edge_build_sim_background(move |edge_sim| edge_sim.refresh_edges(edges));
+        self.send_edge_build_sim_future_background(move |edge_sim| {
+            edge_sim.refresh_edges(edges).boxed()
+        });
     }
 }
