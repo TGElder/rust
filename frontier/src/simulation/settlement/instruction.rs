@@ -6,6 +6,7 @@ use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Instruction {
+    UpdateSettlement(V2<usize>),
     Step,
     GetTerritory(V2<usize>),
     GetTownTraffic {

@@ -14,6 +14,7 @@ mod update_edge_traffic;
 mod update_homeland_population;
 mod update_position_traffic;
 mod update_route_to_ports;
+mod update_settlement;
 mod update_town;
 
 pub use get_demand::*;
@@ -30,4 +31,5 @@ pub use update_edge_traffic::*;
 pub use update_homeland_population::*;
 pub use update_position_traffic::*;
 pub use update_route_to_ports::*;
+pub use update_settlement::*;
 pub use update_town::*;

@@ -98,7 +98,7 @@ where
 
 #[async_trait]
 pub trait UpdateTerritory {
-    async fn update_territory(&mut self, controller: V2<usize>);
+    async fn update_territory(&self, controller: V2<usize>);
 }
 
 #[async_trait]
@@ -112,7 +112,7 @@ where
         + Send
         + Sync,
 {
-    async fn update_territory(&mut self, controller: V2<usize>) {
+    async fn update_territory(&self, controller: V2<usize>) {
         let duration = self
             .send_parameters(|parameters| parameters.town_travel_duration)
             .await;
