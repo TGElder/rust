@@ -140,7 +140,6 @@ impl System {
             prime_mover_tx,
             resource_targets_tx,
             routes_tx,
-            setup_new_world_tx,
             traffic: Arc::new(RwLock::new(Traffic::new(
                 params.width,
                 params.width,
@@ -148,8 +147,9 @@ impl System {
             ))),
             rotate_tx,
             route_to_ports: Arc::default(),
-            settlements_tx,
             settlement_sim_tx,
+            settlements_tx,
+            setup_new_world_tx,
             speed_control_tx,
             territory_tx,
             town_builder_tx,
