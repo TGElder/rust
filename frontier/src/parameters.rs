@@ -4,7 +4,7 @@ use crate::avatar::AvatarTravelParams;
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
 use crate::road_builder::AutoRoadTravelParams;
-use crate::simulation::SimulationParams;
+use crate::simulation::SimulationParameters;
 use crate::world_gen::WorldGenParameters;
 use commons::bincode::{deserialize_from, serialize_into};
 use commons::{v3, V3};
@@ -38,7 +38,7 @@ pub struct Parameters {
     pub label_padding: f32,
     pub nations: Vec<NationDescription>,
     pub default_speed: f32,
-    pub simulation: SimulationParams,
+    pub simulation: SimulationParameters,
 }
 
 impl Default for Parameters {
@@ -64,7 +64,7 @@ impl Default for Parameters {
             label_padding: 2.0,
             nations: nation_descriptions(),
             default_speed: 3600.0,
-            simulation: SimulationParams::default(),
+            simulation: SimulationParameters::default(),
         }
     }
 }

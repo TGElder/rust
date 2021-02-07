@@ -4,7 +4,9 @@ use commons::async_trait::async_trait;
 use commons::grid::Grid;
 use commons::{v2, V2};
 
-use crate::traits::{DrawWorld, Micros, SendSim, SendWorld, UpdatePositionsAllPathfinders};
+use crate::traits::{
+    DrawWorld, Micros, RefreshPositions, SendWorld, UpdatePositionsAllPathfinders,
+};
 
 #[async_trait]
 pub trait RevealAll {
@@ -14,12 +16,18 @@ pub trait RevealAll {
 #[async_trait]
 impl<T> RevealAll for T
 where
-    T: DrawWorld + Micros + SendSim + SendWorld + UpdatePositionsAllPathfinders + Send + Sync,
+    T: DrawWorld
+        + Micros
+        + RefreshPositions
+        + SendWorld
+        + UpdatePositionsAllPathfinders
+        + Send
+        + Sync,
 {
     async fn reveal_all(&self) {
         let (width, height) = reveal_all_get_dimensions(self).await;
         let positions = all_positions(width, height);
-        update_sim(self, positions.clone());
+        self.refresh_positions(positions.clone());
         join!(
             redraw_all(self),
             self.update_positions_all_pathfinders(positions)
@@ -42,16 +50,6 @@ fn all_positions(width: usize, height: usize) -> HashSet<V2<usize>> {
     (0..width)
         .flat_map(|x| (0..height).map(move |y| v2(x, y)))
         .collect()
-}
-
-fn update_sim<T>(tx: &T, positions: HashSet<V2<usize>>)
-where
-    T: SendSim,
-{
-    tx.send_sim_background(move |sim| {
-        sim.refresh_positions(positions);
-        sim.update_homeland_population();
-    });
 }
 
 async fn redraw_all<T>(tx: &T)

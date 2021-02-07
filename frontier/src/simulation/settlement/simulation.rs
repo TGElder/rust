@@ -3,18 +3,17 @@ use commons::process::Step;
 
 use super::*;
 
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
-pub struct Simulation {
+pub struct SettlementSimulation {
     processors: Vec<Box<dyn Processor + Send>>,
     state: Option<State>,
 }
 
-impl Simulation {
-    pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> Simulation {
-        Simulation {
+impl SettlementSimulation {
+    pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> SettlementSimulation {
+        SettlementSimulation {
             processors,
             state: None,
         }
@@ -24,22 +23,6 @@ impl Simulation {
         self.state = Some(State {
             instructions: vec![],
         });
-    }
-
-    pub fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
-        if let Some(state) = &mut self.state {
-            state
-                .instructions
-                .push(Instruction::RefreshPositions(positions));
-        }
-    }
-
-    pub fn update_homeland_population(&mut self) {
-        if let Some(state) = &mut self.state {
-            state
-                .instructions
-                .push(Instruction::UpdateHomelandPopulation);
-        }
     }
 
     async fn process_instruction(&mut self, mut state: State) -> State {
@@ -75,7 +58,7 @@ fn get_path(path: &str) -> String {
 }
 
 #[async_trait]
-impl Step for Simulation {
+impl Step for SettlementSimulation {
     async fn step(&mut self) {
         let state = unwrap_or!(self.state.take(), return);
         let mut state = self.process_instruction(state).await;
@@ -115,10 +98,9 @@ mod tests {
         let retriever_2 = InstructionRetriever {
             instructions: instructions_2.clone(),
         };
-        let mut sim = Simulation::new(vec![Box::new(retriever_1), Box::new(retriever_2)]);
+        let mut sim = SettlementSimulation::new(vec![Box::new(retriever_1), Box::new(retriever_2)]);
         sim.state = Some(State {
             instructions: vec![Instruction::Step],
-            ..State::default()
         });
 
         // When
@@ -132,7 +114,7 @@ mod tests {
     #[test]
     fn should_add_step_instruction_if_instructions_are_empty() {
         // Given
-        let mut sim = Simulation::new(vec![]);
+        let mut sim = SettlementSimulation::new(vec![]);
         sim.state = Some(State::default());
 
         // When
@@ -157,10 +139,9 @@ mod tests {
             }
         }
 
-        let mut sim = Simulation::new(vec![Box::new(InstructionIntroducer {})]);
+        let mut sim = SettlementSimulation::new(vec![Box::new(InstructionIntroducer {})]);
         sim.state = Some(State {
             instructions: vec![Instruction::Step],
-            ..State::default()
         });
 
         // When
@@ -178,7 +159,7 @@ mod tests {
         // Given
         let file_name = "test_save.simulation.round_trip";
 
-        let mut sim_1 = Simulation::new(vec![]);
+        let mut sim_1 = SettlementSimulation::new(vec![]);
         sim_1.state = Some(State {
             instructions: vec![
                 Instruction::GetTerritory(v2(1, 1)),
@@ -189,7 +170,7 @@ mod tests {
         sim_1.save(file_name);
 
         // When
-        let mut sim_2 = Simulation::new(vec![]);
+        let mut sim_2 = SettlementSimulation::new(vec![]);
         sim_2.load(file_name);
 
         // Then
