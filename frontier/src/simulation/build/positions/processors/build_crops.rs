@@ -1,41 +1,29 @@
 use std::collections::{HashMap, HashSet};
 
 use commons::grid::Grid;
-use commons::rand::prelude::SmallRng;
-use commons::rand::{Rng, SeedableRng};
+use commons::rand::Rng;
 use commons::V2;
 
 use crate::build::{Build, BuildInstruction};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
+use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traffic::Traffic;
 use crate::traits::{InsertBuildInstruction, SendRoutes, SendWorld, WithTraffic};
 use crate::world::{World, WorldObject};
 
-pub struct BuildCrops<T> {
-    tx: T,
-    rng: SmallRng,
-}
-
-impl<T> BuildCrops<T>
+impl<T> PositionBuildSimulation<T>
 where
     T: InsertBuildInstruction + SendRoutes + SendWorld + WithTraffic,
 {
-    pub fn new(tx: T, seed: u64) -> BuildCrops<T> {
-        BuildCrops {
-            tx,
-            rng: SeedableRng::seed_from_u64(seed),
-        }
-    }
-
-    pub async fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
+    pub async fn build_crops(&mut self, positions: HashSet<V2<usize>>) {
         let crop_routes = self.get_crop_routes(positions).await;
         let crop_routes = self
             .filter_crop_routes_with_free_destination(crop_routes)
             .await;
 
         for (position, route_keys) in crop_routes {
-            self.process_position(position, route_keys).await;
+            self.build_crops_at_position(position, route_keys).await;
         }
     }
 
@@ -57,7 +45,11 @@ where
             .await
     }
 
-    async fn process_position(&mut self, position: V2<usize>, route_keys: HashSet<RouteKey>) {
+    async fn build_crops_at_position(
+        &mut self,
+        position: V2<usize>,
+        route_keys: HashSet<RouteKey>,
+    ) {
         self.tx
             .insert_build_instruction(BuildInstruction {
                 what: Build::Crops {
@@ -245,10 +237,10 @@ mod tests {
     #[test]
     fn should_build_crops_if_crop_route_ends_at_position() {
         // Given
-        let mut build_crops = BuildCrops::new(happy_path_tx(), 0);
+        let mut build_crops = PositionBuildSimulation::new(happy_path_tx(), 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(build_crops.build_crops(hashset! {v2(1, 1)}));
 
         // Then
         assert!(matches!(
@@ -279,25 +271,25 @@ mod tests {
                 },
             );
         }
-        let mut build_crops = BuildCrops::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 2)}));
+        block_on(sim.build_crops(hashset! {v2(1, 2)}));
 
         // Then
-        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_crops_if_crop_route_not_ending_at_position() {
         // Given
-        let mut build_crops = BuildCrops::new(happy_path_tx(), 0);
+        let mut sim = PositionBuildSimulation::new(happy_path_tx(), 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 0)}));
+        block_on(sim.build_crops(hashset! {v2(1, 0)}));
 
         // Then
-        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -308,13 +300,13 @@ mod tests {
             tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object =
                 WorldObject::Crop { rotated: true };
         }
-        let mut build_crops = BuildCrops::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -323,13 +315,13 @@ mod tests {
         let tx = happy_path_tx();
         *tx.traffic.lock().unwrap() = Traffic::new(3, 3, HashSet::new());
 
-        let mut build_crops = BuildCrops::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -342,13 +334,13 @@ mod tests {
             .set(&v2(1, 1), HashSet::new())
             .unwrap();
 
-        let mut build_crops = BuildCrops::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -357,12 +349,12 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.routes = Mutex::default();
 
-        let mut build_crops = BuildCrops::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_crops.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 }

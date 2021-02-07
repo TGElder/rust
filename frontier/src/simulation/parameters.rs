@@ -2,7 +2,7 @@ use std::default::Default;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 
 pub struct SimulationParameters {
     pub initial_town_population: f64,

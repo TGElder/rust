@@ -7,17 +7,13 @@ use commons::V2;
 use crate::build::{Build, BuildInstruction};
 use crate::route::{RouteKey, RoutesExt};
 use crate::settlement::{Settlement, SettlementClass};
+use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traits::{
     AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, SendRoutes, SendWorld,
     WithRouteToPorts, WithTraffic,
 };
 
-pub struct BuildTown<T> {
-    tx: T,
-    initial_town_population: f64,
-}
-
-impl<T> BuildTown<T>
+impl<T> PositionBuildSimulation<T>
 where
     T: AnyoneControls
         + GetSettlement
@@ -28,20 +24,13 @@ where
         + WithRouteToPorts
         + WithTraffic,
 {
-    pub fn new(tx: T, initial_town_population: f64) -> BuildTown<T> {
-        BuildTown {
-            tx,
-            initial_town_population,
-        }
-    }
-
-    pub async fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
+    pub async fn build_town(&self, positions: HashSet<V2<usize>>) {
         for position in positions {
-            self.process_position(position).await
+            self.build_town_at_position(position).await
         }
     }
 
-    async fn process_position(&self, position: V2<usize>) {
+    async fn build_town_at_position(&self, position: V2<usize>) {
         let (route_keys, anyone_controls_position, tiles) = join!(
             self.get_route_keys(&position),
             self.tx.anyone_controls(position),
@@ -364,10 +353,10 @@ mod tests {
     #[test]
     fn should_build_if_route_ends_at_position() {
         // Given
-        let build_town = BuildTown::new(happy_path_tx(), 1.1);
+        let build_town = PositionBuildSimulation::new(happy_path_tx(), 0, 1.1);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(build_town.build_town(hashset! {v2(1, 1)}));
 
         // Then
         let build_instructions = build_town.tx.build_instructions.lock().unwrap();
@@ -395,13 +384,13 @@ mod tests {
     #[test]
     fn should_not_build_for_any_route() {
         // Given
-        let build_town = BuildTown::new(happy_path_tx(), 0.0);
+        let sim = PositionBuildSimulation::new(happy_path_tx(), 0, 0.0);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 0)}));
+        block_on(sim.build_town(hashset! {v2(1, 0)}));
 
         // Then
-        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -413,13 +402,13 @@ mod tests {
             .unwrap()
             .insert(happy_path_route_key(), hashset! {v2(1, 0)});
 
-        let build_town = BuildTown::new(tx, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 0)}));
+        block_on(sim.build_town(hashset! {v2(1, 0)}));
 
         // Then
-        let build_instructions = build_town.tx.build_instructions.lock().unwrap();
+        let build_instructions = sim.tx.build_instructions.lock().unwrap();
         assert!(build_instructions.get(&BuildKey::Town(v2(0, 0))).is_some());
         assert!(build_instructions.get(&BuildKey::Town(v2(1, 0))).is_some());
     }
@@ -430,13 +419,13 @@ mod tests {
         let tx = happy_path_tx();
         *tx.traffic.lock().unwrap() = Vec2D::new(3, 3, HashSet::new());
 
-        let build_town = BuildTown::new(tx, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -453,13 +442,13 @@ mod tests {
             },
         );
 
-        let build_town = BuildTown::new(tx, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -474,13 +463,13 @@ mod tests {
             world.mut_cell_unsafe(&v2(1, 1)).visible = false;
         }
 
-        let build_town = BuildTown::new(tx, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -489,13 +478,13 @@ mod tests {
         let tx = happy_path_tx();
         *tx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
 
-        let build_town = BuildTown::new(tx, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -504,13 +493,13 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.anyone_controls = true;
 
-        let build_town = BuildTown::new(tx, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -519,13 +508,13 @@ mod tests {
         let tx = happy_path_tx();
         *tx.routes.lock().unwrap() = Routes::default();
 
-        let build_town = BuildTown::new(tx, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -534,12 +523,12 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.get_settlement = None;
 
-        let build_town = BuildTown::new(tx, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 }
