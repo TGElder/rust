@@ -51,7 +51,7 @@ pub struct Polysender {
     pub labels_tx: FnSender<Labels<Polysender>>,
     pub nations_tx: FnSender<Nations>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
-    pub parameters_tx: FnSender<Parameters>,
+    pub parameters: Arc<Parameters>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
     pub pathfinder_with_planned_roads_tx:
         FnSender<PathfinderService<Polysender, AvatarTravelDuration>>,
@@ -95,7 +95,7 @@ impl Polysender {
             labels_tx: self.labels_tx.clone_with_name(name),
             nations_tx: self.nations_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
-            parameters_tx: self.parameters_tx.clone_with_name(name),
+            parameters: self.parameters.clone(),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
                 .clone_with_name(name),
@@ -195,9 +195,7 @@ impl SendParameters for Polysender {
         O: Send + 'static,
         F: FnOnce(&Parameters) -> O + Send + 'static,
     {
-        self.parameters_tx
-            .send(move |params| function(params))
-            .await
+        function(&self.parameters)
     }
 }
 

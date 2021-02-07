@@ -56,7 +56,6 @@ pub struct System {
     pub labels: Process<Labels<Polysender>>,
     pub nations: Process<Nations>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
-    pub parameters: Process<Parameters>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
     pub pathfinder_with_planned_roads: Process<PathfinderService<Polysender, AvatarTravelDuration>>,
     pub pathfinder_without_planned_roads:
@@ -82,6 +81,8 @@ pub struct System {
 
 impl System {
     pub fn new(params: Parameters, engine: &mut IsometricEngine, pool: ThreadPool) -> System {
+        let params = Arc::new(params);
+
         let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
         let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();
         let (avatars_tx, avatars_rx) = fn_channel();
@@ -94,7 +95,6 @@ impl System {
         let (labels_tx, labels_rx) = fn_channel();
         let (nations_tx, nations_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
-        let (parameters_tx, parameters_rx) = fn_channel();
         let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
         let (pathfinder_without_planned_roads_tx, pathfinder_without_planned_roads_rx) =
             fn_channel();
@@ -132,7 +132,7 @@ impl System {
             labels_tx,
             nations_tx,
             object_builder_tx,
-            parameters_tx,
+            parameters: params.clone(),
             pathfinder_with_planned_roads_tx,
             pathfinder_without_planned_roads_tx,
             pathfinding_avatar_controls_tx,
@@ -412,7 +412,6 @@ impl System {
                 ),
                 world_artist_rx,
             ),
-            parameters: Process::new(params, parameters_rx),
         };
 
         config.send_init_messages();
@@ -471,7 +470,6 @@ impl System {
         self.avatars.run_passive(&self.pool).await;
         self.clock.run_passive(&self.pool).await;
         self.nations.run_passive(&self.pool).await;
-        self.parameters.run_passive(&self.pool).await;
         self.routes.run_passive(&self.pool).await;
         self.settlements.run_passive(&self.pool).await;
         self.territory.run_passive(&self.pool).await;
@@ -554,7 +552,6 @@ impl System {
         self.world.drain(&self.pool, true).await;
         self.territory.drain(&self.pool, true).await;
         self.settlements.drain(&self.pool, true).await;
-        self.parameters.drain(&self.pool, true).await;
         self.routes.drain(&self.pool, true).await;
         self.nations.drain(&self.pool, true).await;
         self.clock.drain(&self.pool, true).await;
@@ -566,7 +563,6 @@ impl System {
         self.clock.object_mut().unwrap().save(path);
         self.labels.object_ref().unwrap().save(path);
         self.nations.object_ref().unwrap().save(path);
-        self.parameters.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
         self.routes.object_ref().unwrap().save(path);
         self.settlement_sim.object_ref().unwrap().save(path);
@@ -585,6 +581,7 @@ impl System {
             .read()
             .await
             .save(&format!("{}.edge_traffic", path));
+        self.tx.parameters.save(&format!("{}.parameters", path));
         self.tx
             .route_to_ports
             .read()
