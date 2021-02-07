@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use commons::edge::Edge;
 
@@ -10,39 +11,10 @@ use crate::traits::{
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
 
-use super::*;
-
 pub struct BuildRoad<T, D> {
     tx: T,
     travel_duration: Arc<D>,
     road_build_threshold: usize,
-}
-
-#[async_trait]
-impl<T, D> Processor for BuildRoad<T, D>
-where
-    T: InsertBuildInstruction
-        + PlanRoad
-        + RoadPlanned
-        + SendRoutes
-        + SendWorld
-        + WithEdgeTraffic
-        + Send
-        + Sync
-        + 'static,
-    D: TravelDuration + 'static,
-{
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let edges = match instruction {
-            Instruction::RefreshEdges(edges) => edges.clone(),
-        };
-
-        for candidate in self.get_candidates(edges).await {
-            self.process_edge(candidate).await;
-        }
-
-        state
-    }
 }
 
 impl<T, D> BuildRoad<T, D>
@@ -58,6 +30,12 @@ where
         }
     }
 
+    pub async fn refresh_edges(&self, edges: &HashSet<Edge>) {
+        for candidate in self.get_candidates(edges.clone()).await {
+            self.process_edge(candidate).await;
+        }
+    }
+
     async fn get_candidates(&self, edges: HashSet<Edge>) -> Vec<Edge> {
         let travel_duration = self.travel_duration.clone();
         self.tx
@@ -65,7 +43,7 @@ where
             .await
     }
 
-    async fn process_edge(&mut self, edge: Edge) {
+    async fn process_edge(&self, edge: Edge) {
         let routes = self.get_route_summaries(&edge).await;
 
         if routes.iter().map(|route| route.traffic).sum::<usize>() < self.road_build_threshold {
@@ -173,6 +151,7 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
 
+    use commons::async_trait::async_trait;
     use commons::{v2, M, V2};
     use futures::executor::block_on;
 
@@ -362,13 +341,10 @@ mod tests {
     #[test]
     fn should_build_road_if_traffic_meets_threshold() {
         // Given
-        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration(), 8);
+        let build_road = BuildRoad::new(happy_path_tx(), happy_path_travel_duration(), 8);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
-        ));
+        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
@@ -376,12 +352,12 @@ mod tests {
             when: 11,
         }];
         assert_eq!(
-            *processor.tx.build_instructions.lock().unwrap(),
+            *build_road.tx.build_instructions.lock().unwrap(),
             expected_build_queue
         );
 
         assert_eq!(
-            *processor.tx.planned_roads.lock().unwrap(),
+            *build_road.tx.planned_roads.lock().unwrap(),
             vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
         );
     }
@@ -391,31 +367,25 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.edge_traffic = Mutex::default();
-        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
-        ));
+        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_if_traffic_below_threshold() {
         // Given
-        let mut processor = BuildRoad::new(happy_path_tx(), happy_path_travel_duration(), 8);
+        let build_road = BuildRoad::new(happy_path_tx(), happy_path_travel_duration(), 8);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshEdges(hashset! {Edge::new(v2(0, 0), v2(1, 0))}),
-        ));
+        block_on(build_road.refresh_edges(&hashset! {Edge::new(v2(0, 0), v2(1, 0))}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -426,16 +396,13 @@ mod tests {
             let mut world = tx.world.lock().unwrap();
             world.set_road(&happy_path_edge(), true);
         }
-        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
-        ));
+        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -443,16 +410,13 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.road_planned = Some(1);
-        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
-        ));
+        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -460,13 +424,10 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.road_planned = Some(12);
-        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
-        ));
+        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
@@ -474,32 +435,29 @@ mod tests {
             when: 11,
         }];
         assert_eq!(
-            *processor.tx.build_instructions.lock().unwrap(),
+            *build_road.tx.build_instructions.lock().unwrap(),
             expected_build_queue
         );
 
         assert_eq!(
-            *processor.tx.planned_roads.lock().unwrap(),
+            *build_road.tx.planned_roads.lock().unwrap(),
             vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
         );
     }
 
     #[test]
     fn should_not_build_if_road_not_possible() {
-        let mut processor = BuildRoad::new(
+        let build_road = BuildRoad::new(
             happy_path_tx(),
             Arc::new(MockTravelDuration { duration: None }),
             8,
         );
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
-        ));
+        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -507,15 +465,12 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.routes = Mutex::default();
-        let mut processor = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshEdges(hashset! {happy_path_edge()}),
-        ));
+        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
     }
 }

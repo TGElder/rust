@@ -1,46 +1,38 @@
 use commons::edge::Edge;
-use commons::process::Step;
 
-use super::*;
+use crate::simulation::build::edges::processors::{BuildRoad, RemoveRoad};
+use crate::traits::{
+    InsertBuildInstruction, IsRoad, PlanRoad, RemoveBuildInstruction,
+    RemoveRoad as RemoveRoadTrait, RoadPlanned, SendRoutes, SendWorld, WithEdgeTraffic,
+};
+use crate::travel_duration::TravelDuration;
 
 use std::collections::HashSet;
 
-pub struct EdgeBuildSimulation {
-    processors: Vec<Box<dyn Processor + Send>>,
-    state: Option<State>,
+pub struct EdgeBuildSimulation<T, D> {
+    pub build_road: BuildRoad<T, D>,
+    pub remove_road: RemoveRoad<T>,
 }
 
-impl EdgeBuildSimulation {
-    pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> EdgeBuildSimulation {
-        EdgeBuildSimulation {
-            processors,
-            state: Some(State {
-                instructions: vec![],
-            }),
-        }
-    }
-
-    pub fn refresh_edges(&mut self, edges: HashSet<Edge>) {
-        if let Some(state) = &mut self.state {
-            state.instructions.push(Instruction::RefreshEdges(edges));
-        }
-    }
-
-    async fn process_instruction(&mut self, mut state: State) -> State {
-        if let Some(instruction) = state.instructions.pop() {
-            for processor in self.processors.iter_mut() {
-                state = processor.process(state, &instruction).await;
-            }
-        }
-        state
-    }
-}
-
-#[async_trait]
-impl Step for EdgeBuildSimulation {
-    async fn step(&mut self) {
-        let state = unwrap_or!(self.state.take(), return);
-        let state = self.process_instruction(state).await;
-        self.state = Some(state);
+impl<T, D> EdgeBuildSimulation<T, D>
+where
+    T: InsertBuildInstruction
+        + IsRoad
+        + PlanRoad
+        + RemoveBuildInstruction
+        + RemoveRoadTrait
+        + RoadPlanned
+        + SendRoutes
+        + SendWorld
+        + WithEdgeTraffic
+        + Send
+        + Sync,
+    D: TravelDuration + 'static,
+{
+    pub async fn refresh_edges(&mut self, edges: HashSet<Edge>) {
+        join!(
+            self.build_road.refresh_edges(&edges),
+            self.remove_road.refresh_edges(&edges),
+        );
     }
 }
