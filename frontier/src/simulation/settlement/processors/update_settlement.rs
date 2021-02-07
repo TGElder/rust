@@ -3,7 +3,7 @@ use commons::V2;
 
 use crate::simulation::settlement::instruction::Instruction;
 use crate::simulation::settlement::processor::Processor;
-use crate::simulation::settlement::processors::GetTownTraffic;
+use crate::simulation::settlement::processors::{GetTownTraffic, UpdateTown};
 use crate::simulation::settlement::state::State;
 use crate::traits::{
     Controlled, GetSettlement, SendRoutes, SendSettlements,
@@ -19,6 +19,7 @@ pub struct UpdateSettlement<T> {
     pub get_territory: GetTerritory<T>,
     pub get_town_traffic: GetTownTraffic<T>,
     pub update_homeland: UpdateHomeland<T>,
+    pub update_town: UpdateTown<T>,
 }
 
 #[async_trait]
@@ -70,10 +71,8 @@ where
         let settlement = unwrap_or!(self.tx.get_settlement(*town).await, return vec![]);
         let territory = self.get_territory.get_territory(town).await;
         let traffic = self.get_town_traffic.get_town_traffic(&territory).await;
+        self.update_town.update_town(&settlement, &traffic).await;
 
-        vec![Instruction::UpdateTown {
-            settlement,
-            traffic,
-        }]
+        vec![Instruction::UpdateCurrentPopulation(*town)]
     }
 }
