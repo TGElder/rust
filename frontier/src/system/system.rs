@@ -25,7 +25,6 @@ use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::build::edges::processors::{BuildRoad, RemoveRoad};
 use crate::simulation::build::edges::EdgeBuildSimulation;
-use crate::simulation::build::positions::processors::{BuildCrops, BuildTown, RemoveCrops};
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::demand_fn::{homeland_demand_fn, town_demand_fn};
 use crate::simulation::settlement::processors::{
@@ -273,14 +272,11 @@ impl System {
                 pathfinding_avatar_controls_rx,
             ),
             position_sim: Process::new(
-                PositionBuildSimulation {
-                    build_crops: BuildCrops::new(tx.clone_with_name("build_crops"), params.seed),
-                    build_town: BuildTown::new(
-                        tx.clone_with_name("build_town"),
-                        params.simulation.initial_town_population,
-                    ),
-                    remove_crops: RemoveCrops::new(tx.clone_with_name("remove_crops")),
-                },
+                PositionBuildSimulation::new(
+                    tx.clone_with_name("position_sim"),
+                    0,
+                    params.simulation.initial_town_population,
+                ),
                 position_sim_rx,
             ),
             prime_mover: Process::new(

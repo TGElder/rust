@@ -5,25 +5,18 @@ use commons::V2;
 
 use crate::build::BuildKey;
 use crate::resource::Resource;
+use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traffic::Traffic;
 use crate::traits::{
     GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, SendWorld, WithTraffic,
 };
 use crate::world::{World, WorldCell, WorldObject};
 
-pub struct RemoveCrops<T> {
-    tx: T,
-}
-
-impl<T> RemoveCrops<T>
+impl<T> PositionBuildSimulation<T>
 where
     T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + SendWorld + WithTraffic,
 {
-    pub fn new(tx: T) -> RemoveCrops<T> {
-        RemoveCrops { tx }
-    }
-
-    pub async fn refresh_positions(&self, mut positions: HashSet<V2<usize>>) {
+    pub async fn remove_crops(&self, mut positions: HashSet<V2<usize>>) {
         self.filter_without_crop_routes(&mut positions).await;
 
         for position in positions.iter() {
@@ -181,14 +174,14 @@ mod tests {
     fn should_remove_crops_if_no_traffic() {
         // Given
         let tx = happy_path_tx();
-        let build_crops = RemoveCrops::new(tx);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
         assert_eq!(
-            *build_crops.tx.removed_world_objects.lock().unwrap(),
+            *sim.tx.removed_world_objects.lock().unwrap(),
             vec![v2(1, 1)]
         );
     }
@@ -212,14 +205,14 @@ mod tests {
             )
             .unwrap();
 
-        let build_crops = RemoveCrops::new(tx);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
         assert_eq!(
-            *build_crops.tx.removed_world_objects.lock().unwrap(),
+            *sim.tx.removed_world_objects.lock().unwrap(),
             vec![v2(1, 1)]
         );
     }
@@ -237,14 +230,14 @@ mod tests {
         });
         tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
-        let build_crops = RemoveCrops::new(tx);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
         assert_eq!(
-            *build_crops.tx.removed_build_instructions.lock().unwrap(),
+            *sim.tx.removed_build_instructions.lock().unwrap(),
             hashset! { BuildKey::Crops(v2(1, 1)) }
         );
     }
@@ -268,18 +261,13 @@ mod tests {
             )
             .unwrap();
 
-        let build_crops = RemoveCrops::new(tx);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_crops
-            .tx
-            .removed_world_objects
-            .lock()
-            .unwrap()
-            .is_empty());
+        assert!(sim.tx.removed_world_objects.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -309,17 +297,12 @@ mod tests {
             .unwrap();
         tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
-        let build_crops = RemoveCrops::new(tx);
+        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
 
         // When
-        block_on(build_crops.refresh_positions(hashset! {v2(1, 1)}));
+        block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(build_crops
-            .tx
-            .removed_build_instructions
-            .lock()
-            .unwrap()
-            .is_empty());
+        assert!(sim.tx.removed_build_instructions.lock().unwrap().is_empty());
     }
 }
