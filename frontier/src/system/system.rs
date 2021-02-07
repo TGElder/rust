@@ -304,11 +304,13 @@ impl System {
                     Box::new(UpdateSettlement {
                         tx: tx.clone_with_name("update_settlement"),
                         get_territory: GetTerritory::new(tx.clone_with_name("get_territory")),
+                        get_town_traffic: GetTownTraffic::new(
+                            tx.clone_with_name("get_town_traffic"),
+                        ),
                     }),
                     Box::new(InstructionLogger::new()),
                     Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
                     Box::new(StepTown::new(tx.clone_with_name("step_town"))),
-                    Box::new(GetTownTraffic::new(tx.clone_with_name("get_town_traffic"))),
                     Box::new(UpdateTown::new(
                         tx.clone_with_name("update_town"),
                         params.simulation.traffic_to_population,
