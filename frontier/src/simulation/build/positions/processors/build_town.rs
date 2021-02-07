@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use commons::grid::Grid;
+use commons::V2;
 
 use crate::build::{Build, BuildInstruction};
 use crate::route::{RouteKey, RoutesExt};
@@ -11,38 +12,9 @@ use crate::traits::{
     WithRouteToPorts, WithTraffic,
 };
 
-use super::*;
 pub struct BuildTown<T> {
     tx: T,
     initial_town_population: f64,
-}
-
-#[async_trait]
-impl<T> Processor for BuildTown<T>
-where
-    T: AnyoneControls
-        + GetSettlement
-        + InsertBuildInstruction
-        + RandomTownName
-        + SendRoutes
-        + SendWorld
-        + WithRouteToPorts
-        + WithTraffic
-        + Send
-        + Sync
-        + 'static,
-{
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let positions = match instruction {
-            Instruction::RefreshPositions(positions) => positions.clone(),
-        };
-
-        for position in positions {
-            self.process_position(position).await
-        }
-
-        state
-    }
 }
 
 impl<T> BuildTown<T>
@@ -63,7 +35,13 @@ where
         }
     }
 
-    async fn process_position(&mut self, position: V2<usize>) {
+    pub async fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
+        for position in positions {
+            self.process_position(position).await
+        }
+    }
+
+    async fn process_position(&self, position: V2<usize>) {
         let (route_keys, anyone_controls_position, tiles) = join!(
             self.get_route_keys(&position),
             self.tx.anyone_controls(position),
@@ -198,6 +176,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
     use std::sync::Mutex;
 
+    use commons::async_trait::async_trait;
     use commons::index2d::Vec2D;
     use commons::{v2, M};
     use futures::executor::block_on;
@@ -205,6 +184,7 @@ mod tests {
     use crate::build::BuildKey;
     use crate::resource::Resource;
     use crate::route::{Route, Routes, RoutesExt};
+    use crate::traffic::Traffic;
     use crate::traits::NationNotFound;
     use crate::world::World;
 
@@ -384,16 +364,13 @@ mod tests {
     #[test]
     fn should_build_if_route_ends_at_position() {
         // Given
-        let mut processor = BuildTown::new(happy_path_tx(), 1.1);
+        let build_town = BuildTown::new(happy_path_tx(), 1.1);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        let build_instructions = processor.tx.build_instructions.lock().unwrap();
+        let build_instructions = build_town.tx.build_instructions.lock().unwrap();
         assert_eq!(
             *build_instructions.get(&BuildKey::Town(v2(1, 1))).unwrap(),
             BuildInstruction {
@@ -418,16 +395,13 @@ mod tests {
     #[test]
     fn should_not_build_for_any_route() {
         // Given
-        let mut processor = BuildTown::new(happy_path_tx(), 0.0);
+        let build_town = BuildTown::new(happy_path_tx(), 0.0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 0)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 0)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -439,16 +413,13 @@ mod tests {
             .unwrap()
             .insert(happy_path_route_key(), hashset! {v2(1, 0)});
 
-        let mut processor = BuildTown::new(tx, 0.0);
+        let build_town = BuildTown::new(tx, 0.0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 0)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 0)}));
 
         // Then
-        let build_instructions = processor.tx.build_instructions.lock().unwrap();
+        let build_instructions = build_town.tx.build_instructions.lock().unwrap();
         assert!(build_instructions.get(&BuildKey::Town(v2(0, 0))).is_some());
         assert!(build_instructions.get(&BuildKey::Town(v2(1, 0))).is_some());
     }
@@ -459,16 +430,13 @@ mod tests {
         let tx = happy_path_tx();
         *tx.traffic.lock().unwrap() = Vec2D::new(3, 3, HashSet::new());
 
-        let mut processor = BuildTown::new(tx, 0.0);
+        let build_town = BuildTown::new(tx, 0.0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -485,16 +453,13 @@ mod tests {
             },
         );
 
-        let mut processor = BuildTown::new(tx, 0.0);
+        let build_town = BuildTown::new(tx, 0.0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -509,16 +474,13 @@ mod tests {
             world.mut_cell_unsafe(&v2(1, 1)).visible = false;
         }
 
-        let mut processor = BuildTown::new(tx, 0.0);
+        let build_town = BuildTown::new(tx, 0.0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -527,16 +489,13 @@ mod tests {
         let tx = happy_path_tx();
         *tx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
 
-        let mut processor = BuildTown::new(tx, 0.0);
+        let build_town = BuildTown::new(tx, 0.0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -545,16 +504,13 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.anyone_controls = true;
 
-        let mut processor = BuildTown::new(tx, 0.0);
+        let build_town = BuildTown::new(tx, 0.0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -563,16 +519,13 @@ mod tests {
         let tx = happy_path_tx();
         *tx.routes.lock().unwrap() = Routes::default();
 
-        let mut processor = BuildTown::new(tx, 0.0);
+        let build_town = BuildTown::new(tx, 0.0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -581,15 +534,12 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.get_settlement = None;
 
-        let mut processor = BuildTown::new(tx, 0.0);
+        let build_town = BuildTown::new(tx, 0.0);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::RefreshPositions(hashset! {v2(1, 1)}),
-        ));
+        block_on(build_town.refresh_positions(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(processor.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(build_town.tx.build_instructions.lock().unwrap().is_empty());
     }
 }
