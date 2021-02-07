@@ -1,6 +1,7 @@
+use commons::rand::prelude::SmallRng;
+use commons::rand::SeedableRng;
 use commons::V2;
 
-use crate::simulation::build::positions::processors::{BuildCrops, BuildTown, RemoveCrops};
 use crate::traits::{
     AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, RandomTownName,
     RemoveBuildInstruction, RemoveWorldObject, SendRoutes, SendWorld, WithRouteToPorts,
@@ -10,9 +11,19 @@ use crate::traits::{
 use std::collections::HashSet;
 
 pub struct PositionBuildSimulation<T> {
-    pub build_crops: BuildCrops<T>,
-    pub build_town: BuildTown<T>,
-    pub remove_crops: RemoveCrops<T>,
+    pub(super) tx: T,
+    pub(super) rng: SmallRng,
+    pub(super) initial_town_population: f64,
+}
+
+impl<T> PositionBuildSimulation<T> {
+    pub fn new(tx: T, seed: u64, initial_town_population: f64) -> PositionBuildSimulation<T> {
+        PositionBuildSimulation {
+            tx,
+            rng: SeedableRng::seed_from_u64(seed),
+            initial_town_population,
+        }
+    }
 }
 
 impl<T> PositionBuildSimulation<T>
@@ -30,10 +41,10 @@ where
         + WithTraffic,
 {
     pub async fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
+        self.build_crops(positions.clone()).await;
         join!(
-            self.build_crops.refresh_positions(positions.clone()),
-            self.build_town.refresh_positions(positions.clone()),
-            self.remove_crops.refresh_positions(positions),
+            self.build_town(positions.clone()),
+            self.remove_crops(positions),
         );
     }
 }
