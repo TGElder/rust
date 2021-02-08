@@ -23,7 +23,6 @@ use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
-use crate::simulation::build::edges::processors::{BuildRoad, RemoveRoad};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::demand_fn::{homeland_demand_fn, town_demand_fn};
@@ -219,14 +218,10 @@ impl System {
             cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
             clock: Process::new(Clock::new(RealTime {}, params.default_speed), clock_rx),
             edge_sim: Process::new(
-                EdgeBuildSimulation {
-                    build_road: BuildRoad::new(
-                        tx.clone_with_name("build_road"),
-                        road_build_travel_duration,
-                        params.simulation.road_build_threshold,
-                    ),
-                    remove_road: RemoveRoad::new(tx.clone_with_name("remove_road")),
-                },
+                EdgeBuildSimulation::new(
+                    tx.clone_with_name("edge_sim"),
+                    road_build_travel_duration,
+                ),
                 edge_sim_rx,
             ),
             event_forwarder: Process::new(
