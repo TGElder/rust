@@ -4,26 +4,19 @@ use commons::edge::Edge;
 
 use crate::build::BuildKey;
 use crate::route::RouteKey;
+use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::{
     IsRoad, PlanRoad, RemoveBuildInstruction, RemoveRoad as RemoveRoadTrait, RoadPlanned,
     WithEdgeTraffic,
 };
 
-pub struct RemoveRoad<T> {
-    tx: T,
-}
-
-impl<T> RemoveRoad<T>
+impl<T, D> EdgeBuildSimulation<T, D>
 where
     T: IsRoad + PlanRoad + RemoveBuildInstruction + RemoveRoadTrait + RoadPlanned + WithEdgeTraffic,
 {
-    pub fn new(tx: T) -> RemoveRoad<T> {
-        RemoveRoad { tx }
-    }
-
-    pub async fn refresh_edges(&self, edges: &HashSet<Edge>) {
+    pub async fn remove_road(&self, edges: &HashSet<Edge>) {
         for edge in self.get_edges_with_no_traffic(edges).await {
-            self.process_edge(edge).await;
+            self.remove_road_from_edge(edge).await;
         }
     }
 
@@ -39,7 +32,7 @@ where
             .await
     }
 
-    async fn process_edge(&self, edge: &Edge) {
+    async fn remove_road_from_edge(&self, edge: &Edge) {
         if !self.tx.is_road(*edge).await && self.tx.road_planned(*edge).await.is_none() {
             return;
         }
@@ -62,7 +55,7 @@ fn traffic_is_empty(traffic: Option<&HashSet<RouteKey>>) -> bool {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
 
     use commons::async_trait::async_trait;
     use commons::v2;
@@ -147,13 +140,13 @@ mod tests {
             ..Tx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let remove_road = RemoveRoad::new(tx);
+        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
 
         // When
-        block_on(remove_road.refresh_edges(&hashset! {edge}));
+        block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert_eq!(*remove_road.tx.removed_roads.lock().unwrap(), vec![edge]);
+        assert_eq!(*sim.tx.removed_roads.lock().unwrap(), vec![edge]);
     }
 
     #[test]
@@ -164,16 +157,13 @@ mod tests {
             ..Tx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let remove_road = RemoveRoad::new(tx);
+        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
 
         // When
-        block_on(remove_road.refresh_edges(&hashset! {edge}));
+        block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert_eq!(
-            *remove_road.tx.planned_roads.lock().unwrap(),
-            vec![(edge, None)]
-        );
+        assert_eq!(*sim.tx.planned_roads.lock().unwrap(), vec![(edge, None)]);
     }
 
     #[test]
@@ -186,14 +176,14 @@ mod tests {
 
         let edge = Edge::new(v2(0, 0), v2(1, 0));
 
-        let remove_road = RemoveRoad::new(tx);
+        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
 
         // When
-        block_on(remove_road.refresh_edges(&hashset! {edge}));
+        block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
         assert_eq!(
-            *remove_road.tx.removed_build_instructions.lock().unwrap(),
+            *sim.tx.removed_build_instructions.lock().unwrap(),
             hashset! {BuildKey::Road(edge)}
         );
     }
@@ -218,20 +208,15 @@ mod tests {
             }
         };
 
-        let remove_road = RemoveRoad::new(tx);
+        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
 
         // When
-        block_on(remove_road.refresh_edges(&hashset! {edge}));
+        block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert!(remove_road
-            .tx
-            .removed_build_instructions
-            .lock()
-            .unwrap()
-            .is_empty());
-        assert!(remove_road.tx.removed_roads.lock().unwrap().is_empty());
-        assert!(remove_road.tx.planned_roads.lock().unwrap().is_empty());
+        assert!(sim.tx.removed_build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.removed_roads.lock().unwrap().is_empty());
+        assert!(sim.tx.planned_roads.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -245,13 +230,13 @@ mod tests {
         *tx.edge_traffic.lock().unwrap() = hashmap! {
             edge => hashset!{}
         };
-        let remove_road = RemoveRoad::new(tx);
+        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
 
         // When
-        block_on(remove_road.refresh_edges(&hashset! {edge}));
+        block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert_eq!(*remove_road.tx.removed_roads.lock().unwrap(), vec![edge]);
+        assert_eq!(*sim.tx.removed_roads.lock().unwrap(), vec![edge]);
     }
 
     #[test]
@@ -263,13 +248,13 @@ mod tests {
             ..Tx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let remove_road = RemoveRoad::new(tx);
+        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
 
         // When
-        block_on(remove_road.refresh_edges(&hashset! {edge}));
+        block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert_eq!(*remove_road.tx.removed_roads.lock().unwrap(), vec![]);
-        assert_eq!(*remove_road.tx.planned_roads.lock().unwrap(), vec![]);
+        assert_eq!(*sim.tx.removed_roads.lock().unwrap(), vec![]);
+        assert_eq!(*sim.tx.planned_roads.lock().unwrap(), vec![]);
     }
 }

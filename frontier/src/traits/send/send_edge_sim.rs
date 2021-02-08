@@ -2,6 +2,7 @@ use commons::async_trait::async_trait;
 use futures::future::BoxFuture;
 
 use crate::simulation::build::edges::EdgeBuildSimulation;
+use crate::traits::has::HasParameters;
 use crate::traits::{
     InsertBuildInstruction, IsRoad, PlanRoad, RemoveBuildInstruction, RemoveRoad, RoadPlanned,
     SendRoutes, SendWorld, WithEdgeTraffic,
@@ -10,7 +11,8 @@ use crate::travel_duration::TravelDuration;
 
 #[async_trait]
 pub trait SendEdgeBuildSim:
-    InsertBuildInstruction
+    HasParameters
+    + InsertBuildInstruction
     + IsRoad
     + PlanRoad
     + RemoveBuildInstruction

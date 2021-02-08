@@ -5,34 +5,30 @@ use commons::edge::Edge;
 
 use crate::build::{Build, BuildInstruction};
 use crate::route::{Route, RouteKey, Routes, RoutesExt};
+use crate::simulation::build::edges::EdgeBuildSimulation;
+use crate::traits::has::HasParameters;
 use crate::traits::{
     InsertBuildInstruction, PlanRoad, RoadPlanned, SendRoutes, SendWorld, WithEdgeTraffic,
 };
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
 
-pub struct BuildRoad<T, D> {
-    tx: T,
-    travel_duration: Arc<D>,
-    road_build_threshold: usize,
-}
-
-impl<T, D> BuildRoad<T, D>
+impl<T, D> EdgeBuildSimulation<T, D>
 where
-    T: InsertBuildInstruction + PlanRoad + RoadPlanned + SendRoutes + SendWorld + WithEdgeTraffic,
+    T: HasParameters
+        + InsertBuildInstruction
+        + PlanRoad
+        + RoadPlanned
+        + SendRoutes
+        + SendWorld
+        + WithEdgeTraffic,
     D: TravelDuration + 'static,
 {
-    pub fn new(tx: T, travel_duration: Arc<D>, road_build_threshold: usize) -> BuildRoad<T, D> {
-        BuildRoad {
-            tx,
-            travel_duration,
-            road_build_threshold,
-        }
-    }
+    pub async fn build_road(&self, edges: &HashSet<Edge>) {
+        let threshold = self.tx.parameters().simulation.road_build_threshold;
 
-    pub async fn refresh_edges(&self, edges: &HashSet<Edge>) {
         for candidate in self.get_candidates(edges.clone()).await {
-            self.process_edge(candidate).await;
+            self.build_road_on_edge(candidate, threshold).await;
         }
     }
 
@@ -43,14 +39,14 @@ where
             .await
     }
 
-    async fn process_edge(&self, edge: Edge) {
+    async fn build_road_on_edge(&self, edge: Edge, threshold: usize) {
         let routes = self.get_route_summaries(&edge).await;
 
-        if routes.iter().map(|route| route.traffic).sum::<usize>() < self.road_build_threshold {
+        if routes.iter().map(|route| route.traffic).sum::<usize>() < threshold {
             return;
         }
 
-        let when = self.get_when(routes);
+        let when = self.get_when(routes, threshold);
 
         if !self.try_plan_road(edge, when).await {
             return;
@@ -81,18 +77,18 @@ where
             .await
     }
 
-    fn get_when(&self, mut routes: Vec<RouteSummary>) -> u128 {
+    fn get_when(&self, mut routes: Vec<RouteSummary>, threshold: usize) -> u128 {
         routes.sort_by_key(|route| route.first_visit);
         let mut traffic_cum = 0;
         for route in routes {
             traffic_cum += route.traffic;
-            if traffic_cum >= self.road_build_threshold {
+            if traffic_cum >= threshold {
                 return route.first_visit;
             }
         }
         panic!(
             "Total traffic {} does not exceed threshold for building road {}",
-            traffic_cum, self.road_build_threshold
+            traffic_cum, threshold
         );
     }
 
@@ -155,6 +151,7 @@ mod tests {
     use commons::{v2, M, V2};
     use futures::executor::block_on;
 
+    use crate::parameters::Parameters;
     use crate::resource::Resource;
     use crate::route::{RouteKey, Routes, RoutesExt};
     use crate::traffic::EdgeTraffic;
@@ -164,10 +161,17 @@ mod tests {
     struct Tx {
         build_instructions: Mutex<Vec<BuildInstruction>>,
         edge_traffic: Mutex<EdgeTraffic>,
+        parameters: Parameters,
         planned_roads: Mutex<Vec<(Edge, Option<u128>)>>,
         road_planned: Option<u128>,
         routes: Mutex<Routes>,
         world: Mutex<World>,
+    }
+
+    impl HasParameters for Tx {
+        fn parameters(&self) -> &Parameters {
+            &self.parameters
+        }
     }
 
     #[async_trait]
@@ -264,34 +268,6 @@ mod tests {
     }
 
     fn happy_path_tx() -> Tx {
-        let mut routes = Routes::default();
-        routes.insert_route(
-            RouteKey {
-                settlement: v2(0, 0),
-                resource: Resource::Truffles,
-                destination: v2(1, 1),
-            },
-            Route {
-                path: vec![v2(0, 0), v2(1, 0), v2(1, 1)],
-                start_micros: 1,
-                duration: Duration::from_micros(10),
-                traffic: 4,
-            },
-        );
-        routes.insert_route(
-            RouteKey {
-                settlement: v2(2, 0),
-                resource: Resource::Truffles,
-                destination: v2(1, 1),
-            },
-            Route {
-                path: vec![v2(2, 0), v2(1, 0), v2(1, 1)],
-                start_micros: 2,
-                duration: Duration::from_micros(7),
-                traffic: 4,
-            },
-        );
-
         let edge_traffic = hashmap! {
             Edge::new(v2(0, 0), v2(1, 0)) => hashset!{
                 RouteKey{
@@ -320,11 +296,43 @@ mod tests {
             },
         };
 
+        let mut parameters = Parameters::default();
+        parameters.simulation.road_build_threshold = 8;
+
+        let mut routes = Routes::default();
+        routes.insert_route(
+            RouteKey {
+                settlement: v2(0, 0),
+                resource: Resource::Truffles,
+                destination: v2(1, 1),
+            },
+            Route {
+                path: vec![v2(0, 0), v2(1, 0), v2(1, 1)],
+                start_micros: 1,
+                duration: Duration::from_micros(10),
+                traffic: 4,
+            },
+        );
+        routes.insert_route(
+            RouteKey {
+                settlement: v2(2, 0),
+                resource: Resource::Truffles,
+                destination: v2(1, 1),
+            },
+            Route {
+                path: vec![v2(2, 0), v2(1, 0), v2(1, 1)],
+                start_micros: 2,
+                duration: Duration::from_micros(7),
+                traffic: 4,
+            },
+        );
+
         let world = World::new(M::from_element(3, 3, 1.0), 0.5);
 
         Tx {
             build_instructions: Mutex::default(),
             edge_traffic: Mutex::new(edge_traffic),
+            parameters,
             planned_roads: Mutex::default(),
             road_planned: None,
             routes: Mutex::new(routes),
@@ -341,10 +349,10 @@ mod tests {
     #[test]
     fn should_build_road_if_traffic_meets_threshold() {
         // Given
-        let build_road = BuildRoad::new(happy_path_tx(), happy_path_travel_duration(), 8);
+        let sim = EdgeBuildSimulation::new(happy_path_tx(), happy_path_travel_duration());
 
         // When
-        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
+        block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
@@ -352,12 +360,12 @@ mod tests {
             when: 11,
         }];
         assert_eq!(
-            *build_road.tx.build_instructions.lock().unwrap(),
+            *sim.tx.build_instructions.lock().unwrap(),
             expected_build_queue
         );
 
         assert_eq!(
-            *build_road.tx.planned_roads.lock().unwrap(),
+            *sim.tx.planned_roads.lock().unwrap(),
             vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
         );
     }
@@ -367,25 +375,25 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.edge_traffic = Mutex::default();
-        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
 
         // When
-        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
+        block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_if_traffic_below_threshold() {
         // Given
-        let build_road = BuildRoad::new(happy_path_tx(), happy_path_travel_duration(), 8);
+        let sim = EdgeBuildSimulation::new(happy_path_tx(), happy_path_travel_duration());
 
         // When
-        block_on(build_road.refresh_edges(&hashset! {Edge::new(v2(0, 0), v2(1, 0))}));
+        block_on(sim.build_road(&hashset! {Edge::new(v2(0, 0), v2(1, 0))}));
 
         // Then
-        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -396,13 +404,13 @@ mod tests {
             let mut world = tx.world.lock().unwrap();
             world.set_road(&happy_path_edge(), true);
         }
-        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
 
         // When
-        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
+        block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -410,13 +418,13 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.road_planned = Some(1);
-        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
 
         // When
-        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
+        block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -424,10 +432,10 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.road_planned = Some(12);
-        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
 
         // When
-        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
+        block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
@@ -435,29 +443,27 @@ mod tests {
             when: 11,
         }];
         assert_eq!(
-            *build_road.tx.build_instructions.lock().unwrap(),
+            *sim.tx.build_instructions.lock().unwrap(),
             expected_build_queue
         );
-
         assert_eq!(
-            *build_road.tx.planned_roads.lock().unwrap(),
+            *sim.tx.planned_roads.lock().unwrap(),
             vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
         );
     }
 
     #[test]
     fn should_not_build_if_road_not_possible() {
-        let build_road = BuildRoad::new(
+        let sim = EdgeBuildSimulation::new(
             happy_path_tx(),
             Arc::new(MockTravelDuration { duration: None }),
-            8,
         );
 
         // When
-        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
+        block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -465,12 +471,12 @@ mod tests {
         // Given
         let mut tx = happy_path_tx();
         tx.routes = Mutex::default();
-        let build_road = BuildRoad::new(tx, happy_path_travel_duration(), 8);
+        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
 
         // When
-        block_on(build_road.refresh_edges(&hashset! {happy_path_edge()}));
+        block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(build_road.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
     }
 }
