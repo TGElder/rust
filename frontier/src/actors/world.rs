@@ -26,9 +26,9 @@ where
     pub async fn new_game(&mut self) {
         let params = self.tx.parameters();
         let mut rng = rng(params.seed);
-        let mut state = generate_world(params.power, &mut rng, &params.world_gen);
+        self.state = generate_world(params.power, &mut rng, &params.world_gen);
         if params.reveal_all {
-            state.reveal_all();
+            self.state.reveal_all();
         }
     }
 
