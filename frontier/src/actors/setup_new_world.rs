@@ -3,9 +3,9 @@ use crate::homeland_start::{HomelandEdge, HomelandStart, HomelandStartGen};
 use crate::nation::{skin_colors, Nation, NationDescription};
 use crate::parameters::HomelandParams;
 use crate::settlement::{Settlement, SettlementClass};
+use crate::traits::has::HasParameters;
 use crate::traits::{
-    SendAvatars, SendNations, SendParameters, SendSettlements, SendWorld, Visibility,
-    VisibleLandPositions,
+    SendAvatars, SendNations, SendSettlements, SendWorld, Visibility, VisibleLandPositions,
 };
 use crate::world::World;
 use commons::grid::Grid;
@@ -23,9 +23,9 @@ pub struct SetupNewWorld<T> {
 
 impl<T> SetupNewWorld<T>
 where
-    T: SendAvatars
+    T: HasParameters
+        + SendAvatars
         + SendNations
-        + SendParameters
         + SendSettlements
         + SendWorld
         + Visibility
@@ -36,36 +36,27 @@ where
     }
 
     pub async fn new_game(&self) {
-        let (avatar_color, homeland_params, homeland_distance, nations, seed) = self
-            .tx
-            .send_parameters(|params| {
-                (
-                    params.avatar_color,
-                    params.homeland.clone(),
-                    params.homeland_distance,
-                    params.nations.clone(),
-                    params.seed,
-                )
-            })
-            .await;
-        let mut rng: SmallRng = SeedableRng::seed_from_u64(seed);
+        let params = self.tx.parameters();
+        let mut rng: SmallRng = SeedableRng::seed_from_u64(params.seed);
 
-        let homeland_starts = self.gen_homeland_starts(rng.clone(), homeland_params).await;
+        let homeland_starts = self
+            .gen_homeland_starts(rng.clone(), params.homeland.clone())
+            .await;
 
         let avatars = self
             .gen_avatar(
                 homeland_starts[0].pre_landfall,
-                avatar_color,
+                params.avatar_color,
                 avatar_skin_color(&mut rng),
             )
             .await;
-        let nations = gen_nations(&mut rng, &nations, &homeland_starts.len());
+        let nations = gen_nations(&mut rng, &params.nations, &homeland_starts.len());
         let initial_homeland_population = self
             .initial_homeland_population(&homeland_starts.len())
             .await;
         let homelands = self
             .gen_homelands(
-                &homeland_distance,
+                &params.homeland_distance,
                 &homeland_starts,
                 &nations,
                 initial_homeland_population,

@@ -8,6 +8,7 @@ use crate::build::{Build, BuildInstruction};
 use crate::route::{RouteKey, RoutesExt};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::build::positions::PositionBuildSimulation;
+use crate::traits::has::HasParameters;
 use crate::traits::{
     AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, SendRoutes, SendWorld,
     WithRouteToPorts, WithTraffic,
@@ -17,6 +18,7 @@ impl<T> PositionBuildSimulation<T>
 where
     T: AnyoneControls
         + GetSettlement
+        + HasParameters
         + InsertBuildInstruction
         + RandomTownName
         + SendRoutes
@@ -50,6 +52,7 @@ where
         let settlement = unwrap_or!(self.tx.get_settlement(route.settlement).await, return);
         let nation = settlement.nation;
         let name = ok_or!(self.tx.random_town_name(nation.clone()).await, return);
+        let initial_town_population = self.tx.parameters().simulation.initial_town_population;
 
         for tile in tiles {
             let settlement = Settlement {
@@ -57,8 +60,8 @@ where
                 position: tile,
                 name: name.clone(),
                 nation: nation.clone(),
-                current_population: self.initial_town_population,
-                target_population: self.initial_town_population,
+                current_population: initial_town_population,
+                target_population: initial_town_population,
                 gap_half_life: Duration::from_millis(0),
                 last_population_update_micros: route.first_visit,
             };
@@ -171,6 +174,7 @@ mod tests {
     use futures::executor::block_on;
 
     use crate::build::BuildKey;
+    use crate::parameters::Parameters;
     use crate::resource::Resource;
     use crate::route::{Route, Routes, RoutesExt};
     use crate::traffic::Traffic;
@@ -183,6 +187,7 @@ mod tests {
         anyone_controls: bool,
         build_instructions: Mutex<HashMap<BuildKey, BuildInstruction>>,
         get_settlement: Option<Settlement>,
+        parameters: Parameters,
         random_town_name: String,
         route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
         routes: Mutex<Routes>,
@@ -198,6 +203,7 @@ mod tests {
                 anyone_controls: false,
                 build_instructions: Mutex::default(),
                 get_settlement: None,
+                parameters: Parameters::default(),
                 random_town_name: String::default(),
                 route_to_ports: Mutex::default(),
                 routes: Mutex::default(),
@@ -218,6 +224,12 @@ mod tests {
     impl GetSettlement for Tx {
         async fn get_settlement(&self, _: V2<usize>) -> Option<Settlement> {
             self.get_settlement.clone()
+        }
+    }
+
+    impl HasParameters for Tx {
+        fn parameters(&self) -> &Parameters {
+            &self.parameters
         }
     }
 
@@ -353,7 +365,9 @@ mod tests {
     #[test]
     fn should_build_if_route_ends_at_position() {
         // Given
-        let build_town = PositionBuildSimulation::new(happy_path_tx(), 0, 1.1);
+        let mut tx = happy_path_tx();
+        tx.parameters.simulation.initial_town_population = 1.1;
+        let build_town = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(build_town.build_town(hashset! {v2(1, 1)}));
@@ -384,7 +398,7 @@ mod tests {
     #[test]
     fn should_not_build_for_any_route() {
         // Given
-        let sim = PositionBuildSimulation::new(happy_path_tx(), 0, 0.0);
+        let sim = PositionBuildSimulation::new(happy_path_tx(), 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 0)}));
@@ -402,7 +416,7 @@ mod tests {
             .unwrap()
             .insert(happy_path_route_key(), hashset! {v2(1, 0)});
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 0)}));
@@ -419,7 +433,7 @@ mod tests {
         let tx = happy_path_tx();
         *tx.traffic.lock().unwrap() = Vec2D::new(3, 3, HashSet::new());
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -442,7 +456,7 @@ mod tests {
             },
         );
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -463,7 +477,7 @@ mod tests {
             world.mut_cell_unsafe(&v2(1, 1)).visible = false;
         }
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -478,7 +492,7 @@ mod tests {
         let tx = happy_path_tx();
         *tx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -493,7 +507,7 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.anyone_controls = true;
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -508,7 +522,7 @@ mod tests {
         let tx = happy_path_tx();
         *tx.routes.lock().unwrap() = Routes::default();
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -523,7 +537,7 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.get_settlement = None;
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));

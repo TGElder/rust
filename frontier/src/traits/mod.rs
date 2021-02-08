@@ -5,6 +5,7 @@ mod draw_town;
 mod draw_world;
 mod edge_sim;
 mod expand_positions;
+pub mod has;
 mod micros;
 mod nations;
 mod pathfinder;
