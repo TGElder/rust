@@ -19,11 +19,12 @@ use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::territory::Territory;
 use crate::traffic::{EdgeTraffic, Traffic};
+use crate::traits::has::HasParameters;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
-    SendEdgeBuildSim, SendNations, SendParameters, SendPathfinder, SendPositionBuildSim,
-    SendRotate, SendRoutes, SendSettlementSim, SendSettlements, SendTerritory, SendTownHouseArtist,
-    SendTownLabelArtist, SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
+    SendEdgeBuildSim, SendNations, SendPathfinder, SendPositionBuildSim, SendRotate, SendRoutes,
+    SendSettlementSim, SendSettlements, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
+    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
 };
 use crate::traits::{WithBuildQueue, WithEdgeTraffic, WithRouteToPorts, WithTraffic};
 use crate::world::World;
@@ -128,6 +129,12 @@ impl Polysender {
     }
 }
 
+impl HasParameters for Polysender {
+    fn parameters(&self) -> &Parameters {
+        self.parameters.as_ref()
+    }
+}
+
 #[async_trait]
 impl SendAvatars for Polysender {
     async fn send_avatars<F, O>(&self, function: F) -> O
@@ -185,17 +192,6 @@ impl SendNations for Polysender {
         self.nations_tx
             .send(move |nations| function(&mut nations.state()))
             .await
-    }
-}
-
-#[async_trait]
-impl SendParameters for Polysender {
-    async fn send_parameters<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&Parameters) -> O + Send + 'static,
-    {
-        function(&self.parameters)
     }
 }
 

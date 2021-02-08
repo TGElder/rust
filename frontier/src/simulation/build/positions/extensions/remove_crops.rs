@@ -174,7 +174,7 @@ mod tests {
     fn should_remove_crops_if_no_traffic() {
         // Given
         let tx = happy_path_tx();
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));
@@ -205,7 +205,7 @@ mod tests {
             )
             .unwrap();
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));
@@ -230,7 +230,7 @@ mod tests {
         });
         tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));
@@ -261,7 +261,7 @@ mod tests {
             )
             .unwrap();
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));
@@ -297,7 +297,7 @@ mod tests {
             .unwrap();
         tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
-        let sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));

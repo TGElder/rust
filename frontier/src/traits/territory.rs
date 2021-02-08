@@ -5,9 +5,10 @@ use commons::async_trait::async_trait;
 use commons::grid::get_corners;
 use commons::V2;
 
+use crate::traits::has::HasParameters;
 use crate::traits::{
     DrawWorld, ExpandPositions, Micros, PathfinderWithoutPlannedRoads, PositionsWithin,
-    SendParameters, SendTerritory, SendWorld,
+    SendTerritory, SendWorld,
 };
 
 #[async_trait]
@@ -104,18 +105,16 @@ pub trait UpdateTerritory {
 #[async_trait]
 impl<T> UpdateTerritory for T
 where
-    T: Micros
+    T: HasParameters
+        + Micros
         + PathfinderWithoutPlannedRoads
-        + SendParameters
         + SetControlDurations
         + Clone
         + Send
         + Sync,
 {
     async fn update_territory(&self, controller: V2<usize>) {
-        let duration = self
-            .send_parameters(|parameters| parameters.town_travel_duration)
-            .await;
+        let duration = self.parameters().town_travel_duration;
         let corners = get_corners(&controller);
         let pathfinder = self.pathfinder_without_planned_roads();
         let durations = pathfinder.positions_within(corners, duration).await;

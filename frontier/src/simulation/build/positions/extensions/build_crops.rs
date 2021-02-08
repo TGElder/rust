@@ -237,7 +237,7 @@ mod tests {
     #[test]
     fn should_build_crops_if_crop_route_ends_at_position() {
         // Given
-        let mut build_crops = PositionBuildSimulation::new(happy_path_tx(), 0, 0.0);
+        let mut build_crops = PositionBuildSimulation::new(happy_path_tx(), 0);
 
         // When
         block_on(build_crops.build_crops(hashset! {v2(1, 1)}));
@@ -271,7 +271,7 @@ mod tests {
                 },
             );
         }
-        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let mut sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 2)}));
@@ -283,7 +283,7 @@ mod tests {
     #[test]
     fn should_not_build_crops_if_crop_route_not_ending_at_position() {
         // Given
-        let mut sim = PositionBuildSimulation::new(happy_path_tx(), 0, 0.0);
+        let mut sim = PositionBuildSimulation::new(happy_path_tx(), 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 0)}));
@@ -300,7 +300,7 @@ mod tests {
             tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object =
                 WorldObject::Crop { rotated: true };
         }
-        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let mut sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 1)}));
@@ -315,7 +315,7 @@ mod tests {
         let tx = happy_path_tx();
         *tx.traffic.lock().unwrap() = Traffic::new(3, 3, HashSet::new());
 
-        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let mut sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 1)}));
@@ -334,7 +334,7 @@ mod tests {
             .set(&v2(1, 1), HashSet::new())
             .unwrap();
 
-        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let mut sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 1)}));
@@ -349,7 +349,7 @@ mod tests {
         let mut tx = happy_path_tx();
         tx.routes = Mutex::default();
 
-        let mut sim = PositionBuildSimulation::new(tx, 0, 0.0);
+        let mut sim = PositionBuildSimulation::new(tx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 1)}));
