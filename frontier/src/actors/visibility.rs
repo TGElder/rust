@@ -1,4 +1,5 @@
-use crate::traits::{RevealPositions, SendParameters, SendWorld};
+use crate::traits::has::HasParameters;
+use crate::traits::{RevealPositions, SendWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
 use commons::bincode::{deserialize_from, serialize_into};
@@ -38,7 +39,7 @@ impl WithElevation for Elevation {
 
 impl<T> VisibilityActor<T>
 where
-    T: RevealPositions + SendParameters + SendWorld + Send,
+    T: HasParameters + RevealPositions + SendWorld + Send,
 {
     pub fn new(tx: T) -> VisibilityActor<T> {
         VisibilityActor {
@@ -60,7 +61,7 @@ where
     }
 
     async fn try_disable_visibility_computation(&mut self) {
-        if self.tx.send_parameters(|params| params.reveal_all).await {
+        if self.tx.parameters().reveal_all {
             self.disable_visibility_computation();
         }
     }

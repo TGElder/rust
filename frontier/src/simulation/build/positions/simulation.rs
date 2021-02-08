@@ -2,6 +2,7 @@ use commons::rand::prelude::SmallRng;
 use commons::rand::SeedableRng;
 use commons::V2;
 
+use crate::traits::has::HasParameters;
 use crate::traits::{
     AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, RandomTownName,
     RemoveBuildInstruction, RemoveWorldObject, SendRoutes, SendWorld, WithRouteToPorts,
@@ -13,15 +14,13 @@ use std::collections::HashSet;
 pub struct PositionBuildSimulation<T> {
     pub(super) tx: T,
     pub(super) rng: SmallRng,
-    pub(super) initial_town_population: f64,
 }
 
 impl<T> PositionBuildSimulation<T> {
-    pub fn new(tx: T, seed: u64, initial_town_population: f64) -> PositionBuildSimulation<T> {
+    pub fn new(tx: T, seed: u64) -> PositionBuildSimulation<T> {
         PositionBuildSimulation {
             tx,
             rng: SeedableRng::seed_from_u64(seed),
-            initial_town_population,
         }
     }
 }
@@ -31,6 +30,7 @@ where
     T: AnyoneControls
         + GetBuildInstruction
         + GetSettlement
+        + HasParameters
         + InsertBuildInstruction
         + RandomTownName
         + RemoveBuildInstruction

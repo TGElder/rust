@@ -1,7 +1,7 @@
 use commons::bincode::{deserialize_from, serialize_into};
 use commons::M;
 
-use crate::traits::SendParameters;
+use crate::traits::has::HasParameters;
 use crate::world::World;
 use crate::world_gen::{generate_world, rng};
 use std::fs::File;
@@ -14,7 +14,7 @@ pub struct WorldActor<T> {
 
 impl<T> WorldActor<T>
 where
-    T: SendParameters,
+    T: HasParameters,
 {
     pub fn new(tx: T) -> WorldActor<T> {
         WorldActor {
@@ -24,17 +24,12 @@ where
     }
 
     pub async fn new_game(&mut self) {
-        self.state = self
-            .tx
-            .send_parameters(|params| {
-                let mut rng = rng(params.seed);
-                let mut world = generate_world(params.power, &mut rng, &params.world_gen);
-                if params.reveal_all {
-                    world.reveal_all();
-                }
-                world
-            })
-            .await;
+        let params = self.tx.parameters();
+        let mut rng = rng(params.seed);
+        let mut state = generate_world(params.power, &mut rng, &params.world_gen);
+        if params.reveal_all {
+            state.reveal_all();
+        }
     }
 
     pub fn state(&mut self) -> &mut World {

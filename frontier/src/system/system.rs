@@ -272,11 +272,7 @@ impl System {
                 pathfinding_avatar_controls_rx,
             ),
             position_sim: Process::new(
-                PositionBuildSimulation::new(
-                    tx.clone_with_name("position_sim"),
-                    0,
-                    params.simulation.initial_town_population,
-                ),
+                PositionBuildSimulation::new(tx.clone_with_name("position_sim"), 0),
                 position_sim_rx,
             ),
             prime_mover: Process::new(
