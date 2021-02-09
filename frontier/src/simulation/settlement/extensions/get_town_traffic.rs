@@ -1,23 +1,18 @@
-use super::*;
 use crate::route::{Route, RouteKey, RoutesExt};
 use crate::settlement::Settlement;
+use crate::simulation::settlement::instruction::TownTrafficSummary;
+use crate::simulation::settlement::UpdateSettlement;
+use crate::traffic::Traffic;
 use crate::traits::{SendRoutes, SendSettlements, WithRouteToPorts, WithTraffic};
 use commons::grid::get_corners;
+use commons::V2;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
-pub struct GetTownTraffic<T> {
-    tx: T,
-}
-
-impl<T> GetTownTraffic<T>
+impl<T> UpdateSettlement<T>
 where
     T: SendRoutes + SendSettlements + WithRouteToPorts + WithTraffic,
 {
-    pub fn new(tx: T) -> GetTownTraffic<T> {
-        GetTownTraffic { tx }
-    }
-
     pub async fn get_town_traffic(
         &self,
         territory: &HashSet<V2<usize>>,
@@ -158,6 +153,7 @@ mod tests {
 
     use crate::resource::Resource;
     use crate::route::{Route, Routes};
+    use commons::async_trait::async_trait;
     use commons::grid::Grid;
     use commons::same_elements;
     use commons::v2;
@@ -287,10 +283,10 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
@@ -334,10 +330,10 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
@@ -381,10 +377,10 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
@@ -428,10 +424,10 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
@@ -491,10 +487,10 @@ mod tests {
         };
         tx.add_route(route_key_2, route_2);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
@@ -554,10 +550,10 @@ mod tests {
         };
         tx.add_route(route_key_2, route_2);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
 
@@ -614,10 +610,10 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(traffic_summaries, vec![]);
@@ -650,10 +646,10 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(traffic_summaries, vec![]);
@@ -690,10 +686,10 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(traffic_summaries, vec![]);
@@ -729,10 +725,10 @@ mod tests {
         tx.add_route(route_key, route);
         tx.routes = Mutex::default(); // Removing route to create invalid state
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(traffic_summaries, vec![]);
@@ -767,10 +763,10 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(
@@ -803,10 +799,10 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let processor = GetTownTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let traffic_summaries = block_on(processor.get_town_traffic(&territory));
+        let traffic_summaries = block_on(sim.get_town_traffic(&territory));
 
         // Then
         assert_eq!(traffic_summaries, vec![]);
