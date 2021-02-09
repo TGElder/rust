@@ -1,20 +1,14 @@
 use std::collections::HashSet;
 
-use super::*;
+use commons::V2;
+
+use crate::simulation::settlement::UpdateSettlement;
 use crate::traits::{Controlled, UpdateTerritory};
 
-pub struct GetTerritory<T> {
-    tx: T,
-}
-
-impl<T> GetTerritory<T>
+impl<T> UpdateSettlement<T>
 where
     T: Controlled + UpdateTerritory,
 {
-    pub fn new(tx: T) -> GetTerritory<T> {
-        GetTerritory { tx }
-    }
-
     pub async fn get_territory(&self, controller: &V2<usize>) -> HashSet<V2<usize>> {
         self.tx.update_territory(*controller).await;
         self.tx.controlled(*controller).await
@@ -25,6 +19,7 @@ where
 mod tests {
     use super::*;
 
+    use commons::async_trait::async_trait;
     use commons::{v2, Arm};
     use futures::executor::block_on;
     use std::collections::HashSet;
@@ -58,10 +53,10 @@ mod tests {
             updated_territory: updated_territory.clone(),
         };
 
-        let get_territory = GetTerritory::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // Given
-        let actual = block_on(get_territory.get_territory(&v2(0, 0)));
+        let actual = block_on(sim.get_territory(&v2(0, 0)));
 
         // Then
         assert_eq!(*updated_territory.lock().unwrap(), vec![v2(0, 0)]);
