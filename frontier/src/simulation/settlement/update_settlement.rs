@@ -12,7 +12,7 @@ use crate::traits::{
 };
 
 pub struct UpdateSettlement<T> {
-    pub tx: T,
+    pub(super) tx: T,
 }
 
 impl<T> UpdateSettlement<T> {
