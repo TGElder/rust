@@ -1,10 +1,12 @@
 mod demand;
+mod extensions;
 mod instruction;
 mod processor;
 pub mod processors;
 #[allow(clippy::module_inception)]
 mod simulation;
 mod state;
+mod update_settlement;
 
 pub use demand::demand_fn;
 use demand::*;
@@ -12,6 +14,7 @@ use instruction::*;
 use processor::*;
 pub use simulation::*;
 use state::*;
+pub use update_settlement::*;
 
 use crate::traffic::*;
 use commons::async_trait::async_trait;

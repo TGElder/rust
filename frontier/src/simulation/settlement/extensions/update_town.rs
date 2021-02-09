@@ -1,23 +1,16 @@
 use std::time::Duration;
 
-use super::*;
 use crate::settlement::Settlement;
+use crate::simulation::settlement::instruction::TownTrafficSummary;
+use crate::simulation::settlement::UpdateSettlement;
 use crate::traits::has::HasParameters;
-use crate::traits::UpdateSettlement;
+use crate::traits::UpdateSettlement as UpdateSettlementTrait;
 use commons::unsafe_ordering;
 
-pub struct UpdateTown<T> {
-    tx: T,
-}
-
-impl<T> UpdateTown<T>
+impl<T> UpdateSettlement<T>
 where
-    T: HasParameters + UpdateSettlement,
+    T: HasParameters + UpdateSettlementTrait,
 {
-    pub fn new(tx: T) -> UpdateTown<T> {
-        UpdateTown { tx }
-    }
-
     pub async fn update_town(&self, settlement: &Settlement, traffic: &[TownTrafficSummary]) {
         let params = self.tx.parameters().simulation;
         self.tx
@@ -89,7 +82,8 @@ mod tests {
     use super::*;
 
     use commons::almost::Almost;
-    use commons::v2;
+    use commons::async_trait::async_trait;
+    use commons::{v2, V2};
     use futures::executor::block_on;
 
     use std::collections::HashMap;
@@ -124,7 +118,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl UpdateSettlement for Tx {
+    impl UpdateSettlementTrait for Tx {
         async fn update_settlement(&self, settlement: Settlement) {
             self.updated_settlements
                 .lock()
@@ -137,10 +131,10 @@ mod tests {
     fn should_update_target_population_based_on_total_traffic_share() {
         // Given
         let settlement = Settlement::default();
-        let update_town = UpdateTown::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(update_town.update_town(
+        block_on(sim.update_town(
             &settlement,
             &[
                 TownTrafficSummary {
@@ -157,7 +151,7 @@ mod tests {
         ));
 
         // Then
-        let updated_settlements = update_town.tx.updated_settlements.lock().unwrap();
+        let updated_settlements = sim.tx.updated_settlements.lock().unwrap();
         assert!(updated_settlements[&v2(0, 0)]
             .target_population
             .almost(&28.0));
@@ -170,13 +164,13 @@ mod tests {
             target_population: 0.5,
             ..Settlement::default()
         };
-        let update_town = UpdateTown::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(update_town.update_town(&settlement, &[]));
+        block_on(sim.update_town(&settlement, &[]));
 
         // Then
-        let updated_settlements = update_town.tx.updated_settlements.lock().unwrap();
+        let updated_settlements = sim.tx.updated_settlements.lock().unwrap();
         assert!(updated_settlements[&v2(0, 0)]
             .target_population
             .almost(&0.0));
@@ -189,7 +183,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let update_town = UpdateTown::new(Tx::default());
+        let update_town = UpdateSettlement::new(Tx::default());
 
         // When
         block_on(update_town.update_town(
@@ -220,10 +214,10 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let update_town = UpdateTown::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(update_town.update_town(
+        block_on(sim.update_town(
             &settlement,
             &[
                 TownTrafficSummary {
@@ -240,7 +234,7 @@ mod tests {
         ));
 
         // Then
-        let updated_settlements = update_town.tx.updated_settlements.lock().unwrap();
+        let updated_settlements = sim.tx.updated_settlements.lock().unwrap();
         assert_eq!(updated_settlements[&v2(0, 0)].nation, "A".to_string());
     }
 
@@ -250,10 +244,10 @@ mod tests {
     ) {
         // Given
         let settlement = Settlement::default();
-        let update_town = UpdateTown::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(update_town.update_town(
+        block_on(sim.update_town(
             &settlement,
             &[
                 TownTrafficSummary {
@@ -270,7 +264,7 @@ mod tests {
         ));
 
         // Then
-        let updated_settlements = update_town.tx.updated_settlements.lock().unwrap();
+        let updated_settlements = sim.tx.updated_settlements.lock().unwrap();
         let gap_half_life_millis =
             updated_settlements[&v2(0, 0)].gap_half_life.as_nanos() as f32 / 1000000.0;
         assert!(gap_half_life_millis.almost(&14.46));
@@ -284,13 +278,13 @@ mod tests {
             gap_half_life: Duration::from_millis(4),
             ..Settlement::default()
         };
-        let update_town = UpdateTown::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(update_town.update_town(&settlement, &[]));
+        block_on(sim.update_town(&settlement, &[]));
 
         // Then
-        let updated_settlements = update_town.tx.updated_settlements.lock().unwrap();
+        let updated_settlements = sim.tx.updated_settlements.lock().unwrap();
         assert_eq!(
             updated_settlements[&v2(0, 0)].gap_half_life,
             Duration::from_millis(4)

@@ -1,19 +1,12 @@
 use crate::settlement::Settlement;
+use crate::simulation::settlement::UpdateSettlement;
 use crate::traits::has::HasParameters;
-use crate::traits::{UpdateSettlement, VisibleLandPositions};
+use crate::traits::{UpdateSettlement as UpdateSettlementTrait, VisibleLandPositions};
 
-pub struct UpdateHomeland<T> {
-    tx: T,
-}
-
-impl<T> UpdateHomeland<T>
+impl<T> UpdateSettlement<T>
 where
-    T: HasParameters + UpdateSettlement + VisibleLandPositions,
+    T: HasParameters + UpdateSettlementTrait + VisibleLandPositions,
 {
-    pub fn new(tx: T) -> UpdateHomeland<T> {
-        UpdateHomeland { tx }
-    }
-
     pub async fn update_homeland(&self, settlement: &Settlement) {
         let visible_land_positions = self.tx.visible_land_positions().await;
         let homeland_count = self.tx.parameters().homeland.count;
@@ -62,7 +55,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl UpdateSettlement for Tx {
+    impl UpdateSettlementTrait for Tx {
         async fn update_settlement(&self, settlement: Settlement) {
             self.settlements
                 .lock()
@@ -89,13 +82,13 @@ mod tests {
             visible_land_positions: 202,
         };
         tx.parameters.homeland.count = 2;
-        let update_homeland = UpdateHomeland::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(update_homeland.update_homeland(&settlement));
+        block_on(sim.update_homeland(&settlement));
 
         // Then
-        let actual = update_homeland.tx.settlements.lock().unwrap();
+        let actual = sim.tx.settlements.lock().unwrap();
         let expected = hashmap! {
             v2(0, 1) => Settlement{
                 position: v2(0, 1),

@@ -3,7 +3,6 @@ use commons::V2;
 
 use crate::simulation::settlement::instruction::Instruction;
 use crate::simulation::settlement::processor::Processor;
-use crate::simulation::settlement::processors::{GetTownTraffic, UpdateTown};
 use crate::simulation::settlement::state::State;
 use crate::traits::has::HasParameters;
 use crate::traits::{
@@ -12,15 +11,14 @@ use crate::traits::{
     WithRouteToPorts, WithTraffic,
 };
 
-use super::processors::GetTerritory;
-use super::UpdateHomeland;
-
 pub struct UpdateSettlement<T> {
     pub tx: T,
-    pub get_territory: GetTerritory<T>,
-    pub get_town_traffic: GetTownTraffic<T>,
-    pub update_homeland: UpdateHomeland<T>,
-    pub update_town: UpdateTown<T>,
+}
+
+impl<T> UpdateSettlement<T> {
+    pub fn new(tx: T) -> UpdateSettlement<T> {
+        UpdateSettlement { tx }
+    }
 }
 
 #[async_trait]
@@ -41,8 +39,10 @@ where
 {
     async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
         let mut instructions = match instruction {
-            Instruction::UpdateHomelandPopulation(position) => self.update_homeland(position).await,
-            Instruction::GetTerritory(position) => self.update_town(position).await,
+            Instruction::UpdateHomelandPopulation(position) => {
+                self.update_homeland_at(position).await
+            }
+            Instruction::GetTerritory(position) => self.update_town_at(position).await,
             _ => vec![],
         };
         state.instructions.append(&mut instructions);
@@ -63,18 +63,18 @@ where
         + WithRouteToPorts
         + WithTraffic,
 {
-    async fn update_homeland(&self, homeland: &V2<usize>) -> Vec<Instruction> {
+    async fn update_homeland_at(&self, homeland: &V2<usize>) -> Vec<Instruction> {
         let settlement = unwrap_or!(self.tx.get_settlement(*homeland).await, return vec![]);
-        self.update_homeland.update_homeland(&settlement).await;
+        self.update_homeland(&settlement).await;
 
         vec![Instruction::UpdateCurrentPopulation(*homeland)]
     }
 
-    async fn update_town(&self, town: &V2<usize>) -> Vec<Instruction> {
+    async fn update_town_at(&self, town: &V2<usize>) -> Vec<Instruction> {
         let settlement = unwrap_or!(self.tx.get_settlement(*town).await, return vec![]);
-        let territory = self.get_territory.get_territory(town).await;
-        let traffic = self.get_town_traffic.get_town_traffic(&territory).await;
-        self.update_town.update_town(&settlement, &traffic).await;
+        let territory = self.get_territory(town).await;
+        let traffic = self.get_town_traffic(&territory).await;
+        self.update_town(&settlement, &traffic).await;
 
         vec![Instruction::UpdateCurrentPopulation(*town)]
     }
