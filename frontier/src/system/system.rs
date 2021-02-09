@@ -27,12 +27,11 @@ use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::demand_fn::{homeland_demand_fn, town_demand_fn};
 use crate::simulation::settlement::processors::{
-    max_abs_population_change, GetDemand, GetRouteChanges, GetRoutes, GetTerritory, GetTownTraffic,
-    InstructionLogger, RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation,
-    UpdateEdgeTraffic, UpdateHomeland, UpdatePositionTraffic, UpdateRouteToPorts, UpdateSettlement,
-    UpdateTown,
+    max_abs_population_change, GetDemand, GetRouteChanges, GetRoutes, InstructionLogger,
+    RemoveTown, StepHomeland, StepTown, UpdateCurrentPopulation, UpdateEdgeTraffic,
+    UpdatePositionTraffic, UpdateRouteToPorts,
 };
-use crate::simulation::settlement::SettlementSimulation;
+use crate::simulation::settlement::{SettlementSimulation, UpdateSettlement};
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traffic::Traffic;
 use crate::traits::SendClock;
@@ -288,17 +287,9 @@ impl System {
             routes: Process::new(RoutesActor::new(), routes_rx),
             settlement_sim: Process::new(
                 SettlementSimulation::new(vec![
-                    Box::new(UpdateSettlement {
-                        tx: tx.clone_with_name("update_settlement"),
-                        get_territory: GetTerritory::new(tx.clone_with_name("get_territory")),
-                        get_town_traffic: GetTownTraffic::new(
-                            tx.clone_with_name("get_town_traffic"),
-                        ),
-                        update_homeland: UpdateHomeland::new(
-                            tx.clone_with_name("update_homeland_population"),
-                        ),
-                        update_town: UpdateTown::new(tx.clone_with_name("update_town")),
-                    }),
+                    Box::new(UpdateSettlement::new(
+                        tx.clone_with_name("update_settlement"),
+                    )),
                     Box::new(InstructionLogger::new()),
                     Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
                     Box::new(StepTown::new(tx.clone_with_name("step_town"))),
