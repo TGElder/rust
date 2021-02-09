@@ -5,6 +5,7 @@ use crate::simulation::settlement::instruction::Instruction;
 use crate::simulation::settlement::processor::Processor;
 use crate::simulation::settlement::processors::{GetTownTraffic, UpdateTown};
 use crate::simulation::settlement::state::State;
+use crate::traits::has::HasParameters;
 use crate::traits::{
     Controlled, GetSettlement, SendRoutes, SendSettlements,
     UpdateSettlement as UpdateSettlementTrait, UpdateTerritory, VisibleLandPositions,
@@ -26,6 +27,7 @@ pub struct UpdateSettlement<T> {
 impl<T> Processor for UpdateSettlement<T>
 where
     T: Controlled
+        + HasParameters
         + GetSettlement
         + SendRoutes
         + SendSettlements
@@ -51,6 +53,7 @@ where
 impl<T> UpdateSettlement<T>
 where
     T: Controlled
+        + HasParameters
         + GetSettlement
         + SendRoutes
         + SendSettlements
