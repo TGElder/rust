@@ -1,22 +1,23 @@
 use crate::settlement::Settlement;
+use crate::traits::has::HasParameters;
 use crate::traits::{UpdateSettlement, VisibleLandPositions};
 
 pub struct UpdateHomeland<T> {
     tx: T,
-    homeland_count: usize,
 }
 
 impl<T> UpdateHomeland<T>
 where
-    T: UpdateSettlement + VisibleLandPositions,
+    T: HasParameters + UpdateSettlement + VisibleLandPositions,
 {
-    pub fn new(tx: T, homeland_count: usize) -> UpdateHomeland<T> {
-        UpdateHomeland { tx, homeland_count }
+    pub fn new(tx: T) -> UpdateHomeland<T> {
+        UpdateHomeland { tx }
     }
 
     pub async fn update_homeland(&self, settlement: &Settlement) {
         let visible_land_positions = self.tx.visible_land_positions().await;
-        let target_population = visible_land_positions as f64 / self.homeland_count as f64;
+        let homeland_count = self.tx.parameters().homeland.count;
+        let target_population = visible_land_positions as f64 / homeland_count as f64;
         self.update_population(settlement.clone(), target_population)
             .await;
     }
@@ -33,6 +34,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parameters::Parameters;
     use crate::settlement::SettlementClass::Homeland;
     use commons::async_trait::async_trait;
     use commons::{v2, V2};
@@ -41,8 +43,15 @@ mod tests {
     use std::sync::Mutex;
 
     struct Tx {
+        parameters: Parameters,
         settlements: Mutex<HashMap<V2<usize>, Settlement>>,
         visible_land_positions: usize,
+    }
+
+    impl HasParameters for Tx {
+        fn parameters(&self) -> &crate::parameters::Parameters {
+            &self.parameters
+        }
     }
 
     #[async_trait]
@@ -74,11 +83,13 @@ mod tests {
             v2(0, 1) => settlement.clone()
         });
 
-        let tx = Tx {
+        let mut tx = Tx {
+            parameters: Parameters::default(),
             settlements,
             visible_land_positions: 202,
         };
-        let update_homeland = UpdateHomeland::new(tx, 2);
+        tx.parameters.homeland.count = 2;
+        let update_homeland = UpdateHomeland::new(tx);
 
         // When
         block_on(update_homeland.update_homeland(&settlement));
