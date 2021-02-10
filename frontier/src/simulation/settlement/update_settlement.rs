@@ -6,7 +6,7 @@ use crate::simulation::settlement::processor::Processor;
 use crate::simulation::settlement::state::State;
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    Controlled, GetSettlement, RefreshPositions, RemoveTown, SendRoutes, SendSettlements,
+    Controlled, GetSettlement, Micros, RefreshPositions, RemoveTown, SendRoutes, SendSettlements,
     UpdateSettlement as UpdateSettlementTrait, UpdateTerritory, VisibleLandPositions,
     WithRouteToPorts, WithTraffic,
 };
@@ -27,6 +27,7 @@ where
     T: Controlled
         + HasParameters
         + GetSettlement
+        + Micros
         + RefreshPositions
         + RemoveTown
         + SendRoutes
@@ -57,6 +58,7 @@ where
     T: Controlled
         + HasParameters
         + GetSettlement
+        + Micros
         + RefreshPositions
         + RemoveTown
         + SendRoutes
@@ -67,20 +69,28 @@ where
         + WithRouteToPorts
         + WithTraffic,
 {
-    async fn update_homeland_at(&self, homeland: &V2<usize>) -> Vec<Instruction> {
-        let settlement = unwrap_or!(self.tx.get_settlement(*homeland).await, return vec![]);
+    async fn update_homeland_at(&self, position: &V2<usize>) -> Vec<Instruction> {
+        let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return vec![]);
         self.update_homeland(&settlement).await;
-
-        vec![Instruction::UpdateCurrentPopulation(*homeland)]
+        if let Some(updated) = self.update_current_population(*position).await {
+            vec![Instruction::GetDemand(updated)]
+        } else {
+            vec![]
+        }
     }
 
-    async fn update_town_at(&self, town: &V2<usize>) -> Vec<Instruction> {
-        let settlement = unwrap_or!(self.tx.get_settlement(*town).await, return vec![]);
-        let territory = self.get_territory(town).await;
+    async fn update_town_at(&self, position: &V2<usize>) -> Vec<Instruction> {
+        let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return vec![]);
+        let territory = self.get_territory(position).await;
         let traffic = self.get_town_traffic(&territory).await;
-        self.update_town(&settlement, &traffic).await;
-        self.remove_town(&settlement, &traffic).await; // TODO move after current pop update
-
-        vec![Instruction::UpdateCurrentPopulation(*town)]
+        join!(
+            self.update_town(&settlement, &traffic),
+            self.remove_town(&settlement, &traffic), // TODO should be after population update
+        );
+        if let Some(updated) = self.update_current_population(*position).await {
+            vec![Instruction::GetDemand(updated)]
+        } else {
+            vec![]
+        }
     }
 }
