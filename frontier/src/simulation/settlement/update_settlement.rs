@@ -6,7 +6,7 @@ use crate::simulation::settlement::processor::Processor;
 use crate::simulation::settlement::state::State;
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    Controlled, GetSettlement, SendRoutes, SendSettlements,
+    Controlled, GetSettlement, RefreshPositions, RemoveTown, SendRoutes, SendSettlements,
     UpdateSettlement as UpdateSettlementTrait, UpdateTerritory, VisibleLandPositions,
     WithRouteToPorts, WithTraffic,
 };
@@ -27,6 +27,8 @@ where
     T: Controlled
         + HasParameters
         + GetSettlement
+        + RefreshPositions
+        + RemoveTown
         + SendRoutes
         + SendSettlements
         + UpdateSettlementTrait
@@ -55,6 +57,8 @@ where
     T: Controlled
         + HasParameters
         + GetSettlement
+        + RefreshPositions
+        + RemoveTown
         + SendRoutes
         + SendSettlements
         + UpdateSettlementTrait
@@ -75,6 +79,7 @@ where
         let territory = self.get_territory(town).await;
         let traffic = self.get_town_traffic(&territory).await;
         self.update_town(&settlement, &traffic).await;
+        self.remove_town(&settlement, &traffic).await; // TODO move after current pop update
 
         vec![Instruction::UpdateCurrentPopulation(*town)]
     }
