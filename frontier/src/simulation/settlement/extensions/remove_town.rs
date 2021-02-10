@@ -1,43 +1,21 @@
-use super::*;
+use crate::settlement::Settlement;
+use crate::simulation::settlement::instruction::TownTrafficSummary;
+use crate::simulation::settlement::UpdateSettlement;
+use crate::traits::has::HasParameters;
 use crate::traits::{Controlled, RefreshPositions, RemoveTown as RemoveTownTrait};
 
-pub struct RemoveTown<T> {
-    tx: T,
-    town_removal_population: f64,
-}
-
-#[async_trait]
-impl<T> Processor for RemoveTown<T>
+impl<T> UpdateSettlement<T>
 where
-    T: Controlled + RefreshPositions + RemoveTownTrait + Send + Sync,
+    T: Controlled + HasParameters + RefreshPositions + RemoveTownTrait,
 {
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let (settlement, traffic) = match instruction {
-            Instruction::UpdateTown {
-                settlement,
-                traffic,
-            } => (settlement, traffic),
-            _ => return state,
-        };
-        if settlement.current_population >= self.town_removal_population || !traffic.is_empty() {
-            return state;
+    pub async fn remove_town(&self, settlement: &Settlement, traffic: &[TownTrafficSummary]) {
+        let town_removal_population = self.tx.parameters().simulation.town_removal_population;
+        if settlement.current_population >= town_removal_population || !traffic.is_empty() {
+            return;
         }
         let controlled = self.tx.controlled(settlement.position).await;
         self.tx.remove_town(settlement.position).await;
         self.tx.refresh_positions(controlled);
-        state
-    }
-}
-
-impl<T> RemoveTown<T>
-where
-    T: Controlled + RefreshPositions + RemoveTownTrait + Send,
-{
-    pub fn new(tx: T, town_removal_population: f64) -> RemoveTown<T> {
-        RemoveTown {
-            tx,
-            town_removal_population,
-        }
     }
 }
 
@@ -45,8 +23,10 @@ where
 mod tests {
     use super::*;
 
+    use crate::parameters::Parameters;
     use crate::settlement::Settlement;
-    use commons::{v2, Arm};
+    use commons::async_trait::async_trait;
+    use commons::{v2, Arm, V2};
     use futures::executor::block_on;
     use std::collections::HashSet;
     use std::default::Default;
@@ -56,6 +36,7 @@ mod tests {
     #[derive(Default)]
     struct Tx {
         controlled: HashSet<V2<usize>>,
+        parameters: Parameters,
         refreshed_positions: Mutex<HashSet<V2<usize>>>,
         removed: Arm<Vec<V2<usize>>>,
     }
@@ -64,6 +45,12 @@ mod tests {
     impl Controlled for Tx {
         async fn controlled(&self, _: V2<usize>) -> HashSet<V2<usize>> {
             self.controlled.clone()
+        }
+    }
+
+    impl HasParameters for Tx {
+        fn parameters(&self) -> &Parameters {
+            &self.parameters
         }
     }
 
@@ -88,21 +75,15 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let tx = Tx::default();
-        let mut processor = RemoveTown::new(tx, 0.5);
+        let mut tx = Tx::default();
+        tx.parameters.simulation.town_removal_population = 0.3;
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let instruction = Instruction::UpdateTown {
-            settlement: settlement.clone(),
-            traffic: vec![],
-        };
-        block_on(processor.process(State::default(), &instruction));
+        block_on(sim.remove_town(&settlement, &[]));
 
         // Then
-        assert_eq!(
-            *processor.tx.removed.lock().unwrap(),
-            vec![settlement.position]
-        );
+        assert_eq!(*sim.tx.removed.lock().unwrap(), vec![settlement.position]);
     }
 
     #[test]
@@ -112,22 +93,22 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let tx = Tx::default();
-        let mut processor = RemoveTown::new(tx, 0.5);
+        let mut tx = Tx::default();
+        tx.parameters.simulation.town_removal_population = 0.3;
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let instruction = Instruction::UpdateTown {
-            settlement,
-            traffic: vec![TownTrafficSummary {
+        block_on(sim.remove_town(
+            &settlement,
+            &[TownTrafficSummary {
                 nation: "A".to_string(),
                 traffic_share: 1.0,
                 total_duration: Duration::default(),
             }],
-        };
-        block_on(processor.process(State::default(), &instruction));
+        ));
 
         // Then
-        assert!(processor.tx.removed.lock().unwrap().is_empty());
+        assert!(sim.tx.removed.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -137,18 +118,15 @@ mod tests {
             current_population: 0.7,
             ..Settlement::default()
         };
-        let tx = Tx::default();
-        let mut processor = RemoveTown::new(tx, 0.5);
+        let mut tx = Tx::default();
+        tx.parameters.simulation.town_removal_population = 0.3;
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let instruction = Instruction::UpdateTown {
-            settlement,
-            traffic: vec![],
-        };
-        block_on(processor.process(State::default(), &instruction));
+        block_on(sim.remove_town(&settlement, &[]));
 
         // Then
-        assert!(processor.tx.removed.lock().unwrap().is_empty());
+        assert!(sim.tx.removed.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -158,21 +136,18 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let tx = Tx {
+        let mut tx = Tx {
             controlled: hashset! { v2(1, 2), v2(3, 4) },
             ..Tx::default()
         };
-        let mut processor = RemoveTown::new(tx, 0.5);
+        tx.parameters.simulation.town_removal_population = 0.3;
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let instruction = Instruction::UpdateTown {
-            settlement,
-            traffic: vec![],
-        };
-        block_on(processor.process(State::default(), &instruction));
+        block_on(sim.remove_town(&settlement, &[]));
 
         assert_eq!(
-            *processor.tx.refreshed_positions.lock().unwrap(),
+            *sim.tx.refreshed_positions.lock().unwrap(),
             hashset! { v2(1, 2), v2(3, 4) },
         );
     }
