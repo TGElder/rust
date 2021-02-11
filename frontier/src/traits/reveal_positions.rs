@@ -28,7 +28,7 @@ where
     async fn reveal_positions(&self, positions: HashSet<V2<usize>>, revealed_by: &'static str) {
         let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
         voyage(self, newly_visible.clone(), revealed_by);
-        self.refresh_positions(newly_visible.clone());
+        self.refresh_positions(newly_visible.clone()).await;
         join!(
             redraw(self, &newly_visible),
             self.update_positions_all_pathfinders(newly_visible.clone()),

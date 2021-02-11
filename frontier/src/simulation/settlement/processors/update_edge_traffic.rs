@@ -22,7 +22,7 @@ where
         let changed_edges = self
             .update_all_edge_traffic_and_get_changes(route_changes)
             .await;
-        self.tx.refresh_edges(changed_edges);
+        self.tx.refresh_edges(changed_edges).await;
         state
     }
 }
@@ -175,8 +175,9 @@ mod tests {
         refreshed_edges: Mutex<HashSet<Edge>>,
     }
 
+    #[async_trait]
     impl RefreshEdges for Tx {
-        fn refresh_edges(&self, edges: HashSet<Edge>) {
+        async fn refresh_edges(&self, edges: HashSet<Edge>) {
             self.refreshed_edges
                 .lock()
                 .unwrap()
