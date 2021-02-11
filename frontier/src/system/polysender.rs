@@ -171,14 +171,16 @@ impl SendClock for Polysender {
 }
 
 #[async_trait]
-impl SendPositionBuildSim for Polysender {
-    async fn send_position_build_sim_future<F, O>(&self, function: F) -> O
+impl SendEdgeBuildSim for Polysender {
+    type D = AutoRoadTravelDuration;
+
+    async fn send_edge_build_sim_future<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
-        F: FnOnce(&mut PositionBuildSimulation<Self>) -> BoxFuture<O> + Send + 'static,
+        F: FnOnce(&mut EdgeBuildSimulation<Self, Self::D>) -> BoxFuture<O> + Send + 'static,
     {
-        self.position_sim_tx
-            .send_future(move |position_sim| function(position_sim))
+        self.edge_sim_tx
+            .send_future(move |edge_sim| function(edge_sim))
             .await
     }
 }
@@ -197,16 +199,14 @@ impl SendNations for Polysender {
 }
 
 #[async_trait]
-impl SendEdgeBuildSim for Polysender {
-    type D = AutoRoadTravelDuration;
-
-    async fn send_edge_build_sim_future<F, O>(&self, function: F) -> O
+impl SendPositionBuildSim for Polysender {
+    async fn send_position_build_sim_future<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
-        F: FnOnce(&mut EdgeBuildSimulation<Self, Self::D>) -> BoxFuture<O> + Send + 'static,
+        F: FnOnce(&mut PositionBuildSimulation<Self>) -> BoxFuture<O> + Send + 'static,
     {
-        self.edge_sim_tx
-            .send_future(move |edge_sim| function(edge_sim))
+        self.position_sim_tx
+            .send_future(move |position_sim| function(position_sim))
             .await
     }
 }

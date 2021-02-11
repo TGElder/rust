@@ -193,7 +193,7 @@ mod tests {
 
         assert!(settlement.current_population.almost(&22.54612644157907));
         assert_eq!(settlement.last_population_update_micros, 33);
-        assert_eq!(result, Some(settlement.clone()));
+        assert_eq!(result, Some(settlement));
     }
 
     #[test]
