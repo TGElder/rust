@@ -15,7 +15,7 @@ where
         }
         let controlled = self.tx.controlled(settlement.position).await;
         self.tx.remove_town(settlement.position).await;
-        self.tx.refresh_positions(controlled);
+        self.tx.refresh_positions(controlled).await;
     }
 }
 
@@ -54,8 +54,9 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl RefreshPositions for Tx {
-        fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
+        async fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
             self.refreshed_positions.lock().unwrap().extend(positions);
         }
     }

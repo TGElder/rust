@@ -27,7 +27,7 @@ where
     async fn reveal_all(&self) {
         let (width, height) = reveal_all_get_dimensions(self).await;
         let positions = all_positions(width, height);
-        self.refresh_positions(positions.clone());
+        self.refresh_positions(positions.clone()).await;
         join!(
             redraw_all(self),
             self.update_positions_all_pathfinders(positions)

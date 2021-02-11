@@ -1,6 +1,3 @@
-use commons::async_trait::async_trait;
-use futures::future::BoxFuture;
-
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
@@ -8,6 +5,8 @@ use crate::traits::{
     SendRoutes, SendWorld, WithEdgeTraffic,
 };
 use crate::travel_duration::TravelDuration;
+use commons::async_trait::async_trait;
+use futures::future::BoxFuture;
 
 #[async_trait]
 pub trait SendEdgeBuildSim:
@@ -26,7 +25,7 @@ pub trait SendEdgeBuildSim:
 {
     type D: TravelDuration + 'static;
 
-    fn send_edge_build_sim_future_background<F, O>(&self, function: F)
+    async fn send_edge_build_sim_future<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
         F: FnOnce(&mut EdgeBuildSimulation<Self, Self::D>) -> BoxFuture<O> + Send + 'static;
