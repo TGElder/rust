@@ -1,17 +1,19 @@
 use commons::async_trait::async_trait;
 use commons::V2;
+use futures::future::join_all;
 
 use crate::settlement::Settlement;
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::demand_fn::homeland_demand_fn;
-use crate::simulation::settlement::instruction::Instruction;
+use crate::simulation::settlement::instruction::{Instruction, Routes};
 use crate::simulation::settlement::processor::Processor;
 use crate::simulation::settlement::state::State;
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    Controlled, GetSettlement, Micros, RefreshPositions, RemoveTown, SendRoutes, SendSettlements,
-    UpdateSettlement as UpdateSettlementTrait, UpdateTerritory, VisibleLandPositions,
-    WithRouteToPorts, WithTraffic,
+    ClosestTargetsWithPlannedRoads, Controlled, GetSettlement, InBoundsWithPlannedRoads,
+    LowestDurationWithoutPlannedRoads, Micros, RefreshPositions, RemoveTown, SendRoutes,
+    SendSettlements, UpdateSettlement as UpdateSettlementTrait, UpdateTerritory,
+    VisibleLandPositions, WithRouteToPorts, WithTraffic,
 };
 
 use super::demand_fn::town_demand_fn;
@@ -26,8 +28,8 @@ impl<T> UpdateSettlement<T> {
     pub fn new(tx: T) -> UpdateSettlement<T> {
         UpdateSettlement {
             tx,
-            town_demand_fn,
             homeland_demand_fn,
+            town_demand_fn,
         }
     }
 }
@@ -35,9 +37,12 @@ impl<T> UpdateSettlement<T> {
 #[async_trait]
 impl<T> Processor for UpdateSettlement<T>
 where
-    T: Controlled
+    T: ClosestTargetsWithPlannedRoads
+        + Controlled
         + HasParameters
+        + InBoundsWithPlannedRoads
         + GetSettlement
+        + LowestDurationWithoutPlannedRoads
         + Micros
         + RefreshPositions
         + RemoveTown
@@ -66,9 +71,12 @@ where
 
 impl<T> UpdateSettlement<T>
 where
-    T: Controlled
+    T: ClosestTargetsWithPlannedRoads
+        + Controlled
         + HasParameters
+        + InBoundsWithPlannedRoads
         + GetSettlement
+        + LowestDurationWithoutPlannedRoads
         + Micros
         + RefreshPositions
         + RemoveTown
@@ -85,7 +93,7 @@ where
         self.update_homeland(&settlement).await;
         if let Some(updated) = self.update_current_population(*position).await {
             let demand = (self.homeland_demand_fn)(&updated);
-            demand.into_iter().map(Instruction::GetRoutes).collect()
+            self.get_all_route_changes(demand).await
         } else {
             vec![]
         }
@@ -101,9 +109,22 @@ where
         );
         if let Some(updated) = self.update_current_population(*position).await {
             let demand = (self.town_demand_fn)(&updated);
-            demand.into_iter().map(Instruction::GetRoutes).collect()
+            self.get_all_route_changes(demand).await
         } else {
             vec![]
         }
+    }
+
+    async fn get_all_route_changes(&self, demand: Vec<Demand>) -> Vec<Instruction> {
+        let futures = demand
+            .into_iter()
+            .map(|demand| self.get_route_changes(demand))
+            .collect::<Vec<_>>();
+        join_all(futures).await
+    }
+
+    async fn get_route_changes(&self, demand: Demand) -> Instruction {
+        let Routes { key, route_set } = self.get_routes(demand).await;
+        Instruction::GetRouteChanges { key, route_set }
     }
 }

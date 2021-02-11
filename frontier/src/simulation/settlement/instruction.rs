@@ -1,6 +1,5 @@
 use super::*;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
-use crate::settlement::Settlement;
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -9,14 +8,6 @@ pub enum Instruction {
     Step,
     UpdateHomelandPopulation(V2<usize>),
     GetTerritory(V2<usize>),
-
-    UpdateTown {
-        settlement: Settlement,
-        traffic: Vec<TownTrafficSummary>,
-    },
-    UpdateCurrentPopulation(V2<usize>),
-    GetDemand(Settlement),
-    GetRoutes(Demand),
     GetRouteChanges {
         key: RouteSetKey,
         route_set: RouteSet,
@@ -29,6 +20,12 @@ pub struct TownTrafficSummary {
     pub nation: String,
     pub traffic_share: f64,
     pub total_duration: Duration,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct Routes {
+    pub key: RouteSetKey,
+    pub route_set: RouteSet,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

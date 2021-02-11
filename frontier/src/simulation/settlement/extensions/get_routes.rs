@@ -1,59 +1,36 @@
-use super::*;
 use crate::actors::target_set;
 use crate::pathfinder::ClosestTargetResult;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
+use crate::simulation::settlement::demand::Demand;
+use crate::simulation::settlement::instruction::Routes;
+use crate::simulation::settlement::UpdateSettlement;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, InBoundsWithPlannedRoads, LowestDurationWithoutPlannedRoads,
     Micros,
 };
 use commons::grid::get_corners;
+use commons::V2;
 use std::collections::HashMap;
 use std::time::Duration;
 
-pub struct GetRoutes<T> {
-    tx: T,
-}
-
-#[async_trait]
-impl<T> Processor for GetRoutes<T>
+impl<T> UpdateSettlement<T>
 where
     T: ClosestTargetsWithPlannedRoads
         + InBoundsWithPlannedRoads
         + LowestDurationWithoutPlannedRoads
-        + Micros
-        + Send
-        + Sync,
+        + Micros,
 {
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let demand = match instruction {
-            Instruction::GetRoutes(demand) => *demand,
-            _ => return state,
-        };
+    pub async fn get_routes(&self, demand: Demand) -> Routes {
         let micros = self.tx.micros().await;
         let closest_targets = self.closest_targets(&demand).await;
         let route_set = self.route_set(micros, &demand, closest_targets).await;
-        state.instructions.push(Instruction::GetRouteChanges {
+        Routes {
             key: RouteSetKey {
                 settlement: demand.position,
                 resource: demand.resource,
             },
             route_set,
-        });
-        state
-    }
-}
-
-impl<T> GetRoutes<T>
-where
-    T: ClosestTargetsWithPlannedRoads
-        + InBoundsWithPlannedRoads
-        + LowestDurationWithoutPlannedRoads
-        + Micros
-        + Send
-        + Sync,
-{
-    pub fn new(tx: T) -> GetRoutes<T> {
-        GetRoutes { tx }
+        }
     }
 
     async fn closest_targets(&self, demand: &Demand) -> Vec<ClosestTargetResult> {
@@ -130,6 +107,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use commons::async_trait::async_trait;
     use commons::{same_elements, v2};
     use futures::executor::block_on;
     use std::collections::HashMap;
@@ -189,7 +167,7 @@ mod tests {
                 duration: Duration::from_secs(4),
             },
         ];
-        let mut processor = GetRoutes::new(HappyPathTx { closest_targets });
+        let sim = UpdateSettlement::new(HappyPathTx { closest_targets });
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -198,7 +176,7 @@ mod tests {
         };
 
         // When
-        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
+        let routes = block_on(sim.get_routes(demand));
 
         // Then
         let mut route_set = HashMap::new();
@@ -230,14 +208,14 @@ mod tests {
         );
 
         assert_eq!(
-            state.instructions,
-            vec![Instruction::GetRouteChanges {
+            routes,
+            Routes {
                 key: RouteSetKey {
                     settlement: v2(1, 3),
                     resource: Resource::Coal
                 },
                 route_set
-            }]
+            }
         );
     }
 
@@ -245,7 +223,7 @@ mod tests {
     fn test_no_closest_targets() {
         // Given
         let closest_targets = vec![];
-        let mut processor = GetRoutes::new(HappyPathTx { closest_targets });
+        let sim = UpdateSettlement::new(HappyPathTx { closest_targets });
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -254,18 +232,18 @@ mod tests {
         };
 
         // When
-        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
+        let routes = block_on(sim.get_routes(demand));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::GetRouteChanges {
+            routes,
+            Routes {
                 key: RouteSetKey {
                     settlement: v2(1, 3),
                     resource: Resource::Coal
                 },
                 route_set: hashmap! {}
-            }]
+            }
         );
     }
 
@@ -284,7 +262,7 @@ mod tests {
                 duration: Duration::from_secs(4),
             },
         ];
-        let mut processor = GetRoutes::new(HappyPathTx { closest_targets });
+        let sim = UpdateSettlement::new(HappyPathTx { closest_targets });
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -293,7 +271,7 @@ mod tests {
         };
 
         // When
-        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
+        let routes = block_on(sim.get_routes(demand));
 
         // Then
         let mut route_set = HashMap::new();
@@ -312,14 +290,14 @@ mod tests {
         );
 
         assert_eq!(
-            state.instructions,
-            vec![Instruction::GetRouteChanges {
+            routes,
+            Routes {
                 key: RouteSetKey {
                     settlement: v2(1, 3),
                     resource: Resource::Coal
                 },
                 route_set
-            }]
+            }
         );
     }
 
@@ -361,7 +339,7 @@ mod tests {
     #[test]
     fn zero_source_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
-        let mut processor = GetRoutes::new(PanicPathfinderTx {});
+        let sim = UpdateSettlement::new(PanicPathfinderTx {});
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -370,25 +348,25 @@ mod tests {
         };
 
         // When
-        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
+        let routes = block_on(sim.get_routes(demand));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::GetRouteChanges {
+            routes,
+            Routes {
                 key: RouteSetKey {
                     settlement: v2(1, 3),
                     resource: Resource::Coal
                 },
                 route_set: hashmap! {}
-            }]
+            }
         );
     }
 
     #[test]
     fn zero_quantity_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
-        let mut processor = GetRoutes::new(PanicPathfinderTx {});
+        let sim = UpdateSettlement::new(PanicPathfinderTx {});
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -397,18 +375,18 @@ mod tests {
         };
 
         // When
-        let state = block_on(processor.process(State::default(), &Instruction::GetRoutes(demand)));
+        let routes = block_on(sim.get_routes(demand));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::GetRouteChanges {
+            routes,
+            Routes {
                 key: RouteSetKey {
                     settlement: v2(1, 3),
                     resource: Resource::Coal
                 },
                 route_set: hashmap! {}
-            }]
+            }
         );
     }
 }
