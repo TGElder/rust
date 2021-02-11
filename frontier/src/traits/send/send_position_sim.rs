@@ -26,7 +26,7 @@ pub trait SendPositionBuildSim:
     + Send
     + Sync
 {
-    fn send_position_build_sim_future_background<F, O>(&self, function: F)
+    async fn send_position_build_sim_future<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
         F: FnOnce(&mut PositionBuildSimulation<Self>) -> BoxFuture<O> + Send + 'static;

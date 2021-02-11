@@ -22,7 +22,7 @@ where
         let changed_positions = self
             .update_all_position_traffic_and_get_changes(route_changes)
             .await;
-        self.tx.refresh_positions(changed_positions);
+        self.tx.refresh_positions(changed_positions).await;
         state
     }
 }
@@ -171,8 +171,9 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl RefreshPositions for Tx {
-        fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
+        async fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
             self.refreshed_positions
                 .lock()
                 .unwrap()
