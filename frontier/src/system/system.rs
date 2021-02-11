@@ -25,10 +25,9 @@ use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
-use crate::simulation::settlement::demand_fn::{homeland_demand_fn, town_demand_fn};
 use crate::simulation::settlement::processors::{
-    GetDemand, GetRouteChanges, GetRoutes, InstructionLogger, StepHomeland, StepTown,
-    UpdateEdgeTraffic, UpdatePositionTraffic, UpdateRouteToPorts,
+    GetRouteChanges, GetRoutes, InstructionLogger, StepHomeland, StepTown, UpdateEdgeTraffic,
+    UpdatePositionTraffic, UpdateRouteToPorts,
 };
 use crate::simulation::settlement::{SettlementSimulation, UpdateSettlement};
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
@@ -292,8 +291,6 @@ impl System {
                     Box::new(InstructionLogger::new()),
                     Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
                     Box::new(StepTown::new(tx.clone_with_name("step_town"))),
-                    Box::new(GetDemand::new(town_demand_fn)),
-                    Box::new(GetDemand::new(homeland_demand_fn)),
                     Box::new(GetRoutes::new(tx.clone_with_name("get_routes"))),
                     Box::new(GetRouteChanges::new(
                         tx.clone_with_name("get_route_changes"),
