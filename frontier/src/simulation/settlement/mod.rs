@@ -9,7 +9,6 @@ mod state;
 mod update_settlement;
 
 pub use demand::demand_fn;
-use demand::*;
 use instruction::*;
 use processor::*;
 pub use simulation::*;
