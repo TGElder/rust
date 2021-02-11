@@ -1,6 +1,5 @@
 use super::*;
 
-mod get_demand;
 mod get_route_changes;
 mod get_routes;
 mod instruction_logger;
@@ -10,7 +9,6 @@ mod update_edge_traffic;
 mod update_position_traffic;
 mod update_route_to_ports;
 
-pub use get_demand::*;
 pub use get_route_changes::*;
 pub use get_routes::*;
 pub use instruction_logger::*;

@@ -1,6 +1,9 @@
 use commons::async_trait::async_trait;
 use commons::V2;
 
+use crate::settlement::Settlement;
+use crate::simulation::settlement::demand::Demand;
+use crate::simulation::settlement::demand_fn::homeland_demand_fn;
 use crate::simulation::settlement::instruction::Instruction;
 use crate::simulation::settlement::processor::Processor;
 use crate::simulation::settlement::state::State;
@@ -11,13 +14,21 @@ use crate::traits::{
     WithRouteToPorts, WithTraffic,
 };
 
+use super::demand_fn::town_demand_fn;
+
 pub struct UpdateSettlement<T> {
     pub(super) tx: T,
+    pub(super) homeland_demand_fn: fn(&Settlement) -> Vec<Demand>,
+    pub(super) town_demand_fn: fn(&Settlement) -> Vec<Demand>,
 }
 
 impl<T> UpdateSettlement<T> {
     pub fn new(tx: T) -> UpdateSettlement<T> {
-        UpdateSettlement { tx }
+        UpdateSettlement {
+            tx,
+            town_demand_fn,
+            homeland_demand_fn,
+        }
     }
 }
 
@@ -73,7 +84,8 @@ where
         let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return vec![]);
         self.update_homeland(&settlement).await;
         if let Some(updated) = self.update_current_population(*position).await {
-            vec![Instruction::GetDemand(updated)]
+            let demand = (self.homeland_demand_fn)(&updated);
+            demand.into_iter().map(Instruction::GetRoutes).collect()
         } else {
             vec![]
         }
@@ -88,7 +100,8 @@ where
             self.remove_town(&settlement, &traffic), // TODO should be after population update
         );
         if let Some(updated) = self.update_current_population(*position).await {
-            vec![Instruction::GetDemand(updated)]
+            let demand = (self.town_demand_fn)(&updated);
+            demand.into_iter().map(Instruction::GetRoutes).collect()
         } else {
             vec![]
         }
