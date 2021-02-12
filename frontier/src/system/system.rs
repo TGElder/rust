@@ -292,13 +292,13 @@ impl System {
                 settlement_sim_rx,
             ),
             settlements: Process::new(Settlements::new(), settlements_rx),
-            setup_pathfinders: Process::new(
-                SetupPathfinders::new(tx.clone_with_name("setup_pathfinders")),
-                setup_pathfinders_rx,
-            ),
             setup_new_world: Process::new(
                 SetupNewWorld::new(tx.clone_with_name("setup_new_world")),
                 setup_new_world_rx,
+            ),
+            setup_pathfinders: Process::new(
+                SetupPathfinders::new(tx.clone_with_name("setup_pathfinders")),
+                setup_pathfinders_rx,
             ),
             speed_control: Process::new(
                 SpeedControl::new(tx.clone_with_name("speed_control")),

@@ -53,9 +53,9 @@ pub struct Polysender {
     pub nations_tx: FnSender<Nations>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub parameters: Arc<Parameters>,
-    pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
     pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
     pub position_sim_tx: FnSender<PositionBuildSimulation<Polysender>>,
     pub prime_mover_tx: FnSender<PrimeMover<Polysender>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
@@ -96,11 +96,11 @@ impl Polysender {
             nations_tx: self.nations_tx.clone_with_name(name),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             parameters: self.parameters.clone(),
+            pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
+            pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
                 .clone_with_name(name),
-            pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
-            pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
             position_sim_tx: self.position_sim_tx.clone_with_name(name),
             prime_mover_tx: self.prime_mover_tx.clone_with_name(name),
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
@@ -364,45 +364,6 @@ impl SendWorldArtist for Polysender {
     }
 }
 
-impl PathfinderWithPlannedRoads for Polysender {
-    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
-
-    fn pathfinder_with_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_with_planned_roads
-    }
-}
-
-impl PathfinderWithoutPlannedRoads for Polysender {
-    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
-
-    fn pathfinder_without_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_without_planned_roads
-    }
-}
-
-#[async_trait]
-impl WithPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
-    type T = AvatarTravelDuration;
-
-    async fn with_pathfinder<F, O>(&self, function: F) -> O
-    where
-        F: FnOnce(&Pathfinder<Self::T>) -> O + Send,
-    {
-        let pathfinder = self.read().await;
-        function(&pathfinder)
-    }
-
-    async fn mut_pathfinder<F, O>(&self, function: F) -> O
-    where
-        F: FnOnce(&mut Pathfinder<Self::T>) -> O + Send,
-    {
-        let mut pathfinder = self.write().await;
-        function(&mut pathfinder)
-    }
-}
-
-impl NotMock for Polysender {}
-
 #[async_trait]
 impl WithBuildQueue for Polysender {
     async fn with_build_queue<F, O>(&self, function: F) -> O
@@ -478,3 +439,42 @@ impl WithTraffic for Polysender {
         function(&mut traffic)
     }
 }
+
+#[async_trait]
+impl WithPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
+    type T = AvatarTravelDuration;
+
+    async fn with_pathfinder<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&Pathfinder<Self::T>) -> O + Send,
+    {
+        let pathfinder = self.read().await;
+        function(&pathfinder)
+    }
+
+    async fn mut_pathfinder<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut Pathfinder<Self::T>) -> O + Send,
+    {
+        let mut pathfinder = self.write().await;
+        function(&mut pathfinder)
+    }
+}
+
+impl PathfinderWithPlannedRoads for Polysender {
+    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
+
+    fn pathfinder_with_planned_roads(&self) -> &Self::T {
+        &self.pathfinder_with_planned_roads
+    }
+}
+
+impl PathfinderWithoutPlannedRoads for Polysender {
+    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
+
+    fn pathfinder_without_planned_roads(&self) -> &Self::T {
+        &self.pathfinder_without_planned_roads
+    }
+}
+
+impl NotMock for Polysender {}
