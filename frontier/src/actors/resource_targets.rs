@@ -37,7 +37,7 @@ where
     async fn load_targets(&self, target_set: String, targets: HashSet<V2<usize>>) {
         self.tx.init_targets(target_set.clone()).await;
         for target in targets {
-            self.tx.load_target(target_set.clone(), target, true).await
+            self.tx.load_target(&target_set, &target, true).await
         }
     }
 }
@@ -99,14 +99,14 @@ mod tests {
 
     #[async_trait]
     impl LoadTargetWithPlannedRoads for Tx {
-        async fn load_target(&self, name: String, position: V2<usize>, target: bool) {
+        async fn load_target(&self, name: &str, position: &V2<usize>, target: bool) {
             *self
                 .targets
                 .lock()
                 .unwrap()
-                .get_mut(&name)
+                .get_mut(name)
                 .unwrap()
-                .mut_cell_unsafe(&position) = target;
+                .mut_cell_unsafe(position) = target;
         }
     }
 

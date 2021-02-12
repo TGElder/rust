@@ -6,54 +6,54 @@ use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
-    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendPathfinder, SendWorld,
+    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendWorld, WithPathfinder,
 };
 use crate::travel_duration::{EdgeDuration, TravelDuration};
 
 #[async_trait]
 pub trait FindPath {
-    async fn find_path(&self, from: Vec<V2<usize>>, to: Vec<V2<usize>>) -> Option<Vec<V2<usize>>>;
+    async fn find_path(&self, from: &[V2<usize>], to: &[V2<usize>]) -> Option<Vec<V2<usize>>>;
 }
 
 #[async_trait]
 impl<T> FindPath for T
 where
-    T: SendPathfinder + Sync,
+    T: WithPathfinder + Sync,
 {
-    async fn find_path(&self, from: Vec<V2<usize>>, to: Vec<V2<usize>>) -> Option<Vec<V2<usize>>> {
-        self.send_pathfinder(move |pathfinder| pathfinder.find_path(&from, &to))
+    async fn find_path(&self, from: &[V2<usize>], to: &[V2<usize>]) -> Option<Vec<V2<usize>>> {
+        self.with_pathfinder(|pathfinder| pathfinder.find_path(from, to))
             .await
     }
 }
 
 #[async_trait]
 pub trait InBounds {
-    async fn in_bounds(&self, position: V2<usize>) -> bool;
+    async fn in_bounds(&self, position: &V2<usize>) -> bool;
 }
 
 #[async_trait]
 impl<T> InBounds for T
 where
-    T: SendPathfinder + Sync,
+    T: WithPathfinder + Sync,
 {
-    async fn in_bounds(&self, position: V2<usize>) -> bool {
-        self.send_pathfinder(move |pathfinder| pathfinder.in_bounds(&position))
+    async fn in_bounds(&self, position: &V2<usize>) -> bool {
+        self.with_pathfinder(|pathfinder| pathfinder.in_bounds(position))
             .await
     }
 }
 
 #[async_trait]
 pub trait LowestDuration {
-    async fn lowest_duration(&self, path: Vec<V2<usize>>) -> Option<Duration>;
+    async fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration>;
 }
 
 #[async_trait]
 impl<T> LowestDuration for T
 where
-    T: SendPathfinder + Sync,
+    T: WithPathfinder + Sync,
 {
-    async fn lowest_duration(&self, path: Vec<V2<usize>>) -> Option<Duration> {
-        self.send_pathfinder(move |pathfinder| pathfinder.lowest_duration(&path))
+    async fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
+        self.with_pathfinder(|pathfinder| pathfinder.lowest_duration(path))
             .await
     }
 }
@@ -62,22 +62,22 @@ where
 pub trait PositionsWithin {
     async fn positions_within(
         &self,
-        positions: Vec<V2<usize>>,
-        duration: Duration,
+        positions: &[V2<usize>],
+        duration: &Duration,
     ) -> HashMap<V2<usize>, Duration>;
 }
 
 #[async_trait]
 impl<T> PositionsWithin for T
 where
-    T: SendPathfinder + Sync,
+    T: WithPathfinder + Sync,
 {
     async fn positions_within(
         &self,
-        positions: Vec<V2<usize>>,
-        duration: Duration,
+        positions: &[V2<usize>],
+        duration: &Duration,
     ) -> HashMap<V2<usize>, Duration> {
-        self.send_pathfinder(move |pathfinder| pathfinder.positions_within(&positions, &duration))
+        self.with_pathfinder(|pathfinder| pathfinder.positions_within(positions, duration))
             .await
     }
 }
@@ -86,7 +86,7 @@ where
 pub trait UpdatePathfinderPositions {
     async fn update_pathfinder_positions<P, I>(&self, pathfinder: &P, positions: I)
     where
-        P: SendPathfinder + Send + Sync,
+        P: WithPathfinder + Send + Sync,
         I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static;
 }
 
@@ -97,11 +97,11 @@ where
 {
     async fn update_pathfinder_positions<P, I>(&self, pathfinder: &P, positions: I)
     where
-        P: SendPathfinder + Send + Sync,
+        P: WithPathfinder + Send + Sync,
         I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static,
     {
         let travel_duration = pathfinder
-            .send_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
+            .with_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
             .await;
 
         let durations: HashSet<EdgeDuration> = self
@@ -115,13 +115,15 @@ where
             })
             .await;
 
-        pathfinder.send_pathfinder_background(move |pathfinder| {
-            for EdgeDuration { from, to, duration } in durations {
-                if let Some(duration) = duration {
-                    pathfinder.set_edge_duration(&from, &to, &duration)
+        pathfinder
+            .mut_pathfinder(move |pathfinder| {
+                for EdgeDuration { from, to, duration } in durations {
+                    if let Some(duration) = duration {
+                        pathfinder.set_edge_duration(&from, &to, &duration)
+                    }
                 }
-            }
-        });
+            })
+            .await;
     }
 }
 
@@ -163,26 +165,26 @@ pub trait InitTargets {
 #[async_trait]
 impl<T> InitTargets for T
 where
-    T: SendPathfinder + Sync,
+    T: WithPathfinder + Sync,
 {
     async fn init_targets(&self, name: String) {
-        self.send_pathfinder(move |pathfinder| pathfinder.init_targets(name))
+        self.mut_pathfinder(move |pathfinder| pathfinder.init_targets(name))
             .await
     }
 }
 
 #[async_trait]
 pub trait LoadTarget {
-    async fn load_target(&self, name: String, position: V2<usize>, target: bool);
+    async fn load_target(&self, name: &str, position: &V2<usize>, target: bool);
 }
 
 #[async_trait]
 impl<T> LoadTarget for T
 where
-    T: SendPathfinder + Sync,
+    T: WithPathfinder + Sync,
 {
-    async fn load_target(&self, name: String, position: V2<usize>, target: bool) {
-        self.send_pathfinder(move |pathfinder| pathfinder.load_target(&name, &position, target))
+    async fn load_target(&self, name: &str, position: &V2<usize>, target: bool) {
+        self.mut_pathfinder(move |pathfinder| pathfinder.load_target(&name, position, target))
             .await
     }
 }
@@ -191,8 +193,8 @@ where
 pub trait ClosestTargets {
     async fn closest_targets(
         &self,
-        positions: Vec<V2<usize>>,
-        targets: String,
+        positions: &[V2<usize>],
+        targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult>;
 }
@@ -200,17 +202,15 @@ pub trait ClosestTargets {
 #[async_trait]
 impl<T> ClosestTargets for T
 where
-    T: SendPathfinder + Sync,
+    T: WithPathfinder + Sync,
 {
     async fn closest_targets(
         &self,
-        positions: Vec<V2<usize>>,
-        targets: String,
+        positions: &[V2<usize>],
+        targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult> {
-        self.send_pathfinder(move |pathfinder| {
-            pathfinder.closest_targets(&positions, &targets, n_closest)
-        })
-        .await
+        self.with_pathfinder(|pathfinder| pathfinder.closest_targets(positions, targets, n_closest))
+            .await
     }
 }

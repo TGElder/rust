@@ -1,42 +1,30 @@
-use crate::pathfinder::Pathfinder;
-use crate::traits::SendWorld;
-use crate::travel_duration::TravelDuration;
+use commons::v2;
 
-pub struct PathfinderService<T, D>
+use crate::traits::has::HasParameters;
+use crate::traits::UpdatePositionsAllPathfinders;
+
+pub struct SetupPathfinders<T>
 where
-    D: TravelDuration,
+    T: HasParameters + UpdatePositionsAllPathfinders,
 {
     tx: T,
-    pathfinder: Option<Pathfinder<D>>,
 }
 
-impl<T, D> PathfinderService<T, D>
+impl<T> SetupPathfinders<T>
 where
-    T: SendWorld,
-    D: TravelDuration + 'static,
+    T: HasParameters + UpdatePositionsAllPathfinders,
 {
-    pub fn new(tx: T, pathfinder: Pathfinder<D>) -> PathfinderService<T, D> {
-        PathfinderService {
-            tx,
-            pathfinder: Some(pathfinder),
-        }
+    pub fn new(tx: T) -> SetupPathfinders<T> {
+        SetupPathfinders { tx }
     }
 
     pub async fn init(&mut self) {
-        let mut pathfinder = self.pathfinder.take().unwrap();
+        let width = self.tx.parameters().width;
 
-        let pathfinder = self
-            .tx
-            .send_world(move |world| {
-                pathfinder.reset_edges(world);
-                pathfinder
-            })
+        let all_positions = (0..width).flat_map(move |x| (0..width).map(move |y| v2(x, y)));
+
+        self.tx
+            .update_positions_all_pathfinders(all_positions)
             .await;
-
-        self.pathfinder = Some(pathfinder);
-    }
-
-    pub fn pathfinder(&mut self) -> &mut Pathfinder<D> {
-        self.pathfinder.as_mut().unwrap()
     }
 }
