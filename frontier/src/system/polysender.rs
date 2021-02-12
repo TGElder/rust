@@ -1,8 +1,8 @@
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
-    BuilderActor, Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService,
-    PathfindingAvatarControls, PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor,
-    Settlements, SetupNewWorld, SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist,
+    BuilderActor, Cheats, Clock, Labels, Nations, ObjectBuilder, PathfindingAvatarControls,
+    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
+    SetupPathfinders, SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist,
     TownLabelArtist, VisibilityActor, Voyager, WorldActor, WorldArtistActor,
 };
 use crate::avatar::AvatarTravelDuration;
@@ -22,11 +22,11 @@ use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::HasParameters;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
-    SendEdgeBuildSim, SendNations, SendPathfinder, SendPositionBuildSim, SendRotate, SendRoutes,
-    SendSettlementSim, SendSettlements, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
-    SendVisibility, SendVoyager, SendWorld, SendWorldArtist,
+    SendEdgeBuildSim, SendNations, SendPositionBuildSim, SendRotate, SendRoutes, SendSettlementSim,
+    SendSettlements, SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility,
+    SendVoyager, SendWorld, SendWorldArtist, WithBuildQueue, WithEdgeTraffic, WithPathfinder,
+    WithRouteToPorts, WithTraffic,
 };
-use crate::traits::{WithBuildQueue, WithEdgeTraffic, WithRouteToPorts, WithTraffic};
 use crate::world::World;
 use commons::async_std::sync::RwLock;
 use commons::async_trait::async_trait;
@@ -54,10 +54,8 @@ pub struct Polysender {
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
     pub parameters: Arc<Parameters>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
-    pub pathfinder_with_planned_roads_tx:
-        FnSender<PathfinderService<Polysender, AvatarTravelDuration>>,
-    pub pathfinder_without_planned_roads_tx:
-        FnSender<PathfinderService<Polysender, AvatarTravelDuration>>,
+    pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub position_sim_tx: FnSender<PositionBuildSimulation<Polysender>>,
     pub prime_mover_tx: FnSender<PrimeMover<Polysender>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
@@ -67,6 +65,7 @@ pub struct Polysender {
     pub settlement_sim_tx: FnSender<SettlementSimulation>,
     pub settlements_tx: FnSender<Settlements>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
+    pub setup_pathfinders_tx: FnSender<SetupPathfinders<Polysender>>,
     pub speed_control_tx: FnSender<SpeedControl<Polysender>>,
     pub territory_tx: FnSender<TerritoryActor>,
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
@@ -100,12 +99,8 @@ impl Polysender {
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
                 .clone_with_name(name),
-            pathfinder_with_planned_roads_tx: self
-                .pathfinder_with_planned_roads_tx
-                .clone_with_name(name),
-            pathfinder_without_planned_roads_tx: self
-                .pathfinder_without_planned_roads_tx
-                .clone_with_name(name),
+            pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
+            pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
             position_sim_tx: self.position_sim_tx.clone_with_name(name),
             prime_mover_tx: self.prime_mover_tx.clone_with_name(name),
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
@@ -115,6 +110,7 @@ impl Polysender {
             settlement_sim_tx: self.settlement_sim_tx.clone_with_name(name),
             settlements_tx: self.settlements_tx.clone_with_name(name),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
+            setup_pathfinders_tx: self.setup_pathfinders_tx.clone_with_name(name),
             speed_control_tx: self.speed_control_tx.clone_with_name(name),
             territory_tx: self.territory_tx.clone_with_name(name),
             traffic: self.traffic.clone(),
@@ -369,40 +365,39 @@ impl SendWorldArtist for Polysender {
 }
 
 impl PathfinderWithPlannedRoads for Polysender {
-    type T = FnSender<PathfinderService<Polysender, AvatarTravelDuration>>;
+    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
     fn pathfinder_with_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_with_planned_roads_tx
+        &self.pathfinder_with_planned_roads
     }
 }
 
 impl PathfinderWithoutPlannedRoads for Polysender {
-    type T = FnSender<PathfinderService<Polysender, AvatarTravelDuration>>;
+    type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
     fn pathfinder_without_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_without_planned_roads_tx
+        &self.pathfinder_without_planned_roads
     }
 }
 
 #[async_trait]
-impl SendPathfinder for FnSender<PathfinderService<Polysender, AvatarTravelDuration>> {
+impl WithPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
     type T = AvatarTravelDuration;
 
-    async fn send_pathfinder<F, O>(&self, function: F) -> O
+    async fn with_pathfinder<F, O>(&self, function: F) -> O
     where
-        O: Send + 'static,
-        F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static,
+        F: FnOnce(&Pathfinder<Self::T>) -> O + Send,
     {
-        self.send(move |service| function(service.pathfinder()))
-            .await
+        let pathfinder = self.read().await;
+        function(&pathfinder)
     }
 
-    fn send_pathfinder_background<F, O>(&self, function: F)
+    async fn mut_pathfinder<F, O>(&self, function: F) -> O
     where
-        O: Send + 'static,
-        F: FnOnce(&mut Pathfinder<AvatarTravelDuration>) -> O + Send + 'static,
+        F: FnOnce(&mut Pathfinder<Self::T>) -> O + Send,
     {
-        self.send(move |service| function(service.pathfinder()));
+        let mut pathfinder = self.write().await;
+        function(&mut pathfinder)
     }
 }
 
