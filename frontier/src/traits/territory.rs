@@ -117,7 +117,7 @@ where
         let duration = self.parameters().town_travel_duration;
         let corners = get_corners(&controller);
         let pathfinder = self.pathfinder_without_planned_roads();
-        let durations = pathfinder.positions_within(corners, duration).await;
+        let durations = pathfinder.positions_within(&corners, &duration).await;
         let micros = self.micros().await;
         self.set_control_durations(controller, durations, micros)
             .await

@@ -61,7 +61,7 @@ where
         let path = unwrap_or!(
             self.tx
                 .pathfinder_without_planned_roads()
-                .find_path(vec![stop_position], vec![to])
+                .find_path(&[stop_position], &[to])
                 .await,
             return
         );
