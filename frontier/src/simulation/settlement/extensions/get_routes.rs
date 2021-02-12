@@ -42,14 +42,14 @@ where
         let sources = demand.sources;
         let corners_in_bounds = self.corners_in_bound(&demand.position).await;
         self.tx
-            .closest_targets(corners_in_bounds, target_set, sources)
+            .closest_targets(&corners_in_bounds, &target_set, sources)
             .await
     }
 
     async fn corners_in_bound(&self, position: &V2<usize>) -> Vec<V2<usize>> {
         let mut out = vec![];
         for corner in get_corners(&position) {
-            if self.tx.in_bounds(corner).await {
+            if self.tx.in_bounds(&corner).await {
                 out.push(corner);
             }
         }
@@ -86,7 +86,7 @@ where
                 destination: target.position,
             },
             Route {
-                duration: self.route_duration(target.path.clone()).await,
+                duration: self.route_duration(&target.path).await,
                 path: target.path,
                 start_micros,
                 traffic: demand.quantity,
@@ -94,7 +94,7 @@ where
         )
     }
 
-    async fn route_duration(&self, path: Vec<V2<usize>>) -> Duration {
+    async fn route_duration(&self, path: &[V2<usize>]) -> Duration {
         self.tx
             .lowest_duration(path)
             .await
@@ -126,7 +126,7 @@ mod tests {
 
     #[async_trait]
     impl LowestDurationWithoutPlannedRoads for HappyPathTx {
-        async fn lowest_duration(&self, _: Vec<V2<usize>>) -> Option<Duration> {
+        async fn lowest_duration(&self, _: &[V2<usize>]) -> Option<Duration> {
             Some(Duration::from_secs(303))
         }
     }
@@ -135,11 +135,11 @@ mod tests {
     impl ClosestTargetsWithPlannedRoads for HappyPathTx {
         async fn closest_targets(
             &self,
-            positions: Vec<V2<usize>>,
-            target_set: String,
+            positions: &[V2<usize>],
+            target_set: &str,
             _: usize,
         ) -> Vec<ClosestTargetResult> {
-            assert!(same_elements(&positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
+            assert!(same_elements(positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
             assert_eq!(target_set, "resource-coal");
             self.closest_targets.clone()
         }
@@ -147,8 +147,8 @@ mod tests {
 
     #[async_trait]
     impl InBoundsWithPlannedRoads for HappyPathTx {
-        async fn in_bounds(&self, position: V2<usize>) -> bool {
-            position != v2(2, 4)
+        async fn in_bounds(&self, position: &V2<usize>) -> bool {
+            *position != v2(2, 4)
         }
     }
 
@@ -312,7 +312,7 @@ mod tests {
 
     #[async_trait]
     impl LowestDurationWithoutPlannedRoads for PanicPathfinderTx {
-        async fn lowest_duration(&self, _: Vec<V2<usize>>) -> Option<Duration> {
+        async fn lowest_duration(&self, _: &[V2<usize>]) -> Option<Duration> {
             Some(Duration::from_secs(303))
         }
     }
@@ -321,8 +321,8 @@ mod tests {
     impl ClosestTargetsWithPlannedRoads for PanicPathfinderTx {
         async fn closest_targets(
             &self,
-            _: Vec<V2<usize>>,
-            _: String,
+            _: &[V2<usize>],
+            _: &str,
             _: usize,
         ) -> Vec<ClosestTargetResult> {
             panic!("closest_targets was called!");
@@ -331,7 +331,7 @@ mod tests {
 
     #[async_trait]
     impl InBoundsWithPlannedRoads for PanicPathfinderTx {
-        async fn in_bounds(&self, _: V2<usize>) -> bool {
+        async fn in_bounds(&self, _: &V2<usize>) -> bool {
             panic!("in_bounds was called!");
         }
     }

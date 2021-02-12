@@ -4,18 +4,19 @@ use commons::async_trait::async_trait;
 use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
-use crate::traits::send::SendPathfinder;
-use crate::traits::{ClosestTargets, InBounds, InitTargets, LoadTarget, LowestDuration};
+use crate::traits::{
+    ClosestTargets, InBounds, InitTargets, LoadTarget, LowestDuration, WithPathfinder,
+};
 
 pub trait PathfinderWithPlannedRoads {
-    type T: SendPathfinder + Clone + Send + Sync;
+    type T: WithPathfinder + Clone + Send + Sync;
 
     fn pathfinder_with_planned_roads(&self) -> &Self::T;
 }
 
 #[async_trait]
 pub trait InBoundsWithPlannedRoads {
-    async fn in_bounds(&self, position: V2<usize>) -> bool;
+    async fn in_bounds(&self, position: &V2<usize>) -> bool;
 }
 
 #[async_trait]
@@ -23,7 +24,7 @@ impl<T> InBoundsWithPlannedRoads for T
 where
     T: PathfinderWithPlannedRoads + Sync,
 {
-    async fn in_bounds(&self, position: V2<usize>) -> bool {
+    async fn in_bounds(&self, position: &V2<usize>) -> bool {
         self.pathfinder_with_planned_roads()
             .in_bounds(position)
             .await
@@ -49,7 +50,7 @@ where
 
 #[async_trait]
 pub trait LoadTargetWithPlannedRoads {
-    async fn load_target(&self, name: String, position: V2<usize>, target: bool);
+    async fn load_target(&self, name: &str, position: &V2<usize>, target: bool);
 }
 
 #[async_trait]
@@ -57,7 +58,7 @@ impl<T> LoadTargetWithPlannedRoads for T
 where
     T: PathfinderWithPlannedRoads + Sync,
 {
-    async fn load_target(&self, name: String, position: V2<usize>, target: bool) {
+    async fn load_target(&self, name: &str, position: &V2<usize>, target: bool) {
         self.pathfinder_with_planned_roads()
             .load_target(name, position, target)
             .await
@@ -68,8 +69,8 @@ where
 pub trait ClosestTargetsWithPlannedRoads {
     async fn closest_targets(
         &self,
-        positions: Vec<V2<usize>>,
-        targets: String,
+        positions: &[V2<usize>],
+        targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult>;
 }
@@ -81,8 +82,8 @@ where
 {
     async fn closest_targets(
         &self,
-        positions: Vec<V2<usize>>,
-        targets: String,
+        positions: &[V2<usize>],
+        targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult> {
         self.pathfinder_with_planned_roads()
@@ -92,14 +93,14 @@ where
 }
 
 pub trait PathfinderWithoutPlannedRoads {
-    type T: SendPathfinder + Clone + Send + Sync;
+    type T: WithPathfinder + Clone + Send + Sync;
 
     fn pathfinder_without_planned_roads(&self) -> &Self::T;
 }
 
 #[async_trait]
 pub trait LowestDurationWithoutPlannedRoads {
-    async fn lowest_duration(&self, path: Vec<V2<usize>>) -> Option<Duration>;
+    async fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration>;
 }
 
 #[async_trait]
@@ -107,7 +108,7 @@ impl<T> LowestDurationWithoutPlannedRoads for T
 where
     T: PathfinderWithoutPlannedRoads + Sync,
 {
-    async fn lowest_duration(&self, path: Vec<V2<usize>>) -> Option<Duration> {
+    async fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
         self.pathfinder_without_planned_roads()
             .lowest_duration(path)
             .await

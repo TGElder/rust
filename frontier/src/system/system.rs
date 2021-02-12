@@ -11,9 +11,9 @@ use isometric::IsometricEngine;
 
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
-    BuilderActor, Cheats, Clock, Labels, Nations, ObjectBuilder, PathfinderService,
-    PathfindingAvatarControls, PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor,
-    Settlements, SetupNewWorld, SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist,
+    BuilderActor, Cheats, Clock, Labels, Nations, ObjectBuilder, PathfindingAvatarControls,
+    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
+    SetupPathfinders, SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist,
     TownLabelArtist, VisibilityActor, Voyager, WorldActor, WorldArtistActor,
     WorldColoringParameters,
 };
@@ -52,9 +52,6 @@ pub struct System {
     pub nations: Process<Nations>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
-    pub pathfinder_with_planned_roads: Process<PathfinderService<Polysender, AvatarTravelDuration>>,
-    pub pathfinder_without_planned_roads:
-        Process<PathfinderService<Polysender, AvatarTravelDuration>>,
     pub position_sim: Process<PositionBuildSimulation<Polysender>>,
     pub prime_mover: Process<PrimeMover<Polysender>>,
     pub resource_targets: Process<ResourceTargets<Polysender>>,
@@ -63,6 +60,7 @@ pub struct System {
     pub settlement_sim: Process<SettlementSimulation>,
     pub settlements: Process<Settlements>,
     pub setup_new_world: Process<SetupNewWorld<Polysender>>,
+    pub setup_pathfinders: Process<SetupPathfinders<Polysender>>,
     pub speed_control: Process<SpeedControl<Polysender>>,
     pub territory: Process<TerritoryActor>,
     pub town_builder: Process<TownBuilderActor<Polysender>>,
@@ -78,6 +76,16 @@ impl System {
     pub fn new(params: Parameters, engine: &mut IsometricEngine, pool: ThreadPool) -> System {
         let params = Arc::new(params);
 
+        let avatar_travel_duration_with_planned_roads = Arc::new(
+            AvatarTravelDuration::with_planned_roads_as_roads(&params.avatar_travel),
+        );
+        let avatar_travel_duration_without_planned_roads = Arc::new(
+            AvatarTravelDuration::with_planned_roads_ignored(&params.avatar_travel),
+        );
+        let road_build_travel_duration = Arc::new(AutoRoadTravelDuration::from_params(
+            &params.auto_road_travel,
+        ));
+
         let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
         let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();
         let (avatars_tx, avatars_rx) = fn_channel();
@@ -90,9 +98,6 @@ impl System {
         let (labels_tx, labels_rx) = fn_channel();
         let (nations_tx, nations_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
-        let (pathfinder_with_planned_roads_tx, pathfinder_with_planned_roads_rx) = fn_channel();
-        let (pathfinder_without_planned_roads_tx, pathfinder_without_planned_roads_rx) =
-            fn_channel();
         let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
         let (position_sim_tx, position_sim_rx) = fn_channel();
         let (prime_mover_tx, prime_mover_rx) = fn_channel();
@@ -102,6 +107,7 @@ impl System {
         let (settlement_sim_tx, settlement_sim_rx) = fn_channel();
         let (settlements_tx, settlements_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
+        let (setup_pathfinders_tx, setup_pathfinders_rx) = fn_channel();
         let (speed_control_tx, speed_control_rx) = fn_channel();
         let (territory_tx, territory_rx) = fn_channel();
         let (town_builder_tx, town_builder_rx) = fn_channel();
@@ -128,25 +134,34 @@ impl System {
             nations_tx,
             object_builder_tx,
             parameters: params.clone(),
-            pathfinder_with_planned_roads_tx,
-            pathfinder_without_planned_roads_tx,
+            pathfinder_with_planned_roads: Arc::new(RwLock::new(Pathfinder::new(
+                params.width,
+                params.width,
+                avatar_travel_duration_with_planned_roads,
+            ))),
+            pathfinder_without_planned_roads: Arc::new(RwLock::new(Pathfinder::new(
+                params.width,
+                params.width,
+                avatar_travel_duration_without_planned_roads.clone(),
+            ))),
             pathfinding_avatar_controls_tx,
             position_sim_tx,
             prime_mover_tx,
             resource_targets_tx,
             routes_tx,
+            rotate_tx,
+            route_to_ports: Arc::default(),
+            settlement_sim_tx,
+            settlements_tx,
+            setup_pathfinders_tx,
+            setup_new_world_tx,
+            speed_control_tx,
+            territory_tx,
             traffic: Arc::new(RwLock::new(Traffic::new(
                 params.width,
                 params.width,
                 HashSet::with_capacity(0),
             ))),
-            rotate_tx,
-            route_to_ports: Arc::default(),
-            settlement_sim_tx,
-            settlements_tx,
-            setup_new_world_tx,
-            speed_control_tx,
-            territory_tx,
             town_builder_tx,
             town_house_artist_tx,
             town_label_artist_tx,
@@ -159,16 +174,6 @@ impl System {
         let (event_forwarder_tx, event_forwarder_rx) = fn_channel();
         engine.add_event_consumer(EventForwarderConsumer::new(event_forwarder_tx));
         engine.add_event_handler(ZoomHandler::default());
-
-        let avatar_travel_duration_with_planned_roads = Arc::new(
-            AvatarTravelDuration::with_planned_roads_as_roads(&params.avatar_travel),
-        );
-        let avatar_travel_duration_without_planned_roads = Arc::new(
-            AvatarTravelDuration::with_planned_roads_ignored(&params.avatar_travel),
-        );
-        let road_build_travel_duration = Arc::new(AutoRoadTravelDuration::from_params(
-            &params.auto_road_travel,
-        ));
 
         let config = System {
             tx: tx.clone_with_name("processes"),
@@ -234,28 +239,6 @@ impl System {
                 ObjectBuilder::new(tx.clone_with_name("object_builder"), params.seed),
                 object_builder_rx,
             ),
-            pathfinder_with_planned_roads: Process::new(
-                PathfinderService::new(
-                    tx.clone_with_name("pathfinder_with_planned_roads"),
-                    Pathfinder::new(
-                        params.width,
-                        params.width,
-                        avatar_travel_duration_with_planned_roads,
-                    ),
-                ),
-                pathfinder_with_planned_roads_rx,
-            ),
-            pathfinder_without_planned_roads: Process::new(
-                PathfinderService::new(
-                    tx.clone_with_name("pathfinder_without_planned_roads"),
-                    Pathfinder::new(
-                        params.width,
-                        params.width,
-                        avatar_travel_duration_without_planned_roads.clone(),
-                    ),
-                ),
-                pathfinder_without_planned_roads_rx,
-            ),
             pathfinding_avatar_controls: Process::new(
                 PathfindingAvatarControls::new(
                     tx.clone_with_name("pathfinding_avatar_controls"),
@@ -312,6 +295,10 @@ impl System {
             setup_new_world: Process::new(
                 SetupNewWorld::new(tx.clone_with_name("setup_new_world")),
                 setup_new_world_rx,
+            ),
+            setup_pathfinders: Process::new(
+                SetupPathfinders::new(tx.clone_with_name("setup_pathfinders")),
+                setup_pathfinders_rx,
             ),
             speed_control: Process::new(
                 SpeedControl::new(tx.clone_with_name("speed_control")),
@@ -385,14 +372,11 @@ impl System {
         self.tx.clock_tx.send(|micros| micros.init());
         self.tx.labels_tx.send(|labels| labels.init());
         self.tx
+            .setup_pathfinders_tx
+            .send_future(|setup_pathfinders| setup_pathfinders.init().boxed());
+        self.tx
             .resource_targets_tx
             .send_future(|resource_targets| resource_targets.init().boxed());
-        self.tx
-            .pathfinder_with_planned_roads_tx
-            .send_future(|pathfinder| pathfinder.init().boxed());
-        self.tx
-            .pathfinder_without_planned_roads_tx
-            .send_future(|pathfinder| pathfinder.init().boxed());
         self.tx
             .town_house_artist_tx
             .send_future(|town_house_artist| town_house_artist.init().boxed());
@@ -434,14 +418,9 @@ impl System {
         self.territory.run_passive(&self.pool).await;
         self.world.run_passive(&self.pool).await;
 
-        self.pathfinder_with_planned_roads
-            .run_passive(&self.pool)
-            .await;
-        self.pathfinder_without_planned_roads
-            .run_passive(&self.pool)
-            .await;
-
         self.setup_new_world.run_passive(&self.pool).await;
+        self.setup_pathfinders.run_passive(&self.pool).await;
+
         self.world_artist.run_passive(&self.pool).await;
         self.position_sim.run_passive(&self.pool).await;
         self.voyager.run_passive(&self.pool).await;
@@ -499,14 +478,9 @@ impl System {
         self.voyager.drain(&self.pool, true).await;
         self.position_sim.drain(&self.pool, true).await;
         self.world_artist.drain(&self.pool, true).await;
-        self.setup_new_world.drain(&self.pool, true).await;
 
-        self.pathfinder_without_planned_roads
-            .drain(&self.pool, true)
-            .await;
-        self.pathfinder_with_planned_roads
-            .drain(&self.pool, true)
-            .await;
+        self.setup_pathfinders.drain(&self.pool, true).await;
+        self.setup_new_world.drain(&self.pool, true).await;
 
         self.world.drain(&self.pool, true).await;
         self.territory.drain(&self.pool, true).await;
