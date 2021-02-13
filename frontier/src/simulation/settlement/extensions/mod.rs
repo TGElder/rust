@@ -6,6 +6,7 @@ mod remove_town;
 mod update_current_population;
 mod update_edge_traffic;
 mod update_homeland;
+mod update_position_traffic;
 mod update_town;
 
 pub use get_route_changes::*;
@@ -16,4 +17,5 @@ pub use remove_town::*;
 pub use update_current_population::*;
 pub use update_edge_traffic::*;
 pub use update_homeland::*;
+pub use update_position_traffic::*;
 pub use update_town::*;

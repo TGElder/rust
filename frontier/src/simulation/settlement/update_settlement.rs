@@ -122,15 +122,18 @@ where
     async fn get_all_route_changes(&self, demand: Vec<Demand>) -> Vec<Instruction> {
         let futures = demand
             .into_iter()
-            .map(|demand| self.get_route_changes(demand))
+            .map(|demand| self.update_routes(demand))
             .collect::<Vec<_>>();
         join_all(futures).await
     }
 
-    async fn get_route_changes(&self, demand: Demand) -> Instruction {
+    async fn update_routes(&self, demand: Demand) -> Instruction {
         let Routes { key, route_set } = self.get_routes(demand).await;
         let route_changes = self.update_routes_and_get_changes(key, route_set).await;
-        self.update_edge_traffic(&route_changes).await;
+        join!(
+            self.update_edge_traffic(&route_changes),
+            self.update_position_traffic(&route_changes),
+        );
         Instruction::ProcessRouteChanges(route_changes)
     }
 }

@@ -25,9 +25,7 @@ use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
-use crate::simulation::settlement::processors::{
-    StepHomeland, StepTown, UpdatePositionTraffic, UpdateRouteToPorts,
-};
+use crate::simulation::settlement::processors::{StepHomeland, StepTown, UpdateRouteToPorts};
 use crate::simulation::settlement::{SettlementSimulation, UpdateSettlement};
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traffic::Traffic;
@@ -272,9 +270,6 @@ impl System {
                     )),
                     Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
                     Box::new(StepTown::new(tx.clone_with_name("step_town"))),
-                    Box::new(UpdatePositionTraffic::new(
-                        tx.clone_with_name("update_position_traffic"),
-                    )),
                     Box::new(UpdateRouteToPorts::new(
                         tx.clone_with_name("update_route_to_ports"),
                         Arc::new(AvatarTravelModeFn::new(

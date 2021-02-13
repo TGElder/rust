@@ -1,38 +1,21 @@
-use super::*;
-
 use crate::route::{Route, RouteKey};
+use crate::simulation::settlement::instruction::RouteChange;
+use crate::simulation::settlement::UpdateSettlement;
+use crate::traffic::Traffic;
 use crate::traits::{RefreshPositions, WithTraffic};
 use commons::grid::Grid;
+use commons::V2;
 use std::collections::HashSet;
 
-pub struct UpdatePositionTraffic<T> {
-    tx: T,
-}
-
-#[async_trait]
-impl<T> Processor for UpdatePositionTraffic<T>
+impl<T> UpdateSettlement<T>
 where
-    T: RefreshPositions + WithTraffic + Send + Sync,
+    T: RefreshPositions + WithTraffic,
 {
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let route_changes = match instruction {
-            Instruction::ProcessRouteChanges(route_changes) => route_changes,
-            _ => return state,
-        };
+    pub async fn update_position_traffic(&self, route_changes: &[RouteChange]) {
         let changed_positions = self
             .update_all_position_traffic_and_get_changes(route_changes)
             .await;
         self.tx.refresh_positions(changed_positions).await;
-        state
-    }
-}
-
-impl<T> UpdatePositionTraffic<T>
-where
-    T: RefreshPositions + WithTraffic,
-{
-    pub fn new(tx: T) -> UpdatePositionTraffic<T> {
-        UpdatePositionTraffic { tx }
     }
 
     async fn update_all_position_traffic_and_get_changes(
@@ -121,6 +104,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use commons::async_trait::async_trait;
     use commons::index2d::Vec2D;
     use commons::v2;
     use futures::executor::block_on;
@@ -205,17 +189,14 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut processor = UpdatePositionTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_positions.lock().unwrap(),
+            *sim.tx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
         );
     }
@@ -227,20 +208,17 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut processor = UpdatePositionTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
         for position in route_1().path.iter() {
             expected.mut_cell_unsafe(position).insert(key());
         }
-        assert_eq!(*processor.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -251,17 +229,14 @@ mod tests {
             old: route_1(),
             new: route_2(),
         };
-        let mut processor = UpdatePositionTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_positions.lock().unwrap(),
+            *sim.tx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5), v2(1, 4)}
         );
     }
@@ -282,20 +257,17 @@ mod tests {
             traffic: Mutex::new(tx_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdatePositionTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
         for position in route_2().path.iter() {
             expected.mut_cell_unsafe(position).insert(key());
         }
-        assert_eq!(*processor.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -314,20 +286,17 @@ mod tests {
             traffic: Mutex::new(tx_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdatePositionTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
         for position in route_1().path.iter() {
             expected.mut_cell_unsafe(position).insert(key());
         }
-        assert_eq!(*processor.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -337,17 +306,14 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut processor = UpdatePositionTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_positions.lock().unwrap(),
+            *sim.tx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
         );
     }
@@ -363,17 +329,14 @@ mod tests {
         for position in route_1().path.iter() {
             tx_traffic.mut_cell_unsafe(position).insert(key());
         }
-        let mut processor = UpdatePositionTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         let expected = traffic();
-        assert_eq!(*processor.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -383,17 +346,14 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut processor = UpdatePositionTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_positions.lock().unwrap(),
+            *sim.tx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
         );
     }
@@ -405,16 +365,13 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut processor = UpdatePositionTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
-        assert_eq!(*processor.tx.traffic.lock().unwrap(), traffic());
+        assert_eq!(*sim.tx.traffic.lock().unwrap(), traffic());
     }
 
     #[test]
@@ -437,13 +394,10 @@ mod tests {
             traffic: Mutex::new(tx_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdatePositionTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -451,7 +405,7 @@ mod tests {
             expected.mut_cell_unsafe(position).insert(key());
             expected.mut_cell_unsafe(position).insert(key_2);
         }
-        assert_eq!(*processor.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -475,20 +429,17 @@ mod tests {
             traffic: Mutex::new(tx_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdatePositionTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
         for position in route_1().path.iter() {
             expected.mut_cell_unsafe(position).insert(key_2);
         }
-        assert_eq!(*processor.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -506,17 +457,14 @@ mod tests {
             },
             route: route_2(),
         };
-        let mut processor = UpdatePositionTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change_1, change_2]),
-        ));
+        block_on(sim.update_position_traffic(&[change_1, change_2]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_positions.lock().unwrap(),
+            *sim.tx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
         );
     }
