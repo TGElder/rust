@@ -1,38 +1,20 @@
-use super::*;
-
 use crate::route::{Route, RouteKey};
+use crate::simulation::settlement::instruction::RouteChange;
+use crate::simulation::settlement::UpdateSettlement;
+use crate::traffic::EdgeTraffic;
 use crate::traits::{RefreshEdges, WithEdgeTraffic};
 use commons::edge::{Edge, Edges};
 use std::collections::HashSet;
 
-pub struct UpdateEdgeTraffic<T> {
-    tx: T,
-}
-
-#[async_trait]
-impl<T> Processor for UpdateEdgeTraffic<T>
+impl<T> UpdateSettlement<T>
 where
-    T: RefreshEdges + WithEdgeTraffic + Send + Sync,
+    T: RefreshEdges + WithEdgeTraffic,
 {
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let route_changes = match instruction {
-            Instruction::ProcessRouteChanges(route_changes) => route_changes,
-            _ => return state,
-        };
+    pub async fn update_edge_traffic(&self, route_changes: &[RouteChange]) {
         let changed_edges = self
             .update_all_edge_traffic_and_get_changes(route_changes)
             .await;
         self.tx.refresh_edges(changed_edges).await;
-        state
-    }
-}
-
-impl<T> UpdateEdgeTraffic<T>
-where
-    T: RefreshEdges + WithEdgeTraffic,
-{
-    pub fn new(tx: T) -> UpdateEdgeTraffic<T> {
-        UpdateEdgeTraffic { tx }
     }
 
     async fn update_all_edge_traffic_and_get_changes(
@@ -138,6 +120,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use commons::async_trait::async_trait;
     use commons::v2;
     use futures::executor::block_on;
     use std::sync::Mutex;
@@ -209,17 +192,14 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut processor = UpdateEdgeTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_edges.lock().unwrap(),
+            *sim.tx.refreshed_edges.lock().unwrap(),
             hashset! {
                 Edge::new(v2(1, 3), v2(2, 3)),
                 Edge::new(v2(2, 3), v2(2, 4)),
@@ -237,20 +217,17 @@ mod tests {
             route: route_1(),
         };
         let tx = Tx::default();
-        let mut processor = UpdateEdgeTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_1().path.edges() {
             expected.insert(edge, hashset! {key()});
         }
-        assert_eq!(*processor.tx.edge_traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.edge_traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -269,17 +246,14 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdateEdgeTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_edges.lock().unwrap(),
+            *sim.tx.refreshed_edges.lock().unwrap(),
             hashset! {
              Edge::new(v2(1, 3), v2(2, 3)),
              Edge::new(v2(2, 3), v2(2, 4)),
@@ -307,20 +281,17 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdateEdgeTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_2().path.edges() {
             expected.insert(edge, hashset! {key()});
         }
-        assert_eq!(*processor.tx.edge_traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.edge_traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -339,20 +310,17 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdateEdgeTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_1().path.edges() {
             expected.insert(edge, hashset! {key()});
         }
-        assert_eq!(*processor.tx.edge_traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.edge_traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -370,17 +338,14 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdateEdgeTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_edges.lock().unwrap(),
+            *sim.tx.refreshed_edges.lock().unwrap(),
             hashset! {
              Edge::new(v2(1, 3), v2(2, 3)),
              Edge::new(v2(2, 3), v2(2, 4)),
@@ -405,17 +370,14 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdateEdgeTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         let expected = hashmap! {};
-        assert_eq!(*processor.tx.edge_traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.edge_traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -425,17 +387,14 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut processor = UpdateEdgeTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_edges.lock().unwrap(),
+            *sim.tx.refreshed_edges.lock().unwrap(),
             hashset! {
              Edge::new(v2(1, 3), v2(2, 3)),
              Edge::new(v2(2, 3), v2(2, 4)),
@@ -452,16 +411,13 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let mut processor = UpdateEdgeTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
-        assert_eq!(*processor.tx.edge_traffic.lock().unwrap(), hashmap! {},);
+        assert_eq!(*sim.tx.edge_traffic.lock().unwrap(), hashmap! {},);
     }
 
     #[test]
@@ -484,20 +440,17 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdateEdgeTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_1().path.edges() {
             expected.insert(edge, hashset! {key_2, key()});
         }
-        assert_eq!(*processor.tx.edge_traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.edge_traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -520,20 +473,17 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let mut processor = UpdateEdgeTraffic::new(tx);
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change]),
-        ));
+        block_on(sim.update_edge_traffic(&[change]));
 
         // Then
         let mut expected = hashmap! {};
         for edge in route_1().path.edges() {
             expected.insert(edge, hashset! {key_2});
         }
-        assert_eq!(*processor.tx.edge_traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.tx.edge_traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -551,17 +501,14 @@ mod tests {
             },
             route: route_2(),
         };
-        let mut processor = UpdateEdgeTraffic::new(Tx::default());
+        let sim = UpdateSettlement::new(Tx::default());
 
         // When
-        block_on(processor.process(
-            State::default(),
-            &Instruction::ProcessRouteChanges(vec![change_1, change_2]),
-        ));
+        block_on(sim.update_edge_traffic(&[change_1, change_2]));
 
         // Then
         assert_eq!(
-            *processor.tx.refreshed_edges.lock().unwrap(),
+            *sim.tx.refreshed_edges.lock().unwrap(),
             hashset! {
                Edge::new(v2(1, 3), v2(2, 3)),
                Edge::new(v2(2, 3), v2(2, 4)),

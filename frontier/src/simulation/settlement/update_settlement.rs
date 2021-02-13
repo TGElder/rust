@@ -11,9 +11,9 @@ use crate::simulation::settlement::state::State;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, Controlled, GetSettlement, InBoundsWithPlannedRoads,
-    LowestDurationWithoutPlannedRoads, Micros, RefreshPositions, RemoveTown, SendRoutes,
-    SendSettlements, UpdateSettlement as UpdateSettlementTrait, UpdateTerritory,
-    VisibleLandPositions, WithRouteToPorts, WithTraffic,
+    LowestDurationWithoutPlannedRoads, Micros, RefreshEdges, RefreshPositions, RemoveTown,
+    SendRoutes, SendSettlements, UpdateSettlement as UpdateSettlementTrait, UpdateTerritory,
+    VisibleLandPositions, WithEdgeTraffic, WithRouteToPorts, WithTraffic,
 };
 
 use super::demand_fn::town_demand_fn;
@@ -44,6 +44,7 @@ where
         + GetSettlement
         + LowestDurationWithoutPlannedRoads
         + Micros
+        + RefreshEdges
         + RefreshPositions
         + RemoveTown
         + SendRoutes
@@ -51,6 +52,7 @@ where
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
+        + WithEdgeTraffic
         + WithRouteToPorts
         + WithTraffic
         + Send
@@ -78,6 +80,7 @@ where
         + GetSettlement
         + LowestDurationWithoutPlannedRoads
         + Micros
+        + RefreshEdges
         + RefreshPositions
         + RemoveTown
         + SendRoutes
@@ -85,6 +88,7 @@ where
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
+        + WithEdgeTraffic
         + WithRouteToPorts
         + WithTraffic,
 {
@@ -126,6 +130,7 @@ where
     async fn get_route_changes(&self, demand: Demand) -> Instruction {
         let Routes { key, route_set } = self.get_routes(demand).await;
         let route_changes = self.update_routes_and_get_changes(key, route_set).await;
+        self.update_edge_traffic(&route_changes).await;
         Instruction::ProcessRouteChanges(route_changes)
     }
 }
