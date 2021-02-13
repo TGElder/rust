@@ -5,7 +5,7 @@ use commons::V2;
 use futures::future::join_all;
 
 use crate::avatar::AvatarTravelModeFn;
-use crate::settlement::Settlement;
+use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::demand_fn::homeland_demand_fn;
 use crate::simulation::settlement::instruction::{Instruction, Routes};
@@ -65,9 +65,9 @@ where
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         match instruction {
             Instruction::UpdateHomelandPopulation(position) => {
-                self.update_homeland_at(position).await
+                self.update_settlement_at(position).await
             }
-            Instruction::GetTerritory(position) => self.update_town_at(position).await,
+            Instruction::GetTerritory(position) => self.update_settlement_at(position).await,
             _ => (),
         };
         state
@@ -96,24 +96,30 @@ where
         + WithRouteToPorts
         + WithTraffic,
 {
-    async fn update_homeland_at(&self, position: &V2<usize>) {
+    async fn update_settlement_at(&self, position: &V2<usize>) {
         let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return);
+        match settlement.class {
+            SettlementClass::Homeland => self.update_homeland_settlement(settlement).await,
+            SettlementClass::Town => self.update_town_settlement(settlement).await,
+        }
+    }
+
+    async fn update_homeland_settlement(&self, settlement: Settlement) {
         self.update_homeland(&settlement).await;
-        if let Some(updated) = self.update_current_population(*position).await {
+        if let Some(updated) = self.update_current_population(settlement.position).await {
             let demand = (self.homeland_demand_fn)(&updated);
             self.get_all_route_changes(demand).await
         }
     }
 
-    async fn update_town_at(&self, position: &V2<usize>) {
-        let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return);
-        let territory = self.get_territory(position).await;
+    async fn update_town_settlement(&self, settlement: Settlement) {
+        let territory = self.get_territory(&settlement.position).await;
         let traffic = self.get_town_traffic(&territory).await;
         join!(
             self.update_town(&settlement, &traffic),
             self.remove_town(&settlement, &traffic), // TODO should be after population update
         );
-        if let Some(updated) = self.update_current_population(*position).await {
+        if let Some(updated) = self.update_current_population(settlement.position).await {
             let demand = (self.town_demand_fn)(&updated);
             self.get_all_route_changes(demand).await
         }
