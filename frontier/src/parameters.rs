@@ -109,15 +109,24 @@ impl From<&Args> for Parameters {
                 power,
                 seed,
                 reveal_all,
+                threads,
             } => Parameters {
                 seed: *seed,
                 power: *power,
                 width: 2usize.pow(*power as u32),
                 reveal_all: *reveal_all,
                 homeland_distance: Duration::from_secs((3600.0 * 2f32.powf(*power as f32)) as u64),
+                simulation: SimulationParameters {
+                    threads: *threads,
+                    ..SimulationParameters::default()
+                },
                 ..Parameters::default()
             },
-            Args::Load { path } => Self::load(&path),
+            Args::Load { path, threads } => {
+                let mut out = Self::load(&path);
+                out.simulation.threads = *threads;
+                out
+            }
         }
     }
 }
