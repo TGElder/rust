@@ -1,6 +1,6 @@
 use crate::avatar::CheckForPort;
 use crate::route::RouteKey;
-use crate::simulation::settlement::instruction::RouteChange;
+use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{SendWorld, WithRouteToPorts};
 use crate::world::World;

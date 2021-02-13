@@ -9,7 +9,7 @@ use futures::future::join_all;
 use crate::avatar::AvatarTravelModeFn;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::settlement::demand::Demand;
-use crate::simulation::settlement::instruction::Routes;
+use crate::simulation::settlement::model::Routes;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, Controlled, GetSettlement, InBoundsWithPlannedRoads,
@@ -108,20 +108,6 @@ where
         }
     }
 
-    async fn replenish_sim_queue(&self) {
-        let settlements = self
-            .tx
-            .send_settlements(|settlements| settlements.keys().copied().collect::<Vec<_>>())
-            .await;
-        self.tx
-            .mut_sim_queue(move |sim_queue| {
-                if sim_queue.is_empty() {
-                    *sim_queue = settlements;
-                }
-            })
-            .await;
-    }
-
     async fn update_homeland_settlement(&self, settlement: Settlement) {
         self.update_homeland(&settlement).await;
         if let Some(updated) = self.update_current_population(settlement.position).await {
@@ -146,12 +132,12 @@ where
     async fn get_all_route_changes(&self, demand: Vec<Demand>) {
         let futures = demand
             .into_iter()
-            .map(|demand| self.update_routes(demand))
+            .map(|demand| self.process_demand(demand))
             .collect::<Vec<_>>();
         join_all(futures).await;
     }
 
-    async fn update_routes(&self, demand: Demand) {
+    async fn process_demand(&self, demand: Demand) {
         let Routes { key, route_set } = self.get_routes(demand).await;
         let route_changes = self.update_routes_and_get_changes(key, route_set).await;
         let travel_mode_fn = Arc::new(AvatarTravelModeFn::new(
@@ -162,5 +148,19 @@ where
             self.update_position_traffic(&route_changes),
             self.update_route_to_ports(&route_changes, travel_mode_fn),
         );
+    }
+
+    async fn replenish_sim_queue(&self) {
+        let settlements = self
+            .tx
+            .send_settlements(|settlements| settlements.keys().copied().collect::<Vec<_>>())
+            .await;
+        self.tx
+            .mut_sim_queue(move |sim_queue| {
+                if sim_queue.is_empty() {
+                    *sim_queue = settlements;
+                }
+            })
+            .await;
     }
 }

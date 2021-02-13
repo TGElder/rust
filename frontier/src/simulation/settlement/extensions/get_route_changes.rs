@@ -1,5 +1,5 @@
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey, Routes};
-use crate::simulation::settlement::instruction::RouteChange;
+use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::SendRoutes;
 use std::collections::hash_map::Entry;

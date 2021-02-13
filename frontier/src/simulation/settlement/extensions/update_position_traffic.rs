@@ -1,5 +1,5 @@
 use crate::route::{Route, RouteKey};
-use crate::simulation::settlement::instruction::RouteChange;
+use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traffic::Traffic;
 use crate::traits::{RefreshPositions, WithTraffic};

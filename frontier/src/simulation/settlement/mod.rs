@@ -1,6 +1,7 @@
 mod demand;
 mod extensions;
-mod instruction;
+mod model;
+
 #[allow(clippy::module_inception)]
 mod simulation;
 

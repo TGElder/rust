@@ -519,7 +519,7 @@ impl System {
         *self.tx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
         *self.tx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
         *self.tx.route_to_ports.write().await = <_>::load(&format!("{}.route_to_ports", path));
-        *self.tx.sim_queue.write().await = <_>::load(&format!("{}.sim_quue", path));
+        *self.tx.sim_queue.write().await = <_>::load(&format!("{}.sim_queue", path));
         *self.tx.traffic.write().await = <_>::load(&format!("{}.traffic", path));
     }
 }

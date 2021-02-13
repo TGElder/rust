@@ -1,6 +1,6 @@
 use crate::route::{Route, RouteKey, RoutesExt};
 use crate::settlement::Settlement;
-use crate::simulation::settlement::instruction::TownTrafficSummary;
+use crate::simulation::settlement::model::TownTrafficSummary;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traffic::Traffic;
 use crate::traits::{SendRoutes, SendSettlements, WithRouteToPorts, WithTraffic};

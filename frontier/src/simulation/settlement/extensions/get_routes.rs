@@ -2,7 +2,7 @@ use crate::actors::target_set;
 use crate::pathfinder::ClosestTargetResult;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::settlement::demand::Demand;
-use crate::simulation::settlement::instruction::Routes;
+use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, InBoundsWithPlannedRoads, LowestDurationWithoutPlannedRoads,

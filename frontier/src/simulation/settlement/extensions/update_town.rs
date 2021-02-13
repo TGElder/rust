@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::settlement::Settlement;
-use crate::simulation::settlement::instruction::TownTrafficSummary;
+use crate::simulation::settlement::model::TownTrafficSummary;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::UpdateSettlement as UpdateSettlementTrait;
