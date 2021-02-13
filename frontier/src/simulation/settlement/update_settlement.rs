@@ -62,15 +62,14 @@ where
         + Send
         + Sync,
 {
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let mut instructions = match instruction {
+    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
+        match instruction {
             Instruction::UpdateHomelandPopulation(position) => {
                 self.update_homeland_at(position).await
             }
             Instruction::GetTerritory(position) => self.update_town_at(position).await,
-            _ => vec![],
+            _ => (),
         };
-        state.instructions.append(&mut instructions);
         state
     }
 }
@@ -97,19 +96,17 @@ where
         + WithRouteToPorts
         + WithTraffic,
 {
-    async fn update_homeland_at(&self, position: &V2<usize>) -> Vec<Instruction> {
-        let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return vec![]);
+    async fn update_homeland_at(&self, position: &V2<usize>) {
+        let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return);
         self.update_homeland(&settlement).await;
         if let Some(updated) = self.update_current_population(*position).await {
             let demand = (self.homeland_demand_fn)(&updated);
             self.get_all_route_changes(demand).await
-        } else {
-            vec![]
         }
     }
 
-    async fn update_town_at(&self, position: &V2<usize>) -> Vec<Instruction> {
-        let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return vec![]);
+    async fn update_town_at(&self, position: &V2<usize>) {
+        let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return);
         let territory = self.get_territory(position).await;
         let traffic = self.get_town_traffic(&territory).await;
         join!(
@@ -119,20 +116,18 @@ where
         if let Some(updated) = self.update_current_population(*position).await {
             let demand = (self.town_demand_fn)(&updated);
             self.get_all_route_changes(demand).await
-        } else {
-            vec![]
         }
     }
 
-    async fn get_all_route_changes(&self, demand: Vec<Demand>) -> Vec<Instruction> {
+    async fn get_all_route_changes(&self, demand: Vec<Demand>) {
         let futures = demand
             .into_iter()
             .map(|demand| self.update_routes(demand))
             .collect::<Vec<_>>();
-        join_all(futures).await
+        join_all(futures).await;
     }
 
-    async fn update_routes(&self, demand: Demand) -> Instruction {
+    async fn update_routes(&self, demand: Demand) {
         let Routes { key, route_set } = self.get_routes(demand).await;
         let route_changes = self.update_routes_and_get_changes(key, route_set).await;
         let travel_mode_fn = Arc::new(AvatarTravelModeFn::new(
@@ -143,6 +138,5 @@ where
             self.update_position_traffic(&route_changes),
             self.update_route_to_ports(&route_changes, travel_mode_fn),
         );
-        Instruction::ProcessRouteChanges(route_changes)
     }
 }
