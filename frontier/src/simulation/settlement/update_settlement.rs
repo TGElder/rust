@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use commons::async_trait::async_trait;
 use commons::V2;
 use futures::future::join_all;
 
+use crate::avatar::AvatarTravelModeFn;
 use crate::settlement::Settlement;
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::demand_fn::homeland_demand_fn;
@@ -12,8 +15,8 @@ use crate::traits::has::HasParameters;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, Controlled, GetSettlement, InBoundsWithPlannedRoads,
     LowestDurationWithoutPlannedRoads, Micros, RefreshEdges, RefreshPositions, RemoveTown,
-    SendRoutes, SendSettlements, UpdateSettlement as UpdateSettlementTrait, UpdateTerritory,
-    VisibleLandPositions, WithEdgeTraffic, WithRouteToPorts, WithTraffic,
+    SendRoutes, SendSettlements, SendWorld, UpdateSettlement as UpdateSettlementTrait,
+    UpdateTerritory, VisibleLandPositions, WithEdgeTraffic, WithRouteToPorts, WithTraffic,
 };
 
 use super::demand_fn::town_demand_fn;
@@ -49,6 +52,7 @@ where
         + RemoveTown
         + SendRoutes
         + SendSettlements
+        + SendWorld
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
@@ -85,6 +89,7 @@ where
         + RemoveTown
         + SendRoutes
         + SendSettlements
+        + SendWorld
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
@@ -130,9 +135,13 @@ where
     async fn update_routes(&self, demand: Demand) -> Instruction {
         let Routes { key, route_set } = self.get_routes(demand).await;
         let route_changes = self.update_routes_and_get_changes(key, route_set).await;
+        let travel_mode_fn = Arc::new(AvatarTravelModeFn::new(
+            self.tx.parameters().avatar_travel.min_navigable_river_width,
+        )); // TODO find better way of passing this
         join!(
             self.update_edge_traffic(&route_changes),
             self.update_position_traffic(&route_changes),
+            self.update_route_to_ports(&route_changes, travel_mode_fn),
         );
         Instruction::ProcessRouteChanges(route_changes)
     }

@@ -18,4 +18,3 @@ pub use update_settlement::*;
 use commons::async_trait::async_trait;
 use commons::V2;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;

@@ -1,46 +1,30 @@
-use super::*;
-
 use crate::avatar::CheckForPort;
 use crate::route::RouteKey;
+use crate::simulation::settlement::instruction::RouteChange;
+use crate::simulation::settlement::UpdateSettlement;
 use crate::traits::{SendWorld, WithRouteToPorts};
 use crate::world::World;
 use commons::edge::Edges;
+use commons::V2;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
-pub struct UpdateRouteToPorts<T, C> {
-    tx: T,
-    port_checker: Arc<C>,
-}
-
-#[async_trait]
-impl<T, C> Processor for UpdateRouteToPorts<T, C>
+impl<T> UpdateSettlement<T>
 where
-    T: SendWorld + WithRouteToPorts + Send + Sync,
-    C: CheckForPort + Clone + Send + Sync + 'static,
+    T: SendWorld + WithRouteToPorts,
 {
-    async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-        let route_changes = match instruction {
-            Instruction::ProcessRouteChanges(route_changes) => (route_changes),
-            _ => return state,
-        };
-
+    pub async fn update_route_to_ports<C>(
+        &self,
+        route_changes: &[RouteChange],
+        port_checker: Arc<C>,
+    ) where
+        C: CheckForPort + Clone + Send + Sync + 'static,
+    {
         let (_, updated) = join!(self.remove_removed(route_changes), async {
             get_all_updated(route_changes)
         });
-        let ports = self.get_all_ports(updated).await;
+        let ports = self.get_all_ports(updated, port_checker).await;
         self.update_ports(ports).await;
-
-        state
-    }
-}
-
-impl<T, C> UpdateRouteToPorts<T, C>
-where
-    T: SendWorld + WithRouteToPorts,
-    C: CheckForPort + Clone + Send + Sync + 'static,
-{
-    pub fn new(tx: T, port_checker: Arc<C>) -> UpdateRouteToPorts<T, C> {
-        UpdateRouteToPorts { tx, port_checker }
     }
 
     async fn remove_removed(&self, route_changes: &[RouteChange]) {
@@ -54,11 +38,14 @@ where
             .await;
     }
 
-    async fn get_all_ports(
+    async fn get_all_ports<C>(
         &self,
         routes: HashMap<RouteKey, Vec<V2<usize>>>,
-    ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
-        let port_checker = self.port_checker.clone();
+        port_checker: Arc<C>,
+    ) -> HashMap<RouteKey, HashSet<V2<usize>>>
+    where
+        C: CheckForPort + Clone + Send + Sync + 'static,
+    {
         self.tx
             .send_world(move |world| get_all_ports(world, port_checker.as_ref(), routes))
             .await
@@ -133,6 +120,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::Route;
     use crate::world::World;
+    use commons::async_trait::async_trait;
     use commons::{v2, M};
     use futures::executor::block_on;
     use std::sync::Mutex;
@@ -211,16 +199,18 @@ mod tests {
             traffic: 0,
         };
 
-        let mut processor = UpdateRouteToPorts::new(tx(), Arc::new(hashset! {v2(0, 1), v2(1, 2)}));
+        let route_change = RouteChange::New { key, route };
+
+        let sim = UpdateSettlement::new(tx());
 
         // When
-        let route_change = RouteChange::New { key, route };
-        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        block_on(processor.process(State::default(), &instruction));
+        block_on(
+            sim.update_route_to_ports(&[route_change], Arc::new(hashset! {v2(0, 1), v2(1, 2)})),
+        );
 
         // Then
         assert_eq!(
-            *processor.tx.route_to_ports.lock().unwrap(),
+            *sim.tx.route_to_ports.lock().unwrap(),
             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
         );
     }
@@ -240,15 +230,15 @@ mod tests {
             traffic: 0,
         };
 
-        let mut processor = UpdateRouteToPorts::new(tx(), Arc::new(hashset! {}));
+        let route_change = RouteChange::New { key, route };
+
+        let sim = UpdateSettlement::new(tx());
 
         // When
-        let route_change = RouteChange::New { key, route };
-        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        block_on(processor.process(State::default(), &instruction));
+        block_on(sim.update_route_to_ports(&[route_change], Arc::new(hashset! {})));
 
         // Then
-        assert_eq!(*processor.tx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -275,17 +265,19 @@ mod tests {
         let tx = tx();
         *tx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
 
-        let mut processor =
-            UpdateRouteToPorts::new(tx, Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}));
+        let route_change = RouteChange::Updated { key, old, new };
+
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let route_change = RouteChange::Updated { key, old, new };
-        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        block_on(processor.process(State::default(), &instruction));
+        block_on(sim.update_route_to_ports(
+            &[route_change],
+            Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
+        ));
 
         // Then
         assert_eq!(
-            *processor.tx.route_to_ports.lock().unwrap(),
+            *sim.tx.route_to_ports.lock().unwrap(),
             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
         );
     }
@@ -314,15 +306,15 @@ mod tests {
         let tx = tx();
         *tx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
 
-        let mut processor = UpdateRouteToPorts::new(tx, Arc::new(hashset! {v2(1, 0)}));
+        let route_change = RouteChange::Updated { key, old, new };
+
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let route_change = RouteChange::Updated { key, old, new };
-        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        block_on(processor.process(State::default(), &instruction));
+        block_on(sim.update_route_to_ports(&[route_change], Arc::new(hashset! {v2(1, 0)})));
 
         // Then
-        assert_eq!(*processor.tx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -349,16 +341,18 @@ mod tests {
         let tx = tx();
         *tx.route_to_ports.lock().unwrap() = hashmap! {}; // Incorrect so we can check it is not corrected
 
-        let mut processor =
-            UpdateRouteToPorts::new(tx, Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}));
+        let route_change = RouteChange::Updated { key, old, new };
+
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let route_change = RouteChange::Updated { key, old, new };
-        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        block_on(processor.process(State::default(), &instruction));
+        block_on(sim.update_route_to_ports(
+            &[route_change],
+            Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
+        ));
 
         // Then
-        assert_eq!(*processor.tx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -379,15 +373,15 @@ mod tests {
         let tx = tx();
         *tx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } };
 
-        let mut processor = UpdateRouteToPorts::new(tx, Arc::new(hashset! {}));
+        let route_change = RouteChange::Removed { key, route };
+
+        let sim = UpdateSettlement::new(tx);
 
         // When
-        let route_change = RouteChange::Removed { key, route };
-        let instruction = Instruction::ProcessRouteChanges(vec![route_change]);
-        block_on(processor.process(State::default(), &instruction));
+        block_on(sim.update_route_to_ports(&[route_change], Arc::new(hashset! {})));
 
         // Then
-        assert_eq!(*processor.tx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -419,9 +413,6 @@ mod tests {
         let tx = tx();
         *tx.route_to_ports.lock().unwrap() = hashmap! { key_removed => hashset!{ v2(0, 1) } };
 
-        let mut processor = UpdateRouteToPorts::new(tx, Arc::new(hashset! {v2(0, 1), v2(1, 2)}));
-
-        // When
         let route_changes = vec![
             RouteChange::New {
                 key: key_new,
@@ -432,12 +423,17 @@ mod tests {
                 route: route_removed,
             },
         ];
-        let instruction = Instruction::ProcessRouteChanges(route_changes);
-        block_on(processor.process(State::default(), &instruction));
+
+        let sim = UpdateSettlement::new(tx);
+
+        // When
+        block_on(
+            sim.update_route_to_ports(&route_changes, Arc::new(hashset! {v2(0, 1), v2(1, 2)})),
+        );
 
         // Then
         assert_eq!(
-            *processor.tx.route_to_ports.lock().unwrap(),
+            *sim.tx.route_to_ports.lock().unwrap(),
             hashmap! { key_new => hashset!{ v2(0, 1), v2(1, 2) } }
         );
     }
