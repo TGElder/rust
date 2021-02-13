@@ -23,3 +23,21 @@ where
         .await;
     }
 }
+
+
+#[async_trait]
+pub trait RefreshPositionsBackground {
+    fn refresh_positions_background(&self, positions: HashSet<V2<usize>>);
+}
+
+#[async_trait]
+impl<T> RefreshPositionsBackground for T
+where
+    T: SendPositionBuildSim,
+{
+    fn refresh_positions_background(&self, positions: HashSet<V2<usize>>) {
+        self.send_position_build_sim_future_background(move |position_sim| {
+            position_sim.refresh_positions(positions).boxed()
+        });
+    }
+}
