@@ -8,7 +8,6 @@ pub enum Instruction {
     Step,
     UpdateHomelandPopulation(V2<usize>),
     GetTerritory(V2<usize>),
-    ProcessRouteChanges(Vec<RouteChange>),
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
