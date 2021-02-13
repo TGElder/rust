@@ -26,8 +26,7 @@ use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::processors::{
-    GetRouteChanges, StepHomeland, StepTown, UpdateEdgeTraffic, UpdatePositionTraffic,
-    UpdateRouteToPorts,
+    StepHomeland, StepTown, UpdateEdgeTraffic, UpdatePositionTraffic, UpdateRouteToPorts,
 };
 use crate::simulation::settlement::{SettlementSimulation, UpdateSettlement};
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
@@ -273,9 +272,6 @@ impl System {
                     )),
                     Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
                     Box::new(StepTown::new(tx.clone_with_name("step_town"))),
-                    Box::new(GetRouteChanges::new(
-                        tx.clone_with_name("get_route_changes"),
-                    )),
                     Box::new(UpdatePositionTraffic::new(
                         tx.clone_with_name("update_position_traffic"),
                     )),
