@@ -18,14 +18,14 @@ use crate::actors::{
     WorldColoringParameters,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
-use crate::avatar::{AvatarTravelDuration, AvatarTravelModeFn};
+use crate::avatar::AvatarTravelDuration;
 use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
-use crate::simulation::settlement::processors::{StepHomeland, StepTown, UpdateRouteToPorts};
+use crate::simulation::settlement::processors::{StepHomeland, StepTown};
 use crate::simulation::settlement::{SettlementSimulation, UpdateSettlement};
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traffic::Traffic;
@@ -270,12 +270,6 @@ impl System {
                     )),
                     Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
                     Box::new(StepTown::new(tx.clone_with_name("step_town"))),
-                    Box::new(UpdateRouteToPorts::new(
-                        tx.clone_with_name("update_route_to_ports"),
-                        Arc::new(AvatarTravelModeFn::new(
-                            params.avatar_travel.min_navigable_river_width,
-                        )),
-                    )),
                 ]),
                 settlement_sim_rx,
             ),
