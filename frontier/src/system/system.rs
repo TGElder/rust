@@ -53,7 +53,7 @@ pub struct System {
     pub resource_targets: Process<ResourceTargets<Polysender>>,
     pub rotate: Process<Rotate>,
     pub routes: Process<RoutesActor>,
-    pub settlement_sim: Process<SettlementSimulation<Polysender>>,
+    pub settlement_sims: Vec<Process<SettlementSimulation<Polysender>>>,
     pub settlements: Process<Settlements>,
     pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub setup_pathfinders: Process<SetupPathfinders<Polysender>>,
@@ -100,7 +100,6 @@ impl System {
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
         let (routes_tx, routes_rx) = fn_channel();
-        let (settlement_sim_tx, settlement_sim_rx) = fn_channel();
         let (settlements_tx, settlements_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (setup_pathfinders_tx, setup_pathfinders_rx) = fn_channel();
@@ -113,6 +112,16 @@ impl System {
         let (voyager_tx, voyager_rx) = fn_channel();
         let (world_tx, world_rx) = fn_channel();
         let (world_artist_tx, world_artist_rx) = fn_channel();
+
+        let settlement_sim_channels = (0..params.simulation.threads)
+            .map(|_| fn_channel())
+            .collect::<Vec<_>>();
+        let mut settlement_sim_txs = vec![];
+        let mut settlement_sim_rxs = vec![];
+        for (tx, rx) in settlement_sim_channels {
+            settlement_sim_txs.push(tx);
+            settlement_sim_rxs.push(rx);
+        }
 
         let tx = Polysender {
             avatar_artist_tx,
@@ -147,7 +156,7 @@ impl System {
             routes_tx,
             rotate_tx,
             route_to_ports: Arc::default(),
-            settlement_sim_tx,
+            settlement_sim_txs,
             settlements_tx,
             setup_pathfinders_tx,
             setup_new_world_tx,
@@ -263,10 +272,15 @@ impl System {
             ),
             rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
             routes: Process::new(RoutesActor::new(), routes_rx),
-            settlement_sim: Process::new(
-                SettlementSimulation::new(tx.clone_with_name("settlement_simulation")),
-                settlement_sim_rx,
-            ),
+            settlement_sims: settlement_sim_rxs
+                .into_iter()
+                .map(|rx| {
+                    Process::new(
+                        SettlementSimulation::new(tx.clone_with_name("settlement_simulation")),
+                        rx,
+                    )
+                })
+                .collect(),
             settlements: Process::new(Settlements::new(), settlements_rx),
             setup_new_world: Process::new(
                 SetupNewWorld::new(tx.clone_with_name("setup_new_world")),
@@ -405,7 +419,9 @@ impl System {
         self.rotate.run_passive(&self.pool).await;
         self.town_builder.run_passive(&self.pool).await;
         self.speed_control.run_passive(&self.pool).await;
-        self.settlement_sim.run_active(&self.pool).await;
+        for settlement_sim in &mut self.settlement_sims {
+            settlement_sim.run_active(&self.pool).await;
+        }
         self.prime_mover.run_active(&self.pool).await;
         self.pathfinding_avatar_controls
             .run_passive(&self.pool)
@@ -439,7 +455,9 @@ impl System {
             .drain(&self.pool, true)
             .await;
         self.prime_mover.drain(&self.pool, true).await;
-        self.settlement_sim.drain(&self.pool, true).await;
+        for settlement_sim in &mut self.settlement_sims {
+            settlement_sim.drain(&self.pool, true).await;
+        }
         self.speed_control.drain(&self.pool, true).await;
         self.town_builder.drain(&self.pool, true).await;
         self.rotate.drain(&self.pool, true).await;

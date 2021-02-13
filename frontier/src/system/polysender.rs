@@ -62,7 +62,7 @@ pub struct Polysender {
     pub rotate_tx: FnSender<Rotate>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes_tx: FnSender<RoutesActor>,
-    pub settlement_sim_tx: FnSender<SettlementSimulation<Polysender>>,
+    pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Polysender>>>,
     pub settlements_tx: FnSender<Settlements>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
     pub setup_pathfinders_tx: FnSender<SetupPathfinders<Polysender>>,
@@ -108,7 +108,11 @@ impl Polysender {
             rotate_tx: self.rotate_tx.clone_with_name(name),
             route_to_ports: self.route_to_ports.clone(),
             routes_tx: self.routes_tx.clone_with_name(name),
-            settlement_sim_tx: self.settlement_sim_tx.clone_with_name(name),
+            settlement_sim_txs: self
+                .settlement_sim_txs
+                .iter()
+                .map(|tx| tx.clone_with_name(name))
+                .collect(),
             settlements_tx: self.settlements_tx.clone_with_name(name),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             setup_pathfinders_tx: self.setup_pathfinders_tx.clone_with_name(name),

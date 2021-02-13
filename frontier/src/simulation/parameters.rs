@@ -10,6 +10,7 @@ pub struct SimulationParameters {
     pub town_removal_population: f64,
     pub traffic_to_population: f64,
     pub max_abs_population_change: MaxAbsPopulationChange,
+    pub threads: usize,
 }
 
 impl Default for SimulationParameters {
@@ -21,6 +22,7 @@ impl Default for SimulationParameters {
             town_removal_population: 0.25,
             traffic_to_population: 0.5,
             max_abs_population_change: MaxAbsPopulationChange::default(),
+            threads: 8,
         }
     }
 }
