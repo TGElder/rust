@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 use crate::settlement::Settlement;
-use crate::simulation::settlement::instruction::TownTrafficSummary;
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::model::TownTrafficSummary;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::UpdateSettlement as UpdateSettlementTrait;
 use commons::unsafe_ordering;
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: HasParameters + UpdateSettlementTrait,
 {
@@ -131,7 +131,7 @@ mod tests {
     fn should_update_target_population_based_on_total_traffic_share() {
         // Given
         let settlement = Settlement::default();
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_town(
@@ -164,7 +164,7 @@ mod tests {
             target_population: 0.5,
             ..Settlement::default()
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_town(&settlement, &[]));
@@ -183,7 +183,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let update_town = UpdateSettlement::new(Tx::default());
+        let update_town = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(update_town.update_town(
@@ -214,7 +214,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_town(
@@ -244,7 +244,7 @@ mod tests {
     ) {
         // Given
         let settlement = Settlement::default();
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_town(
@@ -278,7 +278,7 @@ mod tests {
             gap_half_life: Duration::from_millis(4),
             ..Settlement::default()
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_town(&settlement, &[]));
