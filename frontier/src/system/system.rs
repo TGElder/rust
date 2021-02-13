@@ -26,7 +26,7 @@ use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::processors::{
-    StepHomeland, StepTown, UpdateEdgeTraffic, UpdatePositionTraffic, UpdateRouteToPorts,
+    StepHomeland, StepTown, UpdatePositionTraffic, UpdateRouteToPorts,
 };
 use crate::simulation::settlement::{SettlementSimulation, UpdateSettlement};
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
@@ -280,9 +280,6 @@ impl System {
                         Arc::new(AvatarTravelModeFn::new(
                             params.avatar_travel.min_navigable_river_width,
                         )),
-                    )),
-                    Box::new(UpdateEdgeTraffic::new(
-                        tx.clone_with_name("update_edge_traffic"),
                     )),
                 ]),
                 settlement_sim_rx,
