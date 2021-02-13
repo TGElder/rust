@@ -1,10 +1,10 @@
 use crate::settlement::Settlement;
-use crate::simulation::settlement::instruction::TownTrafficSummary;
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::model::TownTrafficSummary;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{Controlled, RefreshPositions, RemoveTown as RemoveTownTrait};
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: Controlled + HasParameters + RefreshPositions + RemoveTownTrait,
 {
@@ -78,7 +78,7 @@ mod tests {
         };
         let mut tx = Tx::default();
         tx.parameters.simulation.town_removal_population = 0.3;
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.remove_town(&settlement, &[]));
@@ -96,7 +96,7 @@ mod tests {
         };
         let mut tx = Tx::default();
         tx.parameters.simulation.town_removal_population = 0.3;
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.remove_town(
@@ -121,7 +121,7 @@ mod tests {
         };
         let mut tx = Tx::default();
         tx.parameters.simulation.town_removal_population = 0.3;
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.remove_town(&settlement, &[]));
@@ -142,7 +142,7 @@ mod tests {
             ..Tx::default()
         };
         tx.parameters.simulation.town_removal_population = 0.3;
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.remove_town(&settlement, &[]));

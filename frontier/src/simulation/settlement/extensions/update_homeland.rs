@@ -1,9 +1,9 @@
 use crate::settlement::Settlement;
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{UpdateSettlement as UpdateSettlementTrait, VisibleLandPositions};
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: HasParameters + UpdateSettlementTrait + VisibleLandPositions,
 {
@@ -82,7 +82,7 @@ mod tests {
             visible_land_positions: 202,
         };
         tx.parameters.homeland.count = 2;
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_homeland(&settlement));

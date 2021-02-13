@@ -1,11 +1,11 @@
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey, Routes};
-use crate::simulation::settlement::instruction::RouteChange;
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::model::RouteChange;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::SendRoutes;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: SendRoutes,
 {
@@ -139,7 +139,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = UpdateSettlement::new(routes);
+        let sim = SettlementSimulation::new(routes);
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
@@ -199,7 +199,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = UpdateSettlement::new(routes);
+        let sim = SettlementSimulation::new(routes);
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
@@ -252,7 +252,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = UpdateSettlement::new(routes);
+        let sim = SettlementSimulation::new(routes);
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set.clone()));
 
         // Then
@@ -297,7 +297,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = UpdateSettlement::new(routes);
+        let sim = SettlementSimulation::new(routes);
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
@@ -352,7 +352,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = UpdateSettlement::new(routes);
+        let sim = SettlementSimulation::new(routes);
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then

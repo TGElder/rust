@@ -1,7 +1,7 @@
 use crate::avatar::CheckForPort;
 use crate::route::RouteKey;
-use crate::simulation::settlement::instruction::RouteChange;
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::model::RouteChange;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{SendWorld, WithRouteToPorts};
 use crate::world::World;
 use commons::edge::Edges;
@@ -9,7 +9,7 @@ use commons::V2;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: SendWorld + WithRouteToPorts,
 {
@@ -201,7 +201,7 @@ mod tests {
 
         let route_change = RouteChange::New { key, route };
 
-        let sim = UpdateSettlement::new(tx());
+        let sim = SettlementSimulation::new(tx());
 
         // When
         block_on(
@@ -232,7 +232,7 @@ mod tests {
 
         let route_change = RouteChange::New { key, route };
 
-        let sim = UpdateSettlement::new(tx());
+        let sim = SettlementSimulation::new(tx());
 
         // When
         block_on(sim.update_route_to_ports(&[route_change], Arc::new(hashset! {})));
@@ -267,7 +267,7 @@ mod tests {
 
         let route_change = RouteChange::Updated { key, old, new };
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_route_to_ports(
@@ -308,7 +308,7 @@ mod tests {
 
         let route_change = RouteChange::Updated { key, old, new };
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_route_to_ports(&[route_change], Arc::new(hashset! {v2(1, 0)})));
@@ -343,7 +343,7 @@ mod tests {
 
         let route_change = RouteChange::Updated { key, old, new };
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_route_to_ports(
@@ -375,7 +375,7 @@ mod tests {
 
         let route_change = RouteChange::Removed { key, route };
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_route_to_ports(&[route_change], Arc::new(hashset! {})));
@@ -424,7 +424,7 @@ mod tests {
             },
         ];
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(
