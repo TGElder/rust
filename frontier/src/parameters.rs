@@ -1,19 +1,17 @@
 use crate::actors::{BaseColors, TownArtistParameters};
 use crate::args::Args;
 use crate::avatar::AvatarTravelParams;
+use crate::commons::persistence::Load;
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
 use crate::road_builder::AutoRoadTravelParams;
 use crate::simulation::SimulationParameters;
 use crate::world_gen::WorldGenParameters;
-use commons::bincode::{deserialize_from, serialize_into};
 use commons::{v3, V3};
 use isometric::Color;
 
 use serde::{Deserialize, Serialize};
 use std::default::Default;
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
 use std::time::Duration;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -84,24 +82,6 @@ impl Default for HomelandParams {
     }
 }
 
-impl Parameters {
-    pub fn save(&self, path: &str) {
-        let path = Self::get_path(path);
-        let mut file = BufWriter::new(File::create(path).unwrap());
-        serialize_into(&mut file, &self).unwrap();
-    }
-
-    fn load(path: &str) -> Parameters {
-        let path = Self::get_path(path);
-        let file = BufReader::new(File::open(path).unwrap());
-        deserialize_from(file).unwrap()
-    }
-
-    fn get_path(path: &str) -> String {
-        format!("{}.parameters", path)
-    }
-}
-
 impl From<&Args> for Parameters {
     fn from(args: &Args) -> Self {
         match args {
@@ -123,7 +103,7 @@ impl From<&Args> for Parameters {
                 ..Parameters::default()
             },
             Args::Load { path, threads } => {
-                let mut out = Self::load(&path);
+                let mut out = Self::load(&format!("{}.parameters", &path));
                 out.simulation.threads = *threads;
                 out
             }
