@@ -8,10 +8,6 @@ pub enum Instruction {
     Step,
     UpdateHomelandPopulation(V2<usize>),
     GetTerritory(V2<usize>),
-    GetRouteChanges {
-        key: RouteSetKey,
-        route_set: RouteSet,
-    },
     ProcessRouteChanges(Vec<RouteChange>),
 }
 
