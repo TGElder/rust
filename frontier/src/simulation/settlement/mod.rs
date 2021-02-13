@@ -15,7 +15,6 @@ pub use simulation::*;
 use state::*;
 pub use update_settlement::*;
 
-use crate::traffic::*;
 use commons::async_trait::async_trait;
 use commons::V2;
 use serde::{Deserialize, Serialize};
