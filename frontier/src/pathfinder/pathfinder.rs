@@ -1,6 +1,4 @@
 use crate::travel_duration::*;
-use crate::world::*;
-use commons::grid::Grid;
 use commons::index2d::*;
 use commons::manhattan::ManhattanDistance;
 use commons::*;
@@ -59,48 +57,6 @@ where
             .iter()
             .flat_map(|index| self.get_position_from_network_index(*index))
             .collect()
-    }
-
-    pub fn reset_edges(&mut self, world: &World) {
-        self.network.reset_edges();
-        self.compute_network_edges(world)
-            .iter()
-            .for_each(|edge| self.network.add_edge(&edge));
-    }
-
-    fn compute_network_edges(&self, world: &World) -> Vec<NetworkEdge> {
-        let mut edges = vec![];
-        for y in 0..world.height() {
-            for x in 0..world.width() {
-                [
-                    (v2(x, y), v2(x + 1, y)),
-                    (v2(x + 1, y), v2(x, y)),
-                    (v2(x, y), v2(x, y + 1)),
-                    (v2(x, y + 1), v2(x, y)),
-                ]
-                .iter()
-                .filter(|edge| world.in_bounds(&edge.0) && world.in_bounds(&edge.1))
-                .map(|edge| self.compute_network_edge(&world, &edge.0, &edge.1))
-                .flatten()
-                .for_each(|edge| edges.push(edge));
-            }
-        }
-        edges
-    }
-
-    fn compute_network_edge(
-        &self,
-        world: &World,
-        from: &V2<usize>,
-        to: &V2<usize>,
-    ) -> Option<NetworkEdge> {
-        self.travel_duration.get_cost(world, from, to).map(|cost| {
-            NetworkEdge::new(
-                self.get_network_index(from),
-                self.get_network_index(to),
-                cost,
-            )
-        })
     }
 
     pub fn set_edge_duration(&mut self, from: &V2<usize>, to: &V2<usize>, duration: &Duration) {
@@ -234,8 +190,11 @@ pub struct ClosestTargetResult {
 #[cfg(test)]
 mod tests {
 
+    use crate::world::World;
+
     use super::*;
     use commons::edge::Edge;
+    use commons::grid::Grid;
     use commons::M;
     use isometric::cell_traits::*;
     use std::time::Duration;
@@ -296,7 +255,19 @@ mod tests {
     fn pathfinder() -> Pathfinder<TestTravelDuration> {
         let world = &world();
         let mut out = Pathfinder::new(world.width(), world.height(), Arc::new(travel_duration()));
-        out.reset_edges(world);
+
+        let travel_duration = travel_duration();
+        for x in 0..world.width() {
+            for y in 0..world.height() {
+                for EdgeDuration { from, to, duration } in
+                    travel_duration.get_durations_for_position(world, v2(x, y))
+                {
+                    if let Some(duration) = duration {
+                        out.set_edge_duration(&from, &to, &duration)
+                    }
+                }
+            }
+        }
         out
     }
 
@@ -384,30 +355,6 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_network_edge() {
-        let pathfinder = pathfinder();
-        let world = world();
-        assert_eq!(
-            pathfinder.compute_network_edge(&world, &v2(0, 0), &v2(1, 0)),
-            Some(NetworkEdge::new(0, 1, 128))
-        );
-        assert_eq!(
-            pathfinder.compute_network_edge(&world, &v2(1, 0), &v2(0, 0)),
-            Some(NetworkEdge::new(1, 0, 255))
-        );
-    }
-
-    #[test]
-    fn test_compute_network_edge_out_of_bounds() {
-        let pathfinder = pathfinder();
-        let world = world();
-        assert_eq!(
-            pathfinder.compute_network_edge(&world, &v2(2, 0), &v2(3, 0)),
-            None
-        );
-    }
-
-    #[test]
     fn test_get_cost() {
         let world = world();
         let travel_duration = travel_duration();
@@ -430,36 +377,6 @@ mod tests {
             max: Duration::from_millis(1),
         };
         travel_duration.get_cost(&world, &v2(1, 0), &v2(0, 0));
-    }
-
-    #[test]
-    fn test_compute_network_edges() {
-        let edges = vec![
-            NetworkEdge::new(0, 1, 128),
-            NetworkEdge::new(1, 0, 255),
-            NetworkEdge::new(0, 3, 191),
-            NetworkEdge::new(3, 0, 255),
-            NetworkEdge::new(2, 1, 128),
-            NetworkEdge::new(1, 4, 191),
-            NetworkEdge::new(4, 1, 128),
-            NetworkEdge::new(2, 5, 128),
-            NetworkEdge::new(3, 4, 191),
-            NetworkEdge::new(4, 3, 191),
-            NetworkEdge::new(3, 6, 128),
-            NetworkEdge::new(6, 3, 191),
-            NetworkEdge::new(4, 5, 128),
-            NetworkEdge::new(5, 4, 191),
-            NetworkEdge::new(4, 7, 191),
-            NetworkEdge::new(7, 4, 191),
-            NetworkEdge::new(5, 8, 255),
-            NetworkEdge::new(8, 5, 128),
-            NetworkEdge::new(6, 7, 191),
-            NetworkEdge::new(7, 6, 128),
-            NetworkEdge::new(7, 8, 255),
-            NetworkEdge::new(8, 7, 191),
-        ];
-
-        assert_eq!(pathfinder().compute_network_edges(&world()), edges);
     }
 
     #[test]
