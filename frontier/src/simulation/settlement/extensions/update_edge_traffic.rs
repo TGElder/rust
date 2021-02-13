@@ -1,12 +1,12 @@
 use crate::route::{Route, RouteKey};
-use crate::simulation::settlement::instruction::RouteChange;
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::model::RouteChange;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traffic::EdgeTraffic;
 use crate::traits::{RefreshEdges, WithEdgeTraffic};
 use commons::edge::{Edge, Edges};
 use std::collections::HashSet;
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: RefreshEdges + WithEdgeTraffic,
 {
@@ -192,7 +192,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -217,7 +217,7 @@ mod tests {
             route: route_1(),
         };
         let tx = Tx::default();
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -246,7 +246,7 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -281,7 +281,7 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -310,7 +310,7 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -338,7 +338,7 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -370,7 +370,7 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -387,7 +387,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -411,7 +411,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -440,7 +440,7 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -473,7 +473,7 @@ mod tests {
             edge_traffic: Mutex::new(edge_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_edge_traffic(&[change]));
@@ -501,7 +501,7 @@ mod tests {
             },
             route: route_2(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_edge_traffic(&[change_1, change_2]));

@@ -1,13 +1,13 @@
 use crate::route::{Route, RouteKey};
-use crate::simulation::settlement::instruction::RouteChange;
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::model::RouteChange;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traffic::Traffic;
 use crate::traits::{RefreshPositions, WithTraffic};
 use commons::grid::Grid;
 use commons::V2;
 use std::collections::HashSet;
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: RefreshPositions + WithTraffic,
 {
@@ -189,7 +189,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -208,7 +208,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -229,7 +229,7 @@ mod tests {
             old: route_1(),
             new: route_2(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -257,7 +257,7 @@ mod tests {
             traffic: Mutex::new(tx_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -286,7 +286,7 @@ mod tests {
             traffic: Mutex::new(tx_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -306,7 +306,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -329,7 +329,7 @@ mod tests {
         for position in route_1().path.iter() {
             tx_traffic.mut_cell_unsafe(position).insert(key());
         }
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -346,7 +346,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -365,7 +365,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -394,7 +394,7 @@ mod tests {
             traffic: Mutex::new(tx_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -429,7 +429,7 @@ mod tests {
             traffic: Mutex::new(tx_traffic),
             ..Tx::default()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -457,7 +457,7 @@ mod tests {
             },
             route: route_2(),
         };
-        let sim = UpdateSettlement::new(Tx::default());
+        let sim = SettlementSimulation::new(Tx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change_1, change_2]));
