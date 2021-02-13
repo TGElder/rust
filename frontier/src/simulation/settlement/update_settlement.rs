@@ -125,6 +125,7 @@ where
 
     async fn get_route_changes(&self, demand: Demand) -> Instruction {
         let Routes { key, route_set } = self.get_routes(demand).await;
-        Instruction::GetRouteChanges { key, route_set }
+        let route_changes = self.update_routes_and_get_changes(key, route_set).await;
+        Instruction::ProcessRouteChanges(route_changes)
     }
 }

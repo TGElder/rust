@@ -1,45 +1,16 @@
-use super::*;
-
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey, Routes};
+use crate::simulation::settlement::instruction::RouteChange;
+use crate::simulation::settlement::UpdateSettlement;
 use crate::traits::SendRoutes;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 
-pub struct GetRouteChanges<T> {
-    tx: T,
-}
-
-#[async_trait]
-impl<T> Processor for GetRouteChanges<T>
-where
-    T: SendRoutes + Send + Sync,
-{
-    async fn process(&mut self, mut state: State, instruction: &Instruction) -> State {
-        let (key, route_set) = match instruction {
-            Instruction::GetRouteChanges { key, route_set } => (*key, route_set.clone()),
-            _ => return state,
-        };
-        let route_changes = self.update_routes_and_get_changes(key, route_set).await;
-        if route_changes.is_empty() {
-            return state;
-        }
-        state
-            .instructions
-            .push(Instruction::ProcessRouteChanges(route_changes));
-        state
-    }
-}
-
-impl<T> GetRouteChanges<T>
+impl<T> UpdateSettlement<T>
 where
     T: SendRoutes,
 {
-    pub fn new(tx: T) -> GetRouteChanges<T> {
-        GetRouteChanges { tx }
-    }
-
-    async fn update_routes_and_get_changes(
-        &mut self,
+    pub async fn update_routes_and_get_changes(
+        &self,
         key: RouteSetKey,
         route_set: RouteSet,
     ) -> Vec<RouteChange> {
@@ -122,14 +93,15 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use commons::async_trait::async_trait;
+    use commons::same_elements;
     use commons::v2;
-    use commons::{same_elements, Arm};
     use futures::executor::block_on;
     use std::sync::Mutex;
     use std::time::Duration;
 
     #[async_trait]
-    impl SendRoutes for Arm<Routes> {
+    impl SendRoutes for Mutex<Routes> {
         async fn send_routes<F, O>(&self, function: F) -> O
         where
             O: Send + 'static,
@@ -164,25 +136,21 @@ mod tests {
             key => route.clone()
         };
 
-        let routes = Arc::new(Mutex::new(routes));
+        let routes = Mutex::new(routes);
 
         // When
-        let instruction = Instruction::GetRouteChanges {
-            key: set_key,
-            route_set,
-        };
-        let mut processor = GetRouteChanges::new(routes.clone());
-        let state = block_on(processor.process(State::default(), &instruction));
+        let sim = UpdateSettlement::new(routes);
+        let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::ProcessRouteChanges(vec![RouteChange::New {
+            route_changes,
+            vec![RouteChange::New {
                 key,
                 route: route.clone()
-            }])]
+            }]
         );
-        let routes = routes.lock().unwrap();
+        let routes = sim.tx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {
@@ -228,28 +196,22 @@ mod tests {
             key => new.clone()
         };
 
-        let routes = Arc::new(Mutex::new(routes));
+        let routes = Mutex::new(routes);
 
         // When
-        let instruction = Instruction::GetRouteChanges {
-            key: set_key,
-            route_set,
-        };
-        let mut processor = GetRouteChanges::new(routes.clone());
-        let state = block_on(processor.process(State::default(), &instruction));
+        let sim = UpdateSettlement::new(routes);
+        let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
         assert_eq!(
-            state.instructions,
-            vec![Instruction::ProcessRouteChanges(vec![
-                RouteChange::Updated {
-                    key,
-                    new: new.clone(),
-                    old
-                }
-            ])]
+            route_changes,
+            vec![RouteChange::Updated {
+                key,
+                new: new.clone(),
+                old
+            }]
         );
-        let routes = routes.lock().unwrap();
+        let routes = sim.tx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {
@@ -287,24 +249,16 @@ mod tests {
             set_key => route_set.clone()
         };
 
-        let routes = Arc::new(Mutex::new(routes));
+        let routes = Mutex::new(routes);
 
         // When
-        let instruction = Instruction::GetRouteChanges {
-            key: set_key,
-            route_set: route_set.clone(),
-        };
-        let mut processor = GetRouteChanges::new(routes.clone());
-        let state = block_on(processor.process(State::default(), &instruction));
+        let sim = UpdateSettlement::new(routes);
+        let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set.clone()));
 
         // Then
-        assert_eq!(
-            state.instructions,
-            vec![Instruction::ProcessRouteChanges(vec![
-                RouteChange::NoChange { key, route }
-            ])],
-        );
-        let routes = routes.lock().unwrap();
+        assert_eq!(route_changes, vec![RouteChange::NoChange { key, route }]);
+
+        let routes = sim.tx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {
@@ -340,24 +294,16 @@ mod tests {
 
         let route_set = hashmap! {};
 
-        let routes = Arc::new(Mutex::new(routes));
+        let routes = Mutex::new(routes);
 
         // When
-        let instruction = Instruction::GetRouteChanges {
-            key: set_key,
-            route_set,
-        };
-        let mut processor = GetRouteChanges::new(routes.clone());
-        let state = block_on(processor.process(State::default(), &instruction));
+        let sim = UpdateSettlement::new(routes);
+        let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
-        assert_eq!(
-            state.instructions,
-            vec![Instruction::ProcessRouteChanges(vec![
-                RouteChange::Removed { key, route }
-            ])]
-        );
-        let routes = routes.lock().unwrap();
+        assert_eq!(route_changes, vec![RouteChange::Removed { key, route }]);
+
+        let routes = sim.tx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {
@@ -403,23 +349,15 @@ mod tests {
             key_2 => route_2.clone()
         };
 
-        let routes = Arc::new(Mutex::new(routes));
+        let routes = Mutex::new(routes);
 
         // When
-        let instruction = Instruction::GetRouteChanges {
-            key: set_key,
-            route_set,
-        };
-        let mut processor = GetRouteChanges::new(routes.clone());
-        let state = block_on(processor.process(State::default(), &instruction));
+        let sim = UpdateSettlement::new(routes);
+        let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
-        let actual = match state.instructions.get(0) {
-            Some(Instruction::ProcessRouteChanges(actual)) => actual,
-            _ => panic!("No process route changes instruction!"),
-        };
         assert!(same_elements(
-            &actual,
+            &route_changes,
             &[
                 RouteChange::New {
                     key: key_1,
@@ -431,7 +369,7 @@ mod tests {
                 }
             ]
         ));
-        let routes = routes.lock().unwrap();
+        let routes = sim.tx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {
