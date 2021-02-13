@@ -1,7 +1,7 @@
 use crate::route::{Route, RouteKey, RoutesExt};
 use crate::settlement::Settlement;
 use crate::simulation::settlement::instruction::TownTrafficSummary;
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traffic::Traffic;
 use crate::traits::{SendRoutes, SendSettlements, WithRouteToPorts, WithTraffic};
 use commons::grid::get_corners;
@@ -9,7 +9,7 @@ use commons::V2;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: SendRoutes + SendSettlements + WithRouteToPorts + WithTraffic,
 {
@@ -283,7 +283,7 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -330,7 +330,7 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -377,7 +377,7 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -424,7 +424,7 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -487,7 +487,7 @@ mod tests {
         };
         tx.add_route(route_key_2, route_2);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -550,7 +550,7 @@ mod tests {
         };
         tx.add_route(route_key_2, route_2);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -610,7 +610,7 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -646,7 +646,7 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -686,7 +686,7 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -725,7 +725,7 @@ mod tests {
         tx.add_route(route_key, route);
         tx.routes = Mutex::default(); // Removing route to create invalid state
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -763,7 +763,7 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -799,7 +799,7 @@ mod tests {
         };
         tx.add_route(route_key, route);
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));

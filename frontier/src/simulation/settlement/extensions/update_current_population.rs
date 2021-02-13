@@ -1,12 +1,12 @@
 use commons::V2;
 
 use crate::settlement::{Settlement, SettlementClass};
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::simulation::MaxAbsPopulationChange;
 use crate::traits::has::HasParameters;
 use crate::traits::{GetSettlement, Micros, UpdateSettlement as UpdateSettlementTrait};
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: GetSettlement + HasParameters + Micros + UpdateSettlementTrait,
 {
@@ -149,7 +149,7 @@ mod tests {
             settlements,
             ..tx()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let result = block_on(sim.update_current_population(v2(1, 2)));
@@ -182,7 +182,7 @@ mod tests {
             settlements,
             ..tx()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let result = block_on(sim.update_current_population(v2(1, 2)));
@@ -215,7 +215,7 @@ mod tests {
             settlements,
             ..tx()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let result = block_on(sim.update_current_population(v2(1, 2)));
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn should_do_nothing_if_no_settlement() {
         // Given
-        let sim = UpdateSettlement::new(tx());
+        let sim = SettlementSimulation::new(tx());
 
         // When
         let result = block_on(sim.update_current_population(v2(1, 2)));
@@ -263,7 +263,7 @@ mod tests {
             settlements,
             ..tx()
         };
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let result = block_on(sim.update_current_population(v2(1, 2)));
@@ -297,7 +297,7 @@ mod tests {
             ..tx()
         };
         tx.parameters.simulation.max_abs_population_change.town = 1.0;
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let result = block_on(sim.update_current_population(v2(1, 2)));
@@ -330,7 +330,7 @@ mod tests {
             ..tx()
         };
         tx.parameters.simulation.max_abs_population_change.town = 1.0;
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // When
         let result = block_on(sim.update_current_population(v2(1, 2)));

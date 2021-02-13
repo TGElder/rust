@@ -2,10 +2,10 @@ use std::collections::HashSet;
 
 use commons::V2;
 
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{Controlled, UpdateTerritory};
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: Controlled + UpdateTerritory,
 {
@@ -53,7 +53,7 @@ mod tests {
             updated_territory: updated_territory.clone(),
         };
 
-        let sim = UpdateSettlement::new(tx);
+        let sim = SettlementSimulation::new(tx);
 
         // Given
         let actual = block_on(sim.get_territory(&v2(0, 0)));

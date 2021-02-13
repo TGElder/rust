@@ -22,10 +22,10 @@ use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::HasParameters;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
-    SendEdgeBuildSim, SendNations, SendPositionBuildSim, SendRotate, SendRoutes, SendSettlementSim,
-    SendSettlements, SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility,
-    SendVoyager, SendWorld, SendWorldArtist, WithBuildQueue, WithEdgeTraffic, WithPathfinder,
-    WithRouteToPorts, WithTraffic,
+    SendEdgeBuildSim, SendNations, SendPositionBuildSim, SendRotate, SendRoutes, SendSettlements,
+    SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
+    SendWorld, SendWorldArtist, WithBuildQueue, WithEdgeTraffic, WithPathfinder, WithRouteToPorts,
+    WithSimQueue, WithTraffic,
 };
 use crate::world::World;
 use commons::async_std::sync::RwLock;
@@ -62,10 +62,11 @@ pub struct Polysender {
     pub rotate_tx: FnSender<Rotate>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes_tx: FnSender<RoutesActor>,
-    pub settlement_sim_tx: FnSender<SettlementSimulation>,
+    pub settlement_sim_tx: FnSender<SettlementSimulation<Polysender>>,
     pub settlements_tx: FnSender<Settlements>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
     pub setup_pathfinders_tx: FnSender<SetupPathfinders<Polysender>>,
+    pub sim_queue: Arc<RwLock<Vec<V2<usize>>>>,
     pub speed_control_tx: FnSender<SpeedControl<Polysender>>,
     pub territory_tx: FnSender<TerritoryActor>,
     pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
@@ -111,6 +112,7 @@ impl Polysender {
             settlements_tx: self.settlements_tx.clone_with_name(name),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             setup_pathfinders_tx: self.setup_pathfinders_tx.clone_with_name(name),
+            sim_queue: self.sim_queue.clone(),
             speed_control_tx: self.speed_control_tx.clone_with_name(name),
             territory_tx: self.territory_tx.clone_with_name(name),
             traffic: self.traffic.clone(),
@@ -241,25 +243,6 @@ impl SendSettlements for Polysender {
         self.settlements_tx
             .send(move |settlements| function(&mut settlements.state()))
             .await
-    }
-}
-
-#[async_trait]
-impl SendSettlementSim for Polysender {
-    async fn send_settlement_sim<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut SettlementSimulation) -> O + Send + 'static,
-    {
-        self.settlement_sim_tx.send(function).await
-    }
-
-    fn send_settlement_sim_background<F, O>(&self, function: F)
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut SettlementSimulation) -> O + Send + 'static,
-    {
-        self.settlement_sim_tx.send(function);
     }
 }
 
@@ -418,6 +401,25 @@ impl WithRouteToPorts for Polysender {
     {
         let mut route_to_ports = self.route_to_ports.write().await;
         function(&mut route_to_ports)
+    }
+}
+
+#[async_trait]
+impl WithSimQueue for Polysender {
+    async fn with_sim_queue<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&Vec<V2<usize>>) -> O + Send,
+    {
+        let sim_queue = self.sim_queue.read().await;
+        function(&sim_queue)
+    }
+
+    async fn mut_sim_queue<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut Vec<V2<usize>>) -> O + Send,
+    {
+        let mut sim_queue = self.sim_queue.write().await;
+        function(&mut sim_queue)
     }
 }
 

@@ -1,7 +1,6 @@
-use super::*;
-
 use crate::resource::Resource;
-use commons::v2;
+use commons::{v2, V2};
+use serde::{Deserialize, Serialize};
 use std::default::Default;
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]

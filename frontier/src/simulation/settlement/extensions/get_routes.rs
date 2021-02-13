@@ -3,7 +3,7 @@ use crate::pathfinder::ClosestTargetResult;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::instruction::Routes;
-use crate::simulation::settlement::UpdateSettlement;
+use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, InBoundsWithPlannedRoads, LowestDurationWithoutPlannedRoads,
     Micros,
@@ -13,7 +13,7 @@ use commons::V2;
 use std::collections::HashMap;
 use std::time::Duration;
 
-impl<T> UpdateSettlement<T>
+impl<T> SettlementSimulation<T>
 where
     T: ClosestTargetsWithPlannedRoads
         + InBoundsWithPlannedRoads
@@ -167,7 +167,7 @@ mod tests {
                 duration: Duration::from_secs(4),
             },
         ];
-        let sim = UpdateSettlement::new(HappyPathTx { closest_targets });
+        let sim = SettlementSimulation::new(HappyPathTx { closest_targets });
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -223,7 +223,7 @@ mod tests {
     fn test_no_closest_targets() {
         // Given
         let closest_targets = vec![];
-        let sim = UpdateSettlement::new(HappyPathTx { closest_targets });
+        let sim = SettlementSimulation::new(HappyPathTx { closest_targets });
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -262,7 +262,7 @@ mod tests {
                 duration: Duration::from_secs(4),
             },
         ];
-        let sim = UpdateSettlement::new(HappyPathTx { closest_targets });
+        let sim = SettlementSimulation::new(HappyPathTx { closest_targets });
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -339,7 +339,7 @@ mod tests {
     #[test]
     fn zero_source_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
-        let sim = UpdateSettlement::new(PanicPathfinderTx {});
+        let sim = SettlementSimulation::new(PanicPathfinderTx {});
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -366,7 +366,7 @@ mod tests {
     #[test]
     fn zero_quantity_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
-        let sim = UpdateSettlement::new(PanicPathfinderTx {});
+        let sim = SettlementSimulation::new(PanicPathfinderTx {});
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,

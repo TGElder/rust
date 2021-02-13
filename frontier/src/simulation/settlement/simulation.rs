@@ -1,182 +1,166 @@
-use commons::bincode::{deserialize_from, serialize_into};
+use std::sync::Arc;
+
+use commons::async_trait::async_trait;
+use commons::log::debug;
 use commons::process::Step;
+use commons::V2;
+use futures::future::join_all;
 
-use super::*;
+use crate::avatar::AvatarTravelModeFn;
+use crate::settlement::{Settlement, SettlementClass};
+use crate::simulation::settlement::demand::Demand;
+use crate::simulation::settlement::instruction::Routes;
+use crate::traits::has::HasParameters;
+use crate::traits::{
+    ClosestTargetsWithPlannedRoads, Controlled, GetSettlement, InBoundsWithPlannedRoads,
+    LowestDurationWithoutPlannedRoads, Micros, RefreshEdges, RefreshPositions, RemoveTown,
+    SendRoutes, SendSettlements, SendWorld, UpdateSettlement as UpdateSettlementTrait,
+    UpdateTerritory, VisibleLandPositions, WithEdgeTraffic, WithRouteToPorts, WithSimQueue,
+    WithTraffic,
+};
 
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use super::demand::demand_fn::{homeland_demand_fn, town_demand_fn};
 
-pub struct SettlementSimulation {
-    processors: Vec<Box<dyn Processor + Send>>,
-    state: Option<State>,
+pub struct SettlementSimulation<T> {
+    pub(super) tx: T,
+    pub(super) homeland_demand_fn: fn(&Settlement) -> Vec<Demand>,
+    pub(super) town_demand_fn: fn(&Settlement) -> Vec<Demand>,
 }
 
-impl SettlementSimulation {
-    pub fn new(processors: Vec<Box<dyn Processor + Send>>) -> SettlementSimulation {
+impl<T> SettlementSimulation<T> {
+    pub fn new(tx: T) -> SettlementSimulation<T> {
         SettlementSimulation {
-            processors,
-            state: None,
+            tx,
+            homeland_demand_fn,
+            town_demand_fn,
         }
     }
-
-    pub async fn new_game(&mut self) {
-        self.state = Some(State {
-            instructions: vec![],
-        });
-    }
-
-    async fn process_instruction(&mut self, mut state: State) -> State {
-        if let Some(instruction) = state.instructions.pop() {
-            for processor in self.processors.iter_mut() {
-                state = processor.process(state, &instruction).await;
-            }
-        }
-        state
-    }
-
-    fn try_step(&mut self, state: &mut State) {
-        if state.instructions.is_empty() {
-            state.instructions.push(Instruction::Step);
-        }
-    }
-
-    pub fn save(&self, path: &str) {
-        let path = get_path(path);
-        let mut file = BufWriter::new(File::create(path).unwrap());
-        serialize_into(&mut file, &self.state).unwrap();
-    }
-
-    pub fn load(&mut self, path: &str) {
-        let path = get_path(path);
-        let file = BufReader::new(File::open(path).unwrap());
-        self.state = deserialize_from(file).unwrap();
-    }
-}
-
-fn get_path(path: &str) -> String {
-    format!("{}.sim", path)
 }
 
 #[async_trait]
-impl Step for SettlementSimulation {
+impl<T> Step for SettlementSimulation<T>
+where
+    T: ClosestTargetsWithPlannedRoads
+        + Controlled
+        + HasParameters
+        + InBoundsWithPlannedRoads
+        + GetSettlement
+        + LowestDurationWithoutPlannedRoads
+        + Micros
+        + RefreshEdges
+        + RefreshPositions
+        + RemoveTown
+        + SendRoutes
+        + SendSettlements
+        + SendWorld
+        + UpdateSettlementTrait
+        + UpdateTerritory
+        + VisibleLandPositions
+        + WithEdgeTraffic
+        + WithRouteToPorts
+        + WithSimQueue
+        + WithTraffic
+        + Send
+        + Sync,
+{
     async fn step(&mut self) {
-        let state = unwrap_or!(self.state.take(), return);
-        let mut state = self.process_instruction(state).await;
-        self.try_step(&mut state);
-        self.state = Some(state);
+        let position = self.tx.mut_sim_queue(|sim_queue| sim_queue.pop()).await;
+
+        match position {
+            Some(position) => self.update_settlement_at(&position).await,
+            None => self.replenish_sim_queue().await,
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use commons::{v2, Arm};
-    use futures::executor::block_on;
-    use std::fs::remove_file;
-
-    #[test]
-    fn should_hand_instructions_to_all_processors() {
-        // Given
-        struct InstructionRetriever {
-            instructions: Arm<Vec<Instruction>>,
-        }
-
-        #[async_trait]
-        impl Processor for InstructionRetriever {
-            async fn process(&mut self, state: State, instruction: &Instruction) -> State {
-                self.instructions.lock().unwrap().push(instruction.clone());
-                state
-            }
-        }
-
-        let instructions_1 = Arm::default();
-        let instructions_2 = Arm::default();
-        let retriever_1 = InstructionRetriever {
-            instructions: instructions_1.clone(),
-        };
-        let retriever_2 = InstructionRetriever {
-            instructions: instructions_2.clone(),
-        };
-        let mut sim = SettlementSimulation::new(vec![Box::new(retriever_1), Box::new(retriever_2)]);
-        sim.state = Some(State {
-            instructions: vec![Instruction::Step],
-        });
-
-        // When
-        block_on(sim.step());
-
-        // Then
-        assert_eq!(*instructions_1.lock().unwrap(), vec![Instruction::Step]);
-        assert_eq!(*instructions_2.lock().unwrap(), vec![Instruction::Step]);
-    }
-
-    #[test]
-    fn should_add_step_instruction_if_instructions_are_empty() {
-        // Given
-        let mut sim = SettlementSimulation::new(vec![]);
-        sim.state = Some(State::default());
-
-        // When
-        block_on(sim.step());
-
-        // Then
-        assert_eq!(sim.state.unwrap().instructions, vec![Instruction::Step]);
-    }
-
-    #[test]
-    fn processors_should_be_able_to_update_state() {
-        // Given
-        struct InstructionIntroducer {}
-
-        #[async_trait]
-        impl Processor for InstructionIntroducer {
-            async fn process(&mut self, mut state: State, _: &Instruction) -> State {
-                state
-                    .instructions
-                    .push(Instruction::UpdateHomelandPopulation(v2(1, 2)));
-                state
-            }
-        }
-
-        let mut sim = SettlementSimulation::new(vec![Box::new(InstructionIntroducer {})]);
-        sim.state = Some(State {
-            instructions: vec![Instruction::Step],
-        });
-
-        // When
-        block_on(sim.step());
-
-        // Then
-        assert_eq!(
-            sim.state.unwrap().instructions,
-            vec![Instruction::UpdateHomelandPopulation(v2(1, 2))]
+impl<T> SettlementSimulation<T>
+where
+    T: ClosestTargetsWithPlannedRoads
+        + Controlled
+        + HasParameters
+        + InBoundsWithPlannedRoads
+        + GetSettlement
+        + LowestDurationWithoutPlannedRoads
+        + Micros
+        + RefreshEdges
+        + RefreshPositions
+        + RemoveTown
+        + SendRoutes
+        + SendSettlements
+        + SendWorld
+        + UpdateSettlementTrait
+        + UpdateTerritory
+        + VisibleLandPositions
+        + WithEdgeTraffic
+        + WithRouteToPorts
+        + WithSimQueue
+        + WithTraffic,
+{
+    async fn update_settlement_at(&self, position: &V2<usize>) {
+        let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return);
+        debug!(
+            "{:?} {} -> {}",
+            settlement.name, settlement.current_population, settlement.target_population
         );
+        match settlement.class {
+            SettlementClass::Homeland => self.update_homeland_settlement(settlement).await,
+            SettlementClass::Town => self.update_town_settlement(settlement).await,
+        }
     }
 
-    #[test]
-    fn save_load_round_trip() {
-        // Given
-        let file_name = "test_save.simulation.round_trip";
+    async fn replenish_sim_queue(&self) {
+        let settlements = self
+            .tx
+            .send_settlements(|settlements| settlements.keys().copied().collect::<Vec<_>>())
+            .await;
+        self.tx
+            .mut_sim_queue(move |sim_queue| {
+                if sim_queue.is_empty() {
+                    *sim_queue = settlements;
+                }
+            })
+            .await;
+    }
 
-        let mut sim_1 = SettlementSimulation::new(vec![]);
-        sim_1.state = Some(State {
-            instructions: vec![
-                Instruction::GetTerritory(v2(1, 1)),
-                Instruction::GetTerritory(v2(2, 2)),
-                Instruction::GetTerritory(v2(3, 3)),
-            ],
-        });
-        sim_1.save(file_name);
+    async fn update_homeland_settlement(&self, settlement: Settlement) {
+        self.update_homeland(&settlement).await;
+        if let Some(updated) = self.update_current_population(settlement.position).await {
+            let demand = (self.homeland_demand_fn)(&updated);
+            self.get_all_route_changes(demand).await
+        }
+    }
 
-        // When
-        let mut sim_2 = SettlementSimulation::new(vec![]);
-        sim_2.load(file_name);
+    async fn update_town_settlement(&self, settlement: Settlement) {
+        let territory = self.get_territory(&settlement.position).await;
+        let traffic = self.get_town_traffic(&territory).await;
+        join!(
+            self.update_town(&settlement, &traffic),
+            self.remove_town(&settlement, &traffic), // TODO should be after population update
+        );
+        if let Some(updated) = self.update_current_population(settlement.position).await {
+            let demand = (self.town_demand_fn)(&updated);
+            self.get_all_route_changes(demand).await
+        }
+    }
 
-        // Then
-        assert_eq!(sim_1.state, sim_2.state);
+    async fn get_all_route_changes(&self, demand: Vec<Demand>) {
+        let futures = demand
+            .into_iter()
+            .map(|demand| self.update_routes(demand))
+            .collect::<Vec<_>>();
+        join_all(futures).await;
+    }
 
-        // Finally
-        remove_file(format!("{}.sim", file_name)).unwrap();
+    async fn update_routes(&self, demand: Demand) {
+        let Routes { key, route_set } = self.get_routes(demand).await;
+        let route_changes = self.update_routes_and_get_changes(key, route_set).await;
+        let travel_mode_fn = Arc::new(AvatarTravelModeFn::new(
+            self.tx.parameters().avatar_travel.min_navigable_river_width,
+        )); // TODO find better way of passing this
+        join!(
+            self.update_edge_traffic(&route_changes),
+            self.update_position_traffic(&route_changes),
+            self.update_route_to_ports(&route_changes, travel_mode_fn),
+        );
     }
 }

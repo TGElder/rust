@@ -1,14 +1,6 @@
-use super::*;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
-
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub enum Instruction {
-    UpdateSettlement(V2<usize>),
-    Step,
-    UpdateHomelandPopulation(V2<usize>),
-    GetTerritory(V2<usize>),
-}
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct TownTrafficSummary {

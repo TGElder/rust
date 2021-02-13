@@ -25,8 +25,7 @@ use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
-use crate::simulation::settlement::processors::{StepHomeland, StepTown};
-use crate::simulation::settlement::{SettlementSimulation, UpdateSettlement};
+use crate::simulation::settlement::SettlementSimulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traffic::Traffic;
 use crate::traits::SendClock;
@@ -54,7 +53,7 @@ pub struct System {
     pub resource_targets: Process<ResourceTargets<Polysender>>,
     pub rotate: Process<Rotate>,
     pub routes: Process<RoutesActor>,
-    pub settlement_sim: Process<SettlementSimulation>,
+    pub settlement_sim: Process<SettlementSimulation<Polysender>>,
     pub settlements: Process<Settlements>,
     pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub setup_pathfinders: Process<SetupPathfinders<Polysender>>,
@@ -152,6 +151,7 @@ impl System {
             settlements_tx,
             setup_pathfinders_tx,
             setup_new_world_tx,
+            sim_queue: Arc::default(),
             speed_control_tx,
             territory_tx,
             traffic: Arc::new(RwLock::new(Traffic::new(
@@ -264,13 +264,7 @@ impl System {
             rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
             routes: Process::new(RoutesActor::new(), routes_rx),
             settlement_sim: Process::new(
-                SettlementSimulation::new(vec![
-                    Box::new(UpdateSettlement::new(
-                        tx.clone_with_name("update_settlement"),
-                    )),
-                    Box::new(StepHomeland::new(tx.clone_with_name("step_homeland"))),
-                    Box::new(StepTown::new(tx.clone_with_name("step_town"))),
-                ]),
+                SettlementSimulation::new(tx.clone_with_name("settlement_simulation")),
                 settlement_sim_rx,
             ),
             settlements: Process::new(Settlements::new(), settlements_rx),
@@ -378,9 +372,6 @@ impl System {
             .prime_mover_tx
             .send_future(|prime_mover| prime_mover.new_game().boxed());
         self.tx
-            .settlement_sim_tx
-            .send_future(|simulation| simulation.new_game().boxed());
-        self.tx
             .setup_new_world_tx
             .send_future(|setup_new_world| setup_new_world.new_game().boxed());
         self.tx
@@ -480,7 +471,6 @@ impl System {
         self.nations.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
         self.routes.object_ref().unwrap().save(path);
-        self.settlement_sim.object_ref().unwrap().save(path);
         self.settlements.object_ref().unwrap().save(path);
         self.territory.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
@@ -503,6 +493,11 @@ impl System {
             .await
             .save(&format!("{}.route_to_ports", path));
         self.tx
+            .sim_queue
+            .read()
+            .await
+            .save(&format!("{}.sim_queue", path));
+        self.tx
             .traffic
             .read()
             .await
@@ -516,7 +511,6 @@ impl System {
         self.nations.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);
         self.routes.object_mut().unwrap().load(path);
-        self.settlement_sim.object_mut().unwrap().load(path);
         self.settlements.object_mut().unwrap().load(path);
         self.territory.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
@@ -525,6 +519,7 @@ impl System {
         *self.tx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
         *self.tx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
         *self.tx.route_to_ports.write().await = <_>::load(&format!("{}.route_to_ports", path));
+        *self.tx.sim_queue.write().await = <_>::load(&format!("{}.sim_quue", path));
         *self.tx.traffic.write().await = <_>::load(&format!("{}.traffic", path));
     }
 }
