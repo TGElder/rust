@@ -6,8 +6,8 @@ use commons::V2;
 use futures::FutureExt;
 
 use crate::traits::{
-    DrawWorld, Micros, RefreshPositionsBackground, SendVoyager, 
-    UpdatePositionsAllPathfinders, WithWorld,
+    DrawWorld, Micros, RefreshPositionsBackground, SendVoyager, UpdatePositionsAllPathfinders,
+    WithWorld,
 };
 use crate::world::World;
 
