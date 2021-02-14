@@ -2,11 +2,11 @@ use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::settlement::SettlementSimulation;
 use crate::simulation::MaxAbsPopulationChange;
 use crate::traits::has::HasParameters;
-use crate::traits::{Micros, UpdateSettlement as UpdateSettlementTrait};
+use crate::traits::{Micros, UpdateSettlement};
 
 impl<T> SettlementSimulation<T>
 where
-    T: HasParameters + Micros + UpdateSettlementTrait,
+    T: HasParameters + Micros + UpdateSettlement,
 {
     pub async fn update_current_population(&self, settlement: Settlement) -> Settlement {
         self.try_update_settlement(settlement).await
@@ -96,7 +96,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl UpdateSettlementTrait for Tx {
+    impl UpdateSettlement for Tx {
         async fn update_settlement(&self, settlement: Settlement) {
             self.settlements
                 .lock()

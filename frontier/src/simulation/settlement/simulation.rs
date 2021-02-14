@@ -109,21 +109,21 @@ where
     }
 
     async fn update_homeland_settlement(&self, settlement: Settlement) {
-        self.update_homeland(&settlement).await;
-        let updated = self.update_current_population(settlement).await;
-        let demand = (self.homeland_demand_fn)(&updated);
+        let settlement = self.update_homeland(settlement).await;
+        let settlement = self.update_current_population(settlement).await;
+        let demand = (self.homeland_demand_fn)(&settlement);
         self.get_all_route_changes(demand).await
     }
 
     async fn update_town_settlement(&self, settlement: Settlement) {
         let territory = self.get_territory(&settlement.position).await;
         let traffic = self.get_town_traffic(&territory).await;
-        self.update_town(&settlement, &traffic).await;
-        let updated = self.update_current_population(settlement).await;
-        if self.remove_town(&updated, &traffic).await {
+        let settlement = self.update_town(settlement, &traffic).await;
+        let settlement = self.update_current_population(settlement).await;
+        if self.remove_town(&settlement, &traffic).await {
             return;
         }
-        let demand = (self.town_demand_fn)(&updated);
+        let demand = (self.town_demand_fn)(&settlement);
         self.get_all_route_changes(demand).await
     }
 
