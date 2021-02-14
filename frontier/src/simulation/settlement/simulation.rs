@@ -42,9 +42,9 @@ impl<T> Step for SettlementSimulation<T>
 where
     T: ClosestTargetsWithPlannedRoads
         + Controlled
+        + GetSettlement
         + HasParameters
         + InBoundsWithPlannedRoads
-        + GetSettlement
         + LowestDurationWithoutPlannedRoads
         + Micros
         + RefreshEdges
@@ -77,9 +77,9 @@ impl<T> SettlementSimulation<T>
 where
     T: ClosestTargetsWithPlannedRoads
         + Controlled
+        + GetSettlement
         + HasParameters
         + InBoundsWithPlannedRoads
-        + GetSettlement
         + LowestDurationWithoutPlannedRoads
         + Micros
         + RefreshEdges

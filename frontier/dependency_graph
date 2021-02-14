@@ -89,6 +89,7 @@ SendBuildActor WhoControlsTile
 SendPositionBuildSim AnyoneControls
 SendPositionBuildSim GetBuildInstruction
 SendPositionBuildSim GetSettlement
+SendPositionBuildSim HasParameters
 SendPositionBuildSim InsertBuildInstruction
 SendPositionBuildSim RandomTownName
 SendPositionBuildSim RemoveBuildInstruction
@@ -97,6 +98,7 @@ SendPositionBuildSim SendRoutes
 SendPositionBuildSim SendWorld
 SendPositionBuildSim WithRouteToPorts
 SendPositionBuildSim WithTraffic
+SendEdgeBuildSim HasParameters
 SendEdgeBuildSim InsertBuildInstruction
 SendEdgeBuildSim IsRoad
 SendEdgeBuildSim PlanRoad
@@ -129,8 +131,9 @@ SendPrimeMover SendWorld
 SendResourceTargets InitTargets
 SendResourceTargets LoadTarget
 SendResourceTargets SendWorld
-SendSettlementSim Controlled
 SendSettlementSim ClosestTargets
+SendSettlementSim Controlled
+SendSettlementSim HasParameters
 SendSettlementSim GetSettlement
 SendSettlementSim InBounds
 SendSettlementSim LowestDuration
@@ -145,6 +148,7 @@ SendSettlementSim UpdateTerritory
 SendSettlementSim VisibleLandPositions
 SendSettlementSim WithEdgeTraffic
 SendSettlementSim WithRouteToPorts
+SendSettlementSim WithSimQueue
 SendSettlementSim WithTraffic
 SendSetupNewWorld SendAvatars
 SendSetupNewWorld SendNations
