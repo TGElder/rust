@@ -22,7 +22,7 @@ impl Default for SimulationParameters {
             town_removal_population: 0.25,
             traffic_to_population: 0.5,
             max_abs_population_change: MaxAbsPopulationChange::default(),
-            threads: 8,
+            threads: 2,
         }
     }
 }
