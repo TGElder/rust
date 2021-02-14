@@ -5,7 +5,7 @@ use futures::future::BoxFuture;
 
 #[async_trait]
 pub trait SendTownHouseArtist:
-    GetNationDescription + GetSettlement + WithWorld + Settlements + Send + Sync
+    GetNationDescription + GetSettlement + Settlements + WithWorld + Send + Sync
 {
     fn send_town_house_artist_future_background<F, O>(&self, function: F)
     where

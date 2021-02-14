@@ -68,7 +68,7 @@ where
 
         let start_at = stopped.final_frame().arrival.max(micros);
         let travelling = self
-            .extend(stopped, path, start_at, &self.travel_duration) //TODO can no longer be arc?
+            .extend(stopped, path, start_at, &self.travel_duration)
             .await;
 
         if travelling.is_some() {

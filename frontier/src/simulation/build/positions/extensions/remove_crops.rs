@@ -14,7 +14,7 @@ use crate::world::{World, WorldCell, WorldObject};
 
 impl<T> PositionBuildSimulation<T>
 where
-    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + WithWorld + WithTraffic,
+    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + WithTraffic + WithWorld,
 {
     pub async fn remove_crops(&self, mut positions: HashSet<V2<usize>>) {
         self.filter_without_crop_routes(&mut positions).await;

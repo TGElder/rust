@@ -4,7 +4,7 @@ use futures::future::BoxFuture;
 
 use super::SendTerritory;
 
-pub trait WithWorldArtist:
+pub trait SendWorldArtist:
     Micros + SendSettlements + SendTerritory + WithWorld + Send + Sync
 {
     fn send_world_artist_future_background<F, O>(&self, function: F)

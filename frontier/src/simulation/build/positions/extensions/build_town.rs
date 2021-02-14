@@ -22,9 +22,9 @@ where
         + InsertBuildInstruction
         + RandomTownName
         + SendRoutes
-        + WithWorld
         + WithRouteToPorts
-        + WithTraffic,
+        + WithTraffic
+        + WithWorld,
 {
     pub async fn build_town(&self, positions: HashSet<V2<usize>>) {
         for position in positions {

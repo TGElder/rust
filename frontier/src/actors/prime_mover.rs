@@ -114,7 +114,7 @@ where
             .into_iter()
             .zip(dormant.into_iter())
             .collect::<HashMap<_, _>>();
-        let keys_for_journies = allocation.keys().cloned().collect::<Vec<_>>(); // TODO
+        let keys_for_journies = allocation.keys().cloned().collect::<Vec<_>>();
         let keys_for_colors = keys_for_journies.clone();
         let (journies, colors) = join!(
             self.get_journies(keys_for_journies, micros),

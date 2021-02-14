@@ -24,8 +24,8 @@ use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
     SendEdgeBuildSim, SendNations, SendPositionBuildSim, SendRotate, SendRoutes, SendSettlements,
     SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
-    WithBuildQueue, WithEdgeTraffic, WithPathfinder, WithRouteToPorts, WithSimQueue, WithTraffic,
-    WithWorld, WithWorldArtist,
+    SendWorldArtist, WithBuildQueue, WithEdgeTraffic, WithPathfinder, WithRouteToPorts,
+    WithSimQueue, WithTraffic, WithWorld,
 };
 use crate::world::World;
 use commons::async_std::sync::RwLock;
@@ -329,7 +329,7 @@ impl SendVisibility for Polysender {
     }
 }
 
-impl WithWorldArtist for Polysender {
+impl SendWorldArtist for Polysender {
     fn send_world_artist_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,

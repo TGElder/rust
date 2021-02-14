@@ -36,9 +36,9 @@ where
         + RemoveBuildInstruction
         + RemoveWorldObject
         + SendRoutes
-        + WithWorld
         + WithRouteToPorts
-        + WithTraffic,
+        + WithTraffic
+        + WithWorld,
 {
     pub async fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
         self.build_crops(positions.clone()).await;

@@ -49,7 +49,6 @@ where
         + RemoveTown
         + SendRoutes
         + SendSettlements
-        + WithWorld
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
@@ -57,6 +56,7 @@ where
         + WithRouteToPorts
         + WithSimQueue
         + WithTraffic
+        + WithWorld
         + Send
         + Sync,
 {
@@ -84,14 +84,14 @@ where
         + RemoveTown
         + SendRoutes
         + SendSettlements
-        + WithWorld
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
         + WithEdgeTraffic
         + WithRouteToPorts
         + WithSimQueue
-        + WithTraffic,
+        + WithTraffic
+        + WithWorld,
 {
     async fn update_settlement_at(&self, position: &V2<usize>) {
         let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return);

@@ -20,9 +20,9 @@ pub trait SendPositionBuildSim:
     + RemoveBuildInstruction
     + RemoveWorldObject
     + SendRoutes
-    + WithWorld
     + WithRouteToPorts
     + WithTraffic
+    + WithWorld
     + Send
     + Sync
 {

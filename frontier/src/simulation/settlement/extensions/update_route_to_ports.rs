@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 
 impl<T> SettlementSimulation<T>
 where
-    T: WithWorld + WithRouteToPorts,
+    T: WithRouteToPorts + WithWorld,
 {
     pub async fn update_route_to_ports<C>(&self, route_changes: &[RouteChange], port_checker: &C)
     where
@@ -19,7 +19,7 @@ where
         let (_, updated) = join!(self.remove_removed(route_changes), async {
             get_all_updated(route_changes)
         });
-        let ports = self.get_all_ports(updated, port_checker).await;
+        let ports = self.get_all_ports(&updated, port_checker).await;
         self.update_ports(ports).await;
     }
 
@@ -36,7 +36,7 @@ where
 
     async fn get_all_ports<C>(
         &self,
-        routes: HashMap<RouteKey, Vec<V2<usize>>>,
+        routes: &HashMap<RouteKey, Vec<V2<usize>>>,
         port_checker: &C,
     ) -> HashMap<RouteKey, HashSet<V2<usize>>>
     where
@@ -92,11 +92,11 @@ fn get_updated(route_change: &RouteChange) -> Option<(RouteKey, Vec<V2<usize>>)>
 fn get_all_ports(
     world: &World,
     port_checker: &dyn CheckForPort,
-    routes: HashMap<RouteKey, Vec<V2<usize>>>,
+    routes: &HashMap<RouteKey, Vec<V2<usize>>>,
 ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
     routes
-        .into_iter()
-        .map(|(key, path)| (key, get_ports(world, port_checker, &path)))
+        .iter()
+        .map(|(key, path)| (*key, get_ports(world, port_checker, &path)))
         .collect()
 }
 

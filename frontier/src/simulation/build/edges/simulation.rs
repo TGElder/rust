@@ -34,8 +34,8 @@ where
         + RemoveRoadTrait
         + RoadPlanned
         + SendRoutes
-        + WithWorld
         + WithEdgeTraffic
+        + WithWorld
         + Send
         + Sync,
     D: TravelDuration + 'static,
