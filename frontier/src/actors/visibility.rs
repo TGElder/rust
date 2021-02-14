@@ -1,5 +1,5 @@
 use crate::traits::has::HasParameters;
-use crate::traits::{RevealPositions, SendWorld};
+use crate::traits::{RevealPositions, WithWorld};
 use crate::visibility_computer::VisibilityComputer;
 use crate::world::World;
 use commons::bincode::{deserialize_from, serialize_into};
@@ -39,7 +39,7 @@ impl WithElevation for Elevation {
 
 impl<T> VisibilityActor<T>
 where
-    T: HasParameters + RevealPositions + SendWorld + Send,
+    T: HasParameters + RevealPositions + WithWorld + Send,
 {
     pub fn new(tx: T) -> VisibilityActor<T> {
         VisibilityActor {
@@ -67,7 +67,7 @@ where
     }
 
     pub async fn init_visited(&mut self) {
-        let (width, height) = self.tx.send_world(|world| get_dimensions(world)).await;
+        let (width, height) = self.tx.with_world(|world| get_dimensions(world)).await;
         self.state.visited = Some(M::from_element(width, height, false));
     }
 
@@ -76,7 +76,7 @@ where
     }
 
     async fn init_elevations(&mut self) {
-        self.elevations = Some(self.tx.send_world(|world| get_elevations(world)).await);
+        self.elevations = Some(self.tx.with_world(|world| get_elevations(world)).await);
     }
 
     pub async fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
@@ -105,7 +105,7 @@ where
             .visibility_computer
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
-        self.tx.reveal_positions(visible, NAME).await;
+        self.tx.reveal_positions(&visible, NAME).await;
     }
 
     fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {

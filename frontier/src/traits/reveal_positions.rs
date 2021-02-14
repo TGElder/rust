@@ -6,14 +6,18 @@ use commons::V2;
 use futures::FutureExt;
 
 use crate::traits::{
-    DrawWorld, Micros, RefreshPositionsBackground, SendVoyager, SendWorld,
-    UpdatePositionsAllPathfinders,
+    DrawWorld, Micros, RefreshPositionsBackground, SendVoyager, UpdatePositionsAllPathfinders,
+    WithWorld,
 };
 use crate::world::World;
 
 #[async_trait]
 pub trait RevealPositions {
-    async fn reveal_positions(&self, positions: HashSet<V2<usize>>, revealed_by: &'static str);
+    async fn reveal_positions<'a>(
+        &'a self,
+        positions: &'a HashSet<V2<usize>>,
+        revealed_by: &'static str,
+    );
 }
 
 #[async_trait]
@@ -23,11 +27,15 @@ where
         + Micros
         + RefreshPositionsBackground
         + SendVoyager
-        + SendWorld
-        + UpdatePositionsAllPathfinders,
+        + UpdatePositionsAllPathfinders
+        + WithWorld,
 {
-    async fn reveal_positions(&self, positions: HashSet<V2<usize>>, revealed_by: &'static str) {
-        let newly_visible = send_set_visible_get_newly_visible(self, positions).await;
+    async fn reveal_positions<'a>(
+        &'a self,
+        positions: &'a HashSet<V2<usize>>,
+        revealed_by: &'static str,
+    ) {
+        let newly_visible = send_set_visible_get_newly_visible(self, &positions).await;
         voyage(self, newly_visible.clone(), revealed_by);
         self.refresh_positions_background(newly_visible.clone());
         join!(
@@ -39,25 +47,25 @@ where
 
 async fn send_set_visible_get_newly_visible<T>(
     tx: &T,
-    positions: HashSet<V2<usize>>,
+    positions: &HashSet<V2<usize>>,
 ) -> HashSet<V2<usize>>
 where
-    T: SendWorld,
+    T: WithWorld,
 {
-    tx.send_world(move |world| set_visible_get_newly_visible(world, positions))
+    tx.mut_world(|world| set_visible_get_newly_visible(world, positions))
         .await
 }
 
 fn set_visible_get_newly_visible(
     world: &mut World,
-    positions: HashSet<V2<usize>>,
+    positions: &HashSet<V2<usize>>,
 ) -> HashSet<V2<usize>> {
     let mut out = hashset! {};
     for position in positions {
         if let Some(world_cell) = world.mut_cell(&position) {
             if !world_cell.visible {
                 world_cell.visible = true;
-                out.insert(position);
+                out.insert(*position);
             }
         }
     }

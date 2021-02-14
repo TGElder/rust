@@ -1,6 +1,6 @@
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
+use commons::async_channel::Sender;
 use commons::async_trait::async_trait;
 use isometric::event_handlers::RotateHandler;
 use isometric::{Command, Event, EventHandler, VirtualKeyCode};
@@ -33,7 +33,7 @@ impl Rotate {
 impl HandleEngineEvent for Rotate {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         let commands = self.engine_rotatehandler.handle_event(event);
-        self.command_tx.send(commands).unwrap();
+        self.command_tx.send(commands).await.unwrap();
         Capture::No
     }
 }

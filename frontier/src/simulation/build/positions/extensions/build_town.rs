@@ -10,8 +10,8 @@ use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, SendRoutes, SendWorld,
-    WithRouteToPorts, WithTraffic,
+    AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, SendRoutes,
+    WithRouteToPorts, WithTraffic, WithWorld,
 };
 
 impl<T> PositionBuildSimulation<T>
@@ -22,9 +22,9 @@ where
         + InsertBuildInstruction
         + RandomTownName
         + SendRoutes
-        + SendWorld
         + WithRouteToPorts
-        + WithTraffic,
+        + WithTraffic
+        + WithWorld,
 {
     pub async fn build_town(&self, positions: HashSet<V2<usize>>) {
         for position in positions {
@@ -36,7 +36,7 @@ where
         let (route_keys, anyone_controls_position, tiles) = join!(
             self.get_route_keys(&position),
             self.tx.anyone_controls(position),
-            self.get_tiles(position)
+            self.get_tiles(&position)
         );
 
         if route_keys.is_empty() || anyone_controls_position || tiles.is_empty() {
@@ -117,11 +117,11 @@ where
             .await
     }
 
-    async fn get_tiles(&self, position: V2<usize>) -> Vec<V2<usize>> {
+    async fn get_tiles(&self, position: &V2<usize>) -> Vec<V2<usize>> {
         self.tx
-            .send_world(move |world| {
+            .with_world(|world| {
                 world
-                    .get_adjacent_tiles_in_bounds(&position)
+                    .get_adjacent_tiles_in_bounds(position)
                     .into_iter()
                     .filter(|tile| {
                         world.get_cell(tile).map_or(false, |cell| cell.visible)
@@ -262,21 +262,19 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
+    impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap())
+            function(&self.world.lock().unwrap())
         }
 
-        fn send_world_background<F, O>(&self, function: F)
+        async fn mut_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&mut World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap());
+            function(&mut self.world.lock().unwrap())
         }
     }
 

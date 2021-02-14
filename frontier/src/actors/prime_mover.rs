@@ -18,7 +18,7 @@ use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Journey};
 use crate::nation::{NationColors, NationDescription};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
-use crate::traits::{Micros, SendAvatars, SendRoutes, SendSettlements, SendWorld};
+use crate::traits::{Micros, SendAvatars, SendRoutes, SendSettlements, WithWorld};
 use crate::world::World;
 
 pub struct PrimeMover<T> {
@@ -54,7 +54,7 @@ impl Default for Durations {
 
 impl<T> PrimeMover<T>
 where
-    T: Micros + SendAvatars + SendRoutes + SendSettlements + SendWorld,
+    T: Micros + SendAvatars + SendRoutes + SendSettlements + WithWorld + Send + Sync,
 {
     pub fn new(
         tx: T,
@@ -198,17 +198,15 @@ where
         paths: HashMap<RouteKey, Vec<V2<usize>>>,
         start_at: u128,
     ) -> HashMap<RouteKey, Journey> {
-        let travel_duration = self.travel_duration.clone();
-        let durations = self.durations;
         self.tx
-            .send_world(move |world| {
+            .with_world(|world| {
                 paths
                     .into_iter()
                     .map(|(key, outbound)| {
                         let journey = Self::get_out_and_back_journey(
                             world,
-                            &travel_duration,
-                            &durations,
+                            &self.travel_duration,
+                            &self.durations,
                             &start_at,
                             outbound,
                             key.resource,
@@ -342,7 +340,7 @@ fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done_micros: &u128) -> boo
 #[async_trait]
 impl<T> Step for PrimeMover<T>
 where
-    T: Micros + SendAvatars + SendRoutes + SendSettlements + SendWorld + Send + Sync,
+    T: Micros + SendAvatars + SendRoutes + SendSettlements + WithWorld + Send + Sync,
 {
     async fn step(&mut self) {
         let micros = self.tx.micros().await;

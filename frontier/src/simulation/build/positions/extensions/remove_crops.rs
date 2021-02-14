@@ -8,13 +8,13 @@ use crate::resource::Resource;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traffic::Traffic;
 use crate::traits::{
-    GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, SendWorld, WithTraffic,
+    GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, WithTraffic, WithWorld,
 };
 use crate::world::{World, WorldCell, WorldObject};
 
 impl<T> PositionBuildSimulation<T>
 where
-    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + SendWorld + WithTraffic,
+    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + WithTraffic + WithWorld,
 {
     pub async fn remove_crops(&self, mut positions: HashSet<V2<usize>>) {
         self.filter_without_crop_routes(&mut positions).await;
@@ -28,7 +28,7 @@ where
         }
 
         for position in self.have_crops(positions).await {
-            self.tx.remove_world_object(position).await;
+            self.tx.remove_world_object(&position).await;
         }
     }
 
@@ -49,7 +49,7 @@ where
 
     async fn have_crops(&self, positions: HashSet<V2<usize>>) -> Vec<V2<usize>> {
         self.tx
-            .send_world(move |world| have_crops(world, positions))
+            .with_world(|world| have_crops(world, positions))
             .await
     }
 }
@@ -117,27 +117,25 @@ mod tests {
 
     #[async_trait]
     impl RemoveWorldObject for Tx {
-        async fn remove_world_object(&self, position: V2<usize>) {
-            self.removed_world_objects.lock().unwrap().push(position);
+        async fn remove_world_object(&self, position: &V2<usize>) {
+            self.removed_world_objects.lock().unwrap().push(*position);
         }
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
+    impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap())
+            function(&self.world.lock().unwrap())
         }
 
-        fn send_world_background<F, O>(&self, function: F)
+        async fn mut_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&mut World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap());
+            function(&mut self.world.lock().unwrap())
         }
     }
 

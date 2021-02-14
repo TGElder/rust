@@ -3,7 +3,7 @@ use crate::actors::{
     BuilderActor, Cheats, Clock, Labels, Nations, ObjectBuilder, PathfindingAvatarControls,
     PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
     SetupPathfinders, SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, VisibilityActor, Voyager, WorldActor, WorldArtistActor,
+    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -24,8 +24,8 @@ use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
     SendEdgeBuildSim, SendNations, SendPositionBuildSim, SendRotate, SendRoutes, SendSettlements,
     SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
-    SendWorld, SendWorldArtist, WithBuildQueue, WithEdgeTraffic, WithPathfinder, WithRouteToPorts,
-    WithSimQueue, WithTraffic,
+    SendWorldArtist, WithBuildQueue, WithEdgeTraffic, WithPathfinder, WithRouteToPorts,
+    WithSimQueue, WithTraffic, WithWorld,
 };
 use crate::world::World;
 use commons::async_std::sync::RwLock;
@@ -75,8 +75,9 @@ pub struct Polysender {
     pub traffic: Arc<RwLock<Traffic>>,
     pub visibility_tx: FnSender<VisibilityActor<Polysender>>,
     pub voyager_tx: FnSender<Voyager<Polysender>>,
-    pub world_tx: FnSender<WorldActor<Polysender>>,
+    pub world: Arc<RwLock<World>>,
     pub world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
+    pub world_gen_tx: FnSender<WorldGen<Polysender>>,
 }
 
 impl Polysender {
@@ -125,8 +126,9 @@ impl Polysender {
             town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
             visibility_tx: self.visibility_tx.clone_with_name(name),
             voyager_tx: self.voyager_tx.clone_with_name(name),
-            world_tx: self.world_tx.clone_with_name(name),
+            world: self.world.clone(),
             world_artist_tx: self.world_artist_tx.clone_with_name(name),
+            world_gen_tx: self.world_gen_tx.clone_with_name(name),
         }
     }
 }
@@ -327,28 +329,6 @@ impl SendVisibility for Polysender {
     }
 }
 
-#[async_trait]
-impl SendWorld for Polysender {
-    async fn send_world<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut World) -> O + Send + 'static,
-    {
-        self.world_tx
-            .send(move |world| function(&mut world.state()))
-            .await
-    }
-
-    fn send_world_background<F, O>(&self, function: F)
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut World) -> O + Send + 'static,
-    {
-        self.world_tx
-            .send(move |world| function(&mut world.state()));
-    }
-}
-
 impl SendWorldArtist for Polysender {
     fn send_world_artist_future_background<F, O>(&self, function: F)
     where
@@ -452,6 +432,25 @@ impl WithTraffic for Polysender {
     {
         let mut traffic = self.traffic.write().await;
         function(&mut traffic)
+    }
+}
+
+#[async_trait]
+impl WithWorld for Polysender {
+    async fn with_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&World) -> O + Send,
+    {
+        let world = self.world.read().await;
+        function(&world)
+    }
+
+    async fn mut_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut World) -> O + Send,
+    {
+        let mut world = self.world.write().await;
+        function(&mut world)
     }
 }
 

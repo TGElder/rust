@@ -49,13 +49,13 @@ where
 
     async fn build_object_at_cursor(&self, object: WorldObject) {
         if let Some(position) = self.get_position() {
-            self.tx.set_world_object(object, position).await;
+            self.tx.set_world_object(object, &position).await;
         }
     }
 
     async fn clear_object_at_cursor(&self) {
         if let Some(position) = self.get_position() {
-            self.tx.remove_world_object(position).await;
+            self.tx.remove_world_object(&position).await;
         }
     }
 

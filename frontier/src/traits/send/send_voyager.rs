@@ -1,9 +1,9 @@
 use futures::future::BoxFuture;
 
 use crate::actors::Voyager;
-use crate::traits::{RevealPositions, SendSettlements, SendWorld};
+use crate::traits::{RevealPositions, SendSettlements, WithWorld};
 
-pub trait SendVoyager: RevealPositions + SendSettlements + SendWorld + Send + Sync {
+pub trait SendVoyager: RevealPositions + SendSettlements + WithWorld + Send + Sync {
     fn send_voyager_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,

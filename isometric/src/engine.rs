@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use commons::async_channel::{unbounded, Receiver, Sender, TryRecvError};
 use coords::*;
 use cursor_handler::*;
 use event_handlers::*;
@@ -8,8 +9,6 @@ use glutin::event_loop::ControlFlow;
 use glutin::platform::run_return::EventLoopExtRunReturn;
 use glutin::{PossiblyCurrent, WindowedContext};
 use graphics::{Drawing, GraphicsEngine, GraphicsEngineParameters};
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
 #[derive(Debug, PartialEq)]
 pub enum Button {
@@ -117,7 +116,7 @@ impl IsometricEngine {
             label_padding: params.label_padding,
         });
 
-        let (command_tx, command_rx) = mpsc::channel();
+        let (command_tx, command_rx) = unbounded();
 
         let mut out = IsometricEngine {
             events_loop,
@@ -212,7 +211,7 @@ impl IsometricEngine {
             match &mut self.command_rx.try_recv() {
                 Ok(commands) => out.append(commands),
                 Err(TryRecvError::Empty) => return out,
-                Err(TryRecvError::Disconnected) => {
+                Err(TryRecvError::Closed) => {
                     panic!("Isometric engine command receiver lost connection!");
                 }
             };

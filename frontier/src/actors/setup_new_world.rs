@@ -5,7 +5,7 @@ use crate::parameters::HomelandParams;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    SendAvatars, SendNations, SendSettlements, SendWorld, Visibility, VisibleLandPositions,
+    SendAvatars, SendNations, SendSettlements, Visibility, VisibleLandPositions, WithWorld,
 };
 use crate::world::World;
 use commons::grid::Grid;
@@ -27,9 +27,9 @@ where
         + SendAvatars
         + SendNations
         + SendSettlements
-        + SendWorld
         + Visibility
-        + VisibleLandPositions,
+        + VisibleLandPositions
+        + WithWorld,
 {
     pub fn new(tx: T) -> SetupNewWorld<T> {
         SetupNewWorld { tx }
@@ -39,9 +39,7 @@ where
         let params = self.tx.parameters();
         let mut rng: SmallRng = SeedableRng::seed_from_u64(params.seed);
 
-        let homeland_starts = self
-            .gen_homeland_starts(rng.clone(), params.homeland.clone())
-            .await;
+        let homeland_starts = self.gen_homeland_starts(&mut rng, &params.homeland).await;
 
         let avatars = self
             .gen_avatar(
@@ -74,11 +72,11 @@ where
 
     async fn gen_homeland_starts<R: Rng + Send + 'static>(
         &self,
-        rng: R,
-        params: HomelandParams,
+        rng: &mut R,
+        params: &HomelandParams,
     ) -> Vec<HomelandStart> {
         self.tx
-            .send_world(move |world| gen_homeland_starts(rng, world, &params))
+            .with_world(|world| gen_homeland_starts(rng, world, params))
             .await
     }
 
@@ -89,7 +87,7 @@ where
         skin_color: Color,
     ) -> HashMap<String, Avatar> {
         self.tx
-            .send_world(move |world| gen_avatar(world, position, color, skin_color))
+            .with_world(|world| gen_avatar(world, position, color, skin_color))
             .await
     }
 
@@ -140,7 +138,7 @@ where
 }
 
 fn gen_homeland_starts<R: Rng>(
-    mut rng: R,
+    rng: &mut R,
     world: &World,
     params: &HomelandParams,
 ) -> Vec<HomelandStart> {
@@ -148,7 +146,7 @@ fn gen_homeland_starts<R: Rng>(
         min_distance_between_homelands(world, params.count, &params.edges);
     let mut gen = HomelandStartGen::new(
         world,
-        &mut rng,
+        rng,
         &params.edges,
         Some(min_distance_between_homelands),
     );

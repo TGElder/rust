@@ -2,28 +2,24 @@ use crate::avatar::CheckForPort;
 use crate::route::RouteKey;
 use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traits::{SendWorld, WithRouteToPorts};
+use crate::traits::{WithRouteToPorts, WithWorld};
 use crate::world::World;
 use commons::edge::Edges;
 use commons::V2;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 impl<T> SettlementSimulation<T>
 where
-    T: SendWorld + WithRouteToPorts,
+    T: WithRouteToPorts + WithWorld,
 {
-    pub async fn update_route_to_ports<C>(
-        &self,
-        route_changes: &[RouteChange],
-        port_checker: Arc<C>,
-    ) where
+    pub async fn update_route_to_ports<C>(&self, route_changes: &[RouteChange], port_checker: &C)
+    where
         C: CheckForPort + Clone + Send + Sync + 'static,
     {
         let (_, updated) = join!(self.remove_removed(route_changes), async {
             get_all_updated(route_changes)
         });
-        let ports = self.get_all_ports(updated, port_checker).await;
+        let ports = self.get_all_ports(&updated, port_checker).await;
         self.update_ports(ports).await;
     }
 
@@ -40,14 +36,14 @@ where
 
     async fn get_all_ports<C>(
         &self,
-        routes: HashMap<RouteKey, Vec<V2<usize>>>,
-        port_checker: Arc<C>,
+        routes: &HashMap<RouteKey, Vec<V2<usize>>>,
+        port_checker: &C,
     ) -> HashMap<RouteKey, HashSet<V2<usize>>>
     where
         C: CheckForPort + Clone + Send + Sync + 'static,
     {
         self.tx
-            .send_world(move |world| get_all_ports(world, port_checker.as_ref(), routes))
+            .with_world(|world| get_all_ports(world, port_checker, routes))
             .await
     }
 
@@ -96,11 +92,11 @@ fn get_updated(route_change: &RouteChange) -> Option<(RouteKey, Vec<V2<usize>>)>
 fn get_all_ports(
     world: &World,
     port_checker: &dyn CheckForPort,
-    routes: HashMap<RouteKey, Vec<V2<usize>>>,
+    routes: &HashMap<RouteKey, Vec<V2<usize>>>,
 ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
     routes
-        .into_iter()
-        .map(|(key, path)| (key, get_ports(world, port_checker, &path)))
+        .iter()
+        .map(|(key, path)| (*key, get_ports(world, port_checker, &path)))
         .collect()
 }
 
@@ -132,21 +128,19 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
+    impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap())
+            function(&self.world.lock().unwrap())
         }
 
-        fn send_world_background<F, O>(&self, function: F)
+        async fn mut_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&mut World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap());
+            function(&mut self.world.lock().unwrap())
         }
     }
 
@@ -204,9 +198,7 @@ mod tests {
         let sim = SettlementSimulation::new(tx());
 
         // When
-        block_on(
-            sim.update_route_to_ports(&[route_change], Arc::new(hashset! {v2(0, 1), v2(1, 2)})),
-        );
+        block_on(sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 2)}));
 
         // Then
         assert_eq!(
@@ -235,7 +227,7 @@ mod tests {
         let sim = SettlementSimulation::new(tx());
 
         // When
-        block_on(sim.update_route_to_ports(&[route_change], Arc::new(hashset! {})));
+        block_on(sim.update_route_to_ports(&[route_change], &hashset! {}));
 
         // Then
         assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
@@ -270,10 +262,9 @@ mod tests {
         let sim = SettlementSimulation::new(tx);
 
         // When
-        block_on(sim.update_route_to_ports(
-            &[route_change],
-            Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
-        ));
+        block_on(
+            sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
+        );
 
         // Then
         assert_eq!(
@@ -311,7 +302,7 @@ mod tests {
         let sim = SettlementSimulation::new(tx);
 
         // When
-        block_on(sim.update_route_to_ports(&[route_change], Arc::new(hashset! {v2(1, 0)})));
+        block_on(sim.update_route_to_ports(&[route_change], &hashset! {v2(1, 0)}));
 
         // Then
         assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
@@ -346,10 +337,9 @@ mod tests {
         let sim = SettlementSimulation::new(tx);
 
         // When
-        block_on(sim.update_route_to_ports(
-            &[route_change],
-            Arc::new(hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
-        ));
+        block_on(
+            sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
+        );
 
         // Then
         assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
@@ -378,7 +368,7 @@ mod tests {
         let sim = SettlementSimulation::new(tx);
 
         // When
-        block_on(sim.update_route_to_ports(&[route_change], Arc::new(hashset! {})));
+        block_on(sim.update_route_to_ports(&[route_change], &hashset! {}));
 
         // Then
         assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
@@ -427,9 +417,7 @@ mod tests {
         let sim = SettlementSimulation::new(tx);
 
         // When
-        block_on(
-            sim.update_route_to_ports(&route_changes, Arc::new(hashset! {v2(0, 1), v2(1, 2)})),
-        );
+        block_on(sim.update_route_to_ports(&route_changes, &hashset! {v2(0, 1), v2(1, 2)}));
 
         // Then
         assert_eq!(

@@ -1,6 +1,6 @@
 use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, SelectedAvatar, SendWorld, UpdateAvatarJourney};
+use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, WithWorld};
 use crate::travel_duration::TravelDuration;
 use commons::async_trait::async_trait;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
@@ -30,7 +30,7 @@ impl Default for BasicAvatarBindings {
 
 impl<T> BasicAvatarControls<T>
 where
-    T: Micros + SelectedAvatar + SendWorld + UpdateAvatarJourney,
+    T: Micros + SelectedAvatar + UpdateAvatarJourney + WithWorld + Send + Sync,
 {
     pub fn new(tx: T, travel_duration: Arc<AvatarTravelDuration>) -> BasicAvatarControls<T> {
         BasicAvatarControls {
@@ -58,16 +58,15 @@ where
     async fn get_walk_forward_journey(&self, journey: Journey, start_at: u128) -> Option<Journey> {
         let positions = journey.forward_path();
 
-        let travel_duration = self.travel_duration.clone();
-
         self.tx
-            .send_world(move |world| {
-                travel_duration.get_duration(&world, &positions[0], &positions[1])?;
+            .with_world(|world| {
+                self.travel_duration
+                    .get_duration(&world, &positions[0], &positions[1])?;
                 journey.append(Journey::new(
                     world,
                     positions,
-                    travel_duration.as_ref(),
-                    travel_duration.travel_mode_fn(),
+                    self.travel_duration.as_ref(),
+                    self.travel_duration.travel_mode_fn(),
                     start_at,
                 ))
             })
@@ -98,7 +97,7 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for BasicAvatarControls<T>
 where
-    T: Micros + SelectedAvatar + SendWorld + UpdateAvatarJourney + Send + Sync,
+    T: Micros + SelectedAvatar + UpdateAvatarJourney + WithWorld + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::Button {

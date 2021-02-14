@@ -64,7 +64,7 @@ where
             if nation_changed {
                 let (controlled, micros) =
                     join!(self.controlled(settlement.position), self.micros(),);
-                for tile in self.expand_positions(controlled).await {
+                for tile in self.expand_positions(&controlled).await {
                     self.draw_world_tile(tile, micros);
                 }
             }

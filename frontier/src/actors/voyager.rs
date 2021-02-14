@@ -1,5 +1,5 @@
 use crate::settlement::{Settlement, SettlementClass};
-use crate::traits::{RevealPositions, SendSettlements, SendWorld};
+use crate::traits::{RevealPositions, SendSettlements, WithWorld};
 use crate::world::World;
 use commons::grid::Grid;
 use commons::{v2, V2};
@@ -14,7 +14,7 @@ pub struct Voyager<T> {
 
 impl<T> Voyager<T>
 where
-    T: RevealPositions + SendSettlements + SendWorld + Send,
+    T: RevealPositions + SendSettlements + WithWorld + Send,
 {
     pub fn new(tx: T) -> Voyager<T> {
         Voyager { tx }
@@ -26,18 +26,18 @@ where
         } // avoid chain reaction
         let positions = self.filter_coastal(positions).await;
         for homeland in self.homeland_positions().await {
-            for position in positions.iter().cloned() {
-                self.voyage_between(homeland, position).await;
+            for position in positions.iter() {
+                self.voyage_between(&homeland, position).await;
             }
         }
     }
 
     async fn filter_coastal(&self, positions: HashSet<V2<usize>>) -> HashSet<V2<usize>>
     where
-        T: SendWorld,
+        T: WithWorld,
     {
         self.tx
-            .send_world(move |world| filter_coastal(world, positions))
+            .with_world(|world| filter_coastal(world, positions))
             .await
     }
 
@@ -47,15 +47,15 @@ where
             .await
     }
 
-    async fn voyage_between(&self, from: V2<usize>, to: V2<usize>) {
+    async fn voyage_between(&self, from: &V2<usize>, to: &V2<usize>) {
         let to_reveal = self
             .tx
-            .send_world(move |world| get_positions_to_reveal(world, from, to))
+            .with_world(|world| get_positions_to_reveal(world, from, to))
             .await;
-        self.reveal_cells(to_reveal).await
+        self.reveal_cells(&to_reveal).await
     }
 
-    async fn reveal_cells(&self, to_reveal: HashSet<V2<usize>>) {
+    async fn reveal_cells(&self, to_reveal: &HashSet<V2<usize>>) {
         self.tx.reveal_positions(to_reveal, NAME).await;
     }
 }
@@ -74,10 +74,10 @@ fn homeland_positions(settlements: &mut HashMap<V2<usize>, Settlement>) -> HashS
         .collect()
 }
 
-fn get_positions_to_reveal(world: &World, from: V2<usize>, to: V2<usize>) -> HashSet<V2<usize>> {
+fn get_positions_to_reveal(world: &World, from: &V2<usize>, to: &V2<usize>) -> HashSet<V2<usize>> {
     extend_all(
         world,
-        unwrap_or!(get_voyage(world, &from, &to), return hashset! {}),
+        unwrap_or!(get_voyage(world, from, to), return hashset! {}),
     )
 }
 

@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use commons::edge::Edge;
 
@@ -8,7 +7,7 @@ use crate::route::{Route, RouteKey, Routes, RoutesExt};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    InsertBuildInstruction, PlanRoad, RoadPlanned, SendRoutes, SendWorld, WithEdgeTraffic,
+    InsertBuildInstruction, PlanRoad, RoadPlanned, SendRoutes, WithEdgeTraffic, WithWorld,
 };
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
@@ -20,22 +19,23 @@ where
         + PlanRoad
         + RoadPlanned
         + SendRoutes
-        + SendWorld
-        + WithEdgeTraffic,
+        + WithEdgeTraffic
+        + WithWorld
+        + Send
+        + Sync,
     D: TravelDuration + 'static,
 {
     pub async fn build_road(&self, edges: &HashSet<Edge>) {
         let threshold = self.tx.parameters().simulation.road_build_threshold;
 
-        for candidate in self.get_candidates(edges.clone()).await {
+        for candidate in self.get_candidates(edges).await {
             self.build_road_on_edge(candidate, threshold).await;
         }
     }
 
-    async fn get_candidates(&self, edges: HashSet<Edge>) -> Vec<Edge> {
-        let travel_duration = self.travel_duration.clone();
+    async fn get_candidates(&self, edges: &HashSet<Edge>) -> Vec<Edge> {
         self.tx
-            .send_world(move |world| get_candidates(world, travel_duration, edges))
+            .with_world(|world| get_candidates(world, self.travel_duration.as_ref(), edges))
             .await
     }
 
@@ -48,7 +48,7 @@ where
 
         let when = self.get_when(routes, threshold);
 
-        if !self.try_plan_road(edge, when).await {
+        if !self.try_plan_road(&edge, when).await {
             return;
         }
 
@@ -92,7 +92,7 @@ where
         );
     }
 
-    async fn try_plan_road(&self, edge: Edge, when: u128) -> bool {
+    async fn try_plan_road(&self, edge: &Edge, when: u128) -> bool {
         if matches!(self.tx.road_planned(edge).await, Some(existing) if existing <= when) {
             false
         } else {
@@ -104,12 +104,13 @@ where
 
 fn get_candidates(
     world: &World,
-    travel_duration: Arc<dyn TravelDuration>,
-    edges: HashSet<Edge>,
+    travel_duration: &dyn TravelDuration,
+    edges: &HashSet<Edge>,
 ) -> Vec<Edge> {
     edges
-        .into_iter()
-        .filter(|edge| is_candidate(world, travel_duration.as_ref(), edge))
+        .iter()
+        .filter(|edge| is_candidate(world, travel_duration, edge))
+        .copied()
         .collect()
 }
 
@@ -144,7 +145,7 @@ impl From<&Route> for RouteSummary {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     use commons::async_trait::async_trait;
@@ -186,15 +187,15 @@ mod tests {
 
     #[async_trait]
     impl RoadPlanned for Tx {
-        async fn road_planned(&self, _: Edge) -> Option<u128> {
+        async fn road_planned(&self, _: &Edge) -> Option<u128> {
             self.road_planned
         }
     }
 
     #[async_trait]
     impl PlanRoad for Tx {
-        async fn plan_road(&self, edge: Edge, when: Option<u128>) {
-            self.planned_roads.lock().unwrap().push((edge, when));
+        async fn plan_road(&self, edge: &Edge, when: Option<u128>) {
+            self.planned_roads.lock().unwrap().push((*edge, when));
         }
     }
 
@@ -210,21 +211,19 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
+    impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap())
+            function(&self.world.lock().unwrap())
         }
 
-        fn send_world_background<F, O>(&self, function: F)
+        async fn mut_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&mut World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap());
+            function(&mut self.world.lock().unwrap())
         }
     }
 

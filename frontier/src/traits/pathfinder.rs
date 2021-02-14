@@ -6,7 +6,7 @@ use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
-    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendWorld, WithPathfinder,
+    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, WithPathfinder, WithWorld,
 };
 use crate::travel_duration::{EdgeDuration, TravelDuration};
 
@@ -93,7 +93,7 @@ pub trait UpdatePathfinderPositions {
 #[async_trait]
 impl<T> UpdatePathfinderPositions for T
 where
-    T: SendWorld + Send + Sync,
+    T: WithWorld + Send + Sync,
 {
     async fn update_pathfinder_positions<P, I>(&self, pathfinder: &P, positions: I)
     where
@@ -105,7 +105,7 @@ where
             .await;
 
         let durations: HashSet<EdgeDuration> = self
-            .send_world(move |world| {
+            .with_world(|world| {
                 positions
                     .into_iter()
                     .flat_map(|position| {

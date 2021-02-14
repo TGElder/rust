@@ -1,10 +1,9 @@
-use std::sync::mpsc::Sender;
-
 use crate::actors::town_artist::get_house_height_without_roof;
 use crate::actors::TownArtistParameters;
 use crate::settlement::*;
-use crate::traits::{GetNationDescription, GetSettlement, SendWorld, Settlements};
+use crate::traits::{GetNationDescription, GetSettlement, Settlements, WithWorld};
 use crate::world::World;
+use commons::async_channel::Sender;
 use commons::V2;
 use isometric::drawing::{draw_house, DrawHouseParams};
 use isometric::{Color, Command};
@@ -17,7 +16,7 @@ pub struct TownHouseArtist<T> {
 
 impl<T> TownHouseArtist<T>
 where
-    T: GetNationDescription + GetSettlement + SendWorld + Settlements + Send,
+    T: GetNationDescription + GetSettlement + Settlements + WithWorld + Send,
 {
     pub fn new(
         tx: T,
@@ -39,7 +38,7 @@ where
         if self.tx.get_settlement(settlement.position).await.is_some() {
             self.draw_settlement(settlement).await
         } else {
-            self.erase_settlement(settlement)
+            self.erase_settlement(settlement).await
         }
     }
 
@@ -75,27 +74,26 @@ where
 
     async fn draw_house(&mut self, params: DrawHouseParams, settlement: Settlement) {
         let name = get_name(&settlement.position);
-        let position = settlement.position;
         let commands = self
             .tx
-            .send_world(move |world| get_draw_commands(name, world, position, params))
+            .with_world(|world| get_draw_commands(name, world, &settlement.position, params))
             .await;
-        self.command_tx.send(commands).unwrap();
+        self.command_tx.send(commands).await.unwrap();
     }
 
-    fn erase_settlement(&mut self, settlement: Settlement) {
+    async fn erase_settlement(&mut self, settlement: Settlement) {
         let command = Command::Erase(get_name(&settlement.position));
-        self.command_tx.send(vec![command]).unwrap();
+        self.command_tx.send(vec![command]).await.unwrap();
     }
 }
 
 pub fn get_draw_commands(
     name: String,
     world: &World,
-    position: V2<usize>,
+    position: &V2<usize>,
     params: DrawHouseParams,
 ) -> Vec<Command> {
-    draw_house(name, world, &position, &params)
+    draw_house(name, world, position, &params)
 }
 
 fn get_name(position: &V2<usize>) -> String {
