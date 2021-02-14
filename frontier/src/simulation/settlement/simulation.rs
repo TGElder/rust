@@ -110,10 +110,9 @@ where
 
     async fn update_homeland_settlement(&self, settlement: Settlement) {
         self.update_homeland(&settlement).await;
-        if let Some(updated) = self.update_current_population(settlement.position).await {
-            let demand = (self.homeland_demand_fn)(&updated);
-            self.get_all_route_changes(demand).await
-        }
+        let updated = self.update_current_population(settlement).await;
+        let demand = (self.homeland_demand_fn)(&updated);
+        self.get_all_route_changes(demand).await
     }
 
     async fn update_town_settlement(&self, settlement: Settlement) {
@@ -123,10 +122,9 @@ where
             self.update_town(&settlement, &traffic),
             self.remove_town(&settlement, &traffic), // TODO should be after population update
         );
-        if let Some(updated) = self.update_current_population(settlement.position).await {
-            let demand = (self.town_demand_fn)(&updated);
-            self.get_all_route_changes(demand).await
-        }
+        let updated = self.update_current_population(settlement).await;
+        let demand = (self.town_demand_fn)(&updated);
+        self.get_all_route_changes(demand).await
     }
 
     async fn get_all_route_changes(&self, demand: Vec<Demand>) {

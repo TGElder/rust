@@ -1,25 +1,22 @@
-use commons::V2;
-
 use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::settlement::SettlementSimulation;
 use crate::simulation::MaxAbsPopulationChange;
 use crate::traits::has::HasParameters;
-use crate::traits::{GetSettlement, Micros, UpdateSettlement as UpdateSettlementTrait};
+use crate::traits::{Micros, UpdateSettlement as UpdateSettlementTrait};
 
 impl<T> SettlementSimulation<T>
 where
-    T: GetSettlement + HasParameters + Micros + UpdateSettlementTrait,
+    T: HasParameters + Micros + UpdateSettlementTrait,
 {
-    pub async fn update_current_population(&self, position: V2<usize>) -> Option<Settlement> {
-        self.try_update_settlement(position).await
+    pub async fn update_current_population(&self, settlement: Settlement) -> Settlement {
+        self.try_update_settlement(settlement).await
     }
 
-    async fn try_update_settlement(&self, position: V2<usize>) -> Option<Settlement> {
-        let settlement = self.tx.get_settlement(position).await?;
+    async fn try_update_settlement(&self, settlement: Settlement) -> Settlement {
         let game_micros = self.tx.micros().await;
 
         if settlement.last_population_update_micros >= game_micros {
-            return Some(settlement.clone());
+            return settlement;
         }
 
         let change = clamp_population_change(
@@ -31,12 +28,10 @@ where
         let new_settlement = Settlement {
             current_population,
             last_population_update_micros: game_micros,
-            name: settlement.name.clone(),
-            nation: settlement.nation.clone(),
             ..settlement
         };
         self.tx.update_settlement(new_settlement.clone()).await;
-        Some(new_settlement)
+        new_settlement
     }
 
     async fn max_abs_population_change(&self, settlement_class: &SettlementClass) -> f64 {
@@ -75,23 +70,16 @@ mod tests {
 
     use commons::almost::Almost;
     use commons::async_trait::async_trait;
-    use commons::{v2, Arm};
+    use commons::{v2, Arm, V2};
     use futures::executor::block_on;
     use std::collections::HashMap;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
     use std::time::Duration;
 
     struct Tx {
         micros: u128,
         parameters: Parameters,
         settlements: Arm<HashMap<V2<usize>, Settlement>>,
-    }
-
-    #[async_trait]
-    impl GetSettlement for Tx {
-        async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
-            self.settlements.lock().unwrap().get(&position).cloned()
-        }
     }
 
     impl HasParameters for Tx {
@@ -142,17 +130,10 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let settlements = Arc::new(Mutex::new(hashmap! {
-            v2(1, 2) => settlement,
-        }));
-        let tx = Tx {
-            settlements,
-            ..tx()
-        };
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(tx());
 
         // When
-        let result = block_on(sim.update_current_population(v2(1, 2)));
+        let result = block_on(sim.update_current_population(settlement));
 
         // Then
         let settlements = sim.tx.settlements.lock().unwrap();
@@ -160,7 +141,7 @@ mod tests {
 
         assert!(settlement.current_population.almost(&78.45387355842092));
         assert_eq!(settlement.last_population_update_micros, 33);
-        assert_eq!(result, Some(settlement.clone()));
+        assert_eq!(result, settlement.clone());
     }
 
     #[test]
@@ -175,17 +156,10 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let settlements = Arc::new(Mutex::new(hashmap! {
-            v2(1, 2) => settlement,
-        }));
-        let tx = Tx {
-            settlements,
-            ..tx()
-        };
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(tx());
 
         // When
-        let result = block_on(sim.update_current_population(v2(1, 2)));
+        let result = block_on(sim.update_current_population(settlement));
 
         // Then
         let settlements = sim.tx.settlements.lock().unwrap();
@@ -193,7 +167,7 @@ mod tests {
 
         assert!(settlement.current_population.almost(&22.54612644157907));
         assert_eq!(settlement.last_population_update_micros, 33);
-        assert_eq!(result, Some(settlement));
+        assert_eq!(result, settlement);
     }
 
     #[test]
@@ -208,17 +182,10 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let settlements = Arc::new(Mutex::new(hashmap! {
-            v2(1, 2) => settlement,
-        }));
-        let tx = Tx {
-            settlements,
-            ..tx()
-        };
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(tx());
 
         // When
-        let result = block_on(sim.update_current_population(v2(1, 2)));
+        let result = block_on(sim.update_current_population(settlement));
 
         // Then
         let settlements = sim.tx.settlements.lock().unwrap();
@@ -228,19 +195,7 @@ mod tests {
             .current_population
             .almost(&settlement.target_population));
         assert_eq!(settlement.last_population_update_micros, 33);
-        assert_eq!(result, Some(settlement.clone()));
-    }
-
-    #[test]
-    fn should_do_nothing_if_no_settlement() {
-        // Given
-        let sim = SettlementSimulation::new(tx());
-
-        // When
-        let result = block_on(sim.update_current_population(v2(1, 2)));
-
-        // Then
-        assert_eq!(result, None);
+        assert_eq!(result, settlement.clone());
     }
 
     #[test]
@@ -255,26 +210,17 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let settlements = Arc::new(Mutex::new(hashmap! {
-            v2(1, 2) => settlement,
-        }));
-        let tx = Tx {
-            micros: 11,
-            settlements,
-            ..tx()
-        };
+        let tx = Tx { micros: 11, ..tx() };
         let sim = SettlementSimulation::new(tx);
 
         // When
-        let result = block_on(sim.update_current_population(v2(1, 2)));
+        let result = block_on(sim.update_current_population(settlement.clone()));
 
         // Then
         let settlements = sim.tx.settlements.lock().unwrap();
-        let settlement = settlements.get(&v2(1, 2)).unwrap();
 
-        assert!(settlement.current_population.almost(&100.0));
-        assert_eq!(settlement.last_population_update_micros, 33);
-        assert_eq!(result, Some(settlement.clone()));
+        assert_eq!(settlements.get(&v2(1, 2)), None);
+        assert_eq!(result, settlement);
     }
 
     #[test]
@@ -289,25 +235,19 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let settlements = Arc::new(Mutex::new(hashmap! {
-            v2(1, 2) => settlement,
-        }));
-        let mut tx = Tx {
-            settlements,
-            ..tx()
-        };
+        let mut tx = tx();
         tx.parameters.simulation.max_abs_population_change.town = 1.0;
         let sim = SettlementSimulation::new(tx);
 
         // When
-        let result = block_on(sim.update_current_population(v2(1, 2)));
+        let result = block_on(sim.update_current_population(settlement));
 
         // Then
         let settlements = sim.tx.settlements.lock().unwrap();
         let settlement = settlements.get(&v2(1, 2)).unwrap();
         assert!(settlement.current_population.almost(&2.0));
         assert_eq!(settlement.last_population_update_micros, 33);
-        assert_eq!(result, Some(settlement.clone()));
+        assert_eq!(result, settlement.clone());
     }
 
     #[test]
@@ -322,18 +262,12 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let settlements = Arc::new(Mutex::new(hashmap! {
-            v2(1, 2) => settlement,
-        }));
-        let mut tx = Tx {
-            settlements,
-            ..tx()
-        };
+        let mut tx = tx();
         tx.parameters.simulation.max_abs_population_change.town = 1.0;
         let sim = SettlementSimulation::new(tx);
 
         // When
-        let result = block_on(sim.update_current_population(v2(1, 2)));
+        let result = block_on(sim.update_current_population(settlement));
 
         // Then
         let settlements = sim.tx.settlements.lock().unwrap();
@@ -341,6 +275,6 @@ mod tests {
 
         assert!(settlement.current_population.almost(&99.0));
         assert_eq!(settlement.last_population_update_micros, 33);
-        assert_eq!(result, Some(settlement.clone()));
+        assert_eq!(result, settlement.clone());
     }
 }
