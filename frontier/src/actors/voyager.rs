@@ -24,12 +24,10 @@ where
         if by == NAME {
             return;
         } // avoid chain reaction
-        let positions = self.filter_coastal(positions).await;
-        for homeland in self.homeland_positions().await {
-            for position in positions.iter() {
-                self.voyage_between(&homeland, position).await;
-            }
-        }
+        let (positions, homelands) =
+            join!(self.filter_coastal(positions), self.homeland_positions());
+        let to_reveal = self.get_positions_to_reveal(&positions, &homelands).await;
+        self.tx.reveal_positions(&to_reveal, NAME).await;
     }
 
     async fn filter_coastal(&self, positions: HashSet<V2<usize>>) -> HashSet<V2<usize>>
@@ -47,16 +45,23 @@ where
             .await
     }
 
-    async fn voyage_between(&self, from: &V2<usize>, to: &V2<usize>) {
-        let to_reveal = self
-            .tx
-            .with_world(|world| get_positions_to_reveal(world, from, to))
-            .await;
-        self.reveal_cells(&to_reveal).await
-    }
-
-    async fn reveal_cells(&self, to_reveal: &HashSet<V2<usize>>) {
-        self.tx.reveal_positions(to_reveal, NAME).await;
+    async fn get_positions_to_reveal(
+        &self,
+        positions: &HashSet<V2<usize>>,
+        homelands: &HashSet<V2<usize>>,
+    ) -> HashSet<V2<usize>> {
+        self.tx
+            .with_world(|world| {
+                homelands
+                    .iter()
+                    .flat_map(|homeland| {
+                        positions.iter().flat_map(move |position| {
+                            get_positions_to_reveal(world, homeland, position)
+                        })
+                    })
+                    .collect()
+            })
+            .await
     }
 }
 
