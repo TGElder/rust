@@ -118,11 +118,11 @@ where
     async fn update_town_settlement(&self, settlement: Settlement) {
         let territory = self.get_territory(&settlement.position).await;
         let traffic = self.get_town_traffic(&territory).await;
-        join!(
-            self.update_town(&settlement, &traffic),
-            self.remove_town(&settlement, &traffic), // TODO should be after population update
-        );
+        self.update_town(&settlement, &traffic).await;
         let updated = self.update_current_population(settlement).await;
+        if self.remove_town(&updated, &traffic).await {
+            return;
+        }
         let demand = (self.town_demand_fn)(&updated);
         self.get_all_route_changes(demand).await
     }

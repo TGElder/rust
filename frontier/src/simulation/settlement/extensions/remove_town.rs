@@ -8,14 +8,19 @@ impl<T> SettlementSimulation<T>
 where
     T: Controlled + HasParameters + RefreshPositions + RemoveTownTrait,
 {
-    pub async fn remove_town(&self, settlement: &Settlement, traffic: &[TownTrafficSummary]) {
+    pub async fn remove_town(
+        &self,
+        settlement: &Settlement,
+        traffic: &[TownTrafficSummary],
+    ) -> bool {
         let town_removal_population = self.tx.parameters().simulation.town_removal_population;
         if settlement.current_population >= town_removal_population || !traffic.is_empty() {
-            return;
+            return false;
         }
         let controlled = self.tx.controlled(settlement.position).await;
         self.tx.remove_town(settlement.position).await;
         self.tx.refresh_positions(controlled).await;
+        true
     }
 }
 
@@ -81,9 +86,10 @@ mod tests {
         let sim = SettlementSimulation::new(tx);
 
         // When
-        block_on(sim.remove_town(&settlement, &[]));
+        let removed = block_on(sim.remove_town(&settlement, &[]));
 
         // Then
+        assert!(removed);
         assert_eq!(*sim.tx.removed.lock().unwrap(), vec![settlement.position]);
     }
 
@@ -99,7 +105,7 @@ mod tests {
         let sim = SettlementSimulation::new(tx);
 
         // When
-        block_on(sim.remove_town(
+        let removed = block_on(sim.remove_town(
             &settlement,
             &[TownTrafficSummary {
                 nation: "A".to_string(),
@@ -109,6 +115,7 @@ mod tests {
         ));
 
         // Then
+        assert!(!removed);
         assert!(sim.tx.removed.lock().unwrap().is_empty());
     }
 
@@ -124,9 +131,10 @@ mod tests {
         let sim = SettlementSimulation::new(tx);
 
         // When
-        block_on(sim.remove_town(&settlement, &[]));
+        let removed = block_on(sim.remove_town(&settlement, &[]));
 
         // Then
+        assert!(!removed);
         assert!(sim.tx.removed.lock().unwrap().is_empty());
     }
 
