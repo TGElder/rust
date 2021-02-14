@@ -5,7 +5,7 @@ use commons::grid::Grid;
 use commons::{v2, V2};
 
 use crate::traits::{
-    DrawWorld, Micros, RefreshPositions, SendWorld, UpdatePositionsAllPathfinders,
+    DrawWorld, Micros, RefreshPositions, UpdatePositionsAllPathfinders, WithWorld,
 };
 
 #[async_trait]
@@ -19,8 +19,8 @@ where
     T: DrawWorld
         + Micros
         + RefreshPositions
-        + SendWorld
         + UpdatePositionsAllPathfinders
+        + WithWorld
         + Send
         + Sync,
 {
@@ -37,9 +37,9 @@ where
 
 async fn reveal_all_get_dimensions<T>(tx: &T) -> (usize, usize)
 where
-    T: SendWorld,
+    T: WithWorld,
 {
-    tx.send_world(move |world| {
+    tx.mut_world(|world| {
         world.reveal_all();
         (world.width(), world.height())
     })

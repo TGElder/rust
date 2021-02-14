@@ -1,17 +1,17 @@
 mod coloring;
 
 pub use coloring::{BaseColors, WorldColoringParameters};
+use commons::async_channel::Sender;
 use commons::async_trait::async_trait;
 
 use crate::artists::{Slab, WorldArtist};
 use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, SendSettlements, SendTerritory, SendWorld};
+use crate::traits::{Micros, SendSettlements, SendTerritory, WithWorld};
 use coloring::{world_coloring, Overlay};
 use commons::{v2, M, V2};
 use isometric::{Button, Color, Command, ElementState, Event, VirtualKeyCode};
 use std::collections::{HashMap, HashSet};
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 pub struct WorldArtistActorBindings {
@@ -39,7 +39,7 @@ pub struct WorldArtistActor<T> {
 
 impl<T> WorldArtistActor<T>
 where
-    T: Micros + SendSettlements + SendTerritory + SendWorld + Send,
+    T: Micros + SendSettlements + SendTerritory + WithWorld + Send + Sync,
 {
     pub fn new(
         tx: T,
@@ -78,7 +78,7 @@ where
 
     pub async fn init(&mut self) {
         let commands = self.world_artist.init();
-        self.command_tx.send(commands).unwrap();
+        self.command_tx.send(commands).await.unwrap();
         self.redraw_all().await;
     }
 
@@ -108,22 +108,24 @@ where
         }
 
         let generated_after = self.tx.micros().await;
-        self.draw_slab(slab).await;
+        self.draw_slab(&slab).await;
 
         self.last_redraw.insert(slab.from, generated_after);
     }
 
-    async fn draw_slab(&mut self, slab: Slab) {
-        let world_artist = self.world_artist.clone();
-        let params = self.coloring_params;
+    async fn draw_slab(&mut self, slab: &Slab) {
         let overlay = self.get_territory_overlay(&slab).await;
         let commands = self
             .tx
-            .send_world(move |world| {
-                world_artist.draw_slab(&world, &world_coloring(&world, &params, &overlay), &slab)
+            .with_world(|world| {
+                self.world_artist.draw_slab(
+                    &world,
+                    &world_coloring(&world, &self.coloring_params, &overlay),
+                    slab,
+                )
             })
             .await;
-        self.command_tx.send(commands).unwrap();
+        self.command_tx.send(commands).await.unwrap();
     }
 
     fn has_been_redrawn_after(&self, slab: &Slab, when: &u128) -> bool {
@@ -193,7 +195,7 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for WorldArtistActor<T>
 where
-    T: Micros + SendSettlements + SendTerritory + SendWorld + Send + Sync,
+    T: Micros + SendSettlements + SendTerritory + WithWorld + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {

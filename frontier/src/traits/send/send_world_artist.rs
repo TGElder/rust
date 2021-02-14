@@ -1,11 +1,11 @@
 use crate::actors::WorldArtistActor;
-use crate::traits::{Micros, SendSettlements, SendWorld};
+use crate::traits::{Micros, SendSettlements, WithWorld};
 use futures::future::BoxFuture;
 
 use super::SendTerritory;
 
-pub trait SendWorldArtist:
-    Micros + SendSettlements + SendTerritory + SendWorld + Send + Sync
+pub trait WithWorldArtist:
+    Micros + SendSettlements + SendTerritory + WithWorld + Send + Sync
 {
     fn send_world_artist_future_background<F, O>(&self, function: F)
     where

@@ -3,27 +3,27 @@ use commons::edge::Edge;
 
 use crate::road_builder::{RoadBuildMode, RoadBuilderResult};
 use crate::traits::{
-    NotMock, PathfinderWithPlannedRoads, SendWorld, UpdatePathfinderPositions, UpdateRoads,
+    NotMock, PathfinderWithPlannedRoads, UpdatePathfinderPositions, UpdateRoads, WithWorld,
 };
 
 #[async_trait]
 pub trait IsRoad {
-    async fn is_road(&self, edge: Edge) -> bool;
+    async fn is_road(&self, edge: &Edge) -> bool;
 }
 
 #[async_trait]
 impl<T> IsRoad for T
 where
-    T: SendWorld + Send + Sync,
+    T: WithWorld + Send + Sync,
 {
-    async fn is_road(&self, edge: Edge) -> bool {
-        self.send_world(move |world| world.is_road(&edge)).await
+    async fn is_road(&self, edge: &Edge) -> bool {
+        self.with_world(|world| world.is_road(edge)).await
     }
 }
 
 #[async_trait]
 pub trait AddRoad {
-    async fn add_road(&self, edge: Edge);
+    async fn add_road(&self, edge: &Edge);
 }
 
 #[async_trait]
@@ -31,7 +31,7 @@ impl<T> AddRoad for T
 where
     T: IsRoad + UpdateRoads + Send + Sync,
 {
-    async fn add_road(&self, edge: Edge) {
+    async fn add_road(&self, edge: &Edge) {
         if self.is_road(edge).await {
             return;
         }
@@ -42,7 +42,7 @@ where
 
 #[async_trait]
 pub trait RemoveRoad {
-    async fn remove_road(&self, edge: Edge);
+    async fn remove_road(&self, edge: &Edge);
 }
 
 #[async_trait]
@@ -50,7 +50,7 @@ impl<T> RemoveRoad for T
 where
     T: IsRoad + UpdateRoads + Send + Sync,
 {
-    async fn remove_road(&self, edge: Edge) {
+    async fn remove_road(&self, edge: &Edge) {
         if !self.is_road(edge).await {
             return;
         }
@@ -62,32 +62,30 @@ where
 
 #[async_trait]
 pub trait RoadPlanned {
-    async fn road_planned(&self, edge: Edge) -> Option<u128>;
+    async fn road_planned(&self, edge: &Edge) -> Option<u128>;
 }
 
 #[async_trait]
 impl<T> RoadPlanned for T
 where
-    T: SendWorld + NotMock + Send + Sync,
+    T: WithWorld + NotMock + Send + Sync,
 {
-    async fn road_planned(&self, edge: Edge) -> Option<u128> {
-        self.send_world(move |world| world.road_planned(&edge))
-            .await
+    async fn road_planned(&self, edge: &Edge) -> Option<u128> {
+        self.with_world(|world| world.road_planned(edge)).await
     }
 }
 #[async_trait]
 pub trait PlanRoad {
-    async fn plan_road(&self, edge: Edge, when: Option<u128>);
+    async fn plan_road(&self, edge: &Edge, when: Option<u128>);
 }
 
 #[async_trait]
 impl<T> PlanRoad for T
 where
-    T: PathfinderWithPlannedRoads + SendWorld + Send + Sync,
+    T: PathfinderWithPlannedRoads + WithWorld + Send + Sync,
 {
-    async fn plan_road(&self, edge: Edge, when: Option<u128>) {
-        self.send_world(move |world| world.plan_road(&edge, when))
-            .await;
+    async fn plan_road(&self, edge: &Edge, when: Option<u128>) {
+        self.mut_world(|world| world.plan_road(edge, when)).await;
         self.update_pathfinder_positions(
             self.pathfinder_with_planned_roads(),
             vec![*edge.from(), *edge.to()],

@@ -1,7 +1,7 @@
 use crate::road_builder::RoadBuilderResult;
 use crate::traits::{
     Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, Redraw, SendPathfinder,
-    SendWorld, Visibility,
+    WithWorld, Visibility,
 };
 use crate::travel_duration::{EdgeDuration, TravelDuration};
 use commons::async_trait::async_trait;
@@ -20,7 +20,7 @@ where
         + Visibility
         + PathfinderWithoutPlannedRoads
         + PathfinderWithPlannedRoads
-        + SendWorld
+        + WithWorld
         + Send
         + Sync
         + 'static,
@@ -37,7 +37,7 @@ where
 
 async fn send_update_world<T>(send_world: &T, result: Arc<RoadBuilderResult>)
 where
-    T: SendWorld,
+    T: WithWorld,
 {
     send_world
         .send_world(move |world| result.update_roads(world))
@@ -61,7 +61,7 @@ fn check_visibility_and_reveal(tx: &dyn Visibility, result: &Arc<RoadBuilderResu
 
 async fn update_pathfinders<T>(tx: &T, result: &Arc<RoadBuilderResult>)
 where
-    T: PathfinderWithPlannedRoads + PathfinderWithoutPlannedRoads + SendWorld,
+    T: PathfinderWithPlannedRoads + PathfinderWithoutPlannedRoads + WithWorld,
 {
     let pathfinder_with = tx.pathfinder_with_planned_roads().clone();
     let pathfinder_without = tx.pathfinder_without_planned_roads().clone();
@@ -74,7 +74,7 @@ where
 
 async fn update_pathfinder<T, P>(tx: &T, pathfinder: P, result: &Arc<RoadBuilderResult>)
 where
-    T: SendWorld,
+    T: WithWorld,
     P: SendPathfinder + Send,
 {
     let travel_duration = pathfinder

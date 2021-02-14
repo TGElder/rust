@@ -1,4 +1,3 @@
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 use crate::actors::town_artist::get_house_height_with_roof;
@@ -6,8 +5,9 @@ use crate::actors::TownArtistParameters;
 use crate::settlement::*;
 
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{GetNationDescription, GetSettlement, SendWorld, Settlements};
+use crate::traits::{GetNationDescription, GetSettlement, Settlements, WithWorld};
 use crate::world::World;
+use commons::async_channel::Sender;
 use commons::async_trait::async_trait;
 use commons::{unsafe_ordering, V2};
 use isometric::coords::WorldCoord;
@@ -25,7 +25,7 @@ pub struct TownLabelArtist<T> {
 
 impl<T> TownLabelArtist<T>
 where
-    T: GetNationDescription + GetSettlement + SendWorld + Settlements + Send,
+    T: GetNationDescription + GetSettlement + Settlements + WithWorld + Send + Sync,
 {
     pub fn new(
         tx: T,
@@ -62,13 +62,13 @@ where
 
     async fn erase_all(&mut self) {
         for settlement in self.tx.settlements().await {
-            self.erase_settlement(&settlement);
+            self.erase_settlement(&settlement).await;
         }
     }
 
-    fn erase_settlement(&mut self, settlement: &Settlement) {
+    async fn erase_settlement(&mut self, settlement: &Settlement) {
         let command = Command::Erase(get_name(settlement));
-        self.command_tx.send(vec![command]).unwrap();
+        self.command_tx.send(vec![command]).await.unwrap();
     }
 
     async fn draw_all(&mut self) {
@@ -86,17 +86,16 @@ where
         let world_coord = self.get_world_coord(settlement).await;
         let draw_order = -settlement.current_population as i32;
         let commands = draw_label(name, &text, world_coord, &self.font, draw_order);
-        self.command_tx.send(commands).unwrap();
+        self.command_tx.send(commands).await.unwrap();
     }
 
     async fn get_world_coord(&mut self, settlement: &Settlement) -> WorldCoord {
-        let params = self.params;
-        let position = settlement.position;
         let mut world_coord = self
             .tx
-            .send_world(move |world| get_house_base_coord(world, position, params))
+            .with_world(|world| get_house_base_coord(world, &settlement.position, &self.params))
             .await;
-        world_coord.z += get_house_height_with_roof(&params, settlement) + params.label_float;
+        world_coord.z +=
+            get_house_height_with_roof(&self.params, settlement) + self.params.label_float;
         world_coord
     }
 
@@ -104,7 +103,7 @@ where
         if self.tx.get_settlement(settlement.position).await.is_some() {
             self.draw_settlement(settlement).await;
         } else {
-            self.erase_settlement(settlement);
+            self.erase_settlement(settlement).await;
         }
     }
 
@@ -120,13 +119,13 @@ fn get_name(settlement: &Settlement) -> String {
 
 fn get_house_base_coord(
     world: &World,
-    house_position: V2<usize>,
-    params: TownArtistParameters,
+    house_position: &V2<usize>,
+    params: &TownArtistParameters,
 ) -> WorldCoord {
     WorldCoord::new(
         house_position.x as f32 + 0.5,
         house_position.y as f32 + 0.5,
-        get_base_z(world, &house_position, params.house_width),
+        get_base_z(world, house_position, params.house_width),
     )
 }
 
@@ -139,7 +138,7 @@ fn get_base_z(world: &World, house_position: &V2<usize>, house_width: f32) -> f3
 #[async_trait]
 impl<T> HandleEngineEvent for TownLabelArtist<T>
 where
-    T: GetNationDescription + GetSettlement + SendWorld + Settlements + Send + Sync + 'static,
+    T: GetNationDescription + GetSettlement + Settlements + WithWorld + Send + Sync + 'static,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {

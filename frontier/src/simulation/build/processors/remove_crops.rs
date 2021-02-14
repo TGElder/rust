@@ -5,7 +5,7 @@ use commons::grid::Grid;
 use crate::build::BuildKey;
 use crate::resource::Resource;
 use crate::traits::{
-    GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, SendWorld, WithTraffic,
+    GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, WithWorld, WithTraffic,
 };
 use crate::world::{World, WorldCell, WorldObject};
 
@@ -20,7 +20,7 @@ where
     T: GetBuildInstruction
         + RemoveBuildInstruction
         + RemoveWorldObject
-        + SendWorld
+        + WithWorld
         + WithTraffic
         + Send
         + Sync
@@ -52,7 +52,7 @@ where
 
 impl<T> RemoveCrops<T>
 where
-    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + SendWorld + WithTraffic,
+    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + WithWorld + WithTraffic,
 {
     pub fn new(tx: T) -> RemoveCrops<T> {
         RemoveCrops { tx }
@@ -148,22 +148,18 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap())
-        }
+        impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&World) -> O + Send {
+        function(&self.world.lock().unwrap())
+    }
 
-        fn send_world_background<F, O>(&self, function: F)
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap());
-        }
+        async fn mut_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut World) -> O + Send {
+            function(&mut self.world.lock().unwrap())
+    }
     }
 
     #[async_trait]

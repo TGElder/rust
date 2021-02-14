@@ -2,7 +2,7 @@ use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::send::SendSettlements;
 use crate::traits::{
     AddController, DrawTown, GetSettlement, InsertSettlement, Micros, RemoveController,
-    RemoveWorldObject, SendWorld, SetControlDurations, Visibility,
+    RemoveWorldObject, SetControlDurations, Visibility, WithWorld,
 };
 use commons::async_trait::async_trait;
 use commons::grid::Grid;
@@ -21,8 +21,8 @@ where
         + DrawTown
         + RemoveWorldObject
         + SendSettlements
-        + SendWorld
         + Visibility
+        + WithWorld
         + Sync,
 {
     async fn add_town(&self, town: Settlement) -> bool {
@@ -40,7 +40,7 @@ where
             self.add_controller(controller),
             check_visibility_from_town(self, town.position),
             async {
-                self.remove_world_object(remove).await;
+                self.remove_world_object(&remove).await;
                 self.insert_settlement(to_insert).await;
                 self.draw_town(town);
             }
@@ -51,10 +51,10 @@ where
 
 async fn check_visibility_from_town<T>(tx: &T, position: V2<usize>)
 where
-    T: SendWorld + Visibility,
+    T: Visibility + WithWorld,
 {
     let visited = tx
-        .send_world(move |world| world.get_corners_in_bounds(&position))
+        .with_world(|world| world.get_corners_in_bounds(&position))
         .await;
     tx.check_visibility_and_reveal(visited.into_iter().collect());
 }

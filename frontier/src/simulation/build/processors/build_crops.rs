@@ -7,7 +7,7 @@ use commons::rand::{Rng, SeedableRng};
 use crate::build::{Build, BuildInstruction};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
-use crate::traits::{InsertBuildInstruction, SendRoutes, SendWorld, WithTraffic};
+use crate::traits::{InsertBuildInstruction, SendRoutes, WithWorld, WithTraffic};
 use crate::world::{World, WorldObject};
 
 use super::*;
@@ -19,7 +19,7 @@ pub struct BuildCrops<T> {
 #[async_trait]
 impl<T> Processor for BuildCrops<T>
 where
-    T: InsertBuildInstruction + SendRoutes + SendWorld + WithTraffic + Send + Sync + 'static,
+    T: InsertBuildInstruction + SendRoutes + WithWorld + WithTraffic + Send + Sync + 'static,
 {
     async fn process(&mut self, state: State, instruction: &Instruction) -> State {
         let positions = match instruction {
@@ -42,7 +42,7 @@ where
 
 impl<T> BuildCrops<T>
 where
-    T: InsertBuildInstruction + SendRoutes + SendWorld + WithTraffic,
+    T: InsertBuildInstruction + SendRoutes + WithWorld + WithTraffic,
 {
     pub fn new(tx: T, seed: u64) -> BuildCrops<T> {
         BuildCrops {
@@ -183,22 +183,18 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap())
-        }
+        impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&World) -> O + Send {
+        function(&self.world.lock().unwrap())
+    }
 
-        fn send_world_background<F, O>(&self, function: F)
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap());
-        }
+        async fn mut_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut World) -> O + Send {
+            function(&mut self.world.lock().unwrap())
+    }
     }
 
     #[async_trait]

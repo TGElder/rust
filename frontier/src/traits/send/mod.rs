@@ -11,7 +11,6 @@ mod send_town_house_artist;
 mod send_town_label_artist;
 mod send_visibility;
 mod send_voyager;
-mod send_world;
 mod send_world_artist;
 
 pub use send_avatars::*;
@@ -27,5 +26,4 @@ pub use send_town_house_artist::*;
 pub use send_town_label_artist::*;
 pub use send_visibility::*;
 pub use send_voyager::*;
-pub use send_world::*;
 pub use send_world_artist::*;

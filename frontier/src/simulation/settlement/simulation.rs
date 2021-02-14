@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use commons::async_trait::async_trait;
 use commons::log::debug;
 use commons::process::Step;
@@ -14,9 +12,8 @@ use crate::traits::has::HasParameters;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, Controlled, GetSettlement, InBoundsWithPlannedRoads,
     LowestDurationWithoutPlannedRoads, Micros, RefreshEdges, RefreshPositions, RemoveTown,
-    SendRoutes, SendSettlements, SendWorld, UpdateSettlement as UpdateSettlementTrait,
-    UpdateTerritory, VisibleLandPositions, WithEdgeTraffic, WithRouteToPorts, WithSimQueue,
-    WithTraffic,
+    SendRoutes, SendSettlements, UpdateSettlement as UpdateSettlementTrait, UpdateTerritory,
+    VisibleLandPositions, WithEdgeTraffic, WithRouteToPorts, WithSimQueue, WithTraffic, WithWorld,
 };
 
 use super::demand::demand_fn::{homeland_demand_fn, town_demand_fn};
@@ -52,7 +49,7 @@ where
         + RemoveTown
         + SendRoutes
         + SendSettlements
-        + SendWorld
+        + WithWorld
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
@@ -87,7 +84,7 @@ where
         + RemoveTown
         + SendRoutes
         + SendSettlements
-        + SendWorld
+        + WithWorld
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
@@ -138,17 +135,16 @@ where
     async fn process_demand(&self, demand: Demand) {
         let Routes { key, route_set } = self.get_routes(demand).await;
         let route_changes = self.update_routes_and_get_changes(key, route_set).await;
+        let avatar_travel_mode_fn = self.avatar_travel_mode_fn();
         join!(
             self.update_edge_traffic(&route_changes),
             self.update_position_traffic(&route_changes),
-            self.update_route_to_ports(&route_changes, self.avatar_travel_mode_fn()),
+            self.update_route_to_ports(&route_changes, &avatar_travel_mode_fn),
         );
     }
 
-    fn avatar_travel_mode_fn(&self) -> Arc<AvatarTravelModeFn> {
-        Arc::new(AvatarTravelModeFn::new(
-            self.tx.parameters().avatar_travel.min_navigable_river_width,
-        ))
+    fn avatar_travel_mode_fn(&self) -> AvatarTravelModeFn {
+        AvatarTravelModeFn::new(self.tx.parameters().avatar_travel.min_navigable_river_width)
     }
 
     async fn replenish_sim_queue(&self) {

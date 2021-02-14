@@ -7,7 +7,7 @@ use crate::build::{Build, BuildInstruction};
 use crate::route::{RouteKey, RoutesExt};
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{
-    AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, SendRoutes, SendWorld,
+    AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, SendRoutes, WithWorld,
     WithRouteToPorts, WithTraffic,
 };
 
@@ -25,7 +25,7 @@ where
         + InsertBuildInstruction
         + RandomTownName
         + SendRoutes
-        + SendWorld
+        + WithWorld
         + WithRouteToPorts
         + WithTraffic
         + Send
@@ -53,7 +53,7 @@ where
         + InsertBuildInstruction
         + RandomTownName
         + SendRoutes
-        + SendWorld
+        + WithWorld
         + WithRouteToPorts
         + WithTraffic,
 {
@@ -282,22 +282,18 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap())
-        }
+        impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&World) -> O + Send {
+        function(&self.world.lock().unwrap())
+    }
 
-        fn send_world_background<F, O>(&self, function: F)
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap());
-        }
+        async fn mut_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut World) -> O + Send {
+            function(&mut self.world.lock().unwrap())
+    }
     }
 
     #[async_trait]

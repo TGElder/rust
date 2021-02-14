@@ -3,7 +3,7 @@ use commons::edge::Edge;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     InsertBuildInstruction, IsRoad, PlanRoad, RemoveBuildInstruction,
-    RemoveRoad as RemoveRoadTrait, RoadPlanned, SendRoutes, SendWorld, WithEdgeTraffic,
+    RemoveRoad as RemoveRoadTrait, RoadPlanned, SendRoutes, WithEdgeTraffic, WithWorld,
 };
 use crate::travel_duration::TravelDuration;
 
@@ -34,7 +34,7 @@ where
         + RemoveRoadTrait
         + RoadPlanned
         + SendRoutes
-        + SendWorld
+        + WithWorld
         + WithEdgeTraffic
         + Send
         + Sync,

@@ -1,5 +1,5 @@
 use crate::road_builder::RoadBuilderResult;
-use crate::traits::{DrawWorld, Micros, SendWorld, UpdatePositionsAllPathfinders, Visibility};
+use crate::traits::{DrawWorld, Micros, UpdatePositionsAllPathfinders, Visibility, WithWorld};
 use commons::async_trait::async_trait;
 use std::sync::Arc;
 
@@ -13,9 +13,9 @@ impl<T> UpdateRoads for T
 where
     T: DrawWorld
         + Micros
-        + SendWorld
         + UpdatePositionsAllPathfinders
         + Visibility
+        + WithWorld
         + Send
         + Sync
         + 'static,
@@ -33,12 +33,12 @@ where
     }
 }
 
-async fn send_update_world<T>(send_world: &T, result: Arc<RoadBuilderResult>)
+async fn send_update_world<T>(with_world: &T, result: Arc<RoadBuilderResult>)
 where
-    T: SendWorld,
+    T: WithWorld,
 {
-    send_world
-        .send_world(move |world| result.update_roads(world))
+    with_world
+        .mut_world(|world| result.update_roads(world))
         .await
 }
 

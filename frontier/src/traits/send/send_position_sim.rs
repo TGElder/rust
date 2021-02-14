@@ -5,8 +5,8 @@ use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, RandomTownName,
-    RemoveBuildInstruction, RemoveWorldObject, SendRoutes, SendWorld, WithRouteToPorts,
-    WithTraffic,
+    RemoveBuildInstruction, RemoveWorldObject, SendRoutes, WithRouteToPorts, WithTraffic,
+    WithWorld,
 };
 
 #[async_trait]
@@ -20,7 +20,7 @@ pub trait SendPositionBuildSim:
     + RemoveBuildInstruction
     + RemoveWorldObject
     + SendRoutes
-    + SendWorld
+    + WithWorld
     + WithRouteToPorts
     + WithTraffic
     + Send

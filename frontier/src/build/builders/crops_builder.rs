@@ -19,7 +19,7 @@ where
 
     async fn build(&mut self, build: Build) {
         if let Build::Crops { position, rotated } = build {
-            self.try_build_crops(position, rotated).await;
+            self.try_build_crops(&position, rotated).await;
         }
     }
 }
@@ -32,8 +32,8 @@ where
         CropsBuilder { tx }
     }
 
-    async fn try_build_crops(&mut self, position: V2<usize>, rotated: bool) {
-        if let Some(Settlement { class: Town, .. }) = self.tx.get_settlement(position).await {
+    async fn try_build_crops(&mut self, position: &V2<usize>, rotated: bool) {
+        if let Some(Settlement { class: Town, .. }) = self.tx.get_settlement(*position).await {
             return;
         }
         self.tx.add_crops(position, rotated).await;
@@ -56,8 +56,8 @@ mod tests {
 
     #[async_trait]
     impl AddCrops for Tx {
-        async fn add_crops(&self, position: V2<usize>, rotated: bool) -> bool {
-            self.crops.lock().unwrap().insert(position, rotated);
+        async fn add_crops(&self, position: &V2<usize>, rotated: bool) -> bool {
+            self.crops.lock().unwrap().insert(*position, rotated);
             true
         }
     }

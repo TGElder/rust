@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 
-use crate::traits::SendWorld;
+use crate::traits::WithWorld;
 
 #[async_trait]
 pub trait VisibleLandPositions {
@@ -10,10 +10,10 @@ pub trait VisibleLandPositions {
 #[async_trait]
 impl<T> VisibleLandPositions for T
 where
-    T: SendWorld + Send + Sync,
+    T: WithWorld + Send + Sync,
 {
     async fn visible_land_positions(&self) -> usize {
-        self.send_world(|world| {
+        self.with_world(|world| {
             world
                 .cells()
                 .filter(|cell| cell.visible)

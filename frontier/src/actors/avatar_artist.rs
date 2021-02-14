@@ -1,6 +1,6 @@
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
+use commons::async_channel::Sender;
 use commons::async_trait::async_trait;
 use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 
@@ -35,13 +35,16 @@ where
         }
     }
 
-    pub fn init(&mut self) {
-        self.send_messages();
+    pub async fn init(&mut self) {
+        self.send_messages().await;
     }
 
-    fn send_messages(&mut self) {
+    async fn send_messages(&mut self) {
         if !self.follow_avatar {
-            self.command_tx.send(vec![Command::LookAt(None)]).unwrap();
+            self.command_tx
+                .send(vec![Command::LookAt(None)])
+                .await
+                .unwrap();
         }
 
         let rotate_over_undrawn = self.follow_avatar;
@@ -69,13 +72,13 @@ where
             })
             .await;
 
-        self.command_tx.send(commands).unwrap();
+        self.command_tx.send(commands).await.unwrap();
         self.avatar_artist = Some(avatar_artist)
     }
 
-    fn toggle_follow_avatar(&mut self) {
+    async fn toggle_follow_avatar(&mut self) {
         self.follow_avatar = !self.follow_avatar;
-        self.send_messages();
+        self.send_messages().await;
     }
 }
 
@@ -113,7 +116,7 @@ where
                 modifiers,
                 ..
             } if button == &self.follow_avatar_binding && !modifiers.alt() => {
-                self.toggle_follow_avatar()
+                self.toggle_follow_avatar().await
             }
             _ => (),
         }

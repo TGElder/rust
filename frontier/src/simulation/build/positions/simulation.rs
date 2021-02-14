@@ -5,8 +5,8 @@ use commons::V2;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, RandomTownName,
-    RemoveBuildInstruction, RemoveWorldObject, SendRoutes, SendWorld, WithRouteToPorts,
-    WithTraffic,
+    RemoveBuildInstruction, RemoveWorldObject, SendRoutes, WithRouteToPorts, WithTraffic,
+    WithWorld,
 };
 
 use std::collections::HashSet;
@@ -36,7 +36,7 @@ where
         + RemoveBuildInstruction
         + RemoveWorldObject
         + SendRoutes
-        + SendWorld
+        + WithWorld
         + WithRouteToPorts
         + WithTraffic,
 {

@@ -5,7 +5,7 @@ use commons::edge::Edge;
 use crate::build::{Build, BuildInstruction};
 use crate::route::{Route, RouteKey, Routes, RoutesExt};
 use crate::traits::{
-    InsertBuildInstruction, PlanRoad, RoadPlanned, SendRoutes, SendWorld, WithEdgeTraffic,
+    InsertBuildInstruction, PlanRoad, RoadPlanned, SendRoutes, WithWorld, WithEdgeTraffic,
 };
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
@@ -25,7 +25,7 @@ where
         + PlanRoad
         + RoadPlanned
         + SendRoutes
-        + SendWorld
+        + WithWorld
         + WithEdgeTraffic
         + Send
         + Sync
@@ -48,7 +48,7 @@ where
 
 impl<T, D> BuildRoad<T, D>
 where
-    T: InsertBuildInstruction + PlanRoad + RoadPlanned + SendRoutes + SendWorld + WithEdgeTraffic,
+    T: InsertBuildInstruction + PlanRoad + RoadPlanned + SendRoutes + WithWorld + WithEdgeTraffic,
     D: TravelDuration + 'static,
 {
     pub fn new(tx: T, travel_duration: Arc<D>, road_build_threshold: usize) -> BuildRoad<T, D> {
@@ -227,22 +227,18 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap())
-        }
+        impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&World) -> O + Send {
+        function(&self.world.lock().unwrap())
+    }
 
-        fn send_world_background<F, O>(&self, function: F)
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
-        {
-            function(&mut self.world.lock().unwrap());
-        }
+        async fn mut_world<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut World) -> O + Send {
+            function(&mut self.world.lock().unwrap())
+    }
     }
 
     #[async_trait]

@@ -33,15 +33,15 @@ where
     }
 
     async fn remove_road_from_edge(&self, edge: &Edge) {
-        if !self.tx.is_road(*edge).await && self.tx.road_planned(*edge).await.is_none() {
+        if !self.tx.is_road(edge).await && self.tx.road_planned(edge).await.is_none() {
             return;
         }
 
         self.tx
             .remove_build_instruction(&BuildKey::Road(*edge))
             .await;
-        self.tx.remove_road(*edge).await;
-        self.tx.plan_road(*edge, None).await;
+        self.tx.remove_road(edge).await;
+        self.tx.plan_road(edge, None).await;
     }
 }
 
@@ -79,15 +79,15 @@ mod tests {
 
     #[async_trait]
     impl IsRoad for Tx {
-        async fn is_road(&self, _: Edge) -> bool {
+        async fn is_road(&self, _: &Edge) -> bool {
             self.is_road
         }
     }
 
     #[async_trait]
     impl PlanRoad for Tx {
-        async fn plan_road(&self, edge: Edge, when: Option<u128>) {
-            self.planned_roads.lock().unwrap().push((edge, when))
+        async fn plan_road(&self, edge: &Edge, when: Option<u128>) {
+            self.planned_roads.lock().unwrap().push((*edge, when))
         }
     }
 
@@ -103,14 +103,14 @@ mod tests {
 
     #[async_trait]
     impl RemoveRoadTrait for Tx {
-        async fn remove_road(&self, edge: Edge) {
-            self.removed_roads.lock().unwrap().push(edge)
+        async fn remove_road(&self, edge: &Edge) {
+            self.removed_roads.lock().unwrap().push(*edge)
         }
     }
 
     #[async_trait]
     impl RoadPlanned for Tx {
-        async fn road_planned(&self, _: Edge) -> Option<u128> {
+        async fn road_planned(&self, _: &Edge) -> Option<u128> {
             self.road_planned
         }
     }

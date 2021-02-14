@@ -2,7 +2,7 @@ use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
-    FindPath, Micros, PathfinderWithoutPlannedRoads, SelectedAvatar, SendWorld, UpdateAvatarJourney,
+    FindPath, Micros, PathfinderWithoutPlannedRoads, SelectedAvatar, UpdateAvatarJourney, WithWorld,
 };
 use commons::async_trait::async_trait;
 use commons::V2;
@@ -34,7 +34,7 @@ impl Default for PathfinderAvatarBindings {
 
 impl<T> PathfindingAvatarControls<T>
 where
-    T: Micros + PathfinderWithoutPlannedRoads + SelectedAvatar + SendWorld + UpdateAvatarJourney,
+    T: Micros + PathfinderWithoutPlannedRoads + SelectedAvatar + UpdateAvatarJourney + WithWorld,
 {
     pub fn new(tx: T, travel_duration: Arc<AvatarTravelDuration>) -> PathfindingAvatarControls<T> {
         PathfindingAvatarControls {
@@ -68,7 +68,7 @@ where
 
         let start_at = stopped.final_frame().arrival.max(micros);
         let travelling = self
-            .extend(stopped, path, start_at, self.travel_duration.clone())
+            .extend(stopped, path, start_at, &self.travel_duration) //TODO can no longer be arc?
             .await;
 
         if travelling.is_some() {
@@ -88,14 +88,14 @@ where
         journey: Journey,
         positions: Vec<V2<usize>>,
         start_at: u128,
-        travel_duration: Arc<AvatarTravelDuration>,
+        travel_duration: &AvatarTravelDuration,
     ) -> Option<Journey> {
         self.tx
-            .send_world(move |world| {
+            .with_world(|world| {
                 journey.append(Journey::new(
                     world,
                     positions,
-                    travel_duration.as_ref(),
+                    travel_duration,
                     travel_duration.travel_mode_fn(),
                     start_at,
                 ))
@@ -123,8 +123,8 @@ where
     T: Micros
         + PathfinderWithoutPlannedRoads
         + SelectedAvatar
-        + SendWorld
         + UpdateAvatarJourney
+        + WithWorld
         + Send
         + Sync,
 {

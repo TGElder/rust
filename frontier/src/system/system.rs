@@ -4,6 +4,7 @@ use std::sync::Arc;
 use commons::async_std::sync::RwLock;
 use commons::fn_sender::fn_channel;
 use commons::persistence::{Load, Save};
+use commons::M;
 use futures::executor::ThreadPool;
 use futures::future::FutureExt;
 use isometric::event_handlers::ZoomHandler;
@@ -14,8 +15,7 @@ use crate::actors::{
     BuilderActor, Cheats, Clock, Labels, Nations, ObjectBuilder, PathfindingAvatarControls,
     PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
     SetupPathfinders, SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, VisibilityActor, Voyager, WorldActor, WorldArtistActor,
-    WorldColoringParameters,
+    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -29,6 +29,7 @@ use crate::simulation::settlement::SettlementSimulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traffic::Traffic;
 use crate::traits::SendClock;
+use crate::world::World;
 use commons::process::Process;
 
 pub struct System {
@@ -64,8 +65,8 @@ pub struct System {
     pub town_label_artist: Process<TownLabelArtist<Polysender>>,
     pub visibility: Process<VisibilityActor<Polysender>>,
     pub voyager: Process<Voyager<Polysender>>,
-    pub world: Process<WorldActor<Polysender>>,
     pub world_artist: Process<WorldArtistActor<Polysender>>,
+    pub world_gen: Process<WorldGen<Polysender>>,
 }
 
 impl System {
@@ -110,8 +111,8 @@ impl System {
         let (town_label_artist_tx, town_label_artist_rx) = fn_channel();
         let (visibility_tx, visibility_rx) = fn_channel();
         let (voyager_tx, voyager_rx) = fn_channel();
-        let (world_tx, world_rx) = fn_channel();
         let (world_artist_tx, world_artist_rx) = fn_channel();
+        let (world_gen_tx, world_gen_rx) = fn_channel();
 
         let settlement_sim_channels = (0..params.simulation.threads)
             .map(|_| fn_channel())
@@ -173,8 +174,9 @@ impl System {
             town_label_artist_tx,
             visibility_tx,
             voyager_tx,
-            world_tx,
+            world: Arc::new(RwLock::new(World::new(M::zeros(1, 1), 0.0))),
             world_artist_tx,
+            world_gen_tx,
         };
 
         let (event_forwarder_tx, event_forwarder_rx) = fn_channel();
@@ -323,7 +325,6 @@ impl System {
                 visibility_rx,
             ),
             voyager: Process::new(Voyager::new(tx.clone_with_name("voyager")), voyager_rx),
-            world: Process::new(WorldActor::new(tx.clone_with_name("world")), world_rx),
             world_artist: Process::new(
                 WorldArtistActor::new(
                     tx.clone_with_name("world_artist_actor"),
@@ -348,6 +349,7 @@ impl System {
                 ),
                 world_artist_rx,
             ),
+            world_gen: Process::new(WorldGen::new(tx.clone_with_name("world_gen")), world_gen_rx),
         };
 
         config.send_init_messages();
@@ -358,9 +360,11 @@ impl System {
     pub fn send_init_messages(&self) {
         self.tx
             .avatar_artist_tx
-            .send(|avatar_artist| avatar_artist.init());
+            .send_future(|avatar_artist| avatar_artist.init().boxed());
         self.tx.clock_tx.send(|micros| micros.init());
-        self.tx.labels_tx.send(|labels| labels.init());
+        self.tx
+            .labels_tx
+            .send_future(|labels| labels.init().boxed());
         self.tx
             .setup_pathfinders_tx
             .send_future(|setup_pathfinders| setup_pathfinders.init().boxed());
@@ -392,8 +396,8 @@ impl System {
             .visibility_tx
             .send_future(|visibility| visibility.new_game().boxed());
         self.tx
-            .world_tx
-            .send_future(|world| world.new_game().boxed());
+            .world_gen_tx
+            .send_future(|world_gen| world_gen.new_game().boxed());
     }
 
     pub async fn start(&mut self) {
@@ -403,8 +407,8 @@ impl System {
         self.routes.run_passive(&self.pool).await;
         self.settlements.run_passive(&self.pool).await;
         self.territory.run_passive(&self.pool).await;
-        self.world.run_passive(&self.pool).await;
 
+        self.world_gen.run_passive(&self.pool).await;
         self.setup_new_world.run_passive(&self.pool).await;
         self.setup_pathfinders.run_passive(&self.pool).await;
 
@@ -472,8 +476,8 @@ impl System {
 
         self.setup_pathfinders.drain(&self.pool, true).await;
         self.setup_new_world.drain(&self.pool, true).await;
+        self.world_gen.drain(&self.pool, true).await;
 
-        self.world.drain(&self.pool, true).await;
         self.territory.drain(&self.pool, true).await;
         self.settlements.drain(&self.pool, true).await;
         self.routes.drain(&self.pool, true).await;
@@ -492,7 +496,6 @@ impl System {
         self.settlements.object_ref().unwrap().save(path);
         self.territory.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
-        self.world.object_ref().unwrap().save(path);
 
         self.tx
             .build_queue
@@ -520,6 +523,7 @@ impl System {
             .read()
             .await
             .save(&format!("{}.traffic", path));
+        self.tx.world.read().await.save(&format!("{}.world", path));
     }
 
     pub async fn load(&mut self, path: &str) {
@@ -532,12 +536,12 @@ impl System {
         self.settlements.object_mut().unwrap().load(path);
         self.territory.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
-        self.world.object_mut().unwrap().load(path);
 
         *self.tx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
         *self.tx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
         *self.tx.route_to_ports.write().await = <_>::load(&format!("{}.route_to_ports", path));
         *self.tx.sim_queue.write().await = <_>::load(&format!("{}.sim_queue", path));
         *self.tx.traffic.write().await = <_>::load(&format!("{}.traffic", path));
+        *self.tx.world.write().await = <_>::load(&format!("{}.world", path));
     }
 }

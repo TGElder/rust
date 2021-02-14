@@ -1,6 +1,7 @@
 use crate::label_editor::*;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::SendWorld;
+use crate::traits::WithWorld;
+use commons::async_channel::Sender;
 use commons::async_trait::async_trait;
 use commons::bincode::{deserialize_from, serialize_into};
 use commons::grid::Grid;
@@ -11,7 +12,6 @@ use isometric::{Button, ElementState, VirtualKeyCode};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 pub struct Labels<T> {
@@ -24,7 +24,7 @@ pub struct Labels<T> {
 
 impl<T> Labels<T>
 where
-    T: SendWorld,
+    T: WithWorld,
 {
     pub fn new(tx: T, command_tx: Sender<Vec<Command>>) -> Labels<T> {
         Labels {
@@ -36,24 +36,24 @@ where
         }
     }
 
-    pub fn init(&self) {
+    pub async fn init(&self) {
         let commands = self.label_editor.draw_all();
-        self.command_tx.send(commands).unwrap();
+        self.command_tx.send(commands).await.unwrap();
     }
 
     async fn start_edit(&mut self) {
         let world_coord = unwrap_or!(self.world_coord, return);
         let position = world_coord.to_v2_round();
-        let z = unwrap_or!(self.get_elevation(position).await, return);
+        let z = unwrap_or!(self.get_elevation(&position).await, return);
         self.label_editor
             .start_edit(WorldCoord::new(position.x as f32, position.y as f32, z));
     }
 
-    async fn get_elevation(&mut self, position: V2<usize>) -> Option<f32> {
+    async fn get_elevation(&mut self, position: &V2<usize>) -> Option<f32> {
         self.tx
-            .send_world(move |world| {
+            .with_world(|world| {
                 world
-                    .get_cell(&position)
+                    .get_cell(position)
                     .map(|cell| cell.elevation.max(world.sea_level()))
             })
             .await
@@ -84,12 +84,12 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for Labels<T>
 where
-    T: SendWorld + Send + Sync,
+    T: WithWorld + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         let editor_commands = self.label_editor.handle_event(event.clone());
         if !editor_commands.is_empty() {
-            self.command_tx.send(editor_commands).unwrap();
+            self.command_tx.send(editor_commands).await.unwrap();
             return capture_if_keypress(event);
         }
         match *event {

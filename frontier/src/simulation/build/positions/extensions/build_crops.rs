@@ -9,12 +9,12 @@ use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traffic::Traffic;
-use crate::traits::{InsertBuildInstruction, SendRoutes, SendWorld, WithTraffic};
+use crate::traits::{InsertBuildInstruction, SendRoutes, WithTraffic, WithWorld};
 use crate::world::{World, WorldObject};
 
 impl<T> PositionBuildSimulation<T>
 where
-    T: InsertBuildInstruction + SendRoutes + SendWorld + WithTraffic,
+    T: InsertBuildInstruction + SendRoutes + WithWorld + WithTraffic,
 {
     pub async fn build_crops(&mut self, positions: HashSet<V2<usize>>) {
         let crop_routes = self.get_crop_routes(positions).await;
@@ -41,7 +41,7 @@ where
         crop_routes: HashMap<V2<usize>, HashSet<RouteKey>>,
     ) -> HashMap<V2<usize>, HashSet<RouteKey>> {
         self.tx
-            .send_world(move |world| filter_crop_routes_with_free_destination(world, crop_routes))
+            .with_world(|world| filter_crop_routes_with_free_destination(world, crop_routes))
             .await
     }
 
@@ -164,21 +164,19 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
+    impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap())
+            function(&self.world.lock().unwrap())
         }
 
-        fn send_world_background<F, O>(&self, function: F)
+        async fn mut_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&mut World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap());
+            function(&mut self.world.lock().unwrap())
         }
     }
 

@@ -8,7 +8,7 @@ use commons::V2;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     DrawWorld, ExpandPositions, Micros, PathfinderWithoutPlannedRoads, PositionsWithin,
-    SendTerritory, SendWorld,
+    SendTerritory, WithWorld,
 };
 
 #[async_trait]
@@ -72,7 +72,7 @@ pub trait SetControlDurations {
 #[async_trait]
 impl<T> SetControlDurations for T
 where
-    T: DrawWorld + ExpandPositions + Micros + SendTerritory + SendWorld + Sync,
+    T: DrawWorld + ExpandPositions + Micros + SendTerritory + WithWorld + Sync,
 {
     async fn set_control_durations(
         &self,
@@ -91,7 +91,7 @@ where
 
         let when = self.micros().await;
 
-        for tile in self.expand_positions(positions).await {
+        for tile in self.expand_positions(&positions).await {
             self.draw_world_tile(tile, when)
         }
     }

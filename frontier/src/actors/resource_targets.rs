@@ -1,5 +1,5 @@
 use crate::resource::{Resource, RESOURCES};
-use crate::traits::{InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, SendWorld};
+use crate::traits::{InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithWorld};
 use crate::world::World;
 use commons::grid::Grid;
 use commons::{v2, V2};
@@ -11,7 +11,7 @@ pub struct ResourceTargets<T> {
 
 impl<T> ResourceTargets<T>
 where
-    T: InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + SendWorld,
+    T: InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithWorld,
 {
     pub fn new(tx: T) -> ResourceTargets<T> {
         ResourceTargets { tx }
@@ -30,7 +30,7 @@ where
 
     async fn get_targets(&self, resource: Resource) -> HashSet<V2<usize>> {
         self.tx
-            .send_world(move |world| resource_positions(world, resource))
+            .with_world(|world| resource_positions(world, resource))
             .await
     }
 
@@ -111,21 +111,19 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendWorld for Tx {
-        async fn send_world<F, O>(&self, function: F) -> O
+    impl WithWorld for Tx {
+        async fn with_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap())
+            function(&self.world.lock().unwrap())
         }
 
-        fn send_world_background<F, O>(&self, function: F)
+        async fn mut_world<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut World) -> O + Send + 'static,
+            F: FnOnce(&mut World) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap());
+            function(&mut self.world.lock().unwrap())
         }
     }
 

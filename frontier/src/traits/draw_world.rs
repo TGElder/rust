@@ -1,4 +1,4 @@
-use crate::traits::send::SendWorldArtist;
+use crate::traits::send::WithWorldArtist;
 use commons::async_trait::async_trait;
 use commons::V2;
 use futures::FutureExt;
@@ -12,7 +12,7 @@ pub trait DrawWorld {
 #[async_trait]
 impl<T> DrawWorld for T
 where
-    T: SendWorldArtist,
+    T: WithWorldArtist,
 {
     fn draw_world(&self, when: u128) {
         self.send_world_artist_future_background(move |world_artist| {

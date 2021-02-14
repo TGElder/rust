@@ -1,7 +1,7 @@
 use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, SelectedAvatar, SendWorld, UpdateAvatarJourney, UpdateRoads};
+use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, UpdateRoads, WithWorld};
 use crate::travel_duration::TravelDuration;
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
@@ -18,7 +18,7 @@ pub struct BasicRoadBuilder<T> {
 
 impl<T> BasicRoadBuilder<T>
 where
-    T: Micros + SelectedAvatar + SendWorld + UpdateAvatarJourney + UpdateRoads,
+    T: Micros + SelectedAvatar + UpdateAvatarJourney + UpdateRoads + WithWorld + Send + Sync,
 {
     pub fn new(
         tx: T,
@@ -37,13 +37,13 @@ where
         let (micros, selected_avatar) = join!(self.tx.micros(), self.tx.selected_avatar());
         let selected_avatar = unwrap_or!(selected_avatar, return);
         let forward_path = unwrap_or!(self.get_forward_path(&selected_avatar, &micros), return);
-        if !self.is_buildable(forward_path.clone()).await {
+        if !self.is_buildable(&forward_path).await {
             return;
         }
 
         self.move_avatar(selected_avatar.name, forward_path.clone(), micros)
             .await;
-        self.update_roads(forward_path).await;
+        self.update_roads(&forward_path).await;
     }
 
     fn get_forward_path(&self, avatar: &Avatar, micros: &u128) -> Option<Vec<V2<usize>>> {
@@ -59,11 +59,10 @@ where
         }
     }
 
-    async fn is_buildable(&self, forward_path: Vec<V2<usize>>) -> bool {
-        let travel_duration = self.road_build_travel_duration.clone();
+    async fn is_buildable(&self, forward_path: &[V2<usize>]) -> bool {
         self.tx
-            .send_world(move |world| {
-                travel_duration
+            .with_world(|world| {
+                self.road_build_travel_duration
                     .get_duration(world, &forward_path[0], &forward_path[1])
                     .is_some()
             })
@@ -71,34 +70,33 @@ where
     }
 
     async fn move_avatar(&self, name: String, forward_path: Vec<V2<usize>>, micros: u128) {
-        let journey = self.get_journey(forward_path.clone(), micros).await;
+        let journey = self.get_journey(forward_path, micros).await;
         self.tx.update_avatar_journey(name, Some(journey)).await;
     }
 
     async fn get_journey(&self, forward_path: Vec<V2<usize>>, start_at: u128) -> Journey {
-        let travel_duration = self.avatar_travel_duration.clone();
         self.tx
-            .send_world(move |world| {
+            .with_world(|world| {
                 Journey::new(
                     world,
                     forward_path,
-                    travel_duration.as_ref(),
-                    travel_duration.travel_mode_fn(),
+                    self.avatar_travel_duration.as_ref(),
+                    self.avatar_travel_duration.travel_mode_fn(),
                     start_at,
                 )
             })
             .await
     }
 
-    async fn update_roads(&self, forward_path: Vec<V2<usize>>) {
-        let mode = self.get_mode(forward_path.clone()).await;
+    async fn update_roads(&self, forward_path: &[V2<usize>]) {
+        let mode = self.get_mode(forward_path).await;
         let result = RoadBuilderResult::new(vec![forward_path[0], forward_path[1]], mode);
         self.tx.update_roads(result).await;
     }
 
-    async fn get_mode(&self, forward_path: Vec<V2<usize>>) -> RoadBuildMode {
+    async fn get_mode(&self, forward_path: &[V2<usize>]) -> RoadBuildMode {
         self.tx
-            .send_world(move |world| {
+            .with_world(|world| {
                 let edge = Edge::new(forward_path[0], forward_path[1]);
                 if world.is_road(&edge) {
                     RoadBuildMode::Demolish
@@ -115,9 +113,9 @@ impl<T> HandleEngineEvent for BasicRoadBuilder<T>
 where
     T: Micros
         + SelectedAvatar
-        + SendWorld
         + UpdateAvatarJourney
         + UpdateRoads
+        + WithWorld
         + Send
         + Sync
         + 'static,

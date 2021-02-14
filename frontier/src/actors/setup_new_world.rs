@@ -5,7 +5,7 @@ use crate::parameters::HomelandParams;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    SendAvatars, SendNations, SendSettlements, SendWorld, Visibility, VisibleLandPositions,
+    SendAvatars, SendNations, SendSettlements, Visibility, VisibleLandPositions, WithWorld,
 };
 use crate::world::World;
 use commons::grid::Grid;
@@ -27,9 +27,9 @@ where
         + SendAvatars
         + SendNations
         + SendSettlements
-        + SendWorld
         + Visibility
-        + VisibleLandPositions,
+        + VisibleLandPositions
+        + WithWorld,
 {
     pub fn new(tx: T) -> SetupNewWorld<T> {
         SetupNewWorld { tx }
@@ -78,7 +78,7 @@ where
         params: HomelandParams,
     ) -> Vec<HomelandStart> {
         self.tx
-            .send_world(move |world| gen_homeland_starts(rng, world, &params))
+            .mut_world(|world| gen_homeland_starts(rng, world, &params))
             .await
     }
 
@@ -89,7 +89,7 @@ where
         skin_color: Color,
     ) -> HashMap<String, Avatar> {
         self.tx
-            .send_world(move |world| gen_avatar(world, position, color, skin_color))
+            .with_world(|world| gen_avatar(world, position, color, skin_color))
             .await
     }
 
