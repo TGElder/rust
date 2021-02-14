@@ -24,7 +24,6 @@ where
     }
 }
 
-
 #[async_trait]
 pub trait RefreshPositionsBackground {
     fn refresh_positions_background(&self, positions: HashSet<V2<usize>>);

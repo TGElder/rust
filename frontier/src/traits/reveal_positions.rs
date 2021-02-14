@@ -5,7 +5,10 @@ use commons::grid::Grid;
 use commons::V2;
 use futures::FutureExt;
 
-use crate::traits::{DrawWorld, Micros, RefreshPositionsBackground, SendVoyager, SendWorld, UpdatePositionsAllPathfinders};
+use crate::traits::{
+    DrawWorld, Micros, RefreshPositionsBackground, SendVoyager, SendWorld,
+    UpdatePositionsAllPathfinders,
+};
 use crate::world::World;
 
 #[async_trait]
