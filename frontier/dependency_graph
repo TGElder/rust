@@ -33,6 +33,7 @@ PlanRoad SendWorld
 RandomTownName SendNations
 RefreshEdges SendEdgeBuildSim
 RefreshPositions SendPositionBuildSim
+RefreshPositionsBackground SendPositionBuildSim
 RemoveBuildInstruction SendBuildQueue
 RemoveController SendTerritory
 RemoveRoad IsRoad
@@ -52,7 +53,7 @@ RevealAll SendWorld
 RevealAll UpdatePositionsAllPathfinders
 RevealPositions DrawWorld
 RevealPositions Micros
-RevealPositions RefreshPositions
+RevealPositions RefreshPositionsBackground
 RevealPositions SendVoyager
 RevealPositions SendWorld
 RevealPositions UpdatePositionsAllPathfinders

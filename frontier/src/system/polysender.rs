@@ -213,11 +213,12 @@ impl SendPositionBuildSim for Polysender {
     }
 
     fn send_position_build_sim_future_background<F, O>(&self, function: F)
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut PositionBuildSimulation<Self>) -> BoxFuture<O> + Send + 'static {
-                self.position_sim_tx
-                .send_future(move |position_sim| function(position_sim));
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut PositionBuildSimulation<Self>) -> BoxFuture<O> + Send + 'static,
+    {
+        self.position_sim_tx
+            .send_future(move |position_sim| function(position_sim));
     }
 }
 
