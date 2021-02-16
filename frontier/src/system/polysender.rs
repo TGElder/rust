@@ -22,9 +22,9 @@ use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::HasParameters;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
-    SendAvatars, SendClock, SendEdgeBuildSim, SendNations, SendPositionBuildSim, SendRotate,
-    SendRoutes, SendSettlements, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
-    SendVisibility, SendVoyager, SendWorldArtist, WithBuildQueue, WithEdgeTraffic, WithPathfinder,
+    SendAvatars, SendEdgeBuildSim, SendNations, SendPositionBuildSim, SendRotate, SendRoutes,
+    SendSettlements, SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility,
+    SendVoyager, SendWorldArtist, WithBuildQueue, WithClock, WithEdgeTraffic, WithPathfinder,
     WithRouteToPorts, WithSimQueue, WithTraffic, WithWorld,
 };
 use crate::world::World;
@@ -48,7 +48,7 @@ pub struct Polysender {
     pub builder_tx: FnSender<BuilderActor<Polysender>>,
     pub build_queue: Arc<RwLock<BuildQueue>>,
     pub cheats_tx: FnSender<Cheats<Polysender>>,
-    pub clock_tx: FnSender<Clock<RealTime>>,
+    pub clock: Arc<RwLock<Clock<RealTime>>>,
     pub edge_sim_tx: FnSender<EdgeBuildSimulation<Polysender, AutoRoadTravelDuration>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
     pub labels_tx: FnSender<Labels<Polysender>>,
@@ -94,7 +94,7 @@ impl Polysender {
             builder_tx: self.builder_tx.clone_with_name(name),
             build_queue: self.build_queue.clone(),
             cheats_tx: self.cheats_tx.clone_with_name(name),
-            clock_tx: self.clock_tx.clone_with_name(name),
+            clock: self.clock.clone(),
             edge_sim_tx: self.edge_sim_tx.clone(),
             edge_traffic: self.edge_traffic.clone(),
             labels_tx: self.labels_tx.clone_with_name(name),
@@ -171,19 +171,6 @@ impl SendAvatars for Polysender {
     {
         self.avatars_tx
             .send(move |avatars| function(&mut avatars.state()));
-    }
-}
-
-#[async_trait]
-impl SendClock for Polysender {
-    type T = RealTime;
-
-    async fn send_clock<F, O>(&self, function: F) -> O
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut Clock<RealTime>) -> O + Send + 'static,
-    {
-        self.clock_tx.send(move |clock| function(clock)).await
     }
 }
 
@@ -369,6 +356,27 @@ impl WithBuildQueue for Polysender {
     {
         let mut build_queue = self.build_queue.write().await;
         function(&mut build_queue)
+    }
+}
+
+#[async_trait]
+impl WithClock for Polysender {
+    type T = RealTime;
+
+    async fn with_clock<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&Clock<RealTime>) -> O + Send,
+    {
+        let clock = self.clock.read().await;
+        function(&clock)
+    }
+
+    async fn mut_clock<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut Clock<RealTime>) -> O + Send,
+    {
+        let mut clock = self.clock.write().await;
+        function(&mut clock)
     }
 }
 

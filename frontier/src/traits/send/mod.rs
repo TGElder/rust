@@ -1,5 +1,4 @@
 mod send_avatars;
-mod send_clock;
 mod send_edge_sim;
 mod send_nations;
 mod send_position_sim;
@@ -14,7 +13,6 @@ mod send_voyager;
 mod send_world_artist;
 
 pub use send_avatars::*;
-pub use send_clock::*;
 pub use send_edge_sim::*;
 pub use send_nations::*;
 pub use send_position_sim::*;

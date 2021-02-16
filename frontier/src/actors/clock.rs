@@ -15,7 +15,7 @@ where
 }
 
 pub trait Now {
-    fn instant(&mut self) -> Instant;
+    fn instant(&self) -> Instant;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -28,7 +28,7 @@ impl<T> Clock<T>
 where
     T: Now,
 {
-    pub fn new(mut now: T, default_speed: f32) -> Clock<T> {
+    pub fn new(now: T, default_speed: f32) -> Clock<T> {
         Clock {
             baseline_instant: now.instant(),
             now,
@@ -40,11 +40,7 @@ where
         }
     }
 
-    pub fn init(&mut self) {
-        self.baseline_instant = self.now.instant();
-    }
-
-    pub fn get_micros(&mut self) -> u128 {
+    pub fn get_micros(&self) -> u128 {
         let instant = &self.now.instant();
         self.get_micros_at(instant)
     }
@@ -100,7 +96,7 @@ fn get_path(path: &str) -> String {
 pub struct RealTime {}
 
 impl Now for RealTime {
-    fn instant(&mut self) -> Instant {
+    fn instant(&self) -> Instant {
         Instant::now()
     }
 }
@@ -129,7 +125,7 @@ mod tests {
     }
 
     impl Now for Arm<MockNow> {
-        fn instant(&mut self) -> Instant {
+        fn instant(&self) -> Instant {
             let mock_now = self.lock().unwrap();
             mock_now.baseline_instant + Duration::from_micros(mock_now.offset_micros)
         }
@@ -139,27 +135,13 @@ mod tests {
     fn test_get_micros() {
         // Given
         let now = Arc::new(Mutex::new(MockNow::default()));
-        let mut clock = Clock::new(now.clone(), 2.0);
+        let clock = Clock::new(now.clone(), 2.0);
 
         // When
         now.lock().unwrap().offset_micros = 1;
 
         // Then
         assert_eq!(clock.get_micros(), 2);
-    }
-
-    #[test]
-    fn test_init() {
-        // Given
-        let now = Arc::new(Mutex::new(MockNow::default()));
-        let mut clock = Clock::new(now.clone(), 2.0);
-
-        // When
-        now.lock().unwrap().offset_micros = 1;
-        clock.init();
-
-        // Then
-        assert_eq!(clock.get_micros(), 0);
     }
 
     #[test]
