@@ -28,7 +28,7 @@ use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
 use crate::traffic::Traffic;
-use crate::traits::SendClock;
+use crate::traits::WithClock;
 use crate::world::World;
 use commons::process::Process;
 
@@ -41,7 +41,6 @@ pub struct System {
     pub basic_road_builder: Process<BasicRoadBuilder<Polysender>>,
     pub builder: Process<BuilderActor<Polysender>>,
     pub cheats: Process<Cheats<Polysender>>,
-    pub clock: Process<Clock<RealTime>>,
     pub edge_sim: Process<EdgeBuildSimulation<Polysender, AutoRoadTravelDuration>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub labels: Process<Labels<Polysender>>,
@@ -89,7 +88,6 @@ impl System {
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (builder_tx, builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
-        let (clock_tx, clock_rx) = fn_channel();
         let (edge_sim_tx, edge_sim_rx) = fn_channel();
         let (labels_tx, labels_rx) = fn_channel();
         let (nations_tx, nations_rx) = fn_channel();
@@ -132,7 +130,7 @@ impl System {
             builder_tx,
             build_queue: Arc::default(),
             cheats_tx,
-            clock_tx,
+            clock: Arc::new(RwLock::new(Clock::new(RealTime {}, params.default_speed))),
             edge_sim_tx,
             edge_traffic: Arc::default(),
             labels_tx,
@@ -225,7 +223,6 @@ impl System {
                 builder_rx,
             ),
             cheats: Process::new(Cheats::new(tx.clone_with_name("cheats")), cheats_rx),
-            clock: Process::new(Clock::new(RealTime {}, params.default_speed), clock_rx),
             edge_sim: Process::new(
                 EdgeBuildSimulation::new(
                     tx.clone_with_name("edge_sim"),
@@ -360,7 +357,6 @@ impl System {
         self.tx
             .avatar_artist_tx
             .send_future(|avatar_artist| avatar_artist.init().boxed());
-        self.tx.clock_tx.send(|micros| micros.init());
         self.tx
             .labels_tx
             .send_future(|labels| labels.init().boxed());
@@ -401,7 +397,6 @@ impl System {
 
     pub async fn start(&mut self) {
         self.avatars.run_passive(&self.tx.pool).await;
-        self.clock.run_passive(&self.tx.pool).await;
         self.nations.run_passive(&self.tx.pool).await;
         self.routes.run_passive(&self.tx.pool).await;
         self.settlements.run_passive(&self.tx.pool).await;
@@ -439,11 +434,11 @@ impl System {
         self.avatar_artist.run_passive(&self.tx.pool).await;
         self.event_forwarder.run_passive(&self.tx.pool).await;
 
-        self.tx.send_clock(|clock| clock.resume()).await;
+        self.tx.mut_clock(|clock| clock.resume()).await;
     }
 
     pub async fn pause(&mut self) {
-        self.tx.send_clock(|clock| clock.pause()).await;
+        self.tx.mut_clock(|clock| clock.pause()).await;
 
         self.event_forwarder.drain(&self.tx.pool, false).await;
         self.avatar_artist.drain(&self.tx.pool, true).await;
@@ -481,13 +476,11 @@ impl System {
         self.settlements.drain(&self.tx.pool, true).await;
         self.routes.drain(&self.tx.pool, true).await;
         self.nations.drain(&self.tx.pool, true).await;
-        self.clock.drain(&self.tx.pool, true).await;
         self.avatars.drain(&self.tx.pool, true).await;
     }
 
     pub async fn save(&mut self, path: &str) {
         self.avatars.object_ref().unwrap().save(path);
-        self.clock.object_mut().unwrap().save(path);
         self.labels.object_ref().unwrap().save(path);
         self.nations.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
@@ -495,6 +488,8 @@ impl System {
         self.settlements.object_ref().unwrap().save(path);
         self.territory.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
+
+        self.tx.clock.write().await.save(&format!("{}.clock", path));
 
         self.tx
             .build_queue
@@ -527,7 +522,6 @@ impl System {
 
     pub async fn load(&mut self, path: &str) {
         self.avatars.object_mut().unwrap().load(path);
-        self.clock.object_mut().unwrap().load(path);
         self.labels.object_mut().unwrap().load(path);
         self.nations.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);
@@ -535,6 +529,8 @@ impl System {
         self.settlements.object_mut().unwrap().load(path);
         self.territory.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
+
+        self.tx.clock.write().await.load(&format!("{}.clock", path));
 
         *self.tx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
         *self.tx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));

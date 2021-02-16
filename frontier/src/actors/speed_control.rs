@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::SendClock;
+use crate::traits::WithClock;
 
 use commons::async_trait::async_trait;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
@@ -27,7 +27,7 @@ pub struct SpeedControl<T> {
 
 impl<T> SpeedControl<T>
 where
-    T: SendClock,
+    T: WithClock,
 {
     pub fn new(tx: T) -> SpeedControl<T> {
         SpeedControl {
@@ -37,18 +37,18 @@ where
     }
 
     async fn slow_down(&mut self) {
-        self.tx.send_clock(|clock| clock.adjust_speed(0.5)).await;
+        self.tx.mut_clock(|clock| clock.adjust_speed(0.5)).await;
     }
 
     async fn speed_up(&mut self) {
-        self.tx.send_clock(|clock| clock.adjust_speed(2.0)).await;
+        self.tx.mut_clock(|clock| clock.adjust_speed(2.0)).await;
     }
 }
 
 #[async_trait]
 impl<T> HandleEngineEvent for SpeedControl<T>
 where
-    T: SendClock + Send + Sync,
+    T: WithClock + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::Button {
