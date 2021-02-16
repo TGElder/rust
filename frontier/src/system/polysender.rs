@@ -137,18 +137,18 @@ impl Polysender {
     }
 }
 
+impl HasParameters for Polysender {
+    fn parameters(&self) -> &Parameters {
+        self.parameters.as_ref()
+    }
+}
+
 impl RunInBackground for Polysender {
-    fn background<Fut>(&self, future: Fut)
+    fn run_in_background<Fut>(&self, future: Fut)
     where
         Fut: Future<Output = ()> + Send + 'static,
     {
         self.pool.spawn_ok(future)
-    }
-}
-
-impl HasParameters for Polysender {
-    fn parameters(&self) -> &Parameters {
-        self.parameters.as_ref()
     }
 }
 
