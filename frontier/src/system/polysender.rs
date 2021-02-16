@@ -21,18 +21,20 @@ use crate::territory::Territory;
 use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, SendAvatars, SendClock,
-    SendEdgeBuildSim, SendNations, SendPositionBuildSim, SendRotate, SendRoutes, SendSettlements,
-    SendTerritory, SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager,
-    SendWorldArtist, WithBuildQueue, WithEdgeTraffic, WithPathfinder, WithRouteToPorts,
-    WithSimQueue, WithTraffic, WithWorld,
+    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
+    SendAvatars, SendClock, SendEdgeBuildSim, SendNations, SendPositionBuildSim, SendRotate,
+    SendRoutes, SendSettlements, SendTerritory, SendTownHouseArtist, SendTownLabelArtist,
+    SendVisibility, SendVoyager, SendWorldArtist, WithBuildQueue, WithEdgeTraffic, WithPathfinder,
+    WithRouteToPorts, WithSimQueue, WithTraffic, WithWorld,
 };
 use crate::world::World;
 use commons::async_std::sync::RwLock;
 use commons::async_trait::async_trait;
 use commons::fn_sender::FnSender;
 use commons::V2;
+use futures::executor::ThreadPool;
 use futures::future::BoxFuture;
+use futures::Future;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -56,6 +58,7 @@ pub struct Polysender {
     pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
+    pub pool: ThreadPool,
     pub position_sim_tx: FnSender<PositionBuildSimulation<Polysender>>,
     pub prime_mover_tx: FnSender<PrimeMover<Polysender>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
@@ -103,6 +106,7 @@ impl Polysender {
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
                 .clone_with_name(name),
+            pool: self.pool.clone(),
             position_sim_tx: self.position_sim_tx.clone_with_name(name),
             prime_mover_tx: self.prime_mover_tx.clone_with_name(name),
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
@@ -136,6 +140,15 @@ impl Polysender {
 impl HasParameters for Polysender {
     fn parameters(&self) -> &Parameters {
         self.parameters.as_ref()
+    }
+}
+
+impl RunInBackground for Polysender {
+    fn run_in_background<Fut>(&self, future: Fut)
+    where
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        self.pool.spawn_ok(future)
     }
 }
 

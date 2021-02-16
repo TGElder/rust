@@ -9,7 +9,7 @@ use crate::traits::{
 };
 
 pub trait PathfinderWithPlannedRoads {
-    type T: WithPathfinder + Clone + Send + Sync;
+    type T: WithPathfinder + Clone + Send + Sync + 'static;
 
     fn pathfinder_with_planned_roads(&self) -> &Self::T;
 }
@@ -93,7 +93,7 @@ where
 }
 
 pub trait PathfinderWithoutPlannedRoads {
-    type T: WithPathfinder + Clone + Send + Sync;
+    type T: WithPathfinder + Clone + Send + Sync + 'static;
 
     fn pathfinder_without_planned_roads(&self) -> &Self::T;
 }

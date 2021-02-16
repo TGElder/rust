@@ -34,7 +34,6 @@ use commons::process::Process;
 
 pub struct System {
     pub tx: Polysender,
-    pub pool: ThreadPool,
     pub avatars: Process<AvatarsActor>,
     pub avatar_artist: Process<AvatarArtistActor<Polysender>>,
     pub avatar_visibility: Process<AvatarVisibility<Polysender>>,
@@ -151,6 +150,7 @@ impl System {
                 avatar_travel_duration_without_planned_roads.clone(),
             ))),
             pathfinding_avatar_controls_tx,
+            pool,
             position_sim_tx,
             prime_mover_tx,
             resource_targets_tx,
@@ -185,7 +185,6 @@ impl System {
 
         let config = System {
             tx: tx.clone_with_name("processes"),
-            pool,
             avatar_artist: Process::new(
                 AvatarArtistActor::new(
                     tx.clone_with_name("avatar_artist"),
@@ -401,44 +400,44 @@ impl System {
     }
 
     pub async fn start(&mut self) {
-        self.avatars.run_passive(&self.pool).await;
-        self.clock.run_passive(&self.pool).await;
-        self.nations.run_passive(&self.pool).await;
-        self.routes.run_passive(&self.pool).await;
-        self.settlements.run_passive(&self.pool).await;
-        self.territory.run_passive(&self.pool).await;
+        self.avatars.run_passive(&self.tx.pool).await;
+        self.clock.run_passive(&self.tx.pool).await;
+        self.nations.run_passive(&self.tx.pool).await;
+        self.routes.run_passive(&self.tx.pool).await;
+        self.settlements.run_passive(&self.tx.pool).await;
+        self.territory.run_passive(&self.tx.pool).await;
 
-        self.world_gen.run_passive(&self.pool).await;
-        self.setup_new_world.run_passive(&self.pool).await;
-        self.setup_pathfinders.run_passive(&self.pool).await;
+        self.world_gen.run_passive(&self.tx.pool).await;
+        self.setup_new_world.run_passive(&self.tx.pool).await;
+        self.setup_pathfinders.run_passive(&self.tx.pool).await;
 
-        self.world_artist.run_passive(&self.pool).await;
-        self.position_sim.run_passive(&self.pool).await;
-        self.voyager.run_passive(&self.pool).await;
-        self.visibility.run_passive(&self.pool).await;
-        self.town_house_artist.run_passive(&self.pool).await;
-        self.town_label_artist.run_passive(&self.pool).await;
-        self.edge_sim.run_passive(&self.pool).await;
-        self.resource_targets.run_passive(&self.pool).await;
-        self.rotate.run_passive(&self.pool).await;
-        self.town_builder.run_passive(&self.pool).await;
-        self.speed_control.run_passive(&self.pool).await;
+        self.world_artist.run_passive(&self.tx.pool).await;
+        self.position_sim.run_passive(&self.tx.pool).await;
+        self.voyager.run_passive(&self.tx.pool).await;
+        self.visibility.run_passive(&self.tx.pool).await;
+        self.town_house_artist.run_passive(&self.tx.pool).await;
+        self.town_label_artist.run_passive(&self.tx.pool).await;
+        self.edge_sim.run_passive(&self.tx.pool).await;
+        self.resource_targets.run_passive(&self.tx.pool).await;
+        self.rotate.run_passive(&self.tx.pool).await;
+        self.town_builder.run_passive(&self.tx.pool).await;
+        self.speed_control.run_passive(&self.tx.pool).await;
         for settlement_sim in &mut self.settlement_sims {
-            settlement_sim.run_active(&self.pool).await;
+            settlement_sim.run_active(&self.tx.pool).await;
         }
-        self.prime_mover.run_active(&self.pool).await;
+        self.prime_mover.run_active(&self.tx.pool).await;
         self.pathfinding_avatar_controls
-            .run_passive(&self.pool)
+            .run_passive(&self.tx.pool)
             .await;
-        self.object_builder.run_passive(&self.pool).await;
-        self.labels.run_passive(&self.pool).await;
-        self.cheats.run_passive(&self.pool).await;
-        self.builder.run_active(&self.pool).await;
-        self.basic_road_builder.run_passive(&self.pool).await;
-        self.basic_avatar_controls.run_passive(&self.pool).await;
-        self.avatar_visibility.run_active(&self.pool).await;
-        self.avatar_artist.run_passive(&self.pool).await;
-        self.event_forwarder.run_passive(&self.pool).await;
+        self.object_builder.run_passive(&self.tx.pool).await;
+        self.labels.run_passive(&self.tx.pool).await;
+        self.cheats.run_passive(&self.tx.pool).await;
+        self.builder.run_active(&self.tx.pool).await;
+        self.basic_road_builder.run_passive(&self.tx.pool).await;
+        self.basic_avatar_controls.run_passive(&self.tx.pool).await;
+        self.avatar_visibility.run_active(&self.tx.pool).await;
+        self.avatar_artist.run_passive(&self.tx.pool).await;
+        self.event_forwarder.run_passive(&self.tx.pool).await;
 
         self.tx.send_clock(|clock| clock.resume()).await;
     }
@@ -446,44 +445,44 @@ impl System {
     pub async fn pause(&mut self) {
         self.tx.send_clock(|clock| clock.pause()).await;
 
-        self.event_forwarder.drain(&self.pool, false).await;
-        self.avatar_artist.drain(&self.pool, true).await;
-        self.avatar_visibility.drain(&self.pool, true).await;
-        self.basic_avatar_controls.drain(&self.pool, true).await;
-        self.basic_road_builder.drain(&self.pool, true).await;
-        self.builder.drain(&self.pool, true).await;
-        self.cheats.drain(&self.pool, true).await;
-        self.labels.drain(&self.pool, true).await;
-        self.object_builder.drain(&self.pool, true).await;
+        self.event_forwarder.drain(&self.tx.pool, false).await;
+        self.avatar_artist.drain(&self.tx.pool, true).await;
+        self.avatar_visibility.drain(&self.tx.pool, true).await;
+        self.basic_avatar_controls.drain(&self.tx.pool, true).await;
+        self.basic_road_builder.drain(&self.tx.pool, true).await;
+        self.builder.drain(&self.tx.pool, true).await;
+        self.cheats.drain(&self.tx.pool, true).await;
+        self.labels.drain(&self.tx.pool, true).await;
+        self.object_builder.drain(&self.tx.pool, true).await;
         self.pathfinding_avatar_controls
-            .drain(&self.pool, true)
+            .drain(&self.tx.pool, true)
             .await;
-        self.prime_mover.drain(&self.pool, true).await;
+        self.prime_mover.drain(&self.tx.pool, true).await;
         for settlement_sim in &mut self.settlement_sims {
-            settlement_sim.drain(&self.pool, true).await;
+            settlement_sim.drain(&self.tx.pool, true).await;
         }
-        self.speed_control.drain(&self.pool, true).await;
-        self.town_builder.drain(&self.pool, true).await;
-        self.rotate.drain(&self.pool, true).await;
-        self.resource_targets.drain(&self.pool, true).await;
-        self.edge_sim.drain(&self.pool, true).await;
-        self.town_label_artist.drain(&self.pool, true).await;
-        self.town_house_artist.drain(&self.pool, true).await;
-        self.visibility.drain(&self.pool, true).await;
-        self.voyager.drain(&self.pool, true).await;
-        self.position_sim.drain(&self.pool, true).await;
-        self.world_artist.drain(&self.pool, true).await;
+        self.speed_control.drain(&self.tx.pool, true).await;
+        self.town_builder.drain(&self.tx.pool, true).await;
+        self.rotate.drain(&self.tx.pool, true).await;
+        self.resource_targets.drain(&self.tx.pool, true).await;
+        self.edge_sim.drain(&self.tx.pool, true).await;
+        self.town_label_artist.drain(&self.tx.pool, true).await;
+        self.town_house_artist.drain(&self.tx.pool, true).await;
+        self.visibility.drain(&self.tx.pool, true).await;
+        self.voyager.drain(&self.tx.pool, true).await;
+        self.position_sim.drain(&self.tx.pool, true).await;
+        self.world_artist.drain(&self.tx.pool, true).await;
 
-        self.setup_pathfinders.drain(&self.pool, true).await;
-        self.setup_new_world.drain(&self.pool, true).await;
-        self.world_gen.drain(&self.pool, true).await;
+        self.setup_pathfinders.drain(&self.tx.pool, true).await;
+        self.setup_new_world.drain(&self.tx.pool, true).await;
+        self.world_gen.drain(&self.tx.pool, true).await;
 
-        self.territory.drain(&self.pool, true).await;
-        self.settlements.drain(&self.pool, true).await;
-        self.routes.drain(&self.pool, true).await;
-        self.nations.drain(&self.pool, true).await;
-        self.clock.drain(&self.pool, true).await;
-        self.avatars.drain(&self.pool, true).await;
+        self.territory.drain(&self.tx.pool, true).await;
+        self.settlements.drain(&self.tx.pool, true).await;
+        self.routes.drain(&self.tx.pool, true).await;
+        self.nations.drain(&self.tx.pool, true).await;
+        self.clock.drain(&self.tx.pool, true).await;
+        self.avatars.drain(&self.tx.pool, true).await;
     }
 
     pub async fn save(&mut self, path: &str) {

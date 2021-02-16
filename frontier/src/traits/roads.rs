@@ -82,7 +82,7 @@ pub trait PlanRoad {
 #[async_trait]
 impl<T> PlanRoad for T
 where
-    T: PathfinderWithPlannedRoads + WithWorld + Send + Sync,
+    T: PathfinderWithPlannedRoads + UpdatePathfinderPositions + WithWorld + Send + Sync,
 {
     async fn plan_road(&self, edge: &Edge, when: Option<u128>) {
         self.mut_world(|world| world.plan_road(edge, when)).await;
