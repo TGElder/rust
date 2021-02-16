@@ -44,14 +44,14 @@ where
             return;
         }
 
-        voyage(self, newly_visible.clone(), revealed_by);
-
-        self.refresh_positions_background(newly_visible.clone());
-
         join!(
             redraw(self, &newly_visible),
             self.update_positions_all_pathfinders(newly_visible.clone()),
         );
+
+        voyage(self, newly_visible.clone(), revealed_by);
+
+        self.refresh_positions_background(newly_visible.clone());
     }
 }
 
