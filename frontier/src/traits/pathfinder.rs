@@ -1,4 +1,5 @@
 use commons::async_trait::async_trait;
+use commons::log::info;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
@@ -6,7 +7,8 @@ use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
-    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, WithPathfinder, WithWorld,
+    PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground, WithPathfinder,
+    WithWorld,
 };
 use crate::travel_duration::{EdgeDuration, TravelDuration};
 
@@ -86,18 +88,18 @@ where
 pub trait UpdatePathfinderPositions {
     async fn update_pathfinder_positions<P, I>(&self, pathfinder: &P, positions: I)
     where
-        P: WithPathfinder + Send + Sync,
+        P: WithPathfinder + Clone + Send + Sync + 'static,
         I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static;
 }
 
 #[async_trait]
 impl<T> UpdatePathfinderPositions for T
 where
-    T: WithWorld + Send + Sync,
+    T: RunInBackground + WithWorld + Send + Sync,
 {
     async fn update_pathfinder_positions<P, I>(&self, pathfinder: &P, positions: I)
     where
-        P: WithPathfinder + Send + Sync,
+        P: WithPathfinder + Clone + Send + Sync + 'static,
         I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static,
     {
         let travel_duration = pathfinder
@@ -115,15 +117,19 @@ where
             })
             .await;
 
-        pathfinder
-            .mut_pathfinder(move |pathfinder| {
-                for EdgeDuration { from, to, duration } in durations {
-                    if let Some(duration) = duration {
-                        pathfinder.set_edge_duration(&from, &to, &duration)
+        let pathfinder = (*pathfinder).clone();
+        let pathfinder_future = async move {
+            pathfinder
+                .mut_pathfinder(move |pathfinder| {
+                    for EdgeDuration { from, to, duration } in durations {
+                        if let Some(duration) = duration {
+                            pathfinder.set_edge_duration(&from, &to, &duration)
+                        }
                     }
-                }
-            })
-            .await;
+                })
+                .await;
+        };
+        self.run_in_background(pathfinder_future);
     }
 }
 

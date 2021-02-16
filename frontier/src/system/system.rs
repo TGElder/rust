@@ -151,6 +151,7 @@ impl System {
                 avatar_travel_duration_without_planned_roads.clone(),
             ))),
             pathfinding_avatar_controls_tx,
+            pool,
             position_sim_tx,
             prime_mover_tx,
             resource_targets_tx,

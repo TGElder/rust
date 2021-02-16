@@ -29,6 +29,7 @@ LowestDuration SendPathfinder
 Micros SendClock
 NationDescriptions SendNations
 PlanRoad SendPathfinder
+PlanRoad UpdatePathfinderPositions
 PlanRoad WithWorld
 RandomTownName SendNations
 RefreshEdges SendEdgeBuildSim

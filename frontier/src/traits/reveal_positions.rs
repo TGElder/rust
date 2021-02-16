@@ -35,9 +35,19 @@ where
         positions: &'a HashSet<V2<usize>>,
         revealed_by: &'static str,
     ) {
+        if positions.is_empty() {
+            return;
+        }
+
         let newly_visible = send_set_visible_get_newly_visible(self, &positions).await;
+        if newly_visible.is_empty() {
+            return;
+        }
+
         voyage(self, newly_visible.clone(), revealed_by);
+
         self.refresh_positions_background(newly_visible.clone());
+
         join!(
             redraw(self, &newly_visible),
             self.update_positions_all_pathfinders(newly_visible.clone()),
