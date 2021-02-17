@@ -1,7 +1,7 @@
 use crate::avatar::{Journey, Rotation, Vehicle};
 
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{RevealAll, SendAvatars, UpdateAvatarJourney, Visibility, WithWorld};
+use crate::traits::{RevealAll, UpdateAvatarJourney, Visibility, WithAvatars, WithWorld};
 use commons::async_trait::async_trait;
 use isometric::{coords::*, Event};
 use isometric::{Button, ElementState, VirtualKeyCode};
@@ -32,7 +32,7 @@ impl Default for CheatBindings {
 
 impl<T> Cheats<T>
 where
-    T: RevealAll + SendAvatars + UpdateAvatarJourney + Visibility + WithWorld,
+    T: RevealAll + WithAvatars + UpdateAvatarJourney + Visibility + WithWorld,
 {
     pub fn new(tx: T) -> Cheats<T> {
         Cheats {
@@ -62,18 +62,18 @@ where
             .with_world(|world| Journey::stationary(world, position, Vehicle::None, Rotation::Down))
             .await;
 
-        self.tx.update_avatar_journey(name, Some(moved)).await;
+        self.tx.update_avatar_journey(&name, Some(moved)).await;
     }
 
     async fn remove_avatar(&mut self) {
         if let Some(name) = self.selected_avatar_name().await {
-            self.tx.update_avatar_journey(name, None).await;
+            self.tx.update_avatar_journey(&name, None).await;
         }
     }
 
     async fn selected_avatar_name(&self) -> Option<String> {
         self.tx
-            .send_avatars(|avatars| avatars.selected.clone())
+            .with_avatars(|avatars| avatars.selected.clone())
             .await
     }
 }
@@ -81,7 +81,7 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for Cheats<T>
 where
-    T: RevealAll + SendAvatars + UpdateAvatarJourney + Visibility + WithWorld + Send + Sync,
+    T: RevealAll + WithAvatars + UpdateAvatarJourney + Visibility + WithWorld + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::WorldPositionChanged(world_coord) = *event {

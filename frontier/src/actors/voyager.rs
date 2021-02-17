@@ -1,5 +1,5 @@
 use crate::settlement::{Settlement, SettlementClass};
-use crate::traits::{RevealPositions, SendSettlements, WithWorld};
+use crate::traits::{RevealPositions, WithSettlements, WithWorld};
 use crate::world::World;
 use commons::grid::Grid;
 use commons::{v2, V2};
@@ -14,7 +14,7 @@ pub struct Voyager<T> {
 
 impl<T> Voyager<T>
 where
-    T: RevealPositions + SendSettlements + WithWorld + Send,
+    T: RevealPositions + WithSettlements + WithWorld + Send,
 {
     pub fn new(tx: T) -> Voyager<T> {
         Voyager { tx }
@@ -41,7 +41,7 @@ where
 
     async fn homeland_positions(&self) -> HashSet<V2<usize>> {
         self.tx
-            .send_settlements(|settlements| homeland_positions(settlements))
+            .with_settlements(|settlements| homeland_positions(settlements))
             .await
     }
 
@@ -71,7 +71,7 @@ fn filter_coastal(world: &World, mut positions: HashSet<V2<usize>>) -> HashSet<V
     positions
 }
 
-fn homeland_positions(settlements: &mut HashMap<V2<usize>, Settlement>) -> HashSet<V2<usize>> {
+fn homeland_positions(settlements: &HashMap<V2<usize>, Settlement>) -> HashSet<V2<usize>> {
     settlements
         .values()
         .filter(|settlement| settlement.class == SettlementClass::Homeland)

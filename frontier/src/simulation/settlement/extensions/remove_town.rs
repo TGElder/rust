@@ -17,8 +17,8 @@ where
         if settlement.current_population >= town_removal_population || !traffic.is_empty() {
             return false;
         }
-        let controlled = self.tx.controlled(settlement.position).await;
-        self.tx.remove_town(settlement.position).await;
+        let controlled = self.tx.controlled(&settlement.position).await;
+        self.tx.remove_town(&settlement.position).await;
         self.tx.refresh_positions(controlled).await;
         true
     }
@@ -48,7 +48,7 @@ mod tests {
 
     #[async_trait]
     impl Controlled for Tx {
-        async fn controlled(&self, _: V2<usize>) -> HashSet<V2<usize>> {
+        async fn controlled(&self, _: &V2<usize>) -> HashSet<V2<usize>> {
             self.controlled.clone()
         }
     }
@@ -68,8 +68,8 @@ mod tests {
 
     #[async_trait]
     impl RemoveTownTrait for Tx {
-        async fn remove_town(&self, position: V2<usize>) -> bool {
-            self.removed.lock().unwrap().push(position);
+        async fn remove_town(&self, position: &V2<usize>) -> bool {
+            self.removed.lock().unwrap().push(*position);
             true
         }
     }

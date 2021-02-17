@@ -3,7 +3,7 @@ use commons::async_trait::async_trait;
 use crate::avatars::Avatars;
 
 #[async_trait]
-pub trait SendAvatars {
+pub trait WithAvatars {
     async fn send_avatars<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,

@@ -1,13 +1,13 @@
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey, Routes};
 use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traits::SendRoutes;
+use crate::traits::WithRoutes;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 
 impl<T> SettlementSimulation<T>
 where
-    T: SendRoutes,
+    T: WithRoutes,
 {
     pub async fn update_routes_and_get_changes(
         &self,
@@ -15,7 +15,7 @@ where
         route_set: RouteSet,
     ) -> Vec<RouteChange> {
         self.tx
-            .send_routes(move |routes| update_routes_and_get_changes(routes, key, route_set))
+            .mut_routes(|routes| update_routes_and_get_changes(routes, key, route_set))
             .await
     }
 }
@@ -93,23 +93,11 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use commons::async_trait::async_trait;
     use commons::same_elements;
     use commons::v2;
     use futures::executor::block_on;
     use std::sync::Mutex;
     use std::time::Duration;
-
-    #[async_trait]
-    impl SendRoutes for Mutex<Routes> {
-        async fn send_routes<F, O>(&self, function: F) -> O
-        where
-            O: Send + 'static,
-            F: FnOnce(&mut crate::route::Routes) -> O + Send + 'static,
-        {
-            function(&mut self.lock().unwrap())
-        }
-    }
 
     #[test]
     fn should_add_route_and_new_route_change_if_route_is_new() {

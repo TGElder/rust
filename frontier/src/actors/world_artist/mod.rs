@@ -7,7 +7,7 @@ use commons::async_trait::async_trait;
 use crate::artists::{Slab, WorldArtist};
 use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, SendSettlements, SendTerritory, WithWorld};
+use crate::traits::{Micros, WithSettlements, WithTerritory, WithWorld};
 use coloring::{world_coloring, Overlay};
 use commons::{v2, M, V2};
 use isometric::{Button, Color, Command, ElementState, Event, VirtualKeyCode};
@@ -39,7 +39,7 @@ pub struct WorldArtistActor<T> {
 
 impl<T> WorldArtistActor<T>
 where
-    T: Micros + SendSettlements + SendTerritory + WithWorld + Send + Sync,
+    T: Micros + WithSettlements + WithTerritory + WithWorld + Send + Sync,
 {
     pub fn new(
         tx: T,
@@ -141,12 +141,12 @@ where
         } else {
             Some(Overlay {
                 from: slab.from,
-                colors: self.get_territory_colors(*slab).await,
+                colors: self.get_territory_colors(slab).await,
             })
         }
     }
 
-    async fn get_territory_colors(&mut self, slab: Slab) -> M<Option<Color>> {
+    async fn get_territory_colors(&mut self, slab: &Slab) -> M<Option<Color>> {
         let territory = self.get_territory(slab).await;
         let nations = self.get_nations(&territory).await;
 
@@ -158,9 +158,9 @@ where
         })
     }
 
-    async fn get_territory(&mut self, slab: Slab) -> M<Option<V2<usize>>> {
+    async fn get_territory(&mut self, slab: &Slab) -> M<Option<V2<usize>>> {
         self.tx
-            .send_territory(move |territory| {
+            .with_territory(|territory| {
                 M::from_fn(slab.slab_size, slab.slab_size, |x, y| {
                     territory
                         .who_controls_tile(&v2(slab.from.x + x, slab.from.y + y))
@@ -176,7 +176,7 @@ where
     ) -> HashMap<V2<usize>, String> {
         let distinct = territory.iter().flatten().copied().collect::<HashSet<_>>();
         self.tx
-            .send_settlements(move |settlements| {
+            .with_settlements(|settlements| {
                 distinct
                     .iter()
                     .flat_map(|settlement| settlements.get(settlement))
@@ -195,7 +195,7 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for WorldArtistActor<T>
 where
-    T: Micros + SendSettlements + SendTerritory + WithWorld + Send + Sync,
+    T: Micros + WithSettlements + WithTerritory + WithWorld + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {

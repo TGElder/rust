@@ -1,6 +1,5 @@
 use crate::settlement::{Settlement, SettlementClass};
-use crate::traits::send::SendSettlements;
-use crate::traits::{Controlled, DrawTown, DrawWorld, ExpandPositions, Micros};
+use crate::traits::{Controlled, DrawTown, DrawWorld, ExpandPositions, Micros, WithSettlements};
 use commons::async_trait::async_trait;
 use commons::V2;
 
@@ -12,28 +11,26 @@ pub(in crate::traits) trait InsertSettlement {
 #[async_trait]
 impl<T> InsertSettlement for T
 where
-    T: SendSettlements + Sync,
+    T: WithSettlements + Sync,
 {
     async fn insert_settlement(&self, settlement: Settlement) {
-        self.send_settlements(move |settlements| {
-            settlements.insert(settlement.position, settlement)
-        })
-        .await;
+        self.mut_settlements(|settlements| settlements.insert(settlement.position, settlement))
+            .await;
     }
 }
 
 #[async_trait]
 pub trait GetSettlement {
-    async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement>;
+    async fn get_settlement(&self, position: &V2<usize>) -> Option<Settlement>;
 }
 
 #[async_trait]
 impl<T> GetSettlement for T
 where
-    T: SendSettlements + Sync,
+    T: WithSettlements + Sync,
 {
-    async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
-        self.send_settlements(move |settlements| settlements.get(&position).cloned())
+    async fn get_settlement(&self, position: &V2<usize>) -> Option<Settlement> {
+        self.with_settlements(|settlements| settlements.get(position).cloned())
             .await
     }
 }
@@ -46,12 +43,12 @@ pub trait UpdateSettlement {
 #[async_trait]
 impl<T> UpdateSettlement for T
 where
-    T: Controlled + DrawTown + DrawWorld + ExpandPositions + Micros + SendSettlements + Sync,
+    T: Controlled + DrawTown + DrawWorld + ExpandPositions + Micros + WithSettlements + Sync,
 {
     async fn update_settlement(&self, settlement: Settlement) {
         let settlement_to_send = settlement.clone();
         let nation_changed = self
-            .send_settlements(move |settlements| {
+            .mut_settlements(|settlements| {
                 let new_nation = settlement_to_send.nation.clone();
                 settlements
                     .insert(settlement_to_send.position, settlement_to_send)
@@ -63,7 +60,7 @@ where
         if let SettlementClass::Town = settlement.class {
             if nation_changed {
                 let (controlled, micros) =
-                    join!(self.controlled(settlement.position), self.micros(),);
+                    join!(self.controlled(&settlement.position), self.micros(),);
                 for tile in self.expand_positions(&controlled).await {
                     self.draw_world_tile(tile, micros);
                 }
@@ -82,10 +79,10 @@ pub trait Settlements {
 #[async_trait]
 impl<T> Settlements for T
 where
-    T: SendSettlements + Sync,
+    T: WithSettlements + Sync,
 {
     async fn settlements(&self) -> Vec<Settlement> {
-        self.send_settlements(move |settlements| settlements.values().cloned().collect())
+        self.with_settlements(|settlements| settlements.values().cloned().collect())
             .await
     }
 }

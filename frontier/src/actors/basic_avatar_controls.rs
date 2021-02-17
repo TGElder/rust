@@ -52,7 +52,9 @@ where
             return
         );
 
-        self.tx.update_avatar_journey(name, Some(new_journey)).await;
+        self.tx
+            .update_avatar_journey(&name, Some(new_journey))
+            .await;
     }
 
     async fn get_walk_forward_journey(&self, journey: Journey, start_at: u128) -> Option<Journey> {
@@ -77,7 +79,7 @@ where
         if let Some(Avatar { name, journey, .. }) = self.tx.selected_avatar().await {
             if let Some(journey) = journey {
                 self.tx
-                    .update_avatar_journey(name, Some(journey.then_rotate_clockwise()))
+                    .update_avatar_journey(&name, Some(journey.then_rotate_clockwise()))
                     .await;
             }
         }
@@ -87,7 +89,7 @@ where
         if let Some(Avatar { name, journey, .. }) = self.tx.selected_avatar().await {
             if let Some(journey) = journey {
                 self.tx
-                    .update_avatar_journey(name, Some(journey.then_rotate_anticlockwise()))
+                    .update_avatar_journey(&name, Some(journey.then_rotate_anticlockwise()))
                     .await;
             }
         }

@@ -41,7 +41,7 @@ where
             return;
         }
 
-        self.move_avatar(selected_avatar.name, forward_path.clone(), micros)
+        self.move_avatar(&selected_avatar.name, forward_path.clone(), micros)
             .await;
         self.update_roads(&forward_path).await;
     }
@@ -69,9 +69,9 @@ where
             .await
     }
 
-    async fn move_avatar(&self, name: String, forward_path: Vec<V2<usize>>, micros: u128) {
+    async fn move_avatar(&self, name: &str, forward_path: Vec<V2<usize>>, micros: u128) {
         let journey = self.get_journey(forward_path, micros).await;
-        self.tx.update_avatar_journey(name, Some(journey)).await;
+        self.tx.update_avatar_journey(&name, Some(journey)).await;
     }
 
     async fn get_journey(&self, forward_path: Vec<V2<usize>>, start_at: u128) -> Journey {

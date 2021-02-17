@@ -11,11 +11,11 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, AvatarsActor, BasicAvatarControls, BasicRoadBuilder,
-    BuilderActor, Cheats, Clock, Labels, Nations, ObjectBuilder, PathfindingAvatarControls,
-    PrimeMover, RealTime, ResourceTargets, Rotate, RoutesActor, Settlements, SetupNewWorld,
-    SetupPathfinders, SpeedControl, TerritoryActor, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
+    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
+    Cheats, Clock, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, RealTime,
+    ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SpeedControl, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    WorldColoringParameters, WorldGen,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -27,6 +27,7 @@ use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::system::{EventForwarderActor, EventForwarderConsumer, Polysender};
+use crate::territory::Territory;
 use crate::traffic::Traffic;
 use crate::traits::WithClock;
 use crate::world::World;
@@ -34,7 +35,6 @@ use commons::process::Process;
 
 pub struct System {
     pub tx: Polysender,
-    pub avatars: Process<AvatarsActor>,
     pub avatar_artist: Process<AvatarArtistActor<Polysender>>,
     pub avatar_visibility: Process<AvatarVisibility<Polysender>>,
     pub basic_avatar_controls: Process<BasicAvatarControls<Polysender>>,
@@ -44,20 +44,16 @@ pub struct System {
     pub edge_sim: Process<EdgeBuildSimulation<Polysender, AutoRoadTravelDuration>>,
     pub event_forwarder: Process<EventForwarderActor>,
     pub labels: Process<Labels<Polysender>>,
-    pub nations: Process<Nations>,
     pub object_builder: Process<ObjectBuilder<Polysender>>,
     pub pathfinding_avatar_controls: Process<PathfindingAvatarControls<Polysender>>,
     pub position_sim: Process<PositionBuildSimulation<Polysender>>,
     pub prime_mover: Process<PrimeMover<Polysender>>,
     pub resource_targets: Process<ResourceTargets<Polysender>>,
     pub rotate: Process<Rotate>,
-    pub routes: Process<RoutesActor>,
     pub settlement_sims: Vec<Process<SettlementSimulation<Polysender>>>,
-    pub settlements: Process<Settlements>,
     pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub setup_pathfinders: Process<SetupPathfinders<Polysender>>,
     pub speed_control: Process<SpeedControl<Polysender>>,
-    pub territory: Process<TerritoryActor>,
     pub town_builder: Process<TownBuilderActor<Polysender>>,
     pub town_house_artist: Process<TownHouseArtist<Polysender>>,
     pub town_label_artist: Process<TownLabelArtist<Polysender>>,
@@ -83,26 +79,21 @@ impl System {
 
         let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
         let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();
-        let (avatars_tx, avatars_rx) = fn_channel();
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (builder_tx, builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
         let (edge_sim_tx, edge_sim_rx) = fn_channel();
         let (labels_tx, labels_rx) = fn_channel();
-        let (nations_tx, nations_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
         let (position_sim_tx, position_sim_rx) = fn_channel();
         let (prime_mover_tx, prime_mover_rx) = fn_channel();
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
-        let (routes_tx, routes_rx) = fn_channel();
-        let (settlements_tx, settlements_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (setup_pathfinders_tx, setup_pathfinders_rx) = fn_channel();
         let (speed_control_tx, speed_control_rx) = fn_channel();
-        let (territory_tx, territory_rx) = fn_channel();
         let (town_builder_tx, town_builder_rx) = fn_channel();
         let (town_house_artist_tx, town_house_artist_rx) = fn_channel();
         let (town_label_artist_tx, town_label_artist_rx) = fn_channel();
@@ -124,7 +115,7 @@ impl System {
         let tx = Polysender {
             avatar_artist_tx,
             avatar_visibility_tx,
-            avatars_tx,
+            avatars: Arc::default(),
             basic_avatar_controls_tx,
             basic_road_builder_tx,
             builder_tx,
@@ -134,7 +125,7 @@ impl System {
             edge_sim_tx,
             edge_traffic: Arc::default(),
             labels_tx,
-            nations_tx,
+            nations: Arc::default(),
             object_builder_tx,
             parameters: params.clone(),
             pathfinder_with_planned_roads: Arc::new(RwLock::new(Pathfinder::new(
@@ -152,16 +143,16 @@ impl System {
             position_sim_tx,
             prime_mover_tx,
             resource_targets_tx,
-            routes_tx,
+            routes: Arc::default(),
             rotate_tx,
             route_to_ports: Arc::default(),
             settlement_sim_txs,
-            settlements_tx,
+            settlements: Arc::default(),
             setup_pathfinders_tx,
             setup_new_world_tx,
             sim_queue: Arc::default(),
             speed_control_tx,
-            territory_tx,
+            territory: Arc::new(RwLock::new(Territory::new(params.width, params.width))),
             traffic: Arc::new(RwLock::new(Traffic::new(
                 params.width,
                 params.width,
@@ -195,7 +186,6 @@ impl System {
                 AvatarVisibility::new(tx.clone_with_name("avatar_visibility")),
                 avatar_visibility_rx,
             ),
-            avatars: Process::new(AvatarsActor::new(), avatars_rx),
             basic_avatar_controls: Process::new(
                 BasicAvatarControls::new(
                     tx.clone_with_name("basic_avatar_controls"),
@@ -238,7 +228,6 @@ impl System {
                 Labels::new(tx.clone_with_name("labels"), engine.command_tx()),
                 labels_rx,
             ),
-            nations: Process::new(Nations::new(), nations_rx),
             object_builder: Process::new(
                 ObjectBuilder::new(tx.clone_with_name("object_builder"), params.seed),
                 object_builder_rx,
@@ -269,7 +258,6 @@ impl System {
                 resource_targets_rx,
             ),
             rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
-            routes: Process::new(RoutesActor::new(), routes_rx),
             settlement_sims: settlement_sim_rxs
                 .into_iter()
                 .map(|rx| {
@@ -279,7 +267,6 @@ impl System {
                     )
                 })
                 .collect(),
-            settlements: Process::new(Settlements::new(), settlements_rx),
             setup_new_world: Process::new(
                 SetupNewWorld::new(tx.clone_with_name("setup_new_world")),
                 setup_new_world_rx,
@@ -291,10 +278,6 @@ impl System {
             speed_control: Process::new(
                 SpeedControl::new(tx.clone_with_name("speed_control")),
                 speed_control_rx,
-            ),
-            territory: Process::new(
-                TerritoryActor::new(params.width, params.width),
-                territory_rx,
             ),
             town_builder: Process::new(
                 TownBuilderActor::new(tx.clone_with_name("town_builder_actor")),
@@ -396,12 +379,6 @@ impl System {
     }
 
     pub async fn start(&mut self) {
-        self.avatars.run_passive(&self.tx.pool).await;
-        self.nations.run_passive(&self.tx.pool).await;
-        self.routes.run_passive(&self.tx.pool).await;
-        self.settlements.run_passive(&self.tx.pool).await;
-        self.territory.run_passive(&self.tx.pool).await;
-
         self.world_gen.run_passive(&self.tx.pool).await;
         self.setup_new_world.run_passive(&self.tx.pool).await;
         self.setup_pathfinders.run_passive(&self.tx.pool).await;
@@ -471,26 +448,20 @@ impl System {
         self.setup_pathfinders.drain(&self.tx.pool, true).await;
         self.setup_new_world.drain(&self.tx.pool, true).await;
         self.world_gen.drain(&self.tx.pool, true).await;
-
-        self.territory.drain(&self.tx.pool, true).await;
-        self.settlements.drain(&self.tx.pool, true).await;
-        self.routes.drain(&self.tx.pool, true).await;
-        self.nations.drain(&self.tx.pool, true).await;
-        self.avatars.drain(&self.tx.pool, true).await;
     }
 
     pub async fn save(&mut self, path: &str) {
-        self.avatars.object_ref().unwrap().save(path);
         self.labels.object_ref().unwrap().save(path);
-        self.nations.object_ref().unwrap().save(path);
         self.prime_mover.object_ref().unwrap().save(path);
-        self.routes.object_ref().unwrap().save(path);
-        self.settlements.object_ref().unwrap().save(path);
-        self.territory.object_ref().unwrap().save(path);
         self.visibility.object_ref().unwrap().save(path);
 
         self.tx.clock.write().await.save(&format!("{}.clock", path));
 
+        self.tx
+            .avatars
+            .read()
+            .await
+            .save(&format!("{}.avatars", path));
         self.tx
             .build_queue
             .read()
@@ -501,6 +472,11 @@ impl System {
             .read()
             .await
             .save(&format!("{}.edge_traffic", path));
+        self.tx
+            .nations
+            .read()
+            .await
+            .save(&format!("{}.nations", path));
         self.tx.parameters.save(&format!("{}.parameters", path));
         self.tx
             .route_to_ports
@@ -508,10 +484,25 @@ impl System {
             .await
             .save(&format!("{}.route_to_ports", path));
         self.tx
+            .routes
+            .read()
+            .await
+            .save(&format!("{}.routes", path));
+        self.tx
+            .settlements
+            .read()
+            .await
+            .save(&format!("{}.settlements", path));
+        self.tx
             .sim_queue
             .read()
             .await
             .save(&format!("{}.sim_queue", path));
+        self.tx
+            .territory
+            .read()
+            .await
+            .save(&format!("{}.territory", path));
         self.tx
             .traffic
             .read()
@@ -521,21 +512,21 @@ impl System {
     }
 
     pub async fn load(&mut self, path: &str) {
-        self.avatars.object_mut().unwrap().load(path);
         self.labels.object_mut().unwrap().load(path);
-        self.nations.object_mut().unwrap().load(path);
         self.prime_mover.object_mut().unwrap().load(path);
-        self.routes.object_mut().unwrap().load(path);
-        self.settlements.object_mut().unwrap().load(path);
-        self.territory.object_mut().unwrap().load(path);
         self.visibility.object_mut().unwrap().load(path);
 
         self.tx.clock.write().await.load(&format!("{}.clock", path));
 
+        *self.tx.avatars.write().await = <_>::load(&format!("{}.avatars", path));
         *self.tx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
         *self.tx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
+        *self.tx.nations.write().await = <_>::load(&format!("{}.nations", path));
         *self.tx.route_to_ports.write().await = <_>::load(&format!("{}.route_to_ports", path));
+        *self.tx.routes.write().await = <_>::load(&format!("{}.routes", path));
+        *self.tx.settlements.write().await = <_>::load(&format!("{}.settlements", path));
         *self.tx.sim_queue.write().await = <_>::load(&format!("{}.sim_queue", path));
+        *self.tx.territory.write().await = <_>::load(&format!("{}.territory", path));
         *self.tx.traffic.write().await = <_>::load(&format!("{}.traffic", path));
         *self.tx.world.write().await = <_>::load(&format!("{}.world", path));
     }

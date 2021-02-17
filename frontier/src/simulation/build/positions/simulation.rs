@@ -5,7 +5,7 @@ use commons::V2;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, RandomTownName,
-    RemoveBuildInstruction, RemoveWorldObject, SendRoutes, WithRouteToPorts, WithTraffic,
+    RemoveBuildInstruction, RemoveWorldObject, WithRouteToPorts, WithRoutes, WithTraffic,
     WithWorld,
 };
 
@@ -35,7 +35,7 @@ where
         + RandomTownName
         + RemoveBuildInstruction
         + RemoveWorldObject
-        + SendRoutes
+        + WithRoutes
         + WithRouteToPorts
         + WithTraffic
         + WithWorld,

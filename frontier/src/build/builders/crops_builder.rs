@@ -33,7 +33,7 @@ where
     }
 
     async fn try_build_crops(&mut self, position: &V2<usize>, rotated: bool) {
-        if let Some(Settlement { class: Town, .. }) = self.tx.get_settlement(*position).await {
+        if let Some(Settlement { class: Town, .. }) = self.tx.get_settlement(position).await {
             return;
         }
         self.tx.add_crops(position, rotated).await;
@@ -64,8 +64,8 @@ mod tests {
 
     #[async_trait]
     impl GetSettlement for Tx {
-        async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
-            self.settlements.get(&position).cloned()
+        async fn get_settlement(&self, position: &V2<usize>) -> Option<Settlement> {
+            self.settlements.get(position).cloned()
         }
     }
 

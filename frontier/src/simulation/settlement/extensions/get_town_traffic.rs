@@ -3,7 +3,7 @@ use crate::settlement::Settlement;
 use crate::simulation::settlement::model::TownTrafficSummary;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traffic::Traffic;
-use crate::traits::{SendRoutes, SendSettlements, WithRouteToPorts, WithTraffic};
+use crate::traits::{WithRouteToPorts, WithRoutes, WithSettlements, WithTraffic};
 use commons::grid::get_corners;
 use commons::V2;
 use std::collections::{HashMap, HashSet};
@@ -11,7 +11,7 @@ use std::time::Duration;
 
 impl<T> SettlementSimulation<T>
 where
-    T: SendRoutes + SendSettlements + WithRouteToPorts + WithTraffic,
+    T: WithRoutes + WithSettlements + WithRouteToPorts + WithTraffic,
 {
     pub async fn get_town_traffic(
         &self,
@@ -66,7 +66,7 @@ where
         if territory.contains(&route_key.settlement) {
             return None;
         }
-        let nation = self.get_settlement(route_key.settlement).await?.nation;
+        let nation = self.get_settlement(&route_key.settlement).await?.nation;
         let (ports_in_territory, ports_outside_territory): (Vec<V2<usize>>, Vec<V2<usize>>) =
             ports.into_iter().partition(|port| territory.contains(port));
         let denominator = (ports_in_territory.len() + ports_outside_territory.len() + 1) as f64;
@@ -75,7 +75,7 @@ where
         if multiplier == 0 {
             return None;
         }
-        let route = self.get_route(route_key).await?;
+        let route = self.get_route(&route_key).await?;
         let numerator = (route.traffic * multiplier) as f64;
         let traffic_share = numerator / denominator;
 
@@ -86,20 +86,20 @@ where
         })
     }
 
-    async fn get_settlement(&self, position: V2<usize>) -> Option<Settlement> {
+    async fn get_settlement(&self, position: &V2<usize>) -> Option<Settlement> {
         self.tx
-            .send_settlements(move |settlements| {
+            .with_settlements(|settlements| {
                 settlements
                     .values()
-                    .find(|settlement| get_corners(&settlement.position).contains(&position))
+                    .find(|settlement| get_corners(&settlement.position).contains(position))
                     .cloned()
             })
             .await
     }
 
-    async fn get_route(&self, route_key: RouteKey) -> Option<Route> {
+    async fn get_route(&self, route_key: &RouteKey) -> Option<Route> {
         self.tx
-            .send_routes(move |routes| routes.get_route(&route_key).cloned())
+            .with_routes(|routes| routes.get_route(route_key).cloned())
             .await
     }
 }
@@ -199,22 +199,34 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendRoutes for Tx {
-        async fn send_routes<F, O>(&self, function: F) -> O
+    impl WithRoutes for Tx {
+        async fn with_routes<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut Routes) -> O + Send + 'static,
+            F: FnOnce(&Routes) -> O + Send,
+        {
+            function(&self.routes.lock().unwrap())
+        }
+
+        async fn mut_routes<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Routes) -> O + Send,
         {
             function(&mut self.routes.lock().unwrap())
         }
     }
 
     #[async_trait]
-    impl SendSettlements for Tx {
-        async fn send_settlements<F, O>(&self, function: F) -> O
+    impl WithSettlements for Tx {
+        async fn with_settlements<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut HashMap<V2<usize>, Settlement>) -> O + Send + 'static,
+            F: FnOnce(&HashMap<V2<usize>, Settlement>) -> O + Send,
+        {
+            function(&self.settlements.lock().unwrap())
+        }
+
+        async fn mut_settlements<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut HashMap<V2<usize>, Settlement>) -> O + Send,
         {
             function(&mut self.settlements.lock().unwrap())
         }

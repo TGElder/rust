@@ -35,20 +35,20 @@ where
     }
 
     pub async fn update_settlement(&mut self, settlement: Settlement) {
-        if self.tx.get_settlement(settlement.position).await.is_some() {
+        if self.tx.get_settlement(&settlement.position).await.is_some() {
             self.draw_settlement(settlement).await
         } else {
             self.erase_settlement(settlement).await
         }
     }
 
-    async fn draw_all(&mut self) {
+    async fn draw_all(&self) {
         for settlement in self.tx.settlements().await {
             self.draw_settlement(settlement).await;
         }
     }
 
-    async fn draw_settlement(&mut self, settlement: Settlement) {
+    async fn draw_settlement(&self, settlement: Settlement) {
         if settlement.class != SettlementClass::Town {
             return;
         }
@@ -56,23 +56,23 @@ where
             width: self.params.house_width,
             height: get_house_height_without_roof(&self.params, &settlement),
             roof_height: self.params.house_roof_height,
-            base_color: self.get_nation_color(settlement.nation.clone()).await,
+            base_color: self.get_nation_color(&settlement.nation).await,
             light_direction: self.params.light_direction,
         };
 
         self.draw_house(params, settlement).await;
     }
 
-    async fn get_nation_color(&mut self, nation: String) -> Color {
+    async fn get_nation_color(&self, nation: &str) -> Color {
         self.tx
-            .get_nation_description(nation)
+            .get_nation_description(&nation)
             .await
             .unwrap_or_else(|| panic!("Unknown nation"))
             .colors
             .primary
     }
 
-    async fn draw_house(&mut self, params: DrawHouseParams, settlement: Settlement) {
+    async fn draw_house(&self, params: DrawHouseParams, settlement: Settlement) {
         let name = get_name(&settlement.position);
         let commands = self
             .tx
@@ -81,7 +81,7 @@ where
         self.command_tx.send(commands).await.unwrap();
     }
 
-    async fn erase_settlement(&mut self, settlement: Settlement) {
+    async fn erase_settlement(&self, settlement: Settlement) {
         let command = Command::Erase(get_name(&settlement.position));
         self.command_tx.send(vec![command]).await.unwrap();
     }

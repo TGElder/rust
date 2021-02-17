@@ -36,7 +36,7 @@ where
     }
 
     async fn try_add_town(&self, town: Settlement) -> bool {
-        if self.tx.who_controls_tile(town.position).await.is_some() {
+        if self.tx.who_controls_tile(&town.position).await.is_some() {
             return false;
         }
         self.tx.add_town(town).await
@@ -77,8 +77,8 @@ mod tests {
 
     #[async_trait]
     impl WhoControlsTile for Tx {
-        async fn who_controls_tile(&self, position: V2<usize>) -> Option<V2<usize>> {
-            self.control.get(&position).cloned()
+        async fn who_controls_tile(&self, position: &V2<usize>) -> Option<V2<usize>> {
+            self.control.get(position).cloned()
         }
     }
 
