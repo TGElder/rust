@@ -1,13 +1,12 @@
 use crate::label_editor::*;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::WithWorld;
-use commons::async_channel::Sender;
+use crate::traits::{SendEngineCommands, WithWorld};
 use commons::async_trait::async_trait;
 use commons::bincode::{deserialize_from, serialize_into};
 use commons::grid::Grid;
 use commons::V2;
 use isometric::EventHandler;
-use isometric::{coords::*, Command, Event};
+use isometric::{coords::*, Event};
 use isometric::{Button, ElementState, VirtualKeyCode};
 use std::collections::HashMap;
 use std::fs::File;
@@ -16,7 +15,6 @@ use std::sync::Arc;
 
 pub struct Labels<T> {
     tx: T,
-    command_tx: Sender<Vec<Command>>,
     label_editor: LabelEditor,
     world_coord: Option<WorldCoord>,
     binding: Button,
@@ -24,12 +22,11 @@ pub struct Labels<T> {
 
 impl<T> Labels<T>
 where
-    T: WithWorld,
+    T: SendEngineCommands + WithWorld,
 {
-    pub fn new(tx: T, command_tx: Sender<Vec<Command>>) -> Labels<T> {
+    pub fn new(tx: T) -> Labels<T> {
         Labels {
             tx,
-            command_tx,
             label_editor: LabelEditor::new(HashMap::new()),
             world_coord: None,
             binding: Button::Key(VirtualKeyCode::L),
@@ -38,7 +35,7 @@ where
 
     pub async fn init(&self) {
         let commands = self.label_editor.draw_all();
-        self.command_tx.send(commands).await.unwrap();
+        self.tx.send_engine_commands(commands).await;
     }
 
     async fn start_edit(&mut self) {
@@ -49,7 +46,7 @@ where
             .start_edit(WorldCoord::new(position.x as f32, position.y as f32, z));
     }
 
-    async fn get_elevation(&mut self, position: &V2<usize>) -> Option<f32> {
+    async fn get_elevation(&self, position: &V2<usize>) -> Option<f32> {
         self.tx
             .with_world(|world| {
                 world
@@ -84,12 +81,12 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for Labels<T>
 where
-    T: WithWorld + Send + Sync,
+    T: SendEngineCommands + WithWorld + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         let editor_commands = self.label_editor.handle_event(event.clone());
         if !editor_commands.is_empty() {
-            self.command_tx.send(editor_commands).await.unwrap();
+            self.tx.send_engine_commands(editor_commands).await;
             return capture_if_keypress(event);
         }
         match *event {

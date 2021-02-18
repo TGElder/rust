@@ -23,12 +23,13 @@ use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::HasParameters;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
-    SendEdgeBuildSim, SendPositionBuildSim, SendRotate, SendTownHouseArtist, SendTownLabelArtist,
-    SendVisibility, SendVoyager, SendWorldArtist, WithAvatars, WithBuildQueue, WithClock,
-    WithEdgeTraffic, WithNations, WithPathfinder, WithRouteToPorts, WithRoutes, WithSettlements,
-    WithSimQueue, WithTerritory, WithTraffic, WithWorld,
+    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendRotate, SendTownHouseArtist,
+    SendTownLabelArtist, SendVisibility, SendVoyager, SendWorldArtist, WithAvatars, WithBuildQueue,
+    WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithRouteToPorts, WithRoutes,
+    WithSettlements, WithSimQueue, WithTerritory, WithTraffic, WithWorld,
 };
 use crate::world::World;
+use commons::async_channel::Sender;
 use commons::async_std::sync::RwLock;
 use commons::async_trait::async_trait;
 use commons::fn_sender::FnSender;
@@ -36,6 +37,7 @@ use commons::V2;
 use futures::executor::ThreadPool;
 use futures::future::BoxFuture;
 use futures::Future;
+use isometric::Command;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -53,6 +55,7 @@ pub struct Polysender {
     pub clock: Arc<RwLock<Clock<RealTime>>>,
     pub edge_sim_tx: FnSender<EdgeBuildSimulation<Polysender, AutoRoadTravelDuration>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
+    pub engine_tx: Sender<Vec<Command>>,
     pub labels_tx: FnSender<Labels<Polysender>>,
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
     pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
@@ -64,7 +67,7 @@ pub struct Polysender {
     pub position_sim_tx: FnSender<PositionBuildSimulation<Polysender>>,
     pub prime_mover_tx: FnSender<PrimeMover<Polysender>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
-    pub rotate_tx: FnSender<Rotate>,
+    pub rotate_tx: FnSender<Rotate<Polysender>>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
     pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Polysender>>>,
@@ -100,6 +103,7 @@ impl Polysender {
             clock: self.clock.clone(),
             edge_sim_tx: self.edge_sim_tx.clone(),
             edge_traffic: self.edge_traffic.clone(),
+            engine_tx: self.engine_tx.clone(),
             labels_tx: self.labels_tx.clone_with_name(name),
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
@@ -171,6 +175,13 @@ impl SendEdgeBuildSim for Polysender {
 }
 
 #[async_trait]
+impl SendEngineCommands for Polysender {
+    async fn send_engine_commands(&self, commands: Vec<Command>) {
+        self.engine_tx.send(commands).await.unwrap()
+    }
+}
+
+#[async_trait]
 impl SendPositionBuildSim for Polysender {
     async fn send_position_build_sim_future<F, O>(&self, function: F) -> O
     where
@@ -197,7 +208,7 @@ impl SendRotate for Polysender {
     fn send_rotate_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut Rotate) -> O + Send + 'static,
+        F: FnOnce(&mut Rotate<Self>) -> O + Send + 'static,
     {
         self.rotate_tx.send(function);
     }
@@ -231,7 +242,7 @@ impl SendVoyager for Polysender {
     fn send_voyager_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut Voyager<Polysender>) -> BoxFuture<O> + Send + 'static,
+        F: FnOnce(&mut Voyager<Self>) -> BoxFuture<O> + Send + 'static,
     {
         self.voyager_tx
             .send_future(move |voyager| function(voyager));
@@ -242,7 +253,7 @@ impl SendVisibility for Polysender {
     fn send_visibility_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut VisibilityActor<Polysender>) -> O + Send + 'static,
+        F: FnOnce(&mut VisibilityActor<Self>) -> O + Send + 'static,
     {
         self.visibility_tx
             .send(move |mut visibility| function(&mut visibility));
@@ -262,7 +273,7 @@ impl SendWorldArtist for Polysender {
     fn send_world_artist_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
-        F: FnOnce(&mut WorldArtistActor<Polysender>) -> BoxFuture<O> + Send + 'static,
+        F: FnOnce(&mut WorldArtistActor<Self>) -> BoxFuture<O> + Send + 'static,
     {
         self.world_artist_tx
             .send_future(move |world_artist| function(world_artist));

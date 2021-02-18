@@ -5,9 +5,10 @@ use crate::actors::TownArtistParameters;
 use crate::settlement::*;
 
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{GetNationDescription, GetSettlement, Settlements, WithWorld};
+use crate::traits::{
+    GetNationDescription, GetSettlement, SendEngineCommands, Settlements, WithWorld,
+};
 use crate::world::World;
-use commons::async_channel::Sender;
 use commons::async_trait::async_trait;
 use commons::{unsafe_ordering, V2};
 use isometric::coords::WorldCoord;
@@ -16,7 +17,6 @@ use isometric::{Button, Command, ElementState, Event, Font, VirtualKeyCode};
 
 pub struct TownLabelArtist<T> {
     tx: T,
-    command_tx: Sender<Vec<Command>>,
     params: TownArtistParameters,
     font: Arc<Font>,
     state: TownLabelArtistState,
@@ -25,16 +25,17 @@ pub struct TownLabelArtist<T> {
 
 impl<T> TownLabelArtist<T>
 where
-    T: GetNationDescription + GetSettlement + Settlements + WithWorld + Send + Sync,
+    T: GetNationDescription
+        + GetSettlement
+        + SendEngineCommands
+        + Settlements
+        + WithWorld
+        + Send
+        + Sync,
 {
-    pub fn new(
-        tx: T,
-        command_tx: Sender<Vec<Command>>,
-        params: TownArtistParameters,
-    ) -> TownLabelArtist<T> {
+    pub fn new(tx: T, params: TownArtistParameters) -> TownLabelArtist<T> {
         TownLabelArtist {
             tx,
-            command_tx,
             params,
             font: Arc::new(Font::from_file("resources/fonts/roboto_slab_20.fnt")),
             state: TownLabelArtistState::NameOnly,
@@ -42,42 +43,42 @@ where
         }
     }
 
-    pub async fn init(&mut self) {
+    pub async fn init(&self) {
         self.on_switch().await;
     }
 
-    pub async fn update_label(&mut self, settlement: Settlement) {
+    pub async fn update_label(&self, settlement: Settlement) {
         match self.state {
             TownLabelArtistState::NoLabels => (),
             _ => self.update_settlement(&settlement).await,
         }
     }
 
-    async fn on_switch(&mut self) {
+    async fn on_switch(&self) {
         match self.state {
             TownLabelArtistState::NoLabels => self.erase_all().await,
             _ => self.draw_all().await,
         }
     }
 
-    async fn erase_all(&mut self) {
+    async fn erase_all(&self) {
         for settlement in self.tx.settlements().await {
             self.erase_settlement(&settlement).await;
         }
     }
 
-    async fn erase_settlement(&mut self, settlement: &Settlement) {
+    async fn erase_settlement(&self, settlement: &Settlement) {
         let command = Command::Erase(get_name(settlement));
-        self.command_tx.send(vec![command]).await.unwrap();
+        self.tx.send_engine_commands(vec![command]).await;
     }
 
-    async fn draw_all(&mut self) {
+    async fn draw_all(&self) {
         for settlement in self.tx.settlements().await {
             self.draw_settlement(&settlement).await;
         }
     }
 
-    async fn draw_settlement(&mut self, settlement: &Settlement) {
+    async fn draw_settlement(&self, settlement: &Settlement) {
         if settlement.class != SettlementClass::Town {
             return;
         }
@@ -86,10 +87,10 @@ where
         let world_coord = self.get_world_coord(settlement).await;
         let draw_order = -settlement.current_population as i32;
         let commands = draw_label(name, &text, world_coord, &self.font, draw_order);
-        self.command_tx.send(commands).await.unwrap();
+        self.tx.send_engine_commands(commands).await;
     }
 
-    async fn get_world_coord(&mut self, settlement: &Settlement) -> WorldCoord {
+    async fn get_world_coord(&self, settlement: &Settlement) -> WorldCoord {
         let mut world_coord = self
             .tx
             .with_world(|world| get_house_base_coord(world, &settlement.position, &self.params))
@@ -99,7 +100,7 @@ where
         world_coord
     }
 
-    async fn update_settlement(&mut self, settlement: &Settlement) {
+    async fn update_settlement(&self, settlement: &Settlement) {
         if self.tx.get_settlement(&settlement.position).await.is_some() {
             self.draw_settlement(settlement).await;
         } else {
@@ -138,7 +139,14 @@ fn get_base_z(world: &World, house_position: &V2<usize>, house_width: f32) -> f3
 #[async_trait]
 impl<T> HandleEngineEvent for TownLabelArtist<T>
 where
-    T: GetNationDescription + GetSettlement + Settlements + WithWorld + Send + Sync + 'static,
+    T: GetNationDescription
+        + GetSettlement
+        + SendEngineCommands
+        + Settlements
+        + WithWorld
+        + Send
+        + Sync
+        + 'static,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {

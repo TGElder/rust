@@ -65,6 +65,7 @@ RevealPositionsVoyager WithWorld
 RoadPlanned WithWorld
 SelectedAvatar WithAvatars
 SendAvatarArtist Micros
+SendAvatarArtist SendEngineCommands
 SendAvatarArtist SendRotate
 SendAvatarArtist WithAvatars
 SendAvatarVisibility Micros
@@ -102,6 +103,7 @@ SendEdgeBuildSim RoadPlanned
 SendEdgeBuildSim WithEdgeTraffic
 SendEdgeBuildSim WithRoutes
 SendEdgeBuildSim WithWorld
+SendLabels SendEngineCommands
 SendLabels WithWorld
 SendObjectBuilder RemoveWorldObject
 SendObjectBuilder SetWorldObject
@@ -132,6 +134,7 @@ SendPrimeMover WithWorld
 SendResourceTargets InitTargets
 SendResourceTargets LoadTarget
 SendResourceTargets WithWorld
+SendRotate SendEngineCommands
 SendSettlementSim ClosestTargets
 SendSettlementSim Controlled
 SendSettlementSim CostOfPath
@@ -169,10 +172,12 @@ SendTownBuilder RemoveTown
 SendTownBuilder SetWorldObject
 SendTownHouseArtist GetNationDescription
 SendTownHouseArtist GetSettlement
+SendTownHouseArtist SendEngineCommands
 SendTownHouseArtist Settlements
 SendTownHouseArtist WithWorld
 SendTownLabelArtist GetNationDescription
 SendTownLabelArtist GetSettlement
+SendTownLabelArtist SendEngineCommands
 SendTownLabelArtist Settlements
 SendTownLabelArtist WithWorld
 SendVisibility HasParameters
@@ -182,6 +187,7 @@ SendVoyager RevealPositionsVoyager
 SendVoyager WithSettlements
 SendVoyager WithWorld
 SendWorldArtist Micros
+SendWorldArtist SendEngineCommands
 SendWorldArtist WithSettlements
 SendWorldArtist WithTerritory
 SendWorldArtist WithWorld

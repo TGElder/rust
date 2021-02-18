@@ -1,17 +1,15 @@
 use std::sync::Arc;
 
-use commons::async_channel::Sender;
 use commons::async_trait::async_trait;
 use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 
 use crate::artists::{AvatarArtist, AvatarDrawCommand};
 use crate::avatars::Avatars;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, SendRotate, WithAvatars};
+use crate::traits::{Micros, SendEngineCommands, SendRotate, WithAvatars};
 
 pub struct AvatarArtistActor<T> {
     tx: T,
-    command_tx: Sender<Vec<Command>>,
     avatar_artist: Option<AvatarArtist>,
     follow_avatar: bool,
     follow_avatar_binding: Button,
@@ -19,32 +17,26 @@ pub struct AvatarArtistActor<T> {
 
 impl<T> AvatarArtistActor<T>
 where
-    T: Micros + SendRotate + WithAvatars + Send + Sync,
+    T: Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
 {
-    pub fn new(
-        tx: T,
-        command_tx: Sender<Vec<Command>>,
-        avatar_artist: AvatarArtist,
-    ) -> AvatarArtistActor<T> {
+    pub fn new(tx: T, avatar_artist: AvatarArtist) -> AvatarArtistActor<T> {
         AvatarArtistActor {
             tx,
-            command_tx,
             avatar_artist: Some(avatar_artist),
             follow_avatar: true,
             follow_avatar_binding: Button::Key(VirtualKeyCode::C),
         }
     }
 
-    pub async fn init(&mut self) {
+    pub async fn init(&self) {
         self.send_messages().await;
     }
 
-    async fn send_messages(&mut self) {
+    async fn send_messages(&self) {
         if !self.follow_avatar {
-            self.command_tx
-                .send(vec![Command::LookAt(None)])
-                .await
-                .unwrap();
+            self.tx
+                .send_engine_commands(vec![Command::LookAt(None)])
+                .await;
         }
 
         let rotate_over_undrawn = self.follow_avatar;
@@ -71,7 +63,7 @@ where
             })
             .await;
 
-        self.command_tx.send(commands).await.unwrap();
+        self.tx.send_engine_commands(commands).await;
         self.avatar_artist = Some(avatar_artist)
     }
 
@@ -104,7 +96,7 @@ fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {
 #[async_trait]
 impl<T> HandleEngineEvent for AvatarArtistActor<T>
 where
-    T: Micros + SendRotate + WithAvatars + Send + Sync,
+    T: Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {

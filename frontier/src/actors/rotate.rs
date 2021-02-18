@@ -1,21 +1,24 @@
 use std::sync::Arc;
 
-use commons::async_channel::Sender;
 use commons::async_trait::async_trait;
 use isometric::event_handlers::RotateHandler;
-use isometric::{Command, Event, EventHandler, VirtualKeyCode};
+use isometric::{Event, EventHandler, VirtualKeyCode};
 
 use crate::system::{Capture, HandleEngineEvent};
+use crate::traits::SendEngineCommands;
 
-pub struct Rotate {
-    command_tx: Sender<Vec<Command>>,
+pub struct Rotate<T> {
+    tx: T,
     engine_rotatehandler: RotateHandler,
 }
 
-impl Rotate {
-    pub fn new(command_tx: Sender<Vec<Command>>) -> Rotate {
+impl<T> Rotate<T>
+where
+    T: SendEngineCommands,
+{
+    pub fn new(tx: T) -> Rotate<T> {
         Rotate {
-            command_tx,
+            tx,
             engine_rotatehandler: RotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E),
         }
     }
@@ -30,10 +33,13 @@ impl Rotate {
 }
 
 #[async_trait]
-impl HandleEngineEvent for Rotate {
+impl<T> HandleEngineEvent for Rotate<T>
+where
+    T: SendEngineCommands + Send + Sync,
+{
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         let commands = self.engine_rotatehandler.handle_event(event);
-        self.command_tx.send(commands).await.unwrap();
+        self.tx.send_engine_commands(commands).await;
         Capture::No
     }
 }

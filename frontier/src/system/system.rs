@@ -50,7 +50,7 @@ pub struct System {
     pub position_sim: Process<PositionBuildSimulation<Polysender>>,
     pub prime_mover: Process<PrimeMover<Polysender>>,
     pub resource_targets: Process<ResourceTargets<Polysender>>,
-    pub rotate: Process<Rotate>,
+    pub rotate: Process<Rotate<Polysender>>,
     pub settlement_sims: Vec<Process<SettlementSimulation<Polysender>>>,
     pub setup_new_world: Process<SetupNewWorld<Polysender>>,
     pub setup_pathfinders: Process<SetupPathfinders<Polysender>>,
@@ -126,6 +126,7 @@ impl System {
             clock: Arc::new(RwLock::new(Clock::new(RealTime {}, params.default_speed))),
             edge_sim_tx,
             edge_traffic: Arc::default(),
+            engine_tx: engine.command_tx(),
             labels_tx,
             nations: Arc::default(),
             object_builder_tx,
@@ -179,7 +180,6 @@ impl System {
             avatar_artist: Process::new(
                 AvatarArtistActor::new(
                     tx.clone_with_name("avatar_artist"),
-                    engine.command_tx(),
                     AvatarArtist::new(AvatarArtistParams::new(&params.light_direction)),
                 ),
                 avatar_artist_rx,
@@ -226,10 +226,7 @@ impl System {
                 EventForwarderActor::new(tx.clone_with_name("event_forwarder")),
                 event_forwarder_rx,
             ),
-            labels: Process::new(
-                Labels::new(tx.clone_with_name("labels"), engine.command_tx()),
-                labels_rx,
-            ),
+            labels: Process::new(Labels::new(tx.clone_with_name("labels")), labels_rx),
             object_builder: Process::new(
                 ObjectBuilder::new(tx.clone_with_name("object_builder"), params.seed),
                 object_builder_rx,
@@ -259,7 +256,7 @@ impl System {
                 ResourceTargets::new(tx.clone_with_name("resource_targets")),
                 resource_targets_rx,
             ),
-            rotate: Process::new(Rotate::new(engine.command_tx()), rotate_rx),
+            rotate: Process::new(Rotate::new(tx.clone_with_name("rotate")), rotate_rx),
             settlement_sims: settlement_sim_rxs
                 .into_iter()
                 .map(|rx| {
@@ -286,19 +283,11 @@ impl System {
                 town_builder_rx,
             ),
             town_house_artist: Process::new(
-                TownHouseArtist::new(
-                    tx.clone_with_name("town_houses"),
-                    engine.command_tx(),
-                    params.town_artist,
-                ),
+                TownHouseArtist::new(tx.clone_with_name("town_houses"), params.town_artist),
                 town_house_artist_rx,
             ),
             town_label_artist: Process::new(
-                TownLabelArtist::new(
-                    tx.clone_with_name("town_labels"),
-                    engine.command_tx(),
-                    params.town_artist,
-                ),
+                TownLabelArtist::new(tx.clone_with_name("town_labels"), params.town_artist),
                 town_label_artist_rx,
             ),
             visibility: Process::new(
@@ -309,7 +298,6 @@ impl System {
             world_artist: Process::new(
                 WorldArtistActor::new(
                     tx.clone_with_name("world_artist_actor"),
-                    engine.command_tx(),
                     WorldArtist::new(
                         params.width,
                         params.width,

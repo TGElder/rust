@@ -1,40 +1,32 @@
 use crate::actors::town_artist::get_house_height_without_roof;
 use crate::actors::TownArtistParameters;
 use crate::settlement::*;
-use crate::traits::{GetNationDescription, GetSettlement, Settlements, WithWorld};
+use crate::traits::{
+    GetNationDescription, GetSettlement, SendEngineCommands, Settlements, WithWorld,
+};
 use crate::world::World;
-use commons::async_channel::Sender;
 use commons::V2;
 use isometric::drawing::{draw_house, DrawHouseParams};
 use isometric::{Color, Command};
 
 pub struct TownHouseArtist<T> {
     tx: T,
-    command_tx: Sender<Vec<Command>>,
     params: TownArtistParameters,
 }
 
 impl<T> TownHouseArtist<T>
 where
-    T: GetNationDescription + GetSettlement + Settlements + WithWorld + Send,
+    T: GetNationDescription + GetSettlement + SendEngineCommands + Settlements + WithWorld + Send,
 {
-    pub fn new(
-        tx: T,
-        command_tx: Sender<Vec<Command>>,
-        params: TownArtistParameters,
-    ) -> TownHouseArtist<T> {
-        TownHouseArtist {
-            tx,
-            command_tx,
-            params,
-        }
+    pub fn new(tx: T, params: TownArtistParameters) -> TownHouseArtist<T> {
+        TownHouseArtist { tx, params }
     }
 
-    pub async fn init(&mut self) {
+    pub async fn init(&self) {
         self.draw_all().await;
     }
 
-    pub async fn update_settlement(&mut self, settlement: Settlement) {
+    pub async fn update_settlement(&self, settlement: Settlement) {
         if self.tx.get_settlement(&settlement.position).await.is_some() {
             self.draw_settlement(settlement).await
         } else {
@@ -78,12 +70,12 @@ where
             .tx
             .with_world(|world| get_draw_commands(name, world, &settlement.position, params))
             .await;
-        self.command_tx.send(commands).await.unwrap();
+        self.tx.send_engine_commands(commands).await;
     }
 
     async fn erase_settlement(&self, settlement: Settlement) {
         let command = Command::Erase(get_name(&settlement.position));
-        self.command_tx.send(vec![command]).await.unwrap();
+        self.tx.send_engine_commands(vec![command]).await;
     }
 }
 

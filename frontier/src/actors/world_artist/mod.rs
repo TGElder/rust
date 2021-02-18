@@ -1,16 +1,15 @@
 mod coloring;
 
 pub use coloring::{BaseColors, WorldColoringParameters};
-use commons::async_channel::Sender;
 use commons::async_trait::async_trait;
 
 use crate::artists::{Slab, WorldArtist};
 use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, WithSettlements, WithTerritory, WithWorld};
+use crate::traits::{Micros, SendEngineCommands, WithSettlements, WithTerritory, WithWorld};
 use coloring::{world_coloring, Overlay};
 use commons::{v2, M, V2};
-use isometric::{Button, Color, Command, ElementState, Event, VirtualKeyCode};
+use isometric::{Button, Color, ElementState, Event, VirtualKeyCode};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -28,7 +27,6 @@ impl Default for WorldArtistActorBindings {
 
 pub struct WorldArtistActor<T> {
     tx: T,
-    command_tx: Sender<Vec<Command>>,
     bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
     coloring_params: WorldColoringParameters,
@@ -39,11 +37,10 @@ pub struct WorldArtistActor<T> {
 
 impl<T> WorldArtistActor<T>
 where
-    T: Micros + WithSettlements + WithTerritory + WithWorld + Send + Sync,
+    T: Micros + SendEngineCommands + WithSettlements + WithTerritory + WithWorld + Send + Sync,
 {
     pub fn new(
         tx: T,
-        command_tx: Sender<Vec<Command>>,
         world_artist: WorldArtist,
         coloring_params: WorldColoringParameters,
         overlay_alpha: f32,
@@ -51,7 +48,6 @@ where
     ) -> WorldArtistActor<T> {
         WorldArtistActor {
             tx,
-            command_tx,
             bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},
             world_artist,
@@ -78,7 +74,7 @@ where
 
     pub async fn init(&mut self) {
         let commands = self.world_artist.init();
-        self.command_tx.send(commands).await.unwrap();
+        self.tx.send_engine_commands(commands).await;
         self.redraw_all().await;
     }
 
@@ -125,7 +121,7 @@ where
                 )
             })
             .await;
-        self.command_tx.send(commands).await.unwrap();
+        self.tx.send_engine_commands(commands).await;
     }
 
     fn has_been_redrawn_after(&self, slab: &Slab, when: &u128) -> bool {
@@ -135,7 +131,7 @@ where
             .unwrap_or(false)
     }
 
-    async fn get_territory_overlay(&mut self, slab: &Slab) -> Option<Overlay> {
+    async fn get_territory_overlay(&self, slab: &Slab) -> Option<Overlay> {
         if !self.territory_layer {
             None
         } else {
@@ -146,7 +142,7 @@ where
         }
     }
 
-    async fn get_territory_colors(&mut self, slab: &Slab) -> M<Option<Color>> {
+    async fn get_territory_colors(&self, slab: &Slab) -> M<Option<Color>> {
         let territory = self.get_territory(slab).await;
         let nations = self.get_nations(&territory).await;
 
@@ -158,7 +154,7 @@ where
         })
     }
 
-    async fn get_territory(&mut self, slab: &Slab) -> M<Option<V2<usize>>> {
+    async fn get_territory(&self, slab: &Slab) -> M<Option<V2<usize>>> {
         self.tx
             .with_territory(|territory| {
                 M::from_fn(slab.slab_size, slab.slab_size, |x, y| {
@@ -170,10 +166,7 @@ where
             .await
     }
 
-    async fn get_nations(
-        &mut self,
-        territory: &M<Option<V2<usize>>>,
-    ) -> HashMap<V2<usize>, String> {
+    async fn get_nations(&self, territory: &M<Option<V2<usize>>>) -> HashMap<V2<usize>, String> {
         let distinct = territory.iter().flatten().copied().collect::<HashSet<_>>();
         self.tx
             .with_settlements(|settlements| {
@@ -195,7 +188,7 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for WorldArtistActor<T>
 where
-    T: Micros + WithSettlements + WithTerritory + WithWorld + Send + Sync,
+    T: Micros + SendEngineCommands + WithSettlements + WithTerritory + WithWorld + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {
