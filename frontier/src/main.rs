@@ -38,7 +38,8 @@ use crate::system::{System, SystemController};
 
 use commons::async_channel::unbounded;
 use commons::fn_sender::fn_channel;
-use commons::log::{info, LevelFilter};
+use commons::log::{debug, info, LevelFilter};
+use commons::num_cpus;
 use commons::process::run_passive;
 use futures::executor::{block_on, ThreadPool};
 use futures::FutureExt;
@@ -64,7 +65,9 @@ fn main() {
         label_padding: params.label_padding,
     });
 
-    let thread_pool = ThreadPool::new().unwrap();
+    let pool_size = num_cpus::get().max(2) - 1;
+    debug!("Creating thread pool with {} threads", pool_size);
+    let thread_pool = ThreadPool::builder().pool_size(pool_size).create().unwrap();
 
     let mut system = System::new(params, &mut engine, thread_pool.clone());
     match args {
