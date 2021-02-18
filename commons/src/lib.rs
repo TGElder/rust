@@ -11,7 +11,6 @@ extern crate maplit;
 pub extern crate nalgebra as na;
 extern crate noise;
 pub extern crate num;
-pub extern crate num_cpus;
 pub extern crate rand;
 extern crate serde;
 
