@@ -133,8 +133,8 @@ SendResourceTargets InitTargets
 SendResourceTargets LoadTarget
 SendResourceTargets WithWorld
 SendSettlementSim ClosestTargets
-SendSettlementSim CostOfPath
 SendSettlementSim Controlled
+SendSettlementSim CostOfPath
 SendSettlementSim GetSettlement
 SendSettlementSim HasParameters
 SendSettlementSim InBounds
@@ -151,12 +151,14 @@ SendSettlementSim WithRoutes
 SendSettlementSim WithSettlements
 SendSettlementSim WithSimQueue
 SendSettlementSim WithTraffic
-SendSetupNewWorld SendParameters
+SendSetupNewWorld HasParameters
 SendSetupNewWorld VisibleLandPositions
 SendSetupNewWorld WithAvatars
 SendSetupNewWorld WithNations
 SendSetupNewWorld WithSettlements
 SendSetupNewWorld WithWorld
+SendSetupPathfinder HasParameters
+SendSetupPathfinder UpdatePositionsAllPathfinders
 SendSpeedControl SendClock
 SendTownBuilder AddTown
 SendTownBuilder GetSettlement
@@ -173,8 +175,8 @@ SendTownLabelArtist GetNationDescription
 SendTownLabelArtist GetSettlement
 SendTownLabelArtist Settlements
 SendTownLabelArtist WithWorld
+SendVisibility HasParameters
 SendVisibility RevealPositions
-SendVisibility SendParameters
 SendVisibility WithWorld
 SendVoyager RevealPositionsVoyager
 SendVoyager WithSettlements
@@ -211,8 +213,8 @@ UpdateSettlement DrawWorld
 UpdateSettlement ExpandPositions
 UpdateSettlement Micros
 UpdateSettlement WithSettlements
+UpdateTerritory HasParameters
 UpdateTerritory Micros
-UpdateTerritory SendParameters
 UpdateTerritory SendPathfinder
 UpdateTerritory SetControlDurations
 Visibility SendVisibility
