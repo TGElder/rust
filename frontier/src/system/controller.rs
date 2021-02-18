@@ -42,11 +42,11 @@ impl SystemController {
         if self.paused != pause {
             if pause {
                 info!("Pausing system");
-                self.tx.send_future(|system| system.pause().boxed());
+                block_on(self.tx.send_future(|system| system.pause().boxed()));
                 info!("Paused system");
             } else {
                 info!("Starting system");
-                self.tx.send_future(|system| system.start().boxed());
+                block_on(self.tx.send_future(|system| system.start().boxed()));
                 info!("Started system");
             }
             self.paused = pause;
@@ -61,7 +61,7 @@ impl SystemController {
         info!("Saving system");
         let was_paused = self.paused;
         self.set_pause(true);
-        self.tx.send_future(|system| system.save(SAVE_PATH).boxed());
+        block_on(self.tx.send_future(|system| system.save(SAVE_PATH).boxed()));
         self.set_pause(was_paused);
         info!("Saved system");
     }
