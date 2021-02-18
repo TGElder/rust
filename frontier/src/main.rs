@@ -34,14 +34,10 @@ mod world_gen;
 
 use crate::args::Args;
 use crate::parameters::Parameters;
-use crate::system::{System, SystemController};
+use crate::system::System;
 
-use commons::async_channel::unbounded;
-use commons::fn_sender::fn_channel;
-use commons::log::{info, LevelFilter};
-use commons::process::run_passive;
-use futures::executor::{block_on, ThreadPool};
-use futures::FutureExt;
+use commons::log::LevelFilter;
+use futures::executor::block_on;
 use isometric::{IsometricEngine, IsometricEngineParameters};
 use simple_logger::SimpleLogger;
 use std::env;
@@ -64,25 +60,14 @@ fn main() {
         label_padding: params.label_padding,
     });
 
-    let thread_pool = ThreadPool::new().unwrap();
-
-    let mut system = System::new(params, &mut engine, thread_pool.clone());
+    let mut system = System::new(params, &mut engine);
     match args {
         Args::New { .. } => system.new_game(),
         Args::Load { path, .. } => block_on(system.load(&path)),
     }
-
-    // Run
-    let (system_tx, system_rx) = fn_channel();
-    system_tx.send_future(|system: &mut System| system.start().boxed());
-    let (shutdown_tx, shutdown_rx) = unbounded();
-    engine.add_event_consumer(SystemController::new(system_tx, shutdown_tx));
-    let system_handle = run_passive(system, system_rx, shutdown_rx, &thread_pool);
+    let system_handle = system.run();
 
     engine.run();
 
-    // Wait
-
-    info!("Joining system");
     block_on(system_handle);
 }

@@ -18,15 +18,17 @@ use crate::settlement::Settlement;
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
+use crate::system::System;
 use crate::territory::Territory;
 use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::HasParameters;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
-    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendRotate, SendTownHouseArtist,
-    SendTownLabelArtist, SendVisibility, SendVoyager, SendWorldArtist, WithAvatars, WithBuildQueue,
-    WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithRouteToPorts, WithRoutes,
-    WithSettlements, WithSimQueue, WithTerritory, WithTraffic, WithWorld,
+    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendRotate, SendSystem,
+    SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager, SendWorldArtist,
+    WithAvatars, WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder,
+    WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic,
+    WithWorld,
 };
 use crate::world::World;
 use commons::async_channel::Sender;
@@ -76,6 +78,7 @@ pub struct Context {
     pub setup_pathfinders_tx: FnSender<SetupPathfinders<Context>>,
     pub sim_queue: Arc<RwLock<Vec<V2<usize>>>>,
     pub speed_control_tx: FnSender<SpeedControl<Context>>,
+    pub system_tx: FnSender<System>,
     pub territory: Arc<RwLock<Territory>>,
     pub town_builder_tx: FnSender<TownBuilderActor<Context>>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Context>>,
@@ -130,6 +133,7 @@ impl Context {
             setup_pathfinders_tx: self.setup_pathfinders_tx.clone_with_name(name),
             sim_queue: self.sim_queue.clone(),
             speed_control_tx: self.speed_control_tx.clone_with_name(name),
+            system_tx: self.system_tx.clone_with_name(name),
             territory: self.territory.clone(),
             traffic: self.traffic.clone(),
             town_builder_tx: self.town_builder_tx.clone_with_name(name),
@@ -211,6 +215,27 @@ impl SendRotate for Context {
         F: FnOnce(&mut Rotate<Self>) -> O + Send + 'static,
     {
         self.rotate_tx.send(function);
+    }
+}
+
+#[async_trait]
+impl SendSystem for Context {
+    async fn send_system<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut System) -> O + Send + 'static,
+    {
+        self.system_tx.send(move |system| function(system)).await
+    }
+
+    async fn send_system_future<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut super::System) -> BoxFuture<O> + Send + 'static,
+    {
+        self.system_tx
+            .send_future(move |system| function(system))
+            .await
     }
 }
 
