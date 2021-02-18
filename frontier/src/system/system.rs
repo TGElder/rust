@@ -11,10 +11,10 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
-    Cheats, Clock, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, RealTime,
-    ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    AvatarArtistActor, AvatarVisibility, BackgroundService, BasicAvatarControls, BasicRoadBuilder,
+    BuilderActor, Cheats, Clock, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover,
+    RealTime, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SpeedControl,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
     WorldColoringParameters, WorldGen,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
@@ -116,6 +116,7 @@ impl System {
             avatar_artist_tx,
             avatar_visibility_tx,
             avatars: Arc::default(),
+            background_service: Arc::new(BackgroundService::new(pool.clone())),
             basic_avatar_controls_tx,
             basic_road_builder_tx,
             builder_tx,
@@ -416,6 +417,8 @@ impl System {
 
     pub async fn pause(&mut self) {
         self.tx.mut_clock(|clock| clock.pause()).await;
+
+        self.tx.background_service.wait_on_tasks();
 
         self.event_forwarder.drain(&self.tx.pool, false).await;
         self.avatar_artist.drain(&self.tx.pool, true).await;

@@ -1,8 +1,9 @@
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
-    Cheats, Clock, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, RealTime,
-    ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldGen,
+    AvatarArtistActor, AvatarVisibility, BackgroundService, BasicAvatarControls, BasicRoadBuilder,
+    BuilderActor, Cheats, Clock, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover,
+    RealTime, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SpeedControl,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
+    WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -42,6 +43,7 @@ pub struct Polysender {
     pub avatar_artist_tx: FnSender<AvatarArtistActor<Polysender>>,
     pub avatar_visibility_tx: FnSender<AvatarVisibility<Polysender>>,
     pub avatars: Arc<RwLock<Avatars>>,
+    pub background_service: Arc<BackgroundService>,
     pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Polysender>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
     pub builder_tx: FnSender<BuilderActor<Polysender>>,
@@ -88,6 +90,7 @@ impl Polysender {
             avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
             avatar_visibility_tx: self.avatar_visibility_tx.clone_with_name(name),
             avatars: self.avatars.clone(),
+            background_service: self.background_service.clone(),
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
             builder_tx: self.builder_tx.clone_with_name(name),
@@ -147,7 +150,7 @@ impl RunInBackground for Polysender {
     where
         Fut: Future<Output = ()> + Send + 'static,
     {
-        self.pool.spawn_ok(future)
+        self.background_service.run_in_background(future);
     }
 }
 
