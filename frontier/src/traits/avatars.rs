@@ -30,7 +30,7 @@ where
     T: WithAvatars + Send + Sync,
 {
     async fn update_avatar_journey(&self, name: &str, journey: Option<Journey>) {
-        self.mut_avatars(move |avatars| {
+        self.mut_avatars(|avatars| {
             if let Some(avatar) = avatars.all.get_mut(name) {
                 avatar.journey = journey;
             }

@@ -14,7 +14,7 @@ use crate::world::{World, WorldObject};
 
 impl<T> PositionBuildSimulation<T>
 where
-    T: InsertBuildInstruction + WithRoutes + WithWorld + WithTraffic,
+    T: InsertBuildInstruction + WithRoutes + WithTraffic + WithWorld,
 {
     pub async fn build_crops(&mut self, positions: HashSet<V2<usize>>) {
         let crop_routes = self.get_crop_routes(positions).await;

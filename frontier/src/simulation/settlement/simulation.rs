@@ -48,13 +48,13 @@ where
         + RefreshEdges
         + RefreshPositions
         + RemoveTown
-        + WithRoutes
-        + WithSettlements
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
         + WithEdgeTraffic
+        + WithRoutes
         + WithRouteToPorts
+        + WithSettlements
         + WithSimQueue
         + WithTraffic
         + WithWorld

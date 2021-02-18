@@ -11,7 +11,7 @@ use std::time::Duration;
 
 impl<T> SettlementSimulation<T>
 where
-    T: WithRoutes + WithSettlements + WithRouteToPorts + WithTraffic,
+    T: WithRoutes + WithRouteToPorts + WithSettlements + WithTraffic,
 {
     pub async fn get_town_traffic(
         &self,
@@ -216,23 +216,6 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithSettlements for Tx {
-        async fn with_settlements<F, O>(&self, function: F) -> O
-        where
-            F: FnOnce(&HashMap<V2<usize>, Settlement>) -> O + Send,
-        {
-            function(&self.settlements.lock().unwrap())
-        }
-
-        async fn mut_settlements<F, O>(&self, function: F) -> O
-        where
-            F: FnOnce(&mut HashMap<V2<usize>, Settlement>) -> O + Send,
-        {
-            function(&mut self.settlements.lock().unwrap())
-        }
-    }
-
-    #[async_trait]
     impl WithRouteToPorts for Tx {
         async fn with_route_to_ports<F, O>(&self, function: F) -> O
         where
@@ -246,6 +229,23 @@ mod tests {
             F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
         {
             function(&mut self.route_to_ports.lock().unwrap())
+        }
+    }
+
+    #[async_trait]
+    impl WithSettlements for Tx {
+        async fn with_settlements<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&HashMap<V2<usize>, Settlement>) -> O + Send,
+        {
+            function(&self.settlements.lock().unwrap())
+        }
+
+        async fn mut_settlements<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut HashMap<V2<usize>, Settlement>) -> O + Send,
+        {
+            function(&mut self.settlements.lock().unwrap())
         }
     }
 

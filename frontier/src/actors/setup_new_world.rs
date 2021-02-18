@@ -24,11 +24,11 @@ pub struct SetupNewWorld<T> {
 impl<T> SetupNewWorld<T>
 where
     T: HasParameters
+        + Visibility
+        + VisibleLandPositions
         + WithAvatars
         + WithNations
         + WithSettlements
-        + Visibility
-        + VisibleLandPositions
         + WithWorld,
 {
     pub fn new(tx: T) -> SetupNewWorld<T> {

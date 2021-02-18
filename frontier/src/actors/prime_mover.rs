@@ -113,7 +113,7 @@ where
             .into_iter()
             .zip(dormant.into_iter())
             .collect::<HashMap<_, _>>();
-        let keys = allocation.keys().cloned().collect::<Vec<_>>();
+        let keys = allocation.keys().copied().collect::<Vec<_>>();
         let (journies, colors) = join!(self.get_journies(&keys, micros), self.get_colors(&keys));
 
         let avatars = self.get_avatars(allocation, journies, colors).await;

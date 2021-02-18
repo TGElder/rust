@@ -32,7 +32,7 @@ impl Default for CheatBindings {
 
 impl<T> Cheats<T>
 where
-    T: RevealAll + WithAvatars + UpdateAvatarJourney + Visibility + WithWorld,
+    T: RevealAll + UpdateAvatarJourney + Visibility + WithAvatars + WithWorld,
 {
     pub fn new(tx: T) -> Cheats<T> {
         Cheats {
@@ -81,7 +81,7 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for Cheats<T>
 where
-    T: RevealAll + WithAvatars + UpdateAvatarJourney + Visibility + WithWorld + Send + Sync,
+    T: RevealAll + UpdateAvatarJourney + Visibility + WithAvatars + WithWorld + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::WorldPositionChanged(world_coord) = *event {

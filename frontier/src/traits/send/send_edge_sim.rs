@@ -17,8 +17,8 @@ pub trait SendEdgeBuildSim:
     + RemoveBuildInstruction
     + RemoveRoad
     + RoadPlanned
-    + WithRoutes
     + WithEdgeTraffic
+    + WithRoutes
     + WithWorld
     + Send
     + Sync
