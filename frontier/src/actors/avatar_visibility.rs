@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 pub struct AvatarVisibility<T> {
-    tx: T,
+    cx: T,
     last_update: Option<u128>,
     refresh_interval: Duration,
 }
@@ -16,16 +16,16 @@ impl<T> AvatarVisibility<T>
 where
     T: Micros + SelectedAvatar + Visibility,
 {
-    pub fn new(tx: T) -> AvatarVisibility<T> {
+    pub fn new(cx: T) -> AvatarVisibility<T> {
         AvatarVisibility {
-            tx,
+            cx,
             last_update: None,
             refresh_interval: Duration::from_millis(100),
         }
     }
 
     async fn get_visited(&self, from: &Option<u128>, to: &u128) -> Option<HashSet<V2<usize>>> {
-        let journey = self.tx.selected_avatar().await?.journey?;
+        let journey = self.cx.selected_avatar().await?.journey?;
         Some(
             journey
                 .frames_between_times(&from.unwrap_or(0), to)
@@ -42,9 +42,9 @@ where
     T: Micros + SelectedAvatar + Visibility + Send + Sync,
 {
     async fn step(&mut self) {
-        let until = self.tx.micros().await;
+        let until = self.cx.micros().await;
         if let Some(visited) = self.get_visited(&self.last_update, &until).await {
-            self.tx.check_visibility_and_reveal(visited);
+            self.cx.check_visibility_and_reveal(visited);
         }
         self.last_update = Some(until);
         sleep(self.refresh_interval).await;

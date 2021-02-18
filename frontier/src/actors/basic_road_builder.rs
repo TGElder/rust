@@ -10,7 +10,7 @@ use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
 
 pub struct BasicRoadBuilder<T> {
-    tx: T,
+    cx: T,
     avatar_travel_duration: Arc<AvatarTravelDuration>,
     road_build_travel_duration: Arc<AutoRoadTravelDuration>,
     binding: Button,
@@ -21,12 +21,12 @@ where
     T: Micros + SelectedAvatar + UpdateAvatarJourney + UpdateRoads + WithWorld + Send + Sync,
 {
     pub fn new(
-        tx: T,
+        cx: T,
         avatar_travel_duration: Arc<AvatarTravelDuration>,
         road_build_travel_duration: Arc<AutoRoadTravelDuration>,
     ) -> BasicRoadBuilder<T> {
         BasicRoadBuilder {
-            tx,
+            cx,
             avatar_travel_duration,
             road_build_travel_duration,
             binding: Button::Key(VirtualKeyCode::R),
@@ -34,7 +34,7 @@ where
     }
 
     async fn build_road(&mut self) {
-        let (micros, selected_avatar) = join!(self.tx.micros(), self.tx.selected_avatar());
+        let (micros, selected_avatar) = join!(self.cx.micros(), self.cx.selected_avatar());
         let selected_avatar = unwrap_or!(selected_avatar, return);
         let forward_path = unwrap_or!(self.get_forward_path(&selected_avatar, &micros), return);
         if !self.is_buildable(&forward_path).await {
@@ -60,7 +60,7 @@ where
     }
 
     async fn is_buildable(&self, forward_path: &[V2<usize>]) -> bool {
-        self.tx
+        self.cx
             .with_world(|world| {
                 self.road_build_travel_duration
                     .get_duration(world, &forward_path[0], &forward_path[1])
@@ -71,11 +71,11 @@ where
 
     async fn move_avatar(&self, name: &str, forward_path: Vec<V2<usize>>, micros: u128) {
         let journey = self.get_journey(forward_path, micros).await;
-        self.tx.update_avatar_journey(&name, Some(journey)).await;
+        self.cx.update_avatar_journey(&name, Some(journey)).await;
     }
 
     async fn get_journey(&self, forward_path: Vec<V2<usize>>, start_at: u128) -> Journey {
-        self.tx
+        self.cx
             .with_world(|world| {
                 Journey::new(
                     world,
@@ -91,11 +91,11 @@ where
     async fn update_roads(&self, forward_path: &[V2<usize>]) {
         let mode = self.get_mode(forward_path).await;
         let result = RoadBuilderResult::new(vec![forward_path[0], forward_path[1]], mode);
-        self.tx.update_roads(result).await;
+        self.cx.update_roads(result).await;
     }
 
     async fn get_mode(&self, forward_path: &[V2<usize>]) -> RoadBuildMode {
-        self.tx
+        self.cx
             .with_world(|world| {
                 let edge = Edge::new(forward_path[0], forward_path[1]);
                 if world.is_road(&edge) {

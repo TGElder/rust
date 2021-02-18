@@ -42,17 +42,17 @@ where
         .await
 }
 
-async fn redraw<T>(tx: &T, result: &Arc<RoadBuilderResult>)
+async fn redraw<T>(cx: &T, result: &Arc<RoadBuilderResult>)
 where
     T: DrawWorld + Micros,
 {
-    let micros = tx.micros().await;
+    let micros = cx.micros().await;
     for position in result.path().iter().cloned() {
-        tx.draw_world_tile(position, micros);
+        cx.draw_world_tile(position, micros);
     }
 }
 
-fn check_visibility_and_reveal(tx: &dyn Visibility, result: &Arc<RoadBuilderResult>) {
+fn check_visibility_and_reveal(cx: &dyn Visibility, result: &Arc<RoadBuilderResult>) {
     let visited = result.path().iter().cloned().collect();
-    tx.check_visibility_and_reveal(visited);
+    cx.check_visibility_and_reveal(visited);
 }

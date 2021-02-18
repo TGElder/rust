@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 pub struct TownBuilderActor<T> {
-    tx: T,
+    cx: T,
     binding: Button,
     world_coord: Option<WorldCoord>,
 }
@@ -27,9 +27,9 @@ where
         + RemoveTown
         + SetWorldObject,
 {
-    pub fn new(tx: T) -> TownBuilderActor<T> {
+    pub fn new(cx: T) -> TownBuilderActor<T> {
         TownBuilderActor {
-            tx,
+            cx,
             binding: Button::Key(VirtualKeyCode::H),
             world_coord: None,
         }
@@ -41,8 +41,8 @@ where
 
     async fn toggle_town(&mut self) {
         let position = unwrap_or!(self.get_position(), return);
-        if self.tx.get_settlement(&position).await.is_some() {
-            self.tx.remove_town(&position).await;
+        if self.cx.get_settlement(&position).await.is_some() {
+            self.cx.remove_town(&position).await;
         } else {
             self.add_town(position).await;
         }
@@ -55,8 +55,8 @@ where
 
     async fn add_town(&mut self, position: V2<usize>) {
         let nation = self.random_nation().await;
-        let name = self.tx.random_town_name(&nation).await.unwrap();
-        let last_population_update_micros = self.tx.micros().await;
+        let name = self.cx.random_town_name(&nation).await.unwrap();
+        let last_population_update_micros = self.cx.micros().await;
 
         let town = Settlement {
             position,
@@ -69,11 +69,11 @@ where
             last_population_update_micros,
         };
 
-        self.tx.add_town(town).await;
+        self.cx.add_town(town).await;
     }
 
     async fn random_nation(&self) -> String {
-        self.tx
+        self.cx
             .nation_descriptions()
             .await
             .into_iter()

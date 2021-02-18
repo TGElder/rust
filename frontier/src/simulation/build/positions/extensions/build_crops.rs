@@ -31,7 +31,7 @@ where
         &self,
         positions: HashSet<V2<usize>>,
     ) -> HashMap<V2<usize>, HashSet<RouteKey>> {
-        self.tx
+        self.cx
             .with_traffic(|traffic| get_crop_routes(&traffic, positions))
             .await
     }
@@ -40,7 +40,7 @@ where
         &self,
         crop_routes: HashMap<V2<usize>, HashSet<RouteKey>>,
     ) -> HashMap<V2<usize>, HashSet<RouteKey>> {
-        self.tx
+        self.cx
             .with_world(|world| filter_crop_routes_with_free_destination(world, crop_routes))
             .await
     }
@@ -50,7 +50,7 @@ where
         position: V2<usize>,
         route_keys: HashSet<RouteKey>,
     ) {
-        self.tx
+        self.cx
             .insert_build_instruction(BuildInstruction {
                 what: Build::Crops {
                     position,
@@ -62,7 +62,7 @@ where
     }
 
     async fn first_visit(&self, route_keys: HashSet<RouteKey>) -> Option<u128> {
-        self.tx
+        self.cx
             .with_routes(|routes| {
                 route_keys
                     .into_iter()
@@ -135,7 +135,7 @@ mod tests {
 
     use super::*;
 
-    struct Tx {
+    struct Cx {
         build_instructions: Mutex<Vec<BuildInstruction>>,
         routes: Mutex<Routes>,
         traffic: Mutex<Traffic>,
@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl InsertBuildInstruction for Tx {
+    impl InsertBuildInstruction for Cx {
         async fn insert_build_instruction(&self, build_instruction: BuildInstruction) {
             self.build_instructions
                 .lock()
@@ -153,7 +153,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithRoutes for Tx {
+    impl WithRoutes for Cx {
         async fn with_routes<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&Routes) -> O + Send,
@@ -170,7 +170,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithWorld for Tx {
+    impl WithWorld for Cx {
         async fn with_world<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&World) -> O + Send,
@@ -187,7 +187,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithTraffic for Tx {
+    impl WithTraffic for Cx {
         async fn with_traffic<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&Traffic) -> O + Send,
@@ -211,7 +211,7 @@ mod tests {
         }
     }
 
-    fn happy_path_tx() -> Tx {
+    fn happy_path_tx() -> Cx {
         let mut routes = Routes::default();
         routes.insert_route(
             happy_path_route_key(),
@@ -230,7 +230,7 @@ mod tests {
 
         let world = World::new(M::from_element(3, 3, 1.0), 0.5);
 
-        Tx {
+        Cx {
             build_instructions: Mutex::default(),
             routes: Mutex::new(routes),
             traffic: Mutex::new(traffic),
@@ -248,7 +248,7 @@ mod tests {
 
         // Then
         assert!(matches!(
-            build_crops.tx.build_instructions.lock().unwrap()[0],
+            build_crops.cx.build_instructions.lock().unwrap()[0],
             BuildInstruction{
                 what: Build::Crops{position, .. },
                 when: 11
@@ -259,9 +259,9 @@ mod tests {
     #[test]
     fn should_not_build_crops_if_non_crop_route_ending_at_position() {
         // Given
-        let tx = happy_path_tx();
+        let cx = happy_path_tx();
         {
-            tx.routes.lock().unwrap().insert_route(
+            cx.routes.lock().unwrap().insert_route(
                 RouteKey {
                     settlement: v2(2, 2),
                     resource: Resource::Deer,
@@ -275,13 +275,13 @@ mod tests {
                 },
             );
         }
-        let mut sim = PositionBuildSimulation::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 2)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -293,72 +293,72 @@ mod tests {
         block_on(sim.build_crops(hashset! {v2(1, 0)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_crops_if_cell_is_not_free() {
         // Given
-        let tx = happy_path_tx();
+        let cx = happy_path_tx();
         {
-            tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object =
+            cx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object =
                 WorldObject::Crop { rotated: true };
         }
-        let mut sim = PositionBuildSimulation::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_crops_if_no_traffic_entry() {
         // Given
-        let tx = happy_path_tx();
-        *tx.traffic.lock().unwrap() = Traffic::new(3, 3, HashSet::new());
+        let cx = happy_path_tx();
+        *cx.traffic.lock().unwrap() = Traffic::new(3, 3, HashSet::new());
 
-        let mut sim = PositionBuildSimulation::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_crops_if_empty_traffic_entry() {
         // Given
-        let tx = happy_path_tx();
-        tx.traffic
+        let cx = happy_path_tx();
+        cx.traffic
             .lock()
             .unwrap()
             .set(&v2(1, 1), HashSet::new())
             .unwrap();
 
-        let mut sim = PositionBuildSimulation::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_crops_if_invalid_route() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.routes = Mutex::default();
+        let mut cx = happy_path_tx();
+        cx.routes = Mutex::default();
 
-        let mut sim = PositionBuildSimulation::new(tx, 0);
+        let mut sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 }

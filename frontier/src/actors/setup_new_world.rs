@@ -18,7 +18,7 @@ use std::time::Duration;
 const AVATAR_NAME: &str = "avatar";
 
 pub struct SetupNewWorld<T> {
-    tx: T,
+    cx: T,
 }
 
 impl<T> SetupNewWorld<T>
@@ -31,12 +31,12 @@ where
         + WithSettlements
         + WithWorld,
 {
-    pub fn new(tx: T) -> SetupNewWorld<T> {
-        SetupNewWorld { tx }
+    pub fn new(cx: T) -> SetupNewWorld<T> {
+        SetupNewWorld { cx }
     }
 
     pub async fn new_game(&self) {
-        let params = self.tx.parameters();
+        let params = self.cx.parameters();
         let mut rng: SmallRng = SeedableRng::seed_from_u64(params.seed);
 
         let homeland_starts = self.gen_homeland_starts(&mut rng, &params.homeland).await;
@@ -75,7 +75,7 @@ where
         rng: &mut R,
         params: &HomelandParams,
     ) -> Vec<HomelandStart> {
-        self.tx
+        self.cx
             .with_world(|world| gen_homeland_starts(rng, world, params))
             .await
     }
@@ -86,13 +86,13 @@ where
         color: Color,
         skin_color: Color,
     ) -> HashMap<String, Avatar> {
-        self.tx
+        self.cx
             .with_world(|world| gen_avatar(world, position, color, skin_color))
             .await
     }
 
     async fn initial_homeland_population(&self, homelands: &usize) -> f64 {
-        self.tx.visible_land_positions().await as f64 / *homelands as f64
+        self.cx.visible_land_positions().await as f64 / *homelands as f64
     }
 
     async fn gen_homelands(
@@ -111,7 +111,7 @@ where
     }
 
     async fn set_avatars(&self, new_avatars: HashMap<String, Avatar>) {
-        self.tx
+        self.cx
             .mut_avatars(|avatars| {
                 avatars.all = new_avatars;
                 avatars.selected = Some(AVATAR_NAME.to_string())
@@ -120,17 +120,17 @@ where
     }
 
     async fn set_nations(&self, new_nations: HashMap<String, Nation>) {
-        self.tx.mut_nations(|nations| *nations = new_nations).await;
+        self.cx.mut_nations(|nations| *nations = new_nations).await;
     }
 
     async fn set_settlements(&self, new_settlements: HashMap<V2<usize>, Settlement>) {
-        self.tx
+        self.cx
             .mut_settlements(|settlements| *settlements = new_settlements)
             .await;
     }
 
     fn set_visibility_from_voyage(&self, voyage: &[V2<usize>]) {
-        self.tx
+        self.cx
             .check_visibility_and_reveal(voyage.iter().cloned().collect());
     }
 }

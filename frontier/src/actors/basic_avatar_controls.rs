@@ -8,7 +8,7 @@ use std::default::Default;
 use std::sync::Arc;
 
 pub struct BasicAvatarControls<T> {
-    tx: T,
+    cx: T,
     travel_duration: Arc<AvatarTravelDuration>,
     bindings: BasicAvatarBindings,
 }
@@ -32,16 +32,16 @@ impl<T> BasicAvatarControls<T>
 where
     T: Micros + SelectedAvatar + UpdateAvatarJourney + WithWorld + Send + Sync,
 {
-    pub fn new(tx: T, travel_duration: Arc<AvatarTravelDuration>) -> BasicAvatarControls<T> {
+    pub fn new(cx: T, travel_duration: Arc<AvatarTravelDuration>) -> BasicAvatarControls<T> {
         BasicAvatarControls {
-            tx,
+            cx,
             travel_duration,
             bindings: BasicAvatarBindings::default(),
         }
     }
 
     async fn walk_forward(&self) {
-        let (micros, selected_avatar) = join!(self.tx.micros(), self.tx.selected_avatar(),);
+        let (micros, selected_avatar) = join!(self.cx.micros(), self.cx.selected_avatar(),);
         let Avatar { name, journey, .. } = unwrap_or!(selected_avatar, return);
         let journey = unwrap_or!(journey, return);
 
@@ -52,7 +52,7 @@ where
             return
         );
 
-        self.tx
+        self.cx
             .update_avatar_journey(&name, Some(new_journey))
             .await;
     }
@@ -60,7 +60,7 @@ where
     async fn get_walk_forward_journey(&self, journey: Journey, start_at: u128) -> Option<Journey> {
         let positions = journey.forward_path();
 
-        self.tx
+        self.cx
             .with_world(|world| {
                 self.travel_duration
                     .get_duration(&world, &positions[0], &positions[1])?;
@@ -76,9 +76,9 @@ where
     }
 
     async fn rotate_clockwise(&self) {
-        if let Some(Avatar { name, journey, .. }) = self.tx.selected_avatar().await {
+        if let Some(Avatar { name, journey, .. }) = self.cx.selected_avatar().await {
             if let Some(journey) = journey {
-                self.tx
+                self.cx
                     .update_avatar_journey(&name, Some(journey.then_rotate_clockwise()))
                     .await;
             }
@@ -86,9 +86,9 @@ where
     }
 
     async fn rotate_anticlockwise(&self) {
-        if let Some(Avatar { name, journey, .. }) = self.tx.selected_avatar().await {
+        if let Some(Avatar { name, journey, .. }) = self.cx.selected_avatar().await {
             if let Some(journey) = journey {
-                self.tx
+                self.cx
                     .update_avatar_journey(&name, Some(journey.then_rotate_anticlockwise()))
                     .await;
             }

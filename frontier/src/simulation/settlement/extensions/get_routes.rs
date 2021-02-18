@@ -20,7 +20,7 @@ where
         + Micros,
 {
     pub async fn get_routes(&self, demand: Demand) -> Routes {
-        let micros = self.tx.micros().await;
+        let micros = self.cx.micros().await;
         let closest_targets = self.closest_targets(&demand).await;
         let route_set = self.route_set(micros, &demand, closest_targets).await;
         Routes {
@@ -40,7 +40,7 @@ where
         let target_set = target_set(demand.resource);
         let sources = demand.sources;
         let corners_in_bounds = self.corners_in_bound(&demand.position).await;
-        self.tx
+        self.cx
             .closest_targets(&corners_in_bounds, &target_set, sources)
             .await
     }
@@ -48,7 +48,7 @@ where
     async fn corners_in_bound(&self, position: &V2<usize>) -> Vec<V2<usize>> {
         let mut out = vec![];
         for corner in get_corners(&position) {
-            if self.tx.in_bounds(&corner).await {
+            if self.cx.in_bounds(&corner).await {
                 out.push(corner);
             }
         }
@@ -94,7 +94,7 @@ where
     }
 
     async fn route_duration(&self, path: &[V2<usize>]) -> Duration {
-        self.tx
+        self.cx
             .cost_of_path_without_planned_roads(path)
             .await
             .expect("Found route with planned roads but not without planned roads!")

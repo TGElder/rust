@@ -13,13 +13,13 @@ where
         settlement: &Settlement,
         traffic: &[TownTrafficSummary],
     ) -> bool {
-        let town_removal_population = self.tx.parameters().simulation.town_removal_population;
+        let town_removal_population = self.cx.parameters().simulation.town_removal_population;
         if settlement.current_population >= town_removal_population || !traffic.is_empty() {
             return false;
         }
-        let controlled = self.tx.controlled(&settlement.position).await;
-        self.tx.remove_town(&settlement.position).await;
-        self.tx.refresh_positions(controlled).await;
+        let controlled = self.cx.controlled(&settlement.position).await;
+        self.cx.remove_town(&settlement.position).await;
+        self.cx.refresh_positions(controlled).await;
         true
     }
 }
@@ -39,7 +39,7 @@ mod tests {
     use std::time::Duration;
 
     #[derive(Default)]
-    struct Tx {
+    struct Cx {
         controlled: HashSet<V2<usize>>,
         parameters: Parameters,
         refreshed_positions: Mutex<HashSet<V2<usize>>>,
@@ -47,27 +47,27 @@ mod tests {
     }
 
     #[async_trait]
-    impl Controlled for Tx {
+    impl Controlled for Cx {
         async fn controlled(&self, _: &V2<usize>) -> HashSet<V2<usize>> {
             self.controlled.clone()
         }
     }
 
-    impl HasParameters for Tx {
+    impl HasParameters for Cx {
         fn parameters(&self) -> &Parameters {
             &self.parameters
         }
     }
 
     #[async_trait]
-    impl RefreshPositions for Tx {
+    impl RefreshPositions for Cx {
         async fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
             self.refreshed_positions.lock().unwrap().extend(positions);
         }
     }
 
     #[async_trait]
-    impl RemoveTownTrait for Tx {
+    impl RemoveTownTrait for Cx {
         async fn remove_town(&self, position: &V2<usize>) -> bool {
             self.removed.lock().unwrap().push(*position);
             true
@@ -81,16 +81,16 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let mut tx = Tx::default();
-        tx.parameters.simulation.town_removal_population = 0.3;
-        let sim = SettlementSimulation::new(tx);
+        let mut cx = Cx::default();
+        cx.parameters.simulation.town_removal_population = 0.3;
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let removed = block_on(sim.remove_town(&settlement, &[]));
 
         // Then
         assert!(removed);
-        assert_eq!(*sim.tx.removed.lock().unwrap(), vec![settlement.position]);
+        assert_eq!(*sim.cx.removed.lock().unwrap(), vec![settlement.position]);
     }
 
     #[test]
@@ -100,9 +100,9 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let mut tx = Tx::default();
-        tx.parameters.simulation.town_removal_population = 0.3;
-        let sim = SettlementSimulation::new(tx);
+        let mut cx = Cx::default();
+        cx.parameters.simulation.town_removal_population = 0.3;
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let removed = block_on(sim.remove_town(
@@ -116,7 +116,7 @@ mod tests {
 
         // Then
         assert!(!removed);
-        assert!(sim.tx.removed.lock().unwrap().is_empty());
+        assert!(sim.cx.removed.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -126,16 +126,16 @@ mod tests {
             current_population: 0.7,
             ..Settlement::default()
         };
-        let mut tx = Tx::default();
-        tx.parameters.simulation.town_removal_population = 0.3;
-        let sim = SettlementSimulation::new(tx);
+        let mut cx = Cx::default();
+        cx.parameters.simulation.town_removal_population = 0.3;
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let removed = block_on(sim.remove_town(&settlement, &[]));
 
         // Then
         assert!(!removed);
-        assert!(sim.tx.removed.lock().unwrap().is_empty());
+        assert!(sim.cx.removed.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -145,18 +145,18 @@ mod tests {
             current_population: 0.2,
             ..Settlement::default()
         };
-        let mut tx = Tx {
+        let mut cx = Cx {
             controlled: hashset! { v2(1, 2), v2(3, 4) },
-            ..Tx::default()
+            ..Cx::default()
         };
-        tx.parameters.simulation.town_removal_population = 0.3;
-        let sim = SettlementSimulation::new(tx);
+        cx.parameters.simulation.town_removal_population = 0.3;
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(sim.remove_town(&settlement, &[]));
 
         assert_eq!(
-            *sim.tx.refreshed_positions.lock().unwrap(),
+            *sim.cx.refreshed_positions.lock().unwrap(),
             hashset! { v2(1, 2), v2(3, 4) },
         );
     }

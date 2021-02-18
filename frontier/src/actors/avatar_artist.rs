@@ -9,7 +9,7 @@ use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendEngineCommands, SendRotate, WithAvatars};
 
 pub struct AvatarArtistActor<T> {
-    tx: T,
+    cx: T,
     avatar_artist: Option<AvatarArtist>,
     follow_avatar: bool,
     follow_avatar_binding: Button,
@@ -19,9 +19,9 @@ impl<T> AvatarArtistActor<T>
 where
     T: Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
 {
-    pub fn new(tx: T, avatar_artist: AvatarArtist) -> AvatarArtistActor<T> {
+    pub fn new(cx: T, avatar_artist: AvatarArtist) -> AvatarArtistActor<T> {
         AvatarArtistActor {
-            tx,
+            cx,
             avatar_artist: Some(avatar_artist),
             follow_avatar: true,
             follow_avatar_binding: Button::Key(VirtualKeyCode::C),
@@ -34,23 +34,23 @@ where
 
     async fn send_messages(&self) {
         if !self.follow_avatar {
-            self.tx
+            self.cx
                 .send_engine_commands(vec![Command::LookAt(None)])
                 .await;
         }
 
         let rotate_over_undrawn = self.follow_avatar;
-        self.tx.send_rotate_background(move |rotate| {
+        self.cx.send_rotate_background(move |rotate| {
             rotate.set_rotate_over_undrawn(rotate_over_undrawn)
         });
     }
 
     async fn draw_avatars(&mut self) {
         let mut avatar_artist = self.avatar_artist.take().unwrap();
-        let micros = self.tx.micros().await;
+        let micros = self.cx.micros().await;
 
         let (commands, avatar_artist) = self
-            .tx
+            .cx
             .with_avatars(|avatars| {
                 let draw_commands = get_draw_commands(avatars);
                 let mut engine_commands = avatar_artist.update_avatars(&draw_commands, &micros);
@@ -63,7 +63,7 @@ where
             })
             .await;
 
-        self.tx.send_engine_commands(commands).await;
+        self.cx.send_engine_commands(commands).await;
         self.avatar_artist = Some(avatar_artist)
     }
 

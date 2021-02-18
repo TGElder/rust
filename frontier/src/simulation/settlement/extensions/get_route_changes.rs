@@ -14,7 +14,7 @@ where
         key: RouteSetKey,
         route_set: RouteSet,
     ) -> Vec<RouteChange> {
-        self.tx
+        self.cx
             .mut_routes(|routes| update_routes_and_get_changes(routes, key, route_set))
             .await
     }
@@ -138,7 +138,7 @@ mod tests {
                 route: route.clone()
             }]
         );
-        let routes = sim.tx.lock().unwrap();
+        let routes = sim.cx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {
@@ -199,7 +199,7 @@ mod tests {
                 old
             }]
         );
-        let routes = sim.tx.lock().unwrap();
+        let routes = sim.cx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {
@@ -246,7 +246,7 @@ mod tests {
         // Then
         assert_eq!(route_changes, vec![RouteChange::NoChange { key, route }]);
 
-        let routes = sim.tx.lock().unwrap();
+        let routes = sim.cx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {
@@ -291,7 +291,7 @@ mod tests {
         // Then
         assert_eq!(route_changes, vec![RouteChange::Removed { key, route }]);
 
-        let routes = sim.tx.lock().unwrap();
+        let routes = sim.cx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {
@@ -357,7 +357,7 @@ mod tests {
                 }
             ]
         ));
-        let routes = sim.tx.lock().unwrap();
+        let routes = sim.cx.lock().unwrap();
         assert_eq!(
             *routes,
             hashmap! {

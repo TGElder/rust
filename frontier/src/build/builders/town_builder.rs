@@ -5,7 +5,7 @@ use crate::traits::{AddTown, UpdateTerritory, WhoControlsTile};
 use commons::async_trait::async_trait;
 
 pub struct TownBuilder<T> {
-    tx: T,
+    cx: T,
 }
 
 #[async_trait]
@@ -21,7 +21,7 @@ where
         if let Build::Town(town) = build {
             let position = town.position;
             if self.try_add_town(town).await {
-                self.tx.update_territory(position).await;
+                self.cx.update_territory(position).await;
             }
         }
     }
@@ -31,15 +31,15 @@ impl<T> TownBuilder<T>
 where
     T: AddTown + UpdateTerritory + WhoControlsTile + Send + Sync,
 {
-    pub fn new(tx: T) -> TownBuilder<T> {
-        TownBuilder { tx }
+    pub fn new(cx: T) -> TownBuilder<T> {
+        TownBuilder { cx }
     }
 
     async fn try_add_town(&self, town: Settlement) -> bool {
-        if self.tx.who_controls_tile(&town.position).await.is_some() {
+        if self.cx.who_controls_tile(&town.position).await.is_some() {
             return false;
         }
-        self.tx.add_town(town).await
+        self.cx.add_town(town).await
     }
 }
 
@@ -53,7 +53,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
-    struct Tx {
+    struct Cx {
         towns: Arm<HashMap<V2<usize>, Settlement>>,
         add_town_return: bool,
         control: HashMap<V2<usize>, V2<usize>>,
@@ -61,7 +61,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl AddTown for Tx {
+    impl AddTown for Cx {
         async fn add_town(&self, town: Settlement) -> bool {
             self.towns.lock().unwrap().insert(town.position, town);
             self.add_town_return
@@ -69,14 +69,14 @@ mod tests {
     }
 
     #[async_trait]
-    impl UpdateTerritory for Tx {
+    impl UpdateTerritory for Cx {
         async fn update_territory(&self, controller: V2<usize>) {
             self.updated_territory.lock().unwrap().push(controller);
         }
     }
 
     #[async_trait]
-    impl WhoControlsTile for Tx {
+    impl WhoControlsTile for Cx {
         async fn who_controls_tile(&self, position: &V2<usize>) -> Option<V2<usize>> {
             self.control.get(position).cloned()
         }
@@ -85,8 +85,8 @@ mod tests {
     #[test]
     fn can_build_town() {
         // Given
-        let tx = Tx::default();
-        let builder = TownBuilder::new(tx);
+        let cx = Cx::default();
+        let builder = TownBuilder::new(cx);
 
         // When
         let can_build = builder.can_build(&Build::Town(Settlement::default()));
@@ -102,15 +102,15 @@ mod tests {
             position: v2(1, 2),
             ..Settlement::default()
         };
-        let tx = Tx::default();
-        let mut builder = TownBuilder::new(tx);
+        let cx = Cx::default();
+        let mut builder = TownBuilder::new(cx);
 
         // When
         block_on(builder.build(Build::Town(town.clone())));
 
         // Then
         assert_eq!(
-            *builder.tx.towns.lock().unwrap(),
+            *builder.cx.towns.lock().unwrap(),
             hashmap! {town.position => town},
         );
     }
@@ -123,17 +123,17 @@ mod tests {
             ..Settlement::default()
         };
         let control = hashmap! { v2(1, 2) => v2(0, 0) };
-        let tx = Tx {
+        let cx = Cx {
             control,
-            ..Tx::default()
+            ..Cx::default()
         };
-        let mut builder = TownBuilder::new(tx);
+        let mut builder = TownBuilder::new(cx);
 
         // When
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert_eq!(*builder.tx.towns.lock().unwrap(), hashmap! {},);
+        assert_eq!(*builder.cx.towns.lock().unwrap(), hashmap! {},);
     }
 
     #[test]
@@ -143,18 +143,18 @@ mod tests {
             position: v2(1, 2),
             ..Settlement::default()
         };
-        let tx = Tx {
+        let cx = Cx {
             add_town_return: true,
-            ..Tx::default()
+            ..Cx::default()
         };
-        let mut builder = TownBuilder::new(tx);
+        let mut builder = TownBuilder::new(cx);
 
         // When
         block_on(builder.build(Build::Town(town)));
 
         // Then
         assert_eq!(
-            *builder.tx.updated_territory.lock().unwrap(),
+            *builder.cx.updated_territory.lock().unwrap(),
             vec![v2(1, 2)]
         );
     }
@@ -166,17 +166,17 @@ mod tests {
             position: v2(1, 2),
             ..Settlement::default()
         };
-        let tx = Tx {
+        let cx = Cx {
             add_town_return: false,
-            ..Tx::default()
+            ..Cx::default()
         };
-        let mut builder = TownBuilder::new(tx);
+        let mut builder = TownBuilder::new(cx);
 
         // When
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert!(builder.tx.updated_territory.lock().unwrap().is_empty());
+        assert!(builder.cx.updated_territory.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -187,16 +187,16 @@ mod tests {
             ..Settlement::default()
         };
         let control = hashmap! { v2(1, 2) => v2(0, 0) };
-        let tx = Tx {
+        let cx = Cx {
             control,
-            ..Tx::default()
+            ..Cx::default()
         };
-        let mut builder = TownBuilder::new(tx);
+        let mut builder = TownBuilder::new(cx);
 
         // When
         block_on(builder.build(Build::Town(town)));
 
         // Then
-        assert!(builder.tx.updated_territory.lock().unwrap().is_empty());
+        assert!(builder.cx.updated_territory.lock().unwrap().is_empty());
     }
 }

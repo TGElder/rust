@@ -14,7 +14,7 @@ use std::io::{BufReader, BufWriter};
 const NAME: &str = "world_artist_actor";
 
 pub struct VisibilityActor<T> {
-    tx: T,
+    cx: T,
     visibility_computer: VisibilityComputer,
     state: VisibilityActorState,
     elevations: Option<M<Elevation>>,
@@ -41,9 +41,9 @@ impl<T> VisibilityActor<T>
 where
     T: HasParameters + RevealPositions + WithWorld + Send,
 {
-    pub fn new(tx: T) -> VisibilityActor<T> {
+    pub fn new(cx: T) -> VisibilityActor<T> {
         VisibilityActor {
-            tx,
+            cx,
             visibility_computer: VisibilityComputer::default(),
             state: VisibilityActorState {
                 visited: None,
@@ -61,13 +61,13 @@ where
     }
 
     async fn try_disable_visibility_computation(&mut self) {
-        if self.tx.parameters().reveal_all {
+        if self.cx.parameters().reveal_all {
             self.disable_visibility_computation();
         }
     }
 
     pub async fn init_visited(&mut self) {
-        let (width, height) = self.tx.with_world(|world| get_dimensions(world)).await;
+        let (width, height) = self.cx.with_world(|world| get_dimensions(world)).await;
         self.state.visited = Some(M::from_element(width, height, false));
     }
 
@@ -76,7 +76,7 @@ where
     }
 
     async fn init_elevations(&mut self) {
-        self.elevations = Some(self.tx.with_world(|world| get_elevations(world)).await);
+        self.elevations = Some(self.cx.with_world(|world| get_elevations(world)).await);
     }
 
     pub async fn check_visibility_and_reveal(&mut self, visited: HashSet<V2<usize>>) {
@@ -105,7 +105,7 @@ where
             .visibility_computer
             .get_visible_from(self.elevations.as_ref().unwrap(), position);
 
-        self.tx.reveal_positions(&visible, NAME).await;
+        self.cx.reveal_positions(&visible, NAME).await;
     }
 
     fn already_visited(&self, position: &V2<usize>) -> Result<&bool, ()> {

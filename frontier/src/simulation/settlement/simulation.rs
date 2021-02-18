@@ -20,15 +20,15 @@ use crate::traits::{
 use super::demand::demand_fn::{homeland_demand_fn, town_demand_fn};
 
 pub struct SettlementSimulation<T> {
-    pub(super) tx: T,
+    pub(super) cx: T,
     pub(super) homeland_demand_fn: fn(&Settlement) -> Vec<Demand>,
     pub(super) town_demand_fn: fn(&Settlement) -> Vec<Demand>,
 }
 
 impl<T> SettlementSimulation<T> {
-    pub fn new(tx: T) -> SettlementSimulation<T> {
+    pub fn new(cx: T) -> SettlementSimulation<T> {
         SettlementSimulation {
-            tx,
+            cx,
             homeland_demand_fn,
             town_demand_fn,
         }
@@ -62,7 +62,7 @@ where
         + Sync,
 {
     async fn step(&mut self) {
-        let position = self.tx.mut_sim_queue(|sim_queue| sim_queue.pop()).await;
+        let position = self.cx.mut_sim_queue(|sim_queue| sim_queue.pop()).await;
 
         match position {
             Some(position) => self.update_settlement_at(&position).await,
@@ -95,7 +95,7 @@ where
         + WithWorld,
 {
     async fn update_settlement_at(&self, position: &V2<usize>) {
-        let settlement = unwrap_or!(self.tx.get_settlement(position).await, return);
+        let settlement = unwrap_or!(self.cx.get_settlement(position).await, return);
         debug!(
             "{:?} {} -> {}",
             settlement.name, settlement.current_population, settlement.target_population
@@ -110,7 +110,7 @@ where
         let settlement = self.update_homeland(settlement).await;
         let settlement = self.update_current_population(settlement).await;
         let demand = (self.homeland_demand_fn)(&settlement);
-        self.tx.update_settlement(settlement).await;
+        self.cx.update_settlement(settlement).await;
         self.get_all_route_changes(demand).await
     }
 
@@ -123,7 +123,7 @@ where
             return;
         }
         let demand = (self.town_demand_fn)(&settlement);
-        self.tx.update_settlement(settlement).await;
+        self.cx.update_settlement(settlement).await;
         self.get_all_route_changes(demand).await
     }
 
@@ -147,15 +147,15 @@ where
     }
 
     fn avatar_travel_mode_fn(&self) -> AvatarTravelModeFn {
-        AvatarTravelModeFn::new(self.tx.parameters().avatar_travel.min_navigable_river_width)
+        AvatarTravelModeFn::new(self.cx.parameters().avatar_travel.min_navigable_river_width)
     }
 
     async fn replenish_sim_queue(&self) {
         let settlements = self
-            .tx
+            .cx
             .with_settlements(|settlements| settlements.keys().copied().collect::<Vec<_>>())
             .await;
-        self.tx
+        self.cx
             .mut_sim_queue(move |sim_queue| {
                 if sim_queue.is_empty() {
                     *sim_queue = settlements;

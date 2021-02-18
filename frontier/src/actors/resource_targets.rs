@@ -6,15 +6,15 @@ use commons::{v2, V2};
 use std::collections::HashSet;
 
 pub struct ResourceTargets<T> {
-    tx: T,
+    cx: T,
 }
 
 impl<T> ResourceTargets<T>
 where
     T: InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithWorld,
 {
-    pub fn new(tx: T) -> ResourceTargets<T> {
-        ResourceTargets { tx }
+    pub fn new(cx: T) -> ResourceTargets<T> {
+        ResourceTargets { cx }
     }
 
     pub async fn init(&mut self) {
@@ -29,15 +29,15 @@ where
     }
 
     async fn get_targets(&self, resource: Resource) -> HashSet<V2<usize>> {
-        self.tx
+        self.cx
             .with_world(|world| resource_positions(world, resource))
             .await
     }
 
     async fn load_targets(&self, target_set: String, targets: HashSet<V2<usize>>) {
-        self.tx.init_targets(target_set.clone()).await;
+        self.cx.init_targets(target_set.clone()).await;
         for target in targets {
-            self.tx.load_target(&target_set, &target, true).await
+            self.cx.load_target(&target_set, &target, true).await
         }
     }
 }
@@ -73,14 +73,14 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
-    struct Tx {
+    struct Cx {
         targets: Arm<HashMap<String, M<bool>>>,
         world: Arm<World>,
     }
 
-    impl Default for Tx {
+    impl Default for Cx {
         fn default() -> Self {
-            Tx {
+            Cx {
                 targets: Arm::default(),
                 world: Arc::new(Mutex::new(World::new(M::zeros(3, 3), 0.5))),
             }
@@ -88,7 +88,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl InitTargetsWithPlannedRoads for Tx {
+    impl InitTargetsWithPlannedRoads for Cx {
         async fn init_targets(&self, name: String) {
             self.targets
                 .lock()
@@ -98,7 +98,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl LoadTargetWithPlannedRoads for Tx {
+    impl LoadTargetWithPlannedRoads for Cx {
         async fn load_target(&self, name: &str, position: &V2<usize>, target: bool) {
             *self
                 .targets
@@ -111,7 +111,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithWorld for Tx {
+    impl WithWorld for Cx {
         async fn with_world<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&World) -> O + Send,
@@ -131,19 +131,19 @@ mod tests {
     #[rustfmt::skip]
     fn test() {
 
-        let tx = Tx::default();
+        let cx = Cx::default();
         {
-            let mut world = tx.world.lock().unwrap();
+            let mut world = cx.world.lock().unwrap();
             world.mut_cell_unsafe(&v2(1, 0)).resource = Resource::Coal;
             world.mut_cell_unsafe(&v2(2, 1)).resource = Resource::Coal;
             world.mut_cell_unsafe(&v2(0, 2)).resource = Resource::Coal;
         }
 
-        let mut resource_targets = ResourceTargets::new(tx);
+        let mut resource_targets = ResourceTargets::new(cx);
         block_on(resource_targets.init());
 
         assert_eq!(
-            *resource_targets.tx
+            *resource_targets.cx
                 .targets
                 .lock()
                 .unwrap()
@@ -160,7 +160,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            *resource_targets.tx
+            *resource_targets.cx
                 .targets
                 .lock()
                 .unwrap()

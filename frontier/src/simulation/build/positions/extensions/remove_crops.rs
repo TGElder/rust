@@ -21,19 +21,19 @@ where
 
         for position in positions.iter() {
             if self.has_crops_build_instruction(position).await {
-                self.tx
+                self.cx
                     .remove_build_instruction(&BuildKey::Crops(*position))
                     .await;
             }
         }
 
         for position in self.have_crops(positions).await {
-            self.tx.remove_world_object(&position).await;
+            self.cx.remove_world_object(&position).await;
         }
     }
 
     async fn filter_without_crop_routes(&self, positions: &mut HashSet<V2<usize>>) {
-        self.tx
+        self.cx
             .with_traffic(move |traffic| {
                 positions.retain(|position| !has_crop_routes(&traffic, position))
             })
@@ -41,14 +41,14 @@ where
     }
 
     async fn has_crops_build_instruction(&self, position: &V2<usize>) -> bool {
-        self.tx
+        self.cx
             .get_build_instruction(&BuildKey::Crops(*position))
             .await
             .is_some()
     }
 
     async fn have_crops(&self, positions: HashSet<V2<usize>>) -> Vec<V2<usize>> {
-        self.tx
+        self.cx
             .with_world(|world| have_crops(world, positions))
             .await
     }
@@ -90,7 +90,7 @@ mod tests {
 
     use super::*;
 
-    struct Tx {
+    struct Cx {
         get_build_instruction: Option<BuildInstruction>,
         removed_build_instructions: Mutex<HashSet<BuildKey>>,
         removed_world_objects: Mutex<Vec<V2<usize>>>,
@@ -99,14 +99,14 @@ mod tests {
     }
 
     #[async_trait]
-    impl GetBuildInstruction for Tx {
+    impl GetBuildInstruction for Cx {
         async fn get_build_instruction(&self, _: &BuildKey) -> Option<BuildInstruction> {
             self.get_build_instruction.to_owned()
         }
     }
 
     #[async_trait]
-    impl RemoveBuildInstruction for Tx {
+    impl RemoveBuildInstruction for Cx {
         async fn remove_build_instruction(&self, build_key: &BuildKey) {
             self.removed_build_instructions
                 .lock()
@@ -116,14 +116,14 @@ mod tests {
     }
 
     #[async_trait]
-    impl RemoveWorldObject for Tx {
+    impl RemoveWorldObject for Cx {
         async fn remove_world_object(&self, position: &V2<usize>) {
             self.removed_world_objects.lock().unwrap().push(*position);
         }
     }
 
     #[async_trait]
-    impl WithWorld for Tx {
+    impl WithWorld for Cx {
         async fn with_world<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&World) -> O + Send,
@@ -140,7 +140,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithTraffic for Tx {
+    impl WithTraffic for Cx {
         async fn with_traffic<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&Traffic) -> O + Send,
@@ -156,10 +156,10 @@ mod tests {
         }
     }
 
-    fn happy_path_tx() -> Tx {
+    fn happy_path_tx() -> Cx {
         let mut world = World::new(M::zeros(3, 3), 0.0);
         world.mut_cell_unsafe(&v2(1, 1)).object = WorldObject::Crop { rotated: true };
-        Tx {
+        Cx {
             get_build_instruction: None,
             removed_build_instructions: Mutex::default(),
             removed_world_objects: Mutex::default(),
@@ -171,15 +171,15 @@ mod tests {
     #[test]
     fn should_remove_crops_if_no_traffic() {
         // Given
-        let tx = happy_path_tx();
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let cx = happy_path_tx();
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
         assert_eq!(
-            *sim.tx.removed_world_objects.lock().unwrap(),
+            *sim.cx.removed_world_objects.lock().unwrap(),
             vec![v2(1, 1)]
         );
     }
@@ -187,8 +187,8 @@ mod tests {
     #[test]
     fn should_remove_crops_if_non_crop_traffic() {
         // Given
-        let tx = happy_path_tx();
-        tx.traffic
+        let cx = happy_path_tx();
+        cx.traffic
             .lock()
             .unwrap()
             .set(
@@ -203,14 +203,14 @@ mod tests {
             )
             .unwrap();
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
         assert_eq!(
-            *sim.tx.removed_world_objects.lock().unwrap(),
+            *sim.cx.removed_world_objects.lock().unwrap(),
             vec![v2(1, 1)]
         );
     }
@@ -218,24 +218,24 @@ mod tests {
     #[test]
     fn should_remove_instruction_from_build_queue() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.get_build_instruction = Some(BuildInstruction {
+        let mut cx = happy_path_tx();
+        cx.get_build_instruction = Some(BuildInstruction {
             what: Build::Crops {
                 position: v2(1, 1),
                 rotated: true,
             },
             when: 1,
         });
-        tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
+        cx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
         assert_eq!(
-            *sim.tx.removed_build_instructions.lock().unwrap(),
+            *sim.cx.removed_build_instructions.lock().unwrap(),
             hashset! { BuildKey::Crops(v2(1, 1)) }
         );
     }
@@ -243,8 +243,8 @@ mod tests {
     #[test]
     fn should_not_remove_crops_if_crop_traffic() {
         // Given
-        let tx = happy_path_tx();
-        tx.traffic
+        let cx = happy_path_tx();
+        cx.traffic
             .lock()
             .unwrap()
             .set(
@@ -259,27 +259,27 @@ mod tests {
             )
             .unwrap();
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.removed_world_objects.lock().unwrap().is_empty());
+        assert!(sim.cx.removed_world_objects.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_remove_build_instruction_if_crop_traffic() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.get_build_instruction = Some(BuildInstruction {
+        let mut cx = happy_path_tx();
+        cx.get_build_instruction = Some(BuildInstruction {
             what: Build::Crops {
                 position: v2(1, 1),
                 rotated: true,
             },
             when: 1,
         });
-        tx.traffic
+        cx.traffic
             .lock()
             .unwrap()
             .set(
@@ -293,14 +293,14 @@ mod tests {
                 },
             )
             .unwrap();
-        tx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
+        cx.world.lock().unwrap().mut_cell_unsafe(&v2(1, 1)).object = WorldObject::None;
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.remove_crops(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.removed_build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.removed_build_instructions.lock().unwrap().is_empty());
     }
 }

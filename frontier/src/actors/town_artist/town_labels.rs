@@ -16,7 +16,7 @@ use isometric::drawing::{draw_label, get_house_base_corners};
 use isometric::{Button, Command, ElementState, Event, Font, VirtualKeyCode};
 
 pub struct TownLabelArtist<T> {
-    tx: T,
+    cx: T,
     params: TownArtistParameters,
     font: Arc<Font>,
     state: TownLabelArtistState,
@@ -33,9 +33,9 @@ where
         + Send
         + Sync,
 {
-    pub fn new(tx: T, params: TownArtistParameters) -> TownLabelArtist<T> {
+    pub fn new(cx: T, params: TownArtistParameters) -> TownLabelArtist<T> {
         TownLabelArtist {
-            tx,
+            cx,
             params,
             font: Arc::new(Font::from_file("resources/fonts/roboto_slab_20.fnt")),
             state: TownLabelArtistState::NameOnly,
@@ -62,18 +62,18 @@ where
     }
 
     async fn erase_all(&self) {
-        for settlement in self.tx.settlements().await {
+        for settlement in self.cx.settlements().await {
             self.erase_settlement(&settlement).await;
         }
     }
 
     async fn erase_settlement(&self, settlement: &Settlement) {
         let command = Command::Erase(get_name(settlement));
-        self.tx.send_engine_commands(vec![command]).await;
+        self.cx.send_engine_commands(vec![command]).await;
     }
 
     async fn draw_all(&self) {
-        for settlement in self.tx.settlements().await {
+        for settlement in self.cx.settlements().await {
             self.draw_settlement(&settlement).await;
         }
     }
@@ -87,12 +87,12 @@ where
         let world_coord = self.get_world_coord(settlement).await;
         let draw_order = -settlement.current_population as i32;
         let commands = draw_label(name, &text, world_coord, &self.font, draw_order);
-        self.tx.send_engine_commands(commands).await;
+        self.cx.send_engine_commands(commands).await;
     }
 
     async fn get_world_coord(&self, settlement: &Settlement) -> WorldCoord {
         let mut world_coord = self
-            .tx
+            .cx
             .with_world(|world| get_house_base_coord(world, &settlement.position, &self.params))
             .await;
         world_coord.z +=
@@ -101,7 +101,7 @@ where
     }
 
     async fn update_settlement(&self, settlement: &Settlement) {
-        if self.tx.get_settlement(&settlement.position).await.is_some() {
+        if self.cx.get_settlement(&settlement.position).await.is_some() {
             self.draw_settlement(settlement).await;
         } else {
             self.erase_settlement(settlement).await;

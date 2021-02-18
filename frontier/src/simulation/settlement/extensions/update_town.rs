@@ -15,7 +15,7 @@ where
         settlement: Settlement,
         traffic: &[TownTrafficSummary],
     ) -> Settlement {
-        let params = self.tx.parameters().simulation;
+        let params = self.cx.parameters().simulation;
         Settlement {
             target_population: get_target_population(traffic, params.traffic_to_population),
             nation: get_nation(&settlement.nation, traffic, params.nation_flip_traffic_pc),
@@ -87,13 +87,13 @@ mod tests {
 
     use std::default::Default;
 
-    struct Tx {
+    struct Cx {
         parameters: Parameters,
     }
 
-    impl Default for Tx {
+    impl Default for Cx {
         fn default() -> Self {
-            Tx {
+            Cx {
                 parameters: Parameters {
                     simulation: SimulationParameters {
                         traffic_to_population: 0.5,
@@ -106,7 +106,7 @@ mod tests {
         }
     }
 
-    impl HasParameters for Tx {
+    impl HasParameters for Cx {
         fn parameters(&self) -> &Parameters {
             &self.parameters
         }
@@ -116,7 +116,7 @@ mod tests {
     fn should_update_target_population_based_on_total_traffic_share() {
         // Given
         let settlement = Settlement::default();
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         let updated = block_on(sim.update_town(
@@ -146,7 +146,7 @@ mod tests {
             target_population: 0.5,
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         let updated = block_on(sim.update_town(settlement, &[]));
@@ -162,7 +162,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let update_town = SettlementSimulation::new(Tx::default());
+        let update_town = SettlementSimulation::new(Cx::default());
 
         // When
         let updated = block_on(update_town.update_town(
@@ -192,7 +192,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         let updated = block_on(sim.update_town(
@@ -221,7 +221,7 @@ mod tests {
     ) {
         // Given
         let settlement = Settlement::default();
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         let updated = block_on(sim.update_town(
@@ -253,7 +253,7 @@ mod tests {
             gap_half_life: Duration::from_millis(4),
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         let updated = block_on(sim.update_town(settlement, &[]));

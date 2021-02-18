@@ -8,7 +8,7 @@ use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::SendEngineCommands;
 
 pub struct Rotate<T> {
-    tx: T,
+    cx: T,
     engine_rotatehandler: RotateHandler,
 }
 
@@ -16,9 +16,9 @@ impl<T> Rotate<T>
 where
     T: SendEngineCommands,
 {
-    pub fn new(tx: T) -> Rotate<T> {
+    pub fn new(cx: T) -> Rotate<T> {
         Rotate {
-            tx,
+            cx,
             engine_rotatehandler: RotateHandler::new(VirtualKeyCode::Q, VirtualKeyCode::E),
         }
     }
@@ -39,7 +39,7 @@ where
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         let commands = self.engine_rotatehandler.handle_event(event);
-        self.tx.send_engine_commands(commands).await;
+        self.cx.send_engine_commands(commands).await;
         Capture::No
     }
 }

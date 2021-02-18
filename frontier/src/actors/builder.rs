@@ -8,7 +8,7 @@ use crate::build::{Build, BuildInstruction, Builder};
 use crate::traits::{Micros, TakeBuildInstructionsBefore};
 
 pub struct BuilderActor<T> {
-    tx: T,
+    cx: T,
     builders: Vec<Box<dyn Builder + Send>>,
     build_interval: Duration,
 }
@@ -17,9 +17,9 @@ impl<T> BuilderActor<T>
 where
     T: Micros + TakeBuildInstructionsBefore,
 {
-    pub fn new(tx: T, builders: Vec<Box<dyn Builder + Send>>) -> BuilderActor<T> {
+    pub fn new(cx: T, builders: Vec<Box<dyn Builder + Send>>) -> BuilderActor<T> {
         BuilderActor {
-            tx,
+            cx,
             builders,
             build_interval: Duration::from_millis(100),
         }
@@ -48,8 +48,8 @@ where
     T: Micros + TakeBuildInstructionsBefore + Send + Sync,
 {
     async fn step(&mut self) {
-        let micros = self.tx.micros().await;
-        self.build_all(self.tx.take_build_instructions_before(&micros).await)
+        let micros = self.cx.micros().await;
+        self.build_all(self.cx.take_build_instructions_before(&micros).await)
             .await;
         sleep(self.build_interval).await;
     }
@@ -64,20 +64,20 @@ mod tests {
     use futures::executor::block_on;
     use std::sync::{Arc, Mutex};
 
-    struct Tx {
+    struct Cx {
         build_instructions: Vec<BuildInstruction>,
         micros: u128,
     }
 
     #[async_trait]
-    impl Micros for Tx {
+    impl Micros for Cx {
         async fn micros(&self) -> u128 {
             self.micros
         }
     }
 
     #[async_trait]
-    impl TakeBuildInstructionsBefore for Tx {
+    impl TakeBuildInstructionsBefore for Cx {
         async fn take_build_instructions_before(&self, _: &u128) -> Vec<BuildInstruction> {
             self.build_instructions.clone()
         }
@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn should_pass_build_instructions_to_builders_ordered_by_when() {
         // Given
-        let tx = Tx {
+        let cx = Cx {
             build_instructions: vec![
                 BuildInstruction {
                     what: Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
@@ -125,7 +125,7 @@ mod tests {
         let retriever = BuildRetriever::new();
         let builds = retriever.builds.clone();
 
-        let mut builder = BuilderActor::new(tx, vec![Box::new(retriever)]);
+        let mut builder = BuilderActor::new(cx, vec![Box::new(retriever)]);
 
         // When
         block_on(builder.step());

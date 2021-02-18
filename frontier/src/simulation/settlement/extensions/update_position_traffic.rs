@@ -15,14 +15,14 @@ where
         let changed_positions = self
             .update_all_position_traffic_and_get_changes(route_changes)
             .await;
-        self.tx.refresh_positions(changed_positions).await;
+        self.cx.refresh_positions(changed_positions).await;
     }
 
     async fn update_all_position_traffic_and_get_changes(
         &self,
         route_changes: &[RouteChange],
     ) -> HashSet<V2<usize>> {
-        self.tx
+        self.cx
             .mut_traffic(|traffic| {
                 update_all_position_traffic_and_get_changes(traffic, route_changes)
             })
@@ -141,14 +141,14 @@ mod tests {
         Vec2D::new(6, 6, HashSet::with_capacity(0))
     }
 
-    struct Tx {
+    struct Cx {
         refreshed_positions: Mutex<HashSet<V2<usize>>>,
         traffic: Mutex<Traffic>,
     }
 
-    impl Default for Tx {
+    impl Default for Cx {
         fn default() -> Self {
-            Tx {
+            Cx {
                 refreshed_positions: Mutex::default(),
                 traffic: Mutex::new(traffic()),
             }
@@ -156,7 +156,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl RefreshPositions for Tx {
+    impl RefreshPositions for Cx {
         async fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
             self.refreshed_positions
                 .lock()
@@ -166,7 +166,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithTraffic for Tx {
+    impl WithTraffic for Cx {
         async fn with_traffic<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&Traffic) -> O + Send,
@@ -189,14 +189,14 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *sim.tx.refreshed_positions.lock().unwrap(),
+            *sim.cx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
         );
     }
@@ -208,7 +208,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -218,7 +218,7 @@ mod tests {
         for position in route_1().path.iter() {
             expected.mut_cell_unsafe(position).insert(key());
         }
-        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -229,14 +229,14 @@ mod tests {
             old: route_1(),
             new: route_2(),
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *sim.tx.refreshed_positions.lock().unwrap(),
+            *sim.cx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5), v2(1, 4)}
         );
     }
@@ -253,11 +253,11 @@ mod tests {
         for position in route_1().path.iter() {
             tx_traffic.mut_cell_unsafe(position).insert(key());
         }
-        let tx = Tx {
+        let cx = Cx {
             traffic: Mutex::new(tx_traffic),
-            ..Tx::default()
+            ..Cx::default()
         };
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -267,7 +267,7 @@ mod tests {
         for position in route_2().path.iter() {
             expected.mut_cell_unsafe(position).insert(key());
         }
-        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -282,11 +282,11 @@ mod tests {
         for position in route_2().path.iter() {
             tx_traffic.mut_cell_unsafe(position).insert(key());
         }
-        let tx = Tx {
+        let cx = Cx {
             traffic: Mutex::new(tx_traffic),
-            ..Tx::default()
+            ..Cx::default()
         };
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -296,7 +296,7 @@ mod tests {
         for position in route_1().path.iter() {
             expected.mut_cell_unsafe(position).insert(key());
         }
-        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -306,14 +306,14 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *sim.tx.refreshed_positions.lock().unwrap(),
+            *sim.cx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
         );
     }
@@ -329,14 +329,14 @@ mod tests {
         for position in route_1().path.iter() {
             tx_traffic.mut_cell_unsafe(position).insert(key());
         }
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
 
         // Then
         let expected = traffic();
-        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -346,14 +346,14 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
 
         // Then
         assert_eq!(
-            *sim.tx.refreshed_positions.lock().unwrap(),
+            *sim.cx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
         );
     }
@@ -365,13 +365,13 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change]));
 
         // Then
-        assert_eq!(*sim.tx.traffic.lock().unwrap(), traffic());
+        assert_eq!(*sim.cx.traffic.lock().unwrap(), traffic());
     }
 
     #[test]
@@ -390,11 +390,11 @@ mod tests {
         for position in route_1().path.iter() {
             tx_traffic.mut_cell_unsafe(position).insert(key_2);
         }
-        let tx = Tx {
+        let cx = Cx {
             traffic: Mutex::new(tx_traffic),
-            ..Tx::default()
+            ..Cx::default()
         };
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -405,7 +405,7 @@ mod tests {
             expected.mut_cell_unsafe(position).insert(key());
             expected.mut_cell_unsafe(position).insert(key_2);
         }
-        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -425,11 +425,11 @@ mod tests {
             tx_traffic.mut_cell_unsafe(position).insert(key());
             tx_traffic.mut_cell_unsafe(position).insert(key_2);
         }
-        let tx = Tx {
+        let cx = Cx {
             traffic: Mutex::new(tx_traffic),
-            ..Tx::default()
+            ..Cx::default()
         };
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(sim.update_position_traffic(&[change]));
@@ -439,7 +439,7 @@ mod tests {
         for position in route_1().path.iter() {
             expected.mut_cell_unsafe(position).insert(key_2);
         }
-        assert_eq!(*sim.tx.traffic.lock().unwrap(), expected);
+        assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
     }
 
     #[test]
@@ -457,14 +457,14 @@ mod tests {
             },
             route: route_2(),
         };
-        let sim = SettlementSimulation::new(Tx::default());
+        let sim = SettlementSimulation::new(Cx::default());
 
         // When
         block_on(sim.update_position_traffic(&[change_1, change_2]));
 
         // Then
         assert_eq!(
-            *sim.tx.refreshed_positions.lock().unwrap(),
+            *sim.cx.refreshed_positions.lock().unwrap(),
             hashset! {v2(1, 3), v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
         );
     }

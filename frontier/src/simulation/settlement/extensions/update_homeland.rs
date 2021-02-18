@@ -8,8 +8,8 @@ where
     T: HasParameters + VisibleLandPositions,
 {
     pub async fn update_homeland(&self, settlement: Settlement) -> Settlement {
-        let visible_land_positions = self.tx.visible_land_positions().await;
-        let homeland_count = self.tx.parameters().homeland.count;
+        let visible_land_positions = self.cx.visible_land_positions().await;
+        let homeland_count = self.cx.parameters().homeland.count;
         let target_population = visible_land_positions as f64 / homeland_count as f64;
         Settlement {
             target_population,
@@ -27,19 +27,19 @@ mod tests {
     use commons::v2;
     use futures::executor::block_on;
 
-    struct Tx {
+    struct Cx {
         parameters: Parameters,
         visible_land_positions: usize,
     }
 
-    impl HasParameters for Tx {
+    impl HasParameters for Cx {
         fn parameters(&self) -> &crate::parameters::Parameters {
             &self.parameters
         }
     }
 
     #[async_trait]
-    impl VisibleLandPositions for Tx {
+    impl VisibleLandPositions for Cx {
         async fn visible_land_positions(&self) -> usize {
             self.visible_land_positions
         }
@@ -48,12 +48,12 @@ mod tests {
     #[test]
     fn target_population_should_be_equal_share_of_visible_land() {
         // Given
-        let mut tx = Tx {
+        let mut cx = Cx {
             parameters: Parameters::default(),
             visible_land_positions: 202,
         };
-        tx.parameters.homeland.count = 2;
-        let sim = SettlementSimulation::new(tx);
+        cx.parameters.homeland.count = 2;
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let settlement = Settlement {

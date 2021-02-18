@@ -26,7 +26,7 @@ where
     D: TravelDuration + 'static,
 {
     pub async fn build_road(&self, edges: &HashSet<Edge>) {
-        let threshold = self.tx.parameters().simulation.road_build_threshold;
+        let threshold = self.cx.parameters().simulation.road_build_threshold;
 
         for candidate in self.get_candidates(edges).await {
             self.build_road_on_edge(candidate, threshold).await;
@@ -34,7 +34,7 @@ where
     }
 
     async fn get_candidates(&self, edges: &HashSet<Edge>) -> Vec<Edge> {
-        self.tx
+        self.cx
             .with_world(|world| get_candidates(world, self.travel_duration.as_ref(), edges))
             .await
     }
@@ -52,7 +52,7 @@ where
             return;
         }
 
-        self.tx
+        self.cx
             .insert_build_instruction(BuildInstruction {
                 what: Build::Road(edge),
                 when,
@@ -66,13 +66,13 @@ where
             return vec![];
         }
 
-        self.tx
+        self.cx
             .with_routes(|routes| get_route_summaries(routes, route_keys))
             .await
     }
 
     async fn get_edge_traffic(&self, edge: &Edge) -> HashSet<RouteKey> {
-        self.tx
+        self.cx
             .with_edge_traffic(|edge_traffic| edge_traffic.get(edge).cloned().unwrap_or_default())
             .await
     }
@@ -93,10 +93,10 @@ where
     }
 
     async fn try_plan_road(&self, edge: &Edge, when: u128) -> bool {
-        if matches!(self.tx.road_planned(edge).await, Some(existing) if existing <= when) {
+        if matches!(self.cx.road_planned(edge).await, Some(existing) if existing <= when) {
             false
         } else {
-            self.tx.plan_road(edge, Some(when)).await;
+            self.cx.plan_road(edge, Some(when)).await;
             true
         }
     }
@@ -159,7 +159,7 @@ mod tests {
 
     use super::*;
 
-    struct Tx {
+    struct Cx {
         build_instructions: Mutex<Vec<BuildInstruction>>,
         edge_traffic: Mutex<EdgeTraffic>,
         parameters: Parameters,
@@ -169,14 +169,14 @@ mod tests {
         world: Mutex<World>,
     }
 
-    impl HasParameters for Tx {
+    impl HasParameters for Cx {
         fn parameters(&self) -> &Parameters {
             &self.parameters
         }
     }
 
     #[async_trait]
-    impl InsertBuildInstruction for Tx {
+    impl InsertBuildInstruction for Cx {
         async fn insert_build_instruction(&self, build_instruction: BuildInstruction) {
             self.build_instructions
                 .lock()
@@ -186,21 +186,21 @@ mod tests {
     }
 
     #[async_trait]
-    impl RoadPlanned for Tx {
+    impl RoadPlanned for Cx {
         async fn road_planned(&self, _: &Edge) -> Option<u128> {
             self.road_planned
         }
     }
 
     #[async_trait]
-    impl PlanRoad for Tx {
+    impl PlanRoad for Cx {
         async fn plan_road(&self, edge: &Edge, when: Option<u128>) {
             self.planned_roads.lock().unwrap().push((*edge, when));
         }
     }
 
     #[async_trait]
-    impl WithRoutes for Tx {
+    impl WithRoutes for Cx {
         async fn with_routes<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&Routes) -> O + Send,
@@ -217,7 +217,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithWorld for Tx {
+    impl WithWorld for Cx {
         async fn with_world<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&World) -> O + Send,
@@ -234,7 +234,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithEdgeTraffic for Tx {
+    impl WithEdgeTraffic for Cx {
         async fn with_edge_traffic<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&EdgeTraffic) -> O + Send,
@@ -272,7 +272,7 @@ mod tests {
         Edge::new(v2(1, 0), v2(1, 1))
     }
 
-    fn happy_path_tx() -> Tx {
+    fn happy_path_tx() -> Cx {
         let edge_traffic = hashmap! {
             Edge::new(v2(0, 0), v2(1, 0)) => hashset!{
                 RouteKey{
@@ -334,7 +334,7 @@ mod tests {
 
         let world = World::new(M::from_element(3, 3, 1.0), 0.5);
 
-        Tx {
+        Cx {
             build_instructions: Mutex::default(),
             edge_traffic: Mutex::new(edge_traffic),
             parameters,
@@ -365,12 +365,12 @@ mod tests {
             when: 11,
         }];
         assert_eq!(
-            *sim.tx.build_instructions.lock().unwrap(),
+            *sim.cx.build_instructions.lock().unwrap(),
             expected_build_queue
         );
 
         assert_eq!(
-            *sim.tx.planned_roads.lock().unwrap(),
+            *sim.cx.planned_roads.lock().unwrap(),
             vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
         );
     }
@@ -378,15 +378,15 @@ mod tests {
     #[test]
     fn should_not_build_if_no_traffic_entry() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.edge_traffic = Mutex::default();
-        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
+        let mut cx = happy_path_tx();
+        cx.edge_traffic = Mutex::default();
+        let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
 
         // When
         block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -398,46 +398,46 @@ mod tests {
         block_on(sim.build_road(&hashset! {Edge::new(v2(0, 0), v2(1, 0))}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_if_road_already_exists() {
         // Given
-        let tx = happy_path_tx();
+        let cx = happy_path_tx();
         {
-            let mut world = tx.world.lock().unwrap();
+            let mut world = cx.world.lock().unwrap();
             world.set_road(&happy_path_edge(), true);
         }
-        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
+        let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
 
         // When
         block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_if_road_planned_earlier() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.road_planned = Some(1);
-        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
+        let mut cx = happy_path_tx();
+        cx.road_planned = Some(1);
+        let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
 
         // When
         block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_build_if_road_planned_later() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.road_planned = Some(12);
-        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
+        let mut cx = happy_path_tx();
+        cx.road_planned = Some(12);
+        let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
 
         // When
         block_on(sim.build_road(&hashset! {happy_path_edge()}));
@@ -448,11 +448,11 @@ mod tests {
             when: 11,
         }];
         assert_eq!(
-            *sim.tx.build_instructions.lock().unwrap(),
+            *sim.cx.build_instructions.lock().unwrap(),
             expected_build_queue
         );
         assert_eq!(
-            *sim.tx.planned_roads.lock().unwrap(),
+            *sim.cx.planned_roads.lock().unwrap(),
             vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
         );
     }
@@ -468,20 +468,20 @@ mod tests {
         block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_for_non_existent_route() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.routes = Mutex::default();
-        let sim = EdgeBuildSimulation::new(tx, happy_path_travel_duration());
+        let mut cx = happy_path_tx();
+        cx.routes = Mutex::default();
+        let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
 
         // When
         block_on(sim.build_road(&hashset! {happy_path_edge()}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 }

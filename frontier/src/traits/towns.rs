@@ -48,14 +48,14 @@ where
     }
 }
 
-async fn check_visibility_from_town<T>(tx: &T, position: V2<usize>)
+async fn check_visibility_from_town<T>(cx: &T, position: V2<usize>)
 where
     T: Visibility + WithWorld,
 {
-    let visited = tx
+    let visited = cx
         .with_world(|world| world.get_corners_in_bounds(&position))
         .await;
-    tx.check_visibility_and_reveal(visited.into_iter().collect());
+    cx.check_visibility_and_reveal(visited.into_iter().collect());
 }
 
 #[async_trait]

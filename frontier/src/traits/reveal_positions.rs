@@ -56,13 +56,13 @@ where
 }
 
 async fn send_set_visible_get_newly_visible<T>(
-    tx: &T,
+    cx: &T,
     positions: &HashSet<V2<usize>>,
 ) -> HashSet<V2<usize>>
 where
     T: WithWorld,
 {
-    tx.mut_world(|world| set_visible_get_newly_visible(world, positions))
+    cx.mut_world(|world| set_visible_get_newly_visible(world, positions))
         .await
 }
 
@@ -82,21 +82,21 @@ fn set_visible_get_newly_visible(
     out
 }
 
-fn voyage<T>(tx: &T, positions: HashSet<V2<usize>>, revealed_by: &'static str)
+fn voyage<T>(cx: &T, positions: HashSet<V2<usize>>, revealed_by: &'static str)
 where
     T: SendVoyager,
 {
-    tx.send_voyager_future_background(move |voyager| {
+    cx.send_voyager_future_background(move |voyager| {
         voyager.voyage_to(positions, revealed_by).boxed()
     });
 }
 
-async fn redraw<T>(tx: &T, positions: &HashSet<V2<usize>>)
+async fn redraw<T>(cx: &T, positions: &HashSet<V2<usize>>)
 where
     T: DrawWorld + Micros,
 {
-    let micros = tx.micros().await;
+    let micros = cx.micros().await;
     for position in positions {
-        tx.draw_world_tile(*position, micros);
+        cx.draw_world_tile(*position, micros);
     }
 }

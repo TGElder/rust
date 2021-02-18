@@ -35,7 +35,7 @@ where
     async fn build_town_at_position(&self, position: V2<usize>) {
         let (route_keys, anyone_controls_position, tiles) = join!(
             self.get_route_keys(&position),
-            self.tx.anyone_controls(&position),
+            self.cx.anyone_controls(&position),
             self.get_tiles(&position)
         );
 
@@ -49,10 +49,10 @@ where
         }
         let route = first_visit_route(routes);
 
-        let settlement = unwrap_or!(self.tx.get_settlement(&route.settlement).await, return);
+        let settlement = unwrap_or!(self.cx.get_settlement(&route.settlement).await, return);
         let nation = settlement.nation;
-        let name = ok_or!(self.tx.random_town_name(&nation).await, return);
-        let initial_town_population = self.tx.parameters().simulation.initial_town_population;
+        let name = ok_or!(self.cx.random_town_name(&nation).await, return);
+        let initial_town_population = self.cx.parameters().simulation.initial_town_population;
 
         for tile in tiles {
             let settlement = Settlement {
@@ -66,7 +66,7 @@ where
                 last_population_update_micros: route.first_visit,
             };
 
-            self.tx
+            self.cx
                 .insert_build_instruction(BuildInstruction {
                     what: Build::Town(settlement),
                     when: route.first_visit,
@@ -91,7 +91,7 @@ where
     }
 
     async fn get_traffic(&self, position: &V2<usize>) -> HashSet<RouteKey> {
-        self.tx
+        self.cx
             .with_traffic(|traffic| traffic.get(position).map(|traffic| traffic.clone()))
             .await
             .unwrap_or(hashset! {})
@@ -102,7 +102,7 @@ where
         &self,
         route_keys: &'a HashSet<RouteKey>,
     ) -> HashMap<&'a RouteKey, HashSet<V2<usize>>> {
-        self.tx
+        self.cx
             .with_route_to_ports(|route_to_ports| {
                 route_keys
                     .iter()
@@ -118,7 +118,7 @@ where
     }
 
     async fn get_tiles(&self, position: &V2<usize>) -> Vec<V2<usize>> {
-        self.tx
+        self.cx
             .with_world(|world| {
                 world
                     .get_adjacent_tiles_in_bounds(position)
@@ -133,7 +133,7 @@ where
     }
 
     async fn get_route_summaries(&self, route_keys: Vec<RouteKey>) -> Vec<RouteSummary> {
-        self.tx
+        self.cx
             .with_routes(|routes| {
                 route_keys
                     .into_iter()
@@ -183,7 +183,7 @@ mod tests {
 
     use super::*;
 
-    struct Tx {
+    struct Cx {
         anyone_controls: bool,
         build_instructions: Mutex<HashMap<BuildKey, BuildInstruction>>,
         get_settlement: Option<Settlement>,
@@ -195,11 +195,11 @@ mod tests {
         world: Mutex<World>,
     }
 
-    impl Default for Tx {
+    impl Default for Cx {
         fn default() -> Self {
             let mut world = World::new(M::from_element(3, 3, 1.0), 0.0);
             world.reveal_all();
-            Tx {
+            Cx {
                 anyone_controls: false,
                 build_instructions: Mutex::default(),
                 get_settlement: None,
@@ -214,27 +214,27 @@ mod tests {
     }
 
     #[async_trait]
-    impl AnyoneControls for Tx {
+    impl AnyoneControls for Cx {
         async fn anyone_controls(&self, _: &V2<usize>) -> bool {
             self.anyone_controls
         }
     }
 
     #[async_trait]
-    impl GetSettlement for Tx {
+    impl GetSettlement for Cx {
         async fn get_settlement(&self, _: &V2<usize>) -> Option<Settlement> {
             self.get_settlement.clone()
         }
     }
 
-    impl HasParameters for Tx {
+    impl HasParameters for Cx {
         fn parameters(&self) -> &Parameters {
             &self.parameters
         }
     }
 
     #[async_trait]
-    impl InsertBuildInstruction for Tx {
+    impl InsertBuildInstruction for Cx {
         async fn insert_build_instruction(&self, build_instruction: BuildInstruction) {
             self.build_instructions
                 .lock()
@@ -244,14 +244,14 @@ mod tests {
     }
 
     #[async_trait]
-    impl RandomTownName for Tx {
+    impl RandomTownName for Cx {
         async fn random_town_name(&self, _: &str) -> Result<String, NationNotFound> {
             Ok(self.random_town_name.clone())
         }
     }
 
     #[async_trait]
-    impl WithRoutes for Tx {
+    impl WithRoutes for Cx {
         async fn with_routes<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&Routes) -> O + Send,
@@ -268,7 +268,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithWorld for Tx {
+    impl WithWorld for Cx {
         async fn with_world<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&World) -> O + Send,
@@ -285,7 +285,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithRouteToPorts for Tx {
+    impl WithRouteToPorts for Cx {
         async fn with_route_to_ports<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
@@ -302,7 +302,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithTraffic for Tx {
+    impl WithTraffic for Cx {
         async fn with_traffic<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&Traffic) -> O + Send,
@@ -326,18 +326,18 @@ mod tests {
         }
     }
 
-    fn happy_path_tx() -> Tx {
-        let tx = Tx {
+    fn happy_path_tx() -> Cx {
+        let cx = Cx {
             get_settlement: Some(Settlement {
                 position: v2(0, 0),
                 nation: "nation".to_string(),
                 ..Settlement::default()
             }),
             random_town_name: "town".to_string(),
-            ..Tx::default()
+            ..Cx::default()
         };
 
-        tx.routes.lock().unwrap().insert_route(
+        cx.routes.lock().unwrap().insert_route(
             happy_path_route_key(),
             Route {
                 path: vec![v2(0, 0), v2(1, 0), v2(1, 1)],
@@ -348,7 +348,7 @@ mod tests {
         );
 
         {
-            let mut traffic = tx.traffic.lock().unwrap();
+            let mut traffic = cx.traffic.lock().unwrap();
             traffic
                 .get_mut(&v2(0, 0))
                 .unwrap()
@@ -363,21 +363,21 @@ mod tests {
                 .insert(happy_path_route_key());
         }
 
-        tx
+        cx
     }
 
     #[test]
     fn should_build_if_route_ends_at_position() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.parameters.simulation.initial_town_population = 1.1;
-        let build_town = PositionBuildSimulation::new(tx, 0);
+        let mut cx = happy_path_tx();
+        cx.parameters.simulation.initial_town_population = 1.1;
+        let build_town = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(build_town.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        let build_instructions = build_town.tx.build_instructions.lock().unwrap();
+        let build_instructions = build_town.cx.build_instructions.lock().unwrap();
         assert_eq!(
             *build_instructions.get(&BuildKey::Town(v2(1, 1))).unwrap(),
             BuildInstruction {
@@ -408,25 +408,25 @@ mod tests {
         block_on(sim.build_town(hashset! {v2(1, 0)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_build_if_port_at_position() {
         // Given
-        let tx = happy_path_tx();
-        tx.route_to_ports
+        let cx = happy_path_tx();
+        cx.route_to_ports
             .lock()
             .unwrap()
             .insert(happy_path_route_key(), hashset! {v2(1, 0)});
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 0)}));
 
         // Then
-        let build_instructions = sim.tx.build_instructions.lock().unwrap();
+        let build_instructions = sim.cx.build_instructions.lock().unwrap();
         assert!(build_instructions.get(&BuildKey::Town(v2(0, 0))).is_some());
         assert!(build_instructions.get(&BuildKey::Town(v2(1, 0))).is_some());
     }
@@ -434,23 +434,23 @@ mod tests {
     #[test]
     fn should_not_build_if_no_traffic_entry() {
         // Given
-        let tx = happy_path_tx();
-        *tx.traffic.lock().unwrap() = Vec2D::new(3, 3, HashSet::new());
+        let cx = happy_path_tx();
+        *cx.traffic.lock().unwrap() = Vec2D::new(3, 3, HashSet::new());
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_if_zero_traffic() {
         // Given
-        let tx = happy_path_tx();
-        tx.routes.lock().unwrap().insert_route(
+        let cx = happy_path_tx();
+        cx.routes.lock().unwrap().insert_route(
             happy_path_route_key(),
             Route {
                 path: vec![v2(0, 0), v2(1, 0), v2(1, 1)],
@@ -460,93 +460,93 @@ mod tests {
             },
         );
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_if_tile_invisible() {
         // Given
-        let tx = happy_path_tx();
+        let cx = happy_path_tx();
         {
-            let mut world = tx.world.lock().unwrap();
+            let mut world = cx.world.lock().unwrap();
             world.mut_cell_unsafe(&v2(0, 0)).visible = false;
             world.mut_cell_unsafe(&v2(1, 0)).visible = false;
             world.mut_cell_unsafe(&v2(0, 1)).visible = false;
             world.mut_cell_unsafe(&v2(1, 1)).visible = false;
         }
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_in_sea() {
         // Given
-        let tx = happy_path_tx();
-        *tx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
+        let cx = happy_path_tx();
+        *cx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_if_position_controlled() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.anyone_controls = true;
+        let mut cx = happy_path_tx();
+        cx.anyone_controls = true;
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_for_non_existent_route() {
         // Given
-        let tx = happy_path_tx();
-        *tx.routes.lock().unwrap() = Routes::default();
+        let cx = happy_path_tx();
+        *cx.routes.lock().unwrap() = Routes::default();
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_not_build_for_non_existent_settlement() {
         // Given
-        let mut tx = happy_path_tx();
-        tx.get_settlement = None;
+        let mut cx = happy_path_tx();
+        cx.get_settlement = None;
 
-        let sim = PositionBuildSimulation::new(tx, 0);
+        let sim = PositionBuildSimulation::new(cx, 0);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
 
         // Then
-        assert!(sim.tx.build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
     }
 }

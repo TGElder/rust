@@ -14,7 +14,7 @@ use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 
 pub struct Labels<T> {
-    tx: T,
+    cx: T,
     label_editor: LabelEditor,
     world_coord: Option<WorldCoord>,
     binding: Button,
@@ -24,9 +24,9 @@ impl<T> Labels<T>
 where
     T: SendEngineCommands + WithWorld,
 {
-    pub fn new(tx: T) -> Labels<T> {
+    pub fn new(cx: T) -> Labels<T> {
         Labels {
-            tx,
+            cx,
             label_editor: LabelEditor::new(HashMap::new()),
             world_coord: None,
             binding: Button::Key(VirtualKeyCode::L),
@@ -35,7 +35,7 @@ where
 
     pub async fn init(&self) {
         let commands = self.label_editor.draw_all();
-        self.tx.send_engine_commands(commands).await;
+        self.cx.send_engine_commands(commands).await;
     }
 
     async fn start_edit(&mut self) {
@@ -47,7 +47,7 @@ where
     }
 
     async fn get_elevation(&self, position: &V2<usize>) -> Option<f32> {
-        self.tx
+        self.cx
             .with_world(|world| {
                 world
                     .get_cell(position)
@@ -86,7 +86,7 @@ where
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         let editor_commands = self.label_editor.handle_event(event.clone());
         if !editor_commands.is_empty() {
-            self.tx.send_engine_commands(editor_commands).await;
+            self.cx.send_engine_commands(editor_commands).await;
             return capture_if_keypress(event);
         }
         match *event {

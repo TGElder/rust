@@ -11,14 +11,14 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 pub struct EdgeBuildSimulation<T, D> {
-    pub(super) tx: T,
+    pub(super) cx: T,
     pub(super) travel_duration: Arc<D>,
 }
 
 impl<T, D> EdgeBuildSimulation<T, D> {
-    pub fn new(tx: T, travel_duration: Arc<D>) -> EdgeBuildSimulation<T, D> {
+    pub fn new(cx: T, travel_duration: Arc<D>) -> EdgeBuildSimulation<T, D> {
         EdgeBuildSimulation {
-            tx,
+            cx,
             travel_duration,
         }
     }

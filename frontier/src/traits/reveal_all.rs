@@ -35,11 +35,11 @@ where
     }
 }
 
-async fn reveal_all_get_dimensions<T>(tx: &T) -> (usize, usize)
+async fn reveal_all_get_dimensions<T>(cx: &T) -> (usize, usize)
 where
     T: WithWorld,
 {
-    tx.mut_world(|world| {
+    cx.mut_world(|world| {
         world.reveal_all();
         (world.width(), world.height())
     })
@@ -52,10 +52,10 @@ fn all_positions(width: usize, height: usize) -> HashSet<V2<usize>> {
         .collect()
 }
 
-async fn redraw_all<T>(tx: &T)
+async fn redraw_all<T>(cx: &T)
 where
     T: DrawWorld + Micros,
 {
-    let micros = tx.micros().await;
-    tx.draw_world(micros);
+    let micros = cx.micros().await;
+    cx.draw_world(micros);
 }

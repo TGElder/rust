@@ -22,7 +22,7 @@ where
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
     async fn get_edges_with_no_traffic<'a>(&self, edges: &'a HashSet<Edge>) -> HashSet<&'a Edge> {
-        self.tx
+        self.cx
             .with_edge_traffic(|edge_traffic| {
                 edges
                     .iter()
@@ -33,15 +33,15 @@ where
     }
 
     async fn remove_road_from_edge(&self, edge: &Edge) {
-        if !self.tx.is_road(edge).await && self.tx.road_planned(edge).await.is_none() {
+        if !self.cx.is_road(edge).await && self.cx.road_planned(edge).await.is_none() {
             return;
         }
 
-        self.tx
+        self.cx
             .remove_build_instruction(&BuildKey::Road(*edge))
             .await;
-        self.tx.remove_road(edge).await;
-        self.tx.plan_road(edge, None).await;
+        self.cx.remove_road(edge).await;
+        self.cx.plan_road(edge, None).await;
     }
 }
 
@@ -68,7 +68,7 @@ mod tests {
     use super::*;
 
     #[derive(Default)]
-    struct Tx {
+    struct Cx {
         is_road: bool,
         edge_traffic: Mutex<EdgeTraffic>,
         planned_roads: Mutex<Vec<(Edge, Option<u128>)>>,
@@ -78,21 +78,21 @@ mod tests {
     }
 
     #[async_trait]
-    impl IsRoad for Tx {
+    impl IsRoad for Cx {
         async fn is_road(&self, _: &Edge) -> bool {
             self.is_road
         }
     }
 
     #[async_trait]
-    impl PlanRoad for Tx {
+    impl PlanRoad for Cx {
         async fn plan_road(&self, edge: &Edge, when: Option<u128>) {
             self.planned_roads.lock().unwrap().push((*edge, when))
         }
     }
 
     #[async_trait]
-    impl RemoveBuildInstruction for Tx {
+    impl RemoveBuildInstruction for Cx {
         async fn remove_build_instruction(&self, build_key: &BuildKey) {
             self.removed_build_instructions
                 .lock()
@@ -102,21 +102,21 @@ mod tests {
     }
 
     #[async_trait]
-    impl RemoveRoadTrait for Tx {
+    impl RemoveRoadTrait for Cx {
         async fn remove_road(&self, edge: &Edge) {
             self.removed_roads.lock().unwrap().push(*edge)
         }
     }
 
     #[async_trait]
-    impl RoadPlanned for Tx {
+    impl RoadPlanned for Cx {
         async fn road_planned(&self, _: &Edge) -> Option<u128> {
             self.road_planned
         }
     }
 
     #[async_trait]
-    impl WithEdgeTraffic for Tx {
+    impl WithEdgeTraffic for Cx {
         async fn with_edge_traffic<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&EdgeTraffic) -> O + Send,
@@ -135,55 +135,55 @@ mod tests {
     #[test]
     fn should_remove_existing_road() {
         // Given
-        let tx = Tx {
+        let cx = Cx {
             is_road: true,
-            ..Tx::default()
+            ..Cx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert_eq!(*sim.tx.removed_roads.lock().unwrap(), vec![edge]);
+        assert_eq!(*sim.cx.removed_roads.lock().unwrap(), vec![edge]);
     }
 
     #[test]
     fn should_remove_planned_road() {
         // Given
-        let tx = Tx {
+        let cx = Cx {
             road_planned: Some(123),
-            ..Tx::default()
+            ..Cx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert_eq!(*sim.tx.planned_roads.lock().unwrap(), vec![(edge, None)]);
+        assert_eq!(*sim.cx.planned_roads.lock().unwrap(), vec![(edge, None)]);
     }
 
     #[test]
     fn should_remove_build_instruction() {
         // Given
-        let tx = Tx {
+        let cx = Cx {
             road_planned: Some(123),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let edge = Edge::new(v2(0, 0), v2(1, 0));
 
-        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
         assert_eq!(
-            *sim.tx.removed_build_instructions.lock().unwrap(),
+            *sim.cx.removed_build_instructions.lock().unwrap(),
             hashset! {BuildKey::Road(edge)}
         );
     }
@@ -191,14 +191,14 @@ mod tests {
     #[test]
     fn should_not_remove_if_any_routes() {
         // Given
-        let tx = Tx {
+        let cx = Cx {
             is_road: true,
             road_planned: Some(123),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        *tx.edge_traffic.lock().unwrap() = hashmap! {
+        *cx.edge_traffic.lock().unwrap() = hashmap! {
             edge => hashset!{
                 RouteKey{
                     settlement: v2(0, 0),
@@ -208,53 +208,53 @@ mod tests {
             }
         };
 
-        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert!(sim.tx.removed_build_instructions.lock().unwrap().is_empty());
-        assert!(sim.tx.removed_roads.lock().unwrap().is_empty());
-        assert!(sim.tx.planned_roads.lock().unwrap().is_empty());
+        assert!(sim.cx.removed_build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.removed_roads.lock().unwrap().is_empty());
+        assert!(sim.cx.planned_roads.lock().unwrap().is_empty());
     }
 
     #[test]
     fn should_remove_if_empty_route_entry() {
         // Given
-        let tx = Tx {
+        let cx = Cx {
             is_road: true,
-            ..Tx::default()
+            ..Cx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        *tx.edge_traffic.lock().unwrap() = hashmap! {
+        *cx.edge_traffic.lock().unwrap() = hashmap! {
             edge => hashset!{}
         };
-        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert_eq!(*sim.tx.removed_roads.lock().unwrap(), vec![edge]);
+        assert_eq!(*sim.cx.removed_roads.lock().unwrap(), vec![edge]);
     }
 
     #[test]
     fn should_not_remove_if_road_neither_exists_nor_planned() {
         // Given
-        let tx = Tx {
+        let cx = Cx {
             is_road: false,
             road_planned: None,
-            ..Tx::default()
+            ..Cx::default()
         };
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let sim = EdgeBuildSimulation::new(tx, Arc::new(()));
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.remove_road(&hashset! {edge}));
 
         // Then
-        assert_eq!(*sim.tx.removed_roads.lock().unwrap(), vec![]);
-        assert_eq!(*sim.tx.planned_roads.lock().unwrap(), vec![]);
+        assert_eq!(*sim.cx.removed_roads.lock().unwrap(), vec![]);
+        assert_eq!(*sim.cx.planned_roads.lock().unwrap(), vec![]);
     }
 }

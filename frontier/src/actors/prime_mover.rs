@@ -22,7 +22,7 @@ use crate::traits::{Micros, WithAvatars, WithRoutes, WithSettlements, WithWorld}
 use crate::world::World;
 
 pub struct PrimeMover<T> {
-    tx: T,
+    cx: T,
     avatars: usize,
     travel_duration: Arc<AvatarTravelDuration>,
     durations: Durations,
@@ -57,14 +57,14 @@ where
     T: Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
 {
     pub fn new(
-        tx: T,
+        cx: T,
         avatars: usize,
         seed: u64,
         travel_duration: Arc<AvatarTravelDuration>,
         nation_descriptions: &[NationDescription],
     ) -> PrimeMover<T> {
         PrimeMover {
-            tx,
+            cx,
             avatars,
             travel_duration,
             durations: Durations::default(),
@@ -84,7 +84,7 @@ where
     }
 
     pub async fn new_game(&self) {
-        self.tx
+        self.cx
             .mut_avatars(|avatars| {
                 for i in 0..self.avatars {
                     avatars.all.insert(
@@ -121,7 +121,7 @@ where
     }
 
     async fn get_dormant(&self, micros: &u128) -> HashSet<String> {
-        self.tx
+        self.cx
             .with_avatars(|avatars| {
                 avatars
                     .all
@@ -153,7 +153,7 @@ where
 
     async fn get_candidates(&self) -> Vec<(RouteKey, u128)> {
         let active_keys = self.active.values().cloned().collect::<HashSet<_>>();
-        self.tx
+        self.cx
             .with_routes(|routes| {
                 routes
                     .values()
@@ -172,7 +172,7 @@ where
     }
 
     async fn get_paths(&self, keys: &[RouteKey]) -> HashMap<RouteKey, Vec<V2<usize>>> {
-        self.tx
+        self.cx
             .with_routes(|routes| {
                 keys.iter()
                     .flat_map(|key| {
@@ -190,7 +190,7 @@ where
         paths: HashMap<RouteKey, Vec<V2<usize>>>,
         start_at: u128,
     ) -> HashMap<RouteKey, Journey> {
-        self.tx
+        self.cx
             .with_world(|world| {
                 paths
                     .into_iter()
@@ -255,7 +255,7 @@ where
     }
 
     async fn get_nations(&self, keys: &[RouteKey]) -> HashMap<RouteKey, String> {
-        self.tx
+        self.cx
             .with_settlements(|settlements| {
                 keys.iter()
                     .flat_map(|key| {
@@ -296,7 +296,7 @@ where
         if updated.is_empty() {
             return;
         }
-        self.tx
+        self.cx
             .mut_avatars(|avatars| {
                 for (name, avatar) in updated {
                     avatars.all.insert(name, avatar);
@@ -335,7 +335,7 @@ where
     T: Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
 {
     async fn step(&mut self) {
-        let micros = self.tx.micros().await;
+        let micros = self.cx.micros().await;
         let dormant = self.get_dormant(&micros).await;
 
         if (!dormant.is_empty()) {

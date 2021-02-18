@@ -12,7 +12,7 @@ use crate::system::System;
 const SAVE_PATH: &str = "save";
 
 pub struct SystemController {
-    tx: FnSender<System>,
+    cx: FnSender<System>,
     shutdown_tx: Sender<()>,
     bindings: Bindings,
     paused: bool,
@@ -24,9 +24,9 @@ struct Bindings {
 }
 
 impl SystemController {
-    pub fn new(tx: FnSender<System>, shutdown_tx: Sender<()>) -> SystemController {
+    pub fn new(cx: FnSender<System>, shutdown_tx: Sender<()>) -> SystemController {
         SystemController {
-            tx,
+            cx,
             shutdown_tx,
             bindings: Bindings {
                 pause: Button::Key(VirtualKeyCode::Space),
@@ -42,11 +42,11 @@ impl SystemController {
         if self.paused != pause {
             if pause {
                 info!("Pausing system");
-                block_on(self.tx.send_future(|system| system.pause().boxed()));
+                block_on(self.cx.send_future(|system| system.pause().boxed()));
                 info!("Paused system");
             } else {
                 info!("Starting system");
-                block_on(self.tx.send_future(|system| system.start().boxed()));
+                block_on(self.cx.send_future(|system| system.start().boxed()));
                 info!("Started system");
             }
             self.paused = pause;
@@ -61,7 +61,7 @@ impl SystemController {
         info!("Saving system");
         let was_paused = self.paused;
         self.set_pause(true);
-        block_on(self.tx.send_future(|system| system.save(SAVE_PATH).boxed()));
+        block_on(self.cx.send_future(|system| system.save(SAVE_PATH).boxed()));
         self.set_pause(was_paused);
         info!("Saved system");
     }

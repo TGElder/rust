@@ -26,7 +26,7 @@ where
     }
 
     async fn get_route_keys(&self, territory: &HashSet<V2<usize>>) -> HashSet<RouteKey> {
-        self.tx
+        self.cx
             .with_traffic(|traffic| get_route_keys(traffic, territory))
             .await
     }
@@ -35,7 +35,7 @@ where
         &self,
         keys: HashSet<RouteKey>,
     ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
-        self.tx
+        self.cx
             .with_route_to_ports(|route_to_ports| get_route_to_ports(route_to_ports, keys))
             .await
     }
@@ -87,7 +87,7 @@ where
     }
 
     async fn get_settlement(&self, position: &V2<usize>) -> Option<Settlement> {
-        self.tx
+        self.cx
             .with_settlements(|settlements| {
                 settlements
                     .values()
@@ -98,7 +98,7 @@ where
     }
 
     async fn get_route(&self, route_key: &RouteKey) -> Option<Route> {
-        self.tx
+        self.cx
             .with_routes(|routes| routes.get_route(route_key).cloned())
             .await
     }
@@ -164,16 +164,16 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
 
-    struct Tx {
+    struct Cx {
         route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
         routes: Mutex<Routes>,
         settlements: Mutex<HashMap<V2<usize>, Settlement>>,
         traffic: Mutex<Traffic>,
     }
 
-    impl Default for Tx {
+    impl Default for Cx {
         fn default() -> Self {
-            Tx {
+            Cx {
                 route_to_ports: Mutex::default(),
                 routes: Mutex::default(),
                 settlements: Mutex::default(),
@@ -182,7 +182,7 @@ mod tests {
         }
     }
 
-    impl Tx {
+    impl Cx {
         fn add_route(&self, route_key: RouteKey, route: Route) {
             for position in route.path.iter() {
                 self.traffic
@@ -199,7 +199,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithRoutes for Tx {
+    impl WithRoutes for Cx {
         async fn with_routes<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&Routes) -> O + Send,
@@ -216,7 +216,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithRouteToPorts for Tx {
+    impl WithRouteToPorts for Cx {
         async fn with_route_to_ports<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
@@ -233,7 +233,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithSettlements for Tx {
+    impl WithSettlements for Cx {
         async fn with_settlements<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&HashMap<V2<usize>, Settlement>) -> O + Send,
@@ -250,7 +250,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithTraffic for Tx {
+    impl WithTraffic for Cx {
         async fn with_traffic<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&Traffic) -> O + Send,
@@ -271,7 +271,7 @@ mod tests {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let tx = Tx {
+        let cx = Cx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -279,7 +279,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let route_key = RouteKey {
@@ -293,9 +293,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        tx.add_route(route_key, route);
+        cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -322,7 +322,7 @@ mod tests {
             destination: v2(2, 3),
         };
 
-        let tx = Tx {
+        let cx = Cx {
             route_to_ports: Mutex::new(hashmap! {route_key => hashset!{v2(2, 1)}}),
             settlements: Mutex::new(hashmap! {
                 v2(2, 0) => Settlement{
@@ -331,7 +331,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let route = Route {
@@ -340,9 +340,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        tx.add_route(route_key, route);
+        cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -369,7 +369,7 @@ mod tests {
             destination: v2(2, 2),
         };
 
-        let tx = Tx {
+        let cx = Cx {
             route_to_ports: Mutex::new(hashmap! {route_key => hashset!{v2(2, 1)}}),
             settlements: Mutex::new(hashmap! {
                 v2(2, 0) => Settlement{
@@ -378,7 +378,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let route = Route {
@@ -387,9 +387,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        tx.add_route(route_key, route);
+        cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -416,7 +416,7 @@ mod tests {
             destination: v2(2, 1),
         };
 
-        let tx = Tx {
+        let cx = Cx {
             route_to_ports: Mutex::new(hashmap! {route_key => hashset!{v2(1, 0)}}),
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
@@ -425,7 +425,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let route = Route {
@@ -434,9 +434,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        tx.add_route(route_key, route);
+        cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -457,7 +457,7 @@ mod tests {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let tx = Tx {
+        let cx = Cx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -470,7 +470,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let route_key_1 = RouteKey {
@@ -484,7 +484,7 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        tx.add_route(route_key_1, route_1);
+        cx.add_route(route_key_1, route_1);
 
         let route_key_2 = RouteKey {
             settlement: v2(3, 3),
@@ -497,9 +497,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(3),
         };
-        tx.add_route(route_key_2, route_2);
+        cx.add_route(route_key_2, route_2);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -520,7 +520,7 @@ mod tests {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let tx = Tx {
+        let cx = Cx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -533,7 +533,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let route_key_1 = RouteKey {
@@ -547,7 +547,7 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        tx.add_route(route_key_1, route_1);
+        cx.add_route(route_key_1, route_1);
 
         let route_key_2 = RouteKey {
             settlement: v2(3, 3),
@@ -560,9 +560,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(3),
         };
-        tx.add_route(route_key_2, route_2);
+        cx.add_route(route_key_2, route_2);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -591,14 +591,14 @@ mod tests {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let tx = Tx {
+        let cx = Cx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let route_key = RouteKey {
@@ -620,9 +620,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        tx.add_route(route_key, route);
+        cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -636,14 +636,14 @@ mod tests {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let tx = Tx {
+        let cx = Cx {
             settlements: Mutex::new(hashmap! {
                 v2(3, 1) => Settlement{
                     position: v2(3, 1),
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
         let route_key = RouteKey {
             settlement: v2(3, 1),
@@ -656,9 +656,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        tx.add_route(route_key, route);
+        cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -678,7 +678,7 @@ mod tests {
             destination: v2(3, 1),
         };
 
-        let tx = Tx {
+        let cx = Cx {
             route_to_ports: Mutex::new(hashmap! {
                 route_key => hashset! { v2(0, 1) }
             }),
@@ -688,7 +688,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
         let route = Route {
             path: vec![v2(0, 1), v2(1, 1), v2(2, 1), v2(3, 1)],
@@ -696,9 +696,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        tx.add_route(route_key, route);
+        cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -712,7 +712,7 @@ mod tests {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let mut tx = Tx {
+        let mut cx = Cx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -720,7 +720,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let route_key = RouteKey {
@@ -734,10 +734,10 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        tx.add_route(route_key, route);
-        tx.routes = Mutex::default(); // Removing route to create invalid state
+        cx.add_route(route_key, route);
+        cx.routes = Mutex::default(); // Removing route to create invalid state
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -751,7 +751,7 @@ mod tests {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let tx = Tx {
+        let cx = Cx {
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -759,7 +759,7 @@ mod tests {
                     ..Settlement::default()
                 },
             }),
-            ..Tx::default()
+            ..Cx::default()
         };
 
         let route_key = RouteKey {
@@ -773,9 +773,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
-        tx.add_route(route_key, route);
+        cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -796,7 +796,7 @@ mod tests {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
-        let tx = Tx::default();
+        let cx = Cx::default();
 
         let route_key = RouteKey {
             settlement: v2(0, 0),
@@ -809,9 +809,9 @@ mod tests {
             start_micros: 0,
             duration: Duration::default(),
         };
-        tx.add_route(route_key, route);
+        cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));

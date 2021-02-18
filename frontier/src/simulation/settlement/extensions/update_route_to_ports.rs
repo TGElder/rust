@@ -25,7 +25,7 @@ where
 
     async fn remove_removed(&self, route_changes: &[RouteChange]) {
         let removed = get_all_removed(route_changes);
-        self.tx
+        self.cx
             .mut_route_to_ports(|route_to_ports| {
                 for key in removed {
                     route_to_ports.remove(key);
@@ -42,13 +42,13 @@ where
     where
         C: CheckForPort + Clone + Send + Sync + 'static,
     {
-        self.tx
+        self.cx
             .with_world(|world| get_all_ports(world, port_checker, routes))
             .await
     }
 
     async fn update_ports(&self, ports: HashMap<RouteKey, HashSet<V2<usize>>>) {
-        self.tx
+        self.cx
             .mut_route_to_ports(|route_to_ports| {
                 for (key, ports) in ports {
                     if ports.is_empty() {
@@ -122,13 +122,13 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
 
-    struct Tx {
+    struct Cx {
         route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
         world: Mutex<World>,
     }
 
     #[async_trait]
-    impl WithWorld for Tx {
+    impl WithWorld for Cx {
         async fn with_world<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&World) -> O + Send,
@@ -145,7 +145,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithRouteToPorts for Tx {
+    impl WithRouteToPorts for Cx {
         async fn with_route_to_ports<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
@@ -161,8 +161,8 @@ mod tests {
         }
     }
 
-    fn tx() -> Tx {
-        Tx {
+    fn cx() -> Cx {
+        Cx {
             route_to_ports: Mutex::default(),
             world: Mutex::new(World::new(M::zeros(3, 3), 0.0)),
         }
@@ -195,14 +195,14 @@ mod tests {
 
         let route_change = RouteChange::New { key, route };
 
-        let sim = SettlementSimulation::new(tx());
+        let sim = SettlementSimulation::new(cx());
 
         // When
         block_on(sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 2)}));
 
         // Then
         assert_eq!(
-            *sim.tx.route_to_ports.lock().unwrap(),
+            *sim.cx.route_to_ports.lock().unwrap(),
             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
         );
     }
@@ -224,13 +224,13 @@ mod tests {
 
         let route_change = RouteChange::New { key, route };
 
-        let sim = SettlementSimulation::new(tx());
+        let sim = SettlementSimulation::new(cx());
 
         // When
         block_on(sim.update_route_to_ports(&[route_change], &hashset! {}));
 
         // Then
-        assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -254,12 +254,12 @@ mod tests {
             traffic: 0,
         };
 
-        let tx = tx();
-        *tx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
+        let cx = cx();
+        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
 
         let route_change = RouteChange::Updated { key, old, new };
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(
@@ -268,7 +268,7 @@ mod tests {
 
         // Then
         assert_eq!(
-            *sim.tx.route_to_ports.lock().unwrap(),
+            *sim.cx.route_to_ports.lock().unwrap(),
             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
         );
     }
@@ -294,18 +294,18 @@ mod tests {
             traffic: 0,
         };
 
-        let tx = tx();
-        *tx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
+        let cx = cx();
+        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
 
         let route_change = RouteChange::Updated { key, old, new };
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(sim.update_route_to_ports(&[route_change], &hashset! {v2(1, 0)}));
 
         // Then
-        assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -329,12 +329,12 @@ mod tests {
             traffic: 0,
         };
 
-        let tx = tx();
-        *tx.route_to_ports.lock().unwrap() = hashmap! {}; // Incorrect so we can check it is not corrected
+        let cx = cx();
+        *cx.route_to_ports.lock().unwrap() = hashmap! {}; // Incorrect so we can check it is not corrected
 
         let route_change = RouteChange::Updated { key, old, new };
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(
@@ -342,7 +342,7 @@ mod tests {
         );
 
         // Then
-        assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -360,18 +360,18 @@ mod tests {
             traffic: 0,
         };
 
-        let tx = tx();
-        *tx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } };
+        let cx = cx();
+        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } };
 
         let route_change = RouteChange::Removed { key, route };
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(sim.update_route_to_ports(&[route_change], &hashset! {}));
 
         // Then
-        assert_eq!(*sim.tx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -400,8 +400,8 @@ mod tests {
             traffic: 0,
         };
 
-        let tx = tx();
-        *tx.route_to_ports.lock().unwrap() = hashmap! { key_removed => hashset!{ v2(0, 1) } };
+        let cx = cx();
+        *cx.route_to_ports.lock().unwrap() = hashmap! { key_removed => hashset!{ v2(0, 1) } };
 
         let route_changes = vec![
             RouteChange::New {
@@ -414,14 +414,14 @@ mod tests {
             },
         ];
 
-        let sim = SettlementSimulation::new(tx);
+        let sim = SettlementSimulation::new(cx);
 
         // When
         block_on(sim.update_route_to_ports(&route_changes, &hashset! {v2(0, 1), v2(1, 2)}));
 
         // Then
         assert_eq!(
-            *sim.tx.route_to_ports.lock().unwrap(),
+            *sim.cx.route_to_ports.lock().unwrap(),
             hashmap! { key_new => hashset!{ v2(0, 1), v2(1, 2) } }
         );
     }

@@ -9,7 +9,7 @@ use std::default::Default;
 use std::sync::Arc;
 
 pub struct Cheats<T> {
-    tx: T,
+    cx: T,
     bindings: CheatBindings,
     world_coord: Option<WorldCoord>,
 }
@@ -34,9 +34,9 @@ impl<T> Cheats<T>
 where
     T: RevealAll + UpdateAvatarJourney + Visibility + WithAvatars + WithWorld,
 {
-    pub fn new(tx: T) -> Cheats<T> {
+    pub fn new(cx: T) -> Cheats<T> {
         Cheats {
-            tx,
+            cx,
             bindings: CheatBindings::default(),
             world_coord: None,
         }
@@ -47,8 +47,8 @@ where
     }
 
     async fn reveal_all(&mut self) {
-        self.tx.reveal_all().await;
-        self.tx.disable_visibility_computation();
+        self.cx.reveal_all().await;
+        self.cx.disable_visibility_computation();
     }
 
     async fn move_avatar(&mut self) {
@@ -58,21 +58,21 @@ where
         let name = unwrap_or!(self.selected_avatar_name().await, return);
 
         let moved = self
-            .tx
+            .cx
             .with_world(|world| Journey::stationary(world, position, Vehicle::None, Rotation::Down))
             .await;
 
-        self.tx.update_avatar_journey(&name, Some(moved)).await;
+        self.cx.update_avatar_journey(&name, Some(moved)).await;
     }
 
     async fn remove_avatar(&mut self) {
         if let Some(name) = self.selected_avatar_name().await {
-            self.tx.update_avatar_journey(&name, None).await;
+            self.cx.update_avatar_journey(&name, None).await;
         }
     }
 
     async fn selected_avatar_name(&self) -> Option<String> {
-        self.tx
+        self.cx
             .with_avatars(|avatars| avatars.selected.clone())
             .await
     }

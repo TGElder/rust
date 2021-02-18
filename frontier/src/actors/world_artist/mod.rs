@@ -26,7 +26,7 @@ impl Default for WorldArtistActorBindings {
 }
 
 pub struct WorldArtistActor<T> {
-    tx: T,
+    cx: T,
     bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
     coloring_params: WorldColoringParameters,
@@ -40,14 +40,14 @@ where
     T: Micros + SendEngineCommands + WithSettlements + WithTerritory + WithWorld + Send + Sync,
 {
     pub fn new(
-        tx: T,
+        cx: T,
         world_artist: WorldArtist,
         coloring_params: WorldColoringParameters,
         overlay_alpha: f32,
         nation_descriptions: &[NationDescription],
     ) -> WorldArtistActor<T> {
         WorldArtistActor {
-            tx,
+            cx,
             bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},
             world_artist,
@@ -74,7 +74,7 @@ where
 
     pub async fn init(&mut self) {
         let commands = self.world_artist.init();
-        self.tx.send_engine_commands(commands).await;
+        self.cx.send_engine_commands(commands).await;
         self.redraw_all().await;
     }
 
@@ -95,7 +95,7 @@ where
     }
 
     async fn when(&mut self) -> u128 {
-        self.tx.micros().await
+        self.cx.micros().await
     }
 
     async fn redraw_slab(&mut self, slab: Slab, when: u128) {
@@ -103,7 +103,7 @@ where
             return;
         }
 
-        let generated_after = self.tx.micros().await;
+        let generated_after = self.cx.micros().await;
         self.draw_slab(&slab).await;
 
         self.last_redraw.insert(slab.from, generated_after);
@@ -112,7 +112,7 @@ where
     async fn draw_slab(&mut self, slab: &Slab) {
         let overlay = self.get_territory_overlay(&slab).await;
         let commands = self
-            .tx
+            .cx
             .with_world(|world| {
                 self.world_artist.draw_slab(
                     &world,
@@ -121,7 +121,7 @@ where
                 )
             })
             .await;
-        self.tx.send_engine_commands(commands).await;
+        self.cx.send_engine_commands(commands).await;
     }
 
     fn has_been_redrawn_after(&self, slab: &Slab, when: &u128) -> bool {
@@ -155,7 +155,7 @@ where
     }
 
     async fn get_territory(&self, slab: &Slab) -> M<Option<V2<usize>>> {
-        self.tx
+        self.cx
             .with_territory(|territory| {
                 M::from_fn(slab.slab_size, slab.slab_size, |x, y| {
                     territory
@@ -168,7 +168,7 @@ where
 
     async fn get_nations(&self, territory: &M<Option<V2<usize>>>) -> HashMap<V2<usize>, String> {
         let distinct = territory.iter().flatten().copied().collect::<HashSet<_>>();
-        self.tx
+        self.cx
             .with_settlements(|settlements| {
                 distinct
                     .iter()

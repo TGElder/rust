@@ -13,7 +13,7 @@ where
     }
 
     async fn try_update_settlement(&self, settlement: Settlement) -> Settlement {
-        let game_micros = self.tx.micros().await;
+        let game_micros = self.cx.micros().await;
 
         if settlement.last_population_update_micros >= game_micros {
             return settlement;
@@ -34,7 +34,7 @@ where
 
     async fn max_abs_population_change(&self, settlement_class: &SettlementClass) -> f64 {
         let MaxAbsPopulationChange { homeland, town } =
-            self.tx.parameters().simulation.max_abs_population_change;
+            self.cx.parameters().simulation.max_abs_population_change;
         match settlement_class {
             SettlementClass::Homeland => homeland,
             SettlementClass::Town => town,
@@ -72,31 +72,31 @@ mod tests {
     use futures::executor::block_on;
     use std::time::Duration;
 
-    struct Tx {
+    struct Cx {
         micros: u128,
         parameters: Parameters,
     }
 
-    impl HasParameters for Tx {
+    impl HasParameters for Cx {
         fn parameters(&self) -> &Parameters {
             &self.parameters
         }
     }
 
     #[async_trait]
-    impl Micros for Tx {
+    impl Micros for Cx {
         async fn micros(&self) -> u128 {
             self.micros
         }
     }
 
-    fn tx() -> Tx {
+    fn cx() -> Cx {
         let mut parameters = Parameters::default();
         parameters.simulation.max_abs_population_change = MaxAbsPopulationChange {
             town: 100.0,
             homeland: 0.0,
         };
-        Tx {
+        Cx {
             micros: 33,
             parameters,
         }
@@ -114,7 +114,7 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(tx());
+        let sim = SettlementSimulation::new(cx());
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));
@@ -136,7 +136,7 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(tx());
+        let sim = SettlementSimulation::new(cx());
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));
@@ -158,7 +158,7 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(tx());
+        let sim = SettlementSimulation::new(cx());
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));
@@ -182,8 +182,8 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let tx = Tx { micros: 11, ..tx() };
-        let sim = SettlementSimulation::new(tx);
+        let cx = Cx { micros: 11, ..cx() };
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let result = block_on(sim.update_current_population(settlement.clone()));
@@ -204,9 +204,9 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let mut tx = tx();
-        tx.parameters.simulation.max_abs_population_change.town = 1.0;
-        let sim = SettlementSimulation::new(tx);
+        let mut cx = cx();
+        cx.parameters.simulation.max_abs_population_change.town = 1.0;
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));
@@ -228,9 +228,9 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let mut tx = tx();
-        tx.parameters.simulation.max_abs_population_change.town = 1.0;
-        let sim = SettlementSimulation::new(tx);
+        let mut cx = cx();
+        cx.parameters.simulation.max_abs_population_change.town = 1.0;
+        let sim = SettlementSimulation::new(cx);
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));

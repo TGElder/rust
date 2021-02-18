@@ -10,7 +10,7 @@ use isometric::drawing::{draw_house, DrawHouseParams};
 use isometric::{Color, Command};
 
 pub struct TownHouseArtist<T> {
-    tx: T,
+    cx: T,
     params: TownArtistParameters,
 }
 
@@ -18,8 +18,8 @@ impl<T> TownHouseArtist<T>
 where
     T: GetNationDescription + GetSettlement + SendEngineCommands + Settlements + WithWorld + Send,
 {
-    pub fn new(tx: T, params: TownArtistParameters) -> TownHouseArtist<T> {
-        TownHouseArtist { tx, params }
+    pub fn new(cx: T, params: TownArtistParameters) -> TownHouseArtist<T> {
+        TownHouseArtist { cx, params }
     }
 
     pub async fn init(&self) {
@@ -27,7 +27,7 @@ where
     }
 
     pub async fn update_settlement(&self, settlement: Settlement) {
-        if self.tx.get_settlement(&settlement.position).await.is_some() {
+        if self.cx.get_settlement(&settlement.position).await.is_some() {
             self.draw_settlement(settlement).await
         } else {
             self.erase_settlement(settlement).await
@@ -35,7 +35,7 @@ where
     }
 
     async fn draw_all(&self) {
-        for settlement in self.tx.settlements().await {
+        for settlement in self.cx.settlements().await {
             self.draw_settlement(settlement).await;
         }
     }
@@ -56,7 +56,7 @@ where
     }
 
     async fn get_nation_color(&self, nation: &str) -> Color {
-        self.tx
+        self.cx
             .get_nation_description(&nation)
             .await
             .unwrap_or_else(|| panic!("Unknown nation"))
@@ -67,15 +67,15 @@ where
     async fn draw_house(&self, params: DrawHouseParams, settlement: Settlement) {
         let name = get_name(&settlement.position);
         let commands = self
-            .tx
+            .cx
             .with_world(|world| get_draw_commands(name, world, &settlement.position, params))
             .await;
-        self.tx.send_engine_commands(commands).await;
+        self.cx.send_engine_commands(commands).await;
     }
 
     async fn erase_settlement(&self, settlement: Settlement) {
         let command = Command::Erase(get_name(&settlement.position));
-        self.tx.send_engine_commands(vec![command]).await;
+        self.cx.send_engine_commands(vec![command]).await;
     }
 }
 

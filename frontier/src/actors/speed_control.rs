@@ -21,7 +21,7 @@ impl Default for SpeedControlBindings {
 }
 
 pub struct SpeedControl<T> {
-    tx: T,
+    cx: T,
     bindings: SpeedControlBindings,
 }
 
@@ -29,19 +29,19 @@ impl<T> SpeedControl<T>
 where
     T: WithClock,
 {
-    pub fn new(tx: T) -> SpeedControl<T> {
+    pub fn new(cx: T) -> SpeedControl<T> {
         SpeedControl {
-            tx,
+            cx,
             bindings: SpeedControlBindings::default(),
         }
     }
 
     async fn slow_down(&mut self) {
-        self.tx.mut_clock(|clock| clock.adjust_speed(0.5)).await;
+        self.cx.mut_clock(|clock| clock.adjust_speed(0.5)).await;
     }
 
     async fn speed_up(&mut self) {
-        self.tx.mut_clock(|clock| clock.adjust_speed(2.0)).await;
+        self.cx.mut_clock(|clock| clock.adjust_speed(2.0)).await;
     }
 }
 

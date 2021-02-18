@@ -9,15 +9,15 @@ use std::collections::{HashMap, HashSet};
 const NAME: &str = "voyager";
 
 pub struct Voyager<T> {
-    tx: T,
+    cx: T,
 }
 
 impl<T> Voyager<T>
 where
     T: RevealPositions + WithSettlements + WithWorld + Send,
 {
-    pub fn new(tx: T) -> Voyager<T> {
-        Voyager { tx }
+    pub fn new(cx: T) -> Voyager<T> {
+        Voyager { cx }
     }
 
     pub async fn voyage_to(&mut self, positions: HashSet<V2<usize>>, by: &'static str) {
@@ -27,20 +27,20 @@ where
         let (positions, homelands) =
             join!(self.filter_coastal(positions), self.homeland_positions());
         let to_reveal = self.get_positions_to_reveal(&positions, &homelands).await;
-        self.tx.reveal_positions(&to_reveal, NAME).await;
+        self.cx.reveal_positions(&to_reveal, NAME).await;
     }
 
     async fn filter_coastal(&self, positions: HashSet<V2<usize>>) -> HashSet<V2<usize>>
     where
         T: WithWorld,
     {
-        self.tx
+        self.cx
             .with_world(|world| filter_coastal(world, positions))
             .await
     }
 
     async fn homeland_positions(&self) -> HashSet<V2<usize>> {
-        self.tx
+        self.cx
             .with_settlements(|settlements| homeland_positions(settlements))
             .await
     }
@@ -50,7 +50,7 @@ where
         positions: &HashSet<V2<usize>>,
         homelands: &HashSet<V2<usize>>,
     ) -> HashSet<V2<usize>> {
-        self.tx
+        self.cx
             .with_world(|world| {
                 homelands
                     .iter()

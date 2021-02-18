@@ -42,55 +42,55 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct Polysender {
-    pub avatar_artist_tx: FnSender<AvatarArtistActor<Polysender>>,
-    pub avatar_visibility_tx: FnSender<AvatarVisibility<Polysender>>,
+pub struct Context {
+    pub avatar_artist_tx: FnSender<AvatarArtistActor<Context>>,
+    pub avatar_visibility_tx: FnSender<AvatarVisibility<Context>>,
     pub avatars: Arc<RwLock<Avatars>>,
     pub background_service: Arc<BackgroundService>,
-    pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Polysender>>,
-    pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Polysender>>,
-    pub builder_tx: FnSender<BuilderActor<Polysender>>,
+    pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Context>>,
+    pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Context>>,
+    pub builder_tx: FnSender<BuilderActor<Context>>,
     pub build_queue: Arc<RwLock<BuildQueue>>,
-    pub cheats_tx: FnSender<Cheats<Polysender>>,
+    pub cheats_tx: FnSender<Cheats<Context>>,
     pub clock: Arc<RwLock<Clock<RealTime>>>,
-    pub edge_sim_tx: FnSender<EdgeBuildSimulation<Polysender, AutoRoadTravelDuration>>,
+    pub edge_sim_tx: FnSender<EdgeBuildSimulation<Context, AutoRoadTravelDuration>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
     pub engine_tx: Sender<Vec<Command>>,
-    pub labels_tx: FnSender<Labels<Polysender>>,
+    pub labels_tx: FnSender<Labels<Context>>,
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
-    pub object_builder_tx: FnSender<ObjectBuilder<Polysender>>,
+    pub object_builder_tx: FnSender<ObjectBuilder<Context>>,
     pub parameters: Arc<Parameters>,
     pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
-    pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Polysender>>,
+    pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Context>>,
     pub pool: ThreadPool,
-    pub position_sim_tx: FnSender<PositionBuildSimulation<Polysender>>,
-    pub prime_mover_tx: FnSender<PrimeMover<Polysender>>,
-    pub resource_targets_tx: FnSender<ResourceTargets<Polysender>>,
-    pub rotate_tx: FnSender<Rotate<Polysender>>,
+    pub position_sim_tx: FnSender<PositionBuildSimulation<Context>>,
+    pub prime_mover_tx: FnSender<PrimeMover<Context>>,
+    pub resource_targets_tx: FnSender<ResourceTargets<Context>>,
+    pub rotate_tx: FnSender<Rotate<Context>>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
-    pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Polysender>>>,
+    pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Context>>>,
     pub settlements: Arc<RwLock<HashMap<V2<usize>, Settlement>>>,
-    pub setup_new_world_tx: FnSender<SetupNewWorld<Polysender>>,
-    pub setup_pathfinders_tx: FnSender<SetupPathfinders<Polysender>>,
+    pub setup_new_world_tx: FnSender<SetupNewWorld<Context>>,
+    pub setup_pathfinders_tx: FnSender<SetupPathfinders<Context>>,
     pub sim_queue: Arc<RwLock<Vec<V2<usize>>>>,
-    pub speed_control_tx: FnSender<SpeedControl<Polysender>>,
+    pub speed_control_tx: FnSender<SpeedControl<Context>>,
     pub territory: Arc<RwLock<Territory>>,
-    pub town_builder_tx: FnSender<TownBuilderActor<Polysender>>,
-    pub town_house_artist_tx: FnSender<TownHouseArtist<Polysender>>,
-    pub town_label_artist_tx: FnSender<TownLabelArtist<Polysender>>,
+    pub town_builder_tx: FnSender<TownBuilderActor<Context>>,
+    pub town_house_artist_tx: FnSender<TownHouseArtist<Context>>,
+    pub town_label_artist_tx: FnSender<TownLabelArtist<Context>>,
     pub traffic: Arc<RwLock<Traffic>>,
-    pub visibility_tx: FnSender<VisibilityActor<Polysender>>,
-    pub voyager_tx: FnSender<Voyager<Polysender>>,
+    pub visibility_tx: FnSender<VisibilityActor<Context>>,
+    pub voyager_tx: FnSender<Voyager<Context>>,
     pub world: Arc<RwLock<World>>,
-    pub world_artist_tx: FnSender<WorldArtistActor<Polysender>>,
-    pub world_gen_tx: FnSender<WorldGen<Polysender>>,
+    pub world_artist_tx: FnSender<WorldArtistActor<Context>>,
+    pub world_gen_tx: FnSender<WorldGen<Context>>,
 }
 
-impl Polysender {
-    pub fn clone_with_name(&self, name: &'static str) -> Polysender {
-        Polysender {
+impl Context {
+    pub fn clone_with_name(&self, name: &'static str) -> Context {
+        Context {
             avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
             avatar_visibility_tx: self.avatar_visibility_tx.clone_with_name(name),
             avatars: self.avatars.clone(),
@@ -123,7 +123,7 @@ impl Polysender {
             settlement_sim_txs: self
                 .settlement_sim_txs
                 .iter()
-                .map(|tx| tx.clone_with_name(name))
+                .map(|cx| cx.clone_with_name(name))
                 .collect(),
             settlements: self.settlements.clone(),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
@@ -144,13 +144,13 @@ impl Polysender {
     }
 }
 
-impl HasParameters for Polysender {
+impl HasParameters for Context {
     fn parameters(&self) -> &Parameters {
         self.parameters.as_ref()
     }
 }
 
-impl RunInBackground for Polysender {
+impl RunInBackground for Context {
     fn run_in_background<Fut>(&self, future: Fut)
     where
         Fut: Future<Output = ()> + Send + 'static,
@@ -160,7 +160,7 @@ impl RunInBackground for Polysender {
 }
 
 #[async_trait]
-impl SendEdgeBuildSim for Polysender {
+impl SendEdgeBuildSim for Context {
     type D = AutoRoadTravelDuration;
 
     async fn send_edge_build_sim_future<F, O>(&self, function: F) -> O
@@ -175,14 +175,14 @@ impl SendEdgeBuildSim for Polysender {
 }
 
 #[async_trait]
-impl SendEngineCommands for Polysender {
+impl SendEngineCommands for Context {
     async fn send_engine_commands(&self, commands: Vec<Command>) {
         self.engine_tx.send(commands).await.unwrap()
     }
 }
 
 #[async_trait]
-impl SendPositionBuildSim for Polysender {
+impl SendPositionBuildSim for Context {
     async fn send_position_build_sim_future<F, O>(&self, function: F) -> O
     where
         O: Send + 'static,
@@ -204,7 +204,7 @@ impl SendPositionBuildSim for Polysender {
 }
 
 #[async_trait]
-impl SendRotate for Polysender {
+impl SendRotate for Context {
     fn send_rotate_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
@@ -215,7 +215,7 @@ impl SendRotate for Polysender {
 }
 
 #[async_trait]
-impl SendTownHouseArtist for Polysender {
+impl SendTownHouseArtist for Context {
     fn send_town_house_artist_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
@@ -227,7 +227,7 @@ impl SendTownHouseArtist for Polysender {
 }
 
 #[async_trait]
-impl SendTownLabelArtist for Polysender {
+impl SendTownLabelArtist for Context {
     fn send_town_label_artist_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
@@ -238,7 +238,7 @@ impl SendTownLabelArtist for Polysender {
     }
 }
 
-impl SendVoyager for Polysender {
+impl SendVoyager for Context {
     fn send_voyager_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
@@ -249,7 +249,7 @@ impl SendVoyager for Polysender {
     }
 }
 
-impl SendVisibility for Polysender {
+impl SendVisibility for Context {
     fn send_visibility_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
@@ -269,7 +269,7 @@ impl SendVisibility for Polysender {
     }
 }
 
-impl SendWorldArtist for Polysender {
+impl SendWorldArtist for Context {
     fn send_world_artist_future_background<F, O>(&self, function: F)
     where
         O: Send + 'static,
@@ -281,7 +281,7 @@ impl SendWorldArtist for Polysender {
 }
 
 #[async_trait]
-impl WithAvatars for Polysender {
+impl WithAvatars for Context {
     async fn with_avatars<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&Avatars) -> O + Send,
@@ -300,7 +300,7 @@ impl WithAvatars for Polysender {
 }
 
 #[async_trait]
-impl WithBuildQueue for Polysender {
+impl WithBuildQueue for Context {
     async fn with_build_queue<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&BuildQueue) -> O + Send,
@@ -319,7 +319,7 @@ impl WithBuildQueue for Polysender {
 }
 
 #[async_trait]
-impl WithClock for Polysender {
+impl WithClock for Context {
     type T = RealTime;
 
     async fn with_clock<F, O>(&self, function: F) -> O
@@ -340,7 +340,7 @@ impl WithClock for Polysender {
 }
 
 #[async_trait]
-impl WithEdgeTraffic for Polysender {
+impl WithEdgeTraffic for Context {
     async fn with_edge_traffic<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&EdgeTraffic) -> O + Send,
@@ -359,7 +359,7 @@ impl WithEdgeTraffic for Polysender {
 }
 
 #[async_trait]
-impl WithNations for Polysender {
+impl WithNations for Context {
     async fn with_nations<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&HashMap<String, Nation>) -> O + Send,
@@ -378,7 +378,7 @@ impl WithNations for Polysender {
 }
 
 #[async_trait]
-impl WithRoutes for Polysender {
+impl WithRoutes for Context {
     async fn with_routes<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&Routes) -> O + Send,
@@ -397,7 +397,7 @@ impl WithRoutes for Polysender {
 }
 
 #[async_trait]
-impl WithRouteToPorts for Polysender {
+impl WithRouteToPorts for Context {
     async fn with_route_to_ports<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
@@ -416,7 +416,7 @@ impl WithRouteToPorts for Polysender {
 }
 
 #[async_trait]
-impl WithSettlements for Polysender {
+impl WithSettlements for Context {
     async fn with_settlements<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&HashMap<V2<usize>, Settlement>) -> O + Send,
@@ -435,7 +435,7 @@ impl WithSettlements for Polysender {
 }
 
 #[async_trait]
-impl WithSimQueue for Polysender {
+impl WithSimQueue for Context {
     async fn with_sim_queue<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&Vec<V2<usize>>) -> O + Send,
@@ -454,7 +454,7 @@ impl WithSimQueue for Polysender {
 }
 
 #[async_trait]
-impl WithTerritory for Polysender {
+impl WithTerritory for Context {
     async fn with_territory<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&Territory) -> O + Send,
@@ -473,7 +473,7 @@ impl WithTerritory for Polysender {
 }
 
 #[async_trait]
-impl WithTraffic for Polysender {
+impl WithTraffic for Context {
     async fn with_traffic<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&Traffic) -> O + Send,
@@ -492,7 +492,7 @@ impl WithTraffic for Polysender {
 }
 
 #[async_trait]
-impl WithWorld for Polysender {
+impl WithWorld for Context {
     async fn with_world<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&World) -> O + Send,
@@ -531,7 +531,7 @@ impl WithPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
     }
 }
 
-impl PathfinderWithPlannedRoads for Polysender {
+impl PathfinderWithPlannedRoads for Context {
     type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
     fn pathfinder_with_planned_roads(&self) -> &Self::T {
@@ -539,7 +539,7 @@ impl PathfinderWithPlannedRoads for Polysender {
     }
 }
 
-impl PathfinderWithoutPlannedRoads for Polysender {
+impl PathfinderWithoutPlannedRoads for Context {
     type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
     fn pathfinder_without_planned_roads(&self) -> &Self::T {
@@ -547,4 +547,4 @@ impl PathfinderWithoutPlannedRoads for Polysender {
     }
 }
 
-impl NotMock for Polysender {}
+impl NotMock for Context {}

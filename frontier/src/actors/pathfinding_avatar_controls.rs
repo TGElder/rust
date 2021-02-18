@@ -12,7 +12,7 @@ use std::default::Default;
 use std::sync::Arc;
 
 pub struct PathfindingAvatarControls<T> {
-    tx: T,
+    cx: T,
     travel_duration: Arc<AvatarTravelDuration>,
     world_coord: Option<WorldCoord>,
     bindings: PathfinderAvatarBindings,
@@ -36,9 +36,9 @@ impl<T> PathfindingAvatarControls<T>
 where
     T: Micros + PathfinderWithoutPlannedRoads + SelectedAvatar + UpdateAvatarJourney + WithWorld,
 {
-    pub fn new(tx: T, travel_duration: Arc<AvatarTravelDuration>) -> PathfindingAvatarControls<T> {
+    pub fn new(cx: T, travel_duration: Arc<AvatarTravelDuration>) -> PathfindingAvatarControls<T> {
         PathfindingAvatarControls {
-            tx,
+            cx,
             travel_duration,
             bindings: PathfinderAvatarBindings::default(),
             world_coord: None,
@@ -48,18 +48,18 @@ where
     async fn walk_to(&mut self) {
         let to = unwrap_or!(self.world_coord, return).to_v2_round();
 
-        let micros = self.tx.micros().await;
+        let micros = self.cx.micros().await;
 
         let (name, journey) = unwrap_or!(self.get_selected_avatar_name_and_journey().await, return);
 
         let stopped = journey.stop(&micros);
-        self.tx
+        self.cx
             .update_avatar_journey(&name, Some(stopped.clone()))
             .await;
         let stop_position = stopped.final_frame().position;
 
         let path = unwrap_or!(
-            self.tx
+            self.cx
                 .pathfinder_without_planned_roads()
                 .find_path(&[stop_position], &[to])
                 .await,
@@ -72,12 +72,12 @@ where
             .await;
 
         if travelling.is_some() {
-            self.tx.update_avatar_journey(&name, travelling).await;
+            self.cx.update_avatar_journey(&name, travelling).await;
         }
     }
 
     async fn get_selected_avatar_name_and_journey(&self) -> Option<(String, Journey)> {
-        let Avatar { name, journey, .. } = self.tx.selected_avatar().await?;
+        let Avatar { name, journey, .. } = self.cx.selected_avatar().await?;
         let journey = journey?;
 
         Some((name, journey))
@@ -90,7 +90,7 @@ where
         start_at: u128,
         travel_duration: &AvatarTravelDuration,
     ) -> Option<Journey> {
-        self.tx
+        self.cx
             .with_world(|world| {
                 journey.append(Journey::new(
                     world,
@@ -104,12 +104,12 @@ where
     }
 
     async fn stop(&mut self) {
-        let micros = self.tx.micros().await;
+        let micros = self.cx.micros().await;
         let (name, journey) = unwrap_or!(self.get_selected_avatar_name_and_journey().await, return);
 
         let stopped = journey.stop(&micros);
 
-        self.tx.update_avatar_journey(&name, Some(stopped)).await;
+        self.cx.update_avatar_journey(&name, Some(stopped)).await;
     }
 
     fn update_world_coord(&mut self, world_coord: Option<WorldCoord>) {
