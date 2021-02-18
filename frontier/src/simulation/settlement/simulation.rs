@@ -110,6 +110,7 @@ where
         let settlement = self.update_homeland(settlement).await;
         let settlement = self.update_current_population(settlement).await;
         let demand = (self.homeland_demand_fn)(&settlement);
+        self.tx.update_settlement(settlement).await;
         self.get_all_route_changes(demand).await
     }
 
@@ -122,6 +123,7 @@ where
             return;
         }
         let demand = (self.town_demand_fn)(&settlement);
+        self.tx.update_settlement(settlement).await;
         self.get_all_route_changes(demand).await
     }
 
