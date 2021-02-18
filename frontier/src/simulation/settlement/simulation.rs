@@ -12,8 +12,9 @@ use crate::traits::has::HasParameters;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, Controlled, GetSettlement, InBoundsWithPlannedRoads,
     LowestDurationWithoutPlannedRoads, Micros, RefreshEdges, RefreshPositions, RemoveTown,
-    SendRoutes, SendSettlements, UpdateSettlement as UpdateSettlementTrait, UpdateTerritory,
-    VisibleLandPositions, WithEdgeTraffic, WithRouteToPorts, WithSimQueue, WithTraffic, WithWorld,
+    UpdateSettlement as UpdateSettlementTrait, UpdateTerritory, VisibleLandPositions,
+    WithEdgeTraffic, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTraffic,
+    WithWorld,
 };
 
 use super::demand::demand_fn::{homeland_demand_fn, town_demand_fn};
@@ -47,13 +48,13 @@ where
         + RefreshEdges
         + RefreshPositions
         + RemoveTown
-        + SendRoutes
-        + SendSettlements
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
         + WithEdgeTraffic
+        + WithRoutes
         + WithRouteToPorts
+        + WithSettlements
         + WithSimQueue
         + WithTraffic
         + WithWorld
@@ -82,8 +83,8 @@ where
         + RefreshEdges
         + RefreshPositions
         + RemoveTown
-        + SendRoutes
-        + SendSettlements
+        + WithRoutes
+        + WithSettlements
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
@@ -94,7 +95,7 @@ where
         + WithWorld,
 {
     async fn update_settlement_at(&self, position: &V2<usize>) {
-        let settlement = unwrap_or!(self.tx.get_settlement(*position).await, return);
+        let settlement = unwrap_or!(self.tx.get_settlement(position).await, return);
         debug!(
             "{:?} {} -> {}",
             settlement.name, settlement.current_population, settlement.target_population
@@ -150,7 +151,7 @@ where
     async fn replenish_sim_queue(&self) {
         let settlements = self
             .tx
-            .send_settlements(|settlements| settlements.keys().copied().collect::<Vec<_>>())
+            .with_settlements(|settlements| settlements.keys().copied().collect::<Vec<_>>())
             .await;
         self.tx
             .mut_sim_queue(move |sim_queue| {

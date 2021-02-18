@@ -5,7 +5,7 @@ use crate::parameters::HomelandParams;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    SendAvatars, SendNations, SendSettlements, Visibility, VisibleLandPositions, WithWorld,
+    Visibility, VisibleLandPositions, WithAvatars, WithNations, WithSettlements, WithWorld,
 };
 use crate::world::World;
 use commons::grid::Grid;
@@ -24,11 +24,11 @@ pub struct SetupNewWorld<T> {
 impl<T> SetupNewWorld<T>
 where
     T: HasParameters
-        + SendAvatars
-        + SendNations
-        + SendSettlements
         + Visibility
         + VisibleLandPositions
+        + WithAvatars
+        + WithNations
+        + WithSettlements
         + WithWorld,
 {
     pub fn new(tx: T) -> SetupNewWorld<T> {
@@ -112,7 +112,7 @@ where
 
     async fn set_avatars(&self, new_avatars: HashMap<String, Avatar>) {
         self.tx
-            .send_avatars(move |avatars| {
+            .mut_avatars(|avatars| {
                 avatars.all = new_avatars;
                 avatars.selected = Some(AVATAR_NAME.to_string())
             })
@@ -120,14 +120,12 @@ where
     }
 
     async fn set_nations(&self, new_nations: HashMap<String, Nation>) {
-        self.tx
-            .send_nations(move |nations| *nations = new_nations)
-            .await;
+        self.tx.mut_nations(|nations| *nations = new_nations).await;
     }
 
     async fn set_settlements(&self, new_settlements: HashMap<V2<usize>, Settlement>) {
         self.tx
-            .send_settlements(move |settlements| *settlements = new_settlements)
+            .mut_settlements(|settlements| *settlements = new_settlements)
             .await;
     }
 

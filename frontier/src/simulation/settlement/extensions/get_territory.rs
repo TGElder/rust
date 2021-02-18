@@ -11,7 +11,7 @@ where
 {
     pub async fn get_territory(&self, controller: &V2<usize>) -> HashSet<V2<usize>> {
         self.tx.update_territory(*controller).await;
-        self.tx.controlled(*controller).await
+        self.tx.controlled(controller).await
     }
 }
 
@@ -31,7 +31,7 @@ mod tests {
 
     #[async_trait]
     impl Controlled for Tx {
-        async fn controlled(&self, _: V2<usize>) -> HashSet<V2<usize>> {
+        async fn controlled(&self, _: &V2<usize>) -> HashSet<V2<usize>> {
             self.territory.clone()
         }
     }

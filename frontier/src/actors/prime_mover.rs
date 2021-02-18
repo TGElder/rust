@@ -18,7 +18,7 @@ use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Journey};
 use crate::nation::{NationColors, NationDescription};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
-use crate::traits::{Micros, SendAvatars, SendRoutes, SendSettlements, WithWorld};
+use crate::traits::{Micros, WithAvatars, WithRoutes, WithSettlements, WithWorld};
 use crate::world::World;
 
 pub struct PrimeMover<T> {
@@ -54,7 +54,7 @@ impl Default for Durations {
 
 impl<T> PrimeMover<T>
 where
-    T: Micros + SendAvatars + SendRoutes + SendSettlements + WithWorld + Send + Sync,
+    T: Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
 {
     pub fn new(
         tx: T,
@@ -84,10 +84,9 @@ where
     }
 
     pub async fn new_game(&self) {
-        let count = self.avatars;
         self.tx
-            .send_avatars(move |avatars| {
-                for i in 0..count {
+            .mut_avatars(|avatars| {
+                for i in 0..self.avatars {
                     avatars.all.insert(
                         i.to_string(),
                         Avatar {
@@ -114,26 +113,23 @@ where
             .into_iter()
             .zip(dormant.into_iter())
             .collect::<HashMap<_, _>>();
-        let keys_for_journies = allocation.keys().cloned().collect::<Vec<_>>();
-        let keys_for_colors = keys_for_journies.clone();
-        let (journies, colors) = join!(
-            self.get_journies(keys_for_journies, micros),
-            self.get_colors(keys_for_colors)
-        );
+        let keys = allocation.keys().copied().collect::<Vec<_>>();
+        let (journies, colors) = join!(self.get_journies(&keys, micros), self.get_colors(&keys));
 
         let avatars = self.get_avatars(allocation, journies, colors).await;
         self.update_avatars(avatars).await;
     }
 
-    async fn get_dormant(&self, micros: u128) -> HashSet<String> {
-        let pause_after_done = self.durations.pause_after_done.as_micros();
+    async fn get_dormant(&self, micros: &u128) -> HashSet<String> {
         self.tx
-            .send_avatars(move |avatars| {
+            .with_avatars(|avatars| {
                 avatars
                     .all
                     .values()
                     .filter(|avatar| Some(&avatar.name) != avatars.selected.as_ref())
-                    .filter(|avatar| is_dormant(avatar, &micros, &pause_after_done))
+                    .filter(|avatar| {
+                        is_dormant(avatar, micros, &self.durations.pause_after_done.as_micros())
+                    })
                     .map(|avatar| avatar.name.clone())
                     .collect()
             })
@@ -158,7 +154,7 @@ where
     async fn get_candidates(&self) -> Vec<(RouteKey, u128)> {
         let active_keys = self.active.values().cloned().collect::<HashSet<_>>();
         self.tx
-            .send_routes(move |routes| {
+            .with_routes(|routes| {
                 routes
                     .values()
                     .flat_map(|route_set| route_set.iter())
@@ -170,23 +166,19 @@ where
             .await
     }
 
-    async fn get_journies(
-        &self,
-        keys: Vec<RouteKey>,
-        start_at: u128,
-    ) -> HashMap<RouteKey, Journey> {
-        let paths = self.get_paths(keys).await;
+    async fn get_journies(&self, keys: &[RouteKey], start_at: u128) -> HashMap<RouteKey, Journey> {
+        let paths = self.get_paths(&keys).await;
         self.get_journies_from_paths(paths, start_at).await
     }
 
-    async fn get_paths(&self, keys: Vec<RouteKey>) -> HashMap<RouteKey, Vec<V2<usize>>> {
+    async fn get_paths(&self, keys: &[RouteKey]) -> HashMap<RouteKey, Vec<V2<usize>>> {
         self.tx
-            .send_routes(move |routes| {
-                keys.into_iter()
+            .with_routes(|routes| {
+                keys.iter()
                     .flat_map(|key| {
                         routes
-                            .get_route(&key)
-                            .map(|route| (key, route.path.clone()))
+                            .get_route(key)
+                            .map(|route| (*key, route.path.clone()))
                     })
                     .collect()
             })
@@ -254,22 +246,22 @@ where
         outbound.append(inbound).unwrap()
     }
 
-    async fn get_colors(&self, keys: Vec<RouteKey>) -> HashMap<RouteKey, NationColors> {
-        self.get_nations(keys)
+    async fn get_colors(&self, keys: &[RouteKey]) -> HashMap<RouteKey, NationColors> {
+        self.get_nations(&keys)
             .await
             .into_iter()
             .flat_map(|(key, nation)| self.colors.get(&nation).map(|colors| (key, *colors)))
             .collect()
     }
 
-    async fn get_nations(&self, keys: Vec<RouteKey>) -> HashMap<RouteKey, String> {
+    async fn get_nations(&self, keys: &[RouteKey]) -> HashMap<RouteKey, String> {
         self.tx
-            .send_settlements(move |settlements| {
-                keys.into_iter()
+            .with_settlements(|settlements| {
+                keys.iter()
                     .flat_map(|key| {
                         settlements
                             .get(&key.settlement)
-                            .map(|settlement| (key, settlement.nation.clone()))
+                            .map(|settlement| (*key, settlement.nation.clone()))
                     })
                     .collect()
             })
@@ -305,7 +297,7 @@ where
             return;
         }
         self.tx
-            .send_avatars(move |avatars| {
+            .mut_avatars(|avatars| {
                 for (name, avatar) in updated {
                     avatars.all.insert(name, avatar);
                 }
@@ -340,11 +332,11 @@ fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done_micros: &u128) -> boo
 #[async_trait]
 impl<T> Step for PrimeMover<T>
 where
-    T: Micros + SendAvatars + SendRoutes + SendSettlements + WithWorld + Send + Sync,
+    T: Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
 {
     async fn step(&mut self) {
         let micros = self.tx.micros().await;
-        let dormant = self.get_dormant(micros).await;
+        let dormant = self.get_dormant(&micros).await;
 
         if (!dormant.is_empty()) {
             self.try_update_dormant(dormant, micros).await;

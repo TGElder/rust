@@ -41,8 +41,8 @@ where
 
     async fn toggle_town(&mut self) {
         let position = unwrap_or!(self.get_position(), return);
-        if self.tx.get_settlement(position).await.is_some() {
-            self.remove_town(position).await;
+        if self.tx.get_settlement(&position).await.is_some() {
+            self.tx.remove_town(&position).await;
         } else {
             self.add_town(position).await;
         }
@@ -55,7 +55,7 @@ where
 
     async fn add_town(&mut self, position: V2<usize>) {
         let nation = self.random_nation().await;
-        let name = self.tx.random_town_name(nation.clone()).await.unwrap();
+        let name = self.tx.random_town_name(&nation).await.unwrap();
         let last_population_update_micros = self.tx.micros().await;
 
         let town = Settlement {
@@ -80,10 +80,6 @@ where
             .next()
             .unwrap()
             .name
-    }
-
-    async fn remove_town(&mut self, position: V2<usize>) {
-        self.tx.remove_town(position).await;
     }
 }
 

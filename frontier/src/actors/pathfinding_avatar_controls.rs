@@ -54,7 +54,7 @@ where
 
         let stopped = journey.stop(&micros);
         self.tx
-            .update_avatar_journey(name.clone(), Some(stopped.clone()))
+            .update_avatar_journey(&name, Some(stopped.clone()))
             .await;
         let stop_position = stopped.final_frame().position;
 
@@ -72,7 +72,7 @@ where
             .await;
 
         if travelling.is_some() {
-            self.tx.update_avatar_journey(name, travelling).await;
+            self.tx.update_avatar_journey(&name, travelling).await;
         }
     }
 
@@ -109,7 +109,7 @@ where
 
         let stopped = journey.stop(&micros);
 
-        self.tx.update_avatar_journey(name, Some(stopped)).await;
+        self.tx.update_avatar_journey(&name, Some(stopped)).await;
     }
 
     fn update_world_coord(&mut self, world_coord: Option<WorldCoord>) {

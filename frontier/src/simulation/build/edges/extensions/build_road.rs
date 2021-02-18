@@ -7,7 +7,7 @@ use crate::route::{Route, RouteKey, Routes, RoutesExt};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    InsertBuildInstruction, PlanRoad, RoadPlanned, SendRoutes, WithEdgeTraffic, WithWorld,
+    InsertBuildInstruction, PlanRoad, RoadPlanned, WithEdgeTraffic, WithRoutes, WithWorld,
 };
 use crate::travel_duration::TravelDuration;
 use crate::world::World;
@@ -18,7 +18,7 @@ where
         + InsertBuildInstruction
         + PlanRoad
         + RoadPlanned
-        + SendRoutes
+        + WithRoutes
         + WithEdgeTraffic
         + WithWorld
         + Send
@@ -67,7 +67,7 @@ where
         }
 
         self.tx
-            .send_routes(move |routes| get_route_summaries(routes, route_keys))
+            .with_routes(|routes| get_route_summaries(routes, route_keys))
             .await
     }
 
@@ -200,11 +200,17 @@ mod tests {
     }
 
     #[async_trait]
-    impl SendRoutes for Tx {
-        async fn send_routes<F, O>(&self, function: F) -> O
+    impl WithRoutes for Tx {
+        async fn with_routes<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut Routes) -> O + Send + 'static,
+            F: FnOnce(&Routes) -> O + Send,
+        {
+            function(&self.routes.lock().unwrap())
+        }
+
+        async fn mut_routes<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Routes) -> O + Send,
         {
             function(&mut self.routes.lock().unwrap())
         }

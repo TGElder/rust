@@ -1,8 +1,7 @@
 use crate::settlement::{Settlement, SettlementClass};
-use crate::traits::send::SendSettlements;
 use crate::traits::{
     AddController, DrawTown, GetSettlement, InsertSettlement, Micros, RemoveController,
-    RemoveWorldObject, SetControlDurations, Visibility, WithWorld,
+    RemoveWorldObject, SetControlDurations, Visibility, WithSettlements, WithWorld,
 };
 use commons::async_trait::async_trait;
 use commons::grid::Grid;
@@ -20,8 +19,8 @@ where
         + GetSettlement
         + DrawTown
         + RemoveWorldObject
-        + SendSettlements
         + Visibility
+        + WithSettlements
         + WithWorld
         + Sync,
 {
@@ -29,7 +28,7 @@ where
         if town.class != SettlementClass::Town {
             return false;
         }
-        if self.get_settlement(town.position).await.is_some() {
+        if self.get_settlement(&town.position).await.is_some() {
             return false;
         }
         let controller = town.position;
@@ -61,24 +60,24 @@ where
 
 #[async_trait]
 pub trait RemoveTown {
-    async fn remove_town(&self, position: V2<usize>) -> bool;
+    async fn remove_town(&self, position: &V2<usize>) -> bool;
 }
 
 #[async_trait]
 impl<T> RemoveTown for T
 where
-    T: DrawTown + Micros + RemoveController + SendSettlements + SetControlDurations + Sync,
+    T: DrawTown + Micros + RemoveController + SetControlDurations + WithSettlements + Sync,
 {
-    async fn remove_town(&self, position: V2<usize>) -> bool {
+    async fn remove_town(&self, position: &V2<usize>) -> bool {
         let settlement = self
-            .send_settlements(move |settlements| settlements.remove(&position))
+            .mut_settlements(|settlements| settlements.remove(position))
             .await;
         let micros = self.micros().await;
         let settlement = unwrap_or!(settlement, return false);
         if let SettlementClass::Town = settlement.class {
-            self.set_control_durations(settlement.position, hashmap! {}, micros)
+            self.set_control_durations(settlement.position, &hashmap! {}, &micros)
                 .await;
-            self.remove_controller(settlement.position).await;
+            self.remove_controller(&settlement.position).await;
         }
         self.draw_town(settlement);
         true

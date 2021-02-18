@@ -100,7 +100,7 @@ where
     }
 
     async fn update_settlement(&mut self, settlement: &Settlement) {
-        if self.tx.get_settlement(settlement.position).await.is_some() {
+        if self.tx.get_settlement(&settlement.position).await.is_some() {
             self.draw_settlement(settlement).await;
         } else {
             self.erase_settlement(settlement).await;

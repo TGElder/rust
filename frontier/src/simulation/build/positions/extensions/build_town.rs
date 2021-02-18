@@ -10,8 +10,8 @@ use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, SendRoutes,
-    WithRouteToPorts, WithTraffic, WithWorld,
+    AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, WithRouteToPorts,
+    WithRoutes, WithTraffic, WithWorld,
 };
 
 impl<T> PositionBuildSimulation<T>
@@ -21,7 +21,7 @@ where
         + HasParameters
         + InsertBuildInstruction
         + RandomTownName
-        + SendRoutes
+        + WithRoutes
         + WithRouteToPorts
         + WithTraffic
         + WithWorld,
@@ -35,7 +35,7 @@ where
     async fn build_town_at_position(&self, position: V2<usize>) {
         let (route_keys, anyone_controls_position, tiles) = join!(
             self.get_route_keys(&position),
-            self.tx.anyone_controls(position),
+            self.tx.anyone_controls(&position),
             self.get_tiles(&position)
         );
 
@@ -49,9 +49,9 @@ where
         }
         let route = first_visit_route(routes);
 
-        let settlement = unwrap_or!(self.tx.get_settlement(route.settlement).await, return);
+        let settlement = unwrap_or!(self.tx.get_settlement(&route.settlement).await, return);
         let nation = settlement.nation;
-        let name = ok_or!(self.tx.random_town_name(nation.clone()).await, return);
+        let name = ok_or!(self.tx.random_town_name(&nation).await, return);
         let initial_town_population = self.tx.parameters().simulation.initial_town_population;
 
         for tile in tiles {
@@ -134,7 +134,7 @@ where
 
     async fn get_route_summaries(&self, route_keys: Vec<RouteKey>) -> Vec<RouteSummary> {
         self.tx
-            .send_routes(move |routes| {
+            .with_routes(|routes| {
                 route_keys
                     .into_iter()
                     .flat_map(|route_key| {
@@ -215,14 +215,14 @@ mod tests {
 
     #[async_trait]
     impl AnyoneControls for Tx {
-        async fn anyone_controls(&self, _: V2<usize>) -> bool {
+        async fn anyone_controls(&self, _: &V2<usize>) -> bool {
             self.anyone_controls
         }
     }
 
     #[async_trait]
     impl GetSettlement for Tx {
-        async fn get_settlement(&self, _: V2<usize>) -> Option<Settlement> {
+        async fn get_settlement(&self, _: &V2<usize>) -> Option<Settlement> {
             self.get_settlement.clone()
         }
     }
@@ -245,17 +245,23 @@ mod tests {
 
     #[async_trait]
     impl RandomTownName for Tx {
-        async fn random_town_name(&self, _: String) -> Result<String, NationNotFound> {
+        async fn random_town_name(&self, _: &str) -> Result<String, NationNotFound> {
             Ok(self.random_town_name.clone())
         }
     }
 
     #[async_trait]
-    impl SendRoutes for Tx {
-        async fn send_routes<F, O>(&self, function: F) -> O
+    impl WithRoutes for Tx {
+        async fn with_routes<F, O>(&self, function: F) -> O
         where
-            O: Send + 'static,
-            F: FnOnce(&mut Routes) -> O + Send + 'static,
+            F: FnOnce(&Routes) -> O + Send,
+        {
+            function(&self.routes.lock().unwrap())
+        }
+
+        async fn mut_routes<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Routes) -> O + Send,
         {
             function(&mut self.routes.lock().unwrap())
         }

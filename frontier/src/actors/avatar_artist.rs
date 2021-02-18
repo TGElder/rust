@@ -7,7 +7,7 @@ use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 use crate::artists::{AvatarArtist, AvatarDrawCommand};
 use crate::avatars::Avatars;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, SendAvatars, SendRotate};
+use crate::traits::{Micros, SendRotate, WithAvatars};
 
 pub struct AvatarArtistActor<T> {
     tx: T,
@@ -19,7 +19,7 @@ pub struct AvatarArtistActor<T> {
 
 impl<T> AvatarArtistActor<T>
 where
-    T: SendAvatars + SendRotate + Micros,
+    T: Micros + SendRotate + WithAvatars + Send + Sync,
 {
     pub fn new(
         tx: T,
@@ -56,15 +56,14 @@ where
     async fn draw_avatars(&mut self) {
         let mut avatar_artist = self.avatar_artist.take().unwrap();
         let micros = self.tx.micros().await;
-        let follow_avatar = self.follow_avatar;
 
         let (commands, avatar_artist) = self
             .tx
-            .send_avatars(move |avatars| {
+            .with_avatars(|avatars| {
                 let draw_commands = get_draw_commands(avatars);
                 let mut engine_commands = avatar_artist.update_avatars(&draw_commands, &micros);
 
-                if follow_avatar {
+                if self.follow_avatar {
                     engine_commands.push(look_at_selected(avatars, &micros));
                 }
 
@@ -105,7 +104,7 @@ fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {
 #[async_trait]
 impl<T> HandleEngineEvent for AvatarArtistActor<T>
 where
-    T: SendAvatars + SendRotate + Micros + Send + Sync,
+    T: Micros + SendRotate + WithAvatars + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {
