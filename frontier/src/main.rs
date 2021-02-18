@@ -20,6 +20,7 @@ mod pathfinder;
 mod resource;
 mod road_builder;
 mod route;
+mod services;
 mod settlement;
 mod simulation;
 mod system;

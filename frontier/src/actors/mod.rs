@@ -1,11 +1,9 @@
 mod avatar_artist;
 mod avatar_visibility;
-mod background_service;
 mod basic_avatar_controls;
 mod basic_road_builder;
 mod builder;
 mod cheats;
-mod clock;
 mod labels;
 mod object_builder;
 mod pathfinding_avatar_controls;
@@ -24,12 +22,10 @@ mod world_gen;
 
 pub use avatar_artist::*;
 pub use avatar_visibility::*;
-pub use background_service::*;
 pub use basic_avatar_controls::*;
 pub use basic_road_builder::*;
 pub use builder::*;
 pub use cheats::*;
-pub use clock::*;
 pub use labels::*;
 pub use object_builder::*;
 pub use pathfinding_avatar_controls::*;

@@ -11,11 +11,10 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BackgroundService, BasicAvatarControls, BasicRoadBuilder,
-    BuilderActor, Cheats, Clock, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover,
-    RealTime, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SpeedControl,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor,
-    WorldColoringParameters, WorldGen,
+    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
+    Cheats, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
+    SetupNewWorld, SetupPathfinders, SpeedControl, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -23,6 +22,8 @@ use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
+use crate::services::clock::{Clock, RealTime};
+use crate::services::BackgroundService;
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
@@ -144,24 +145,24 @@ impl System {
             position_sim_tx,
             prime_mover_tx,
             resource_targets_tx,
-            routes: Arc::default(),
             rotate_tx,
             route_to_ports: Arc::default(),
+            routes: Arc::default(),
             settlement_sim_txs,
             settlements: Arc::default(),
-            setup_pathfinders_tx,
             setup_new_world_tx,
+            setup_pathfinders_tx,
             sim_queue: Arc::default(),
             speed_control_tx,
             territory: Arc::new(RwLock::new(Territory::new(params.width, params.width))),
+            town_builder_tx,
+            town_house_artist_tx,
+            town_label_artist_tx,
             traffic: Arc::new(RwLock::new(Traffic::new(
                 params.width,
                 params.width,
                 HashSet::with_capacity(0),
             ))),
-            town_builder_tx,
-            town_house_artist_tx,
-            town_label_artist_tx,
             visibility_tx,
             voyager_tx,
             world: Arc::new(RwLock::new(World::new(M::zeros(1, 1), 0.0))),

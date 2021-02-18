@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 
-use crate::actors::{Clock, Now};
+use crate::services::clock::{Clock, Now};
 
 #[async_trait]
 pub trait WithClock {
