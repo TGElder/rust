@@ -119,12 +119,6 @@ where
         self.index.get_index(position).is_ok()
     }
 
-    pub fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
-        self.network
-            .lowest_cost_for_path(&self.get_network_indices(path))
-            .map(|cost| self.travel_duration.get_duration_from_cost(cost))
-    }
-
     pub fn positions_within(
         &self,
         positions: &[V2<usize>],
@@ -533,14 +527,5 @@ mod tests {
         assert!(!pathfinder.in_bounds(&v2(1, 3)));
         assert!(!pathfinder.in_bounds(&v2(2, 3)));
         assert!(!pathfinder.in_bounds(&v2(3, 3)));
-    }
-
-    #[test]
-    fn test_lowest_duration() {
-        let pathfinder = pathfinder();
-        assert_eq!(
-            pathfinder.lowest_duration(&[v2(0, 0), v2(1, 0), v2(1, 1), v2(1, 2), v2(2, 2)]),
-            Some(Duration::from_millis(12))
-        );
     }
 }

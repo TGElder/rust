@@ -5,8 +5,7 @@ use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{
-    ClosestTargetsWithPlannedRoads, InBoundsWithPlannedRoads, LowestDurationWithoutPlannedRoads,
-    Micros,
+    ClosestTargetsWithPlannedRoads, CostOfPathWithoutPlannedRoads, InBoundsWithPlannedRoads, Micros,
 };
 use commons::grid::get_corners;
 use commons::V2;
@@ -16,8 +15,8 @@ use std::time::Duration;
 impl<T> SettlementSimulation<T>
 where
     T: ClosestTargetsWithPlannedRoads
+        + CostOfPathWithoutPlannedRoads
         + InBoundsWithPlannedRoads
-        + LowestDurationWithoutPlannedRoads
         + Micros,
 {
     pub async fn get_routes(&self, demand: Demand) -> Routes {
@@ -96,7 +95,7 @@ where
 
     async fn route_duration(&self, path: &[V2<usize>]) -> Duration {
         self.tx
-            .lowest_duration(path)
+            .cost_of_path_without_planned_roads(path)
             .await
             .expect("Found route with planned roads but not without planned roads!")
     }
@@ -125,8 +124,8 @@ mod tests {
     }
 
     #[async_trait]
-    impl LowestDurationWithoutPlannedRoads for HappyPathTx {
-        async fn lowest_duration(&self, _: &[V2<usize>]) -> Option<Duration> {
+    impl CostOfPathWithoutPlannedRoads for HappyPathTx {
+        async fn cost_of_path_without_planned_roads(&self, _: &[V2<usize>]) -> Option<Duration> {
             Some(Duration::from_secs(303))
         }
     }
@@ -311,8 +310,8 @@ mod tests {
     }
 
     #[async_trait]
-    impl LowestDurationWithoutPlannedRoads for PanicPathfinderTx {
-        async fn lowest_duration(&self, _: &[V2<usize>]) -> Option<Duration> {
+    impl CostOfPathWithoutPlannedRoads for PanicPathfinderTx {
+        async fn cost_of_path_without_planned_roads(&self, _: &[V2<usize>]) -> Option<Duration> {
             Some(Duration::from_secs(303))
         }
     }

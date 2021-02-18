@@ -44,22 +44,6 @@ where
 }
 
 #[async_trait]
-pub trait LowestDuration {
-    async fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration>;
-}
-
-#[async_trait]
-impl<T> LowestDuration for T
-where
-    T: WithPathfinder + Sync,
-{
-    async fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
-        self.with_pathfinder(|pathfinder| pathfinder.lowest_duration(path))
-            .await
-    }
-}
-
-#[async_trait]
 pub trait PositionsWithin {
     async fn positions_within(
         &self,
@@ -217,5 +201,34 @@ where
     ) -> Vec<ClosestTargetResult> {
         self.with_pathfinder(|pathfinder| pathfinder.closest_targets(positions, targets, n_closest))
             .await
+    }
+}
+
+#[async_trait]
+pub trait CostOfPath {
+    async fn cost_of_path<P>(&self, pathfinder: &P, path: &[V2<usize>]) -> Option<Duration>
+    where
+        P: WithPathfinder + Send + Sync;
+}
+
+#[async_trait]
+impl<T> CostOfPath for T
+where
+    T: WithWorld + Sync,
+{
+    async fn cost_of_path<P>(&self, pathfinder: &P, path: &[V2<usize>]) -> Option<Duration>
+    where
+        P: WithPathfinder + Send + Sync,
+    {
+        let travel_duration = pathfinder
+            .with_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
+            .await;
+
+        self.with_world(|world| {
+            (0..path.len() - 1)
+                .map(|i| travel_duration.get_duration(world, &path[i], &path[i + 1]))
+                .sum()
+        })
+        .await
     }
 }

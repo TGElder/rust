@@ -5,7 +5,7 @@ use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
-    ClosestTargets, InBounds, InitTargets, LoadTarget, LowestDuration, WithPathfinder,
+    ClosestTargets, CostOfPath, InBounds, InitTargets, LoadTarget, WithPathfinder, WithWorld,
 };
 
 pub trait PathfinderWithPlannedRoads {
@@ -99,18 +99,17 @@ pub trait PathfinderWithoutPlannedRoads {
 }
 
 #[async_trait]
-pub trait LowestDurationWithoutPlannedRoads {
-    async fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration>;
+pub trait CostOfPathWithoutPlannedRoads {
+    async fn cost_of_path_without_planned_roads(&self, path: &[V2<usize>]) -> Option<Duration>;
 }
 
 #[async_trait]
-impl<T> LowestDurationWithoutPlannedRoads for T
+impl<T> CostOfPathWithoutPlannedRoads for T
 where
-    T: PathfinderWithoutPlannedRoads + Sync,
+    T: PathfinderWithoutPlannedRoads + WithWorld + Sync,
 {
-    async fn lowest_duration(&self, path: &[V2<usize>]) -> Option<Duration> {
-        self.pathfinder_without_planned_roads()
-            .lowest_duration(path)
+    async fn cost_of_path_without_planned_roads(&self, path: &[V2<usize>]) -> Option<Duration> {
+        self.cost_of_path(self.pathfinder_without_planned_roads(), path)
             .await
     }
 }

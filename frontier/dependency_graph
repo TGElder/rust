@@ -12,6 +12,7 @@ AddTown WithWorld
 AnyoneControls WithTerritory
 ClosestTargets SendPathfinder
 Controlled WithTerritory
+CostOfPath SendPathfinder
 DrawTown SendTownHouseArtist
 DrawTown SendTownLabelArtist
 DrawWorld SendWorldArtist
@@ -25,7 +26,6 @@ InitTargets SendPathfinder
 InsertBuildInstruction SendBuildQueue
 IsRoad WithWorld
 LoadTarget SendPathfinder
-LowestDuration SendPathfinder
 Micros SendClock
 NationDescriptions WithNations
 PlanRoad SendPathfinder
@@ -133,11 +133,11 @@ SendResourceTargets InitTargets
 SendResourceTargets LoadTarget
 SendResourceTargets WithWorld
 SendSettlementSim ClosestTargets
+SendSettlementSim CostOfPath
 SendSettlementSim Controlled
 SendSettlementSim GetSettlement
 SendSettlementSim HasParameters
 SendSettlementSim InBounds
-SendSettlementSim LowestDuration
 SendSettlementSim Micros
 SendSettlementSim RefreshEdges
 SendSettlementSim RefreshPositions
