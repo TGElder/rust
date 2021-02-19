@@ -24,6 +24,7 @@ pub use glutin::event::VirtualKeyCode;
 
 extern crate bincode;
 extern crate commons;
+extern crate futures;
 extern crate glutin;
 extern crate regex;
 extern crate serde;

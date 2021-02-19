@@ -1,6 +1,6 @@
 use commons::async_channel::Sender;
-use commons::async_std::task::block_on;
 use engine::{Command, Event};
+use futures::executor::block_on;
 
 use std::sync::Arc;
 

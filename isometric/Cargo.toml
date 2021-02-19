@@ -5,6 +5,7 @@ authors = ["Thomas Elder <tgelder@gmail.com>"]
 
 [dependencies]
 bincode = "1.3"
+futures = "0.3"
 gl = "0.14"
 glutin = "0.26"
 commons = { path = "../commons" }
