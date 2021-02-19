@@ -4,6 +4,7 @@ use commons::async_trait::async_trait;
 use commons::process::Step;
 use commons::V2;
 use std::collections::HashSet;
+use std::iter::once;
 use std::time::Duration;
 
 pub struct AvatarVisibility<T> {
@@ -31,6 +32,7 @@ where
                 .frames_between_times(&from.unwrap_or(0), to)
                 .iter()
                 .map(|frame| frame.position)
+                .chain(once(journey.compute_world_coord(to).to_v2_round()))
                 .collect(),
         )
     }
