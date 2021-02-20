@@ -241,7 +241,7 @@ fn gen_homeland(
         nation,
         current_population: initial_population,
         target_population: 0.0,
-        gap_half_life: (*homeland_distance * 2).mul_f32(2.41), // 5.19 makes half life equivalent to '7/8th life'
+        gap_half_life: (*homeland_distance * 2).mul_f32(5.19), // 5.19 makes half life equivalent to '7/8th life'
         last_population_update_micros: 0,
     }
 }

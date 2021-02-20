@@ -72,7 +72,7 @@ fn get_gap_half_life(original: Duration, traffic_summaries: &[TownTrafficSummary
         .iter()
         .map(|summary| summary.traffic_share)
         .sum::<f64>();
-    numerator.div_f64(denominator).mul_f64(2.41) // converting "three-quarter life" to half life
+    numerator.div_f64(denominator).mul_f64(5.19) // converting "seven-eighth life" to half life
 }
 
 #[cfg(test)]
@@ -217,8 +217,8 @@ mod tests {
 
     #[test]
     // equivalent half life is (ln(0.5) / ln(0.75)) * three-quarter life
-    fn should_set_gap_three_quarter_life_to_total_round_trip_duration_divided_by_total_traffic_share(
-    ) {
+    fn should_set_gap_seven_eigth_life_to_total_round_trip_duration_divided_by_total_traffic_share()
+    {
         // Given
         let settlement = Settlement::default();
         let sim = SettlementSimulation::new(Cx::default());
@@ -242,7 +242,7 @@ mod tests {
 
         // Then
         let gap_half_life_millis = updated.gap_half_life.as_nanos() as f32 / 1000000.0;
-        assert!(gap_half_life_millis.almost(&14.46));
+        assert!(gap_half_life_millis.almost(&31.14));
     }
 
     #[test]
