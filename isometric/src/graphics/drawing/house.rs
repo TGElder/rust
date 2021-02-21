@@ -18,7 +18,7 @@ pub struct DrawHouseParams {
 
 #[allow(clippy::many_single_char_names)]
 pub fn draw_house<T>(
-    name: String,
+    id: usize,
     terrain: &dyn Grid<T>,
     position: &V2<usize>,
     p: &DrawHouseParams,
@@ -79,9 +79,9 @@ where
     ));
 
     vec![
-        Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
+        Command::CreateDrawing(Drawing::plain(id, floats.len())),
         Command::UpdateVertices {
-            name,
+            id,
             index: 0,
             floats,
         },

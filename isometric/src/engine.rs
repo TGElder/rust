@@ -48,23 +48,23 @@ pub enum Command {
     Event(Event),
     CreateDrawing(Drawing),
     UpdateVertices {
-        name: String,
+        id: usize,
         floats: Vec<f32>,
         index: usize,
     },
     UpdateTexture {
-        name: String,
+        id: usize,
         texture: Option<String>,
     },
     UpdateMask {
-        name: String,
+        id: usize,
         texture: Option<String>,
     },
     SetDrawingVisibility {
-        name: String,
+        id: usize,
         visible: bool,
     },
-    Erase(String),
+    Erase(usize),
     LookAt(Option<WorldCoord>),
 }
 
@@ -236,17 +236,17 @@ impl IsometricEngine {
             Command::Rotate { center, yaw } => self.graphics.rotate(center, yaw),
             Command::Event(event) => self.consume_event(event),
             Command::CreateDrawing(drawing) => self.graphics.add_drawing(drawing),
-            Command::UpdateTexture { name, texture } => self.graphics.update_texture(name, texture),
-            Command::UpdateMask { name, texture } => self.graphics.update_mask(name, texture),
+            Command::UpdateTexture { id, texture } => self.graphics.update_texture(id, texture),
+            Command::UpdateMask { id, texture } => self.graphics.update_mask(id, texture),
             Command::UpdateVertices {
-                name,
+                id,
                 index,
                 floats,
-            } => self.graphics.update_vertices(name, index, floats),
-            Command::SetDrawingVisibility { name, visible } => {
-                self.graphics.set_drawing_visibility(name, visible)
+            } => self.graphics.update_vertices(id, index, floats),
+            Command::SetDrawingVisibility { id, visible } => {
+                self.graphics.set_drawing_visibility(id, visible)
             }
-            Command::Erase(name) => self.graphics.remove_drawing(&name),
+            Command::Erase(id) => self.graphics.remove_drawing(id),
             Command::LookAt(look_at) => self.look_at = look_at,
         }
     }

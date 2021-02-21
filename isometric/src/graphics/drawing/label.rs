@@ -8,7 +8,7 @@ use font::Font;
 
 #[rustfmt::skip]
 pub fn draw_label(
-    name: String,
+    id: usize,
     text: &str,
     world_coord: WorldCoord,
     font: &Font,
@@ -56,18 +56,18 @@ pub fn draw_label(
 
     vec![
         Command::CreateDrawing(Drawing::label(
-            name.clone(),
+            id,
             floats.len(),
             visibility_check,
             draw_order,
         )),
         Command::UpdateVertices {
-            name: name.clone(),
+            id,
             index: 0,
             floats,
         },
         Command::UpdateTexture {
-            name,
+            id,
             texture: Some(font.texture().to_string()),
         },
     ]

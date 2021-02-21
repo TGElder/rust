@@ -28,7 +28,7 @@ fn clip_triangle_to_sea_level(triangle: [V3<f32>; 3], sea_level: f32) -> [V3<f32
 }
 
 pub fn draw_nodes<T>(
-    name: String,
+    id: usize,
     terrain: &dyn Grid<T>,
     nodes: &[V2<usize>],
     color: &Color,
@@ -50,9 +50,9 @@ where
     }
 
     vec![
-        Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
+        Command::CreateDrawing(Drawing::plain(id, floats.len())),
         Command::UpdateVertices {
-            name,
+            id,
             index: 0,
             floats,
         },
@@ -60,7 +60,7 @@ where
 }
 
 pub fn draw_edges<T>(
-    name: String,
+    id: usize,
     terrain: &dyn Grid<T>,
     edges: &[Edge],
     color: &Color,
@@ -88,9 +88,9 @@ where
     }
 
     vec![
-        Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
+        Command::CreateDrawing(Drawing::plain(id, floats.len())),
         Command::UpdateVertices {
-            name,
+            id,
             index: 0,
             floats,
         },
@@ -103,7 +103,7 @@ pub struct TexturedTile {
 }
 
 pub fn textured_tiles<T>(
-    name: String,
+    id: usize,
     terrain: &dyn Grid<T>,
     sea_level: f32,
     textured_tiles: &[TexturedTile],
@@ -143,14 +143,14 @@ where
     }
 
     vec![
-        Command::CreateDrawing(Drawing::textured(name.clone(), floats.len())),
+        Command::CreateDrawing(Drawing::textured(id, floats.len())),
         Command::UpdateVertices {
-            name: name.clone(),
+            id,
             index: 0,
             floats,
         },
         Command::UpdateTexture {
-            name,
+            id,
             texture: Some(texture),
         },
     ]
@@ -191,20 +191,20 @@ impl TerrainIndex {
 
 #[derive(Clone)]
 pub struct TerrainDrawing {
-    name: String,
+    id: usize,
     index: TerrainIndex,
     max_floats_per_index: usize,
     default_color: Color,
 }
 
 impl TerrainDrawing {
-    pub fn new(name: String, width: usize, height: usize, slab_size: usize) -> TerrainDrawing {
+    pub fn new(id: usize, width: usize, height: usize, slab_size: usize) -> TerrainDrawing {
         let index = TerrainIndex::new(width, height, slab_size);
         let max_floats_per_index = 18 * // 18 floats per colored triangle
             4 * // 4 triangles per cell
             slab_size * slab_size; // cells per slab
         TerrainDrawing {
-            name,
+            id,
             index,
             max_floats_per_index,
             default_color: Color::new(0.0, 0.0, 0.0, 0.0),
@@ -213,7 +213,7 @@ impl TerrainDrawing {
 
     pub fn init(&self) -> Vec<Command> {
         vec![Command::CreateDrawing(Drawing::multi(
-            self.name.clone(),
+            self.id,
             self.index.indices(),
             self.max_floats_per_index,
         ))]
@@ -251,7 +251,7 @@ impl TerrainDrawing {
 
         let index = self.index.get(from).unwrap();
         vec![Command::UpdateVertices {
-            name: self.name.clone(),
+            id: self.id,
             index,
             floats,
         }]

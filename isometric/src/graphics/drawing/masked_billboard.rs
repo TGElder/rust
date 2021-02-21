@@ -24,12 +24,12 @@ fn get_floats(world_coord: WorldCoord, width: f32, height: f32, color: &Color) -
     ]
 }
 
-pub fn create_masked_billboard(name: String) -> Command {
-    Command::CreateDrawing(Drawing::masked_billboard(name, MASKED_BILLBOARD_FLOATS))
+pub fn create_masked_billboard(id: usize) -> Command {
+    Command::CreateDrawing(Drawing::masked_billboard(id, MASKED_BILLBOARD_FLOATS))
 }
 
 pub fn update_masked_billboard_vertices(
-    name: String,
+    id: usize,
     world_coord: WorldCoord,
     width: f32,
     height: f32,
@@ -37,22 +37,22 @@ pub fn update_masked_billboard_vertices(
 ) -> Vec<Command> {
     let floats = get_floats(world_coord, width, height, color);
     vec![Command::UpdateVertices {
-        name,
+        id,
         index: 0,
         floats,
     }]
 }
 
-pub fn update_masked_billboard_texture(name: String, texture: &str) -> Vec<Command> {
+pub fn update_masked_billboard_texture(id: usize, texture: &str) -> Vec<Command> {
     vec![Command::UpdateTexture {
-        name,
+        id,
         texture: Some(texture.to_string()),
     }]
 }
 
-pub fn update_masked_billboard_mask(name: String, texture: &str) -> Vec<Command> {
+pub fn update_masked_billboard_mask(id: usize, texture: &str) -> Vec<Command> {
     vec![Command::UpdateMask {
-        name,
+        id,
         texture: Some(texture.to_string()),
     }]
 }

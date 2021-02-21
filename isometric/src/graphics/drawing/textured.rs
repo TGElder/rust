@@ -4,7 +4,7 @@ use crate::Command;
 use coords::WorldCoord;
 
 #[rustfmt::skip]
-pub fn draw_textured(name: String, color: &Color, texture: &str, corners: [WorldCoord; 4]) -> Vec<Command> {
+pub fn draw_textured(id: usize, color: &Color, texture: &str, corners: [WorldCoord; 4]) -> Vec<Command> {
     let [a, b, c, d] = corners;
     let floats = vec![
         a.x, a.y, a.z, color.r, color.g, color.b, color.a, 0.0, 0.0,
@@ -16,16 +16,16 @@ pub fn draw_textured(name: String, color: &Color, texture: &str, corners: [World
     ];
     vec![
         Command::CreateDrawing(Drawing::textured(
-            name.clone(),
+            id,
             floats.len(),
         )),
         Command::UpdateVertices {
-            name: name.clone(),
+            id,
             index: 0,
             floats,
         },
         Command::UpdateTexture {
-            name,
+            id,
             texture: Some(texture.to_string()),
         }
     ]

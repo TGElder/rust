@@ -12,10 +12,10 @@ use self::vertex_objects::MultiVBO;
 use commons::na;
 use coords::*;
 use glutin::dpi::PhysicalSize;
-use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ffi::c_void;
 use std::sync::Arc;
+use std::vec;
 use transform::{Isometric, Transform};
 
 pub struct GraphicsEngine {
@@ -24,7 +24,7 @@ pub struct GraphicsEngine {
     label_padding: f32,
     transform: Transform,
     projection: Isometric,
-    drawings: HashMap<String, GLDrawing>,
+    drawings: Vec<Option<GLDrawing>>,
     texture_library: TextureLibrary,
 }
 
@@ -82,7 +82,7 @@ impl GraphicsEngine {
             label_padding: params.label_padding,
             transform,
             projection,
-            drawings: HashMap::new(),
+            drawings: (0..1024).map(|_| None).collect(),
             texture_library: TextureLibrary::default(),
         };
         out.set_viewport_size(params.viewport_size);
@@ -107,7 +107,8 @@ impl GraphicsEngine {
     fn compute_draw_order(&self, drawing_type: DrawingType) -> Vec<&GLDrawing> {
         let mut out: Vec<&GLDrawing> = self
             .drawings
-            .values()
+            .iter()
+            .flatten()
             .filter(|d| d.drawing.drawing_type == drawing_type)
             .collect();
         out.sort_by_key(|gl_drawing| {
@@ -121,33 +122,33 @@ impl GraphicsEngine {
 
     pub fn add_drawing(&mut self, drawing: Drawing) {
         self.drawings
-            .insert(drawing.name.clone(), GLDrawing::new(drawing));
+            .insert(drawing.index, Some(GLDrawing::new(drawing)));
     }
 
-    pub fn update_vertices(&mut self, name: String, index: usize, vertices: Vec<f32>) {
-        let mut gl_drawing = self.drawings.get_mut(&name).unwrap();
+    pub fn update_vertices(&mut self, id: usize, index: usize, vertices: Vec<f32>) {
+        let mut gl_drawing = self.drawings[id].as_mut().unwrap();
         gl_drawing.load(index, vertices);
         gl_drawing.drawing.visible = true;
     }
 
-    pub fn update_texture(&mut self, name: String, texture: Option<String>) {
-        let gl_drawing = self.drawings.get_mut(&name).unwrap();
+    pub fn update_texture(&mut self, id: usize, texture: Option<String>) {
+        let gl_drawing = self.drawings[id].as_mut().unwrap();
         let texture_library = &mut self.texture_library;
         gl_drawing.texture = texture.map(|texture| texture_library.get_texture(&texture))
     }
 
-    pub fn update_mask(&mut self, name: String, texture: Option<String>) {
-        let gl_drawing = self.drawings.get_mut(&name).unwrap();
+    pub fn update_mask(&mut self, id: usize, texture: Option<String>) {
+        let gl_drawing = self.drawings[id].as_mut().unwrap();
         let texture_library = &mut self.texture_library;
         gl_drawing.mask = texture.map(|texture| texture_library.get_texture(&texture))
     }
 
-    pub fn remove_drawing(&mut self, name: &str) {
-        self.drawings.remove(name);
+    pub fn remove_drawing(&mut self, id: usize) {
+        self.drawings[id] = None;
     }
 
-    pub fn set_drawing_visibility(&mut self, name: String, visible: bool) {
-        self.drawings.get_mut(&name).unwrap().drawing.visible = visible;
+    pub fn set_drawing_visibility(&mut self, id: usize, visible: bool) {
+        self.drawings[id].as_mut().unwrap().drawing.visible = visible;
     }
 
     fn get_pixel_to_screen(&self) -> na::Matrix2<f32> {
@@ -308,7 +309,7 @@ pub enum DrawingType {
 
 #[derive(Debug)]
 pub struct Drawing {
-    name: String,
+    index: usize,
     drawing_type: DrawingType,
     indices: usize,
     max_floats_per_index: usize,
@@ -318,9 +319,9 @@ pub struct Drawing {
 }
 
 impl Drawing {
-    pub fn plain(name: String, floats: usize) -> Drawing {
+    pub fn plain(index: usize, floats: usize) -> Drawing {
         Drawing {
-            name,
+            index,
             drawing_type: DrawingType::Plain,
             indices: 1,
             max_floats_per_index: floats,
@@ -330,9 +331,9 @@ impl Drawing {
         }
     }
 
-    pub fn textured(name: String, floats: usize) -> Drawing {
+    pub fn textured(index: usize, floats: usize) -> Drawing {
         Drawing {
-            name,
+            index,
             drawing_type: DrawingType::Textured,
             indices: 1,
             max_floats_per_index: floats,
@@ -342,9 +343,9 @@ impl Drawing {
         }
     }
 
-    pub fn billboard(name: String, floats: usize) -> Drawing {
+    pub fn billboard(index: usize, floats: usize) -> Drawing {
         Drawing {
-            name,
+            index,
             drawing_type: DrawingType::Billboard,
             indices: 1,
             max_floats_per_index: floats,
@@ -354,9 +355,9 @@ impl Drawing {
         }
     }
 
-    pub fn masked_billboard(name: String, floats: usize) -> Drawing {
+    pub fn masked_billboard(index: usize, floats: usize) -> Drawing {
         Drawing {
-            name,
+            index,
             drawing_type: DrawingType::MaskedBillboard,
             indices: 1,
             max_floats_per_index: floats,
@@ -367,13 +368,13 @@ impl Drawing {
     }
 
     pub fn label(
-        name: String,
+        index: usize,
         floats: usize,
         label_visibility_check: LabelVisibilityCheck,
         draw_order: i32,
     ) -> Drawing {
         Drawing {
-            name,
+            index,
             drawing_type: DrawingType::Label,
             indices: 1,
             max_floats_per_index: floats,
@@ -383,9 +384,9 @@ impl Drawing {
         }
     }
 
-    pub fn multi(name: String, indices: usize, max_floats_per_index: usize) -> Drawing {
+    pub fn multi(index: usize, indices: usize, max_floats_per_index: usize) -> Drawing {
         Drawing {
-            name,
+            index,
             drawing_type: DrawingType::Plain,
             indices,
             max_floats_per_index,

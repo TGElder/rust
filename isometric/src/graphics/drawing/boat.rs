@@ -17,12 +17,12 @@ pub struct DrawBoatParams {
     pub light_direction: V3<f32>,
 }
 
-pub fn create_boat(name: String) -> Command {
-    Command::CreateDrawing(Drawing::plain(name, BOAT_FLOATS))
+pub fn create_boat(id: usize) -> Command {
+    Command::CreateDrawing(Drawing::plain(id, BOAT_FLOATS))
 }
 
 pub fn draw_boat(
-    name: &str,
+    id: usize,
     world_coordinate: WorldCoord,
     rotation: na::Matrix3<f32>,
     p: &DrawBoatParams,
@@ -96,7 +96,7 @@ pub fn draw_boat(
     ));
 
     vec![Command::UpdateVertices {
-        name: name.to_string(),
+        id,
         index: 0,
         floats,
     }]

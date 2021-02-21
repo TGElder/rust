@@ -4,7 +4,7 @@ use crate::Command;
 use color::Color;
 use commons::v3;
 
-pub fn draw_sea(name: String, width: f32, height: f32, level: f32) -> Vec<Command> {
+pub fn draw_sea(id: usize, width: f32, height: f32, level: f32) -> Vec<Command> {
     let color = Color::new(0.0, 0.0, 1.0, 1.0);
 
     let left = -0.5 * width;
@@ -22,9 +22,9 @@ pub fn draw_sea(name: String, width: f32, height: f32, level: f32) -> Vec<Comman
     );
 
     vec![
-        Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
+        Command::CreateDrawing(Drawing::plain(id, floats.len())),
         Command::UpdateVertices {
-            name,
+            id,
             index: 0,
             floats,
         },
