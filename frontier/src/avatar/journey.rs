@@ -179,58 +179,36 @@ impl Journey {
     }
 
     pub fn stop(&self, instant: &u128) -> Journey {
-        self.compute_current_index(instant)
-            .map(|i| Journey {
-                frames: vec![self.frames[i - 1], self.frames[i]],
-            })
-            .unwrap_or_else(|| Journey {
-                frames: vec![*self.final_frame()],
-            })
+        match self.progress_at(instant) {
+            Progress::At(frame) => Journey {
+                frames: vec![*frame],
+            },
+            Progress::Between { from, to } => Journey {
+                frames: vec![*from, *to],
+            },
+        }
     }
 
     pub fn compute_world_coord(&self, instant: &u128) -> WorldCoord {
-        if self.done(instant) {
-            return self.final_frame().into();
+        self.progress_at(instant).world_coord_at(instant)
+    }
+
+    pub fn progress_at(&self, instant: &u128) -> Progress {
+        if *instant <= self.frames[0].arrival {
+            return Progress::At(&self.frames[0]);
         }
 
-        let instant = instant.max(&self.frames[0].arrival);
+        let final_frame = self.final_frame();
+        if *instant >= final_frame.arrival {
+            return Progress::At(final_frame);
+        }
 
-        let i = self.compute_current_index(instant).unwrap();
+        let next_index = self.compute_current_index(instant).unwrap();
 
-        let from = self.frames[i - 1];
-        let to = self.frames[i];
-
-        let p_micros = instant - from.arrival;
-        let edge_micros = to.arrival - from.arrival;
-        let p = ((p_micros as f64) / (edge_micros as f64)) as f32;
-
-        let from = v3(
-            from.position.x as f32,
-            from.position.y as f32,
-            from.elevation,
-        );
-        let to = v3(to.position.x as f32, to.position.y as f32, to.elevation);
-
-        let interpolated = from + (to - from) * p;
-        WorldCoord::new(interpolated.x, interpolated.y, interpolated.z)
-    }
-
-    pub fn vehicle_at(&self, instant: &u128) -> Vehicle {
-        self.frame_at(instant).vehicle
-    }
-
-    pub fn rotation_at(&self, instant: &u128) -> Rotation {
-        self.frame_at(instant).rotation
-    }
-
-    pub fn load_at(&self, instant: &u128) -> AvatarLoad {
-        self.frame_at(instant).load
-    }
-
-    fn frame_at(&self, instant: &u128) -> &Frame {
-        self.compute_current_index(instant)
-            .map(|index| &self.frames[index])
-            .unwrap_or_else(|| self.final_frame())
+        Progress::Between {
+            from: &self.frames[next_index - 1],
+            to: &self.frames[next_index],
+        }
     }
 
     pub fn append(self, journey: Journey) -> Option<Journey> {
@@ -296,6 +274,54 @@ impl Journey {
             frame.load = load
         }
         self
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Progress<'a> {
+    At(&'a Frame),
+    Between { from: &'a Frame, to: &'a Frame },
+}
+
+impl<'a> Progress<'a> {
+    pub fn world_coord_at(&self, instant: &u128) -> WorldCoord {
+        let (from, to) = match self {
+            Progress::At(frame) => return (*frame).into(),
+            Progress::Between { from, to } => (from, to),
+        };
+
+        let p_micros = instant - from.arrival;
+        let edge_micros = to.arrival - from.arrival;
+        let p = ((p_micros as f64) / (edge_micros as f64)) as f32;
+
+        let from = v3(
+            from.position.x as f32,
+            from.position.y as f32,
+            from.elevation,
+        );
+        let to = v3(to.position.x as f32, to.position.y as f32, to.elevation);
+
+        let interpolated = from + (to - from) * p;
+        WorldCoord::new(interpolated.x, interpolated.y, interpolated.z)
+    }
+
+    fn from(&self) -> &Frame {
+        match self {
+            Progress::At(frame) => frame,
+            Progress::Between { from, .. } => from,
+        }
+    }
+
+    pub fn vehicle(&self) -> Vehicle {
+        self.from().vehicle
+    }
+
+    pub fn rotation(&self) -> Rotation {
+        self.from().rotation
+    }
+
+    pub fn load(&self) -> AvatarLoad {
+        self.from().load
     }
 }
 
@@ -481,99 +507,107 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_world_coord() {
+    fn test_progress_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let at = start + 1_500;
-        let actual = journey.compute_world_coord(&at);
-        let expected = WorldCoord::new(0.25, 1.0, 0.625);
-        assert!(actual.x.almost(&expected.x));
-        assert!(actual.y.almost(&expected.y));
-        assert!(actual.z.almost(&expected.z));
+        assert_eq!(
+            journey.progress_at(&at),
+            Progress::Between {
+                from: &journey.frames[1],
+                to: &journey.frames[2]
+            }
+        );
     }
 
     #[test]
-    fn test_compute_world_coord_before_start() {
+    fn test_progress_at_before_start() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 10;
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
-        let actual = journey.compute_world_coord(&0);
-
-        let expected = WorldCoord::new(0.0, 0.0, 1.0);
-        assert!(actual.x.almost(&expected.x));
-        assert!(actual.y.almost(&expected.y));
-        assert!(actual.z.almost(&expected.z));
+        assert_eq!(journey.progress_at(&0), Progress::At(&journey.frames[0]));
     }
 
     #[test]
-    fn test_compute_world_coord_after_end() {
+    fn test_progress_at_after_end() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
-        let actual = journey.compute_world_coord(&20_000);
+        assert_eq!(
+            journey.progress_at(&20_000),
+            Progress::At(&journey.frames[4])
+        );
+    }
 
-        let expected = WorldCoord::new(2.0, 2.0, 3.0);
+    #[test]
+    fn test_progress_enum_between() {
+        // Given
+        let from = Frame {
+            position: v2(0, 1),
+            elevation: 0.5,
+            arrival: 1_000,
+            vehicle: Vehicle::Boat,
+            rotation: Rotation::Up,
+            load: AvatarLoad::Resource(Resource::Spice),
+        };
+        let to = Frame {
+            position: v2(1, 1),
+            elevation: 1.0,
+            arrival: 3_000,
+            vehicle: Vehicle::None,
+            rotation: Rotation::Right,
+            load: AvatarLoad::None,
+        };
+
+        // When
+        let progress = Progress::Between {
+            from: &from,
+            to: &to,
+        };
+
+        // Then
+        let actual = progress.world_coord_at(&1_500);
+        let expected = WorldCoord::new(0.25, 1.0, 0.625);
         assert!(actual.x.almost(&expected.x));
         assert!(actual.y.almost(&expected.y));
         assert!(actual.z.almost(&expected.z));
+
+        assert_eq!(progress.vehicle(), Vehicle::Boat);
+        assert_eq!(progress.rotation(), Rotation::Up);
+        assert_eq!(progress.load(), AvatarLoad::Resource(Resource::Spice));
     }
 
     #[test]
-    fn test_vehicle_at() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1);
-        assert_eq!(journey.vehicle_at(&0), Vehicle::Boat);
-        assert_eq!(journey.vehicle_at(&3_000), Vehicle::Boat);
-        assert_eq!(journey.vehicle_at(&3_001), Vehicle::None);
-        assert_eq!(journey.vehicle_at(&10_001), Vehicle::None);
-    }
-
-    #[test]
-    fn test_rotation_at() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 1);
-        assert_eq!(journey.rotation_at(&0), Rotation::Up);
-        assert_eq!(journey.rotation_at(&3_000), Rotation::Right);
-        assert_eq!(journey.rotation_at(&3_001), Rotation::Up);
-        assert_eq!(journey.rotation_at(&10_001), Rotation::Right);
-    }
-
-    #[test]
-    fn test_load_at() {
-        let journey = Journey {
-            frames: vec![
-                Frame {
-                    position: v2(0, 0),
-                    elevation: 1.0,
-                    arrival: 1,
-                    vehicle: Vehicle::Boat,
-                    rotation: Rotation::Up,
-                    load: AvatarLoad::None,
-                },
-                Frame {
-                    position: v2(0, 1),
-                    elevation: 0.5,
-                    arrival: 1_000,
-                    vehicle: Vehicle::Boat,
-                    rotation: Rotation::Up,
-                    load: AvatarLoad::Resource(Resource::Ivory),
-                },
-            ],
+    fn test_progress_enum_at() {
+        // Given
+        let at = Frame {
+            position: v2(0, 1),
+            elevation: 0.5,
+            arrival: 1_000,
+            vehicle: Vehicle::Boat,
+            rotation: Rotation::Up,
+            load: AvatarLoad::Resource(Resource::Spice),
         };
-        assert_eq!(journey.load_at(&0), AvatarLoad::None);
-        assert_eq!(journey.load_at(&500), AvatarLoad::Resource(Resource::Ivory));
-        assert_eq!(
-            journey.load_at(&3_000),
-            AvatarLoad::Resource(Resource::Ivory)
-        );
+
+        // When
+        let progress = Progress::At(&at);
+
+        // Then
+        let actual = progress.world_coord_at(&1_500);
+        let expected = WorldCoord::new(0.0, 1.0, 0.5);
+        assert!(actual.x.almost(&expected.x));
+        assert!(actual.y.almost(&expected.y));
+        assert!(actual.z.almost(&expected.z));
+
+        assert_eq!(progress.vehicle(), Vehicle::Boat);
+        assert_eq!(progress.rotation(), Rotation::Up);
+        assert_eq!(progress.load(), AvatarLoad::Resource(Resource::Spice));
     }
 
     #[test]
