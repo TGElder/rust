@@ -169,26 +169,6 @@ impl Journey {
         *instant >= self.final_frame().arrival
     }
 
-    fn compute_current_index(&self, instant: &u128) -> Option<usize> {
-        for i in 0..self.frames.len() {
-            if *instant < self.frames[i].arrival {
-                return Some(i);
-            }
-        }
-        None
-    }
-
-    pub fn stop(&self, instant: &u128) -> Journey {
-        match self.progress_at(instant) {
-            Progress::At(frame) => Journey {
-                frames: vec![*frame],
-            },
-            Progress::Between { from, to } => Journey {
-                frames: vec![*from, *to],
-            },
-        }
-    }
-
     pub fn compute_world_coord(&self, instant: &u128) -> WorldCoord {
         self.progress_at(instant).world_coord_at(instant)
     }
@@ -208,6 +188,26 @@ impl Journey {
         Progress::Between {
             from: &self.frames[next_index - 1],
             to: &self.frames[next_index],
+        }
+    }
+
+    fn compute_current_index(&self, instant: &u128) -> Option<usize> {
+        for i in 0..self.frames.len() {
+            if *instant < self.frames[i].arrival {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    pub fn stop(&self, instant: &u128) -> Journey {
+        match self.progress_at(instant) {
+            Progress::At(frame) => Journey {
+                frames: vec![*frame],
+            },
+            Progress::Between { from, to } => Journey {
+                frames: vec![*from, *to],
+            },
         }
     }
 
@@ -494,19 +494,6 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_current_index() {
-        let world = world();
-        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let start = 0;
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
-        assert_eq!(journey.compute_current_index(&start), Some(1));
-        let at = start + 1_500;
-        assert_eq!(journey.compute_current_index(&at), Some(2));
-        let done_at = start + 10_000;
-        assert_eq!(journey.compute_current_index(&done_at), None);
-    }
-
-    #[test]
     fn test_progress_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
@@ -611,6 +598,19 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_current_index() {
+        let world = world();
+        let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
+        let start = 0;
+        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        assert_eq!(journey.compute_current_index(&start), Some(1));
+        let at = start + 1_500;
+        assert_eq!(journey.compute_current_index(&at), Some(2));
+        let done_at = start + 10_000;
+        assert_eq!(journey.compute_current_index(&done_at), None);
+    }
+
+    #[test]
     fn test_stop() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
@@ -619,7 +619,7 @@ mod tests {
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let frames = journey.frames.clone();
 
-        assert_eq!(journey.stop(&start).frames, vec![frames[0], frames[1]]);
+        assert_eq!(journey.stop(&start).frames, vec![frames[0]]);
         let at = start + 1_500;
         assert_eq!(journey.stop(&at).frames, vec![frames[1], frames[2]]);
     }
