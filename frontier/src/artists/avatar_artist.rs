@@ -171,17 +171,21 @@ impl AvatarArtist {
 
     fn draw_avatar(&self, avatar: &Avatar, instant: &u128) -> Vec<Command> {
         let journey = avatar.journey.as_ref().unwrap();
-        let world_coord = journey.compute_world_coord(instant);
+        let world_coord = journey.world_coord_at(instant);
         let mut out = vec![];
         out.append(&mut self.draw_body(&avatar, instant, world_coord));
         out.append(&mut self.draw_boat_if_required(&avatar.name, &journey, world_coord, instant));
-        out.append(&mut self.draw_load(&avatar.name, &journey.load_at(instant), world_coord));
+        out.append(&mut self.draw_load(
+            &avatar.name,
+            &journey.progress_at(instant).load(),
+            world_coord,
+        ));
         out
     }
 
     #[rustfmt::skip]
     fn get_rotation_matrix(journey: &Journey, instant: &u128) -> na::Matrix3<f32> {
-        let rotation = journey.rotation_at(instant);
+        let rotation = journey.progress_at(instant).rotation();
         let cos = rotation.angle().cos();
         let sin = rotation.angle().sin();
         na::Matrix3::from_vec(vec![
@@ -263,7 +267,7 @@ impl AvatarArtist {
     }
 
     fn should_draw_boat(&self, journey: &Journey, instant: &u128) -> bool {
-        journey.vehicle_at(instant) == Vehicle::Boat
+        journey.progress_at(instant).vehicle() == Vehicle::Boat
     }
 
     fn draw_boat(
