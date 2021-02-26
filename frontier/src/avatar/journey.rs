@@ -32,7 +32,7 @@ impl Into<WorldCoord> for &Frame {
     }
 }
 
-impl Into<V3<f32>> for &&Frame {
+impl Into<V3<f32>> for &Frame {
     fn into(self) -> V3<f32> {
         V3::new(
             self.position.x as f32,
@@ -295,7 +295,7 @@ pub enum Progress<'a> {
 
 impl<'a> Progress<'a> {
     pub fn world_coord_at(&self, instant: &u128) -> WorldCoord {
-        let (from, to) = match self {
+        let (&from, &to) = match self {
             Progress::At(frame) => return (*frame).into(),
             Progress::Between { from, to } => (from, to),
         };
@@ -530,10 +530,10 @@ mod tests {
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
         // When
-        journey.progress_at(&0);
+        let progress = journey.progress_at(&0);
 
         // Then
-        assert_eq!(journey.progress_at(&0), Progress::At(&journey.frames[0]));
+        assert_eq!(progress, Progress::At(&journey.frames[0]));
     }
 
     #[test]
@@ -547,6 +547,7 @@ mod tests {
         // When
         let progress = journey.progress_at(&20_000);
 
+        // Then
         assert_eq!(progress, Progress::At(&journey.frames[4]));
     }
 
