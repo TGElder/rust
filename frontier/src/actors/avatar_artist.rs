@@ -89,7 +89,7 @@ fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {
         avatars
             .selected()
             .and_then(|avatar| avatar.journey.as_ref())
-            .map(|journey| journey.compute_world_coord(micros)),
+            .map(|journey| journey.world_coord_at(micros)),
     )
 }
 

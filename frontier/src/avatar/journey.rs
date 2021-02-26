@@ -169,7 +169,7 @@ impl Journey {
         *instant >= self.final_frame().arrival
     }
 
-    pub fn compute_world_coord(&self, instant: &u128) -> WorldCoord {
+    pub fn world_coord_at(&self, instant: &u128) -> WorldCoord {
         self.progress_at(instant).world_coord_at(instant)
     }
 
