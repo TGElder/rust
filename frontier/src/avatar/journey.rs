@@ -2,8 +2,8 @@ use super::*;
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::grid::Grid;
-use commons::v3;
 use commons::V2;
+use commons::V3;
 use isometric::coords::*;
 use std::ops::Add;
 
@@ -25,6 +25,16 @@ pub struct Frame {
 impl Into<WorldCoord> for &Frame {
     fn into(self) -> WorldCoord {
         WorldCoord::new(
+            self.position.x as f32,
+            self.position.y as f32,
+            self.elevation,
+        )
+    }
+}
+
+impl Into<V3<f32>> for &&Frame {
+    fn into(self) -> V3<f32> {
+        V3::new(
             self.position.x as f32,
             self.position.y as f32,
             self.elevation,
@@ -183,7 +193,7 @@ impl Journey {
             return Progress::At(final_frame);
         }
 
-        let next_index = self.compute_current_index(instant).unwrap();
+        let next_index = self.index_at(instant).unwrap();
 
         Progress::Between {
             from: &self.frames[next_index - 1],
@@ -191,7 +201,7 @@ impl Journey {
         }
     }
 
-    fn compute_current_index(&self, instant: &u128) -> Option<usize> {
+    fn index_at(&self, instant: &u128) -> Option<usize> {
         for i in 0..self.frames.len() {
             if *instant < self.frames[i].arrival {
                 return Some(i);
@@ -200,7 +210,7 @@ impl Journey {
         None
     }
 
-    pub fn stop(&self, instant: &u128) -> Journey {
+    pub fn stop(self, instant: &u128) -> Journey {
         match self.progress_at(instant) {
             Progress::At(frame) => Journey {
                 frames: vec![*frame],
@@ -294,12 +304,8 @@ impl<'a> Progress<'a> {
         let edge_micros = to.arrival - from.arrival;
         let p = ((p_micros as f64) / (edge_micros as f64)) as f32;
 
-        let from = v3(
-            from.position.x as f32,
-            from.position.y as f32,
-            from.elevation,
-        );
-        let to = v3(to.position.x as f32, to.position.y as f32, to.elevation);
+        let from: V3<f32> = from.into();
+        let to: V3<f32> = to.into();
 
         let interpolated = from + (to - from) * p;
         WorldCoord::new(interpolated.x, interpolated.y, interpolated.z)
@@ -495,13 +501,19 @@ mod tests {
 
     #[test]
     fn test_progress_at() {
+        // Given
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let at = start + 1_500;
+
+        // When
+        let progress = journey.progress_at(&at);
+
+        // Then
         assert_eq!(
-            journey.progress_at(&at),
+            progress,
             Progress::Between {
                 from: &journey.frames[1],
                 to: &journey.frames[2]
@@ -511,25 +523,31 @@ mod tests {
 
     #[test]
     fn test_progress_at_before_start() {
+        // Given
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 10;
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
+        // When
+        journey.progress_at(&0);
+
+        // Then
         assert_eq!(journey.progress_at(&0), Progress::At(&journey.frames[0]));
     }
 
     #[test]
     fn test_progress_at_after_end() {
+        // Given
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
 
-        assert_eq!(
-            journey.progress_at(&20_000),
-            Progress::At(&journey.frames[4])
-        );
+        // When
+        let progress = journey.progress_at(&20_000);
+
+        assert_eq!(progress, Progress::At(&journey.frames[4]));
     }
 
     #[test]
@@ -551,8 +569,6 @@ mod tests {
             rotation: Rotation::Right,
             load: AvatarLoad::None,
         };
-
-        // When
         let progress = Progress::Between {
             from: &from,
             to: &to,
@@ -581,8 +597,6 @@ mod tests {
             rotation: Rotation::Up,
             load: AvatarLoad::Resource(Resource::Spice),
         };
-
-        // When
         let progress = Progress::At(&at);
 
         // Then
@@ -598,16 +612,16 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_current_index() {
+    fn test_index_at() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let start = 0;
+        let start = 1;
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
-        assert_eq!(journey.compute_current_index(&start), Some(1));
+        assert_eq!(journey.index_at(&start), Some(1));
         let at = start + 1_500;
-        assert_eq!(journey.compute_current_index(&at), Some(2));
+        assert_eq!(journey.index_at(&at), Some(2));
         let done_at = start + 10_000;
-        assert_eq!(journey.compute_current_index(&done_at), None);
+        assert_eq!(journey.index_at(&done_at), None);
     }
 
     #[test]
@@ -619,7 +633,7 @@ mod tests {
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
         let frames = journey.frames.clone();
 
-        assert_eq!(journey.stop(&start).frames, vec![frames[0]]);
+        assert_eq!(journey.clone().stop(&start).frames, vec![frames[0]]);
         let at = start + 1_500;
         assert_eq!(journey.stop(&at).frames, vec![frames[1], frames[2]]);
     }
