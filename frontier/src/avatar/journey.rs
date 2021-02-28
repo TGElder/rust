@@ -311,23 +311,23 @@ impl<'a> Progress<'a> {
         WorldCoord::new(interpolated.x, interpolated.y, interpolated.z)
     }
 
-    fn from(&self) -> &Frame {
+    fn to(&self) -> &Frame {
         match self {
             Progress::At(frame) => frame,
-            Progress::Between { from, .. } => from,
+            Progress::Between { to, .. } => to,
         }
     }
 
     pub fn vehicle(&self) -> Vehicle {
-        self.from().vehicle
+        self.to().vehicle
     }
 
     pub fn rotation(&self) -> Rotation {
-        self.from().rotation
+        self.to().rotation
     }
 
     pub fn load(&self) -> AvatarLoad {
-        self.from().load
+        self.to().load
     }
 }
 
@@ -558,17 +558,17 @@ mod tests {
             position: v2(0, 1),
             elevation: 0.5,
             arrival: 1_000,
-            vehicle: Vehicle::Boat,
-            rotation: Rotation::Up,
-            load: AvatarLoad::Resource(Resource::Spice),
+            vehicle: Vehicle::None,
+            rotation: Rotation::Right,
+            load: AvatarLoad::None,
         };
         let to = Frame {
             position: v2(1, 1),
             elevation: 1.0,
             arrival: 3_000,
-            vehicle: Vehicle::None,
-            rotation: Rotation::Right,
-            load: AvatarLoad::None,
+            vehicle: Vehicle::Boat,
+            rotation: Rotation::Up,
+            load: AvatarLoad::Resource(Resource::Spice),
         };
         let progress = Progress::Between {
             from: &from,
