@@ -108,6 +108,7 @@ impl BodyPartArtist {
         }
     }
 }
+#[derive(Clone)]
 pub struct BodyPart {
     pub offset: V3<f32>,
     pub handle: String,
@@ -117,11 +118,13 @@ pub struct BodyPart {
     pub mask: Option<ColorMask>,
 }
 
+#[derive(Clone)]
 pub struct ColorMask {
     pub color: AvatarColor,
     pub mask: String,
 }
 
+#[derive(Clone)]
 pub enum AvatarColor {
     Base,
     Skin,

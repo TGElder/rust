@@ -17,7 +17,8 @@ use crate::actors::{
     TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
 use crate::artists::{
-    AvatarArtist, AvatarArtistParams, FastAvatarArtist, WorldArtist, WorldArtistParameters,
+    AvatarArtist, AvatarArtistParams, FastAvatarArtist, FastAvatarArtistParameters, WorldArtist,
+    WorldArtistParameters,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
@@ -200,7 +201,7 @@ impl System {
                         cx.clone_with_name("avatar_artist"),
                         AvatarArtist::new(AvatarArtistParams::new(&params.light_direction)),
                         FastAvatarArtist::new(
-                            &AvatarArtistParams::new(&params.light_direction),
+                            &FastAvatarArtistParameters::new(),
                             params.avatars + 1,
                         ),
                     ),
