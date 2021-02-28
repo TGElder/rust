@@ -25,12 +25,14 @@ fn get_floats(world_coord: WorldCoord, width: f32, height: f32, color: &Color) -
 }
 
 pub fn create_masked_billboard(name: String) -> Command {
-    Command::CreateDrawing(Drawing::billboard(name, MASKED_BILLBOARD_FLOATS))
+    Command::CreateDrawing(Drawing::masked_billboard(name, MASKED_BILLBOARD_FLOATS))
 }
 
-
 pub fn create_masked_billboards(name: String, count: usize) -> Command {
-    Command::CreateDrawing(Drawing::billboard(name, MASKED_BILLBOARD_FLOATS * count))
+    Command::CreateDrawing(Drawing::masked_billboard(
+        name,
+        MASKED_BILLBOARD_FLOATS * count,
+    ))
 }
 
 pub fn update_masked_billboard_texture(name: String, texture: &str) -> Command {
@@ -62,8 +64,13 @@ pub fn update_masked_billboard_vertices(
     }]
 }
 
-
-pub fn update_masked_billboards_vertices(name: String, world_coords: Vec<WorldCoord>, colors: Vec<&Color>, width: f32, height: f32) -> Command {
+pub fn update_masked_billboards_vertices(
+    name: String,
+    world_coords: Vec<WorldCoord>,
+    colors: Vec<&Color>,
+    width: f32,
+    height: f32,
+) -> Command {
     let mut floats = vec![];
 
     for (world_coord, color) in world_coords.into_iter().zip(colors.iter()) {
