@@ -41,6 +41,13 @@ pub enum Rotation {
     Down = 3,
 }
 
+pub const ROTATIONS: [Rotation; 4] = [
+    Rotation::Left,
+    Rotation::Up,
+    Rotation::Right,
+    Rotation::Down,
+];
+
 impl Default for Rotation {
     fn default() -> Rotation {
         Rotation::Up

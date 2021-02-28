@@ -4,7 +4,7 @@ use isometric::Command;
 use super::artist_avatar::ArtistAvatar;
 use super::body_part_artist::BodyPartArtist;
 use super::parameters::AvatarArtistParams;
-use crate::avatar::{Avatar, Rotation};
+use crate::avatar::{Avatar, Rotation, ROTATIONS};
 
 pub struct AvatarArtist {
     body_part_artists: Vec<BodyPartArtist>,
@@ -13,12 +13,8 @@ pub struct AvatarArtist {
 
 impl AvatarArtist {
     pub fn new(params: &AvatarArtistParams, max_avatars: usize) -> AvatarArtist {
-        let rotation_matrices: [Matrix3<f32>; 4] = [
-            get_rotation_matrix(&Rotation::Left),
-            get_rotation_matrix(&Rotation::Up),
-            get_rotation_matrix(&Rotation::Right),
-            get_rotation_matrix(&Rotation::Down),
-        ];
+        let rotation_matrices = get_rotation_matrices();
+
         AvatarArtist {
             body_part_artists: params
                 .body_parts
@@ -51,6 +47,14 @@ impl AvatarArtist {
             .map(|artist| artist.draw_avatars(&avatars))
             .collect::<Vec<_>>()
     }
+}
+
+fn get_rotation_matrices() -> [Matrix3<f32>; 4] {
+    let mut out: [Matrix3<f32>; 4] = [Matrix3::zeros(); 4];
+    ROTATIONS
+        .iter()
+        .for_each(|rotation| out[*rotation as usize] = get_rotation_matrix(rotation));
+    out
 }
 
 fn get_rotation_matrix(rotation: &Rotation) -> Matrix3<f32> {
