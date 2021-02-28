@@ -3,7 +3,11 @@ use std::iter::once;
 use commons::na::Matrix3;
 use commons::{v3, V3};
 use isometric::coords::WorldCoord;
-use isometric::drawing::{create_billboards, update_billboard_texture, update_billboards_vertices};
+use isometric::drawing::{
+    create_billboards, create_masked_billboards, update_billboard_texture,
+    update_billboards_vertices, update_masked_billboard_mask, update_masked_billboard_texture,
+    update_masked_billboards_vertices,
+};
 use isometric::{Color, Command};
 
 use crate::artists::AvatarArtistParams;
@@ -40,10 +44,36 @@ impl BodyPartArtist {
         }
     }
 
-    fn init(&self) -> impl Iterator<Item = Command> {
-        once(create_billboards(self.body_part.handle.clone(), 1024)).chain(once(
-            update_billboard_texture(self.body_part.handle.clone(), &self.body_part.texture),
-        ))
+    fn init(&self) -> Box<dyn Iterator<Item = Command>> {
+        if let Some(mask) = &self.body_part.mask {
+            Box::new(
+                once(create_masked_billboards(
+                    self.body_part.handle.clone(),
+                    1025,
+                ))
+                .chain(once(
+                    // TODO parameterise
+                    update_masked_billboard_texture(
+                        self.body_part.handle.clone(),
+                        &self.body_part.texture,
+                    ),
+                ))
+                .chain(once(update_masked_billboard_mask(
+                    self.body_part.handle.clone(),
+                    &mask.mask,
+                ))),
+            )
+        } else {
+            Box::new(
+                once(create_billboards(self.body_part.handle.clone(), 1025)).chain(once(
+                    // TODO parameterise
+                    update_billboard_texture(
+                        self.body_part.handle.clone(),
+                        &self.body_part.texture,
+                    ),
+                )),
+            )
+        }
     }
 
     fn draw_avatars(&self, avatars: &[ArtistAvatar]) -> Command {
@@ -62,12 +92,26 @@ impl BodyPartArtist {
             )
             .collect::<Vec<_>>();
 
-        update_billboards_vertices(
-            self.body_part.handle.clone(),
-            world_coords,
-            self.width,
-            self.height,
-        )
+        if let Some(mask) = &self.body_part.mask {
+            let colors = avatars
+                .iter()
+                .map(|ArtistAvatar { avatar, .. }| mask.color.get(avatar))
+                .collect::<Vec<_>>();
+            update_masked_billboards_vertices(
+                self.body_part.handle.clone(),
+                world_coords,
+                colors,
+                self.width,
+                self.height,
+            )
+        } else {
+            update_billboards_vertices(
+                self.body_part.handle.clone(),
+                world_coords,
+                self.width,
+                self.height,
+            )
+        }
     }
 }
 
@@ -81,28 +125,28 @@ impl FastAvatarArtist {
         ];
         FastAvatarArtist {
             body_part_artists: vec![
-                // BodyPart {
-                //     offset: v3(0.0, 0.0, 96.0),
-                //     handle: "body".to_string(),
-                //     texture: "resources/textures/body.png".to_string(),
-                //     texture_width: 128,
-                //     texture_height: 192,
-                //     mask: Some(ColorMask {
-                //         mask: "resources/textures/body.png".to_string(),
-                //         color: AvatarColor::Base,
-                //     }),
-                // },
-                // BodyPart {
-                //     offset: v3(12.0, 0.0, 192.0),
-                //     handle: "head".to_string(),
-                //     texture: "resources/textures/head.png".to_string(),
-                //     texture_width: 96,
-                //     texture_height: 96,
-                //     mask: Some(ColorMask {
-                //         mask: "resources/textures/head.png".to_string(),
-                //         color: AvatarColor::Skin,
-                //     }),
-                // },
+                BodyPart {
+                    offset: v3(0.0, 0.0, 96.0),
+                    handle: "body".to_string(),
+                    texture: "resources/textures/body.png".to_string(),
+                    texture_width: 128,
+                    texture_height: 192,
+                    mask: Some(ColorMask {
+                        mask: "resources/textures/body.png".to_string(),
+                        color: AvatarColor::Base,
+                    }),
+                },
+                BodyPart {
+                    offset: v3(12.0, 0.0, 192.0),
+                    handle: "head".to_string(),
+                    texture: "resources/textures/head.png".to_string(),
+                    texture_width: 96,
+                    texture_height: 96,
+                    mask: Some(ColorMask {
+                        mask: "resources/textures/head.png".to_string(),
+                        color: AvatarColor::Skin,
+                    }),
+                },
                 BodyPart {
                     offset: v3(48.0, 24.0, 192.0),
                     handle: "left_eye".to_string(),

@@ -25,7 +25,26 @@ fn get_floats(world_coord: WorldCoord, width: f32, height: f32, color: &Color) -
 }
 
 pub fn create_masked_billboard(name: String) -> Command {
-    Command::CreateDrawing(Drawing::masked_billboard(name, MASKED_BILLBOARD_FLOATS))
+    Command::CreateDrawing(Drawing::billboard(name, MASKED_BILLBOARD_FLOATS))
+}
+
+
+pub fn create_masked_billboards(name: String, count: usize) -> Command {
+    Command::CreateDrawing(Drawing::billboard(name, MASKED_BILLBOARD_FLOATS * count))
+}
+
+pub fn update_masked_billboard_texture(name: String, texture: &str) -> Command {
+    Command::UpdateTexture {
+        name,
+        texture: Some(texture.to_string()),
+    }
+}
+
+pub fn update_masked_billboard_mask(name: String, texture: &str) -> Command {
+    Command::UpdateMask {
+        name,
+        texture: Some(texture.to_string()),
+    }
 }
 
 pub fn update_masked_billboard_vertices(
@@ -35,7 +54,7 @@ pub fn update_masked_billboard_vertices(
     height: f32,
     color: &Color,
 ) -> Vec<Command> {
-    let floats = get_floats(world_coord, width, height, color);
+    let floats = get_floats(world_coord, width, height, &color);
     vec![Command::UpdateVertices {
         name,
         index: 0,
@@ -43,16 +62,17 @@ pub fn update_masked_billboard_vertices(
     }]
 }
 
-pub fn update_masked_billboard_texture(name: String, texture: &str) -> Vec<Command> {
-    vec![Command::UpdateTexture {
-        name,
-        texture: Some(texture.to_string()),
-    }]
-}
 
-pub fn update_masked_billboard_mask(name: String, texture: &str) -> Vec<Command> {
-    vec![Command::UpdateMask {
+pub fn update_masked_billboards_vertices(name: String, world_coords: Vec<WorldCoord>, colors: Vec<&Color>, width: f32, height: f32) -> Command {
+    let mut floats = vec![];
+
+    for (world_coord, color) in world_coords.into_iter().zip(colors.iter()) {
+        floats.append(&mut get_floats(world_coord, width, height, color));
+    }
+
+    Command::UpdateVertices {
         name,
-        texture: Some(texture.to_string()),
-    }]
+        index: 0,
+        floats,
+    }
 }
