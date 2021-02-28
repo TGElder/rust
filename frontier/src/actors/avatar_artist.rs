@@ -3,13 +3,14 @@ use std::sync::Arc;
 use commons::async_trait::async_trait;
 use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 
-use crate::artists::{AvatarArtist, AvatarDrawCommand};
+use crate::artists::{AvatarArtist, AvatarDrawCommand, FastAvatarArtist};
 use crate::avatars::Avatars;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendEngineCommands, SendRotate, WithAvatars};
 
 pub struct AvatarArtistActor<T> {
     cx: T,
+    fast_avatar_artist: FastAvatarArtist,
     avatar_artist: Option<AvatarArtist>,
     follow_avatar: bool,
     follow_avatar_binding: Button,
@@ -19,10 +20,15 @@ impl<T> AvatarArtistActor<T>
 where
     T: Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
 {
-    pub fn new(cx: T, avatar_artist: AvatarArtist) -> AvatarArtistActor<T> {
+    pub fn new(
+        cx: T,
+        avatar_artist: AvatarArtist,
+        fast_avatar_artist: FastAvatarArtist,
+    ) -> AvatarArtistActor<T> {
         AvatarArtistActor {
             cx,
             avatar_artist: Some(avatar_artist),
+            fast_avatar_artist,
             follow_avatar: true,
             follow_avatar_binding: Button::Key(VirtualKeyCode::C),
         }
@@ -30,6 +36,9 @@ where
 
     pub async fn init(&self) {
         self.send_messages().await;
+        self.cx
+            .send_engine_commands(self.fast_avatar_artist.init())
+            .await
     }
 
     async fn send_messages(&self) {
@@ -64,7 +73,16 @@ where
             .await;
 
         self.cx.send_engine_commands(commands).await;
-        self.avatar_artist = Some(avatar_artist)
+        self.avatar_artist = Some(avatar_artist);
+
+        let fast_commands = self
+            .cx
+            .with_avatars(|avatars| {
+                self.fast_avatar_artist
+                    .draw_avatars(&mut avatars.all.values(), &micros)
+            })
+            .await;
+        self.cx.send_engine_commands(fast_commands).await;
     }
 
     async fn toggle_follow_avatar(&mut self) {

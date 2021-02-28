@@ -20,7 +20,7 @@ pub struct AvatarArtist {
 }
 
 pub struct AvatarArtistParams {
-    pixels_per_cell: f32,
+    pub pixels_per_cell: f32,
     boat_params: DrawBoatParams,
     load_size: f32,
     load_height: f32,
@@ -77,44 +77,44 @@ impl AvatarArtist {
                         color: AvatarColor::Skin,
                     }),
                 },
-                BodyPart {
-                    offset: v3(48.0, 24.0, 192.0),
-                    handle: "left_eye".to_string(),
-                    texture: "resources/textures/eye.png".to_string(),
-                    texture_width: 16,
-                    texture_height: 16,
-                    mask: None,
-                },
-                BodyPart {
-                    offset: v3(48.0, -24.0, 192.0),
-                    handle: "right_eye".to_string(),
-                    texture: "resources/textures/eye.png".to_string(),
-                    texture_width: 16,
-                    texture_height: 16,
-                    mask: None,
-                },
-                BodyPart {
-                    offset: v3(48.0, 50.0, 96.0),
-                    handle: "left_hand".to_string(),
-                    texture: "resources/textures/hand.png".to_string(),
-                    texture_width: 32,
-                    texture_height: 32,
-                    mask: Some(ColorMask {
-                        mask: "resources/textures/hand.png".to_string(),
-                        color: AvatarColor::Skin,
-                    }),
-                },
-                BodyPart {
-                    offset: v3(48.0, -50.0, 96.0),
-                    handle: "right_hand".to_string(),
-                    texture: "resources/textures/hand.png".to_string(),
-                    texture_width: 32,
-                    texture_height: 32,
-                    mask: Some(ColorMask {
-                        mask: "resources/textures/hand.png".to_string(),
-                        color: AvatarColor::Skin,
-                    }),
-                },
+                // BodyPart {
+                //     offset: v3(48.0, 24.0, 192.0),
+                //     handle: "left_eye".to_string(),
+                //     texture: "resources/textures/eye.png".to_string(),
+                //     texture_width: 16,
+                //     texture_height: 16,
+                //     mask: None,
+                // },
+                // BodyPart {
+                //     offset: v3(48.0, -24.0, 192.0),
+                //     handle: "right_eye".to_string(),
+                //     texture: "resources/textures/eye.png".to_string(),
+                //     texture_width: 16,
+                //     texture_height: 16,
+                //     mask: None,
+                // },
+                // BodyPart {
+                //     offset: v3(48.0, 50.0, 96.0),
+                //     handle: "left_hand".to_string(),
+                //     texture: "resources/textures/hand.png".to_string(),
+                //     texture_width: 32,
+                //     texture_height: 32,
+                //     mask: Some(ColorMask {
+                //         mask: "resources/textures/hand.png".to_string(),
+                //         color: AvatarColor::Skin,
+                //     }),
+                // },
+                // BodyPart {
+                //     offset: v3(48.0, -50.0, 96.0),
+                //     handle: "right_hand".to_string(),
+                //     texture: "resources/textures/hand.png".to_string(),
+                //     texture_width: 32,
+                //     texture_height: 32,
+                //     mask: Some(ColorMask {
+                //         mask: "resources/textures/hand.png".to_string(),
+                //         color: AvatarColor::Skin,
+                //     }),
+                // },
             ],
             previous_draw_actions: HashMap::new(),
         }
@@ -305,7 +305,7 @@ impl AvatarArtist {
                 self.params.load_size,
                 self.params.load_size,
             ));
-            out.append(&mut update_billboard_texture(name, texture));
+            out.push(update_billboard_texture(name, texture));
             out
         } else {
             vec![self.hide_load(name)]
@@ -386,7 +386,7 @@ fn create_masked_billboard_part_drawing<'a>(
 }
 
 fn create_billboard_part_drawing(name: String, texture: &str) -> impl Iterator<Item = Command> {
-    once(create_billboard(name.clone())).chain(update_billboard_texture(name, &texture))
+    once(create_billboard(name.clone())).chain(once(update_billboard_texture(name, &texture)))
 }
 
 fn resource_texture(resource: Resource) -> Option<&'static str> {

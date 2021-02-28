@@ -16,7 +16,9 @@ use crate::actors::{
     SetupNewWorld, SetupPathfinders, SpeedControl, TownBuilderActor, TownHouseArtist,
     TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
-use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
+use crate::artists::{
+    AvatarArtist, AvatarArtistParams, FastAvatarArtist, WorldArtist, WorldArtistParameters,
+};
 use crate::avatar::AvatarTravelDuration;
 use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
@@ -197,6 +199,7 @@ impl System {
                     AvatarArtistActor::new(
                         cx.clone_with_name("avatar_artist"),
                         AvatarArtist::new(AvatarArtistParams::new(&params.light_direction)),
+                        FastAvatarArtist::new(&AvatarArtistParams::new(&params.light_direction)),
                     ),
                     avatar_artist_rx,
                 ),
