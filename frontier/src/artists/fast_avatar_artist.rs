@@ -52,12 +52,10 @@ impl BodyPartArtist {
                     self.body_part.handle.clone(),
                     max_avatars,
                 ))
-                .chain(once(
-                    update_masked_billboard_texture(
-                        self.body_part.handle.clone(),
-                        &self.body_part.texture,
-                    ),
-                ))
+                .chain(once(update_masked_billboard_texture(
+                    self.body_part.handle.clone(),
+                    &self.body_part.texture,
+                )))
                 .chain(once(update_masked_billboard_mask(
                     self.body_part.handle.clone(),
                     &mask.mask,
@@ -65,12 +63,14 @@ impl BodyPartArtist {
             )
         } else {
             Box::new(
-                once(create_billboards(self.body_part.handle.clone(), max_avatars)).chain(once(
-                    update_billboard_texture(
-                        self.body_part.handle.clone(),
-                        &self.body_part.texture,
-                    ),
-                )),
+                once(create_billboards(
+                    self.body_part.handle.clone(),
+                    max_avatars,
+                ))
+                .chain(once(update_billboard_texture(
+                    self.body_part.handle.clone(),
+                    &self.body_part.texture,
+                ))),
             )
         }
     }

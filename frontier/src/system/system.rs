@@ -199,7 +199,10 @@ impl System {
                     AvatarArtistActor::new(
                         cx.clone_with_name("avatar_artist"),
                         AvatarArtist::new(AvatarArtistParams::new(&params.light_direction)),
-                        FastAvatarArtist::new(&AvatarArtistParams::new(&params.light_direction), params.avatars + 1),
+                        FastAvatarArtist::new(
+                            &AvatarArtistParams::new(&params.light_direction),
+                            params.avatars + 1,
+                        ),
                     ),
                     avatar_artist_rx,
                 ),

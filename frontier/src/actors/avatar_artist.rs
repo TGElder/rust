@@ -64,6 +64,11 @@ where
                 let draw_commands = get_draw_commands(avatars);
                 let mut engine_commands = avatar_artist.update_avatars(&draw_commands, &micros);
 
+                let mut fast_commands = self
+                    .fast_avatar_artist
+                    .draw_avatars(&mut avatars.all.values(), &micros);
+                engine_commands.append(&mut fast_commands);
+
                 if self.follow_avatar {
                     engine_commands.push(look_at_selected(avatars, &micros));
                 }
@@ -74,15 +79,6 @@ where
 
         self.cx.send_engine_commands(commands).await;
         self.avatar_artist = Some(avatar_artist);
-
-        let fast_commands = self
-            .cx
-            .with_avatars(|avatars| {
-                self.fast_avatar_artist
-                    .draw_avatars(&mut avatars.all.values(), &micros)
-            })
-            .await;
-        self.cx.send_engine_commands(fast_commands).await;
     }
 
     async fn toggle_follow_avatar(&mut self) {
