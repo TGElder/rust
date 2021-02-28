@@ -27,7 +27,6 @@ pub fn create_billboard(name: String) -> Command {
     Command::CreateDrawing(Drawing::billboard(name, BILLBOARD_FLOATS))
 }
 
-
 pub fn create_billboards(name: String, count: usize) -> Command {
     Command::CreateDrawing(Drawing::billboard(name, BILLBOARD_FLOATS * count))
 }
@@ -38,7 +37,6 @@ pub fn update_billboard_texture(name: String, texture: &str) -> Command {
         texture: Some(texture.to_string()),
     }
 }
-
 
 pub fn update_billboard_vertices(
     name: String,
@@ -54,8 +52,12 @@ pub fn update_billboard_vertices(
     }]
 }
 
-
-pub fn update_billboards_vertices(name: String, world_coords: Vec<WorldCoord>, width: f32, height: f32) -> Command {
+pub fn update_billboards_vertices(
+    name: String,
+    world_coords: Vec<WorldCoord>,
+    width: f32,
+    height: f32,
+) -> Command {
     let mut floats = vec![];
 
     for world_coord in world_coords {
