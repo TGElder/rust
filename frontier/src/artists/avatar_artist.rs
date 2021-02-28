@@ -4,7 +4,8 @@ use crate::resource::Resource;
 use commons::{na, V3};
 use isometric::coords::*;
 use isometric::drawing::{
-    draw_boat, update_billboard_texture, update_billboard_vertices, DrawBoatParams,
+    create_billboard, create_boat, draw_boat, update_billboard_texture, update_billboard_vertices,
+    DrawBoatParams,
 };
 use isometric::Color;
 use isometric::Command;
@@ -55,6 +56,12 @@ impl AvatarArtist {
         }
     }
 
+    pub fn init(&self, name: &str) -> Vec<Command> {
+        once(create_boat(boat_drawing_name(&name)))
+            .chain(once(create_billboard(load_drawing_name(&name))))
+            .collect()
+    }
+
     pub fn update_avatars(
         &mut self,
         commands: &[AvatarDrawCommand],
@@ -82,6 +89,8 @@ impl AvatarArtist {
             if !Self::should_redraw_avatar(&previous_draw_action, &new_draw_action) {
                 return vec![];
             }
+        } else {
+            out.append(&mut self.init(name));
         }
         self.previous_draw_actions
             .insert(name.to_string(), new_draw_action);
