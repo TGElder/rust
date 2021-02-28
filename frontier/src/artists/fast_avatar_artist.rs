@@ -15,6 +15,7 @@ use crate::avatar::{Avatar, Progress, Rotation};
 
 pub struct FastAvatarArtist {
     body_part_artists: Vec<BodyPartArtist>,
+    max_avatars: usize,
 }
 
 struct BodyPartArtist {
@@ -44,15 +45,14 @@ impl BodyPartArtist {
         }
     }
 
-    fn init(&self) -> Box<dyn Iterator<Item = Command>> {
+    fn init(&self, max_avatars: usize) -> Box<dyn Iterator<Item = Command>> {
         if let Some(mask) = &self.body_part.mask {
             Box::new(
                 once(create_masked_billboards(
                     self.body_part.handle.clone(),
-                    1025,
+                    max_avatars,
                 ))
                 .chain(once(
-                    // TODO parameterise
                     update_masked_billboard_texture(
                         self.body_part.handle.clone(),
                         &self.body_part.texture,
@@ -65,8 +65,7 @@ impl BodyPartArtist {
             )
         } else {
             Box::new(
-                once(create_billboards(self.body_part.handle.clone(), 1025)).chain(once(
-                    // TODO parameterise
+                once(create_billboards(self.body_part.handle.clone(), max_avatars)).chain(once(
                     update_billboard_texture(
                         self.body_part.handle.clone(),
                         &self.body_part.texture,
@@ -116,7 +115,7 @@ impl BodyPartArtist {
 }
 
 impl FastAvatarArtist {
-    pub fn new(params: &AvatarArtistParams) -> FastAvatarArtist {
+    pub fn new(params: &AvatarArtistParams, max_avatars: usize) -> FastAvatarArtist {
         let rotation_matrices: [Matrix3<f32>; 4] = [
             get_rotation_matrix(&Rotation::Left),
             get_rotation_matrix(&Rotation::Up),
@@ -189,13 +188,14 @@ impl FastAvatarArtist {
             .into_iter()
             .map(|part| BodyPartArtist::new(part, params.pixels_per_cell, &rotation_matrices))
             .collect(),
+            max_avatars,
         }
     }
 
     pub fn init(&self) -> Vec<Command> {
         self.body_part_artists
             .iter()
-            .flat_map(|artist| artist.init())
+            .flat_map(|artist| artist.init(self.max_avatars))
             .collect::<Vec<_>>()
     }
 
