@@ -35,13 +35,13 @@ where
     }
 
     pub async fn init(&self) {
-        self.send_messages().await;
+        self.setup_engine_for_follow_avatar_setting().await;
         self.cx
             .send_engine_commands(self.fast_avatar_artist.init())
             .await
     }
 
-    async fn send_messages(&self) {
+    async fn setup_engine_for_follow_avatar_setting(&self) {
         if !self.follow_avatar {
             self.cx
                 .send_engine_commands(vec![Command::LookAt(None)])
@@ -83,7 +83,7 @@ where
 
     async fn toggle_follow_avatar(&mut self) {
         self.follow_avatar = !self.follow_avatar;
-        self.send_messages().await;
+        self.setup_engine_for_follow_avatar_setting().await;
     }
 }
 
