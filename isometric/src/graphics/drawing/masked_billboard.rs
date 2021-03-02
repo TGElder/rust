@@ -56,7 +56,7 @@ pub fn update_masked_billboard_vertices(
     height: f32,
     color: &Color,
 ) -> Vec<Command> {
-    let floats = get_floats(world_coord, width, height, &color);
+    let floats = get_floats(world_coord, width, height, color);
     vec![Command::UpdateVertices {
         name,
         index: 0,

@@ -8,6 +8,22 @@ pub struct AvatarArtistParams {
     pub body_parts: Vec<BodyPart>,
 }
 
+#[derive(Clone)]
+pub struct BodyPart {
+    pub offset: V3<f32>,
+    pub drawing_name: &'static str,
+    pub texture: &'static str,
+    pub texture_width: usize,
+    pub texture_height: usize,
+    pub mask: Option<ColorMask>,
+}
+
+#[derive(Clone)]
+pub struct ColorMask {
+    pub mask: &'static str,
+    pub color_fn: fn(&Avatar) -> &Color,
+}
+
 impl AvatarArtistParams {
     pub fn new() -> AvatarArtistParams {
         AvatarArtistParams {
@@ -15,7 +31,7 @@ impl AvatarArtistParams {
             body_parts: vec![
                 BodyPart {
                     offset: v3(0.0, 0.0, 96.0),
-                    handle: "body",
+                    drawing_name: "body",
                     texture: "resources/textures/body.png",
                     texture_width: 128,
                     texture_height: 192,
@@ -26,7 +42,7 @@ impl AvatarArtistParams {
                 },
                 BodyPart {
                     offset: v3(12.0, 0.0, 192.0),
-                    handle: "head",
+                    drawing_name: "head",
                     texture: "resources/textures/head.png",
                     texture_width: 96,
                     texture_height: 96,
@@ -37,7 +53,7 @@ impl AvatarArtistParams {
                 },
                 BodyPart {
                     offset: v3(48.0, 24.0, 192.0),
-                    handle: "left_eye",
+                    drawing_name: "left_eye",
                     texture: "resources/textures/eye.png",
                     texture_width: 16,
                     texture_height: 16,
@@ -45,7 +61,7 @@ impl AvatarArtistParams {
                 },
                 BodyPart {
                     offset: v3(48.0, -24.0, 192.0),
-                    handle: "right_eye",
+                    drawing_name: "right_eye",
                     texture: "resources/textures/eye.png",
                     texture_width: 16,
                     texture_height: 16,
@@ -53,7 +69,7 @@ impl AvatarArtistParams {
                 },
                 BodyPart {
                     offset: v3(48.0, 50.0, 96.0),
-                    handle: "left_hand",
+                    drawing_name: "left_hand",
                     texture: "resources/textures/hand.png",
                     texture_width: 32,
                     texture_height: 32,
@@ -64,7 +80,7 @@ impl AvatarArtistParams {
                 },
                 BodyPart {
                     offset: v3(48.0, -50.0, 96.0),
-                    handle: "right_hand",
+                    drawing_name: "right_hand",
                     texture: "resources/textures/hand.png",
                     texture_width: 32,
                     texture_height: 32,
@@ -76,20 +92,4 @@ impl AvatarArtistParams {
             ],
         }
     }
-}
-
-#[derive(Clone)]
-pub struct BodyPart {
-    pub offset: V3<f32>,
-    pub handle: &'static str,
-    pub texture: &'static str,
-    pub texture_width: usize,
-    pub texture_height: usize,
-    pub mask: Option<ColorMask>,
-}
-
-#[derive(Clone)]
-pub struct ColorMask {
-    pub mask: &'static str,
-    pub color_fn: fn(&Avatar) -> &Color,
 }

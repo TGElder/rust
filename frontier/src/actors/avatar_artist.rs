@@ -10,8 +10,8 @@ use crate::traits::{Micros, SendEngineCommands, SendRotate, WithAvatars};
 
 pub struct AvatarArtistActor<T> {
     cx: T,
-    fast_avatar_artist: FastAvatarArtist,
     avatar_artist: Option<AvatarArtist>,
+    fast_avatar_artist: FastAvatarArtist,
     follow_avatar: bool,
     follow_avatar_binding: Button,
 }

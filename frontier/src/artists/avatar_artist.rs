@@ -18,7 +18,6 @@ pub struct AvatarArtist {
 }
 
 pub struct AvatarArtistParams {
-    pub pixels_per_cell: f32,
     boat_params: DrawBoatParams,
     load_size: f32,
     load_height: f32,
@@ -27,7 +26,6 @@ pub struct AvatarArtistParams {
 impl AvatarArtistParams {
     pub fn new(light_direction: &V3<f32>) -> AvatarArtistParams {
         AvatarArtistParams {
-            pixels_per_cell: 1280.0,
             boat_params: DrawBoatParams {
                 width: 0.13,
                 side_height: 0.04,
