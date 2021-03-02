@@ -61,7 +61,7 @@ fn get_rotation_matrices() -> [Matrix3<f32>; 4] {
 fn get_rotation_matrix(rotation: &Rotation) -> Matrix3<f32> {
     let cos = rotation.angle().cos();
     let sin = rotation.angle().sin();
-    Matrix3::from_row_slice(&[
+    Matrix3::from_vec(vec![
         cos, sin, 0.0,
         -sin, cos, 0.0,
         0.0, 0.0, 1.0
