@@ -35,11 +35,18 @@ pub struct Avatar {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Rotation {
-    Left,
-    Up,
-    Right,
-    Down,
+    Left = 0,
+    Up = 1,
+    Right = 2,
+    Down = 3,
 }
+
+pub const ROTATIONS: [Rotation; 4] = [
+    Rotation::Left,
+    Rotation::Up,
+    Rotation::Right,
+    Rotation::Down,
+];
 
 impl Default for Rotation {
     fn default() -> Rotation {

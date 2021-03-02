@@ -1,12 +1,11 @@
 use super::*;
 use crate::avatar::*;
 use crate::resource::Resource;
-use commons::{na, v3, V3};
+use commons::{na, V3};
 use isometric::coords::*;
 use isometric::drawing::{
-    create_billboard, create_boat, create_masked_billboard, draw_boat, update_billboard_texture,
-    update_billboard_vertices, update_masked_billboard_mask, update_masked_billboard_texture,
-    update_masked_billboard_vertices, DrawBoatParams,
+    create_billboard, create_boat, draw_boat, update_billboard_texture, update_billboard_vertices,
+    DrawBoatParams,
 };
 use isometric::Color;
 use isometric::Command;
@@ -15,12 +14,10 @@ use std::iter::once;
 
 pub struct AvatarArtist {
     params: AvatarArtistParams,
-    body_parts: Vec<BodyPart>,
     previous_draw_actions: HashMap<String, AvatarDrawAction>,
 }
 
 pub struct AvatarArtistParams {
-    pixels_per_cell: f32,
     boat_params: DrawBoatParams,
     load_size: f32,
     load_height: f32,
@@ -29,7 +26,6 @@ pub struct AvatarArtistParams {
 impl AvatarArtistParams {
     pub fn new(light_direction: &V3<f32>) -> AvatarArtistParams {
         AvatarArtistParams {
-            pixels_per_cell: 1280.0,
             boat_params: DrawBoatParams {
                 width: 0.13,
                 side_height: 0.04,
@@ -54,77 +50,12 @@ impl AvatarArtist {
     pub fn new(params: AvatarArtistParams) -> AvatarArtist {
         AvatarArtist {
             params,
-            body_parts: vec![
-                BodyPart {
-                    offset: v3(0.0, 0.0, 96.0),
-                    handle: "body".to_string(),
-                    texture: "resources/textures/body.png".to_string(),
-                    texture_width: 128,
-                    texture_height: 192,
-                    mask: Some(ColorMask {
-                        mask: "resources/textures/body.png".to_string(),
-                        color: AvatarColor::Base,
-                    }),
-                },
-                BodyPart {
-                    offset: v3(12.0, 0.0, 192.0),
-                    handle: "head".to_string(),
-                    texture: "resources/textures/head.png".to_string(),
-                    texture_width: 96,
-                    texture_height: 96,
-                    mask: Some(ColorMask {
-                        mask: "resources/textures/head.png".to_string(),
-                        color: AvatarColor::Skin,
-                    }),
-                },
-                BodyPart {
-                    offset: v3(48.0, 24.0, 192.0),
-                    handle: "left_eye".to_string(),
-                    texture: "resources/textures/eye.png".to_string(),
-                    texture_width: 16,
-                    texture_height: 16,
-                    mask: None,
-                },
-                BodyPart {
-                    offset: v3(48.0, -24.0, 192.0),
-                    handle: "right_eye".to_string(),
-                    texture: "resources/textures/eye.png".to_string(),
-                    texture_width: 16,
-                    texture_height: 16,
-                    mask: None,
-                },
-                BodyPart {
-                    offset: v3(48.0, 50.0, 96.0),
-                    handle: "left_hand".to_string(),
-                    texture: "resources/textures/hand.png".to_string(),
-                    texture_width: 32,
-                    texture_height: 32,
-                    mask: Some(ColorMask {
-                        mask: "resources/textures/hand.png".to_string(),
-                        color: AvatarColor::Skin,
-                    }),
-                },
-                BodyPart {
-                    offset: v3(48.0, -50.0, 96.0),
-                    handle: "right_hand".to_string(),
-                    texture: "resources/textures/hand.png".to_string(),
-                    texture_width: 32,
-                    texture_height: 32,
-                    mask: Some(ColorMask {
-                        mask: "resources/textures/hand.png".to_string(),
-                        color: AvatarColor::Skin,
-                    }),
-                },
-            ],
             previous_draw_actions: HashMap::new(),
         }
     }
 
     pub fn init(&self, name: &str) -> Vec<Command> {
-        self.body_parts
-            .iter()
-            .flat_map(move |part| create_part_drawing(name, part))
-            .chain(once(create_boat(boat_drawing_name(&name))))
+        once(create_boat(boat_drawing_name(&name)))
             .chain(once(create_billboard(load_drawing_name(&name))))
             .collect()
     }
@@ -173,7 +104,6 @@ impl AvatarArtist {
         let journey = avatar.journey.as_ref().unwrap();
         let world_coord = journey.world_coord_at(instant);
         let mut out = vec![];
-        out.append(&mut self.draw_body(&avatar, instant, world_coord));
         out.append(&mut self.draw_boat_if_required(&avatar.name, &journey, world_coord, instant));
         out.append(&mut self.draw_load(
             &avatar.name,
@@ -203,52 +133,6 @@ impl AvatarArtist {
             true
         } else {
             previous_draw_action != new_draw_action
-        }
-    }
-
-    fn draw_body(&self, avatar: &Avatar, instant: &u128, world_coord: WorldCoord) -> Vec<Command> {
-        self.body_parts
-            .iter()
-            .flat_map(|part| {
-                self.draw_part_at_offset(avatar, instant, world_coord, part)
-                    .into_iter()
-            })
-            .collect()
-    }
-
-    fn draw_part_at_offset(
-        &self,
-        avatar: &Avatar,
-        instant: &u128,
-        world_coord: WorldCoord,
-        part: &BodyPart,
-    ) -> Vec<Command> {
-        let offset = AvatarArtist::get_rotation_matrix(&avatar.journey.as_ref().unwrap(), instant)
-            * part.offset
-            / self.params.pixels_per_cell;
-        let world_coord = WorldCoord::new(
-            world_coord.x + offset.x,
-            world_coord.y + offset.y,
-            world_coord.z + offset.z,
-        );
-        let width = (part.texture_width as f32) / self.params.pixels_per_cell;
-        let height = (part.texture_height as f32) / self.params.pixels_per_cell;
-        if let Some(mask) = &part.mask {
-            let color = mask.color.get(avatar);
-            update_masked_billboard_vertices(
-                part_drawing_name(&avatar.name, &part),
-                world_coord,
-                width,
-                height,
-                color,
-            )
-        } else {
-            update_billboard_vertices(
-                part_drawing_name(&avatar.name, &part),
-                world_coord,
-                width,
-                height,
-            )
         }
     }
 
@@ -305,7 +189,7 @@ impl AvatarArtist {
                 self.params.load_size,
                 self.params.load_size,
             ));
-            out.append(&mut update_billboard_texture(name, texture));
+            out.push(update_billboard_texture(name, texture));
             out
         } else {
             vec![self.hide_load(name)]
@@ -313,19 +197,9 @@ impl AvatarArtist {
     }
 
     fn hide(&self, name: &str) -> Vec<Command> {
-        self.body_parts
-            .iter()
-            .map(|part| self.hide_part(name, part))
-            .chain(once(self.hide_boat(name)))
+        once(self.hide_boat(name))
             .chain(once(self.hide_load(name)))
             .collect()
-    }
-
-    fn hide_part(&self, name: &str, part: &BodyPart) -> Command {
-        Command::SetDrawingVisibility {
-            name: part_drawing_name(name, part),
-            visible: false,
-        }
     }
 
     fn hide_boat(&self, name: &str) -> Command {
@@ -347,46 +221,12 @@ fn drawing_name(name: &str, part: &str) -> String {
     format!("avatar-{}-{}", name.to_string(), part)
 }
 
-fn part_drawing_name(name: &str, part: &BodyPart) -> String {
-    drawing_name(name, &part.handle)
-}
-
 fn boat_drawing_name(name: &str) -> String {
     drawing_name(name, "boat")
 }
 
 fn load_drawing_name(name: &str) -> String {
     drawing_name(name, "load")
-}
-
-fn create_part_drawing<'a>(
-    name: &'a str,
-    part: &'a BodyPart,
-) -> Box<dyn Iterator<Item = Command> + 'a> {
-    let name = part_drawing_name(&name, &part);
-    if let Some(ColorMask { mask, .. }) = &part.mask {
-        Box::new(create_masked_billboard_part_drawing(
-            name,
-            &part.texture,
-            mask,
-        ))
-    } else {
-        Box::new(create_billboard_part_drawing(name, &part.texture))
-    }
-}
-
-fn create_masked_billboard_part_drawing<'a>(
-    name: String,
-    texture: &'a str,
-    mask: &'a str,
-) -> impl Iterator<Item = Command> + 'a {
-    once(create_masked_billboard(name.clone()))
-        .chain(update_masked_billboard_texture(name.clone(), &texture))
-        .chain(update_masked_billboard_mask(name, &mask))
-}
-
-fn create_billboard_part_drawing(name: String, texture: &str) -> impl Iterator<Item = Command> {
-    once(create_billboard(name.clone())).chain(update_billboard_texture(name, &texture))
 }
 
 fn resource_texture(resource: Resource) -> Option<&'static str> {
@@ -425,33 +265,5 @@ fn avatar_draw_action(command: &AvatarDrawCommand, instant: &u128) -> AvatarDraw
             false => AvatarDrawAction::Hide,
         },
         None => AvatarDrawAction::Hide,
-    }
-}
-
-struct BodyPart {
-    offset: V3<f32>,
-    handle: String,
-    texture: String,
-    texture_width: usize,
-    texture_height: usize,
-    mask: Option<ColorMask>,
-}
-
-struct ColorMask {
-    color: AvatarColor,
-    mask: String,
-}
-
-enum AvatarColor {
-    Base,
-    Skin,
-}
-
-impl AvatarColor {
-    fn get<'a>(&'a self, avatar: &'a Avatar) -> &'a Color {
-        match self {
-            AvatarColor::Base => &avatar.color,
-            AvatarColor::Skin => &avatar.skin_color,
-        }
     }
 }
