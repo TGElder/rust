@@ -176,8 +176,17 @@ where
     }
 }
 
+
 pub struct FnReceiver<I> {
     rx: Receiver<FnMessage<I>>,
+}
+
+impl <I> Clone for FnReceiver<I> {
+    fn clone(&self) -> Self {
+        FnReceiver{
+            rx: self.rx.clone()    
+        }
+    }
 }
 
 impl<I> FnReceiver<I> {

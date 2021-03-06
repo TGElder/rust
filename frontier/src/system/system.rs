@@ -6,7 +6,7 @@ use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver};
 use commons::persistence::{Load, Save};
 use commons::M;
 use futures::executor::ThreadPool;
-use futures::future::{FutureExt, RemoteHandle};
+use futures::future::{join_all, FutureExt, RemoteHandle};
 use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 
@@ -48,12 +48,12 @@ struct Processes {
     basic_road_builder: Process<BasicRoadBuilder<Context>>,
     builder: Process<BuilderActor<Context>>,
     cheats: Process<Cheats<Context>>,
-    edge_sim: Process<EdgeBuildSimulation<Context, AutoRoadTravelDuration>>,
+    edge_sims: Vec<Process<EdgeBuildSimulation<Context, AutoRoadTravelDuration>>>,
     event_forwarder: Process<EventForwarderActor>,
     labels: Process<Labels<Context>>,
     object_builder: Process<ObjectBuilder<Context>>,
     pathfinding_avatar_controls: Process<PathfindingAvatarControls<Context>>,
-    position_sim: Process<PositionBuildSimulation<Context>>,
+    position_sims: Vec<Process<PositionBuildSimulation<Context>>>,
     prime_mover: Process<PrimeMover<Context>>,
     resource_targets: Process<ResourceTargets<Context>>,
     rotate: Process<Rotate<Context>>,
@@ -231,13 +231,17 @@ impl System {
                     builder_rx,
                 ),
                 cheats: Process::new(Cheats::new(cx.clone_with_name("cheats")), cheats_rx),
-                edge_sim: Process::new(
-                    EdgeBuildSimulation::new(
-                        cx.clone_with_name("edge_sim"),
-                        road_build_travel_duration,
-                    ),
-                    edge_sim_rx,
-                ),
+                edge_sims: (0..params.simulation.threads)
+                    .map(|_| {
+                        Process::new(
+                            EdgeBuildSimulation::new(
+                                cx.clone_with_name("edge_sim"),
+                                road_build_travel_duration.clone(),
+                            ),
+                            edge_sim_rx.clone(),
+                        )
+                    })
+                    .collect(),
                 event_forwarder: Process::new(
                     EventForwarderActor::new(cx.clone_with_name("event_forwarder")),
                     event_forwarder_rx,
@@ -254,10 +258,14 @@ impl System {
                     ),
                     pathfinding_avatar_controls_rx,
                 ),
-                position_sim: Process::new(
-                    PositionBuildSimulation::new(cx.clone_with_name("position_sim"), 0),
-                    position_sim_rx,
-                ),
+                position_sims: (0..params.simulation.threads)
+                    .map(|_| {
+                        Process::new(
+                            PositionBuildSimulation::new(cx.clone_with_name("position_sim"), 0),
+                            position_sim_rx.clone(),
+                        )
+                    })
+                    .collect(),
                 prime_mover: Process::new(
                     PrimeMover::new(
                         cx.clone_with_name("prime_mover"),
@@ -508,19 +516,27 @@ impl Processes {
         self.setup_pathfinders.run_passive(pool).await;
 
         self.world_artist.run_passive(pool).await;
-        self.position_sim.run_passive(pool).await;
+        join_all(
+            self.position_sims
+                .iter_mut()
+                .map(|sim| sim.run_passive(pool)),
+        )
+        .await;
         self.voyager.run_passive(pool).await;
         self.visibility.run_passive(pool).await;
         self.town_house_artist.run_passive(pool).await;
         self.town_label_artist.run_passive(pool).await;
-        self.edge_sim.run_passive(pool).await;
+        join_all(self.edge_sims.iter_mut().map(|sim| sim.run_passive(pool))).await;
         self.resource_targets.run_passive(pool).await;
         self.rotate.run_passive(pool).await;
         self.town_builder.run_passive(pool).await;
         self.speed_control.run_passive(pool).await;
-        for settlement_sim in &mut self.settlement_sims {
-            settlement_sim.run_active(pool).await;
-        }
+        join_all(
+            self.settlement_sims
+                .iter_mut()
+                .map(|sim| sim.run_active(pool)),
+        )
+        .await;
         self.prime_mover.run_active(pool).await;
         self.pathfinding_avatar_controls.run_passive(pool).await;
         self.object_builder.run_passive(pool).await;
@@ -546,19 +562,27 @@ impl Processes {
         self.object_builder.drain(pool, true).await;
         self.pathfinding_avatar_controls.drain(pool, true).await;
         self.prime_mover.drain(pool, true).await;
-        for settlement_sim in &mut self.settlement_sims {
-            settlement_sim.drain(pool, true).await;
-        }
+        join_all(
+            self.settlement_sims
+                .iter_mut()
+                .map(|sim| sim.drain(pool, true)),
+        )
+        .await;
         self.speed_control.drain(pool, true).await;
         self.town_builder.drain(pool, true).await;
         self.rotate.drain(pool, true).await;
         self.resource_targets.drain(pool, true).await;
-        self.edge_sim.drain(pool, true).await;
+        join_all(self.edge_sims.iter_mut().map(|sim| sim.drain(pool, true))).await;
         self.town_label_artist.drain(pool, true).await;
         self.town_house_artist.drain(pool, true).await;
         self.visibility.drain(pool, true).await;
         self.voyager.drain(pool, true).await;
-        self.position_sim.drain(pool, true).await;
+        join_all(
+            self.position_sims
+                .iter_mut()
+                .map(|sim| sim.drain(pool, true)),
+        )
+        .await;
         self.world_artist.drain(pool, true).await;
 
         self.setup_pathfinders.drain(pool, true).await;
