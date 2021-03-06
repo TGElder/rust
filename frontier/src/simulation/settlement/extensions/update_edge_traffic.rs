@@ -4,6 +4,7 @@ use crate::simulation::settlement::SettlementSimulation;
 use crate::traffic::EdgeTraffic;
 use crate::traits::{RefreshEdges, WithEdgeTraffic};
 use commons::edge::{Edge, Edges};
+use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 
 impl<T> SettlementSimulation<T>
@@ -43,14 +44,12 @@ fn update_edge_traffic_and_get_changes(
     edge_traffic: &mut EdgeTraffic,
     route_change: &RouteChange,
 ) -> Vec<Edge> {
-    let out = match route_change {
+    match route_change {
         RouteChange::New { key, route } => new(edge_traffic, &key, &route),
         RouteChange::Updated { key, old, new } => updated(edge_traffic, &key, &old, &new),
         RouteChange::Removed { key, route } => removed(edge_traffic, &key, &route),
         RouteChange::NoChange { route, .. } => no_change(&route),
-    };
-    remove_zero_traffic_entries(edge_traffic);
-    out
+    }
 }
 
 fn new(edge_traffic: &mut EdgeTraffic, key: &RouteKey, route: &Route) -> Vec<Edge> {
@@ -82,10 +81,12 @@ fn updated(edge_traffic: &mut EdgeTraffic, key: &RouteKey, old: &Route, new: &Ro
     }
 
     for edge in removed {
-        edge_traffic
-            .entry(edge)
-            .or_insert_with(HashSet::new)
-            .remove(key);
+        if let Entry::Occupied(mut entry) = edge_traffic.entry(edge) {
+            entry.get_mut().remove(key);
+            if entry.get().is_empty() {
+                entry.remove_entry();
+            }
+        }
     }
 
     for edge in union {
@@ -98,10 +99,12 @@ fn updated(edge_traffic: &mut EdgeTraffic, key: &RouteKey, old: &Route, new: &Ro
 fn removed(edge_traffic: &mut EdgeTraffic, key: &RouteKey, route: &Route) -> Vec<Edge> {
     let mut out = vec![];
     for edge in route.path.edges() {
-        edge_traffic
-            .entry(edge)
-            .or_insert_with(HashSet::new)
-            .remove(key);
+        if let Entry::Occupied(mut entry) = edge_traffic.entry(edge) {
+            entry.get_mut().remove(key);
+            if entry.get().is_empty() {
+                entry.remove_entry();
+            }
+        }
         out.push(edge);
     }
     out
@@ -109,10 +112,6 @@ fn removed(edge_traffic: &mut EdgeTraffic, key: &RouteKey, route: &Route) -> Vec
 
 fn no_change(route: &Route) -> Vec<Edge> {
     route.path.edges().collect()
-}
-
-fn remove_zero_traffic_entries(edge_traffic: &mut EdgeTraffic) {
-    edge_traffic.retain(|_, traffic| !traffic.is_empty());
 }
 
 #[cfg(test)]
