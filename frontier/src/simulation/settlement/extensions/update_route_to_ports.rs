@@ -16,9 +16,8 @@ where
     where
         C: CheckForPort + Clone + Send + Sync + 'static,
     {
-        let (_, updated) = join!(self.remove_removed(route_changes), async {
-            get_all_updated(route_changes)
-        });
+        let updated = get_all_updated(route_changes);
+        self.remove_removed(route_changes).await;
         let ports = self.get_all_ports(&updated, port_checker).await;
         self.update_ports(ports).await;
     }

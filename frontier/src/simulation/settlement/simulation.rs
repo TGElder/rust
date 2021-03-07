@@ -140,8 +140,8 @@ where
         let route_changes = self.update_routes_and_get_changes(key, route_set).await;
         let avatar_travel_mode_fn = self.avatar_travel_mode_fn();
         join!(
-            self.update_edge_traffic(&route_changes),
-            self.update_position_traffic(&route_changes),
+            self.update_edge_traffic_and_refresh_edges(&route_changes),
+            self.update_position_traffic_and_refresh_positions(&route_changes),
             self.update_route_to_ports(&route_changes, &avatar_travel_mode_fn),
         );
     }

@@ -1,102 +1,106 @@
 use crate::route::{Route, RouteKey};
 use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traffic::Traffic;
 use crate::traits::{RefreshPositions, WithTraffic};
 use commons::grid::Grid;
 use commons::V2;
+use futures::future::join_all;
 use std::collections::HashSet;
 
 impl<T> SettlementSimulation<T>
 where
     T: RefreshPositions + WithTraffic,
 {
-    pub async fn update_position_traffic(&self, route_changes: &[RouteChange]) {
-        let changed_positions = self
-            .update_all_position_traffic_and_get_changes(route_changes)
-            .await;
-        self.cx.refresh_positions(changed_positions).await;
-    }
-
-    async fn update_all_position_traffic_and_get_changes(
+    pub async fn update_position_traffic_and_refresh_positions(
         &self,
         route_changes: &[RouteChange],
-    ) -> HashSet<V2<usize>> {
+    ) {
+        self.update_all_position_traffic(route_changes).await;
+        let to_refresh = get_all_positions_to_refresh(route_changes);
+        self.cx.refresh_positions(to_refresh).await;
+    }
+
+    async fn update_all_position_traffic(&self, route_changes: &[RouteChange]) {
+        join_all(
+            route_changes
+                .iter()
+                .map(|route_change| self.update_position_traffic(route_change)),
+        )
+        .await;
+    }
+
+    async fn update_position_traffic(&self, route_change: &RouteChange) {
+        match route_change {
+            RouteChange::New { key, route } => self.new_position_traffic(&key, &route).await,
+            RouteChange::Updated { key, old, new } => {
+                self.updated_position_traffic(&key, &old, &new).await
+            }
+            RouteChange::Removed { key, route } => {
+                self.removed_position_traffic(&key, &route).await
+            }
+            _ => (),
+        }
+    }
+
+    async fn new_position_traffic(&self, key: &RouteKey, route: &Route) {
         self.cx
             .mut_traffic(|traffic| {
-                update_all_position_traffic_and_get_changes(traffic, route_changes)
+                for position in route.path.iter() {
+                    traffic.mut_cell_unsafe(&position).insert(*key);
+                }
             })
-            .await
+            .await;
+    }
+
+    async fn updated_position_traffic(&self, key: &RouteKey, old: &Route, new: &Route) {
+        let old: HashSet<&V2<usize>> = old.path.iter().collect();
+        let new: HashSet<&V2<usize>> = new.path.iter().collect();
+
+        let added = new.difference(&old).cloned();
+        let removed = old.difference(&new).cloned();
+
+        self.cx
+            .mut_traffic(|traffic| {
+                for position in added {
+                    traffic.mut_cell_unsafe(&position).insert(*key);
+                }
+
+                for position in removed {
+                    traffic.mut_cell_unsafe(&position).remove(key);
+                }
+            })
+            .await;
+    }
+
+    async fn removed_position_traffic(&self, key: &RouteKey, route: &Route) {
+        self.cx
+            .mut_traffic(|traffic| {
+                for position in route.path.iter() {
+                    traffic.mut_cell_unsafe(&position).remove(key);
+                }
+            })
+            .await;
     }
 }
 
-fn update_all_position_traffic_and_get_changes(
-    traffic: &mut Traffic,
-    route_changes: &[RouteChange],
-) -> HashSet<V2<usize>> {
+fn get_all_positions_to_refresh(route_changes: &[RouteChange]) -> HashSet<V2<usize>> {
     route_changes
         .iter()
-        .flat_map(|route_change| update_position_traffic_and_get_changes(traffic, route_change))
+        .flat_map(|route_change| get_positions_to_refresh(route_change))
         .collect()
 }
 
-fn update_position_traffic_and_get_changes(
-    traffic: &mut Traffic,
-    route_change: &RouteChange,
-) -> Vec<V2<usize>> {
+fn get_positions_to_refresh<'a>(
+    route_change: &'a RouteChange,
+) -> Box<dyn Iterator<Item = V2<usize>> + 'a> {
     match route_change {
-        RouteChange::New { key, route } => new(traffic, &key, &route),
-        RouteChange::Updated { key, old, new } => updated(traffic, &key, &old, &new),
-        RouteChange::Removed { key, route } => removed(traffic, &key, &route),
-        RouteChange::NoChange { route, .. } => no_change(&route),
+        RouteChange::New { route, .. } => Box::new(route.path.iter().copied()),
+        RouteChange::Updated { old, new, .. } => {
+            Box::new(new.path.iter().copied().chain(old.path.iter().copied()))
+        }
+        RouteChange::Removed { route, .. } => Box::new(route.path.iter().copied()),
+        RouteChange::NoChange { route, .. } => Box::new(route.path.iter().copied()),
     }
-}
-
-fn new(traffic: &mut Traffic, key: &RouteKey, route: &Route) -> Vec<V2<usize>> {
-    let mut out = vec![];
-    for position in route.path.iter() {
-        traffic.mut_cell_unsafe(&position).insert(*key);
-        out.push(*position);
-    }
-    out
-}
-
-fn updated(traffic: &mut Traffic, key: &RouteKey, old: &Route, new: &Route) -> Vec<V2<usize>> {
-    let mut out = vec![];
-
-    let old: HashSet<&V2<usize>> = old.path.iter().collect();
-    let new: HashSet<&V2<usize>> = new.path.iter().collect();
-
-    let added = new.difference(&old).cloned();
-    let removed = old.difference(&new).cloned();
-    let union = new.union(&old).cloned();
-
-    for position in added {
-        traffic.mut_cell_unsafe(&position).insert(*key);
-    }
-
-    for position in removed {
-        traffic.mut_cell_unsafe(&position).remove(key);
-    }
-
-    for position in union {
-        out.push(*position);
-    }
-
-    out
-}
-
-fn removed(traffic: &mut Traffic, key: &RouteKey, route: &Route) -> Vec<V2<usize>> {
-    let mut out = vec![];
-    for position in route.path.iter() {
-        traffic.mut_cell_unsafe(&position).remove(key);
-        out.push(*position);
-    }
-    out
-}
-
-fn no_change(route: &Route) -> Vec<V2<usize>> {
-    route.path.clone()
 }
 
 #[cfg(test)]
@@ -104,6 +108,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use crate::traffic::Traffic;
     use commons::async_trait::async_trait;
     use commons::index2d::Vec2D;
     use commons::v2;
@@ -192,7 +197,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         assert_eq!(
@@ -211,7 +216,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -232,7 +237,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         assert_eq!(
@@ -260,7 +265,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -289,7 +294,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -309,7 +314,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         assert_eq!(
@@ -332,7 +337,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         let expected = traffic();
@@ -349,7 +354,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         assert_eq!(
@@ -368,7 +373,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         assert_eq!(*sim.cx.traffic.lock().unwrap(), traffic());
@@ -397,7 +402,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -432,7 +437,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_position_traffic(&[change]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -460,7 +465,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic(&[change_1, change_2]));
+        block_on(sim.update_position_traffic_and_refresh_positions(&[change_1, change_2]));
 
         // Then
         assert_eq!(
