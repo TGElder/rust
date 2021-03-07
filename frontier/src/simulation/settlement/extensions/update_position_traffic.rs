@@ -1,7 +1,6 @@
 use crate::route::{Route, RouteKey};
 use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traffic::Traffic;
 use crate::traits::{RefreshPositions, WithTraffic};
 use commons::grid::Grid;
 use commons::V2;
@@ -22,77 +21,92 @@ where
         &self,
         route_changes: &[RouteChange],
     ) -> HashSet<V2<usize>> {
+        let mut out = HashSet::new();
+        for route_change in route_changes {
+            out.extend(
+                &mut self
+                    .update_position_traffic_and_get_changes(route_change)
+                    .await
+                    .into_iter(),
+            );
+        }
+        out
+    }
+
+    async fn update_position_traffic_and_get_changes(
+        &self,
+        route_change: &RouteChange,
+    ) -> Vec<V2<usize>> {
+        match route_change {
+            RouteChange::New { key, route } => self.new_position_traffic(&key, &route).await,
+            RouteChange::Updated { key, old, new } => {
+                self.updated_position_traffic(&key, &old, &new).await
+            }
+            RouteChange::Removed { key, route } => self.remove_position_traffic(&key, &route).await,
+            RouteChange::NoChange { route, .. } => no_change(&route),
+        }
+    }
+
+    async fn new_position_traffic(&self, key: &RouteKey, route: &Route) -> Vec<V2<usize>> {
+        let mut out = vec![];
         self.cx
             .mut_traffic(|traffic| {
-                update_all_position_traffic_and_get_changes(traffic, route_changes)
+                for position in route.path.iter() {
+                    traffic.mut_cell_unsafe(&position).insert(*key);
+                    out.push(*position);
+                }
             })
-            .await
-    }
-}
-
-fn update_all_position_traffic_and_get_changes(
-    traffic: &mut Traffic,
-    route_changes: &[RouteChange],
-) -> HashSet<V2<usize>> {
-    route_changes
-        .iter()
-        .flat_map(|route_change| update_position_traffic_and_get_changes(traffic, route_change))
-        .collect()
-}
-
-fn update_position_traffic_and_get_changes(
-    traffic: &mut Traffic,
-    route_change: &RouteChange,
-) -> Vec<V2<usize>> {
-    match route_change {
-        RouteChange::New { key, route } => new(traffic, &key, &route),
-        RouteChange::Updated { key, old, new } => updated(traffic, &key, &old, &new),
-        RouteChange::Removed { key, route } => removed(traffic, &key, &route),
-        RouteChange::NoChange { route, .. } => no_change(&route),
-    }
-}
-
-fn new(traffic: &mut Traffic, key: &RouteKey, route: &Route) -> Vec<V2<usize>> {
-    let mut out = vec![];
-    for position in route.path.iter() {
-        traffic.mut_cell_unsafe(&position).insert(*key);
-        out.push(*position);
-    }
-    out
-}
-
-fn updated(traffic: &mut Traffic, key: &RouteKey, old: &Route, new: &Route) -> Vec<V2<usize>> {
-    let mut out = vec![];
-
-    let old: HashSet<&V2<usize>> = old.path.iter().collect();
-    let new: HashSet<&V2<usize>> = new.path.iter().collect();
-
-    let added = new.difference(&old).cloned();
-    let removed = old.difference(&new).cloned();
-    let union = new.union(&old).cloned();
-
-    for position in added {
-        traffic.mut_cell_unsafe(&position).insert(*key);
+            .await;
+        out
     }
 
-    for position in removed {
-        traffic.mut_cell_unsafe(&position).remove(key);
+    async fn updated_position_traffic(
+        &self,
+        key: &RouteKey,
+        old: &Route,
+        new: &Route,
+    ) -> Vec<V2<usize>> {
+        let mut out = vec![];
+
+        let old: HashSet<&V2<usize>> = old.path.iter().collect();
+        let new: HashSet<&V2<usize>> = new.path.iter().collect();
+
+        let added = new.difference(&old).cloned();
+        let removed = old.difference(&new).cloned();
+        let union = new.union(&old).cloned();
+
+        self.cx
+            .mut_traffic(|traffic| {
+                for position in added {
+                    traffic.mut_cell_unsafe(&position).insert(*key);
+                }
+
+                for position in removed {
+                    traffic.mut_cell_unsafe(&position).remove(key);
+                }
+
+                for position in union {
+                    out.push(*position);
+                }
+            })
+            .await;
+
+        out
     }
 
-    for position in union {
-        out.push(*position);
-    }
+    async fn remove_position_traffic(&self, key: &RouteKey, route: &Route) -> Vec<V2<usize>> {
+        let mut out = vec![];
+        self.cx
+            .mut_traffic(|traffic| {
+                for position in route.path.iter() {
+                    traffic.mut_cell_unsafe(&position).remove(key);
+                    out.push(*position);
+                }
+            })
+            .await;
 
-    out
-}
-
-fn removed(traffic: &mut Traffic, key: &RouteKey, route: &Route) -> Vec<V2<usize>> {
-    let mut out = vec![];
-    for position in route.path.iter() {
-        traffic.mut_cell_unsafe(&position).remove(key);
-        out.push(*position);
+        out
     }
-    out
 }
 
 fn no_change(route: &Route) -> Vec<V2<usize>> {
@@ -104,6 +118,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use crate::traffic::Traffic;
     use commons::async_trait::async_trait;
     use commons::index2d::Vec2D;
     use commons::v2;

@@ -176,15 +176,14 @@ where
     }
 }
 
-
 pub struct FnReceiver<I> {
     rx: Receiver<FnMessage<I>>,
 }
 
-impl <I> Clone for FnReceiver<I> {
+impl<I> Clone for FnReceiver<I> {
     fn clone(&self) -> Self {
-        FnReceiver{
-            rx: self.rx.clone()    
+        FnReceiver {
+            rx: self.rx.clone(),
         }
     }
 }

@@ -1,7 +1,6 @@
 use crate::route::{Route, RouteKey};
 use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traffic::EdgeTraffic;
 use crate::traits::{RefreshEdges, WithEdgeTraffic};
 use commons::edge::{Edge, Edges};
 use std::collections::hash_map::Entry;
@@ -22,92 +21,99 @@ where
         &self,
         route_changes: &[RouteChange],
     ) -> HashSet<Edge> {
+        let mut out = HashSet::new();
+        for route_change in route_changes {
+            out.extend(
+                &mut self
+                    .update_edge_traffic_and_get_changes(route_change)
+                    .await
+                    .into_iter(),
+            );
+        }
+        out
+    }
+
+    async fn update_edge_traffic_and_get_changes(&self, route_change: &RouteChange) -> Vec<Edge> {
+        match route_change {
+            RouteChange::New { key, route } => self.new_edge_traffic(&key, &route).await,
+            RouteChange::Updated { key, old, new } => {
+                self.updated_edge_traffic(&key, &old, &new).await
+            }
+            RouteChange::Removed { key, route } => self.remove_edge_traffic(&key, &route).await,
+            RouteChange::NoChange { route, .. } => no_change(&route),
+        }
+    }
+
+    async fn new_edge_traffic(&self, key: &RouteKey, route: &Route) -> Vec<Edge> {
+        let mut out = vec![];
+
         self.cx
             .mut_edge_traffic(|edge_traffic| {
-                update_all_edge_traffic_and_get_changes(edge_traffic, route_changes)
+                for edge in route.path.edges() {
+                    edge_traffic
+                        .entry(edge)
+                        .or_insert_with(HashSet::new)
+                        .insert(*key);
+                    out.push(edge);
+                }
             })
-            .await
-    }
-}
-
-pub fn update_all_edge_traffic_and_get_changes(
-    edge_traffic: &mut EdgeTraffic,
-    route_changes: &[RouteChange],
-) -> HashSet<Edge> {
-    route_changes
-        .iter()
-        .flat_map(|route_change| update_edge_traffic_and_get_changes(edge_traffic, route_change))
-        .collect()
-}
-
-fn update_edge_traffic_and_get_changes(
-    edge_traffic: &mut EdgeTraffic,
-    route_change: &RouteChange,
-) -> Vec<Edge> {
-    match route_change {
-        RouteChange::New { key, route } => new(edge_traffic, &key, &route),
-        RouteChange::Updated { key, old, new } => updated(edge_traffic, &key, &old, &new),
-        RouteChange::Removed { key, route } => removed(edge_traffic, &key, &route),
-        RouteChange::NoChange { route, .. } => no_change(&route),
-    }
-}
-
-fn new(edge_traffic: &mut EdgeTraffic, key: &RouteKey, route: &Route) -> Vec<Edge> {
-    let mut out = vec![];
-    for edge in route.path.edges() {
-        edge_traffic
-            .entry(edge)
-            .or_insert_with(HashSet::new)
-            .insert(*key);
-        out.push(edge);
-    }
-    out
-}
-
-fn updated(edge_traffic: &mut EdgeTraffic, key: &RouteKey, old: &Route, new: &Route) -> Vec<Edge> {
-    let mut out = vec![];
-    let old_edges: HashSet<Edge> = old.path.edges().collect();
-    let new_edges: HashSet<Edge> = new.path.edges().collect();
-
-    let added = new_edges.difference(&old_edges).cloned();
-    let removed = old_edges.difference(&new_edges).cloned();
-    let union = new_edges.union(&old_edges).cloned();
-
-    for edge in added {
-        edge_traffic
-            .entry(edge)
-            .or_insert_with(HashSet::new)
-            .insert(*key);
+            .await;
+        out
     }
 
-    for edge in removed {
-        if let Entry::Occupied(mut entry) = edge_traffic.entry(edge) {
-            entry.get_mut().remove(key);
-            if entry.get().is_empty() {
-                entry.remove_entry();
-            }
+    async fn updated_edge_traffic(&self, key: &RouteKey, old: &Route, new: &Route) -> Vec<Edge> {
+        let mut out = vec![];
+        let old_edges: HashSet<Edge> = old.path.edges().collect();
+        let new_edges: HashSet<Edge> = new.path.edges().collect();
+
+        let added = new_edges.difference(&old_edges).cloned();
+        let removed = old_edges.difference(&new_edges).cloned();
+        let union = new_edges.union(&old_edges).cloned();
+
+        self.cx
+            .mut_edge_traffic(|edge_traffic| {
+                for edge in added {
+                    edge_traffic
+                        .entry(edge)
+                        .or_insert_with(HashSet::new)
+                        .insert(*key);
+                }
+
+                for edge in removed {
+                    if let Entry::Occupied(mut entry) = edge_traffic.entry(edge) {
+                        entry.get_mut().remove(key);
+                        if entry.get().is_empty() {
+                            entry.remove_entry();
+                        }
+                    }
+                }
+            })
+            .await;
+
+        for edge in union {
+            out.push(edge);
         }
+
+        out
     }
 
-    for edge in union {
-        out.push(edge);
+    async fn remove_edge_traffic(&self, key: &RouteKey, route: &Route) -> Vec<Edge> {
+        let mut out = vec![];
+        self.cx
+            .mut_edge_traffic(|edge_traffic| {
+                for edge in route.path.edges() {
+                    if let Entry::Occupied(mut entry) = edge_traffic.entry(edge) {
+                        entry.get_mut().remove(key);
+                        if entry.get().is_empty() {
+                            entry.remove_entry();
+                        }
+                    }
+                    out.push(edge);
+                }
+            })
+            .await;
+        out
     }
-
-    out
-}
-
-fn removed(edge_traffic: &mut EdgeTraffic, key: &RouteKey, route: &Route) -> Vec<Edge> {
-    let mut out = vec![];
-    for edge in route.path.edges() {
-        if let Entry::Occupied(mut entry) = edge_traffic.entry(edge) {
-            entry.get_mut().remove(key);
-            if entry.get().is_empty() {
-                entry.remove_entry();
-            }
-        }
-        out.push(edge);
-    }
-    out
 }
 
 fn no_change(route: &Route) -> Vec<Edge> {
@@ -119,6 +125,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use crate::traffic::EdgeTraffic;
     use commons::async_trait::async_trait;
     use commons::v2;
     use futures::executor::block_on;
