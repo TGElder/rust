@@ -3,6 +3,7 @@ use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{RefreshEdges, WithEdgeTraffic};
 use commons::edge::{Edge, Edges};
+use futures::future::join_all;
 use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 
@@ -17,9 +18,12 @@ where
     }
 
     async fn update_all_edge_traffic(&self, route_changes: &[RouteChange]) {
-        for route_change in route_changes {
-            self.update_edge_traffic(route_change).await;
-        }
+        join_all(
+            route_changes
+                .iter()
+                .map(|route_change| self.update_edge_traffic(route_change)),
+        )
+        .await;
     }
 
     async fn update_edge_traffic(&self, route_change: &RouteChange) {

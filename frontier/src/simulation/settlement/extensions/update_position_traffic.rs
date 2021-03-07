@@ -4,6 +4,7 @@ use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{RefreshPositions, WithTraffic};
 use commons::grid::Grid;
 use commons::V2;
+use futures::future::join_all;
 use std::collections::HashSet;
 
 impl<T> SettlementSimulation<T>
@@ -20,9 +21,12 @@ where
     }
 
     async fn update_all_position_traffic(&self, route_changes: &[RouteChange]) {
-        for route_change in route_changes {
-            self.update_position_traffic(route_change).await;
-        }
+        join_all(
+            route_changes
+                .iter()
+                .map(|route_change| self.update_position_traffic(route_change)),
+        )
+        .await;
     }
 
     async fn update_position_traffic(&self, route_change: &RouteChange) {
@@ -31,7 +35,9 @@ where
             RouteChange::Updated { key, old, new } => {
                 self.updated_position_traffic(&key, &old, &new).await
             }
-            RouteChange::Removed { key, route } => self.remove_position_traffic(&key, &route).await,
+            RouteChange::Removed { key, route } => {
+                self.removed_position_traffic(&key, &route).await
+            }
             _ => (),
         }
     }
@@ -66,7 +72,7 @@ where
             .await;
     }
 
-    async fn remove_position_traffic(&self, key: &RouteKey, route: &Route) {
+    async fn removed_position_traffic(&self, key: &RouteKey, route: &Route) {
         self.cx
             .mut_traffic(|traffic| {
                 for position in route.path.iter() {
