@@ -1,7 +1,7 @@
 use crate::route::{Route, RouteKey};
 use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traits::{RefreshPositions, WithTraffic};
+use crate::traits::WithTraffic;
 use commons::grid::Grid;
 use commons::V2;
 use futures::future::join_all;
@@ -9,18 +9,9 @@ use std::collections::HashSet;
 
 impl<T> SettlementSimulation<T>
 where
-    T: RefreshPositions + WithTraffic,
+    T: WithTraffic,
 {
-    pub async fn update_position_traffic_and_refresh_positions(
-        &self,
-        route_changes: &[RouteChange],
-    ) {
-        self.update_all_position_traffic(route_changes).await;
-        let to_refresh = get_all_positions_to_refresh(route_changes);
-        self.cx.refresh_positions(to_refresh).await;
-    }
-
-    async fn update_all_position_traffic(&self, route_changes: &[RouteChange]) {
+    pub async fn update_all_position_traffic(&self, route_changes: &[RouteChange]) {
         join_all(
             route_changes
                 .iter()
@@ -83,26 +74,6 @@ where
     }
 }
 
-fn get_all_positions_to_refresh(route_changes: &[RouteChange]) -> HashSet<V2<usize>> {
-    route_changes
-        .iter()
-        .flat_map(|route_change| get_positions_to_refresh(route_change))
-        .collect()
-}
-
-fn get_positions_to_refresh<'a>(
-    route_change: &'a RouteChange,
-) -> Box<dyn Iterator<Item = V2<usize>> + 'a> {
-    match route_change {
-        RouteChange::New { route, .. } => Box::new(route.path.iter().copied()),
-        RouteChange::Updated { old, new, .. } => {
-            Box::new(new.path.iter().copied().chain(old.path.iter().copied()))
-        }
-        RouteChange::Removed { route, .. } => Box::new(route.path.iter().copied()),
-        RouteChange::NoChange { route, .. } => Box::new(route.path.iter().copied()),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,26 +118,14 @@ mod tests {
     }
 
     struct Cx {
-        refreshed_positions: Mutex<HashSet<V2<usize>>>,
         traffic: Mutex<Traffic>,
     }
 
     impl Default for Cx {
         fn default() -> Self {
             Cx {
-                refreshed_positions: Mutex::default(),
                 traffic: Mutex::new(traffic()),
             }
-        }
-    }
-
-    #[async_trait]
-    impl RefreshPositions for Cx {
-        async fn refresh_positions(&self, positions: HashSet<V2<usize>>) {
-            self.refreshed_positions
-                .lock()
-                .unwrap()
-                .extend(&mut positions.into_iter())
         }
     }
 
@@ -188,25 +147,6 @@ mod tests {
     }
 
     #[test]
-    fn new_route_should_refresh_all_positions_in_route() {
-        // Given
-        let change = RouteChange::New {
-            key: key(),
-            route: route_1(),
-        };
-        let sim = SettlementSimulation::new(Cx::default());
-
-        // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
-
-        // Then
-        assert_eq!(
-            *sim.cx.refreshed_positions.lock().unwrap(),
-            hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
-        );
-    }
-
-    #[test]
     fn new_route_should_add_traffic_for_all_positions_in_route() {
         // Given
         let change = RouteChange::New {
@@ -216,7 +156,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
+        block_on(sim.update_all_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -224,26 +164,6 @@ mod tests {
             expected.mut_cell_unsafe(position).insert(key());
         }
         assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
-    }
-
-    #[test]
-    fn updated_route_should_refresh_positions_from_old_and_new_route() {
-        // Given
-        let change = RouteChange::Updated {
-            key: key(),
-            old: route_1(),
-            new: route_2(),
-        };
-        let sim = SettlementSimulation::new(Cx::default());
-
-        // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
-
-        // Then
-        assert_eq!(
-            *sim.cx.refreshed_positions.lock().unwrap(),
-            hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5), v2(1, 4)}
-        );
     }
 
     #[test]
@@ -260,12 +180,11 @@ mod tests {
         }
         let cx = Cx {
             traffic: Mutex::new(tx_traffic),
-            ..Cx::default()
         };
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
+        block_on(sim.update_all_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -289,12 +208,11 @@ mod tests {
         }
         let cx = Cx {
             traffic: Mutex::new(tx_traffic),
-            ..Cx::default()
         };
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
+        block_on(sim.update_all_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -302,25 +220,6 @@ mod tests {
             expected.mut_cell_unsafe(position).insert(key());
         }
         assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
-    }
-
-    #[test]
-    fn removed_route_should_refresh_all_positions_in_route() {
-        // Given
-        let change = RouteChange::Removed {
-            key: key(),
-            route: route_1(),
-        };
-        let sim = SettlementSimulation::new(Cx::default());
-
-        // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
-
-        // Then
-        assert_eq!(
-            *sim.cx.refreshed_positions.lock().unwrap(),
-            hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
-        );
     }
 
     #[test]
@@ -337,30 +236,11 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
+        block_on(sim.update_all_position_traffic(&[change]));
 
         // Then
         let expected = traffic();
         assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
-    }
-
-    #[test]
-    fn no_change_route_should_refresh_all_positions_in_route() {
-        // Given
-        let change = RouteChange::NoChange {
-            key: key(),
-            route: route_1(),
-        };
-        let sim = SettlementSimulation::new(Cx::default());
-
-        // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
-
-        // Then
-        assert_eq!(
-            *sim.cx.refreshed_positions.lock().unwrap(),
-            hashset! {v2(1, 3), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
-        );
     }
 
     #[test]
@@ -373,7 +253,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
+        block_on(sim.update_all_position_traffic(&[change]));
 
         // Then
         assert_eq!(*sim.cx.traffic.lock().unwrap(), traffic());
@@ -397,12 +277,11 @@ mod tests {
         }
         let cx = Cx {
             traffic: Mutex::new(tx_traffic),
-            ..Cx::default()
         };
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
+        block_on(sim.update_all_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -432,12 +311,11 @@ mod tests {
         }
         let cx = Cx {
             traffic: Mutex::new(tx_traffic),
-            ..Cx::default()
         };
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change]));
+        block_on(sim.update_all_position_traffic(&[change]));
 
         // Then
         let mut expected = traffic();
@@ -445,32 +323,5 @@ mod tests {
             expected.mut_cell_unsafe(position).insert(key_2);
         }
         assert_eq!(*sim.cx.traffic.lock().unwrap(), expected);
-    }
-
-    #[test]
-    fn multiple_changes() {
-        // Given
-        let change_1 = RouteChange::New {
-            key: key(),
-            route: route_1(),
-        };
-        let change_2 = RouteChange::New {
-            key: RouteKey {
-                settlement: v2(1, 3),
-                resource: Resource::Coal,
-                destination: v2(1, 5),
-            },
-            route: route_2(),
-        };
-        let sim = SettlementSimulation::new(Cx::default());
-
-        // When
-        block_on(sim.update_position_traffic_and_refresh_positions(&[change_1, change_2]));
-
-        // Then
-        assert_eq!(
-            *sim.cx.refreshed_positions.lock().unwrap(),
-            hashset! {v2(1, 3), v2(1, 4), v2(2, 3), v2(2, 4), v2(2, 5), v2(1, 5)}
-        );
     }
 }
