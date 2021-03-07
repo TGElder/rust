@@ -7,7 +7,7 @@ use futures::future::join_all;
 use crate::avatar::AvatarTravelModeFn;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::settlement::demand::Demand;
-use crate::simulation::settlement::model::Routes;
+use crate::simulation::settlement::model::{RouteChange, Routes};
 use crate::traits::has::HasParameters;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, Controlled, CostOfPathWithoutPlannedRoads, GetSettlement,
@@ -140,10 +140,20 @@ where
         let route_changes = self.update_routes_and_get_changes(key, route_set).await;
         let avatar_travel_mode_fn = self.avatar_travel_mode_fn();
         join!(
-            self.update_edge_traffic_and_refresh_edges(&route_changes),
             self.update_position_traffic_and_refresh_positions(&route_changes),
+            self.update_edge_traffic_and_refresh_edges(&route_changes),
             self.update_route_to_ports(&route_changes, &avatar_travel_mode_fn),
         );
+    }
+
+    async fn update_position_traffic_and_refresh_positions(&self, route_changes: &[RouteChange]) {
+        self.update_all_position_traffic(route_changes).await;
+        self.refresh_positions(&route_changes).await
+    }
+
+    async fn update_edge_traffic_and_refresh_edges(&self, route_changes: &[RouteChange]) {
+        self.update_all_edge_traffic(route_changes).await;
+        self.refresh_edges(&route_changes).await
     }
 
     fn avatar_travel_mode_fn(&self) -> AvatarTravelModeFn {
