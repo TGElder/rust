@@ -10,43 +10,30 @@ impl<T> SettlementSimulation<T>
 where
     T: RefreshEdges + WithEdgeTraffic,
 {
-    pub async fn update_edge_traffic(&self, route_changes: &[RouteChange]) {
-        let changed_edges = self
-            .update_all_edge_traffic_and_get_changes(route_changes)
-            .await;
-        self.cx.refresh_edges(changed_edges).await;
+    pub async fn update_edge_traffic_and_refresh_edges(&self, route_changes: &[RouteChange]) {
+        self.update_all_edge_traffic(route_changes).await;
+        let to_refresh = get_all_edges_to_refresh(route_changes);
+        self.cx.refresh_edges(to_refresh).await;
     }
 
-    async fn update_all_edge_traffic_and_get_changes(
-        &self,
-        route_changes: &[RouteChange],
-    ) -> HashSet<Edge> {
-        let mut out = HashSet::new();
+    async fn update_all_edge_traffic(&self, route_changes: &[RouteChange]) {
         for route_change in route_changes {
-            out.extend(
-                &mut self
-                    .update_edge_traffic_and_get_changes(route_change)
-                    .await
-                    .into_iter(),
-            );
+            self.update_edge_traffic(route_change).await;
         }
-        out
     }
 
-    async fn update_edge_traffic_and_get_changes(&self, route_change: &RouteChange) -> Vec<Edge> {
+    async fn update_edge_traffic(&self, route_change: &RouteChange) {
         match route_change {
             RouteChange::New { key, route } => self.new_edge_traffic(&key, &route).await,
             RouteChange::Updated { key, old, new } => {
                 self.updated_edge_traffic(&key, &old, &new).await
             }
-            RouteChange::Removed { key, route } => self.remove_edge_traffic(&key, &route).await,
-            RouteChange::NoChange { route, .. } => no_change(&route),
+            RouteChange::Removed { key, route } => self.removed_edge_traffic(&key, &route).await,
+            _ => (),
         }
     }
 
-    async fn new_edge_traffic(&self, key: &RouteKey, route: &Route) -> Vec<Edge> {
-        let mut out = vec![];
-
+    async fn new_edge_traffic(&self, key: &RouteKey, route: &Route) {
         self.cx
             .mut_edge_traffic(|edge_traffic| {
                 for edge in route.path.edges() {
@@ -54,21 +41,17 @@ where
                         .entry(edge)
                         .or_insert_with(HashSet::new)
                         .insert(*key);
-                    out.push(edge);
                 }
             })
             .await;
-        out
     }
 
-    async fn updated_edge_traffic(&self, key: &RouteKey, old: &Route, new: &Route) -> Vec<Edge> {
-        let mut out = vec![];
+    async fn updated_edge_traffic(&self, key: &RouteKey, old: &Route, new: &Route) {
         let old_edges: HashSet<Edge> = old.path.edges().collect();
         let new_edges: HashSet<Edge> = new.path.edges().collect();
 
         let added = new_edges.difference(&old_edges).cloned();
         let removed = old_edges.difference(&new_edges).cloned();
-        let union = new_edges.union(&old_edges).cloned();
 
         self.cx
             .mut_edge_traffic(|edge_traffic| {
@@ -89,16 +72,9 @@ where
                 }
             })
             .await;
-
-        for edge in union {
-            out.push(edge);
-        }
-
-        out
     }
 
-    async fn remove_edge_traffic(&self, key: &RouteKey, route: &Route) -> Vec<Edge> {
-        let mut out = vec![];
+    async fn removed_edge_traffic(&self, key: &RouteKey, route: &Route) {
         self.cx
             .mut_edge_traffic(|edge_traffic| {
                 for edge in route.path.edges() {
@@ -108,16 +84,26 @@ where
                             entry.remove_entry();
                         }
                     }
-                    out.push(edge);
                 }
             })
             .await;
-        out
     }
 }
 
-fn no_change(route: &Route) -> Vec<Edge> {
-    route.path.edges().collect()
+fn get_all_edges_to_refresh(route_changes: &[RouteChange]) -> HashSet<Edge> {
+    route_changes
+        .iter()
+        .flat_map(|route_change| get_edges_to_refresh(route_change))
+        .collect()
+}
+
+fn get_edges_to_refresh<'a>(route_change: &'a RouteChange) -> Box<dyn Iterator<Item = Edge> + 'a> {
+    match route_change {
+        RouteChange::New { route, .. } => Box::new(route.path.edges()),
+        RouteChange::Updated { old, new, .. } => Box::new(new.path.edges().chain(old.path.edges())),
+        RouteChange::Removed { route, .. } => Box::new(route.path.edges()),
+        RouteChange::NoChange { route, .. } => Box::new(route.path.edges()),
+    }
 }
 
 #[cfg(test)]
@@ -201,7 +187,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         assert_eq!(
@@ -226,7 +212,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -255,7 +241,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         assert_eq!(
@@ -290,7 +276,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -319,7 +305,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -347,7 +333,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         assert_eq!(
@@ -379,7 +365,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         let expected = hashmap! {};
@@ -396,7 +382,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         assert_eq!(
@@ -420,7 +406,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         assert_eq!(*sim.cx.edge_traffic.lock().unwrap(), hashmap! {},);
@@ -449,7 +435,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -482,7 +468,7 @@ mod tests {
         let sim = SettlementSimulation::new(cx);
 
         // When
-        block_on(sim.update_edge_traffic(&[change]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change]));
 
         // Then
         let mut expected = hashmap! {};
@@ -510,7 +496,7 @@ mod tests {
         let sim = SettlementSimulation::new(Cx::default());
 
         // When
-        block_on(sim.update_edge_traffic(&[change_1, change_2]));
+        block_on(sim.update_edge_traffic_and_refresh_edges(&[change_1, change_2]));
 
         // Then
         assert_eq!(
