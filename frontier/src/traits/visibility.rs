@@ -1,30 +1,53 @@
+use crate::traits::RevealPositions;
+
 use super::*;
 
 use commons::async_trait::async_trait;
+use commons::grid::Grid;
 use commons::V2;
-use futures::FutureExt;
 use std::collections::HashSet;
+
+const NAME: &str = "visibility_trait";
 
 #[async_trait]
 pub trait Visibility {
-    fn check_visibility_and_reveal(&self, visited: HashSet<V2<usize>>);
-    fn disable_visibility_computation(&self);
+    async fn check_visibility_and_reveal(&self, visited: HashSet<V2<usize>>);
 }
 
 #[async_trait]
 impl<T> Visibility for T
 where
-    T: SendVisibility,
+    T: WithVisibility + WithVisited + RevealPositions + Send + Sync,
 {
-    fn check_visibility_and_reveal(&self, visited: HashSet<V2<usize>>) {
-        self.send_visibility_future_background(move |visibility| {
-            visibility.check_visibility_and_reveal(visited).boxed()
-        });
-    }
+    async fn check_visibility_and_reveal(&self, visited: HashSet<V2<usize>>) {
+        if self.with_visited(|visited| visited.all_visited).await {
+            return;
+        }
 
-    fn disable_visibility_computation(&self) {
-        self.send_visibility_background(move |visibility| {
-            visibility.disable_visibility_computation()
-        });
+        let mut newly_visited = visited;
+
+        self.with_visited(|visited| {
+            newly_visited.retain(|position| !visited.visited.get_cell_unsafe(position))
+        })
+        .await;
+
+        if newly_visited.is_empty() {
+            return;
+        }
+
+        let visible = self
+            .with_visibility(|visibility| {
+                newly_visited
+                    .into_iter()
+                    .flat_map(|position| visibility.get_visible_from(position))
+                    .collect::<HashSet<_>>()
+            })
+            .await;
+
+        if visible.is_empty() {
+            return;
+        }
+
+        self.reveal_positions(&visible, NAME).await;
     }
 }

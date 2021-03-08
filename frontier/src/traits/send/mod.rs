@@ -5,7 +5,6 @@ mod send_rotate;
 mod send_system;
 mod send_town_house_artist;
 mod send_town_label_artist;
-mod send_visibility;
 mod send_voyager;
 mod send_world_artist;
 
@@ -16,6 +15,5 @@ pub use send_rotate::*;
 pub use send_system::*;
 pub use send_town_house_artist::*;
 pub use send_town_label_artist::*;
-pub use send_visibility::*;
 pub use send_voyager::*;
 pub use send_world_artist::*;

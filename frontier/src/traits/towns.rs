@@ -55,7 +55,8 @@ where
     let visited = cx
         .with_world(|world| world.get_corners_in_bounds(&position))
         .await;
-    cx.check_visibility_and_reveal(visited.into_iter().collect());
+    cx.check_visibility_and_reveal(visited.into_iter().collect())
+        .await;
 }
 
 #[async_trait]

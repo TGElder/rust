@@ -29,6 +29,7 @@ mod traffic;
 mod traits;
 mod travel_duration;
 mod visibility_computer;
+mod visited;
 mod world;
 mod world_gen;
 
