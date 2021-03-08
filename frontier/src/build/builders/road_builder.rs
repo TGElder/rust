@@ -4,17 +4,17 @@ use super::*;
 
 use commons::edge::Edge;
 
-pub struct RoadBuilder<G>
+pub struct RoadBuilder<T>
 where
-    G: AddRoad + Send + Sync,
+    T: AddRoad + Send + Sync,
 {
-    game: G,
+    cx: T,
 }
 
 #[async_trait]
-impl<G> Builder for RoadBuilder<G>
+impl<T> Builder for RoadBuilder<T>
 where
-    G: AddRoad + Send + Sync,
+    T: AddRoad + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
         matches!(build, Build::Road(..))
@@ -27,16 +27,16 @@ where
     }
 }
 
-impl<G> RoadBuilder<G>
+impl<T> RoadBuilder<T>
 where
-    G: AddRoad + Send + Sync,
+    T: AddRoad + Send + Sync,
 {
-    pub fn new(game: G) -> RoadBuilder<G> {
-        RoadBuilder { game }
+    pub fn new(game: T) -> RoadBuilder<T> {
+        RoadBuilder { cx: game }
     }
 
     async fn build_road(&mut self, road: &Edge) {
-        self.game.add_road(&road).await
+        self.cx.add_road(&road).await
     }
 }
 
@@ -81,7 +81,7 @@ mod tests {
 
         // Then
         assert_eq!(
-            *builder.game.lock().unwrap(),
+            *builder.cx.lock().unwrap(),
             hashset! {Edge::new(v2(1, 2), v2(1, 3))}
         );
     }
