@@ -9,7 +9,6 @@ use crate::traits::{
     DrawWorld, Micros, RefreshPositionsBackground, SendVoyager, UpdatePositionsAllPathfinders,
     WithWorld,
 };
-use crate::world::World;
 
 #[async_trait]
 pub trait RevealPositions {
@@ -39,10 +38,11 @@ where
             return;
         }
 
-        let newly_visible = send_set_visible_get_newly_visible(self, &positions).await;
+        let newly_visible = get_newly_visible(self, &positions).await;
         if newly_visible.is_empty() {
             return;
         }
+        set_visible(self, &newly_visible).await;
 
         join!(
             redraw(self, &newly_visible),
@@ -55,31 +55,38 @@ where
     }
 }
 
-async fn send_set_visible_get_newly_visible<T>(
-    cx: &T,
-    positions: &HashSet<V2<usize>>,
-) -> HashSet<V2<usize>>
+async fn get_newly_visible<T>(cx: &T, visible: &HashSet<V2<usize>>) -> HashSet<V2<usize>>
 where
     T: WithWorld,
 {
-    cx.mut_world(|world| set_visible_get_newly_visible(world, positions))
-        .await
-}
-
-fn set_visible_get_newly_visible(
-    world: &mut World,
-    positions: &HashSet<V2<usize>>,
-) -> HashSet<V2<usize>> {
     let mut out = hashset! {};
-    for position in positions {
-        if let Some(world_cell) = world.mut_cell(&position) {
-            if !world_cell.visible {
-                world_cell.visible = true;
-                out.insert(*position);
+    cx.with_world(|world| {
+        for position in visible {
+            if let Some(world_cell) = world.get_cell(&position) {
+                if !world_cell.visible {
+                    out.insert(*position);
+                }
             }
         }
-    }
+    })
+    .await;
     out
+}
+
+async fn set_visible<T>(cx: &T, visible: &HashSet<V2<usize>>)
+where
+    T: WithWorld,
+{
+    cx.mut_world(|world| {
+        for position in visible {
+            if let Some(world_cell) = world.mut_cell(&position) {
+                if !world_cell.visible {
+                    world_cell.visible = true;
+                }
+            }
+        }
+    })
+    .await;
 }
 
 fn voyage<T>(cx: &T, positions: HashSet<V2<usize>>, revealed_by: &'static str)
