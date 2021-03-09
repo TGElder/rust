@@ -521,9 +521,9 @@ impl System {
 impl Processes {
     async fn start(&mut self, pool: &ThreadPool) {
         self.world_gen.run_passive(pool).await;
+        self.setup_visibility.run_passive(pool).await;
         self.setup_new_world.run_passive(pool).await;
         self.setup_pathfinders.run_passive(pool).await;
-        self.setup_visibility.run_passive(pool).await;
 
         self.world_artist.run_passive(pool).await;
         join_all(
@@ -593,9 +593,9 @@ impl Processes {
         .await;
         self.world_artist.drain(pool, true).await;
 
-        self.setup_visibility.drain(pool, true).await;
         self.setup_pathfinders.drain(pool, true).await;
         self.setup_new_world.drain(pool, true).await;
+        self.setup_visibility.drain(pool, true).await;
         self.world_gen.drain(pool, true).await;
     }
 

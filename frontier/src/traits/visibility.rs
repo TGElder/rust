@@ -4,6 +4,7 @@ use super::*;
 
 use commons::async_trait::async_trait;
 use commons::grid::Grid;
+use commons::log::debug;
 use commons::V2;
 use std::collections::HashSet;
 
@@ -34,6 +35,14 @@ where
         if newly_visited.is_empty() {
             return;
         }
+
+        debug!("Visiting {:?}", newly_visited);
+
+        self.mut_visited(|visited| {
+            for position in newly_visited.iter() {
+                *visited.visited.mut_cell_unsafe(position) = true;
+            }
+        }).await;
 
         let visible = self
             .with_visibility(|visibility| {
