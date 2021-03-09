@@ -13,8 +13,8 @@ use isometric::IsometricEngine;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
     Cheats, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
-    SetupNewWorld, SetupPathfinders, SpeedControl, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
+    SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParams, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -61,6 +61,7 @@ struct Processes {
     settlement_sims: Vec<Process<SettlementSimulation<Context>>>,
     setup_new_world: Process<SetupNewWorld<Context>>,
     setup_pathfinders: Process<SetupPathfinders<Context>>,
+    setup_visibility: Process<SetupVisibility<Context>>,
     speed_control: Process<SpeedControl<Context>>,
     town_builder: Process<TownBuilderActor<Context>>,
     town_house_artist: Process<TownHouseArtist<Context>>,
@@ -100,6 +101,7 @@ impl System {
         let (rotate_tx, rotate_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (setup_pathfinders_tx, setup_pathfinders_rx) = fn_channel();
+        let (setup_visibility_tx, setup_visibility_rx) = fn_channel();
         let (speed_control_tx, speed_control_rx) = fn_channel();
         let (system_tx, system_rx) = fn_channel();
         let (town_builder_tx, town_builder_rx) = fn_channel();
@@ -161,6 +163,7 @@ impl System {
             settlements: Arc::default(),
             setup_new_world_tx,
             setup_pathfinders_tx,
+            setup_visibility_tx,
             sim_queue: Arc::default(),
             speed_control_tx,
             system_tx,
@@ -301,6 +304,10 @@ impl System {
                     SetupPathfinders::new(cx.clone_with_name("setup_pathfinders")),
                     setup_pathfinders_rx,
                 ),
+                setup_visibility: Process::new(
+                    SetupVisibility::new(cx.clone_with_name("setup_visibility")),
+                    setup_visibility_rx,
+                ),
                 speed_control: Process::new(
                     SpeedControl::new(cx.clone_with_name("speed_control")),
                     speed_control_rx,
@@ -362,6 +369,9 @@ impl System {
         self.cx
             .labels_tx
             .send_future(|labels| labels.init().boxed());
+        self.cx
+            .setup_visibility_tx
+            .send_future(|setup_visibility| setup_visibility.init().boxed());
         self.cx
             .setup_pathfinders_tx
             .send_future(|setup_pathfinders| setup_pathfinders.init().boxed());
@@ -513,6 +523,7 @@ impl Processes {
         self.world_gen.run_passive(pool).await;
         self.setup_new_world.run_passive(pool).await;
         self.setup_pathfinders.run_passive(pool).await;
+        self.setup_visibility.run_passive(pool).await;
 
         self.world_artist.run_passive(pool).await;
         join_all(
@@ -582,6 +593,7 @@ impl Processes {
         .await;
         self.world_artist.drain(pool, true).await;
 
+        self.setup_visibility.drain(pool, true).await;
         self.setup_pathfinders.drain(pool, true).await;
         self.setup_new_world.drain(pool, true).await;
         self.world_gen.drain(pool, true).await;

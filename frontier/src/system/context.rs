@@ -1,8 +1,8 @@
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
     Cheats, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
-    SetupNewWorld, SetupPathfinders, SpeedControl, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
+    SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -77,6 +77,7 @@ pub struct Context {
     pub settlements: Arc<RwLock<HashMap<V2<usize>, Settlement>>>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Context>>,
     pub setup_pathfinders_tx: FnSender<SetupPathfinders<Context>>,
+    pub setup_visibility_tx: FnSender<SetupVisibility<Context>>,
     pub sim_queue: Arc<RwLock<Vec<V2<usize>>>>,
     pub speed_control_tx: FnSender<SpeedControl<Context>>,
     pub system_tx: FnSender<System>,
@@ -133,6 +134,7 @@ impl Context {
             settlements: self.settlements.clone(),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             setup_pathfinders_tx: self.setup_pathfinders_tx.clone_with_name(name),
+            setup_visibility_tx: self.setup_visibility_tx.clone_with_name(name),
             sim_queue: self.sim_queue.clone(),
             speed_control_tx: self.speed_control_tx.clone_with_name(name),
             system_tx: self.system_tx.clone_with_name(name),

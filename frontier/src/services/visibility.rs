@@ -1,11 +1,9 @@
 use std::collections::HashSet;
 
-use commons::grid::Grid;
-use commons::{v2, M, V2};
+use commons::{M, V2};
 use isometric::cell_traits::WithElevation;
 
 use crate::visibility_computer::VisibilityComputer;
-use crate::world::World;
 
 pub struct VisibilityService {
     computer: VisibilityComputer,
@@ -20,8 +18,8 @@ impl VisibilityService {
         }
     }
 
-    pub fn init(&mut self, world: &World) {
-        self.elevations = Some(get_elevations(world));
+    pub fn set_elevations(&mut self, elevations: M<Elevation>) {
+        self.elevations = Some(elevations);
     }
 
     pub fn get_visible_from(&self, position: V2<usize>) -> HashSet<V2<usize>> {
@@ -30,16 +28,9 @@ impl VisibilityService {
     }
 }
 
-fn get_elevations(world: &World) -> M<Elevation> {
-    let sea_level = world.sea_level();
-    M::from_fn(world.width(), world.height(), |x, y| Elevation {
-        elevation: world.get_cell_unsafe(&v2(x, y)).elevation.max(sea_level),
-    })
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct Elevation {
-    elevation: f32,
+pub struct Elevation {
+    pub elevation: f32,
 }
 
 impl WithElevation for Elevation {
