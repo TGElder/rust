@@ -18,7 +18,7 @@ pub trait Visibility {
 #[async_trait]
 impl<T> Visibility for T
 where
-    T: WithVisibility + WithVisited + RevealPositions + Send + Sync,
+    T: RevealPositions + WithVisibility + WithVisited + Send + Sync,
 {
     async fn check_visibility_and_reveal(&self, visited: HashSet<V2<usize>>) {
         if self.with_visited(|visited| visited.all_visited).await {

@@ -370,11 +370,11 @@ impl System {
             .labels_tx
             .send_future(|labels| labels.init().boxed());
         self.cx
-            .setup_visibility_tx
-            .send_future(|setup_visibility| setup_visibility.init().boxed());
-        self.cx
             .setup_pathfinders_tx
             .send_future(|setup_pathfinders| setup_pathfinders.init().boxed());
+        self.cx
+            .setup_visibility_tx
+            .send_future(|setup_visibility| setup_visibility.init().boxed());
         self.cx
             .resource_targets_tx
             .send_future(|resource_targets| resource_targets.init().boxed());
