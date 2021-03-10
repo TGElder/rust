@@ -25,14 +25,13 @@ where
         + 'static,
 {
     async fn update_roads(&self, result: RoadBuilderResult) {
-        // debug!("Updating road on {:?}", std::thread::current().name());
+        debug!("Updating {} roads on {:?}", result.edges().len(), std::thread::current().name());
         let result = Arc::new(result);
         send_update_world(self, result.clone()).await;
 
-        let edges = result.edges();
-        let positions = once(edges[0].from())
-            .chain(result.edges().iter().map(|edge| edge.to()))
-            .copied()
+        let positions  = result.edges()
+            .iter()
+            .flat_map(|edge| once(*edge.from()).chain(once(*edge.to())))
             .collect::<HashSet<_>>();
 
         // debug!("Checking viz on {:?}", std::thread::current().name());
