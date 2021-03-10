@@ -178,7 +178,7 @@ impl System {
             ))),
             visibility: Arc::new(RwLock::new(VisibilityService::new())),
             visited: Arc::new(RwLock::new(Visited {
-                visited: M::from_element(params.width, params.width, false),
+                positions: M::from_element(params.width, params.width, false),
                 all_visited: params.reveal_all,
             })),
             voyager_tx,

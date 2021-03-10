@@ -1,10 +1,10 @@
 use crate::traits::RevealPositions;
+use crate::visited::Visited;
 
 use super::*;
 
 use commons::async_trait::async_trait;
 use commons::grid::Grid;
-use commons::log::debug;
 use commons::V2;
 use std::collections::HashSet;
 
@@ -25,38 +25,55 @@ where
             return;
         }
 
-        let mut newly_visited = visited;
-
-        self.with_visited(|visited| {
-            newly_visited.retain(|position| !visited.visited.get_cell_unsafe(position))
-        })
-        .await;
-
+        let newly_visited = get_newly_visited(self, visited).await;
         if newly_visited.is_empty() {
             return;
         }
 
-        debug!("Visiting {:?}", newly_visited);
-
-        self.mut_visited(|visited| {
-            for position in newly_visited.iter() {
-                *visited.visited.mut_cell_unsafe(position) = true;
-            }
-        }).await;
-
-        let visible = self
-            .with_visibility(|visibility| {
-                newly_visited
-                    .into_iter()
-                    .flat_map(|position| visibility.get_visible_from(position))
-                    .collect::<HashSet<_>>()
-            })
-            .await;
-
+        let (_, visible) = join!(
+            set_visited(self, &newly_visited),
+            get_visible(self, &newly_visited),
+        );
         if visible.is_empty() {
             return;
         }
 
         self.reveal_positions(&visible, NAME).await;
     }
+}
+
+async fn get_newly_visited<T>(cx: &T, mut visited: HashSet<V2<usize>>) -> HashSet<V2<usize>>
+where
+    T: WithVisited,
+{
+    cx.with_visited(|Visited { positions, .. }| {
+        visited.retain(|position| !positions.get_cell_unsafe(position))
+    })
+    .await;
+    visited
+}
+
+async fn set_visited<T>(cx: &T, visited: &HashSet<V2<usize>>)
+where
+    T: WithVisited,
+{
+    cx.mut_visited(|Visited { positions, .. }| {
+        for position in visited.iter() {
+            *positions.mut_cell_unsafe(position) = true;
+        }
+    })
+    .await;
+}
+
+async fn get_visible<T>(cx: &T, visited: &HashSet<V2<usize>>) -> HashSet<V2<usize>>
+where
+    T: WithVisibility,
+{
+    cx.with_visibility(|visibility| {
+        visited
+            .iter()
+            .flat_map(|position| visibility.get_visible_from(*position))
+            .collect::<HashSet<_>>()
+    })
+    .await
 }
