@@ -36,20 +36,25 @@ where
             return;
         }
 
-        debug!("Visiting {:?}", newly_visited);
+        // debug!("Visiting {} on {:?}", newly_visited.len(), std::thread::current().name());
 
         self.mut_visited(|visited| {
+            // debug!("Updating visited on {:?}", std::thread::current().name());
             for position in newly_visited.iter() {
                 *visited.visited.mut_cell_unsafe(position) = true;
             }
-        }).await;
+        })
+        .await;
 
         let visible = self
             .with_visibility(|visibility| {
-                newly_visited
+                // debug!("Computing visibility on {:?}", std::thread::current().name());
+                let out = newly_visited
                     .into_iter()
                     .flat_map(|position| visibility.get_visible_from(position))
-                    .collect::<HashSet<_>>()
+                    .collect::<HashSet<_>>();
+                // debug!("Computed visibility on {:?}", std::thread::current().name());
+                out
             })
             .await;
 

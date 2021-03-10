@@ -121,7 +121,7 @@ impl System {
             settlement_sim_rxs.push(rx);
         }
 
-        let pool = ThreadPool::new().unwrap();
+        let pool = ThreadPool::builder().name_prefix("pool").create().unwrap();
 
         let cx = Context {
             avatar_artist_tx,

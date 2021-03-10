@@ -1,4 +1,5 @@
 use commons::async_trait::async_trait;
+use commons::log::debug;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
@@ -85,12 +86,16 @@ where
         P: WithPathfinder + Clone + Send + Sync + 'static,
         I: IntoIterator<Item = V2<usize>> + Send + Sync + 'static,
     {
+        // debug!("Updating pathfinder on {:?}", std::thread::current().name());
         let travel_duration = pathfinder
             .with_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
             .await;
+        // debug!("Got travel duration on {:?}", std::thread::current().name());
 
+        // debug!("Getting durations on {:?}", std::thread::current().name());
         let durations: HashSet<EdgeDuration> = self
             .with_world(|world| {
+                // debug!("Getting durations inside on {:?}", std::thread::current().name());
                 positions
                     .into_iter()
                     .flat_map(|position| {
@@ -99,7 +104,9 @@ where
                     .collect()
             })
             .await;
+        // debug!("Got durations on {:?}", std::thread::current().name());
 
+        // debug!("Firing future on {:?}", std::thread::current().name());
         let pathfinder = (*pathfinder).clone();
         let pathfinder_future = async move {
             pathfinder
@@ -113,6 +120,7 @@ where
                 .await;
         };
         self.run_in_background(pathfinder_future);
+        // debug!("Updated pathfinder on {:?}", std::thread::current().name());
     }
 }
 
@@ -136,6 +144,7 @@ where
     where
         I: IntoIterator<Item = V2<usize>> + Clone + Send + Sync + 'static,
     {
+        // debug!("Updating positions all pathfinders");
         let pathfinder_with = self.pathfinder_with_planned_roads();
         let pathfinder_without = self.pathfinder_without_planned_roads();
 
@@ -143,6 +152,7 @@ where
             self.update_pathfinder_positions(pathfinder_with, positions.clone()),
             self.update_pathfinder_positions(pathfinder_without, positions),
         );
+        // debug!("Updated positions all pathfinders");
     }
 }
 

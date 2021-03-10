@@ -90,7 +90,8 @@ where
 
     async fn update_roads(&self, forward_path: &[V2<usize>]) {
         let mode = self.get_mode(forward_path).await;
-        let result = RoadBuilderResult::new(vec![forward_path[0], forward_path[1]], mode);
+        let result =
+            RoadBuilderResult::new(vec![Edge::new(forward_path[0], forward_path[1])], mode);
         self.cx.update_roads(result).await;
     }
 

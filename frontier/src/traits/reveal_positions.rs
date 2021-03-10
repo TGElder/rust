@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use commons::async_trait::async_trait;
 use commons::grid::Grid;
+use commons::log::debug;
 use commons::V2;
 use futures::FutureExt;
 
@@ -37,6 +38,8 @@ where
         if positions.is_empty() {
             return;
         }
+
+        debug!("Revealing from {} positions", positions.len());
 
         let newly_visible = get_newly_visible(self, &positions).await;
         if newly_visible.is_empty() {

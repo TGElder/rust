@@ -36,6 +36,7 @@ use commons::async_channel::Sender;
 use commons::async_std::sync::RwLock;
 use commons::async_trait::async_trait;
 use commons::fn_sender::FnSender;
+use commons::log::debug;
 use commons::V2;
 use futures::executor::ThreadPool;
 use futures::future::BoxFuture;
@@ -575,7 +576,8 @@ impl WithPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
         F: FnOnce(&mut Pathfinder<Self::T>) -> O + Send,
     {
         let mut pathfinder = self.write().await;
-        function(&mut pathfinder)
+        let out = function(&mut pathfinder);
+        out
     }
 }
 

@@ -3,6 +3,7 @@ use crate::traits::AddRoad;
 use super::*;
 
 use commons::edge::Edge;
+use commons::log::debug;
 
 pub struct RoadBuilder<T>
 where
@@ -36,7 +37,9 @@ where
     }
 
     async fn build_road(&mut self, road: &Edge) {
-        self.cx.add_road(&road).await
+        // debug!("Building road");
+        self.cx.add_roads(&[*road]).await;
+        // debug!("Built road");
     }
 }
 
@@ -52,8 +55,10 @@ mod tests {
 
     #[async_trait]
     impl AddRoad for Arm<HashSet<Edge>> {
-        async fn add_road(&self, edge: &Edge) {
-            self.lock().unwrap().insert(*edge);
+        async fn add_roads(&self, edges: &[Edge]) {
+            for edge in edges {
+                self.lock().unwrap().insert(*edge);
+            }
         }
     }
 

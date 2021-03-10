@@ -40,7 +40,7 @@ where
         self.cx
             .remove_build_instruction(&BuildKey::Road(*edge))
             .await;
-        self.cx.remove_road(edge).await;
+        self.cx.remove_roads(&[*edge]).await;
         self.cx.plan_road(edge, None).await;
     }
 }
@@ -103,8 +103,10 @@ mod tests {
 
     #[async_trait]
     impl RemoveRoadTrait for Cx {
-        async fn remove_road(&self, edge: &Edge) {
-            self.removed_roads.lock().unwrap().push(*edge)
+        async fn remove_roads(&self, edges: &[Edge]) {
+            for edge in edges {
+                self.removed_roads.lock().unwrap().push(*edge)
+            }
         }
     }
 

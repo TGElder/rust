@@ -1,5 +1,6 @@
 use super::*;
 
+use commons::log::debug;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
@@ -27,10 +28,19 @@ impl BuildQueue {
     }
 
     pub fn take_instructions_before(&mut self, micros: &u128) -> Vec<BuildInstruction> {
-        let (to_build, to_retain) = self
+        let (to_build, to_retain): (
+            HashMap<BuildKey, BuildInstruction>,
+            HashMap<BuildKey, BuildInstruction>,
+        ) = self
             .queue
             .drain()
             .partition(|(_, BuildInstruction { when, .. })| when <= micros);
+        debug!(
+            "Taking instructions before {}, found {}/{}",
+            micros,
+            to_build.len(),
+            to_retain.len()
+        );
         self.queue = to_retain;
         to_build
             .into_iter()

@@ -1,6 +1,10 @@
 use crate::road_builder::RoadBuilderResult;
 use crate::traits::{DrawWorld, Micros, UpdatePositionsAllPathfinders, Visibility, WithWorld};
 use commons::async_trait::async_trait;
+use commons::log::debug;
+use commons::V2;
+use std::collections::HashSet;
+use std::iter::once;
 use std::sync::Arc;
 
 #[async_trait]
@@ -21,15 +25,26 @@ where
         + 'static,
 {
     async fn update_roads(&self, result: RoadBuilderResult) {
+        // debug!("Updating road on {:?}", std::thread::current().name());
         let result = Arc::new(result);
         send_update_world(self, result.clone()).await;
 
-        check_visibility_and_reveal(self, &result).await;
+        let edges = result.edges();
+        let positions = once(edges[0].from())
+            .chain(result.edges().iter().map(|edge| edge.to()))
+            .copied()
+            .collect::<HashSet<_>>();
 
+        // debug!("Checking viz on {:?}", std::thread::current().name());
+        check_visibility_and_reveal(self, positions.clone()).await;
+        // debug!("Checked viz on {:?}", std::thread::current().name());
+
+        // debug!("Finishing on {:?}", std::thread::current().name());
         join!(
-            redraw(self, &result),
-            self.update_positions_all_pathfinders(result.path().clone())
+            redraw(self, &positions),
+            self.update_positions_all_pathfinders(positions.clone())
         );
+        // debug!("Updated road on {:?}", std::thread::current().name());
     }
 }
 
@@ -37,25 +52,28 @@ async fn send_update_world<T>(with_world: &T, result: Arc<RoadBuilderResult>)
 where
     T: WithWorld,
 {
+    // debug!("Updating world");
     with_world
         .mut_world(|world| result.update_roads(world))
-        .await
+        .await;
+    // debug!("Updated world");
 }
 
-async fn redraw<T>(cx: &T, result: &Arc<RoadBuilderResult>)
+async fn redraw<T>(cx: &T, positions: &HashSet<V2<usize>>)
 where
     T: DrawWorld + Micros,
 {
+    // debug!("Redrawing");
     let micros = cx.micros().await;
-    for position in result.path().iter().cloned() {
-        cx.draw_world_tile(position, micros);
+    for position in positions {
+        cx.draw_world_tile(*position, micros);
     }
+    // debug!("Redrew");
 }
 
-async fn check_visibility_and_reveal<T>(cx: &T, result: &Arc<RoadBuilderResult>)
+async fn check_visibility_and_reveal<T>(cx: &T, positions: HashSet<V2<usize>>)
 where
     T: Visibility + Send + Sync,
 {
-    let visited = result.path().iter().cloned().collect();
-    cx.check_visibility_and_reveal(visited).await;
+    cx.check_visibility_and_reveal(positions).await;
 }
