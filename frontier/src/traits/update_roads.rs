@@ -24,7 +24,7 @@ where
         let result = Arc::new(result);
         send_update_world(self, result.clone()).await;
 
-        check_visibility_and_reveal(self, &result);
+        check_visibility_and_reveal(self, &result).await;
 
         join!(
             redraw(self, &result),
@@ -52,7 +52,10 @@ where
     }
 }
 
-fn check_visibility_and_reveal(cx: &dyn Visibility, result: &Arc<RoadBuilderResult>) {
+async fn check_visibility_and_reveal<T>(cx: &T, result: &Arc<RoadBuilderResult>)
+where
+    T: Visibility + Send + Sync,
+{
     let visited = result.path().iter().cloned().collect();
-    cx.check_visibility_and_reveal(visited);
+    cx.check_visibility_and_reveal(visited).await;
 }

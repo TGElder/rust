@@ -67,7 +67,8 @@ where
             self.set_settlements(homelands)
         );
 
-        self.set_visibility_from_voyage(&homeland_starts[0].voyage);
+        self.set_visibility_from_voyage(&homeland_starts[0].voyage)
+            .await;
     }
 
     async fn gen_homeland_starts<R: Rng + Send + 'static>(
@@ -129,9 +130,10 @@ where
             .await;
     }
 
-    fn set_visibility_from_voyage(&self, voyage: &[V2<usize>]) {
+    async fn set_visibility_from_voyage(&self, voyage: &[V2<usize>]) {
         self.cx
-            .check_visibility_and_reveal(voyage.iter().cloned().collect());
+            .check_visibility_and_reveal(voyage.iter().cloned().collect())
+            .await;
     }
 }
 

@@ -1,8 +1,8 @@
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
     Cheats, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
-    SetupNewWorld, SetupPathfinders, SpeedControl, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, VisibilityActor, Voyager, WorldArtistActor, WorldGen,
+    SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -13,7 +13,7 @@ use crate::pathfinder::Pathfinder;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::route::{RouteKey, Routes};
 use crate::services::clock::{Clock, RealTime};
-use crate::services::BackgroundService;
+use crate::services::{BackgroundService, VisibilityService};
 use crate::settlement::Settlement;
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
@@ -25,11 +25,12 @@ use crate::traits::has::HasParameters;
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
     SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendRotate, SendSystem,
-    SendTownHouseArtist, SendTownLabelArtist, SendVisibility, SendVoyager, SendWorldArtist,
-    WithAvatars, WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder,
-    WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic,
-    WithWorld,
+    SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
+    WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithRouteToPorts,
+    WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic, WithVisibility,
+    WithVisited, WithWorld,
 };
+use crate::visited::Visited;
 use crate::world::World;
 use commons::async_channel::Sender;
 use commons::async_std::sync::RwLock;
@@ -76,6 +77,7 @@ pub struct Context {
     pub settlements: Arc<RwLock<HashMap<V2<usize>, Settlement>>>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Context>>,
     pub setup_pathfinders_tx: FnSender<SetupPathfinders<Context>>,
+    pub setup_visibility_tx: FnSender<SetupVisibility<Context>>,
     pub sim_queue: Arc<RwLock<Vec<V2<usize>>>>,
     pub speed_control_tx: FnSender<SpeedControl<Context>>,
     pub system_tx: FnSender<System>,
@@ -84,7 +86,8 @@ pub struct Context {
     pub town_house_artist_tx: FnSender<TownHouseArtist<Context>>,
     pub town_label_artist_tx: FnSender<TownLabelArtist<Context>>,
     pub traffic: Arc<RwLock<Traffic>>,
-    pub visibility_tx: FnSender<VisibilityActor<Context>>,
+    pub visibility: Arc<RwLock<VisibilityService>>,
+    pub visited: Arc<RwLock<Visited>>,
     pub voyager_tx: FnSender<Voyager<Context>>,
     pub world: Arc<RwLock<World>>,
     pub world_artist_tx: FnSender<WorldArtistActor<Context>>,
@@ -131,6 +134,7 @@ impl Context {
             settlements: self.settlements.clone(),
             setup_new_world_tx: self.setup_new_world_tx.clone_with_name(name),
             setup_pathfinders_tx: self.setup_pathfinders_tx.clone_with_name(name),
+            setup_visibility_tx: self.setup_visibility_tx.clone_with_name(name),
             sim_queue: self.sim_queue.clone(),
             speed_control_tx: self.speed_control_tx.clone_with_name(name),
             system_tx: self.system_tx.clone_with_name(name),
@@ -139,7 +143,8 @@ impl Context {
             town_builder_tx: self.town_builder_tx.clone_with_name(name),
             town_house_artist_tx: self.town_house_artist_tx.clone_with_name(name),
             town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
-            visibility_tx: self.visibility_tx.clone_with_name(name),
+            visibility: self.visibility.clone(),
+            visited: self.visited.clone(),
             voyager_tx: self.voyager_tx.clone_with_name(name),
             world: self.world.clone(),
             world_artist_tx: self.world_artist_tx.clone_with_name(name),
@@ -271,26 +276,6 @@ impl SendVoyager for Context {
     {
         self.voyager_tx
             .send_future(move |voyager| function(voyager));
-    }
-}
-
-impl SendVisibility for Context {
-    fn send_visibility_background<F, O>(&self, function: F)
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut VisibilityActor<Self>) -> O + Send + 'static,
-    {
-        self.visibility_tx
-            .send(move |mut visibility| function(&mut visibility));
-    }
-
-    fn send_visibility_future_background<F, O>(&self, function: F)
-    where
-        O: Send + 'static,
-        F: FnOnce(&mut VisibilityActor<Self>) -> BoxFuture<O> + Send + 'static,
-    {
-        self.visibility_tx
-            .send_future(move |visibility| function(visibility));
     }
 }
 
@@ -513,6 +498,44 @@ impl WithTraffic for Context {
     {
         let mut traffic = self.traffic.write().await;
         function(&mut traffic)
+    }
+}
+
+#[async_trait]
+impl WithVisited for Context {
+    async fn with_visited<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&Visited) -> O + Send,
+    {
+        let visited = self.visited.read().await;
+        function(&visited)
+    }
+
+    async fn mut_visited<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut Visited) -> O + Send,
+    {
+        let mut visited = self.visited.write().await;
+        function(&mut visited)
+    }
+}
+
+#[async_trait]
+impl WithVisibility for Context {
+    async fn with_visibility<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&VisibilityService) -> O + Send,
+    {
+        let visibility = self.visibility.read().await;
+        function(&visibility)
+    }
+
+    async fn mut_visibility<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut VisibilityService) -> O + Send,
+    {
+        let mut visibility = self.visibility.write().await;
+        function(&mut visibility)
     }
 }
 

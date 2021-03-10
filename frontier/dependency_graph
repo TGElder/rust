@@ -92,6 +92,7 @@ SendCheats RevealAll
 SendCheats UpdateAvatarJourney
 SendCheats Visibility
 SendCheats WithAvatars
+SendCheats WithVisibility
 SendCheats WithWorld
 SendEdgeBuildSim HasParameters
 SendEdgeBuildSim InsertBuildInstruction
@@ -155,6 +156,7 @@ SendSettlementSim WithSettlements
 SendSettlementSim WithSimQueue
 SendSettlementSim WithTraffic
 SendSetupNewWorld HasParameters
+SendSetupNewWorld Visibility
 SendSetupNewWorld VisibleLandPositions
 SendSetupNewWorld WithAvatars
 SendSetupNewWorld WithNations
@@ -162,6 +164,8 @@ SendSetupNewWorld WithSettlements
 SendSetupNewWorld WithWorld
 SendSetupPathfinder HasParameters
 SendSetupPathfinder UpdatePositionsAllPathfinders
+SendSetupVisibility WithVisibility
+SendSetupVisibility WithWorld
 SendSpeedControl SendClock
 SendTownBuilder AddTown
 SendTownBuilder GetSettlement
@@ -223,7 +227,9 @@ UpdateTerritory HasParameters
 UpdateTerritory Micros
 UpdateTerritory SendPathfinder
 UpdateTerritory SetControlDurations
-Visibility SendVisibility
+Visibility RevealPositions
+Visibility WithVisibility
+Visibility WithVisited
 VisibleLandPositions WithWorld
 WhoControlsTile WithTerritory
 WithAvatars WithAvatarsActor

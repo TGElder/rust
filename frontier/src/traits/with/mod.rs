@@ -10,6 +10,8 @@ mod with_settlements;
 mod with_sim_queue;
 mod with_territory;
 mod with_traffic;
+mod with_visibility;
+mod with_visited;
 mod with_world;
 
 pub use with_avatars::*;
@@ -24,4 +26,6 @@ pub use with_settlements::*;
 pub use with_sim_queue::*;
 pub use with_territory::*;
 pub use with_traffic::*;
+pub use with_visibility::*;
+pub use with_visited::*;
 pub use with_world::*;
