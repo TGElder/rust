@@ -24,7 +24,6 @@ where
         + 'static,
 {
     async fn update_roads(&self, result: RoadBuilderResult) {
-        debug!("Updating {} roads", result.edges().len(),);
         let result = Arc::new(result);
         send_update_world(self, result.clone()).await;
 
