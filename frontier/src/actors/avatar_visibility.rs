@@ -46,7 +46,7 @@ where
     async fn step(&mut self) {
         let until = self.cx.micros().await;
         if let Some(visited) = self.get_visited(&self.last_update, &until).await {
-            self.cx.check_visibility_and_reveal(visited).await;
+            self.cx.check_visibility_and_reveal(&visited).await;
         }
         self.last_update = Some(until);
         sleep(self.refresh_interval).await;

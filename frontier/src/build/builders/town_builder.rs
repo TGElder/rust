@@ -17,12 +17,9 @@ where
         matches!(build, Build::Town { .. })
     }
 
-    async fn build(&mut self, build: Build) {
-        if let Build::Town(town) = build {
-            let position = town.position;
-            if self.try_add_town(town).await {
-                self.cx.update_territory(position).await;
-            }
+    async fn build(&mut self, build: Vec<Build>) {
+        for build in build {
+            self.try_build(build).await;
         }
     }
 }
@@ -33,6 +30,15 @@ where
 {
     pub fn new(cx: T) -> TownBuilder<T> {
         TownBuilder { cx }
+    }
+
+    async fn try_build(&self, build: Build) {
+        if let Build::Town(town) = build {
+            let position = town.position;
+            if self.try_add_town(town).await {
+                self.cx.update_territory(position).await;
+            }
+        }
     }
 
     async fn try_add_town(&self, town: Settlement) -> bool {
@@ -106,7 +112,7 @@ mod tests {
         let mut builder = TownBuilder::new(cx);
 
         // When
-        block_on(builder.build(Build::Town(town.clone())));
+        block_on(builder.build(vec![Build::Town(town.clone())]));
 
         // Then
         assert_eq!(
@@ -130,7 +136,7 @@ mod tests {
         let mut builder = TownBuilder::new(cx);
 
         // When
-        block_on(builder.build(Build::Town(town)));
+        block_on(builder.build(vec![Build::Town(town)]));
 
         // Then
         assert_eq!(*builder.cx.towns.lock().unwrap(), hashmap! {},);
@@ -150,7 +156,7 @@ mod tests {
         let mut builder = TownBuilder::new(cx);
 
         // When
-        block_on(builder.build(Build::Town(town)));
+        block_on(builder.build(vec![Build::Town(town)]));
 
         // Then
         assert_eq!(
@@ -173,7 +179,7 @@ mod tests {
         let mut builder = TownBuilder::new(cx);
 
         // When
-        block_on(builder.build(Build::Town(town)));
+        block_on(builder.build(vec![Build::Town(town)]));
 
         // Then
         assert!(builder.cx.updated_territory.lock().unwrap().is_empty());
@@ -194,9 +200,36 @@ mod tests {
         let mut builder = TownBuilder::new(cx);
 
         // When
-        block_on(builder.build(Build::Town(town)));
+        block_on(builder.build(vec![Build::Town(town)]));
 
         // Then
         assert!(builder.cx.updated_territory.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn should_build_all_towns() {
+        // Given
+        let town_1 = Settlement {
+            position: v2(1, 2),
+            ..Settlement::default()
+        };
+        let town_2 = Settlement {
+            position: v2(3, 4),
+            ..Settlement::default()
+        };
+        let cx = Cx::default();
+        let mut builder = TownBuilder::new(cx);
+
+        // When
+        block_on(builder.build(vec![
+            Build::Town(town_1.clone()),
+            Build::Town(town_2.clone()),
+        ]));
+
+        // Then
+        assert_eq!(
+            *builder.cx.towns.lock().unwrap(),
+            hashmap! {town_1.position => town_1, town_2.position => town_2},
+        );
     }
 }
