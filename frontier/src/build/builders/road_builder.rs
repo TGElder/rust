@@ -105,7 +105,10 @@ mod tests {
         // Then
         assert_eq!(
             *builder.cx.lock().unwrap(),
-            hashset! {Edge::new(v2(1, 2), v2(1, 3)), Edge::new(v2(1, 4), v2(1, 5))}
+            hashset! {
+                Edge::new(v2(1, 2), v2(1, 3)),
+                Edge::new(v2(1, 4), v2(1, 5))
+            }
         );
     }
 }

@@ -229,7 +229,10 @@ mod tests {
         // Then
         assert_eq!(
             *builder.cx.towns.lock().unwrap(),
-            hashmap! {town_1.position => town_1, town_2.position => town_2},
+            hashmap! {
+                town_1.position => town_1,
+                town_2.position => town_2
+            },
         );
     }
 }

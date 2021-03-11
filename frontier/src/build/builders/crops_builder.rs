@@ -155,7 +155,10 @@ mod tests {
         // Then
         assert_eq!(
             *builder.cx.crops.lock().unwrap(),
-            hashmap! {v2(1, 2) => true, v2(3, 4) => false}
+            hashmap! {
+                v2(1, 2) => true,
+                v2(3, 4) => false
+            }
         );
     }
 }
