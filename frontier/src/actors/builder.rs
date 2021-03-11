@@ -27,17 +27,17 @@ where
 
     async fn build_all(&mut self, mut instructions: Vec<BuildInstruction>) {
         instructions.sort_by_key(|instruction| instruction.when);
-        for BuildInstruction { what, .. } in instructions {
-            self.build(what).await;
-        }
-    }
-
-    async fn build(&mut self, build: Build) {
+        let mut build = instructions
+            .into_iter()
+            .map(|BuildInstruction { what, .. }| what)
+            .collect::<Vec<_>>();
         for builder in self.builders.iter_mut() {
-            if builder.can_build(&build) {
-                builder.build(build).await;
-                return;
+            let (can_build, cannot_build): (Vec<Build>, Vec<Build>) =
+                build.into_iter().partition(|what| builder.can_build(what));
+            if !can_build.is_empty() {
+                builder.build(can_build).await;
             }
+            build = cannot_build;
         }
     }
 }
@@ -101,8 +101,8 @@ mod tests {
             true
         }
 
-        async fn build(&mut self, build: Build) {
-            self.builds.lock().unwrap().push(build);
+        async fn build(&mut self, build: Vec<Build>) {
+            *self.builds.lock().unwrap() = build;
         }
     }
 

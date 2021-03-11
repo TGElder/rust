@@ -1,7 +1,7 @@
 AddController WithTerritory
 AddCrops SetWorldObject
-AddRoad IsRoad
 AddRoad UpdateRoads
+AddRoad WithWorld
 AddTown AddController
 AddTown DrawTown
 AddTown GetSettlement
@@ -37,8 +37,8 @@ RefreshPositions SendPositionBuildSim
 RefreshPositionsBackground SendPositionBuildSim
 RemoveBuildInstruction SendBuildQueue
 RemoveController WithTerritory
-RemoveRoad IsRoad
 RemoveRoad UpdateRoads
+RemoveRoad WithWorld
 RemoveTown DrawTown
 RemoveTown Micros
 RemoveTown RemoveController

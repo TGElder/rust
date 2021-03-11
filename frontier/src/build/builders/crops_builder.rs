@@ -17,9 +17,9 @@ where
         matches!(build, Build::Crops { .. })
     }
 
-    async fn build(&mut self, build: Build) {
-        if let Build::Crops { position, rotated } = build {
-            self.try_build_crops(&position, rotated).await;
+    async fn build(&mut self, build: Vec<Build>) {
+        for build in build {
+            self.try_build(build).await;
         }
     }
 }
@@ -32,7 +32,13 @@ where
         CropsBuilder { cx }
     }
 
-    async fn try_build_crops(&mut self, position: &V2<usize>, rotated: bool) {
+    async fn try_build(&self, build: Build) {
+        if let Build::Crops { position, rotated } = build {
+            self.try_build_crops(&position, rotated).await;
+        }
+    }
+
+    async fn try_build_crops(&self, position: &V2<usize>, rotated: bool) {
         if let Some(Settlement { class: Town, .. }) = self.cx.get_settlement(position).await {
             return;
         }
@@ -92,10 +98,10 @@ mod tests {
         let mut builder = CropsBuilder::new(cx);
 
         // When
-        block_on(builder.build(Build::Crops {
+        block_on(builder.build(vec![Build::Crops {
             position: v2(1, 2),
             rotated: true,
-        }));
+        }]));
 
         // Then
         assert_eq!(
@@ -119,12 +125,40 @@ mod tests {
         let mut builder = CropsBuilder::new(cx);
 
         // When
-        block_on(builder.build(Build::Crops {
+        block_on(builder.build(vec![Build::Crops {
             position: v2(1, 2),
             rotated: true,
-        }));
+        }]));
 
         // Then
         assert_eq!(*builder.cx.crops.lock().unwrap(), hashmap! {});
+    }
+
+    #[test]
+    fn should_build_all_crops() {
+        // Given
+        let cx = Cx::default();
+        let mut builder = CropsBuilder::new(cx);
+
+        // When
+        block_on(builder.build(vec![
+            Build::Crops {
+                position: v2(1, 2),
+                rotated: true,
+            },
+            Build::Crops {
+                position: v2(3, 4),
+                rotated: false,
+            },
+        ]));
+
+        // Then
+        assert_eq!(
+            *builder.cx.crops.lock().unwrap(),
+            hashmap! {
+                v2(1, 2) => true,
+                v2(3, 4) => false
+            }
+        );
     }
 }

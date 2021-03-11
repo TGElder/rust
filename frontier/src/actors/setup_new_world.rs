@@ -132,7 +132,7 @@ where
 
     async fn set_visibility_from_voyage(&self, voyage: &[V2<usize>]) {
         self.cx
-            .check_visibility_and_reveal(voyage.iter().cloned().collect())
+            .check_visibility_and_reveal(&voyage.iter().cloned().collect())
             .await;
     }
 }

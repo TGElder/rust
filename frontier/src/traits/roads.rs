@@ -23,39 +23,50 @@ where
 
 #[async_trait]
 pub trait AddRoad {
-    async fn add_road(&self, edge: &Edge);
+    async fn add_roads(&self, edge: &[Edge]);
 }
 
 #[async_trait]
 impl<T> AddRoad for T
 where
-    T: IsRoad + UpdateRoads + Send + Sync,
+    T: WithWorld + UpdateRoads + Send + Sync,
 {
-    async fn add_road(&self, edge: &Edge) {
-        if self.is_road(edge).await {
-            return;
-        }
-        let result = RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Build);
+    async fn add_roads(&self, edges: &[Edge]) {
+        let to_build = self
+            .with_world(|world| {
+                edges
+                    .iter()
+                    .filter(|edge| !world.is_road(edge))
+                    .copied()
+                    .collect()
+            })
+            .await;
+        let result = RoadBuilderResult::new(to_build, RoadBuildMode::Build);
         self.update_roads(result).await;
     }
 }
 
 #[async_trait]
 pub trait RemoveRoad {
-    async fn remove_road(&self, edge: &Edge);
+    async fn remove_roads(&self, edges: &[Edge]);
 }
 
 #[async_trait]
 impl<T> RemoveRoad for T
 where
-    T: IsRoad + UpdateRoads + Send + Sync,
+    T: WithWorld + UpdateRoads + Send + Sync,
 {
-    async fn remove_road(&self, edge: &Edge) {
-        if !self.is_road(edge).await {
-            return;
-        }
-        let result =
-            RoadBuilderResult::new(vec![*edge.from(), *edge.to()], RoadBuildMode::Demolish);
+    async fn remove_roads(&self, edges: &[Edge]) {
+        let to_remove = self
+            .with_world(|world| {
+                edges
+                    .iter()
+                    .filter(|edge| world.is_road(edge))
+                    .copied()
+                    .collect()
+            })
+            .await;
+        let result = RoadBuilderResult::new(to_remove, RoadBuildMode::Demolish);
         self.update_roads(result).await;
     }
 }

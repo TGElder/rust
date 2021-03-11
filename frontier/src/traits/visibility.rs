@@ -12,7 +12,7 @@ const NAME: &str = "visibility_trait";
 
 #[async_trait]
 pub trait Visibility {
-    async fn check_visibility_and_reveal(&self, visited: HashSet<V2<usize>>);
+    async fn check_visibility_and_reveal(&self, visited: &HashSet<V2<usize>>);
 }
 
 #[async_trait]
@@ -20,7 +20,7 @@ impl<T> Visibility for T
 where
     T: RevealPositions + WithVisibility + WithVisited + Send + Sync,
 {
-    async fn check_visibility_and_reveal(&self, visited: HashSet<V2<usize>>) {
+    async fn check_visibility_and_reveal(&self, visited: &HashSet<V2<usize>>) {
         if self.with_visited(|visited| visited.all_visited).await {
             return;
         }
@@ -42,15 +42,18 @@ where
     }
 }
 
-async fn get_newly_visited<T>(cx: &T, mut visited: HashSet<V2<usize>>) -> HashSet<V2<usize>>
+async fn get_newly_visited<T>(cx: &T, visited: &HashSet<V2<usize>>) -> HashSet<V2<usize>>
 where
     T: WithVisited,
 {
     cx.with_visited(|Visited { positions, .. }| {
-        visited.retain(|position| !positions.get_cell_unsafe(position))
+        visited
+            .iter()
+            .filter(|position| !positions.get_cell_unsafe(position))
+            .copied()
+            .collect()
     })
-    .await;
-    visited
+    .await
 }
 
 async fn set_visited<T>(cx: &T, visited: &HashSet<V2<usize>>)

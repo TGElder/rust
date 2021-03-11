@@ -20,10 +20,9 @@ where
         matches!(build, Build::Road(..))
     }
 
-    async fn build(&mut self, build: Build) {
-        if let Build::Road(road) = build {
-            self.build_road(&road).await;
-        }
+    async fn build(&mut self, build: Vec<Build>) {
+        let roads = build.into_iter().flat_map(get_road).collect::<Vec<_>>();
+        self.cx.add_roads(&roads).await;
     }
 }
 
@@ -31,12 +30,15 @@ impl<T> RoadBuilder<T>
 where
     T: AddRoad + Send + Sync,
 {
-    pub fn new(game: T) -> RoadBuilder<T> {
-        RoadBuilder { cx: game }
+    pub fn new(cx: T) -> RoadBuilder<T> {
+        RoadBuilder { cx }
     }
+}
 
-    async fn build_road(&mut self, road: &Edge) {
-        self.cx.add_road(&road).await
+fn get_road(build: Build) -> Option<Edge> {
+    match build {
+        Build::Road(road) => Some(road),
+        _ => None,
     }
 }
 
@@ -52,8 +54,10 @@ mod tests {
 
     #[async_trait]
     impl AddRoad for Arm<HashSet<Edge>> {
-        async fn add_road(&self, edge: &Edge) {
-            self.lock().unwrap().insert(*edge);
+        async fn add_roads(&self, edges: &[Edge]) {
+            for edge in edges {
+                self.lock().unwrap().insert(*edge);
+            }
         }
     }
 
@@ -77,12 +81,34 @@ mod tests {
         let mut builder = RoadBuilder::new(game);
 
         // When
-        block_on(builder.build(Build::Road(Edge::new(v2(1, 2), v2(1, 3)))));
+        block_on(builder.build(vec![Build::Road(Edge::new(v2(1, 2), v2(1, 3)))]));
 
         // Then
         assert_eq!(
             *builder.cx.lock().unwrap(),
             hashset! {Edge::new(v2(1, 2), v2(1, 3))}
+        );
+    }
+
+    #[test]
+    fn should_build_all_roads() {
+        // Given
+        let game = Arc::new(Mutex::new(hashset! {}));
+        let mut builder = RoadBuilder::new(game);
+
+        // When
+        block_on(builder.build(vec![
+            Build::Road(Edge::new(v2(1, 2), v2(1, 3))),
+            Build::Road(Edge::new(v2(1, 4), v2(1, 5))),
+        ]));
+
+        // Then
+        assert_eq!(
+            *builder.cx.lock().unwrap(),
+            hashset! {
+                Edge::new(v2(1, 2), v2(1, 3)),
+                Edge::new(v2(1, 4), v2(1, 5))
+            }
         );
     }
 }
