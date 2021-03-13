@@ -1,13 +1,8 @@
 use super::*;
 use crate::avatar::*;
 use crate::resource::Resource;
-use commons::{na, V3};
 use isometric::coords::*;
-use isometric::drawing::{
-    create_billboard, create_boat, draw_boat, update_billboard_texture, update_billboard_vertices,
-    DrawBoatParams,
-};
-use isometric::Color;
+use isometric::drawing::{create_billboard, update_billboard_texture, update_billboard_vertices};
 use isometric::Command;
 use std::collections::HashMap;
 use std::iter::once;
@@ -18,23 +13,13 @@ pub struct AvatarArtist {
 }
 
 pub struct AvatarArtistParams {
-    boat_params: DrawBoatParams,
     load_size: f32,
     load_height: f32,
 }
 
 impl AvatarArtistParams {
-    pub fn new(light_direction: &V3<f32>) -> AvatarArtistParams {
+    pub fn new() -> AvatarArtistParams {
         AvatarArtistParams {
-            boat_params: DrawBoatParams {
-                width: 0.13,
-                side_height: 0.04,
-                bow_length: 0.06,
-                mast_height: 0.4,
-                base_color: Color::new(0.46875, 0.257_812_5, 0.070_312_5, 0.8),
-                sail_color: Color::new(1.0, 1.0, 1.0, 1.0),
-                light_direction: *light_direction,
-            },
             load_size: 0.15,
             load_height: 0.3,
         }
@@ -55,9 +40,7 @@ impl AvatarArtist {
     }
 
     pub fn init(&self, name: &str) -> Vec<Command> {
-        once(create_boat(boat_drawing_name(&name)))
-            .chain(once(create_billboard(load_drawing_name(&name))))
-            .collect()
+        once(create_billboard(load_drawing_name(&name))).collect()
     }
 
     pub fn update_avatars(
@@ -104,25 +87,12 @@ impl AvatarArtist {
         let journey = avatar.journey.as_ref().unwrap();
         let world_coord = journey.world_coord_at(instant);
         let mut out = vec![];
-        out.append(&mut self.draw_boat_if_required(&avatar.name, &journey, world_coord, instant));
         out.append(&mut self.draw_load(
             &avatar.name,
             &journey.progress_at(instant).load(),
             world_coord,
         ));
         out
-    }
-
-    #[rustfmt::skip]
-    fn get_rotation_matrix(journey: &Journey, instant: &u128) -> na::Matrix3<f32> {
-        let rotation = journey.progress_at(instant).rotation();
-        let cos = rotation.angle().cos();
-        let sin = rotation.angle().sin();
-        na::Matrix3::from_vec(vec![
-            cos, sin, 0.0,
-            -sin, cos, 0.0,
-            0.0, 0.0, 1.0,
-        ])
     }
 
     fn should_redraw_avatar(
@@ -134,39 +104,6 @@ impl AvatarArtist {
         } else {
             previous_draw_action != new_draw_action
         }
-    }
-
-    fn draw_boat_if_required(
-        &self,
-        name: &str,
-        journey: &Journey,
-        world_coord: WorldCoord,
-        instant: &u128,
-    ) -> Vec<Command> {
-        if self.should_draw_boat(journey, instant) {
-            self.draw_boat(name, journey, world_coord, instant)
-        } else {
-            vec![self.hide_boat(name)]
-        }
-    }
-
-    fn should_draw_boat(&self, journey: &Journey, instant: &u128) -> bool {
-        journey.progress_at(instant).vehicle() == Vehicle::Boat
-    }
-
-    fn draw_boat(
-        &self,
-        name: &str,
-        journey: &Journey,
-        world_coord: WorldCoord,
-        instant: &u128,
-    ) -> Vec<Command> {
-        draw_boat(
-            &boat_drawing_name(name),
-            world_coord,
-            AvatarArtist::get_rotation_matrix(journey, instant),
-            &self.params.boat_params,
-        )
     }
 
     fn draw_load(
@@ -197,16 +134,7 @@ impl AvatarArtist {
     }
 
     fn hide(&self, name: &str) -> Vec<Command> {
-        once(self.hide_boat(name))
-            .chain(once(self.hide_load(name)))
-            .collect()
-    }
-
-    fn hide_boat(&self, name: &str) -> Command {
-        Command::SetDrawingVisibility {
-            name: boat_drawing_name(name),
-            visible: false,
-        }
+        once(self.hide_load(name)).collect()
     }
 
     fn hide_load(&self, name: &str) -> Command {
@@ -219,10 +147,6 @@ impl AvatarArtist {
 
 fn drawing_name(name: &str, part: &str) -> String {
     format!("avatar-{}-{}", name.to_string(), part)
-}
-
-fn boat_drawing_name(name: &str) -> String {
-    drawing_name(name, "boat")
 }
 
 fn load_drawing_name(name: &str) -> String {

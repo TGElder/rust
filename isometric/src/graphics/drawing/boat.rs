@@ -2,7 +2,8 @@ use super::utils::*;
 use crate::graphics::Drawing;
 use crate::Command;
 use color::Color;
-use commons::{na, v3, V3};
+use commons::na::Matrix3;
+use commons::{v3, V3};
 use coords::*;
 
 const BOAT_FLOATS: usize = 540;
@@ -17,16 +18,11 @@ pub struct DrawBoatParams {
     pub light_direction: V3<f32>,
 }
 
-pub fn create_boat(name: String) -> Command {
-    Command::CreateDrawing(Drawing::plain(name, BOAT_FLOATS))
-}
-
-pub fn draw_boat(
-    name: &str,
+pub fn boat_floats(
     world_coordinate: WorldCoord,
-    rotation: na::Matrix3<f32>,
+    rotation: &Matrix3<f32>,
     p: &DrawBoatParams,
-) -> Vec<Command> {
+) -> Vec<f32> {
     let triangle_coloring = AngleTriangleColoring::new(p.base_color, p.light_direction);
     let square_coloring = AngleSquareColoring::new(p.base_color, p.light_direction);
 
@@ -95,9 +91,45 @@ pub fn draw_boat(
         &sail_coloring,
     ));
 
+    floats
+}
+
+pub fn create_boat(name: String) -> Command {
+    Command::CreateDrawing(Drawing::plain(name, BOAT_FLOATS))
+}
+
+pub fn draw_boat(
+    name: &str,
+    world_coordinate: WorldCoord,
+    rotation: &Matrix3<f32>,
+    p: &DrawBoatParams,
+) -> Vec<Command> {
     vec![Command::UpdateVertices {
         name: name.to_string(),
         index: 0,
-        floats,
+        floats: boat_floats(world_coordinate, &rotation, p),
     }]
+}
+
+pub fn draw_boats(
+    name: &'static str,
+    boats: Vec<WorldCoord>,
+    rotations: Vec<&Matrix3<f32>>,
+    max_boats: usize,
+    p: &DrawBoatParams,
+) -> impl Iterator<Item = Command> {
+    let mut floats = boats
+        .into_iter()
+        .zip(rotations.into_iter())
+        .map(|(coord, rotation)| boat_floats(coord, rotation, p))
+        .collect::<Vec<_>>();
+    (0..max_boats).map(move |i| Command::UpdateVertices {
+        name: name.to_string(),
+        index: i,
+        floats: floats.pop().unwrap_or_default(),
+    })
+}
+
+pub fn create_boats(name: String, count: usize) -> Command {
+    Command::CreateDrawing(Drawing::multi(name, count, BOAT_FLOATS))
 }
