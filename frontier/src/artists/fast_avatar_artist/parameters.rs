@@ -1,34 +1,28 @@
 use commons::{v3, V3};
 use isometric::Color;
 
-use crate::avatar::Avatar;
+use crate::artists::fast_avatar_artist::boat_artist::BoatArtistParams;
+use crate::artists::fast_avatar_artist::body_part_artist::{BodyPart, ColorMask};
 
 pub struct AvatarArtistParams {
+    pub boat: BoatArtistParams,
     pub max_avatars: usize,
+    pub light_direction: V3<f32>,
     pub pixels_per_cell: f32,
     pub body_parts: Vec<BodyPart>,
-    pub light_direction: V3<f32>,
-}
-
-#[derive(Clone)]
-pub struct BodyPart {
-    pub offset: V3<f32>,
-    pub drawing_name: &'static str,
-    pub texture: &'static str,
-    pub texture_width: usize,
-    pub texture_height: usize,
-    pub mask: Option<ColorMask>,
-}
-
-#[derive(Clone)]
-pub struct ColorMask {
-    pub mask: &'static str,
-    pub color_fn: fn(&Avatar) -> &Color,
 }
 
 impl Default for AvatarArtistParams {
     fn default() -> Self {
         AvatarArtistParams {
+            boat: BoatArtistParams {
+                width: 0.13,
+                side_height: 0.04,
+                bow_length: 0.06,
+                mast_height: 0.4,
+                base_color: Color::new(0.46875, 0.257_812_5, 0.070_312_5, 0.8),
+                sail_color: Color::new(1.0, 1.0, 1.0, 1.0),
+            },
             max_avatars: 0,
             light_direction: v3(1.0, 1.0, 1.0),
             pixels_per_cell: 1280.0,
