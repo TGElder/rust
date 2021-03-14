@@ -27,7 +27,7 @@ impl AvatarArtist {
                     BodyPartArtist::new(part.clone(), params.pixels_per_cell, &rotation_matrices)
                 })
                 .collect(),
-            boat_artist: BoatArtist::new(params.light_direction, rotation_matrices),
+            boat_artist: BoatArtist::new(&params.boat, params.light_direction, rotation_matrices),
             max_avatars: params.max_avatars,
         }
     }

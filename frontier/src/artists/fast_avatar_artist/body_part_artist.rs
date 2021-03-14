@@ -13,13 +13,28 @@ use isometric::{Color, Command};
 use crate::avatar::Avatar;
 
 use super::artist_avatar::ArtistAvatar;
-use super::parameters::BodyPart;
 
 pub struct BodyPartArtist {
     body_part: BodyPart,
     world_width: f32,
     world_height: f32,
     offsets: [V3<f32>; 4],
+}
+
+#[derive(Clone)]
+pub struct BodyPart {
+    pub offset: V3<f32>,
+    pub drawing_name: &'static str,
+    pub texture: &'static str,
+    pub texture_width: usize,
+    pub texture_height: usize,
+    pub mask: Option<ColorMask>,
+}
+
+#[derive(Clone)]
+pub struct ColorMask {
+    pub mask: &'static str,
+    pub color_fn: fn(&Avatar) -> &Color,
 }
 
 impl BodyPartArtist {
