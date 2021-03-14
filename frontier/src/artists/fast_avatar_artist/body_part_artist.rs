@@ -20,6 +20,7 @@ pub struct BodyPartArtist {
     world_height: f32,
     offsets: [V3<f32>; 4],
 }
+
 #[derive(Clone)]
 pub struct BodyPart {
     pub offset: V3<f32>,

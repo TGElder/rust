@@ -28,6 +28,19 @@ pub struct BoatArtistParams {
     pub sail_color: Color,
 }
 
+impl Default for BoatArtistParams {
+    fn default() -> Self {
+        BoatArtistParams {
+            width: 0.13,
+            side_height: 0.04,
+            bow_length: 0.06,
+            mast_height: 0.4,
+            base_color: Color::new(0.46875, 0.257_812_5, 0.070_312_5, 0.8),
+            sail_color: Color::new(1.0, 1.0, 1.0, 1.0),
+        }
+    }
+}
+
 impl BoatArtist {
     pub fn new(
         params: &BoatArtistParams,
@@ -37,7 +50,7 @@ impl BoatArtist {
         BoatArtist {
             boat_floats: rotation_matrices
                 .iter()
-                .map(|matrix| boat_floats(matrix, &params, light_direction))
+                .map(|matrix| boat_floats(&params, light_direction, matrix))
                 .collect(),
         }
     }
@@ -77,9 +90,9 @@ impl BoatArtist {
 }
 
 pub fn boat_floats(
-    rotation: &Matrix3<f32>,
     p: &BoatArtistParams,
     light_direction: V3<f32>,
+    rotation: &Matrix3<f32>,
 ) -> Vec<f32> {
     let triangle_coloring = AngleTriangleColoring::new(p.base_color, light_direction);
     let square_coloring = AngleSquareColoring::new(p.base_color, light_direction);

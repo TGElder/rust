@@ -1,5 +1,4 @@
 use commons::{v3, V3};
-use isometric::Color;
 
 use crate::artists::fast_avatar_artist::boat_artist::BoatArtistParams;
 use crate::artists::fast_avatar_artist::body_part_artist::{BodyPart, ColorMask};
@@ -15,14 +14,7 @@ pub struct AvatarArtistParams {
 impl Default for AvatarArtistParams {
     fn default() -> Self {
         AvatarArtistParams {
-            boat: BoatArtistParams {
-                width: 0.13,
-                side_height: 0.04,
-                bow_length: 0.06,
-                mast_height: 0.4,
-                base_color: Color::new(0.46875, 0.257_812_5, 0.070_312_5, 0.8),
-                sail_color: Color::new(1.0, 1.0, 1.0, 1.0),
-            },
+            boat: BoatArtistParams::default(),
             max_avatars: 0,
             light_direction: v3(1.0, 1.0, 1.0),
             pixels_per_cell: 1280.0,
