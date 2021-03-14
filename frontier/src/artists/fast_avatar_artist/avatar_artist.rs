@@ -1,7 +1,6 @@
 use std::iter::once;
 
 use commons::na::Matrix3;
-use commons::V3;
 use isometric::Command;
 
 use super::artist_avatar::ArtistAvatar;
@@ -17,11 +16,7 @@ pub struct AvatarArtist {
 }
 
 impl AvatarArtist {
-    pub fn new(
-        params: &AvatarArtistParams,
-        light_direction: &V3<f32>,
-        max_avatars: usize,
-    ) -> AvatarArtist {
+    pub fn new(params: AvatarArtistParams) -> AvatarArtist {
         let rotation_matrices = get_rotation_matrices();
 
         AvatarArtist {
@@ -32,8 +27,8 @@ impl AvatarArtist {
                     BodyPartArtist::new(part.clone(), params.pixels_per_cell, &rotation_matrices)
                 })
                 .collect(),
-            boat_artist: BoatArtist::new(light_direction, rotation_matrices),
-            max_avatars,
+            boat_artist: BoatArtist::new(params.light_direction, rotation_matrices),
+            max_avatars: params.max_avatars,
         }
     }
 

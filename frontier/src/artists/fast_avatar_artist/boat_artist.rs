@@ -14,7 +14,7 @@ pub struct BoatArtist {
 }
 
 impl BoatArtist {
-    pub fn new(light_direction: &V3<f32>, rotation_matrices: [Matrix3<f32>; 4]) -> BoatArtist {
+    pub fn new(light_direction: V3<f32>, rotation_matrices: [Matrix3<f32>; 4]) -> BoatArtist {
         BoatArtist {
             draw_params: DrawBoatParams {
                 width: 0.13,
@@ -23,7 +23,7 @@ impl BoatArtist {
                 mast_height: 0.4,
                 base_color: Color::new(0.46875, 0.257_812_5, 0.070_312_5, 0.8),
                 sail_color: Color::new(1.0, 1.0, 1.0, 1.0),
-                light_direction: *light_direction,
+                light_direction,
             },
             rotation_matrices,
         }
@@ -34,8 +34,8 @@ impl BoatArtist {
     }
 
     pub fn draw_boats(&self, avatars: &[ArtistAvatar]) -> Command {
-        let mut coords = vec![];
-        let mut rotations = vec![];
+        let mut coords = Vec::with_capacity(avatars.len());
+        let mut rotation_matrices = Vec::with_capacity(avatars.len());
         for ArtistAvatar {
             progress,
             world_coord,
@@ -45,12 +45,13 @@ impl BoatArtist {
             if progress.vehicle() != Vehicle::Boat {
                 continue;
             }
+
             coords.push(*world_coord);
 
             let rotation_index = progress.rotation() as usize;
-            let matrix = &self.rotation_matrices[rotation_index];
-            rotations.push(matrix);
+            let rotation_matrix = &self.rotation_matrices[rotation_index];
+            rotation_matrices.push(rotation_matrix);
         }
-        draw_boats(BOAT_DRAWING, coords, rotations, &self.draw_params)
+        draw_boats(BOAT_DRAWING, coords, rotation_matrices, &self.draw_params)
     }
 }

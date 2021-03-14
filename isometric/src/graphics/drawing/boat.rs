@@ -94,23 +94,6 @@ pub fn boat_floats(
     floats
 }
 
-pub fn create_boat(name: String) -> Command {
-    Command::CreateDrawing(Drawing::plain(name, BOAT_FLOATS))
-}
-
-pub fn draw_boat(
-    name: &str,
-    world_coordinate: WorldCoord,
-    rotation: &Matrix3<f32>,
-    p: &DrawBoatParams,
-) -> Vec<Command> {
-    vec![Command::UpdateVertices {
-        name: name.to_string(),
-        index: 0,
-        floats: boat_floats(world_coordinate, &rotation, p),
-    }]
-}
-
 pub fn create_boats(name: String, count: usize) -> Command {
     Command::CreateDrawing(Drawing::plain(name, BOAT_FLOATS * count))
 }
@@ -118,12 +101,12 @@ pub fn create_boats(name: String, count: usize) -> Command {
 pub fn draw_boats(
     name: &'static str,
     boats: Vec<WorldCoord>,
-    rotations: Vec<&Matrix3<f32>>,
+    rotation_matrices: Vec<&Matrix3<f32>>,
     p: &DrawBoatParams,
 ) -> Command {
     let floats = boats
         .into_iter()
-        .zip(rotations.into_iter())
+        .zip(rotation_matrices.into_iter())
         .flat_map(|(coord, rotation)| boat_floats(coord, rotation, p))
         .collect::<Vec<_>>();
     Command::UpdateVertices {
