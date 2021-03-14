@@ -111,25 +111,24 @@ pub fn draw_boat(
     }]
 }
 
+pub fn create_boats(name: String, count: usize) -> Command {
+    Command::CreateDrawing(Drawing::plain(name, BOAT_FLOATS * count))
+}
+
 pub fn draw_boats(
     name: &'static str,
     boats: Vec<WorldCoord>,
     rotations: Vec<&Matrix3<f32>>,
-    max_boats: usize,
     p: &DrawBoatParams,
-) -> impl Iterator<Item = Command> {
-    let mut floats = boats
+) -> Command {
+    let floats = boats
         .into_iter()
         .zip(rotations.into_iter())
-        .map(|(coord, rotation)| boat_floats(coord, rotation, p))
+        .flat_map(|(coord, rotation)| boat_floats(coord, rotation, p))
         .collect::<Vec<_>>();
-    (0..max_boats).map(move |i| Command::UpdateVertices {
+    Command::UpdateVertices {
         name: name.to_string(),
-        index: i,
-        floats: floats.pop().unwrap_or_default(),
-    })
-}
-
-pub fn create_boats(name: String, count: usize) -> Command {
-    Command::CreateDrawing(Drawing::multi(name, count, BOAT_FLOATS))
+        floats,
+        index: 0,
+    }
 }

@@ -11,15 +11,10 @@ const BOAT_DRAWING: &str = "boats";
 pub struct BoatArtist {
     draw_params: DrawBoatParams,
     rotation_matrices: [Matrix3<f32>; 4],
-    max_avatars: usize,
 }
 
 impl BoatArtist {
-    pub fn new(
-        light_direction: &V3<f32>,
-        rotation_matrices: [Matrix3<f32>; 4],
-        max_avatars: usize,
-    ) -> BoatArtist {
+    pub fn new(light_direction: &V3<f32>, rotation_matrices: [Matrix3<f32>; 4]) -> BoatArtist {
         BoatArtist {
             draw_params: DrawBoatParams {
                 width: 0.13,
@@ -31,15 +26,14 @@ impl BoatArtist {
                 light_direction: *light_direction,
             },
             rotation_matrices,
-            max_avatars,
         }
     }
 
-    pub fn init(&self) -> Command {
-        create_boats(BOAT_DRAWING.to_string(), self.max_avatars)
+    pub fn init(&self, max_avatars: usize) -> Command {
+        create_boats(BOAT_DRAWING.to_string(), max_avatars)
     }
 
-    pub fn draw_boats(&self, avatars: &[ArtistAvatar]) -> impl Iterator<Item = Command> {
+    pub fn draw_boats(&self, avatars: &[ArtistAvatar]) -> Command {
         let mut coords = vec![];
         let mut rotations = vec![];
         for ArtistAvatar {
@@ -57,12 +51,6 @@ impl BoatArtist {
             let matrix = &self.rotation_matrices[rotation_index];
             rotations.push(matrix);
         }
-        draw_boats(
-            BOAT_DRAWING,
-            coords,
-            rotations,
-            self.max_avatars,
-            &self.draw_params,
-        )
+        draw_boats(BOAT_DRAWING, coords, rotations, &self.draw_params)
     }
 }

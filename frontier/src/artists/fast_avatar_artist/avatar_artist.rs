@@ -32,7 +32,7 @@ impl AvatarArtist {
                     BodyPartArtist::new(part.clone(), params.pixels_per_cell, &rotation_matrices)
                 })
                 .collect(),
-            boat_artist: BoatArtist::new(light_direction, rotation_matrices, max_avatars),
+            boat_artist: BoatArtist::new(light_direction, rotation_matrices),
             max_avatars,
         }
     }
@@ -41,7 +41,7 @@ impl AvatarArtist {
         self.body_part_artists
             .iter()
             .flat_map(|artist| artist.init(self.max_avatars))
-            .chain(once(self.boat_artist.init()))
+            .chain(once(self.boat_artist.init(self.max_avatars)))
             .collect::<Vec<_>>()
     }
 
@@ -56,7 +56,7 @@ impl AvatarArtist {
         self.body_part_artists
             .iter()
             .map(|artist| artist.draw_avatars(&avatars))
-            .chain(self.boat_artist.draw_boats(&avatars))
+            .chain(once(self.boat_artist.draw_boats(&avatars)))
             .collect::<Vec<_>>()
     }
 }
