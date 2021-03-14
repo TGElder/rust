@@ -2,7 +2,8 @@ use super::utils::*;
 use crate::graphics::Drawing;
 use crate::Command;
 use color::Color;
-use commons::{na, v3, V3};
+use commons::na::Matrix3;
+use commons::{v3, V3};
 use coords::*;
 
 const BOAT_FLOATS: usize = 540;
@@ -17,16 +18,11 @@ pub struct DrawBoatParams {
     pub light_direction: V3<f32>,
 }
 
-pub fn create_boat(name: String) -> Command {
-    Command::CreateDrawing(Drawing::plain(name, BOAT_FLOATS))
-}
-
-pub fn draw_boat(
-    name: &str,
+pub fn boat_floats(
     world_coordinate: WorldCoord,
-    rotation: na::Matrix3<f32>,
+    rotation: &Matrix3<f32>,
     p: &DrawBoatParams,
-) -> Vec<Command> {
+) -> Vec<f32> {
     let triangle_coloring = AngleTriangleColoring::new(p.base_color, p.light_direction);
     let square_coloring = AngleSquareColoring::new(p.base_color, p.light_direction);
 
@@ -95,9 +91,27 @@ pub fn draw_boat(
         &sail_coloring,
     ));
 
-    vec![Command::UpdateVertices {
+    floats
+}
+
+pub fn create_boats(name: String, count: usize) -> Command {
+    Command::CreateDrawing(Drawing::plain(name, BOAT_FLOATS * count))
+}
+
+pub fn draw_boats(
+    name: &'static str,
+    boats: Vec<WorldCoord>,
+    rotation_matrices: Vec<&Matrix3<f32>>,
+    p: &DrawBoatParams,
+) -> Command {
+    let floats = boats
+        .into_iter()
+        .zip(rotation_matrices.into_iter())
+        .flat_map(|(coord, rotation)| boat_floats(coord, rotation, p))
+        .collect::<Vec<_>>();
+    Command::UpdateVertices {
         name: name.to_string(),
-        index: 0,
         floats,
-    }]
+        index: 0,
+    }
 }

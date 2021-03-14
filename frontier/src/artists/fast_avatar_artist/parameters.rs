@@ -4,8 +4,10 @@ use isometric::Color;
 use crate::avatar::Avatar;
 
 pub struct AvatarArtistParams {
+    pub max_avatars: usize,
     pub pixels_per_cell: f32,
     pub body_parts: Vec<BodyPart>,
+    pub light_direction: V3<f32>,
 }
 
 #[derive(Clone)]
@@ -24,9 +26,11 @@ pub struct ColorMask {
     pub color_fn: fn(&Avatar) -> &Color,
 }
 
-impl AvatarArtistParams {
-    pub fn new() -> AvatarArtistParams {
+impl Default for AvatarArtistParams {
+    fn default() -> Self {
         AvatarArtistParams {
+            max_avatars: 0,
+            light_direction: v3(1.0, 1.0, 1.0),
             pixels_per_cell: 1280.0,
             body_parts: vec![
                 BodyPart {

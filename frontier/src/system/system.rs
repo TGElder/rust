@@ -205,11 +205,12 @@ impl System {
                 avatar_artist: Process::new(
                     AvatarArtistActor::new(
                         cx.clone_with_name("avatar_artist"),
-                        AvatarArtist::new(AvatarArtistParams::new(&params.light_direction)),
-                        FastAvatarArtist::new(
-                            &FastAvatarArtistParameters::new(),
-                            params.avatars + 1,
-                        ),
+                        AvatarArtist::new(AvatarArtistParams::new()),
+                        FastAvatarArtist::new(FastAvatarArtistParameters {
+                            max_avatars: params.avatars + 1,
+                            light_direction: params.light_direction,
+                            ..FastAvatarArtistParameters::default()
+                        }),
                     ),
                     avatar_artist_rx,
                 ),

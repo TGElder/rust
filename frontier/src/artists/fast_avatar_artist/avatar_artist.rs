@@ -1,18 +1,22 @@
+use std::iter::once;
+
 use commons::na::Matrix3;
 use isometric::Command;
 
 use super::artist_avatar::ArtistAvatar;
 use super::body_part_artist::BodyPartArtist;
 use super::parameters::AvatarArtistParams;
+use crate::artists::fast_avatar_artist::boat_artist::BoatArtist;
 use crate::avatar::{Avatar, Rotation, ROTATIONS};
 
 pub struct AvatarArtist {
     body_part_artists: Vec<BodyPartArtist>,
+    boat_artist: BoatArtist,
     max_avatars: usize,
 }
 
 impl AvatarArtist {
-    pub fn new(params: &AvatarArtistParams, max_avatars: usize) -> AvatarArtist {
+    pub fn new(params: AvatarArtistParams) -> AvatarArtist {
         let rotation_matrices = get_rotation_matrices();
 
         AvatarArtist {
@@ -23,7 +27,8 @@ impl AvatarArtist {
                     BodyPartArtist::new(part.clone(), params.pixels_per_cell, &rotation_matrices)
                 })
                 .collect(),
-            max_avatars,
+            boat_artist: BoatArtist::new(params.light_direction, rotation_matrices),
+            max_avatars: params.max_avatars,
         }
     }
 
@@ -31,6 +36,7 @@ impl AvatarArtist {
         self.body_part_artists
             .iter()
             .flat_map(|artist| artist.init(self.max_avatars))
+            .chain(once(self.boat_artist.init(self.max_avatars)))
             .collect::<Vec<_>>()
     }
 
@@ -45,6 +51,7 @@ impl AvatarArtist {
         self.body_part_artists
             .iter()
             .map(|artist| artist.draw_avatars(&avatars))
+            .chain(once(self.boat_artist.draw_boats(&avatars)))
             .collect::<Vec<_>>()
     }
 }
