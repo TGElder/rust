@@ -1,5 +1,3 @@
-use std::iter::empty;
-
 use commons::na::Matrix3;
 use commons::{v3, V3};
 use isometric::drawing::{
@@ -60,10 +58,14 @@ impl BoatArtist {
     }
 
     pub fn draw_boats(&self, avatars: &[ArtistAvatar]) -> Command {
-        let floats = avatars
-            .iter()
-            .flat_map(|avatar| self.draw_boat(avatar))
-            .collect::<Vec<_>>();
+        let avatars = avatars_with_boats(avatars);
+        let mut floats = vec![0.0; BOAT_FLOATS * avatars.len()];
+        avatars.into_iter().enumerate().for_each(|(i, avatar)| {
+            self.draw_boat(
+                avatar,
+                &mut floats[(i * BOAT_FLOATS)..((i + 1) * BOAT_FLOATS)],
+            )
+        });
         Command::UpdateVertices {
             name: BOAT_DRAWING.to_string(),
             floats,
@@ -71,22 +73,28 @@ impl BoatArtist {
         }
     }
 
-    fn draw_boat<'a>(&'a self, avatar: &'a ArtistAvatar) -> Box<dyn Iterator<Item = f32> + 'a> {
+    fn draw_boat<'a>(&'a self, avatar: &'a ArtistAvatar, target: &mut [f32]) {
         let ArtistAvatar {
             progress,
             world_coord,
             ..
         } = avatar;
-        if progress.vehicle() != Vehicle::Boat {
-            return Box::new(empty());
-        }
 
         let rotation_index = progress.rotation() as usize;
-        Box::new(offset_plain_floats(
-            &self.boat_floats[rotation_index],
-            world_coord,
-        ))
+        offset_plain_floats(&self.boat_floats[rotation_index], target, world_coord)
     }
+}
+
+fn avatars_with_boats<'a>(avatars: &'a [ArtistAvatar]) -> Vec<&'a ArtistAvatar<'a>> {
+    avatars
+        .iter()
+        .filter(|avatar| avatar_has_boat(avatar))
+        .collect()
+}
+
+fn avatar_has_boat(avatar: &ArtistAvatar) -> bool {
+    let ArtistAvatar { progress, .. } = avatar;
+    progress.vehicle() == Vehicle::Boat
 }
 
 pub fn boat_floats(
