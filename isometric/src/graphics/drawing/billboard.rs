@@ -1,25 +1,39 @@
 use crate::graphics::Drawing;
 use crate::Command;
+use commons::V2;
 use coords::WorldCoord;
 
 const BILLBOARD_FLOATS: usize = 42;
 
-#[rustfmt::skip]
-fn get_floats(world_coord: WorldCoord, width: f32, height: f32) -> Vec<f32> {
-    let p = world_coord;
+pub struct Billboard<'a>{
+    pub world_coord: &'a WorldCoord,
+    pub width: &'a f32,
+    pub height: &'a f32,
+    pub texture_from: &'a V2<f32>,
+    pub texture_to: &'a V2<f32>,
+}
 
-    let left = -width / 2.0;
+#[rustfmt::skip]
+fn get_floats(billboard: Billboard) -> Vec<f32> {
+    let w = billboard.world_coord;
+
+    let left = -billboard.width / 2.0;
     let right = -left;
-    let top = -height / 2.0;
+    let top = -billboard.height / 2.0;
     let bottom = -top;
 
+    let t_left = billboard.texture_from.x;
+    let t_right = billboard.texture_to.x;
+    let t_top = billboard.texture_to.y;
+    let t_bottom = billboard.texture_from.y;
+
     vec![
-        p.x, p.y, p.z, 0.0, 1.0, left, top, 
-        p.x, p.y, p.z, 1.0, 0.0, right, bottom,
-        p.x, p.y, p.z, 0.0, 0.0, left, bottom, 
-        p.x, p.y, p.z, 0.0, 1.0, left, top,
-        p.x, p.y, p.z, 1.0, 1.0, right, top,
-        p.x, p.y, p.z, 1.0, 0.0, right, bottom,
+        w.x, w.y, w.z, t_left, t_top, left, top, 
+        w.x, w.y, w.z, t_right, t_bottom, right, bottom,
+        w.x, w.y, w.z, t_left, t_bottom, left, bottom, 
+        w.x, w.y, w.z, t_left, t_top, left, top,
+        w.x, w.y, w.z, t_right, t_top, right, top,
+        w.x, w.y, w.z, t_right, t_bottom, right, bottom,
     ]
 }
 
@@ -40,11 +54,9 @@ pub fn update_billboard_texture(name: String, texture: &str) -> Command {
 
 pub fn update_billboard_vertices(
     name: String,
-    world_coord: WorldCoord,
-    width: f32,
-    height: f32,
+    billboard: Billboard,
 ) -> Vec<Command> {
-    let floats = get_floats(world_coord, width, height);
+    let floats = get_floats(billboard);
     vec![Command::UpdateVertices {
         name,
         index: 0,
@@ -54,14 +66,12 @@ pub fn update_billboard_vertices(
 
 pub fn update_billboards_vertices(
     name: String,
-    world_coords: Vec<WorldCoord>,
-    width: f32,
-    height: f32,
+    billboards: Vec<Billboard>,
 ) -> Command {
-    let mut floats = vec![];
+    let mut floats = Vec::with_capacity(BILLBOARD_FLOATS * billboards.len());
 
-    for world_coord in world_coords {
-        floats.append(&mut get_floats(world_coord, width, height));
+    for billboard in billboards {
+        floats.append(&mut get_floats(billboard));
     }
 
     Command::UpdateVertices {
@@ -73,14 +83,12 @@ pub fn update_billboards_vertices(
 
 pub fn create_and_update_billboards(
     name: String,
-    world_coords: Vec<WorldCoord>,
-    width: f32,
-    height: f32,
     texture: &str,
+    billboards: Vec<Billboard>,
 ) -> Vec<Command> {
     vec![
-        create_billboards(name.clone(), world_coords.len()),
-        update_billboards_vertices(name.clone(), world_coords, width, height),
+        create_billboards(name.clone(), billboards.len()),
+        update_billboards_vertices(name.clone(), billboards),
         update_billboard_texture(name, texture),
     ]
 }

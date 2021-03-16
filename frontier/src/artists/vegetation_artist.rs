@@ -80,14 +80,24 @@ impl VegetationArtist {
     ) -> Vec<Command> {
         let mut out = vec![];
 
-        for (vegetation_type, billboards) in vegetation {
+        let texture_from = v2(0.0, 0.0);
+        let texture_to = v2(1.0, 1.0);
+
+        for (vegetation_type, world_coords) in vegetation {
             let size = vegetation_type.height() * self.params.exaggeration;
             out.append(&mut create_and_update_billboards(
                 format!("{:?}-{:?}", label, vegetation_type.name()),
-                billboards,
-                size,
-                size,
                 texture(vegetation_type),
+                world_coords
+                    .iter()
+                    .map(|world_coord| Billboard {
+                        world_coord,
+                        width: &size,
+                        height: &size,
+                        texture_from: &texture_from,
+                        texture_to: &texture_to,
+                    })
+                    .collect(),
             ));
         }
 

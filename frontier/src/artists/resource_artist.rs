@@ -67,13 +67,23 @@ impl ResourceArtist {
     ) -> Vec<Command> {
         let mut out = vec![];
 
-        for (resource, billboards) in resources {
+        let texture_from = v2(0.0, 0.0);
+        let texture_to = v2(1.0, 1.0);
+
+        for (resource, world_coords) in resources {
             out.append(&mut create_and_update_billboards(
                 format!("{:?}-{:?}", label, resource.name()),
-                billboards,
-                self.params.size,
-                self.params.size,
                 texture(resource).unwrap(),
+                world_coords
+                    .iter()
+                    .map(|world_coord| Billboard {
+                        world_coord,
+                        width: &self.params.size,
+                        height: &self.params.size,
+                        texture_from: &texture_from,
+                        texture_to: &texture_to,
+                    })
+                    .collect(),
             ));
         }
 

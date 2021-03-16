@@ -1,12 +1,12 @@
 use std::iter::once;
 
 use commons::na::Matrix3;
-use commons::V3;
+use commons::{v2, V3};
 use isometric::coords::WorldCoord;
 use isometric::drawing::{
     create_billboards, create_masked_billboards, update_billboard_texture,
     update_billboards_vertices, update_masked_billboard_mask, update_masked_billboard_texture,
-    update_masked_billboards_vertices,
+    update_masked_billboards_vertices, Billboard,
 };
 use isometric::{Color, Command};
 
@@ -107,11 +107,20 @@ impl BodyPartArtist {
                 self.world_height,
             )
         } else {
+            let texture_from = v2(0.0, 0.0);
+            let texture_to = v2(1.0, 1.0);
             update_billboards_vertices(
                 self.body_part.drawing_name.to_string(),
-                world_coords,
-                self.world_width,
-                self.world_height,
+                world_coords
+                    .iter()
+                    .map(|world_coord| Billboard {
+                        world_coord,
+                        width: &self.world_width,
+                        height: &self.world_height,
+                        texture_from: &texture_from,
+                        texture_to: &texture_to,
+                    })
+                    .collect(),
             )
         }
     }
