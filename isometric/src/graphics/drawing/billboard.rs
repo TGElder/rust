@@ -1,6 +1,6 @@
 use crate::graphics::Drawing;
 use crate::Command;
-use commons::V2;
+use commons::rectangle::Rectangle;
 use coords::WorldCoord;
 
 const BILLBOARD_FLOATS: usize = 42;
@@ -9,8 +9,7 @@ pub struct Billboard<'a>{
     pub world_coord: &'a WorldCoord,
     pub width: &'a f32,
     pub height: &'a f32,
-    pub texture_from: &'a V2<f32>,
-    pub texture_to: &'a V2<f32>,
+    pub texture_coords: &'a Rectangle<f32>,
 }
 
 #[rustfmt::skip]
@@ -22,10 +21,10 @@ fn get_floats(billboard: Billboard) -> Vec<f32> {
     let top = -billboard.height / 2.0;
     let bottom = -top;
 
-    let t_left = billboard.texture_from.x;
-    let t_right = billboard.texture_to.x;
-    let t_top = billboard.texture_to.y;
-    let t_bottom = billboard.texture_from.y;
+    let t_left = billboard.texture_coords.from.x;
+    let t_right = billboard.texture_coords.to.x;
+    let t_top = billboard.texture_coords.to.y;
+    let t_bottom = billboard.texture_coords.from.y;
 
     vec![
         w.x, w.y, w.z, t_left, t_top, left, top, 

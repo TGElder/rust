@@ -1,6 +1,7 @@
 use crate::resource::Resource;
 use crate::world::*;
 use commons::grid::Grid;
+use commons::rectangle::Rectangle;
 use commons::*;
 use isometric::cell_traits::*;
 use isometric::coords::*;
@@ -67,8 +68,7 @@ impl ResourceArtist {
     ) -> Vec<Command> {
         let mut out = vec![];
 
-        let texture_from = v2(0.0, 0.0);
-        let texture_to = v2(1.0, 1.0);
+        let texture_coords = &Rectangle::unit();
 
         for (resource, world_coords) in resources {
             out.append(&mut create_and_update_billboards(
@@ -80,8 +80,7 @@ impl ResourceArtist {
                         world_coord,
                         width: &self.params.size,
                         height: &self.params.size,
-                        texture_from: &texture_from,
-                        texture_to: &texture_to,
+                        texture_coords,
                     })
                     .collect(),
             ));

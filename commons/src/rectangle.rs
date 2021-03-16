@@ -1,4 +1,6 @@
-use crate::V2;
+use num::{One, Zero};
+
+use crate::{V2, v2};
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -23,6 +25,18 @@ where
             && other.from.x < self.to.x
             && self.from.y < other.to.y
             && other.from.y < self.to.y
+    }
+}
+
+impl<T> Rectangle<T>
+where
+    T: Copy + Debug + One + PartialOrd + Zero + 'static,
+{
+    pub fn unit() -> Rectangle<T> {
+        Rectangle { 
+            from: v2(T::zero(), T::zero()),
+            to: v2(T::one(), T::one())
+        }
     }
 }
 

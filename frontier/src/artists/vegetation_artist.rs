@@ -1,6 +1,7 @@
 use crate::world::*;
 use commons::barycentric::triangle_interpolate_any;
 use commons::grid::Grid;
+use commons::rectangle::Rectangle;
 use commons::*;
 use isometric::cell_traits::*;
 use isometric::coords::*;
@@ -80,8 +81,7 @@ impl VegetationArtist {
     ) -> Vec<Command> {
         let mut out = vec![];
 
-        let texture_from = v2(0.0, 0.0);
-        let texture_to = v2(1.0, 1.0);
+        let texture_coords = &Rectangle::Unit();
 
         for (vegetation_type, world_coords) in vegetation {
             let size = vegetation_type.height() * self.params.exaggeration;
@@ -94,8 +94,7 @@ impl VegetationArtist {
                         world_coord,
                         width: &size,
                         height: &size,
-                        texture_from: &texture_from,
-                        texture_to: &texture_to,
+                        texture_coords,
                     })
                     .collect(),
             ));

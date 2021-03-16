@@ -1,6 +1,7 @@
 use super::*;
 use crate::avatar::*;
 use commons::log::debug;
+use commons::rectangle::Rectangle;
 use isometric::coords::*;
 use isometric::drawing::{
     create_billboard, update_billboard_texture, update_billboard_vertices, Billboard,
@@ -23,7 +24,7 @@ pub struct AvatarArtist {
 pub struct AvatarArtistParams {
     load_size: f32,
     load_height: f32,
-    texture_coords: HashMap<String, (V2<f32>, V2<f32>)>,
+    texture_coords: HashMap<String, Rectangle<f32>>,
 }
 
 impl AvatarArtistParams {
@@ -132,7 +133,7 @@ impl AvatarArtist {
         mut world_coord: WorldCoord,
     ) -> Vec<Command> {
         if let AvatarLoad::Resource(resource) = load {
-            let (texture_from, texture_to) = unwrap_or!(
+            let texture_coords = unwrap_or!(
                 self.params.texture_coords.get(resource.name()),
                 return vec![self.hide_load(name)]
             );
@@ -145,8 +146,7 @@ impl AvatarArtist {
                     world_coord: &world_coord,
                     width: &self.params.load_size,
                     height: &self.params.load_size,
-                    texture_from: &texture_from,
-                    texture_to: &texture_to,
+                    texture_coords,
                 },
             ));
             out
@@ -197,8 +197,8 @@ struct SpriteSheet {
     meta: Meta,
 }
 
-impl Into<HashMap<String, (V2<f32>, V2<f32>)>> for SpriteSheet {
-    fn into(self) -> HashMap<String, (V2<f32>, V2<f32>)> {
+impl Into<HashMap<String, Rectangle<f32>>> for SpriteSheet {
+    fn into(self) -> HashMap<String, Rectangle<f32>> {
         let w = self.meta.size.w as f32;
         let h = self.meta.size.h as f32;
 
@@ -207,7 +207,7 @@ impl Into<HashMap<String, (V2<f32>, V2<f32>)>> for SpriteSheet {
             .map(|(name, sprite)| {
                 (
                     name,
-                    (
+                    Rectangle::new(
                         v2(sprite.frame.x as f32 / w, sprite.frame.y as f32 / h),
                         v2(
                             (sprite.frame.x + sprite.frame.w) as f32 / w,

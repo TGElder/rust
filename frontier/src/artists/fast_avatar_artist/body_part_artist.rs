@@ -1,7 +1,8 @@
 use std::iter::once;
 
 use commons::na::Matrix3;
-use commons::{v2, V3};
+use commons::rectangle::Rectangle;
+use commons::V3;
 use isometric::coords::WorldCoord;
 use isometric::drawing::{
     create_billboards, create_masked_billboards, update_billboard_texture,
@@ -107,8 +108,7 @@ impl BodyPartArtist {
                 self.world_height,
             )
         } else {
-            let texture_from = v2(0.0, 0.0);
-            let texture_to = v2(1.0, 1.0);
+            let texture_coords = &Rectangle::unit();
             update_billboards_vertices(
                 self.body_part.drawing_name.to_string(),
                 world_coords
@@ -117,8 +117,7 @@ impl BodyPartArtist {
                         world_coord,
                         width: &self.world_width,
                         height: &self.world_height,
-                        texture_from: &texture_from,
-                        texture_to: &texture_to,
+                        texture_coords,
                     })
                     .collect(),
             )
