@@ -60,8 +60,8 @@ impl Texture {
             self.bind(0);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST_MIPMAP_LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST_MIPMAP_LINEAR as i32);
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
@@ -73,6 +73,7 @@ impl Texture {
                 gl::UNSIGNED_BYTE,
                 image_ptr,
             );
+            gl::GenerateMipmap(gl::TEXTURE_2D);
             self.unbind(0);
         }
     }

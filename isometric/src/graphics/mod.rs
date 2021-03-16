@@ -64,7 +64,7 @@ impl GraphicsEngine {
             ),
         ];
 
-        let projection = Isometric::new(PI / 4.0, PI / 3.0);
+        let projection = Isometric::new(PI / 4.0, 0.0 );
 
         let transform = Transform::new(
             GLCoord3D::new(

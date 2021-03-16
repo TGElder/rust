@@ -59,6 +59,7 @@ impl BoatArtist {
 
     pub fn draw_boats(&self, avatars: &[ArtistAvatar]) -> Command {
         let avatars = avatars_with_boats(avatars);
+
         let mut floats = vec![0.0; BOAT_FLOATS * avatars.len()];
         avatars.into_iter().enumerate().for_each(|(i, avatar)| {
             self.draw_boat(
@@ -66,6 +67,7 @@ impl BoatArtist {
                 &mut floats[(i * BOAT_FLOATS)..((i + 1) * BOAT_FLOATS)],
             )
         });
+        
         Command::UpdateVertices {
             name: BOAT_DRAWING.to_string(),
             floats,
