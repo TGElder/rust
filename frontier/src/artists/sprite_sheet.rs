@@ -13,9 +13,15 @@ pub struct SpriteSheet {
 
 impl SpriteSheet {
     pub fn load(path: &str) -> SpriteSheet {
-        let file = File::open(path).unwrap();
+        let file = match File::open(path) {
+            Ok(file) => file,
+            Err(err) => panic!("Could not find sprite sheet at {}: {}", path, err),
+        };
         let reader = BufReader::new(file);
-        serde_json::from_reader(reader).unwrap()
+        match serde_json::from_reader(reader) {
+            Ok(json) => json,
+            Err(err) => panic!("Could not read JSON from {}: {}", path, err),
+        }
     }
 
     pub fn texture_coords(&self) -> HashMap<String, Rectangle<f32>> {
