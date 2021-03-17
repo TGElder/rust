@@ -14,25 +14,22 @@ pub struct Billboard<'a> {
 
 #[rustfmt::skip]
 fn get_floats(billboard: Billboard) -> Vec<f32> {
-    let w = billboard.world_coord;
+    let c = billboard.world_coord;
 
     let left = -billboard.width / 2.0;
     let right = -left;
     let top = -billboard.height / 2.0;
     let bottom = -top;
 
-    let t_left = billboard.texture_coords.from.x;
-    let t_right = billboard.texture_coords.to.x;
-    let t_top = billboard.texture_coords.to.y;
-    let t_bottom = billboard.texture_coords.from.y;
+    let t = billboard.texture_coords;
 
     vec![
-        w.x, w.y, w.z, t_left, t_top, left, top, 
-        w.x, w.y, w.z, t_right, t_bottom, right, bottom,
-        w.x, w.y, w.z, t_left, t_bottom, left, bottom, 
-        w.x, w.y, w.z, t_left, t_top, left, top,
-        w.x, w.y, w.z, t_right, t_top, right, top,
-        w.x, w.y, w.z, t_right, t_bottom, right, bottom,
+        c.x, c.y, c.z, *t.left(), *t.top(), left, top, 
+        c.x, c.y, c.z, *t.right(), *t.bottom(), right, bottom,
+        c.x, c.y, c.z, *t.left(), *t.bottom(), left, bottom, 
+        c.x, c.y, c.z, *t.left(), *t.top(), left, top,
+        c.x, c.y, c.z, *t.right(), *t.top(), right, top,
+        c.x, c.y, c.z, *t.right(), *t.bottom(), right, bottom,
     ]
 }
 
