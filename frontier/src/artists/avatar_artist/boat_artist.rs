@@ -7,7 +7,7 @@ use isometric::drawing::{
 };
 use isometric::{Color, Command};
 
-use crate::artists::fast_avatar_artist::artist_avatar::ArtistAvatar;
+use crate::artists::avatar_artist::artist_avatar::ArtistAvatar;
 use crate::avatar::Vehicle;
 
 const BOAT_DRAWING: &str = "boats";

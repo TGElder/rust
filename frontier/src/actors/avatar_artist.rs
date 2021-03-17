@@ -3,15 +3,14 @@ use std::sync::Arc;
 use commons::async_trait::async_trait;
 use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
 
-use crate::artists::{AvatarArtist, AvatarDrawCommand, FastAvatarArtist};
+use crate::artists::AvatarArtist;
 use crate::avatars::Avatars;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendEngineCommands, SendRotate, WithAvatars};
 
 pub struct AvatarArtistActor<T> {
     cx: T,
-    avatar_artist: Option<AvatarArtist>,
-    fast_avatar_artist: FastAvatarArtist,
+    avatar_artist: AvatarArtist,
     follow_avatar: bool,
     follow_avatar_binding: Button,
 }
@@ -20,15 +19,10 @@ impl<T> AvatarArtistActor<T>
 where
     T: Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
 {
-    pub fn new(
-        cx: T,
-        avatar_artist: AvatarArtist,
-        fast_avatar_artist: FastAvatarArtist,
-    ) -> AvatarArtistActor<T> {
+    pub fn new(cx: T, avatar_artist: AvatarArtist) -> AvatarArtistActor<T> {
         AvatarArtistActor {
             cx,
-            avatar_artist: Some(avatar_artist),
-            fast_avatar_artist,
+            avatar_artist,
             follow_avatar: true,
             follow_avatar_binding: Button::Key(VirtualKeyCode::C),
         }
@@ -37,7 +31,7 @@ where
     pub async fn init(&self) {
         self.setup_engine_for_follow_avatar_setting().await;
         self.cx
-            .send_engine_commands(self.fast_avatar_artist.init())
+            .send_engine_commands(self.avatar_artist.init())
             .await
     }
 
@@ -55,47 +49,30 @@ where
     }
 
     async fn draw_avatars(&mut self) {
-        let mut avatar_artist = self.avatar_artist.take().unwrap();
         let micros = self.cx.micros().await;
 
-        let (commands, avatar_artist) = self
+        let commands = self
             .cx
             .with_avatars(|avatars| {
-                let draw_commands = get_draw_commands(avatars);
-                let mut engine_commands = avatar_artist.update_avatars(&draw_commands, &micros);
-
-                let mut fast_commands = self
-                    .fast_avatar_artist
+                let mut commands = self
+                    .avatar_artist
                     .draw_avatars(&mut avatars.all.values(), &micros);
-                engine_commands.append(&mut fast_commands);
 
                 if self.follow_avatar {
-                    engine_commands.push(look_at_selected(avatars, &micros));
+                    commands.push(look_at_selected(avatars, &micros));
                 }
 
-                (engine_commands, avatar_artist)
+                commands
             })
             .await;
 
         self.cx.send_engine_commands(commands).await;
-        self.avatar_artist = Some(avatar_artist);
     }
 
     async fn toggle_follow_avatar(&mut self) {
         self.follow_avatar = !self.follow_avatar;
         self.setup_engine_for_follow_avatar_setting().await;
     }
-}
-
-fn get_draw_commands(avatars: &Avatars) -> Vec<AvatarDrawCommand> {
-    avatars
-        .all
-        .values()
-        .map(|avatar| AvatarDrawCommand {
-            avatar,
-            draw_when_done: Some(&avatar.name) == avatars.selected.as_ref(),
-        })
-        .collect()
 }
 
 fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {
