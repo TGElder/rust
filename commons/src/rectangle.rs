@@ -42,7 +42,6 @@ where
     pub fn top(&self) -> &T {
         &self.to.y
     }
-
 }
 
 impl<T> Rectangle<T>
@@ -145,7 +144,10 @@ mod tests {
 
     #[test]
     fn unit_rectangle() {
-        assert_eq!(Rectangle::unit(), Rectangle::new(v2(0.0, 0.0), v2(1.0, 1.0)));
+        assert_eq!(
+            Rectangle::unit(),
+            Rectangle::new(v2(0.0, 0.0), v2(1.0, 1.0))
+        );
     }
 
     #[test]
