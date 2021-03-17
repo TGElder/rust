@@ -54,9 +54,9 @@ impl LoadArtist {
     pub fn draw_loads(&self, avatars: &[ArtistAvatar]) -> Command {
         let to_draw = self.get_what_to_draw(avatars);
         let billboards = to_draw
-            .into_iter()
+            .iter()
             .map(|(world_coord, texture_coords)| Billboard {
-                world_coord: &world_coord,
+                world_coord,
                 width: &self.params.load_size,
                 height: &self.params.load_size,
                 texture_coords,
