@@ -6,12 +6,14 @@ use isometric::Command;
 use super::artist_avatar::ArtistAvatar;
 use super::body_part_artist::BodyPartArtist;
 use super::parameters::AvatarArtistParams;
-use crate::artists::fast_avatar_artist::boat_artist::BoatArtist;
+use crate::artists::avatar_artist::boat_artist::BoatArtist;
+use crate::artists::avatar_artist::load_artist::LoadArtist;
 use crate::avatar::{Avatar, Rotation, ROTATIONS};
 
 pub struct AvatarArtist {
     body_part_artists: Vec<BodyPartArtist>,
     boat_artist: BoatArtist,
+    load_artist: LoadArtist,
     max_avatars: usize,
 }
 
@@ -28,6 +30,7 @@ impl AvatarArtist {
                 })
                 .collect(),
             boat_artist: BoatArtist::new(&params.boat, params.light_direction, rotation_matrices),
+            load_artist: LoadArtist::new(params.load),
             max_avatars: params.max_avatars,
         }
     }
@@ -37,6 +40,7 @@ impl AvatarArtist {
             .iter()
             .flat_map(|artist| artist.init(self.max_avatars))
             .chain(once(self.boat_artist.init(self.max_avatars)))
+            .chain(self.load_artist.init(self.max_avatars))
             .collect::<Vec<_>>()
     }
 
@@ -52,6 +56,7 @@ impl AvatarArtist {
             .iter()
             .map(|artist| artist.draw_avatars(&avatars))
             .chain(once(self.boat_artist.draw_boats(&avatars)))
+            .chain(once(self.load_artist.draw_loads(&avatars)))
             .collect::<Vec<_>>()
     }
 }

@@ -1,10 +1,12 @@
 use commons::{v3, V3};
 
-use crate::artists::fast_avatar_artist::boat_artist::BoatArtistParams;
-use crate::artists::fast_avatar_artist::body_part_artist::{BodyPart, ColorMask};
+use crate::artists::avatar_artist::boat_artist::BoatArtistParams;
+use crate::artists::avatar_artist::body_part_artist::{BodyPart, ColorMask};
+use crate::artists::avatar_artist::load_artist::LoadArtistParams;
 
 pub struct AvatarArtistParams {
     pub boat: BoatArtistParams,
+    pub load: LoadArtistParams,
     pub max_avatars: usize,
     pub light_direction: V3<f32>,
     pub pixels_per_cell: f32,
@@ -15,6 +17,7 @@ impl Default for AvatarArtistParams {
     fn default() -> Self {
         AvatarArtistParams {
             boat: BoatArtistParams::default(),
+            load: LoadArtistParams::default(),
             max_avatars: 0,
             light_direction: v3(1.0, 1.0, 1.0),
             pixels_per_cell: 1280.0,
