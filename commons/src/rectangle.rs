@@ -1,6 +1,6 @@
 use num::{One, Zero};
 
-use crate::{V2, v2};
+use crate::{v2, V2};
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -33,9 +33,9 @@ where
     T: Copy + Debug + One + PartialOrd + Zero + 'static,
 {
     pub fn unit() -> Rectangle<T> {
-        Rectangle { 
+        Rectangle {
             from: v2(T::zero(), T::zero()),
-            to: v2(T::one(), T::one())
+            to: v2(T::one(), T::one()),
         }
     }
 }

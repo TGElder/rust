@@ -5,7 +5,7 @@ use coords::WorldCoord;
 
 const BILLBOARD_FLOATS: usize = 42;
 
-pub struct Billboard<'a>{
+pub struct Billboard<'a> {
     pub world_coord: &'a WorldCoord,
     pub width: &'a f32,
     pub height: &'a f32,
@@ -51,10 +51,7 @@ pub fn update_billboard_texture(name: String, texture: &str) -> Command {
     }
 }
 
-pub fn update_billboard_vertices(
-    name: String,
-    billboard: Billboard,
-) -> Vec<Command> {
+pub fn update_billboard_vertices(name: String, billboard: Billboard) -> Vec<Command> {
     let floats = get_floats(billboard);
     vec![Command::UpdateVertices {
         name,
@@ -63,10 +60,7 @@ pub fn update_billboard_vertices(
     }]
 }
 
-pub fn update_billboards_vertices(
-    name: String,
-    billboards: Vec<Billboard>,
-) -> Command {
+pub fn update_billboards_vertices(name: String, billboards: Vec<Billboard>) -> Command {
     let mut floats = Vec::with_capacity(BILLBOARD_FLOATS * billboards.len());
 
     for billboard in billboards {

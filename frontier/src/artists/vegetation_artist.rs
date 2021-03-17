@@ -81,7 +81,7 @@ impl VegetationArtist {
     ) -> Vec<Command> {
         let mut out = vec![];
 
-        let texture_coords = &Rectangle::Unit();
+        let texture_coords = &Rectangle::unit();
 
         for (vegetation_type, world_coords) in vegetation {
             let size = vegetation_type.height() * self.params.exaggeration;

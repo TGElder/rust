@@ -1,16 +1,12 @@
 use super::*;
 use crate::avatar::*;
-use commons::log::debug;
 use commons::rectangle::Rectangle;
 use isometric::coords::*;
 use isometric::drawing::{
     create_billboard, update_billboard_texture, update_billboard_vertices, Billboard,
 };
 use isometric::Command;
-use serde::Deserialize;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
 use std::iter::once;
 
 const SPRITE_SHEET_PNG: &str = "resources/textures/sprite_sheets/resources.png";
@@ -29,15 +25,10 @@ pub struct AvatarArtistParams {
 
 impl AvatarArtistParams {
     pub fn new() -> AvatarArtistParams {
-        let file = File::open(SPRITE_SHEET_JSON).unwrap();
-        let reader = BufReader::new(file);
-        let sprite_sheet: SpriteSheet = serde_json::from_reader(reader).unwrap();
-        let texture_coords = sprite_sheet.into();
-        debug!("{:?}", texture_coords);
         AvatarArtistParams {
             load_size: 0.15,
             load_height: 0.3,
-            texture_coords,
+            texture_coords: SpriteSheet::load(SPRITE_SHEET_JSON).texture_coords(),
         }
     }
 }
@@ -189,60 +180,4 @@ fn avatar_draw_action(command: &AvatarDrawCommand, instant: &u128) -> AvatarDraw
         },
         None => AvatarDrawAction::Hide,
     }
-}
-
-#[derive(Debug, Deserialize)]
-struct SpriteSheet {
-    frames: HashMap<String, Sprite>,
-    meta: Meta,
-}
-
-impl Into<HashMap<String, Rectangle<f32>>> for SpriteSheet {
-    fn into(self) -> HashMap<String, Rectangle<f32>> {
-        let w = self.meta.size.w as f32;
-        let h = self.meta.size.h as f32;
-
-        self.frames
-            .into_iter()
-            .map(|(name, sprite)| {
-                (
-                    name,
-                    Rectangle::new(
-                        v2(sprite.frame.x as f32 / w, sprite.frame.y as f32 / h),
-                        v2(
-                            (sprite.frame.x + sprite.frame.w) as f32 / w,
-                            (sprite.frame.y + sprite.frame.h) as f32 / h,
-                        ),
-                    ),
-                )
-            })
-            .collect()
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct Sprite {
-    frame: Frame,
-}
-
-#[derive(Debug, Deserialize)]
-
-struct Frame {
-    x: usize,
-    y: usize,
-    w: usize,
-    h: usize,
-}
-
-#[derive(Debug, Deserialize)]
-
-struct Meta {
-    size: Size,
-}
-
-#[derive(Debug, Deserialize)]
-
-struct Size {
-    w: usize,
-    h: usize,
 }
