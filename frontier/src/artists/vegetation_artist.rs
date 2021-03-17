@@ -1,6 +1,7 @@
 use crate::world::*;
 use commons::barycentric::triangle_interpolate_any;
 use commons::grid::Grid;
+use commons::rectangle::Rectangle;
 use commons::*;
 use isometric::cell_traits::*;
 use isometric::coords::*;
@@ -80,14 +81,22 @@ impl VegetationArtist {
     ) -> Vec<Command> {
         let mut out = vec![];
 
-        for (vegetation_type, billboards) in vegetation {
+        let texture_coords = &Rectangle::unit();
+
+        for (vegetation_type, world_coords) in vegetation {
             let size = vegetation_type.height() * self.params.exaggeration;
             out.append(&mut create_and_update_billboards(
                 format!("{:?}-{:?}", label, vegetation_type.name()),
-                billboards,
-                size,
-                size,
                 texture(vegetation_type),
+                world_coords
+                    .iter()
+                    .map(|world_coord| Billboard {
+                        world_coord,
+                        width: &size,
+                        height: &size,
+                        texture_coords,
+                    })
+                    .collect(),
             ));
         }
 

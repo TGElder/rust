@@ -1,12 +1,13 @@
 use std::iter::once;
 
 use commons::na::Matrix3;
+use commons::rectangle::Rectangle;
 use commons::V3;
 use isometric::coords::WorldCoord;
 use isometric::drawing::{
     create_billboards, create_masked_billboards, update_billboard_texture,
     update_billboards_vertices, update_masked_billboard_mask, update_masked_billboard_texture,
-    update_masked_billboards_vertices,
+    update_masked_billboards_vertices, Billboard,
 };
 use isometric::{Color, Command};
 
@@ -107,11 +108,18 @@ impl BodyPartArtist {
                 self.world_height,
             )
         } else {
+            let texture_coords = &Rectangle::unit();
             update_billboards_vertices(
                 self.body_part.drawing_name.to_string(),
-                world_coords,
-                self.world_width,
-                self.world_height,
+                world_coords
+                    .iter()
+                    .map(|world_coord| Billboard {
+                        world_coord,
+                        width: &self.world_width,
+                        height: &self.world_height,
+                        texture_coords,
+                    })
+                    .collect(),
             )
         }
     }

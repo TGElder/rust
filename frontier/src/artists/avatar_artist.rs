@@ -1,11 +1,16 @@
 use super::*;
 use crate::avatar::*;
-use crate::resource::Resource;
+use commons::rectangle::Rectangle;
 use isometric::coords::*;
-use isometric::drawing::{create_billboard, update_billboard_texture, update_billboard_vertices};
+use isometric::drawing::{
+    create_billboard, update_billboard_texture, update_billboard_vertices, Billboard,
+};
 use isometric::Command;
 use std::collections::HashMap;
 use std::iter::once;
+
+const SPRITE_SHEET_PNG: &str = "resources/textures/sprite_sheets/resources.png";
+const SPRITE_SHEET_JSON: &str = "resources/textures/sprite_sheets/resources.json";
 
 pub struct AvatarArtist {
     params: AvatarArtistParams,
@@ -15,6 +20,7 @@ pub struct AvatarArtist {
 pub struct AvatarArtistParams {
     load_size: f32,
     load_height: f32,
+    texture_coords: HashMap<String, Rectangle<f32>>,
 }
 
 impl AvatarArtistParams {
@@ -22,6 +28,7 @@ impl AvatarArtistParams {
         AvatarArtistParams {
             load_size: 0.15,
             load_height: 0.3,
+            texture_coords: SpriteSheet::load(SPRITE_SHEET_JSON).texture_coords(),
         }
     }
 }
@@ -40,7 +47,11 @@ impl AvatarArtist {
     }
 
     pub fn init(&self, name: &str) -> Vec<Command> {
-        once(create_billboard(load_drawing_name(&name))).collect()
+        let drawing_name = load_drawing_name(&name);
+        vec![
+            create_billboard(drawing_name.clone()),
+            update_billboard_texture(drawing_name, SPRITE_SHEET_PNG),
+        ]
     }
 
     pub fn update_avatars(
@@ -113,20 +124,22 @@ impl AvatarArtist {
         mut world_coord: WorldCoord,
     ) -> Vec<Command> {
         if let AvatarLoad::Resource(resource) = load {
-            let texture = unwrap_or!(
-                resource_texture(*resource),
+            let texture_coords = unwrap_or!(
+                self.params.texture_coords.get(resource.name()),
                 return vec![self.hide_load(name)]
             );
             let mut out = vec![];
             let name = load_drawing_name(name);
             world_coord.z += self.params.load_height;
             out.append(&mut update_billboard_vertices(
-                name.clone(),
-                world_coord,
-                self.params.load_size,
-                self.params.load_size,
+                name,
+                Billboard {
+                    world_coord: &world_coord,
+                    width: &self.params.load_size,
+                    height: &self.params.load_size,
+                    texture_coords,
+                },
             ));
-            out.push(update_billboard_texture(name, texture));
             out
         } else {
             vec![self.hide_load(name)]
@@ -151,29 +164,6 @@ fn drawing_name(name: &str, part: &str) -> String {
 
 fn load_drawing_name(name: &str) -> String {
     drawing_name(name, "load")
-}
-
-fn resource_texture(resource: Resource) -> Option<&'static str> {
-    match resource {
-        Resource::Bananas => Some("resources/textures/twemoji/bananas.png"),
-        Resource::Bison => Some("resources/textures/twemoji/bison.png"),
-        Resource::Coal => Some("resources/textures/twemoji/derivative/coal.png"),
-        Resource::Crabs => Some("resources/textures/twemoji/crabs.png"),
-        Resource::Crops => Some("resources/textures/twemoji/wheat.png"),
-        Resource::Deer => Some("resources/textures/twemoji/deer.png"),
-        Resource::Fur => Some("resources/textures/twemoji/fur.png"),
-        Resource::Gems => Some("resources/textures/twemoji/gems.png"),
-        Resource::Gold => Some("resources/textures/twemoji/gold.png"),
-        Resource::Iron => Some("resources/textures/twemoji/derivative/iron.png"),
-        Resource::Ivory => Some("resources/textures/twemoji/ivory.png"),
-        Resource::Pasture => Some("resources/textures/twemoji/cow.png"),
-        Resource::Spice => Some("resources/textures/twemoji/spice.png"),
-        Resource::Stone => Some("resources/textures/twemoji/stone.png"),
-        Resource::Truffles => Some("resources/textures/twemoji/truffles.png"),
-        Resource::Whales => Some("resources/textures/twemoji/whales.png"),
-        Resource::Wood => Some("resources/textures/twemoji/wood.png"),
-        _ => None,
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
