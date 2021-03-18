@@ -86,6 +86,4 @@ impl LoadArtist {
             _ => None,
         }
     }
-
-    // pub fn draw_load(avatar:
 }
