@@ -1,9 +1,12 @@
 pub mod drawing;
+mod frame_buffer;
 mod label_visibility_check;
 mod program;
 mod shader;
 pub mod texture;
 mod vertex_objects;
+
+use crate::graphics::frame_buffer::FrameBuffer;
 
 use self::label_visibility_check::{LabelVisibilityCheck, LabelVisibilityChecker};
 use self::program::Program;
@@ -19,13 +22,14 @@ use std::sync::Arc;
 use transform::{Isometric, Transform};
 
 pub struct GraphicsEngine {
-    programs: [Program; 5],
+    programs: [Program; 6],
     viewport_size: PhysicalSize<u32>,
     label_padding: f32,
     transform: Transform,
     projection: Isometric,
     drawings: HashMap<String, GLDrawing>,
     texture_library: TextureLibrary,
+    frame_buffer: FrameBuffer,
 }
 
 pub struct GraphicsEngineParameters {
@@ -62,6 +66,11 @@ impl GraphicsEngine {
                 include_str!("shaders/textured.vert"),
                 include_str!("shaders/textured.frag"),
             ),
+            Program::from_shaders(
+                DrawingType::FullScreenQuad,
+                include_str!("shaders/full_screen_quad.vert"),
+                include_str!("shaders/full_screen_quad.frag"),
+            ),
         ];
 
         let projection = Isometric::new(PI / 4.0, PI / 3.0);
@@ -84,6 +93,10 @@ impl GraphicsEngine {
             projection,
             drawings: HashMap::new(),
             texture_library: TextureLibrary::default(),
+            frame_buffer: FrameBuffer::new(
+                params.viewport_size.width as i32,
+                params.viewport_size.height as i32,
+            ),
         };
         out.set_viewport_size(params.viewport_size);
         out.setup_open_gl();
@@ -183,6 +196,7 @@ impl GraphicsEngine {
                 program.load_matrix4("projection", self.transform.compute_transformation_matrix());
                 program.link_texture_slot_to_variable(0, "ourTexture");
             }
+            _ => (),
         }
     }
 
@@ -216,6 +230,14 @@ impl GraphicsEngine {
 
     pub fn draw_textured(&mut self) {
         self.draw(4);
+    }
+
+    pub fn begin_drawing(&mut self) {
+        self.frame_buffer.begin_drawing();
+    }
+
+    pub fn copy_to_back_buffer(&mut self) {
+        self.frame_buffer.copy_to_back_buffer(&self.programs[5]);
     }
 
     fn textures_are_different(a: &Option<Arc<Texture>>, b: &Option<Arc<Texture>>) -> bool {
@@ -304,6 +326,7 @@ pub enum DrawingType {
     Billboard,
     MaskedBillboard,
     Textured,
+    FullScreenQuad,
 }
 
 #[derive(Debug)]

@@ -24,13 +24,13 @@ impl VBO {
         }
     }
 
-    fn bind(&self) {
+    pub fn bind(&self) {
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.id);
         }
     }
 
-    fn unbind(&self) {
+    pub fn unbind(&self) {
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
@@ -322,6 +322,29 @@ impl VAO {
         }
     }
 
+    fn setup_for_full_screen_quad() {
+        unsafe {
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(
+                0,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                (4 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                std::ptr::null(),
+            );
+            gl::EnableVertexAttribArray(1);
+            gl::VertexAttribPointer(
+                1,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                (4 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                (2 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
+            );
+        }
+    }
+
     fn setup(&self) {
         self.bind();
         match self.drawing_type {
@@ -330,6 +353,7 @@ impl VAO {
             DrawingType::Billboard => VAO::setup_for_sprite_drawing(),
             DrawingType::MaskedBillboard => VAO::setup_for_masked_sprite_drawing(),
             DrawingType::Textured => VAO::setup_for_textured_drawing(),
+            DrawingType::FullScreenQuad => VAO::setup_for_full_screen_quad(),
         }
         self.unbind();
     }
@@ -345,6 +369,7 @@ impl VAO {
             DrawingType::Billboard => 7,
             DrawingType::MaskedBillboard => 11,
             DrawingType::Textured => 9,
+            DrawingType::FullScreenQuad => 4,
         }
     }
 

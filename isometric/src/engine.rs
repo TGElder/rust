@@ -173,11 +173,13 @@ impl IsometricEngine {
             self.consume_glutin_events();
             self.consume_event(Event::Tick);
             self.look_at();
+            self.graphics.begin_drawing();
             self.graphics.draw_world();
             self.graphics.draw_textured();
             self.update_cursors();
             self.graphics.draw_ui();
             self.graphics.draw_billboards();
+            self.graphics.copy_to_back_buffer();
             self.windowed_context.swap_buffers().unwrap();
         }
 
