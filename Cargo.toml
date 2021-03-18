@@ -7,3 +7,6 @@ members = [
     "frontier",
     "network"
 ]
+
+[profile.release]
+debug = true
