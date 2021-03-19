@@ -1,10 +1,11 @@
-in vec2 position;
-in vec2 texCoords;
+#version 330 core
 
-out vec2 TexCoords;
+in vec2 TexCoords;
+out vec4 Color;
+
+uniform sampler2D screenTexture;
 
 void main()
-{
-    gl_Position = vec4(position.x, position.y, 0.0, 1.0); 
-    TexCoords = texCoords;
+{ 
+    Color = texture(screenTexture, TexCoords);
 }

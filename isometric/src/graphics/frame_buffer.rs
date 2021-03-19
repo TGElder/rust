@@ -14,7 +14,15 @@ impl FrameBuffer {
         let mut id: gl::types::GLuint = 0;
         let color_buffer = FrameBufferTexture::new(width, height, gl::RGBA, gl::UNSIGNED_BYTE);
         let depth_buffer = FrameBufferTexture::new(width, height, gl::DEPTH_COMPONENT, gl::FLOAT);
-        let vbo = MultiVBO::new(DrawingType::FullScreenQuad, 1, 16);
+        let mut vbo = MultiVBO::new(DrawingType::FullScreenQuad, 1, 24);
+        vbo.load(0, vec![
+            -1.0,  1.0,  0.0, 1.0,
+            -1.0, -1.0,  0.0, 0.0,
+             1.0, -1.0,  1.0, 0.0,
+            -1.0,  1.0,  0.0, 1.0,
+             1.0, -1.0,  1.0, 0.0,
+             1.0,  1.0,  1.0, 1.0
+        ]);
         unsafe {
             gl::GenFramebuffers(1, &mut id);
         }
@@ -37,20 +45,23 @@ impl FrameBuffer {
     pub fn begin_drawing(&self) {
         self.bind();
         unsafe {
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::ClearColor(1.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::Enable(gl::DEPTH_TEST);
         }
     }
 
     pub fn copy_to_back_buffer(&self, program: &Program) {
         self.unbind();
         unsafe {
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::ClearColor(0.0, 0.0, 1.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::Disable(gl::DEPTH_TEST);
             program.set_used();
             program.link_texture_slot_to_variable(0, "screenTexture");
-            gl::BindTexture(gl::TEXTURE_2D, *self.color_buffer.id());
+            self.color_buffer.bind();
             self.vbo.draw();
+            self.color_buffer.unbind();
         }
     }
 
@@ -98,6 +109,16 @@ impl FrameBuffer {
     }
 }
 
+
+impl Drop for FrameBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteFramebuffers(1, &self.id);
+        }
+    }
+}
+
+
 pub struct FrameBufferTexture {
     id: gl::types::GLuint,
 }
@@ -124,11 +145,13 @@ impl FrameBufferTexture {
 
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn bind(&self) {
+        gl::ActiveTexture(gl::TEXTURE0);
         gl::BindTexture(gl::TEXTURE_2D, self.id);
     }
 
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn unbind(&self) {
+        gl::ActiveTexture(gl::TEXTURE0);
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
