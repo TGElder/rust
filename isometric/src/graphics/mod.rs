@@ -12,6 +12,7 @@ use self::label_visibility_check::{LabelVisibilityCheck, LabelVisibilityChecker}
 use self::program::Program;
 use self::texture::{Texture, TextureLibrary};
 use self::vertex_objects::MultiVBO;
+use commons::log::debug;
 use commons::na;
 use coords::*;
 use glutin::dpi::PhysicalSize;
@@ -213,9 +214,6 @@ impl GraphicsEngine {
     }
 
     pub fn draw_world(&mut self) {
-        unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-        }
         self.draw(0);
     }
 
@@ -455,7 +453,6 @@ impl ZFinder for GLZFinder {
     fn get_z_at(&self, buffer_coordinate: BufferCoordinate) -> f32 {
         let mut buffer: Vec<f32> = vec![0.0];
         unsafe {
-            gl::ReadBuffer(gl::BACK);
             gl::ReadPixels(
                 buffer_coordinate.x,
                 buffer_coordinate.y,
