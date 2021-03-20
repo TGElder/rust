@@ -12,7 +12,6 @@ use self::label_visibility_check::{LabelVisibilityCheck, LabelVisibilityChecker}
 use self::program::Program;
 use self::texture::{Texture, TextureLibrary};
 use self::vertex_objects::MultiVBO;
-use commons::log::debug;
 use commons::na;
 use coords::*;
 use glutin::dpi::PhysicalSize;
