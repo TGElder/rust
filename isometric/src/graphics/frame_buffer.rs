@@ -45,7 +45,7 @@ impl FrameBuffer {
     pub fn begin_drawing(&self) {
         self.bind();
         unsafe {
-            gl::ClearColor(1.0, 0.0, 0.0, 1.0);
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Enable(gl::DEPTH_TEST);
         }
@@ -54,7 +54,7 @@ impl FrameBuffer {
     pub fn copy_to_back_buffer(&self, program: &Program) {
         self.unbind();
         unsafe {
-            gl::ClearColor(0.0, 0.0, 1.0, 1.0);
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Disable(gl::DEPTH_TEST);
             program.set_used();
@@ -67,13 +67,13 @@ impl FrameBuffer {
 
     fn bind(&self) {
         unsafe {
-            gl::BindBuffer(gl::FRAMEBUFFER, self.id);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.id);
         }
     }
 
     fn unbind(&self) {
         unsafe {
-            gl::BindBuffer(gl::FRAMEBUFFER, 0);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
     }
 
