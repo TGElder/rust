@@ -113,6 +113,13 @@ impl GraphicsEngine {
         }
     }
 
+    pub fn setup_frame_buffer(&mut self) {
+        self.frame_buffer = FrameBuffer::new(
+            self.viewport_size.width as i32,
+            self.viewport_size.height as i32,
+        )
+    }
+
     pub fn transform(&mut self) -> &mut Transform {
         &mut self.transform
     }

@@ -232,6 +232,7 @@ impl IsometricEngine {
             Command::Resize(physical_size) => {
                 self.windowed_context.resize(physical_size);
                 self.graphics.set_viewport_size(physical_size);
+                self.graphics.setup_frame_buffer();
             }
             Command::Translate(translation) => self.graphics.transform().translate(translation),
             Command::Scale { center, scale } => self.graphics.transform().scale(center, scale),
