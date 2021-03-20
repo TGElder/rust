@@ -5,7 +5,7 @@ use crate::graphics::DrawingType;
 pub struct FrameBuffer {
     id: gl::types::GLuint,
     color_buffer: FrameBufferTexture,
-    depth_buffer: FrameBufferTexture,
+    depth_buffer: RenderBuffer,
     vbo: MultiVBO,
 }
 
@@ -13,7 +13,7 @@ impl FrameBuffer {
     pub fn new(width: i32, height: i32) -> FrameBuffer {
         let mut id: gl::types::GLuint = 0;
         let color_buffer = FrameBufferTexture::new(width, height, gl::RGBA, gl::UNSIGNED_BYTE);
-        let depth_buffer = FrameBufferTexture::new(width, height, gl::DEPTH_COMPONENT, gl::FLOAT);
+        let depth_buffer = RenderBuffer::new(width, height);
         let mut vbo = MultiVBO::new(DrawingType::FullScreenQuad, 1, 24);
         vbo.load(0, vec![
             -1.0,  1.0,  0.0, 1.0,
@@ -82,18 +82,17 @@ impl FrameBuffer {
             gl::FRAMEBUFFER,
             gl::COLOR_ATTACHMENT0,
             gl::TEXTURE_2D,
-            *texture.id(),
+            texture.id,
             0,
         );
     }
 
-    unsafe fn attach_depth_buffer(&self, texture: &FrameBufferTexture) {
-        gl::FramebufferTexture2D(
+    unsafe fn attach_depth_buffer(&self, buffer: &RenderBuffer) {
+        gl::FramebufferRenderbuffer(
             gl::FRAMEBUFFER,
             gl::DEPTH_ATTACHMENT,
-            gl::TEXTURE_2D,
-            *texture.id(),
-            0,
+            gl::RENDERBUFFER,
+            buffer.id,
         );
     }
 
@@ -137,10 +136,6 @@ impl FrameBufferTexture {
             out.init(width, height, format, type_);
             out
         }
-    }
-
-    pub fn id(&self) -> &gl::types::GLuint {
-        &self.id
     }
 
     #[allow(clippy::missing_safety_doc)]
@@ -188,6 +183,51 @@ impl Drop for FrameBufferTexture {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteTextures(1, &self.id);
+        }
+    }
+}
+
+struct RenderBuffer{
+    id: gl::types::GLuint,
+}
+
+impl RenderBuffer {
+    pub fn new(
+        width: i32,
+        height: i32,
+    ) -> RenderBuffer {
+        let mut id: gl::types::GLuint = 0;
+        unsafe {
+            gl::GenRenderbuffers(1, &mut id);
+        }
+        let out = RenderBuffer{
+            id
+        };
+        unsafe {
+            out.bind();
+            out.init(width, height);
+            out.unbind();
+        }
+        out
+    }
+
+    unsafe fn bind(&self) {
+        gl::BindRenderbuffer(gl::RENDERBUFFER, self.id);
+    }
+
+    unsafe fn unbind(&self) {
+        gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
+    }
+
+    unsafe fn init(&self, width: i32, height: i32) {
+        gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH_COMPONENT, width, height);
+    }
+}
+
+impl Drop for RenderBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteRenderbuffers(1, &self.id);
         }
     }
 }
