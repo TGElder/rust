@@ -1,17 +1,20 @@
 pub mod drawing;
 mod frame_buffer;
 mod label_visibility_check;
+mod pixel_buffer;
 mod program;
 mod shader;
 pub mod texture;
 mod vertex_objects;
 
 use crate::graphics::frame_buffer::FrameBuffer;
+use crate::graphics::pixel_buffer::PixelBuffer;
 
 use self::label_visibility_check::{LabelVisibilityCheck, LabelVisibilityChecker};
 use self::program::Program;
 use self::texture::{Texture, TextureLibrary};
 use self::vertex_objects::MultiVBO;
+use commons::log::debug;
 use commons::na;
 use coords::*;
 use glutin::dpi::PhysicalSize;
@@ -19,6 +22,7 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ffi::c_void;
 use std::sync::Arc;
+use std::time::Instant;
 use transform::{Isometric, Transform};
 
 pub struct GraphicsEngine {
@@ -453,22 +457,59 @@ impl GLDrawing {
     }
 }
 
-pub struct GLZFinder {}
+pub struct GLZFinder {
+    pixel_buffers: [PixelBuffer; 2],
+    current: usize,
+    width: i32,
+    height: i32,
+}
+
+impl GLZFinder {
+    pub fn new() -> GLZFinder {
+        GLZFinder {
+            pixel_buffers: [PixelBuffer::new(), PixelBuffer::new()],
+            current: 0,
+            width: 0,
+            height: 0,
+        }
+    }
+
+    fn read(&mut self, width: i32, height: i32) {
+        self.current = (self.current + 1) % 2;
+        self.width = width;
+        self.height = height;
+        unsafe {
+            let mut zero: usize = 0;
+            self.pixel_buffers[(self.current + 1) % 2].bind();
+            gl::ReadPixels(
+                0,
+                0,
+                width,
+                height,
+                gl::DEPTH_COMPONENT,
+                gl::FLOAT,
+                zero as *mut c_void,
+            );
+            self.pixel_buffers[(self.current + 1) % 2].unbind();
+        }
+    }
+}
 
 impl ZFinder for GLZFinder {
     fn get_z_at(&self, buffer_coordinate: BufferCoordinate) -> f32 {
+        let index = ((buffer_coordinate.y * self.height) + buffer_coordinate.x) as usize;
+        let start = Instant::now();
         let mut buffer: Vec<f32> = vec![0.0];
         unsafe {
-            gl::ReadPixels(
-                buffer_coordinate.x,
-                buffer_coordinate.y,
-                1,
-                1,
-                gl::DEPTH_COMPONENT,
-                gl::FLOAT,
-                buffer.as_mut_ptr() as *mut c_void,
-            );
+            self.pixel_buffers[self.current].bind();
+            let out = self.pixel_buffers[self.current].read();
+            self.pixel_buffers[self.current].unbind();
+            debug!("picking took {}ms", start.elapsed().as_micros());
+            if let Some(out) = out {
+                return out[index];
+            } else {
+                return 0.0;
+            }
         }
-        2.0 * buffer[0] - 1.0
     }
 }

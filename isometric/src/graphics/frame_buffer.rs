@@ -15,14 +15,13 @@ impl FrameBuffer {
         let color_buffer = FrameBufferTexture::new(width, height, gl::RGBA, gl::UNSIGNED_BYTE);
         let depth_buffer = RenderBuffer::new(width, height);
         let mut vbo = MultiVBO::new(DrawingType::FullScreenQuad, 1, 24);
-        vbo.load(0, vec![
-            -1.0,  1.0,  0.0, 1.0,
-            -1.0, -1.0,  0.0, 0.0,
-             1.0, -1.0,  1.0, 0.0,
-            -1.0,  1.0,  0.0, 1.0,
-             1.0, -1.0,  1.0, 0.0,
-             1.0,  1.0,  1.0, 1.0
-        ]);
+        vbo.load(
+            0,
+            vec![
+                -1.0, 1.0, 0.0, 1.0, -1.0, -1.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, 0.0,
+                1.0, 1.0, -1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0,
+            ],
+        );
         unsafe {
             gl::GenFramebuffers(1, &mut id);
         }
@@ -108,7 +107,6 @@ impl FrameBuffer {
     }
 }
 
-
 impl Drop for FrameBuffer {
     fn drop(&mut self) {
         unsafe {
@@ -116,7 +114,6 @@ impl Drop for FrameBuffer {
         }
     }
 }
-
 
 pub struct FrameBufferTexture {
     id: gl::types::GLuint,
@@ -187,22 +184,17 @@ impl Drop for FrameBufferTexture {
     }
 }
 
-struct RenderBuffer{
+struct RenderBuffer {
     id: gl::types::GLuint,
 }
 
 impl RenderBuffer {
-    pub fn new(
-        width: i32,
-        height: i32,
-    ) -> RenderBuffer {
+    pub fn new(width: i32, height: i32) -> RenderBuffer {
         let mut id: gl::types::GLuint = 0;
         unsafe {
             gl::GenRenderbuffers(1, &mut id);
         }
-        let out = RenderBuffer{
-            id
-        };
+        let out = RenderBuffer { id };
         unsafe {
             out.bind();
             out.init(width, height);

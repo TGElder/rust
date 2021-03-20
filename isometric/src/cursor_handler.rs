@@ -17,7 +17,7 @@ pub struct CursorHandler {
 impl CursorHandler {
     pub fn new(physical_window_size: PhysicalSize<u32>) -> CursorHandler {
         CursorHandler {
-            z_finder: GLZFinder {},
+            z_finder: GLZFinder::new(),
             physical_window_size,
             screen_cursor: None,
             gl_cursor: None,

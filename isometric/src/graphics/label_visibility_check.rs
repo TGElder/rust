@@ -25,12 +25,12 @@ pub struct LabelVisibilityChecker<'a> {
 }
 
 impl<'a> LabelVisibilityChecker<'a> {
-    pub fn new(graphics_engine: &'a GraphicsEngine) -> LabelVisibilityChecker<'a> {
+    pub fn new(graphics_engine: &'a GraphicsEngine, z_finder: &'a GLZFinder) -> LabelVisibilityChecker<'a> {
         LabelVisibilityChecker {
             padding: graphics_engine.label_padding,
             transform: &graphics_engine.transform,
             physical_size: &graphics_engine.viewport_size,
-            z_finder: &GLZFinder {},
+            z_finder,
             pixel_to_screen: graphics_engine.get_pixel_to_screen(),
             ui_elements: vec![],
         }
