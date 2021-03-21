@@ -47,10 +47,18 @@ impl AvatarArtist {
     pub fn draw_avatars(
         &self,
         avatars: &mut dyn Iterator<Item = &Avatar>,
+        selected: Option<&String>,
         at: &u128,
     ) -> Vec<Command> {
         let avatars = avatars
             .flat_map(|avatar| ArtistAvatar::from(avatar, at))
+            .filter(
+                |ArtistAvatar {
+                     done,
+                     avatar: Avatar { name, .. },
+                     ..
+                 }| !done || Some(name) == selected,
+            )
             .collect::<Vec<_>>();
         self.body_part_artists
             .iter()

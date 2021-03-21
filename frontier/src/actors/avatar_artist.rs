@@ -54,9 +54,11 @@ where
         let commands = self
             .cx
             .with_avatars(|avatars| {
-                let mut commands = self
-                    .avatar_artist
-                    .draw_avatars(&mut avatars.all.values(), &micros);
+                let mut commands = self.avatar_artist.draw_avatars(
+                    &mut avatars.all.values(),
+                    avatars.selected.as_ref(),
+                    &micros,
+                );
 
                 if self.follow_avatar {
                     commands.push(look_at_selected(avatars, &micros));
