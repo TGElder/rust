@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 pub trait PhysicalPositionExt {
     fn to_gl_coord_2d(self, physical_size: glutin::dpi::PhysicalSize<u32>) -> GLCoord2D;
     fn to_buffer_coord(self, physical_size: glutin::dpi::PhysicalSize<u32>) -> BufferCoordinate;
-    fn to_gl_coord_4d<T: ZFinder>(
+    fn to_gl_coord_4d(
         self,
         physical_size: glutin::dpi::PhysicalSize<u32>,
-        z_finder: &T,
+        z_finder: &dyn ZFinder,
     ) -> GLCoord4D;
 }
 
@@ -31,10 +31,10 @@ impl PhysicalPositionExt for glutin::dpi::PhysicalPosition<f64> {
         }
     }
 
-    fn to_gl_coord_4d<T: ZFinder>(
+    fn to_gl_coord_4d(
         self,
         physical_size: glutin::dpi::PhysicalSize<u32>,
-        z_finder: &T,
+        z_finder: &dyn ZFinder,
     ) -> GLCoord4D {
         let buffer_coord = self.to_buffer_coord(physical_size);
         let gl_coord_2d = self.to_gl_coord_2d(physical_size);

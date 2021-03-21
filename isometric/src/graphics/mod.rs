@@ -14,7 +14,7 @@ use self::label_visibility_check::{LabelVisibilityCheck, LabelVisibilityChecker}
 use self::program::Program;
 use self::texture::{Texture, TextureLibrary};
 use self::vertex_objects::MultiVBO;
-use commons::log::debug;
+use commons::log::{error, debug};
 use commons::na;
 use coords::*;
 use glutin::dpi::PhysicalSize;
@@ -29,11 +29,13 @@ pub struct GraphicsEngine {
     programs: [Program; 6],
     viewport_size: PhysicalSize<u32>,
     label_padding: f32,
-    transform: Transform,
+    pub transform: Transform,
     projection: Isometric,
     drawings: HashMap<String, GLDrawing>,
     texture_library: TextureLibrary,
-    frame_buffer: FrameBuffer,
+    frame_buffers: [FrameBuffer; 4],
+    current_frame_buffer: usize,
+    pub z_finder: GLZFinder,
 }
 
 pub struct GraphicsEngineParameters {
@@ -97,10 +99,21 @@ impl GraphicsEngine {
             projection,
             drawings: HashMap::new(),
             texture_library: TextureLibrary::default(),
-            frame_buffer: FrameBuffer::new(
+            frame_buffers: [FrameBuffer::new(
                 params.viewport_size.width as i32,
                 params.viewport_size.height as i32,
-            ),
+            ), FrameBuffer::new(
+                params.viewport_size.width as i32,
+                params.viewport_size.height as i32,
+            ),FrameBuffer::new(
+                params.viewport_size.width as i32,
+                params.viewport_size.height as i32,
+            ),FrameBuffer::new(
+                params.viewport_size.width as i32,
+                params.viewport_size.height as i32,
+            )],
+            current_frame_buffer: 0,
+            z_finder: GLZFinder::new(params.viewport_size.width as usize, params.viewport_size.height as usize),
         };
         out.set_viewport_size(params.viewport_size);
         out.setup_open_gl();
@@ -118,10 +131,19 @@ impl GraphicsEngine {
     }
 
     pub fn setup_frame_buffer(&mut self) {
-        self.frame_buffer = FrameBuffer::new(
+        self.frame_buffers = [FrameBuffer::new(
             self.viewport_size.width as i32,
             self.viewport_size.height as i32,
-        )
+        ), FrameBuffer::new(
+            self.viewport_size.width as i32,
+            self.viewport_size.height as i32,
+        ), FrameBuffer::new(
+            self.viewport_size.width as i32,
+            self.viewport_size.height as i32,
+        ), FrameBuffer::new(
+            self.viewport_size.width as i32,
+            self.viewport_size.height as i32,
+        )]
     }
 
     pub fn transform(&mut self) -> &mut Transform {
@@ -223,7 +245,15 @@ impl GraphicsEngine {
         );
     }
 
+    pub fn clear(&self) {
+        unsafe {
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
+    }
+
     pub fn draw_world(&mut self) {
+        
         self.draw(0);
     }
 
@@ -241,11 +271,12 @@ impl GraphicsEngine {
     }
 
     pub fn begin_drawing(&mut self) {
-        self.frame_buffer.begin_drawing();
+        self.current_frame_buffer = (self.current_frame_buffer + 1)%3;
+        self.frame_buffers[self.current_frame_buffer].begin_drawing();
     }
 
     pub fn copy_to_back_buffer(&mut self) {
-        self.frame_buffer.copy_to_back_buffer(&self.programs[5]);
+        self.frame_buffers[self.current_frame_buffer].copy_to_back_buffer(&self.programs[5]);
     }
 
     fn textures_are_different(a: &Option<Arc<Texture>>, b: &Option<Arc<Texture>>) -> bool {
@@ -324,6 +355,15 @@ impl GraphicsEngine {
         } else {
             true
         }
+    }
+
+    pub fn update_z(&mut self) {
+        unsafe {
+            self.frame_buffers[self.current_frame_buffer].depth_buffer.bind();
+            self.z_finder.read();
+            self.frame_buffers[self.current_frame_buffer].depth_buffer.unbind();
+        }
+
     }
 }
 
@@ -458,57 +498,83 @@ impl GLDrawing {
 }
 
 pub struct GLZFinder {
-    pixel_buffers: [PixelBuffer; 2],
+    pixel_buffers: [PixelBuffer; 4],
     current: usize,
-    width: i32,
-    height: i32,
+    width: usize,
+    height: usize,
 }
 
 impl GLZFinder {
-    pub fn new() -> GLZFinder {
+    pub fn new(width: usize, height: usize) -> GLZFinder {
         GLZFinder {
-            pixel_buffers: [PixelBuffer::new(), PixelBuffer::new()],
+            pixel_buffers: [PixelBuffer::new(width, height), PixelBuffer::new(width, height), PixelBuffer::new(width, height), PixelBuffer::new(width, height)],
             current: 0,
-            width: 0,
-            height: 0,
+            width,
+            height,
         }
     }
 
-    fn read(&mut self, width: i32, height: i32) {
-        self.current = (self.current + 1) % 2;
-        self.width = width;
-        self.height = height;
+    pub fn read(&mut self) {
+        self.current = (self.current + 3) % 4;
         unsafe {
-            let mut zero: usize = 0;
-            self.pixel_buffers[(self.current + 1) % 2].bind();
-            gl::ReadPixels(
+            self.pixel_buffers[(self.current + 3) % 4].bind();
+            loop {
+                let error = gl::GetError();
+                if error != gl::NO_ERROR {
+                    error!("{}", error);
+                } else {
+                    break;
+                }
+            }
+            gl::GetTexImage(
+                gl::TEXTURE_2D,
                 0,
-                0,
-                width,
-                height,
                 gl::DEPTH_COMPONENT,
                 gl::FLOAT,
-                zero as *mut c_void,
+                std::ptr::null_mut()
+                // 0,
+                // 0,
+                // self.width as i32,
+                // self.height as i32,
+                // gl::DEPTH_COMPONENT,
+                // gl::FLOAT,
+                // std::ptr::null_mut(),
             );
-            self.pixel_buffers[(self.current + 1) % 2].unbind();
+            loop {
+                let error = gl::GetError();
+                if error != gl::NO_ERROR {
+                    error!("{}", error);
+                } else {
+                    break;
+                }
+            }
+            self.pixel_buffers[(self.current + 3) % 4].unbind();
         }
     }
 }
 
 impl ZFinder for GLZFinder {
     fn get_z_at(&self, buffer_coordinate: BufferCoordinate) -> f32 {
-        let index = ((buffer_coordinate.y * self.height) + buffer_coordinate.x) as usize;
+        // return 0.0;
+        if buffer_coordinate.y < 0 || buffer_coordinate.y >= self.height as i32 ||  buffer_coordinate.x < 0 || buffer_coordinate.x >= self.width as i32 {
+            return 0.0;
+        }
+        let index = (buffer_coordinate.y * self.width as i32) + buffer_coordinate.x;
+        let index = if index < 0 { return 0.0; } else { index as usize };
         let start = Instant::now();
-        let mut buffer: Vec<f32> = vec![0.0];
         unsafe {
             self.pixel_buffers[self.current].bind();
             let out = self.pixel_buffers[self.current].read();
+            self.pixel_buffers[self.current].unmap();
             self.pixel_buffers[self.current].unbind();
-            debug!("picking took {}ms", start.elapsed().as_micros());
             if let Some(out) = out {
-                return out[index];
+                let elapsed = start.elapsed().as_micros();
+                if elapsed > 0 {
+                    debug!("picking took {}ms got {}", elapsed, out[index]);
+                }
+                2.0 * out[index] - 1.0
             } else {
-                return 0.0;
+                0.0
             }
         }
     }

@@ -5,7 +5,7 @@ use crate::graphics::DrawingType;
 pub struct FrameBuffer {
     id: gl::types::GLuint,
     color_buffer: FrameBufferTexture,
-    depth_buffer: RenderBuffer,
+    pub depth_buffer: FrameBufferTexture,
     vbo: MultiVBO,
 }
 
@@ -13,7 +13,7 @@ impl FrameBuffer {
     pub fn new(width: i32, height: i32) -> FrameBuffer {
         let mut id: gl::types::GLuint = 0;
         let color_buffer = FrameBufferTexture::new(width, height, gl::RGBA, gl::UNSIGNED_BYTE);
-        let depth_buffer = RenderBuffer::new(width, height);
+        let depth_buffer = FrameBufferTexture::new(width, height, gl::DEPTH_COMPONENT, gl::FLOAT);
         let mut vbo = MultiVBO::new(DrawingType::FullScreenQuad, 1, 24);
         vbo.load(
             0,
@@ -86,12 +86,13 @@ impl FrameBuffer {
         );
     }
 
-    unsafe fn attach_depth_buffer(&self, buffer: &RenderBuffer) {
-        gl::FramebufferRenderbuffer(
+    unsafe fn attach_depth_buffer(&self, texture: &FrameBufferTexture) {
+        gl::FramebufferTexture2D(
             gl::FRAMEBUFFER,
             gl::DEPTH_ATTACHMENT,
-            gl::RENDERBUFFER,
-            buffer.id,
+            gl::TEXTURE_2D,
+            texture.id,
+            0,
         );
     }
 

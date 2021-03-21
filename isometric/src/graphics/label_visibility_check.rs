@@ -1,4 +1,4 @@
-use super::{GLZFinder, GraphicsEngine};
+use super::{GraphicsEngine};
 use commons::na::Matrix2;
 use commons::rectangle::Rectangle;
 use commons::{v2, V2};
@@ -25,12 +25,12 @@ pub struct LabelVisibilityChecker<'a> {
 }
 
 impl<'a> LabelVisibilityChecker<'a> {
-    pub fn new(graphics_engine: &'a GraphicsEngine, z_finder: &'a GLZFinder) -> LabelVisibilityChecker<'a> {
+    pub fn new(graphics_engine: &'a GraphicsEngine) -> LabelVisibilityChecker<'a> {
         LabelVisibilityChecker {
             padding: graphics_engine.label_padding,
             transform: &graphics_engine.transform,
             physical_size: &graphics_engine.viewport_size,
-            z_finder,
+            z_finder: &graphics_engine.z_finder,
             pixel_to_screen: graphics_engine.get_pixel_to_screen(),
             ui_elements: vec![],
         }

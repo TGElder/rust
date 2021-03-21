@@ -2,20 +2,28 @@ use std::slice;
 
 pub struct PixelBuffer {
     id: gl::types::GLuint,
+    width: usize,
+    height: usize,
 }
 
 impl PixelBuffer {
-    pub fn new() -> PixelBuffer {
+    pub fn new(width: usize, height: usize) -> PixelBuffer {
         let mut id: gl::types::GLuint = 0;
         unsafe {
             gl::GenBuffers(1, &mut id);
         }
-        let out = PixelBuffer { id };
+        let out = PixelBuffer { id, width, height };
         unsafe {
             out.bind();
+            out.init();
             out.unbind();
         }
         out
+    }
+
+    pub unsafe fn init(&self) {
+        
+        gl::BufferData(gl::PIXEL_PACK_BUFFER, (self.width * self.height * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,  std::ptr::null_mut(), gl::STREAM_READ);
     }
 
     pub unsafe fn read(&self) -> Option<&[f32]> {
@@ -23,8 +31,12 @@ impl PixelBuffer {
         if ptr.is_null() {
             None
         } else {
-            Some(slice::from_raw_parts(ptr as *mut f32, 1))
+            Some(slice::from_raw_parts(ptr as *mut f32, (self.width * self.height) as usize))
         }
+    }
+
+    pub unsafe fn unmap(&self) {
+        gl::UnmapBuffer(gl::PIXEL_PACK_BUFFER);
     }
 
     pub unsafe fn bind(&self) {
