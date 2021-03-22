@@ -187,6 +187,8 @@ impl GraphicsEngine {
             DrawingType::Label => {
                 program.load_matrix4("projection", self.transform.compute_transformation_matrix());
                 program.load_matrix2("pixel_to_screen", self.get_pixel_to_screen());
+                program.link_texture_slot_to_variable(0, "ourTexture");
+                program.link_texture_slot_to_variable(1, "sceneDepths");
             }
             DrawingType::Billboard => {
                 program.load_matrix4("projection", self.transform.compute_transformation_matrix());
@@ -224,7 +226,11 @@ impl GraphicsEngine {
     }
 
     pub fn draw_ui(&mut self) {
-        self.draw(1);
+        unsafe {
+            self.frame_buffer.depth_buffer.bind(1);
+            self.draw(1);
+            self.frame_buffer.depth_buffer.unbind(1);
+        }
     }
 
     pub fn draw_billboards(&mut self) {

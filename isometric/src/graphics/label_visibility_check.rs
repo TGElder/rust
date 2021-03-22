@@ -37,36 +37,29 @@ impl<'a> LabelVisibilityChecker<'a> {
     }
 
     pub fn is_visible(&mut self, check: &LabelVisibilityCheck) -> bool {
-        if let VisibleBeforeUI::Yes(visible_coord) = self.visible_before_ui(check) {
-            let ui_element = self.get_ui_element(&visible_coord, &check.ui_offsets);
-            if self.ui_element_is_visible(&ui_element) {
-                self.ui_elements.push(ui_element);
-                return true;
-            }
+        let gl_coord_2d = self.gl_coord_2d(check);
+        let ui_element = self.get_ui_element(&gl_coord_2d, &check.ui_offsets);
+        if self.ui_element_is_visible(&ui_element) {
+            self.ui_elements.push(ui_element);
+            return true;
         }
+        
         false
     }
 
-    fn visible_before_ui(&self, check: &'a LabelVisibilityCheck) -> VisibleBeforeUI {
+    fn gl_coord_2d(&self, check: &'a LabelVisibilityCheck) -> GLCoord2D {
         let expected_gl_coord_4 = check.world_coord.to_gl_coord_4d(self.transform);
-        let gl_coord_2 = GLCoord2D::new(expected_gl_coord_4.x, expected_gl_coord_4.y);
-        let visibile_screen_coord = gl_coord_2.to_gl_coord_3d(self.physical_size, self.z_finder);
-
-        if expected_gl_coord_4.z - visibile_screen_coord.z < VISIBILITY_TOLERANCE {
-            VisibleBeforeUI::Yes(visibile_screen_coord)
-        } else {
-            VisibleBeforeUI::No
-        }
+        GLCoord2D::new(expected_gl_coord_4.x, expected_gl_coord_4.y)
     }
 
-    fn get_ui_element(&self, screen_coord: &GLCoord3D, offsets: &Rectangle<f32>) -> Rectangle<f32> {
+    fn get_ui_element(&self, screen_coord: &GLCoord2D, offsets: &Rectangle<f32>) -> Rectangle<f32> {
         Rectangle {
             from: self.to_screen_coord(screen_coord, offsets.from),
             to: self.to_screen_coord(screen_coord, offsets.to),
         }
     }
 
-    fn to_screen_coord(&self, screen_coord: &GLCoord3D, offset: V2<f32>) -> V2<f32> {
+    fn to_screen_coord(&self, screen_coord: &GLCoord2D, offset: V2<f32>) -> V2<f32> {
         self.pixel_to_screen * (offset * self.padding) + v2(screen_coord.x, screen_coord.y)
     }
 
@@ -79,7 +72,7 @@ impl<'a> LabelVisibilityChecker<'a> {
 }
 
 enum VisibleBeforeUI {
-    Yes(GLCoord3D),
+    Yes(GLCoord2D),
     No,
 }
 

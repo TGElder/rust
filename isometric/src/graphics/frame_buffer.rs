@@ -5,15 +5,15 @@ use crate::graphics::DrawingType;
 pub struct FrameBuffer {
     id: gl::types::GLuint,
     color_buffer: FrameBufferTexture,
-    depth_buffer: FrameBufferTexture,
+    pub depth_buffer: FrameBufferTexture,
     vbo: MultiVBO,
 }
 
 impl FrameBuffer {
     pub fn new(width: i32, height: i32) -> FrameBuffer {
         let mut id: gl::types::GLuint = 0;
-        let color_buffer = FrameBufferTexture::new(width, height, gl::RGBA, gl::UNSIGNED_BYTE);
-        let depth_buffer = FrameBufferTexture::new(width, height, gl::DEPTH_COMPONENT, gl::FLOAT);
+        let color_buffer = FrameBufferTexture::new(width, height, gl::TEXTURE_2D, gl::RGBA, gl::UNSIGNED_BYTE);
+        let depth_buffer = FrameBufferTexture::new(width, height, gl::TEXTURE_2D, gl::DEPTH_COMPONENT, gl::FLOAT);
         let mut vbo = MultiVBO::new(DrawingType::FullScreenQuad, 1, 24);
         vbo.load(0, vec![
             -1.0,  1.0,  0.0, 1.0,
@@ -59,9 +59,9 @@ impl FrameBuffer {
             gl::Disable(gl::DEPTH_TEST);
             program.set_used();
             program.link_texture_slot_to_variable(0, "screenTexture");
-            self.color_buffer.bind();
+            self.color_buffer.bind(0);
             self.vbo.draw();
-            self.color_buffer.unbind();
+            self.color_buffer.unbind(0);
         }
     }
 
@@ -121,19 +121,21 @@ impl Drop for FrameBuffer {
 
 pub struct FrameBufferTexture {
     id: gl::types::GLuint,
+    target: gl::types::GLenum,
 }
 
 impl FrameBufferTexture {
     pub fn new(
         width: i32,
         height: i32,
+        target: gl::types::GLenum,
         format: gl::types::GLenum,
         type_: gl::types::GLenum,
     ) -> FrameBufferTexture {
         let mut id: gl::types::GLuint = 0;
         unsafe {
             gl::GenTextures(1, &mut id);
-            let mut out = FrameBufferTexture { id };
+            let mut out = FrameBufferTexture { id, target };
             out.init(width, height, format, type_);
             out
         }
@@ -144,15 +146,15 @@ impl FrameBufferTexture {
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn bind(&self) {
-        gl::ActiveTexture(gl::TEXTURE0);
-        gl::BindTexture(gl::TEXTURE_2D, self.id);
+    pub unsafe fn bind(&self, slot: u32) {
+        gl::ActiveTexture(gl::TEXTURE0 + slot);
+        gl::BindTexture(self.target, self.id);
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn unbind(&self) {
-        gl::ActiveTexture(gl::TEXTURE0);
-        gl::BindTexture(gl::TEXTURE_2D, 0);
+    pub unsafe fn unbind(&self, slot: u32) {
+        gl::ActiveTexture(gl::TEXTURE0 + slot);
+        gl::BindTexture(self.target, 0);
     }
 
     fn init(
@@ -163,13 +165,13 @@ impl FrameBufferTexture {
         type_: gl::types::GLenum,
     ) {
         unsafe {
-            self.bind();
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            self.bind(0);
+            gl::TexParameteri(self.target, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(self.target, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(self.target, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(self.target, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
             gl::TexImage2D(
-                gl::TEXTURE_2D,
+                self.target,
                 0,
                 format as i32,
                 width,
@@ -179,7 +181,7 @@ impl FrameBufferTexture {
                 type_,
                 std::ptr::null(),
             );
-            self.unbind();
+            self.unbind(0);
         }
     }
 }
