@@ -33,7 +33,7 @@ pub struct GraphicsEngine {
     projection: Isometric,
     drawings: HashMap<String, GLDrawing>,
     texture_library: TextureLibrary,
-    frame_buffers: [FrameBuffer; 4],
+    frame_buffer: FrameBuffer,
     current_frame_buffer: usize,
     pub z_finder: GLZFinder,
 }
@@ -99,19 +99,10 @@ impl GraphicsEngine {
             projection,
             drawings: HashMap::new(),
             texture_library: TextureLibrary::default(),
-            frame_buffers: [FrameBuffer::new(
+            frame_buffer: FrameBuffer::new(
                 params.viewport_size.width as i32,
                 params.viewport_size.height as i32,
-            ), FrameBuffer::new(
-                params.viewport_size.width as i32,
-                params.viewport_size.height as i32,
-            ),FrameBuffer::new(
-                params.viewport_size.width as i32,
-                params.viewport_size.height as i32,
-            ),FrameBuffer::new(
-                params.viewport_size.width as i32,
-                params.viewport_size.height as i32,
-            )],
+            ),
             current_frame_buffer: 0,
             z_finder: GLZFinder::new(params.viewport_size.width as usize, params.viewport_size.height as usize),
         };
@@ -131,19 +122,10 @@ impl GraphicsEngine {
     }
 
     pub fn setup_frame_buffer(&mut self) {
-        self.frame_buffers = [FrameBuffer::new(
+        self.frame_buffer = FrameBuffer::new(
             self.viewport_size.width as i32,
             self.viewport_size.height as i32,
-        ), FrameBuffer::new(
-            self.viewport_size.width as i32,
-            self.viewport_size.height as i32,
-        ), FrameBuffer::new(
-            self.viewport_size.width as i32,
-            self.viewport_size.height as i32,
-        ), FrameBuffer::new(
-            self.viewport_size.width as i32,
-            self.viewport_size.height as i32,
-        )]
+        );
     }
 
     pub fn transform(&mut self) -> &mut Transform {
@@ -272,11 +254,11 @@ impl GraphicsEngine {
 
     pub fn begin_drawing(&mut self) {
         self.current_frame_buffer = (self.current_frame_buffer + 1)%3;
-        self.frame_buffers[self.current_frame_buffer].begin_drawing();
+        self.frame_buffer.begin_drawing();
     }
 
     pub fn copy_to_back_buffer(&mut self) {
-        self.frame_buffers[self.current_frame_buffer].copy_to_back_buffer(&self.programs[5]);
+        self.frame_buffer.copy_to_back_buffer(&self.programs[5]);
     }
 
     fn textures_are_different(a: &Option<Arc<Texture>>, b: &Option<Arc<Texture>>) -> bool {
@@ -359,9 +341,9 @@ impl GraphicsEngine {
 
     pub fn update_z(&mut self) {
         unsafe {
-            self.frame_buffers[self.current_frame_buffer].depth_buffer.bind();
+            // self.frame_buffer.color_buffer.bind();
             self.z_finder.read();
-            self.frame_buffers[self.current_frame_buffer].depth_buffer.unbind();
+            // self.frame_buffer.color_buffer.unbind();
         }
 
     }
@@ -498,7 +480,7 @@ impl GLDrawing {
 }
 
 pub struct GLZFinder {
-    pixel_buffers: [PixelBuffer; 4],
+    pixel_buffers: [PixelBuffer; 2],
     current: usize,
     width: usize,
     height: usize,
@@ -507,7 +489,7 @@ pub struct GLZFinder {
 impl GLZFinder {
     pub fn new(width: usize, height: usize) -> GLZFinder {
         GLZFinder {
-            pixel_buffers: [PixelBuffer::new(width, height), PixelBuffer::new(width, height), PixelBuffer::new(width, height), PixelBuffer::new(width, height)],
+            pixel_buffers: [PixelBuffer::new(width, height), PixelBuffer::new(width, height)],
             current: 0,
             width,
             height,
@@ -515,9 +497,9 @@ impl GLZFinder {
     }
 
     pub fn read(&mut self) {
-        self.current = (self.current + 3) % 4;
+        self.current = (self.current + 1) % 2;
         unsafe {
-            self.pixel_buffers[(self.current + 3) % 4].bind();
+            self.pixel_buffers[(self.current + 1) % 2].bind();
             loop {
                 let error = gl::GetError();
                 if error != gl::NO_ERROR {
@@ -526,19 +508,21 @@ impl GLZFinder {
                     break;
                 }
             }
-            gl::GetTexImage(
-                gl::TEXTURE_2D,
+            let mut zero: usize = 0;
+            gl::ReadBuffer(gl::BACK);
+            gl::ReadPixels(
+                // gl::TEXTURE_2D,
+                // 0,
+                // gl::RGBA,
+                // gl::UNSIGNED_BYTE,
+                // std::ptr::null_mut()
                 0,
-                gl::DEPTH_COMPONENT,
-                gl::FLOAT,
-                std::ptr::null_mut()
-                // 0,
-                // 0,
-                // self.width as i32,
-                // self.height as i32,
-                // gl::DEPTH_COMPONENT,
-                // gl::FLOAT,
-                // std::ptr::null_mut(),
+                0,
+                self.width as i32,
+                self.height as i32,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                zero as *mut c_void,
             );
             loop {
                 let error = gl::GetError();
@@ -548,7 +532,7 @@ impl GLZFinder {
                     break;
                 }
             }
-            self.pixel_buffers[(self.current + 3) % 4].unbind();
+            self.pixel_buffers[(self.current + 1) % 2].unbind();
         }
     }
 }
@@ -570,9 +554,9 @@ impl ZFinder for GLZFinder {
             if let Some(out) = out {
                 let elapsed = start.elapsed().as_micros();
                 if elapsed > 0 {
-                    debug!("picking took {}ms got {}", elapsed, out[index]);
+                    debug!("picking took {}ms got {}", elapsed, out[index * 4 + 3] as f32 / 255.0);
                 }
-                2.0 * out[index] - 1.0
+                (out[index * 4 + 3] as f32) / 255.0
             } else {
                 0.0
             }

@@ -23,15 +23,15 @@ impl PixelBuffer {
 
     pub unsafe fn init(&self) {
         
-        gl::BufferData(gl::PIXEL_PACK_BUFFER, (self.width * self.height * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,  std::ptr::null_mut(), gl::STREAM_READ);
+        gl::BufferData(gl::PIXEL_PACK_BUFFER, (self.width * self.height * 4 * std::mem::size_of::<u8>()) as gl::types::GLsizeiptr,  std::ptr::null_mut(), gl::STREAM_READ);
     }
 
-    pub unsafe fn read(&self) -> Option<&[f32]> {
+    pub unsafe fn read(&self) -> Option<&[u8]> {
         let ptr = gl::MapBuffer(gl::PIXEL_PACK_BUFFER, gl::READ_ONLY);
         if ptr.is_null() {
             None
         } else {
-            Some(slice::from_raw_parts(ptr as *mut f32, (self.width * self.height) as usize))
+            Some(slice::from_raw_parts(ptr as *mut u8, (self.width * self.height * 4) as usize))
         }
     }
 

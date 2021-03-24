@@ -169,55 +169,40 @@ impl IsometricEngine {
 
     pub fn run(&mut self) {
         while self.running {
-            let start = std::time::Instant::now();
             self.handle_commands();
-            let handle_command = start.elapsed().as_micros();
             self.consume_cursors();
-            let consume_cursors = start.elapsed().as_micros();
             self.consume_glutin_events();
-            let consume_glutin_events = start.elapsed().as_micros();
             self.consume_event(Event::Tick);
-            let consume_event = start.elapsed().as_micros();
             self.look_at();
-            let look_at = start.elapsed().as_micros();
             // self.graphics.clear();
             self.graphics.begin_drawing();
-            let begin_drawing = start.elapsed().as_micros();
             self.graphics.draw_world();
-            let draw_world = start.elapsed().as_micros();
             self.graphics.draw_textured();
-            let draw_textured = start.elapsed().as_micros();
+            let start = std::time::Instant::now();
             self.update_cursors();
-            let update_cursors = start.elapsed().as_micros();
-          
             self.graphics.draw_ui();
-            let draw_ui = start.elapsed().as_micros();
             self.graphics.draw_billboards();
-            let draw_billboards = start.elapsed().as_micros();
             self.graphics.copy_to_back_buffer();
-            let copy_to_back_buffer = start.elapsed().as_micros();
-            self.windowed_context.swap_buffers().unwrap();
-            let swap_buffers = start.elapsed().as_micros();
             self.graphics.update_z();
-            let update_z = start.elapsed().as_micros();
-            let elapsed = start.elapsed().as_micros();
-            if elapsed > 17000 {
-                debug!("{}us frame", elapsed);
-                debug!("{} handle_command", handle_command);
-                debug!("{} consume_cursors", consume_cursors);
-                debug!("{} consume_glutin_events", consume_glutin_events);
-                debug!("{} consume_event", consume_event);
-                debug!("{} look_at", look_at);
-                // debug!("{} begin_drawing", begin_drawing);
-                debug!("{} draw_world", draw_world);
-                debug!("{} draw_textured", draw_textured);
-                debug!("{} update_cursors", update_cursors);
-                debug!("{} update_z", update_z);
-                debug!("{} draw_ui", draw_ui);
-                debug!("{} draw_billboards", draw_billboards);
-                // debug!("{} copy_to_back_buffer", copy_to_back_buffer);
-                debug!("{} swap_buffers", swap_buffers);
-            }
+            debug!("{}us", start.elapsed().as_micros());
+            self.windowed_context.swap_buffers().unwrap();
+            // if elapsed > 17000 {
+            //     debug!("{}us frame", elapsed);
+            //     debug!("{} handle_command", handle_command);
+            //     debug!("{} consume_cursors", consume_cursors);
+            //     debug!("{} consume_glutin_events", consume_glutin_events);
+            //     debug!("{} consume_event", consume_event);
+            //     debug!("{} look_at", look_at);
+            //     // debug!("{} begin_drawing", begin_drawing);
+            //     debug!("{} draw_world", draw_world);
+            //     debug!("{} draw_textured", draw_textured);
+            //     debug!("{} update_cursors", update_cursors);
+            //     debug!("{} update_z", update_z);
+            //     debug!("{} draw_ui", draw_ui);
+            //     debug!("{} draw_billboards", draw_billboards);
+            //     // debug!("{} copy_to_back_buffer", copy_to_back_buffer);
+            //     debug!("{} swap_buffers", swap_buffers);
+            // }
         }
 
         self.shutdown();

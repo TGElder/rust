@@ -4,7 +4,7 @@ use crate::graphics::DrawingType;
 
 pub struct FrameBuffer {
     id: gl::types::GLuint,
-    color_buffer: FrameBufferTexture,
+    pub color_buffer: FrameBufferTexture,
     pub depth_buffer: FrameBufferTexture,
     vbo: MultiVBO,
 }
@@ -58,9 +58,12 @@ impl FrameBuffer {
             gl::Disable(gl::DEPTH_TEST);
             program.set_used();
             program.link_texture_slot_to_variable(0, "screenTexture");
-            self.color_buffer.bind();
+            program.link_texture_slot_to_variable(1, "depthTexture");
+            self.color_buffer.bind(0);
+            self.depth_buffer.bind(1);
             self.vbo.draw();
-            self.color_buffer.unbind();
+            self.depth_buffer.unbind(1);
+            self.color_buffer.unbind(0);
         }
     }
 
@@ -137,14 +140,14 @@ impl FrameBufferTexture {
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn bind(&self) {
-        gl::ActiveTexture(gl::TEXTURE0);
+    pub unsafe fn bind(&self, slot: u32) {
+        gl::ActiveTexture(gl::TEXTURE0 + slot);
         gl::BindTexture(gl::TEXTURE_2D, self.id);
     }
 
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn unbind(&self) {
-        gl::ActiveTexture(gl::TEXTURE0);
+    pub unsafe fn unbind(&self, slot: u32) {
+        gl::ActiveTexture(gl::TEXTURE0 + slot);
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
@@ -156,7 +159,7 @@ impl FrameBufferTexture {
         type_: gl::types::GLenum,
     ) {
         unsafe {
-            self.bind();
+            self.bind(0);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
@@ -172,7 +175,7 @@ impl FrameBufferTexture {
                 type_,
                 std::ptr::null(),
             );
-            self.unbind();
+            self.unbind(0);
         }
     }
 }
