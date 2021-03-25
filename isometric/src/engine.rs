@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use commons::async_channel::{unbounded, Receiver, Sender, TryRecvError};
+use commons::log::debug;
 use coords::*;
 use cursor_handler::*;
 use event_handlers::*;
@@ -167,7 +168,9 @@ impl IsometricEngine {
     }
 
     pub fn run(&mut self) {
+        self.graphics.bind();
         while self.running {
+            let start = std::time::Instant::now();
             self.handle_commands();
             self.consume_cursors();
             self.consume_glutin_events();
@@ -176,11 +179,21 @@ impl IsometricEngine {
             self.graphics.begin_drawing();
             self.graphics.draw_world();
             self.graphics.draw_textured();
-            self.update_cursors();
             self.graphics.draw_billboards();
             self.graphics.copy_to_back_buffer();
             self.graphics.draw_ui();
+            self.graphics.bind();
+            let before_update_cursors = start.elapsed().as_micros();
+            self.update_cursors();
+            let after_update_cursors = start.elapsed().as_micros();
             self.windowed_context.swap_buffers().unwrap();
+            if start.elapsed().as_micros() > 17000 {
+
+                debug!("{}/{}/{}", 
+                before_update_cursors,
+                after_update_cursors,
+                start.elapsed().as_micros());
+            }
         }
 
         self.shutdown();

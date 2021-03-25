@@ -242,6 +242,10 @@ impl GraphicsEngine {
         self.draw(4);
     }
 
+    pub fn bind(&mut self) {
+        self.frame_buffer.bind();
+    }
+
     pub fn begin_drawing(&mut self) {
         self.frame_buffer.begin_drawing();
     }

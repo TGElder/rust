@@ -43,7 +43,6 @@ impl FrameBuffer {
     }
 
     pub fn begin_drawing(&self) {
-        self.bind();
         unsafe {
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -65,7 +64,7 @@ impl FrameBuffer {
         }
     }
 
-    fn bind(&self) {
+    pub fn bind(&self) {
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, self.id);
         }
