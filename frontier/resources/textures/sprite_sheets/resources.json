@@ -2,147 +2,147 @@
 
 "bananas":
 {
-	"frame": {"x":8,"y":8,"w":128,"h":128},
+	"frame": {"x":4,"y":4,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "bison":
 {
-	"frame": {"x":144,"y":8,"w":128,"h":128},
+	"frame": {"x":88,"y":4,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "coal":
 {
-	"frame": {"x":280,"y":8,"w":128,"h":128},
+	"frame": {"x":172,"y":4,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "crabs":
 {
-	"frame": {"x":8,"y":144,"w":128,"h":128},
+	"frame": {"x":256,"y":4,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "crops":
 {
-	"frame": {"x":144,"y":144,"w":128,"h":128},
+	"frame": {"x":340,"y":4,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "deer":
 {
-	"frame": {"x":280,"y":144,"w":128,"h":128},
+	"frame": {"x":424,"y":4,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "fur":
 {
-	"frame": {"x":8,"y":280,"w":128,"h":128},
+	"frame": {"x":4,"y":88,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "gems":
 {
-	"frame": {"x":144,"y":280,"w":128,"h":128},
+	"frame": {"x":88,"y":88,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "gold":
 {
-	"frame": {"x":280,"y":280,"w":128,"h":128},
+	"frame": {"x":172,"y":88,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "iron":
 {
-	"frame": {"x":8,"y":416,"w":128,"h":128},
+	"frame": {"x":256,"y":88,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "ivory":
 {
-	"frame": {"x":144,"y":416,"w":128,"h":128},
+	"frame": {"x":340,"y":88,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "pasture":
 {
-	"frame": {"x":280,"y":416,"w":128,"h":128},
+	"frame": {"x":424,"y":88,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "spice":
 {
-	"frame": {"x":8,"y":552,"w":128,"h":128},
+	"frame": {"x":4,"y":172,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "stone":
 {
-	"frame": {"x":144,"y":552,"w":128,"h":128},
+	"frame": {"x":88,"y":172,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "truffles":
 {
-	"frame": {"x":280,"y":552,"w":128,"h":128},
+	"frame": {"x":172,"y":172,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "whales":
 {
-	"frame": {"x":8,"y":688,"w":128,"h":128},
+	"frame": {"x":256,"y":172,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 },
 "wood":
 {
-	"frame": {"x":144,"y":688,"w":128,"h":128},
+	"frame": {"x":340,"y":172,"w":80,"h":80},
 	"rotated": false,
 	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":80},
+	"sourceSize": {"w":80,"h":80}
 }},
 "meta": {
 	"app": "https://www.codeandweb.com/texturepacker",
 	"version": "1.0",
 	"image": "resources.png",
 	"format": "RGBA8888",
-	"size": {"w":416,"h":824},
+	"size": {"w":508,"h":256},
 	"scale": "1",
-	"smartupdate": "$TexturePacker:SmartUpdate:01fb5dc89e60697103c2abc63c18bb8e:f9df5c497610a00192856d0dcf04e15c:19b347f51627ec12809fffa771f50137$"
+	"smartupdate": "$TexturePacker:SmartUpdate:ced2296e9856ad14c126eef2ea915fad:7f06c07aecd7974924821113ba05ce15:19b347f51627ec12809fffa771f50137$"
 }
 }

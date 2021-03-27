@@ -29,7 +29,7 @@ pub struct LoadArtistParams {
 impl Default for LoadArtistParams {
     fn default() -> Self {
         LoadArtistParams {
-            load_size: 0.15,
+            load_size: 80.0 / 512.0,
             load_height: 0.3,
             sprite_sheet_image: "resources/textures/sprite_sheets/resources.png".to_string(),
             sprite_sheet_json: "resources/textures/sprite_sheets/resources.json".to_string(),

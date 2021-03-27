@@ -113,6 +113,7 @@ impl IsometricEngine {
         let graphics = GraphicsEngine::new(GraphicsEngineParameters {
             z_scale: 1.0 / params.max_z,
             viewport_size: physical_window_size,
+            initial_zoom: 1.0/1024.0,
             label_padding: params.label_padding,
         });
 

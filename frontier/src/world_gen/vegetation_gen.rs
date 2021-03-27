@@ -136,20 +136,6 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
             }
         }
     }
-
-    pub fn set_vegetation_height(&mut self) {
-        let world = &mut self.world;
-        for x in 0..world.width() {
-            for y in 0..world.height() {
-                let position = v2(x, y);
-                let elevation = vegetation_height_at_point(&world, &position);
-                world
-                    .mut_cell_unsafe(&position)
-                    .climate
-                    .vegetation_elevation = elevation;
-            }
-        }
-    }
 }
 
 fn get_vegetation_frequency_weights(power: usize, vegetation_type: VegetationType) -> Vec<f64> {
@@ -162,30 +148,9 @@ fn equal_frequency_weights_starting_at(start_at: usize, total: usize) -> Vec<f64
         .collect()
 }
 
-fn vegetation_height_at_point(world: &World, position: &V2<usize>) -> f32 {
-    world
-        .get_adjacent_tiles_in_bounds(position)
-        .iter()
-        .map(|corner| vegetation_height_in_cell(world, corner))
-        .max_by(unsafe_ordering)
-        .unwrap_or(0.0)
-}
-
-fn vegetation_height_in_cell(world: &World, position: &V2<usize>) -> f32 {
-    if let WorldObject::Vegetation {
-        vegetation_type, ..
-    } = world.get_cell_unsafe(position).object
-    {
-        vegetation_type.height()
-    } else {
-        0.0
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use commons::almost::Almost;
 
     #[test]
     pub fn test_equal_frequency_weights_starting_at_start() {
@@ -199,24 +164,5 @@ mod tests {
         let actual = equal_frequency_weights_starting_at(3, 5);
         let expected = vec![0.0, 0.0, 0.0, 1.0, 1.0];
         assert_eq!(actual, expected);
-    }
-
-    #[test]
-    pub fn test_vegetation_at() {
-        let mut world = World::new(M::zeros(3, 3), 0.5);
-        world.mut_cell_unsafe(&v2(0, 0)).object = WorldObject::Vegetation {
-            vegetation_type: VegetationType::PalmTree,
-            offset: v2(0.0, 0.0),
-        };
-        assert!(vegetation_height_at_point(&world, &v2(0, 0))
-            .almost(&VegetationType::PalmTree.height()));
-        assert!(vegetation_height_at_point(&world, &v2(1, 0))
-            .almost(&VegetationType::PalmTree.height()));
-        assert!(vegetation_height_at_point(&world, &v2(2, 0)).almost(&0.0));
-        assert!(vegetation_height_at_point(&world, &v2(0, 1))
-            .almost(&VegetationType::PalmTree.height()));
-        assert!(vegetation_height_at_point(&world, &v2(0, 2)).almost(&0.0));
-        assert!(vegetation_height_at_point(&world, &v2(1, 1))
-            .almost(&VegetationType::PalmTree.height()));
     }
 }

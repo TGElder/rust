@@ -28,16 +28,6 @@ impl VegetationType {
         }
     }
 
-    pub fn height(self) -> f32 {
-        match self {
-            VegetationType::SnowTree => 0.0075,
-            VegetationType::EvergreenTree => 0.0075,
-            VegetationType::DeciduousTree => 0.0075,
-            VegetationType::PalmTree => 0.0075,
-            VegetationType::Cactus => 0.004,
-        }
-    }
-
     pub fn in_range_temperature(self, temperature: f32) -> bool {
         match self {
             VegetationType::SnowTree => (-5.0..0.0).contains(&temperature),

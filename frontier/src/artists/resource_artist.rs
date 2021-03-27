@@ -20,7 +20,7 @@ pub struct ResourceArtistParameters {
 impl Default for ResourceArtistParameters {
     fn default() -> ResourceArtistParameters {
         ResourceArtistParameters {
-            size: 0.7,
+            size: 360.0 / 512.0,
             hover: 0.5,
         }
     }

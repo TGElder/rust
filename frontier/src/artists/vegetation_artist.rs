@@ -8,30 +8,14 @@ use isometric::coords::*;
 use isometric::drawing::*;
 use isometric::Command;
 use std::collections::HashMap;
-use std::default::Default;
 use std::fmt::Debug;
 
-#[derive(Clone, Copy)]
-pub struct VegatationArtistParams {
-    exaggeration: f32,
-}
-
-impl Default for VegatationArtistParams {
-    fn default() -> VegatationArtistParams {
-        VegatationArtistParams {
-            exaggeration: 100.0,
-        }
-    }
-}
-
 #[derive(Clone)]
-pub struct VegetationArtist {
-    params: VegatationArtistParams,
-}
+pub struct VegetationArtist {}
 
 impl VegetationArtist {
-    pub fn new(params: VegatationArtistParams) -> VegetationArtist {
-        VegetationArtist { params }
+    pub fn new() -> VegetationArtist {
+        VegetationArtist {}
     }
 
     pub fn draw(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Vec<Command> {
@@ -57,7 +41,7 @@ impl VegetationArtist {
                             WorldCoord::new(
                                 x,
                                 y,
-                                z + (vegetation_type.height() * self.params.exaggeration) / 2.0,
+                                z + size(vegetation_type) / 2.0,
                             )
                         })
                         .into_iter()
@@ -84,7 +68,7 @@ impl VegetationArtist {
         let texture_coords = &Rectangle::unit();
 
         for (vegetation_type, world_coords) in vegetation {
-            let size = vegetation_type.height() * self.params.exaggeration;
+            let size = size(vegetation_type);
             out.append(&mut create_and_update_billboards(
                 format!("{:?}-{:?}", label, vegetation_type.name()),
                 texture(vegetation_type),
@@ -126,5 +110,15 @@ fn texture(vegetation_type: VegetationType) -> &'static str {
         VegetationType::DeciduousTree => "resources/textures/fxemoji/tree.png",
         VegetationType::PalmTree => "resources/textures/fxemoji/palm.png",
         VegetationType::Cactus => "resources/textures/fxemoji/cactus.png",
+    }
+}
+
+fn size(vegetation_type: VegetationType) -> f32 {
+    match vegetation_type {
+        VegetationType::SnowTree => 384.0 / 512.0,
+        VegetationType::EvergreenTree => 384.0 / 512.0,
+        VegetationType::DeciduousTree => 384.0 / 512.0,
+        VegetationType::PalmTree => 384.0 / 512.0,
+        VegetationType::Cactus => 200.0 / 512.0,
     }
 }
