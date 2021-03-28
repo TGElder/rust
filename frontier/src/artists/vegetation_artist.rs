@@ -101,11 +101,11 @@ fn snap_to_middle(world: &World, tile: &V2<usize>) -> Option<WorldCoord> {
 
 fn texture(vegetation_type: VegetationType) -> &'static str {
     match vegetation_type {
-        VegetationType::SnowTree => "resources/textures/twemoji/derivative/snow_pine.png",
-        VegetationType::EvergreenTree => "resources/textures/twemoji/derivative/pine.png",
-        VegetationType::DeciduousTree => "resources/textures/fxemoji/tree.png",
+        VegetationType::SnowTree => "resources/textures/twemoji/derivative/snow_pine",
+        VegetationType::EvergreenTree => "resources/textures/twemoji/derivative/pine",
+        VegetationType::DeciduousTree => "resources/textures/fxemoji/tree",
         VegetationType::PalmTree => "resources/textures/fxemoji/palm",
-        VegetationType::Cactus => "resources/textures/fxemoji/cactus.png",
+        VegetationType::Cactus => "resources/textures/fxemoji/cactus",
     }
 }
 

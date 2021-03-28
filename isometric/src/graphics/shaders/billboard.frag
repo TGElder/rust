@@ -11,7 +11,7 @@ uniform sampler2D ourTexture;
 void main()
 {
     vec4 texel = texture(ourTexture, IN.TexCoord);
-    if(texel.a < 1.0)
+    if(texel.a <= 0.5)
         discard;
     if(texel.a <= 1.0)
         texel.a = 1.0;

@@ -58,8 +58,21 @@ impl Texture {
             self.bind(0);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST_MIPMAP_NEAREST as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST_MIPMAP_NEAREST as i32);
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MIN_FILTER,
+                gl::NEAREST_MIPMAP_NEAREST as i32,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MAG_FILTER,
+                gl::NEAREST_MIPMAP_NEAREST as i32,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MAX_LEVEL,
+                images.len() as i32 - 1,
+            );
             for (level, image) in images.into_iter().enumerate() {
                 self.load_image(image, level as i32);
             }
@@ -85,7 +98,6 @@ impl Texture {
             gl::UNSIGNED_BYTE,
             image_ptr,
         );
-        
     }
 }
 
@@ -113,7 +125,11 @@ impl TextureLibrary {
     fn load_texture(file: &str) -> Arc<Texture> {
         let path = Path::new(file);
         if std::path::Path::is_dir(&path) {
-            let images = path.read_dir().unwrap().map(|entry| image::open(entry.unwrap().path().to_str().unwrap()).unwrap()).collect();
+            let images = path
+                .read_dir()
+                .unwrap()
+                .map(|entry| image::open(entry.unwrap().path().to_str().unwrap()).unwrap())
+                .collect();
             let texture = Texture::new(images);
             Arc::new(texture)
         } else {
