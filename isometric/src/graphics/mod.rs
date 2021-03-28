@@ -31,6 +31,7 @@ pub struct GraphicsEngine {
 pub struct GraphicsEngineParameters {
     pub z_scale: f32,
     pub viewport_size: PhysicalSize<u32>,
+    pub initial_zoom: f32,
     pub label_padding: f32,
 }
 
@@ -68,8 +69,8 @@ impl GraphicsEngine {
 
         let transform = Transform::new(
             GLCoord3D::new(
-                1.0,
-                params.viewport_size.width as f32 / params.viewport_size.height as f32,
+                params.viewport_size.width as f32 * params.initial_zoom,
+                params.viewport_size.height as f32 * params.initial_zoom,
                 params.z_scale,
             ),
             GLCoord2D::new(0.0, 0.0),

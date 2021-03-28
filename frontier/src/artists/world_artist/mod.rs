@@ -23,7 +23,6 @@ pub struct WorldArtistParameters {
     pub waterfall_color: Color,
     pub slab_size: usize,
     pub waterfall_gradient: f32,
-    pub vegetation: VegatationArtistParams,
     pub resource: ResourceArtistParameters,
 }
 
@@ -35,7 +34,6 @@ impl Default for WorldArtistParameters {
             waterfall_color: Color::new(0.0, 0.75, 1.0, 1.0),
             slab_size: 64,
             waterfall_gradient: 0.1,
-            vegetation: VegatationArtistParams::default(),
             resource: ResourceArtistParameters::default(),
         }
     }
@@ -64,7 +62,7 @@ impl WorldArtist {
             width,
             height,
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, params.slab_size),
-            vegetation_artist: VegetationArtist::new(params.vegetation),
+            vegetation_artist: VegetationArtist::new(),
             resource_artist: ResourceArtist::new(params.resource),
             crop_artist: CropArtist::new(),
             params,

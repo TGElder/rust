@@ -17,8 +17,6 @@ use super::artist_avatar::ArtistAvatar;
 
 pub struct BodyPartArtist {
     body_part: BodyPart,
-    world_width: f32,
-    world_height: f32,
     offsets: [V3<f32>; 4],
 }
 
@@ -27,8 +25,8 @@ pub struct BodyPart {
     pub offset: V3<f32>,
     pub drawing_name: &'static str,
     pub texture: &'static str,
-    pub texture_width: usize,
-    pub texture_height: usize,
+    pub width: f32,
+    pub height: f32,
     pub mask: Option<ColorMask>,
 }
 
@@ -39,15 +37,9 @@ pub struct ColorMask {
 }
 
 impl BodyPartArtist {
-    pub fn new(
-        body_part: BodyPart,
-        pixels_per_cell: f32,
-        rotation_matrices: &[Matrix3<f32>; 4],
-    ) -> BodyPartArtist {
-        let world_offset = body_part.offset / pixels_per_cell;
+    pub fn new(body_part: BodyPart, rotation_matrices: &[Matrix3<f32>; 4]) -> BodyPartArtist {
+        let world_offset = body_part.offset;
         BodyPartArtist {
-            world_width: (body_part.texture_width as f32) / pixels_per_cell,
-            world_height: (body_part.texture_height as f32) / pixels_per_cell,
             body_part,
             offsets: [
                 rotation_matrices[0] * world_offset,
@@ -104,8 +96,8 @@ impl BodyPartArtist {
                 self.body_part.drawing_name.to_string(),
                 world_coords,
                 self.get_colors(avatars, &mask.color_fn),
-                self.world_width,
-                self.world_height,
+                self.body_part.width,
+                self.body_part.height,
             )
         } else {
             let texture_coords = &Rectangle::unit();
@@ -115,8 +107,8 @@ impl BodyPartArtist {
                     .iter()
                     .map(|world_coord| Billboard {
                         world_coord,
-                        width: &self.world_width,
-                        height: &self.world_height,
+                        width: &self.body_part.width,
+                        height: &self.body_part.height,
                         texture_coords,
                     })
                     .collect(),
