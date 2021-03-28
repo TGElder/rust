@@ -17,8 +17,6 @@ use super::artist_avatar::ArtistAvatar;
 
 pub struct BodyPartArtist {
     body_part: BodyPart,
-    world_width: f32,
-    world_height: f32,
     offsets: [V3<f32>; 4],
 }
 
@@ -42,8 +40,6 @@ impl BodyPartArtist {
     pub fn new(body_part: BodyPart, rotation_matrices: &[Matrix3<f32>; 4]) -> BodyPartArtist {
         let world_offset = body_part.offset;
         BodyPartArtist {
-            world_width: body_part.width,
-            world_height: body_part.height,
             body_part,
             offsets: [
                 rotation_matrices[0] * world_offset,
@@ -100,8 +96,8 @@ impl BodyPartArtist {
                 self.body_part.drawing_name.to_string(),
                 world_coords,
                 self.get_colors(avatars, &mask.color_fn),
-                self.world_width,
-                self.world_height,
+                self.body_part.width,
+                self.body_part.height,
             )
         } else {
             let texture_coords = &Rectangle::unit();
@@ -111,8 +107,8 @@ impl BodyPartArtist {
                     .iter()
                     .map(|world_coord| Billboard {
                         world_coord,
-                        width: &self.world_width,
-                        height: &self.world_height,
+                        width: &self.body_part.width,
+                        height: &self.body_part.height,
                         texture_coords,
                     })
                     .collect(),

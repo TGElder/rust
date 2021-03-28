@@ -21,7 +21,7 @@ impl Default for ResourceArtistParameters {
     fn default() -> ResourceArtistParameters {
         ResourceArtistParameters {
             size: 360.0 / 512.0,
-            hover: 0.5,
+            hover: 256.0 / 512.0,
         }
     }
 }
