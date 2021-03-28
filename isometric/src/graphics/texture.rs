@@ -1,7 +1,9 @@
 use commons::image;
+use commons::log::debug;
 use image::{DynamicImage, GenericImageView};
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::path::Path;
 use std::sync::Arc;
 
 pub struct Texture {
@@ -11,7 +13,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(image: DynamicImage) -> Texture {
+    pub fn new(images: Vec<DynamicImage>) -> Texture {
         let mut id: gl::types::GLuint = 0;
         unsafe {
             gl::GenTextures(1, &mut id);
@@ -20,7 +22,7 @@ impl Texture {
                 width: 0,
                 height: 0,
             };
-            out.load(image);
+            out.load_images(images);
             out
         }
     }
@@ -49,32 +51,41 @@ impl Texture {
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
-    fn load(&mut self, image: DynamicImage) {
+    fn load_images(&mut self, mut images: Vec<DynamicImage>) {
+        images.sort_by_key(|image| image.dimensions().0);
+        images.reverse();
+        unsafe {
+            self.bind(0);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST_MIPMAP_NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST_MIPMAP_NEAREST as i32);
+            for (level, image) in images.into_iter().enumerate() {
+                self.load_image(image, level as i32);
+            }
+            self.unbind(0);
+        }
+    }
+
+    unsafe fn load_image(&mut self, image: DynamicImage, level: i32) {
         let dimensions = image.dimensions();
         self.width = dimensions.0;
         self.height = dimensions.1;
         let image = image.to_rgba().into_raw();
         let image_ptr: *const c_void = image.as_ptr() as *const c_void;
-
-        unsafe {
-            self.bind(0);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGBA as i32,
-                self.width as i32,
-                self.height as i32,
-                0,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                image_ptr,
-            );
-            self.unbind(0);
-        }
+        debug!("Loading {}x{} image", dimensions.0, dimensions.1);
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            level,
+            gl::RGBA as i32,
+            dimensions.0 as i32,
+            dimensions.1 as i32,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            image_ptr,
+        );
+        
     }
 }
 
@@ -100,7 +111,14 @@ impl TextureLibrary {
     }
 
     fn load_texture(file: &str) -> Arc<Texture> {
-        let texture = Texture::new(image::open(file).unwrap());
-        Arc::new(texture)
+        let path = Path::new(file);
+        if std::path::Path::is_dir(&path) {
+            let images = path.read_dir().unwrap().map(|entry| image::open(entry.unwrap().path().to_str().unwrap()).unwrap()).collect();
+            let texture = Texture::new(images);
+            Arc::new(texture)
+        } else {
+            let texture = Texture::new(vec![image::open(file).unwrap()]);
+            Arc::new(texture)
+        }
     }
 }
