@@ -25,9 +25,7 @@ impl AvatarArtist {
             body_part_artists: params
                 .body_parts
                 .iter()
-                .map(|part| {
-                    BodyPartArtist::new(part.clone(), params.pixels_per_cell, &rotation_matrices)
-                })
+                .map(|part| BodyPartArtist::new(part.clone(), &rotation_matrices))
                 .collect(),
             boat_artist: BoatArtist::new(&params.boat, params.light_direction, rotation_matrices),
             load_artist: LoadArtist::new(params.load),

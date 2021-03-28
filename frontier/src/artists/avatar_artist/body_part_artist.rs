@@ -27,8 +27,8 @@ pub struct BodyPart {
     pub offset: V3<f32>,
     pub drawing_name: &'static str,
     pub texture: &'static str,
-    pub texture_width: usize,
-    pub texture_height: usize,
+    pub width: f32,
+    pub height: f32,
     pub mask: Option<ColorMask>,
 }
 
@@ -39,15 +39,11 @@ pub struct ColorMask {
 }
 
 impl BodyPartArtist {
-    pub fn new(
-        body_part: BodyPart,
-        pixels_per_cell: f32,
-        rotation_matrices: &[Matrix3<f32>; 4],
-    ) -> BodyPartArtist {
-        let world_offset = body_part.offset / pixels_per_cell;
+    pub fn new(body_part: BodyPart, rotation_matrices: &[Matrix3<f32>; 4]) -> BodyPartArtist {
+        let world_offset = body_part.offset;
         BodyPartArtist {
-            world_width: (body_part.texture_width as f32) / pixels_per_cell,
-            world_height: (body_part.texture_height as f32) / pixels_per_cell,
+            world_width: body_part.width,
+            world_height: body_part.height,
             body_part,
             offsets: [
                 rotation_matrices[0] * world_offset,

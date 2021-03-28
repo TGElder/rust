@@ -16,7 +16,7 @@ void main()
     vec4 mask = texture(ourMask, IN.TexCoord);
     if(texel.a == 0.0)
         discard;
-    if(mask.a > 0.0) {
+    if(mask.a == 1.0) {
         Color = IN.Color;
     } else {
         Color = texel;

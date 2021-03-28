@@ -38,11 +38,7 @@ impl VegetationArtist {
                     snap_to_terrain(&world, &position, offset)
                         .or_else(|| snap_to_middle(world, &position))
                         .map(|WorldCoord { x, y, z }| {
-                            WorldCoord::new(
-                                x,
-                                y,
-                                z + size(vegetation_type) / 2.0,
-                            )
+                            WorldCoord::new(x, y, z + size(vegetation_type) / 2.0)
                         })
                         .into_iter()
                         .for_each(|world_coord| {
