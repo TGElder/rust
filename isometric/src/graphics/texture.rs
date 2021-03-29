@@ -58,21 +58,26 @@ impl Texture {
             self.bind(0);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MIN_FILTER,
-                gl::NEAREST_MIPMAP_NEAREST as i32,
-            );
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MAG_FILTER,
-                gl::NEAREST_MIPMAP_NEAREST as i32,
-            );
-            gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MAX_LEVEL,
-                images.len() as i32 - 1,
-            );
+            if images.len() == 1 {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            } else {
+                gl::TexParameteri(
+                    gl::TEXTURE_2D,
+                    gl::TEXTURE_MIN_FILTER,
+                    gl::LINEAR_MIPMAP_NEAREST as i32,
+                );
+                gl::TexParameteri(
+                    gl::TEXTURE_2D,
+                    gl::TEXTURE_MAG_FILTER,
+                    gl::LINEAR_MIPMAP_NEAREST as i32,
+                );
+                gl::TexParameteri(
+                    gl::TEXTURE_2D,
+                    gl::TEXTURE_MAX_LEVEL,
+                    images.len() as i32 - 1,
+                );
+            }
             for (level, image) in images.into_iter().enumerate() {
                 self.load_image(image, level as i32);
             }
