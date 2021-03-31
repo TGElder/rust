@@ -1,7 +1,7 @@
 svg=$1
 width=$2
 height=$3
-alias=$4
+antialias=$4
 
 directory="${svg%%.*}"
 rm -rf $directory
@@ -11,10 +11,10 @@ while true; do
 
   out=$directory/${width}x${height}.png
 
-  if [ -z "$alias" ]; then
-    rsvg-convert -w $width -h $height -f png $1 > $out
+  if [ "$antialias" = true ]; then
+    magick -size ${width}x${height} -background none $svg -channel alpha -threshold 33% -channel RGB $out
   else
-    magick -size ${width}x${height} -background none $1 -channel alpha -threshold 33% -channel RGB $out
+    rsvg-convert -w $width -h $height -f png $svg > $out
   fi
 
   echo $out
