@@ -5,16 +5,10 @@
    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
    xmlns:svg="http://www.w3.org/2000/svg"
    xmlns="http://www.w3.org/2000/svg"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   inkscape:export-ydpi="341.32999"
-   inkscape:export-xdpi="341.32999"
-   inkscape:export-filename="/home/thomas/bitmap.png"
+   shape-rendering="crispEdges"
    viewBox="0 0 36 36"
    version="1.1"
-   id="svg2417"
-   sodipodi:docname="pine.svg"
-   inkscape:version="1.0 (1.0+r73+1)">
+   id="svg2417">
   <metadata
      id="metadata2423">
     <rdf:RDF>
@@ -23,32 +17,12 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>
   <defs
      id="defs2421" />
-  <sodipodi:namedview
-     inkscape:document-rotation="0"
-     pagecolor="#ffffff"
-     bordercolor="#666666"
-     borderopacity="1"
-     objecttolerance="10"
-     gridtolerance="10"
-     guidetolerance="10"
-     inkscape:pageopacity="0"
-     inkscape:pageshadow="2"
-     inkscape:window-width="1366"
-     inkscape:window-height="711"
-     id="namedview2419"
-     showgrid="false"
-     inkscape:zoom="3.2562851"
-     inkscape:cx="18"
-     inkscape:cy="18"
-     inkscape:window-x="0"
-     inkscape:window-y="0"
-     inkscape:window-maximized="1"
-     inkscape:current-layer="svg2417" />
   <path
      fill="#662113"
      d="m 21.207389,33 c 0,2.209 -1.436109,3 -3.207389,3 -1.771281,0 -3.207389,-0.791 -3.207389,-3 l 0.801847,-9 c 0,-2.209 0.634261,-2 2.405542,-2 1.771281,0 2.405543,-0.209 2.405543,2 z"
