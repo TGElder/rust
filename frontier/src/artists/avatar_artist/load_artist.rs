@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::iter::once;
 
+use commons::log::debug;
 use commons::rectangle::Rectangle;
 use isometric::coords::WorldCoord;
 use isometric::drawing::{
@@ -31,7 +32,7 @@ impl Default for LoadArtistParams {
         LoadArtistParams {
             load_size: 80.0 / 512.0,
             load_height: 160.0 / 512.0,
-            sprite_sheet_image: "resources/textures/sprite_sheets/load.png".to_string(),
+            sprite_sheet_image: "resources/textures/sprite_sheets/load".to_string(),
             sprite_sheet_json: "resources/textures/sprite_sheets/load.json".to_string(),
         }
     }
@@ -39,6 +40,8 @@ impl Default for LoadArtistParams {
 
 impl LoadArtist {
     pub fn new(params: LoadArtistParams) -> LoadArtist {
+        let texture_coords = SpriteSheet::load(&params.sprite_sheet_json).texture_coords();
+        debug!("coords = {:?}", texture_coords);
         LoadArtist {
             texture_coords: SpriteSheet::load(&params.sprite_sheet_json).texture_coords(),
             params,
