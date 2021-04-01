@@ -12,7 +12,7 @@ while true; do
   out=$directory/${width}x${height}.png
 
   if [ "$antialias" = true ]; then
-    magick -size ${width}x${height} -background none $svg -channel alpha -threshold 33% -channel RGB $out
+    magick -size ${width}x${height} -background none $svg -channel alpha -threshold 50% -channel RGB $out
   else
     rsvg-convert -w $width -h $height -f png $svg > $out
   fi
