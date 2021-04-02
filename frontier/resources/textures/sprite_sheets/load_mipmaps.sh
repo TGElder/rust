@@ -1,6 +1,9 @@
 width=$1
 height=$2
 
+rm -rf load
+mkdir load
+
 while true; do
 
   magick load.png -resize ${width}x${height} -channel alpha -threshold 50% load/${width}x${height}.png

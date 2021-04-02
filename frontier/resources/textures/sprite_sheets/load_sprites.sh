@@ -1,4 +1,4 @@
-size=$1
+size=160
 
 to_png() {
 
@@ -10,6 +10,7 @@ to_png() {
 
 }
 
+rm -rf sprites
 mkdir sprites
 
 for in in ../twemoji/*.svg; do
