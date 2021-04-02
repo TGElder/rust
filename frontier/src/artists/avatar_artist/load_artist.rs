@@ -31,7 +31,7 @@ impl Default for LoadArtistParams {
         LoadArtistParams {
             load_size: 80.0 / 512.0,
             load_height: 160.0 / 512.0,
-            sprite_sheet_image: "resources/textures/sprite_sheets/load.png".to_string(),
+            sprite_sheet_image: "resources/textures/sprite_sheets/load".to_string(),
             sprite_sheet_json: "resources/textures/sprite_sheets/load.json".to_string(),
         }
     }
