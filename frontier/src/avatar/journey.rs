@@ -193,7 +193,7 @@ impl Journey {
             return Progress::At(final_frame);
         }
 
-        let next_index = self.index_at(instant).unwrap();
+        let next_index = self.index_at(instant);
 
         Progress::Between {
             from: &self.frames[next_index - 1],
@@ -201,13 +201,14 @@ impl Journey {
         }
     }
 
-    fn index_at(&self, instant: &u128) -> Option<usize> {
-        for i in 0..self.frames.len() {
-            if *instant < self.frames[i].arrival {
-                return Some(i);
-            }
+    fn index_at(&self, instant: &u128) -> usize {
+        match self
+            .frames
+            .binary_search_by(|probe| probe.arrival.cmp(instant))
+        {
+            Ok(index) => index + 1,
+            Err(index) => index,
         }
-        None
     }
 
     pub fn stop(self, instant: &u128) -> Journey {
@@ -618,11 +619,9 @@ mod tests {
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 1;
         let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
-        assert_eq!(journey.index_at(&start), Some(1));
+        assert_eq!(journey.index_at(&start), 1);
         let at = start + 1_500;
-        assert_eq!(journey.index_at(&at), Some(2));
-        let done_at = start + 10_000;
-        assert_eq!(journey.index_at(&done_at), None);
+        assert_eq!(journey.index_at(&at), 2);
     }
 
     #[test]
