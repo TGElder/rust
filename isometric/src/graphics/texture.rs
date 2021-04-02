@@ -1,5 +1,4 @@
 use commons::image::{self, ImageError};
-use commons::log::{debug, error};
 use image::{DynamicImage, GenericImageView};
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -64,7 +63,6 @@ impl Texture {
     }
 
     unsafe fn load_image(&mut self, image: DynamicImage, level: i32) {
-        debug!("Loading {}x{} image to level {}", image.width(), image.height(), level);
         let dimensions = image.dimensions();
         let image = image.to_rgba().into_raw();
         let image_ptr: *const c_void = image.as_ptr() as *const c_void;

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::iter::once;
 
-use commons::log::debug;
 use commons::rectangle::Rectangle;
 use isometric::coords::WorldCoord;
 use isometric::drawing::{

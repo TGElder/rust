@@ -7,6 +7,5 @@
    1. Shape Padding = 160
 1. Edit JSON and remove the `.png` suffix from hash keys.
 1. Run `mipmaps.sh <width> <height>` to create mipmaps in `load` directory. `width` and `height` should be half the dimensions of the sprite sheet image.
-1. Delete the smallest two mipmaps generated in `load` - we get black textures if these are included.
 1. Delete images created in step 1.
 1. Delete `load.png`
