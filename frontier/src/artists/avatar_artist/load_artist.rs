@@ -40,8 +40,6 @@ impl Default for LoadArtistParams {
 
 impl LoadArtist {
     pub fn new(params: LoadArtistParams) -> LoadArtist {
-        let texture_coords = SpriteSheet::load(&params.sprite_sheet_json).texture_coords();
-        debug!("coords = {:?}", texture_coords);
         LoadArtist {
             texture_coords: SpriteSheet::load(&params.sprite_sheet_json).texture_coords(),
             params,

@@ -6,7 +6,7 @@ mkdir load
 
 while true; do
 
-  magick load.png -resize ${width}x${height} -channel alpha -threshold 50% load/${width}x${height}.png
+  magick load.png -resize ${width}x${height}\! -channel alpha -threshold 50% load/${width}x${height}.png
 
   if [ $width -eq 1 ] && [ $height -eq 1 ]; then
     exit
