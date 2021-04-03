@@ -199,8 +199,8 @@ impl System {
             }),
         );
         block_on(avatar_artist.init());
-
         engine.add_event_consumer(avatar_artist);
+
         engine.add_event_handler(ZoomHandler::default());
 
         let system = System {
