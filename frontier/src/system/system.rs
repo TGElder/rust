@@ -4,7 +4,7 @@ use std::sync::Arc;
 use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver};
 use commons::persistence::{Load, Save};
 use commons::M;
-use futures::executor::ThreadPool;
+use futures::executor::{block_on, ThreadPool};
 use futures::future::{join_all, FutureExt, RemoteHandle};
 use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
@@ -43,7 +43,6 @@ pub struct System {
 }
 
 struct Processes {
-    avatar_artist: Process<AvatarArtistActor<Context>>,
     avatar_visibility: Process<AvatarVisibility<Context>>,
     basic_avatar_controls: Process<BasicAvatarControls<Context>>,
     basic_road_builder: Process<BasicRoadBuilder<Context>>,
@@ -85,7 +84,6 @@ impl System {
             &params.auto_road_travel,
         ));
 
-        let (avatar_artist_tx, avatar_artist_rx) = fn_channel();
         let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
@@ -124,7 +122,6 @@ impl System {
         let pool = ThreadPool::new().unwrap();
 
         let cx = Context {
-            avatar_artist_tx,
             avatar_visibility_tx,
             avatars: Arc::default(),
             background_service: Arc::new(BackgroundService::new(pool.clone())),
@@ -192,6 +189,18 @@ impl System {
         engine.add_event_consumer(SystemController::new(
             cx.clone_with_name("system_controller"),
         ));
+
+        let avatar_artist = AvatarArtistActor::new(
+            cx.clone_with_name("avatar_artist"),
+            AvatarArtist::new(AvatarArtistParameters {
+                max_avatars: params.avatars + 1,
+                light_direction: params.light_direction,
+                ..AvatarArtistParameters::default()
+            }),
+        );
+        block_on(avatar_artist.init());
+        engine.add_event_consumer(avatar_artist);
+
         engine.add_event_handler(ZoomHandler::default());
 
         let system = System {
@@ -199,17 +208,6 @@ impl System {
             rx: system_rx,
             run: true,
             processes: Processes {
-                avatar_artist: Process::new(
-                    AvatarArtistActor::new(
-                        cx.clone_with_name("avatar_artist"),
-                        AvatarArtist::new(AvatarArtistParameters {
-                            max_avatars: params.avatars + 1,
-                            light_direction: params.light_direction,
-                            ..AvatarArtistParameters::default()
-                        }),
-                    ),
-                    avatar_artist_rx,
-                ),
                 avatar_visibility: Process::new(
                     AvatarVisibility::new(cx.clone_with_name("avatar_visibility")),
                     avatar_visibility_rx,
@@ -367,9 +365,6 @@ impl System {
     }
 
     pub fn send_init_messages(&self) {
-        self.cx
-            .avatar_artist_tx
-            .send_future(|avatar_artist| avatar_artist.init().boxed());
         self.cx
             .labels_tx
             .send_future(|labels| labels.init().boxed());
@@ -559,13 +554,11 @@ impl Processes {
         self.basic_road_builder.run_passive(pool).await;
         self.basic_avatar_controls.run_passive(pool).await;
         self.avatar_visibility.run_active(pool).await;
-        self.avatar_artist.run_passive(pool).await;
         self.event_forwarder.run_passive(pool).await;
     }
 
     async fn pause(&mut self, pool: &ThreadPool) {
         self.event_forwarder.drain(pool, false).await;
-        self.avatar_artist.drain(pool, true).await;
         self.avatar_visibility.drain(pool, true).await;
         self.basic_avatar_controls.drain(pool, true).await;
         self.basic_road_builder.drain(pool, true).await;

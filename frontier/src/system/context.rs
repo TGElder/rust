@@ -1,8 +1,8 @@
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
-    Cheats, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
-    SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
+    AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor, Cheats, Labels,
+    ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate, SetupNewWorld,
+    SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -46,7 +46,6 @@ use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct Context {
-    pub avatar_artist_tx: FnSender<AvatarArtistActor<Context>>,
     pub avatar_visibility_tx: FnSender<AvatarVisibility<Context>>,
     pub avatars: Arc<RwLock<Avatars>>,
     pub background_service: Arc<BackgroundService>,
@@ -97,7 +96,6 @@ pub struct Context {
 impl Context {
     pub fn clone_with_name(&self, name: &'static str) -> Context {
         Context {
-            avatar_artist_tx: self.avatar_artist_tx.clone_with_name(name),
             avatar_visibility_tx: self.avatar_visibility_tx.clone_with_name(name),
             avatars: self.avatars.clone(),
             background_service: self.background_service.clone(),
