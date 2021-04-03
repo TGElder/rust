@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::actors::town_artist::get_house_height_with_roof;
 use crate::actors::TownArtistParameters;
 use crate::settlement::*;
 
@@ -96,7 +95,7 @@ where
             .with_world(|world| get_house_base_coord(world, &settlement.position, &self.params))
             .await;
         world_coord.z +=
-            get_house_height_with_roof(&self.params, settlement) + self.params.label_float;
+            self.params.house_height + self.params.house_roof_height + self.params.label_float;
         world_coord
     }
 

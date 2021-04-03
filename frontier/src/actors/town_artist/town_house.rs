@@ -1,4 +1,3 @@
-use crate::actors::town_artist::get_house_height_without_roof;
 use crate::actors::TownArtistParameters;
 use crate::settlement::*;
 use crate::traits::{
@@ -46,7 +45,7 @@ where
         }
         let params = DrawHouseParams {
             width: self.params.house_width,
-            height: get_house_height_without_roof(&self.params, &settlement),
+            height: self.params.house_height,
             roof_height: self.params.house_roof_height,
             base_color: self.get_nation_color(&settlement.nation).await,
             light_direction: self.params.light_direction,
