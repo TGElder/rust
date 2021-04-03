@@ -38,7 +38,7 @@ impl Texture {
     }
 
     fn load_images(&mut self, mut images: Vec<DynamicImage>) {
-        images.sort_by_key(|image| image.dimensions().0);
+        images.sort_by_key(|image| (image.dimensions().0, image.dimensions().1));
         images.reverse();
         unsafe {
             self.bind(0);
