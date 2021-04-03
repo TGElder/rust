@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use commons::async_trait::async_trait;
-use isometric::{Button, Command, ElementState, Event, VirtualKeyCode};
+use futures::executor::block_on;
+use isometric::{Button, Command, ElementState, Event, EventConsumer, VirtualKeyCode};
 
 use crate::artists::AvatarArtist;
 use crate::avatars::Avatars;
-use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SendEngineCommands, SendRotate, WithAvatars};
 
 pub struct AvatarArtistActor<T> {
@@ -86,24 +85,22 @@ fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {
     )
 }
 
-#[async_trait]
-impl<T> HandleEngineEvent for AvatarArtistActor<T>
+impl<T> EventConsumer for AvatarArtistActor<T>
 where
     T: Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
+    fn consume_event(&mut self, event: Arc<Event>) {
         match *event {
-            Event::Tick => self.draw_avatars().await,
+            Event::Tick => block_on(self.draw_avatars()),
             Event::Button {
                 ref button,
                 state: ElementState::Pressed,
                 modifiers,
                 ..
             } if button == &self.follow_avatar_binding && !modifiers.alt() => {
-                self.toggle_follow_avatar().await
+                block_on(self.toggle_follow_avatar())
             }
             _ => (),
         }
-        Capture::No
     }
 }
