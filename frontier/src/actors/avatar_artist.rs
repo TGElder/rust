@@ -27,10 +27,15 @@ where
     }
 
     pub async fn init(&mut self) {
-        self.update_follow_avatar().await;
+        self.set_follow_avatar(self.cx.follow_avatar().await).await;
         self.cx
             .send_engine_commands(self.avatar_artist.init())
             .await
+    }
+
+    async fn set_follow_avatar(&mut self, follow_avatar: bool) {
+        self.follow_avatar = follow_avatar;
+        self.setup_engine_for_follow_avatar_setting().await;
     }
 
     async fn setup_engine_for_follow_avatar_setting(&self) {
@@ -47,6 +52,8 @@ where
     }
 
     async fn draw_avatars(&mut self) {
+        self.update_follow_avatar().await;
+
         let micros = self.cx.micros().await;
 
         let commands = self
@@ -72,8 +79,7 @@ where
     async fn update_follow_avatar(&mut self) {
         let follow_avatar = self.cx.follow_avatar().await;
         if self.follow_avatar != follow_avatar {
-            self.follow_avatar = follow_avatar;
-            self.setup_engine_for_follow_avatar_setting().await;
+            self.set_follow_avatar(follow_avatar).await;
         }
     }
 }

@@ -137,7 +137,7 @@ impl System {
             edge_sim_tx,
             edge_traffic: Arc::default(),
             engine_tx: engine.command_tx(),
-            follow_avatar: Arc::new(RwLock::new(false)),
+            follow_avatar: Arc::new(RwLock::new(true)),
             follow_avatar_tx,
             labels_tx,
             nations: Arc::default(),
