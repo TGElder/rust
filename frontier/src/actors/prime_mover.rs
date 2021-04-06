@@ -338,7 +338,7 @@ where
         let micros = self.cx.micros().await;
         let dormant = self.get_dormant(&micros).await;
 
-        if (!dormant.is_empty()) {
+        if !dormant.is_empty() {
             self.try_update_dormant(dormant, micros).await;
         }
 

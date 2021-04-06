@@ -126,7 +126,7 @@ where
     let (runnable, handle) = async move {
         loop {
             select! {
-                mut message = shutdown_rx.recv().fuse() => {
+                _ = shutdown_rx.recv().fuse() => {
                     object_rx.get_messages().apply(&mut object).await;
                     return (object, object_rx);
                 },
@@ -152,7 +152,7 @@ where
         let mut count = 0;
         loop {
             select! {
-                mut message = shutdown_rx.recv().fuse() => {
+                _ = shutdown_rx.recv().fuse() => {
                     count += object_rx.get_messages().len();
                     if error_on_drain && count > 0 {
                         error!(
@@ -163,7 +163,7 @@ where
                     }
                     return object_rx
                 },
-                mut message = object_rx.get_message().fuse() => count += 1,
+                _ = object_rx.get_message().fuse() => count += 1,
             }
         }
     }

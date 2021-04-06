@@ -53,7 +53,7 @@ impl Texture {
         let dimensions = image.dimensions();
         self.width = dimensions.0;
         self.height = dimensions.1;
-        let image = image.to_rgba().into_raw();
+        let image = image.to_rgba8().into_raw();
         let image_ptr: *const c_void = image.as_ptr() as *const c_void;
 
         unsafe {
