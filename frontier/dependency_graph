@@ -64,6 +64,7 @@ RevealPositionsVoyager UpdatePositionsAllPathfinders
 RevealPositionsVoyager WithWorld
 RoadPlanned WithWorld
 SelectedAvatar WithAvatars
+SendAvatarArtist HasFollowAvatar
 SendAvatarArtist Micros
 SendAvatarArtist SendEngineCommands
 SendAvatarArtist SendRotate
@@ -104,6 +105,7 @@ SendEdgeBuildSim RoadPlanned
 SendEdgeBuildSim WithEdgeTraffic
 SendEdgeBuildSim WithRoutes
 SendEdgeBuildSim WithWorld
+SendFollowAvatar HasFollowAvatar
 SendLabels SendEngineCommands
 SendLabels WithWorld
 SendObjectBuilder RemoveWorldObject

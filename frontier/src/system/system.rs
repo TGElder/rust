@@ -12,9 +12,10 @@ use tokio::sync::RwLock;
 
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
-    Cheats, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
-    SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
+    Cheats, FollowAvatar, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover,
+    ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
+    WorldColoringParameters, WorldGen,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParameters, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
@@ -50,6 +51,7 @@ struct Processes {
     cheats: Process<Cheats<Context>>,
     edge_sims: Vec<Process<EdgeBuildSimulation<Context, AutoRoadTravelDuration>>>,
     event_forwarder: Process<EventForwarderActor>,
+    follow_avatar: Process<FollowAvatar<Context>>,
     labels: Process<Labels<Context>>,
     object_builder: Process<ObjectBuilder<Context>>,
     pathfinding_avatar_controls: Process<PathfindingAvatarControls<Context>>,
@@ -90,6 +92,7 @@ impl System {
         let (builder_tx, builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
         let (edge_sim_tx, edge_sim_rx) = fn_channel();
+        let (follow_avatar_tx, follow_avatar_rx) = fn_channel();
         let (labels_tx, labels_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
@@ -134,6 +137,8 @@ impl System {
             edge_sim_tx,
             edge_traffic: Arc::default(),
             engine_tx: engine.command_tx(),
+            follow_avatar: Arc::new(RwLock::new(true)),
+            follow_avatar_tx,
             labels_tx,
             nations: Arc::default(),
             object_builder_tx,
@@ -190,7 +195,7 @@ impl System {
             cx.clone_with_name("system_controller"),
         ));
 
-        let avatar_artist = AvatarArtistActor::new(
+        let mut avatar_artist = AvatarArtistActor::new(
             cx.clone_with_name("avatar_artist"),
             AvatarArtist::new(AvatarArtistParameters {
                 max_avatars: params.avatars + 1,
@@ -253,6 +258,10 @@ impl System {
                 event_forwarder: Process::new(
                     EventForwarderActor::new(cx.clone_with_name("event_forwarder")),
                     event_forwarder_rx,
+                ),
+                follow_avatar: Process::new(
+                    FollowAvatar::new(cx.clone_with_name("follow_avatar")),
+                    follow_avatar_rx,
                 ),
                 labels: Process::new(Labels::new(cx.clone_with_name("labels")), labels_rx),
                 object_builder: Process::new(
@@ -549,6 +558,7 @@ impl Processes {
         self.pathfinding_avatar_controls.run_passive(pool).await;
         self.object_builder.run_passive(pool).await;
         self.labels.run_passive(pool).await;
+        self.follow_avatar.run_passive(pool).await;
         self.cheats.run_passive(pool).await;
         self.builder.run_active(pool).await;
         self.basic_road_builder.run_passive(pool).await;
@@ -565,6 +575,7 @@ impl Processes {
         self.builder.drain(pool, true).await;
         self.cheats.drain(pool, true).await;
         self.labels.drain(pool, true).await;
+        self.follow_avatar.drain(pool, true).await;
         self.object_builder.drain(pool, true).await;
         self.pathfinding_avatar_controls.drain(pool, true).await;
         self.prime_mover.drain(pool, true).await;

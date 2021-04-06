@@ -1,37 +1,41 @@
 use std::sync::Arc;
 
 use futures::executor::block_on;
-use isometric::{Button, Command, ElementState, Event, EventConsumer, VirtualKeyCode};
+use isometric::{Command, Event, EventConsumer};
 
 use crate::artists::AvatarArtist;
 use crate::avatars::Avatars;
+use crate::traits::has::HasFollowAvatar;
 use crate::traits::{Micros, SendEngineCommands, SendRotate, WithAvatars};
 
 pub struct AvatarArtistActor<T> {
     cx: T,
     avatar_artist: AvatarArtist,
     follow_avatar: bool,
-    follow_avatar_binding: Button,
 }
 
 impl<T> AvatarArtistActor<T>
 where
-    T: Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
+    T: HasFollowAvatar + Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
 {
     pub fn new(cx: T, avatar_artist: AvatarArtist) -> AvatarArtistActor<T> {
         AvatarArtistActor {
             cx,
             avatar_artist,
             follow_avatar: true,
-            follow_avatar_binding: Button::Key(VirtualKeyCode::C),
         }
     }
 
-    pub async fn init(&self) {
-        self.setup_engine_for_follow_avatar_setting().await;
+    pub async fn init(&mut self) {
+        self.set_follow_avatar(self.cx.follow_avatar().await).await;
         self.cx
             .send_engine_commands(self.avatar_artist.init())
             .await
+    }
+
+    async fn set_follow_avatar(&mut self, follow_avatar: bool) {
+        self.follow_avatar = follow_avatar;
+        self.setup_engine_for_follow_avatar_setting().await;
     }
 
     async fn setup_engine_for_follow_avatar_setting(&self) {
@@ -48,6 +52,8 @@ where
     }
 
     async fn draw_avatars(&mut self) {
+        self.refresh_follow_avatar().await;
+
         let micros = self.cx.micros().await;
 
         let commands = self
@@ -70,9 +76,11 @@ where
         self.cx.send_engine_commands(commands).await;
     }
 
-    async fn toggle_follow_avatar(&mut self) {
-        self.follow_avatar = !self.follow_avatar;
-        self.setup_engine_for_follow_avatar_setting().await;
+    async fn refresh_follow_avatar(&mut self) {
+        let follow_avatar = self.cx.follow_avatar().await;
+        if self.follow_avatar != follow_avatar {
+            self.set_follow_avatar(follow_avatar).await;
+        }
     }
 }
 
@@ -87,20 +95,11 @@ fn look_at_selected(avatars: &Avatars, micros: &u128) -> Command {
 
 impl<T> EventConsumer for AvatarArtistActor<T>
 where
-    T: Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
+    T: HasFollowAvatar + Micros + SendEngineCommands + SendRotate + WithAvatars + Send + Sync,
 {
     fn consume_event(&mut self, event: Arc<Event>) {
-        match *event {
-            Event::Tick => block_on(self.draw_avatars()),
-            Event::Button {
-                ref button,
-                state: ElementState::Pressed,
-                modifiers,
-                ..
-            } if button == &self.follow_avatar_binding && !modifiers.alt() => {
-                block_on(self.toggle_follow_avatar())
-            }
-            _ => (),
+        if let Event::Tick = *event {
+            block_on(self.draw_avatars())
         }
     }
 }
