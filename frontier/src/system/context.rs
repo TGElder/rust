@@ -1,8 +1,8 @@
 use crate::actors::{
-    AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor, Cheats, Labels,
-    ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate, SetupNewWorld,
-    SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
+    AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor, Cheats, FollowAvatar,
+    Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
+    SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -21,7 +21,7 @@ use crate::simulation::settlement::SettlementSimulation;
 use crate::system::System;
 use crate::territory::Territory;
 use crate::traffic::{EdgeTraffic, Traffic};
-use crate::traits::has::HasParameters;
+use crate::traits::has::{HasFollowAvatar, HasParameters};
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
     SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendRotate, SendSystem,
@@ -58,6 +58,8 @@ pub struct Context {
     pub edge_sim_tx: FnSender<EdgeBuildSimulation<Context, AutoRoadTravelDuration>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
     pub engine_tx: Sender<Vec<Command>>,
+    pub follow_avatar: Arc<RwLock<bool>>,
+    pub follow_avatar_tx: FnSender<FollowAvatar<Context>>,
     pub labels_tx: FnSender<Labels<Context>>,
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
     pub object_builder_tx: FnSender<ObjectBuilder<Context>>,
@@ -108,6 +110,8 @@ impl Context {
             edge_sim_tx: self.edge_sim_tx.clone(),
             edge_traffic: self.edge_traffic.clone(),
             engine_tx: self.engine_tx.clone(),
+            follow_avatar: self.follow_avatar.clone(),
+            follow_avatar_tx: self.follow_avatar_tx.clone(),
             labels_tx: self.labels_tx.clone_with_name(name),
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
@@ -148,6 +152,17 @@ impl Context {
             world_artist_tx: self.world_artist_tx.clone_with_name(name),
             world_gen_tx: self.world_gen_tx.clone_with_name(name),
         }
+    }
+}
+
+#[async_trait]
+impl HasFollowAvatar for Context {
+    async fn follow_avatar(&self) -> bool {
+        *self.follow_avatar.read().await
+    }
+
+    async fn set_follow_avatar(&self, value: bool) {
+        *self.follow_avatar.write().await = value;
     }
 }
 
