@@ -52,7 +52,7 @@ where
     }
 
     async fn draw_avatars(&mut self) {
-        self.update_follow_avatar().await;
+        self.refresh_follow_avatar().await;
 
         let micros = self.cx.micros().await;
 
@@ -76,7 +76,7 @@ where
         self.cx.send_engine_commands(commands).await;
     }
 
-    async fn update_follow_avatar(&mut self) {
+    async fn refresh_follow_avatar(&mut self) {
         let follow_avatar = self.cx.follow_avatar().await;
         if self.follow_avatar != follow_avatar {
             self.set_follow_avatar(follow_avatar).await;
