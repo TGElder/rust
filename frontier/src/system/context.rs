@@ -1,8 +1,8 @@
 use crate::actors::{
     AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor, Cheats, FollowAvatar,
-    Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceTargets, Rotate,
-    SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
+    Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceGenActor,
+    ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -27,9 +27,9 @@ use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
     SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendRotate, SendSystem,
     SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
-    WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithRouteToPorts,
-    WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic, WithVisibility,
-    WithVisited, WithWorld,
+    WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithResources,
+    WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic,
+    WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
 use crate::world::World;
@@ -71,6 +71,7 @@ pub struct Context {
     pub pool: ThreadPool,
     pub position_sim_tx: FnSender<PositionBuildSimulation<Context>>,
     pub prime_mover_tx: FnSender<PrimeMover<Context>>,
+    pub resource_gen_tx: FnSender<ResourceGenActor<Context>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Context>>,
     pub resources: Arc<RwLock<Resources>>,
     pub rotate_tx: FnSender<Rotate<Context>>,
@@ -126,6 +127,7 @@ impl Context {
             pool: self.pool.clone(),
             position_sim_tx: self.position_sim_tx.clone_with_name(name),
             prime_mover_tx: self.prime_mover_tx.clone_with_name(name),
+            resource_gen_tx: self.resource_gen_tx.clone_with_name(name),
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
             resources: self.resources.clone(),
             rotate_tx: self.rotate_tx.clone_with_name(name),
@@ -400,6 +402,25 @@ impl WithNations for Context {
     {
         let mut nations = self.nations.write().await;
         function(&mut nations)
+    }
+}
+
+#[async_trait]
+impl WithResources for Context {
+    async fn with_resources<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&Resources) -> O + Send,
+    {
+        let resources = self.resources.read().await;
+        function(&resources)
+    }
+
+    async fn mut_resources<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut Resources) -> O + Send,
+    {
+        let mut resources = self.resources.write().await;
+        function(&mut resources)
     }
 }
 

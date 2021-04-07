@@ -1,7 +1,6 @@
 use super::climate::*;
 use super::planned_road::*;
 use super::world_object::*;
-use crate::resource::Resource;
 use commons::junction::*;
 use commons::*;
 use isometric::cell_traits::*;
@@ -17,7 +16,6 @@ pub struct WorldCell {
     pub planned_road: PlannedRoad,
     pub climate: Climate,
     pub object: WorldObject,
-    pub resource: Resource,
 }
 
 impl WorldCell {
@@ -31,7 +29,6 @@ impl WorldCell {
             planned_road: PlannedRoad::default(),
             climate: Climate::default(),
             object: WorldObject::None,
-            resource: Resource::None,
         }
     }
 }

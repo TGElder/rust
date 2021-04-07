@@ -1,6 +1,5 @@
 mod groundwater_gen;
 mod rainfall_gen;
-mod resource_gen;
 mod river_water;
 mod sea_border;
 mod temperature;
@@ -21,7 +20,6 @@ use pioneer::river_runner::*;
 use rainfall_gen::*;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
-use resource_gen::*;
 use river_water::*;
 use sea_border::with_sea_border;
 use serde::{Deserialize, Serialize};
@@ -48,7 +46,6 @@ pub struct WorldGenParameters {
     pub rainfall: RainfallGenParams,
     pub temperature: TemperatureParams,
     pub vegetation: VegetationParams,
-    pub resources: ResourceParams,
     pub validation: WorldValidationParams,
 }
 
@@ -69,7 +66,6 @@ impl Default for WorldGenParameters {
             rainfall: RainfallGenParams::default(),
             temperature: TemperatureParams::default(),
             vegetation: VegetationParams::default(),
-            resources: ResourceParams::default(),
             validation: WorldValidationParams::default(),
         }
     }
@@ -148,10 +144,6 @@ fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParame
     let mut vegetation_gen = VegetationGen::new(power, &mut out, &params, rng);
     let vegetation = vegetation_gen.compute_vegetation();
     vegetation_gen.load_vegetation(&vegetation);
-
-    let mut resource_gen = ResourceGen::new(power, &mut out, &params, rng);
-    let resources = resource_gen.compute_resources();
-    resource_gen.load_resources(&resources);
 
     out
 }

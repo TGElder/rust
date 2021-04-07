@@ -13,8 +13,8 @@ use tokio::sync::RwLock;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
     Cheats, FollowAvatar, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover,
-    ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
+    ResourceGenActor, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility,
+    SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
     WorldColoringParameters, WorldGen,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParameters, WorldArtist, WorldArtistParameters};
@@ -58,6 +58,7 @@ struct Processes {
     pathfinding_avatar_controls: Process<PathfindingAvatarControls<Context>>,
     position_sims: Vec<Process<PositionBuildSimulation<Context>>>,
     prime_mover: Process<PrimeMover<Context>>,
+    resource_gen: Process<ResourceGenActor<Context>>,
     resource_targets: Process<ResourceTargets<Context>>,
     rotate: Process<Rotate<Context>>,
     settlement_sims: Vec<Process<SettlementSimulation<Context>>>,
@@ -99,6 +100,7 @@ impl System {
         let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
         let (position_sim_tx, position_sim_rx) = fn_channel();
         let (prime_mover_tx, prime_mover_rx) = fn_channel();
+        let (resource_gen_tx, resource_gen_rx) = fn_channel();
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
@@ -158,6 +160,7 @@ impl System {
             pool,
             position_sim_tx,
             prime_mover_tx,
+            resource_gen_tx,
             resource_targets_tx,
             resources: Arc::new(RwLock::new(Resources::new(
                 params.width,
@@ -299,6 +302,10 @@ impl System {
                     ),
                     prime_mover_rx,
                 ),
+                resource_gen: Process::new(
+                    ResourceGenActor::new(cx.clone_with_name("resource_gen")),
+                    resource_gen_rx,
+                ),
                 resource_targets: Process::new(
                     ResourceTargets::new(cx.clone_with_name("resource_targets")),
                     resource_targets_rx,
@@ -410,6 +417,9 @@ impl System {
         self.cx
             .prime_mover_tx
             .send_future(|prime_mover| prime_mover.new_game().boxed());
+        self.cx
+            .resource_gen_tx
+            .send_future(|resource_gen| resource_gen.new_game().boxed());
         self.cx
             .setup_new_world_tx
             .send_future(|setup_new_world| setup_new_world.new_game().boxed());
@@ -541,6 +551,7 @@ impl System {
 impl Processes {
     async fn start(&mut self, pool: &ThreadPool) {
         self.world_gen.run_passive(pool).await;
+        self.resource_gen.run_passive(pool).await;
         self.setup_visibility.run_passive(pool).await;
         self.setup_new_world.run_passive(pool).await;
         self.setup_pathfinders.run_passive(pool).await;
@@ -616,6 +627,7 @@ impl Processes {
         self.setup_pathfinders.drain(pool, true).await;
         self.setup_new_world.drain(pool, true).await;
         self.setup_visibility.drain(pool, true).await;
+        self.resource_gen.drain(pool, true).await;
         self.world_gen.drain(pool, true).await;
     }
 
