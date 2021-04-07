@@ -22,6 +22,7 @@ use crate::avatar::AvatarTravelDuration;
 use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
+use crate::resource::Resources;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::services::clock::{Clock, RealTime};
 use crate::services::{BackgroundService, VisibilityService};
@@ -158,6 +159,11 @@ impl System {
             position_sim_tx,
             prime_mover_tx,
             resource_targets_tx,
+            resources: Arc::new(RwLock::new(Resources::new(
+                params.width,
+                params.width,
+                Vec::with_capacity(0),
+            ))),
             rotate_tx,
             route_to_ports: Arc::default(),
             routes: Arc::default(),
@@ -453,6 +459,11 @@ impl System {
             .save(&format!("{}.nations", path));
         self.cx.parameters.save(&format!("{}.parameters", path));
         self.cx
+            .resources
+            .read()
+            .await
+            .save(&format!("{}.resources", path));
+        self.cx
             .route_to_ports
             .read()
             .await
@@ -499,6 +510,7 @@ impl System {
         *self.cx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
         *self.cx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
         *self.cx.nations.write().await = <_>::load(&format!("{}.nations", path));
+        *self.cx.resources.write().await = <_>::load(&format!("{}.resources", path));
         *self.cx.route_to_ports.write().await = <_>::load(&format!("{}.route_to_ports", path));
         *self.cx.routes.write().await = <_>::load(&format!("{}.routes", path));
         *self.cx.settlements.write().await = <_>::load(&format!("{}.settlements", path));

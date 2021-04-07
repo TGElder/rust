@@ -10,6 +10,7 @@ use crate::build::BuildQueue;
 use crate::nation::Nation;
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
+use crate::resource::Resources;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::route::{RouteKey, Routes};
 use crate::services::clock::{Clock, RealTime};
@@ -71,6 +72,7 @@ pub struct Context {
     pub position_sim_tx: FnSender<PositionBuildSimulation<Context>>,
     pub prime_mover_tx: FnSender<PrimeMover<Context>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Context>>,
+    pub resources: Arc<RwLock<Resources>>,
     pub rotate_tx: FnSender<Rotate<Context>>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
@@ -125,6 +127,7 @@ impl Context {
             position_sim_tx: self.position_sim_tx.clone_with_name(name),
             prime_mover_tx: self.prime_mover_tx.clone_with_name(name),
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
+            resources: self.resources.clone(),
             rotate_tx: self.rotate_tx.clone_with_name(name),
             route_to_ports: self.route_to_ports.clone(),
             routes: self.routes.clone(),
