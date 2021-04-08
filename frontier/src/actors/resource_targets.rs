@@ -1,6 +1,5 @@
-use crate::resource::{Resource, RESOURCES};
-use crate::traits::{InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithWorld};
-use crate::world::World;
+use crate::resource::{Resource, Resources, RESOURCES};
+use crate::traits::{InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources};
 use commons::grid::Grid;
 use commons::{v2, V2};
 use std::collections::HashSet;
@@ -11,7 +10,7 @@ pub struct ResourceTargets<T> {
 
 impl<T> ResourceTargets<T>
 where
-    T: InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithWorld,
+    T: InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithResources,
 {
     pub fn new(cx: T) -> ResourceTargets<T> {
         ResourceTargets { cx }
@@ -30,7 +29,7 @@ where
 
     async fn get_targets(&self, resource: Resource) -> HashSet<V2<usize>> {
         self.cx
-            .with_world(|world| resource_positions(world, resource))
+            .with_resources(|resources| resource_positions(resources, resource))
             .await
     }
 
@@ -42,12 +41,12 @@ where
     }
 }
 
-fn resource_positions(world: &World, resource: Resource) -> HashSet<V2<usize>> {
+fn resource_positions(resources: &Resources, resource: Resource) -> HashSet<V2<usize>> {
     let mut out = HashSet::new();
-    for x in 0..world.width() {
-        for y in 0..world.height() {
+    for x in 0..resources.width() {
+        for y in 0..resources.height() {
             let position = &v2(x, y);
-            if resource_at(&world, resource, &position) {
+            if resource_at(&resources, resource, &position) {
                 out.insert(*position);
             }
         }
@@ -55,8 +54,8 @@ fn resource_positions(world: &World, resource: Resource) -> HashSet<V2<usize>> {
     out
 }
 
-fn resource_at(world: &World, resource: Resource, position: &V2<usize>) -> bool {
-    matches!(world.get_cell(position), Some(cell) if cell.resource == resource)
+fn resource_at(resources: &Resources, resource: Resource, position: &V2<usize>) -> bool {
+    resources.get_cell_unsafe(position).contains(&resource)
 }
 
 pub fn target_set(resource: Resource) -> String {
@@ -68,21 +67,21 @@ mod tests {
     use super::*;
 
     use commons::async_trait::async_trait;
-    use commons::{v2, Arm, M};
+    use commons::{v2, M};
     use futures::executor::block_on;
     use std::collections::HashMap;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Mutex;
 
     struct Cx {
-        targets: Arm<HashMap<String, M<bool>>>,
-        world: Arm<World>,
+        targets: Mutex<HashMap<String, M<bool>>>,
+        resources: Mutex<Resources>,
     }
 
     impl Default for Cx {
         fn default() -> Self {
             Cx {
-                targets: Arm::default(),
-                world: Arc::new(Mutex::new(World::new(M::zeros(3, 3), 0.5))),
+                targets: Mutex::default(),
+                resources: Mutex::new(Resources::new(3, 3, Vec::with_capacity(0))),
             }
         }
     }
@@ -111,19 +110,19 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithWorld for Cx {
-        async fn with_world<F, O>(&self, function: F) -> O
+    impl WithResources for Cx {
+        async fn with_resources<F, O>(&self, function: F) -> O
         where
-            F: FnOnce(&World) -> O + Send,
+            F: FnOnce(&Resources) -> O + Send,
         {
-            function(&self.world.lock().unwrap())
+            function(&self.resources.lock().unwrap())
         }
 
-        async fn mut_world<F, O>(&self, function: F) -> O
+        async fn mut_resources<F, O>(&self, function: F) -> O
         where
-            F: FnOnce(&mut World) -> O + Send,
+            F: FnOnce(&mut Resources) -> O + Send,
         {
-            function(&mut self.world.lock().unwrap())
+            function(&mut self.resources.lock().unwrap())
         }
     }
 
@@ -133,10 +132,10 @@ mod tests {
 
         let cx = Cx::default();
         {
-            let mut world = cx.world.lock().unwrap();
-            world.mut_cell_unsafe(&v2(1, 0)).resource = Resource::Coal;
-            world.mut_cell_unsafe(&v2(2, 1)).resource = Resource::Coal;
-            world.mut_cell_unsafe(&v2(0, 2)).resource = Resource::Coal;
+            let mut resources = cx.resources.lock().unwrap();
+            *resources.mut_cell_unsafe(&v2(1, 0)) = vec![Resource::Coal];
+            *resources.mut_cell_unsafe(&v2(2, 1)) = vec![Resource::Coal];
+            *resources.mut_cell_unsafe(&v2(0, 2)) = vec![Resource::Coal, Resource::Whales];
         }
 
         let mut resource_targets = ResourceTargets::new(cx);

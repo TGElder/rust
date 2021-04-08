@@ -3,10 +3,13 @@ mod coloring;
 pub use coloring::{BaseColors, WorldColoringParameters};
 use commons::async_trait::async_trait;
 
-use crate::artists::{Slab, WorldArtist};
+use crate::artists::{ResourceArtist, ResourceArtistParameters, Slab, WorldArtist};
 use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, SendEngineCommands, WithSettlements, WithTerritory, WithWorld};
+use crate::traits::has::HasParameters;
+use crate::traits::{
+    Micros, SendEngineCommands, WithResources, WithSettlements, WithTerritory, WithWorld,
+};
 use coloring::{world_coloring, Overlay};
 use commons::{v2, M, V2};
 use isometric::{Button, Color, ElementState, Event, VirtualKeyCode};
@@ -29,6 +32,7 @@ pub struct WorldArtistActor<T> {
     cx: T,
     bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
+    resource_artist: Option<ResourceArtist>,
     coloring_params: WorldColoringParameters,
     last_redraw: HashMap<V2<usize>, u128>,
     territory_layer: bool,
@@ -37,7 +41,15 @@ pub struct WorldArtistActor<T> {
 
 impl<T> WorldArtistActor<T>
 where
-    T: Micros + SendEngineCommands + WithSettlements + WithTerritory + WithWorld + Send + Sync,
+    T: HasParameters
+        + Micros
+        + SendEngineCommands
+        + WithResources
+        + WithSettlements
+        + WithTerritory
+        + WithWorld
+        + Send
+        + Sync,
 {
     pub fn new(
         cx: T,
@@ -51,6 +63,7 @@ where
             bindings: WorldArtistActorBindings::default(),
             last_redraw: hashmap! {},
             world_artist,
+            resource_artist: None,
             coloring_params,
             nation_colors: Self::get_nation_colors(nation_descriptions, overlay_alpha),
             territory_layer: false,
@@ -73,9 +86,25 @@ where
     }
 
     pub async fn init(&mut self) {
-        let commands = self.world_artist.init();
-        self.cx.send_engine_commands(commands).await;
+        self.init_world_artist().await;
+        self.init_resource_artist().await;
         self.redraw_all().await;
+    }
+
+    pub async fn init_world_artist(&self) {
+        self.cx.send_engine_commands(self.world_artist.init()).await;
+    }
+
+    pub async fn init_resource_artist(&mut self) {
+        self.resource_artist = self
+            .cx
+            .with_resources(|resources| {
+                Some(ResourceArtist::new(
+                    ResourceArtistParameters::default(),
+                    &resources,
+                ))
+            })
+            .await;
     }
 
     async fn redraw_all(&mut self) {
@@ -104,12 +133,13 @@ where
         }
 
         let generated_after = self.cx.micros().await;
-        self.draw_slab(&slab).await;
+        self.draw_slab_with_world_artist(&slab).await;
+        self.draw_slab_with_resource_artist(&slab).await;
 
         self.last_redraw.insert(slab.from, generated_after);
     }
 
-    async fn draw_slab(&mut self, slab: &Slab) {
+    async fn draw_slab_with_world_artist(&mut self, slab: &Slab) {
         let overlay = self.get_territory_overlay(&slab).await;
         let commands = self
             .cx
@@ -120,6 +150,15 @@ where
                     slab,
                 )
             })
+            .await;
+        self.cx.send_engine_commands(commands).await;
+    }
+
+    async fn draw_slab_with_resource_artist(&mut self, slab: &Slab) {
+        let resource_artist = unwrap_or!(&self.resource_artist, return);
+        let commands = self
+            .cx
+            .with_world(|world| resource_artist.draw(world, &slab.from, &slab.to()))
             .await;
         self.cx.send_engine_commands(commands).await;
     }
@@ -188,7 +227,15 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for WorldArtistActor<T>
 where
-    T: Micros + SendEngineCommands + WithSettlements + WithTerritory + WithWorld + Send + Sync,
+    T: HasParameters
+        + Micros
+        + SendEngineCommands
+        + WithResources
+        + WithSettlements
+        + WithTerritory
+        + WithWorld
+        + Send
+        + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {

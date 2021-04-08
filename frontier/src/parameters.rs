@@ -4,6 +4,7 @@ use crate::avatar::AvatarTravelParams;
 use crate::commons::persistence::Load;
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
+use crate::resource_gen::ResourceGenParameters;
 use crate::road_builder::AutoRoadTravelParams;
 use crate::simulation::SimulationParameters;
 use crate::world_gen::WorldGenParameters;
@@ -21,6 +22,7 @@ pub struct Parameters {
     pub width: usize,
     pub reveal_all: bool,
     pub world_gen: WorldGenParameters,
+    pub resource_gen: ResourceGenParameters,
     pub base_colors: BaseColors,
     pub avatar_travel: AvatarTravelParams,
     pub auto_road_travel: AutoRoadTravelParams,
@@ -47,6 +49,7 @@ impl Default for Parameters {
             width: 0,
             reveal_all: false,
             world_gen: WorldGenParameters::default(),
+            resource_gen: ResourceGenParameters::default(),
             base_colors: BaseColors::default(),
             avatar_travel: AvatarTravelParams::default(),
             auto_road_travel: AutoRoadTravelParams::default(),

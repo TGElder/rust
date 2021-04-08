@@ -1,3 +1,4 @@
+use commons::index2d::Vec2D;
 use serde::{Deserialize, Serialize};
 
 pub const RESOURCES: [Resource; 17] = [
@@ -66,3 +67,5 @@ impl Resource {
         }
     }
 }
+
+pub type Resources = Vec2D<Vec<Resource>>;

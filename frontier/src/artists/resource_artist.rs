@@ -1,6 +1,7 @@
-use crate::resource::Resource;
+use crate::resource::{Resource, Resources};
 use crate::world::*;
 use commons::grid::Grid;
+use commons::index2d::Vec2D;
 use commons::rectangle::Rectangle;
 use commons::*;
 use isometric::cell_traits::*;
@@ -29,11 +30,30 @@ impl Default for ResourceArtistParameters {
 #[derive(Clone)]
 pub struct ResourceArtist {
     params: ResourceArtistParameters,
+    draw_resources: Vec2D<Option<Resource>>,
 }
 
 impl ResourceArtist {
-    pub fn new(params: ResourceArtistParameters) -> ResourceArtist {
-        ResourceArtist { params }
+    pub fn new(params: ResourceArtistParameters, resources: &Resources) -> ResourceArtist {
+        ResourceArtist {
+            params,
+            draw_resources: Self::compute_draw_resources(resources),
+        }
+    }
+
+    pub fn compute_draw_resources(resources: &Resources) -> Vec2D<Option<Resource>> {
+        let mut out = Vec2D::same_size_as(resources, None);
+        for x in 0..resources.width() {
+            for y in 0..resources.height() {
+                let position = v2(x, y);
+                for resource in resources.get_cell_unsafe(&position) {
+                    if texture(*resource).is_some() {
+                        out.set(&position, Some(*resource)).unwrap();
+                    }
+                }
+            }
+        }
+        out
     }
 
     pub fn draw(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Vec<Command> {
@@ -45,13 +65,13 @@ impl ResourceArtist {
                 if !cell.is_visible() {
                     continue;
                 }
-                if texture(cell.resource).is_some() {
+                if let Ok(Some(resource)) = self.draw_resources.get(&position) {
                     let mut world_coord =
                         WorldCoord::new(x as f32, y as f32, cell.elevation.max(world.sea_level()));
                     world_coord.z += self.params.hover;
                     world_coord.z += self.params.size / 2.0;
                     resources
-                        .entry(cell.resource)
+                        .entry(*resource)
                         .or_insert_with(Vec::new)
                         .push(world_coord);
                 }

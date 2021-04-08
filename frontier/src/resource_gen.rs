@@ -1,12 +1,14 @@
 use super::*;
-use crate::resource::{Resource, RESOURCES};
+use crate::resource::{Resource, Resources, RESOURCES};
 use crate::world::*;
 use commons::edge::Edge;
 use commons::equalize::{equalize_with_filter, PositionValue};
+use commons::grid::Grid;
 use commons::perlin::stacked_perlin_noise;
 use commons::rand::prelude::*;
 use commons::rand::seq::SliceRandom;
 use commons::*;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::default::Default;
 
@@ -28,15 +30,15 @@ impl Default for FarmlandConstraints {
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
-pub struct ResourceParams {
+pub struct ResourceGenParameters {
     farmland: FarmlandConstraints,
     shallow_depth_pc: f32,
     cliff_edges_for_cliff: (usize, usize),
 }
 
-impl Default for ResourceParams {
-    fn default() -> ResourceParams {
-        ResourceParams {
+impl Default for ResourceGenParameters {
+    fn default() -> ResourceGenParameters {
+        ResourceGenParameters {
             farmland: FarmlandConstraints::default(),
             shallow_depth_pc: 0.25,
             cliff_edges_for_cliff: (1, 2),
@@ -45,37 +47,26 @@ impl Default for ResourceParams {
 }
 
 pub struct ResourceGen<'a, R: Rng> {
-    power: usize,
-    world: &'a mut World,
-    params: &'a WorldGenParameters,
+    params: &'a Parameters,
+    world: &'a World,
     rng: &'a mut R,
 }
 
 impl<'a, R: Rng> ResourceGen<'a, R> {
-    pub fn new(
-        power: usize,
-        world: &'a mut World,
-        params: &'a WorldGenParameters,
-        rng: &'a mut R,
-    ) -> ResourceGen<'a, R> {
-        ResourceGen {
-            power,
-            world,
-            params,
-            rng,
-        }
+    pub fn new(params: &'a Parameters, world: &'a World, rng: &'a mut R) -> ResourceGen<'a, R> {
+        ResourceGen { params, world, rng }
     }
 
-    pub fn compute_resources(&mut self) -> M<Resource> {
+    pub fn compute_resources(&mut self) -> Resources {
         let width = self.world.width();
         let height = self.world.height();
-        let mut out = M::from_element(width, height, Resource::None);
+        let mut out = Resources::new(width, height, Vec::with_capacity(0));
         self.add_limited_resources(&mut out);
         self.add_unlimited_resources(&mut out);
         out
     }
 
-    fn add_limited_resources(&mut self, resources: &mut M<Resource>) {
+    fn add_limited_resources(&mut self, resources: &mut Resources) {
         let mut taken: HashSet<V2<usize>> = HashSet::new();
         for (resource, mut candidates) in self.get_candidates() {
             let count = match count(resource) {
@@ -86,7 +77,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             let candidates = self.reduce_candidates(candidates, resource, count);
             let chosen = candidates.choose_multiple(&mut self.rng, count);
             for choice in chosen {
-                *resources.mut_cell_unsafe(choice) = resource;
+                *resources.mut_cell_unsafe(choice) = vec![resource];
                 taken.insert(*choice);
             }
         }
@@ -126,7 +117,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                 self.world.width(),
                 self.world.height(),
                 self.rng.gen(),
-                (0..self.power).map(|_| 1.0).collect(),
+                (0..self.params.power).map(|_| 1.0).collect(),
             ),
             &|PositionValue { position, .. }| self.is_candidate(resource, position),
         );
@@ -140,7 +131,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         candidates
     }
 
-    fn add_unlimited_resources(&self, resources: &mut M<Resource>) {
+    fn add_unlimited_resources(&self, resources: &mut Resources) {
         let width = self.world.width();
         let height = self.world.height();
 
@@ -151,8 +142,8 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         }
     }
 
-    fn add_unlimited_resource(&self, resources: &mut M<Resource>, position: &V2<usize>) {
-        if *resources.get_cell_unsafe(position) != Resource::None {
+    fn add_unlimited_resource(&self, resources: &mut Resources, position: &V2<usize>) {
+        if *resources.get_cell_unsafe(position) != vec![] {
             return;
         }
         let resource = [
@@ -164,17 +155,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         .iter()
         .find(|&resource| self.is_candidate(*resource, position));
         if let Some(resource) = resource {
-            *resources.mut_cell_unsafe(position) = *resource;
-        }
-    }
-
-    pub fn load_resources(&mut self, resources: &M<Resource>) {
-        for x in 0..resources.width() {
-            for y in 0..resources.height() {
-                let position = v2(x, y);
-                self.world.mut_cell_unsafe(&position).resource =
-                    *resources.get_cell_unsafe(&position);
-            }
+            *resources.mut_cell_unsafe(position) = vec![*resource];
         }
     }
 
@@ -253,7 +234,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             Some(WorldCell { elevation, .. }) => elevation,
             None => return false,
         };
-        *elevation > self.world.sea_level() && *elevation <= self.params.beach_level
+        *elevation > self.world.sea_level() && *elevation <= self.params.world_gen.beach_level
     }
 
     fn is_sea(&self, position: &V2<usize>) -> bool {
@@ -288,8 +269,8 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
 
     fn is_cliff(&self, position: &V2<usize>) -> bool {
         let adjacent_cliff_edges = self.count_adjacent_cliff_edges(position);
-        adjacent_cliff_edges >= self.params.resources.cliff_edges_for_cliff.0
-            && adjacent_cliff_edges <= self.params.resources.cliff_edges_for_cliff.1
+        adjacent_cliff_edges >= self.params.resource_gen.cliff_edges_for_cliff.0
+            && adjacent_cliff_edges <= self.params.resource_gen.cliff_edges_for_cliff.1
     }
 
     fn is_flat(&self, position: &V2<usize>) -> bool {
@@ -300,7 +281,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         self.get_adjacent_edges(position)
             .iter()
             .flat_map(|edge| self.world.get_rise(edge.from(), edge.to()))
-            .filter(|rise| rise.abs() > self.params.cliff_gradient)
+            .filter(|rise| rise.abs() > self.params.world_gen.cliff_gradient)
             .count()
     }
 
@@ -321,11 +302,11 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn in_shallow_sea(&self, position: &V2<usize>) -> bool {
-        self.in_sea_between_depths(position, 0.0, self.params.resources.shallow_depth_pc)
+        self.in_sea_between_depths(position, 0.0, self.params.resource_gen.shallow_depth_pc)
     }
 
     fn in_deep_sea(&self, position: &V2<usize>) -> bool {
-        self.in_sea_between_depths(position, self.params.resources.shallow_depth_pc, 1.0)
+        self.in_sea_between_depths(position, self.params.resource_gen.shallow_depth_pc, 1.0)
     }
 
     fn in_sea_between_depths(
@@ -377,22 +358,22 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn tile_is_beach(&self, position: &V2<usize>) -> bool {
-        self.world.get_lowest_corner(position) <= self.params.beach_level
+        self.world.get_lowest_corner(position) <= self.params.world_gen.beach_level
     }
 
     fn tile_is_farmable_climate(&self, position: &V2<usize>) -> bool {
         let temperature = unwrap_or!(self.world.tile_avg_temperature(position), return false);
         let groundwater = unwrap_or!(self.world.tile_avg_groundwater(position), return false);
-        temperature >= self.params.resources.farmland.min_temperature
-            && groundwater >= self.params.resources.farmland.min_groundwater
+        temperature >= self.params.resource_gen.farmland.min_temperature
+            && groundwater >= self.params.resource_gen.farmland.min_groundwater
     }
 
     fn tile_is_cliff(&self, position: &V2<usize>) -> bool {
-        self.world.get_max_abs_rise(position) > self.params.cliff_gradient
+        self.world.get_max_abs_rise(position) > self.params.world_gen.cliff_gradient
     }
 
     fn tile_is_arable_gradient(&self, position: &V2<usize>) -> bool {
-        self.world.get_max_abs_rise(position) <= self.params.resources.farmland.max_crops_slope
+        self.world.get_max_abs_rise(position) <= self.params.resource_gen.farmland.max_crops_slope
     }
 
     fn tile_by_river(&self, position: &V2<usize>) -> bool {

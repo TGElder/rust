@@ -13,8 +13,8 @@ use tokio::sync::RwLock;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
     Cheats, FollowAvatar, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover,
-    ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
+    ResourceGenActor, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility,
+    SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
     WorldColoringParameters, WorldGen,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParameters, WorldArtist, WorldArtistParameters};
@@ -22,6 +22,7 @@ use crate::avatar::AvatarTravelDuration;
 use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
+use crate::resource::Resources;
 use crate::road_builder::AutoRoadTravelDuration;
 use crate::services::clock::{Clock, RealTime};
 use crate::services::{BackgroundService, VisibilityService};
@@ -57,6 +58,7 @@ struct Processes {
     pathfinding_avatar_controls: Process<PathfindingAvatarControls<Context>>,
     position_sims: Vec<Process<PositionBuildSimulation<Context>>>,
     prime_mover: Process<PrimeMover<Context>>,
+    resource_gen: Process<ResourceGenActor<Context>>,
     resource_targets: Process<ResourceTargets<Context>>,
     rotate: Process<Rotate<Context>>,
     settlement_sims: Vec<Process<SettlementSimulation<Context>>>,
@@ -98,6 +100,7 @@ impl System {
         let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
         let (position_sim_tx, position_sim_rx) = fn_channel();
         let (prime_mover_tx, prime_mover_rx) = fn_channel();
+        let (resource_gen_tx, resource_gen_rx) = fn_channel();
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
@@ -157,7 +160,13 @@ impl System {
             pool,
             position_sim_tx,
             prime_mover_tx,
+            resource_gen_tx,
             resource_targets_tx,
+            resources: Arc::new(RwLock::new(Resources::new(
+                params.width,
+                params.width,
+                Vec::with_capacity(0),
+            ))),
             rotate_tx,
             route_to_ports: Arc::default(),
             routes: Arc::default(),
@@ -293,6 +302,10 @@ impl System {
                     ),
                     prime_mover_rx,
                 ),
+                resource_gen: Process::new(
+                    ResourceGenActor::new(cx.clone_with_name("resource_gen")),
+                    resource_gen_rx,
+                ),
                 resource_targets: Process::new(
                     ResourceTargets::new(cx.clone_with_name("resource_targets")),
                     resource_targets_rx,
@@ -405,6 +418,9 @@ impl System {
             .prime_mover_tx
             .send_future(|prime_mover| prime_mover.new_game().boxed());
         self.cx
+            .resource_gen_tx
+            .send_future(|resource_gen| resource_gen.new_game().boxed());
+        self.cx
             .setup_new_world_tx
             .send_future(|setup_new_world| setup_new_world.new_game().boxed());
         self.cx
@@ -453,6 +469,11 @@ impl System {
             .save(&format!("{}.nations", path));
         self.cx.parameters.save(&format!("{}.parameters", path));
         self.cx
+            .resources
+            .read()
+            .await
+            .save(&format!("{}.resources", path));
+        self.cx
             .route_to_ports
             .read()
             .await
@@ -499,6 +520,7 @@ impl System {
         *self.cx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
         *self.cx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
         *self.cx.nations.write().await = <_>::load(&format!("{}.nations", path));
+        *self.cx.resources.write().await = <_>::load(&format!("{}.resources", path));
         *self.cx.route_to_ports.write().await = <_>::load(&format!("{}.route_to_ports", path));
         *self.cx.routes.write().await = <_>::load(&format!("{}.routes", path));
         *self.cx.settlements.write().await = <_>::load(&format!("{}.settlements", path));
@@ -529,6 +551,7 @@ impl System {
 impl Processes {
     async fn start(&mut self, pool: &ThreadPool) {
         self.world_gen.run_passive(pool).await;
+        self.resource_gen.run_passive(pool).await;
         self.setup_visibility.run_passive(pool).await;
         self.setup_new_world.run_passive(pool).await;
         self.setup_pathfinders.run_passive(pool).await;
@@ -604,6 +627,7 @@ impl Processes {
         self.setup_pathfinders.drain(pool, true).await;
         self.setup_new_world.drain(pool, true).await;
         self.setup_visibility.drain(pool, true).await;
+        self.resource_gen.drain(pool, true).await;
         self.world_gen.drain(pool, true).await;
     }
 

@@ -18,6 +18,7 @@ mod nation;
 mod parameters;
 mod pathfinder;
 mod resource;
+mod resource_gen;
 mod road_builder;
 mod route;
 mod services;
