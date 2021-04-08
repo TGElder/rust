@@ -34,24 +34,26 @@ pub struct ResourceArtist {
 }
 
 impl ResourceArtist {
-    pub fn new(params: ResourceArtistParameters, width: usize, height: usize) -> ResourceArtist {
+    pub fn new(params: ResourceArtistParameters, resources_in: &Resources) -> ResourceArtist {
         ResourceArtist {
             params,
-            resources: Vec2D::new(width, height, None),
+            resources: Self::compute_resources(resources_in),
         }
     }
 
-    pub fn init(&mut self, resources: &Resources) {
+    pub fn compute_resources(resources: &Resources) -> Vec2D<Option<Resource>> {
+        let mut out = Vec2D::same_size_as(resources, None);
         for x in 0..resources.width() {
             for y in 0..resources.height() {
                 let position = v2(x, y);
                 for resource in resources.get_cell_unsafe(&position) {
                     if texture(*resource).is_some() {
-                        self.resources.set(&position, Some(*resource)).unwrap();
+                        out.set(&position, Some(*resource)).unwrap();
                     }
                 }
             }
         }
+        out
     }
 
     pub fn draw(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Vec<Command> {
@@ -63,8 +65,7 @@ impl ResourceArtist {
                 if !cell.is_visible() {
                     continue;
                 }
-                let resource = ok_or!(self.resources.get(&position), continue);
-                if let Some(resource) = resource {
+                if let Ok(Some(resource)) = self.resources.get(&position) {
                     let mut world_coord =
                         WorldCoord::new(x as f32, y as f32, cell.elevation.max(world.sea_level()));
                     world_coord.z += self.params.hover;

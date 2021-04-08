@@ -21,15 +21,13 @@ where
         let params = self.cx.parameters();
         let mut rng: SmallRng = SeedableRng::seed_from_u64(params.seed);
 
-        let new_resources = self
+        let generated_resources = self
             .cx
-            .with_world(|world| {
-                ResourceGen::new(params.power, world, params, &mut rng).compute_resources()
-            })
+            .with_world(|world| ResourceGen::new(params, world, &mut rng).compute_resources())
             .await;
 
         self.cx
-            .mut_resources(move |resources| *resources = new_resources)
+            .mut_resources(move |resources| *resources = generated_resources)
             .await;
     }
 }

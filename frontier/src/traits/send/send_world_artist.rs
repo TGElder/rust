@@ -1,11 +1,13 @@
 use crate::actors::WorldArtistActor;
+use crate::traits::has::HasParameters;
 use crate::traits::{
     Micros, SendEngineCommands, WithResources, WithSettlements, WithTerritory, WithWorld,
 };
 use futures::future::BoxFuture;
 
 pub trait SendWorldArtist:
-    Micros
+    HasParameters
+    + Micros
     + SendEngineCommands
     + WithResources
     + WithSettlements

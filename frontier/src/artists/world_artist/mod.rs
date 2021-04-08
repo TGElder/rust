@@ -3,10 +3,7 @@ mod slab;
 use commons::grid::Grid;
 pub use slab::Slab;
 
-use crate::resource::Resources;
-
 use super::crop_artist::*;
-use super::resource_artist::*;
 use super::vegetation_artist::*;
 use super::*;
 use commons::*;
@@ -25,7 +22,6 @@ pub struct WorldArtistParameters {
     pub waterfall_color: Color,
     pub slab_size: usize,
     pub waterfall_gradient: f32,
-    pub resource: ResourceArtistParameters,
 }
 
 impl Default for WorldArtistParameters {
@@ -36,7 +32,6 @@ impl Default for WorldArtistParameters {
             waterfall_color: Color::new(0.0, 0.75, 1.0, 1.0),
             slab_size: 64,
             waterfall_gradient: 0.1,
-            resource: ResourceArtistParameters::default(),
         }
     }
 }
@@ -47,7 +42,6 @@ pub struct WorldArtist {
     height: usize,
     drawing: TerrainDrawing,
     vegetation_artist: VegetationArtist,
-    resource_artist: ResourceArtist,
     crop_artist: CropArtist,
     params: WorldArtistParameters,
 }
@@ -65,7 +59,6 @@ impl WorldArtist {
             height,
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, params.slab_size),
             vegetation_artist: VegetationArtist::new(),
-            resource_artist: ResourceArtist::new(params.resource, width, height),
             crop_artist: CropArtist::new(),
             params,
         }
@@ -75,8 +68,7 @@ impl WorldArtist {
         &self.params
     }
 
-    pub fn init(&mut self, resources: &Resources) -> Vec<Command> {
-        self.resource_artist.init(resources);
+    pub fn init(&self) -> Vec<Command> {
         self.drawing.init()
     }
 
@@ -89,7 +81,6 @@ impl WorldArtist {
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
         out.append(&mut self.draw_slab_crops(world, coloring, &from, &to));
         out.append(&mut self.draw_slab_vegetation(world, &from, &to));
-        out.append(&mut self.draw_slab_resources(world, &from, &to));
 
         out
     }
@@ -238,9 +229,5 @@ impl WorldArtist {
         to: &V2<usize>,
     ) -> Vec<Command> {
         self.vegetation_artist.draw(world, from, to)
-    }
-
-    fn draw_slab_resources(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Vec<Command> {
-        self.resource_artist.draw(world, from, to)
     }
 }

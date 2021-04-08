@@ -47,25 +47,14 @@ impl Default for ResourceGenParameters {
 }
 
 pub struct ResourceGen<'a, R: Rng> {
-    power: usize,
-    world: &'a World,
     params: &'a Parameters,
+    world: &'a World,
     rng: &'a mut R,
 }
 
 impl<'a, R: Rng> ResourceGen<'a, R> {
-    pub fn new(
-        power: usize,
-        world: &'a World,
-        params: &'a Parameters,
-        rng: &'a mut R,
-    ) -> ResourceGen<'a, R> {
-        ResourceGen {
-            power,
-            world,
-            params,
-            rng,
-        }
+    pub fn new(params: &'a Parameters, world: &'a World, rng: &'a mut R) -> ResourceGen<'a, R> {
+        ResourceGen { params, world, rng }
     }
 
     pub fn compute_resources(&mut self) -> Resources {
@@ -128,7 +117,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                 self.world.width(),
                 self.world.height(),
                 self.rng.gen(),
-                (0..self.power).map(|_| 1.0).collect(),
+                (0..self.params.power).map(|_| 1.0).collect(),
             ),
             &|PositionValue { position, .. }| self.is_candidate(resource, position),
         );

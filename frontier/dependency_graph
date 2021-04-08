@@ -192,6 +192,7 @@ SendVisibility WithWorld
 SendVoyager RevealPositionsVoyager
 SendVoyager WithSettlements
 SendVoyager WithWorld
+SendWorldArtist HasParameters
 SendWorldArtist Micros
 SendWorldArtist SendEngineCommands
 SendWorldArtist WithResources
