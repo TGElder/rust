@@ -19,7 +19,6 @@ use pioneer::mesh_splitter::MeshSplitter;
 use pioneer::river_runner::*;
 use rainfall_gen::*;
 use rand::prelude::*;
-use rand::rngs::SmallRng;
 use river_water::*;
 use sea_border::with_sea_border;
 use serde::{Deserialize, Serialize};
@@ -69,10 +68,6 @@ impl Default for WorldGenParameters {
             validation: WorldValidationParams::default(),
         }
     }
-}
-
-pub fn rng(seed: u64) -> SmallRng {
-    SeedableRng::seed_from_u64(seed)
 }
 
 pub fn generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParameters) -> World {

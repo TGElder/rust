@@ -3,6 +3,8 @@ mod slab;
 use commons::grid::Grid;
 pub use slab::Slab;
 
+use crate::resource::Resources;
+
 use super::crop_artist::*;
 use super::resource_artist::*;
 use super::vegetation_artist::*;
@@ -63,7 +65,7 @@ impl WorldArtist {
             height,
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, params.slab_size),
             vegetation_artist: VegetationArtist::new(),
-            resource_artist: ResourceArtist::new(params.resource),
+            resource_artist: ResourceArtist::new(params.resource, width, height),
             crop_artist: CropArtist::new(),
             params,
         }
@@ -73,7 +75,8 @@ impl WorldArtist {
         &self.params
     }
 
-    pub fn init(&self) -> Vec<Command> {
+    pub fn init(&mut self, resources: &Resources) -> Vec<Command> {
+        self.resource_artist.init(resources);
         self.drawing.init()
     }
 

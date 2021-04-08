@@ -6,7 +6,9 @@ use commons::async_trait::async_trait;
 use crate::artists::{Slab, WorldArtist};
 use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{Micros, SendEngineCommands, WithSettlements, WithTerritory, WithWorld};
+use crate::traits::{
+    Micros, SendEngineCommands, WithResources, WithSettlements, WithTerritory, WithWorld,
+};
 use coloring::{world_coloring, Overlay};
 use commons::{v2, M, V2};
 use isometric::{Button, Color, ElementState, Event, VirtualKeyCode};
@@ -37,7 +39,14 @@ pub struct WorldArtistActor<T> {
 
 impl<T> WorldArtistActor<T>
 where
-    T: Micros + SendEngineCommands + WithSettlements + WithTerritory + WithWorld + Send + Sync,
+    T: Micros
+        + SendEngineCommands
+        + WithResources
+        + WithSettlements
+        + WithTerritory
+        + WithWorld
+        + Send
+        + Sync,
 {
     pub fn new(
         cx: T,
@@ -73,7 +82,12 @@ where
     }
 
     pub async fn init(&mut self) {
-        let commands = self.world_artist.init();
+        let cx = &self.cx;
+        let world_artist = &mut self.world_artist;
+        let commands = cx
+            .with_resources(|resources| world_artist.init(resources))
+            .await;
+        // let commands = self.world_artist.init(&resources);
         self.cx.send_engine_commands(commands).await;
         self.redraw_all().await;
     }
@@ -188,7 +202,14 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for WorldArtistActor<T>
 where
-    T: Micros + SendEngineCommands + WithSettlements + WithTerritory + WithWorld + Send + Sync,
+    T: Micros
+        + SendEngineCommands
+        + WithResources
+        + WithSettlements
+        + WithTerritory
+        + WithWorld
+        + Send
+        + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         match *event {

@@ -136,7 +136,7 @@ SendPrimeMover WithSettlements
 SendPrimeMover WithWorld
 SendResourceTargets InitTargets
 SendResourceTargets LoadTarget
-SendResourceTargets WithWorld
+SendResourceTargets WithResources
 SendRotate SendEngineCommands
 SendSettlementSim ClosestTargets
 SendSettlementSim Controlled
@@ -194,6 +194,7 @@ SendVoyager WithSettlements
 SendVoyager WithWorld
 SendWorldArtist Micros
 SendWorldArtist SendEngineCommands
+SendWorldArtist WithResources
 SendWorldArtist WithSettlements
 SendWorldArtist WithTerritory
 SendWorldArtist WithWorld
