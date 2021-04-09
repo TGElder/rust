@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use commons::index2d::Vec2D;
 use serde::{Deserialize, Serialize};
 
@@ -68,4 +70,4 @@ impl Resource {
     }
 }
 
-pub type Resources = Vec2D<Vec<Resource>>;
+pub type Resources = Vec2D<HashSet<Resource>>;

@@ -81,7 +81,7 @@ mod tests {
         fn default() -> Self {
             Cx {
                 targets: Mutex::default(),
-                resources: Mutex::new(Resources::new(3, 3, Vec::with_capacity(0))),
+                resources: Mutex::new(Resources::new(3, 3, HashSet::with_capacity(0))),
             }
         }
     }
@@ -133,9 +133,9 @@ mod tests {
         let cx = Cx::default();
         {
             let mut resources = cx.resources.lock().unwrap();
-            *resources.mut_cell_unsafe(&v2(1, 0)) = vec![Resource::Coal];
-            *resources.mut_cell_unsafe(&v2(2, 1)) = vec![Resource::Coal];
-            *resources.mut_cell_unsafe(&v2(0, 2)) = vec![Resource::Coal, Resource::Whales];
+            *resources.mut_cell_unsafe(&v2(1, 0)) = hashset!{Resource::Coal};
+            *resources.mut_cell_unsafe(&v2(2, 1)) = hashset!{Resource::Coal};
+            *resources.mut_cell_unsafe(&v2(0, 2)) = hashset!{Resource::Coal, Resource::Whales};
         }
 
         let mut resource_targets = ResourceTargets::new(cx);

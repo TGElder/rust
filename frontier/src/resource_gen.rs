@@ -60,7 +60,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     pub fn compute_resources(&mut self) -> Resources {
         let width = self.world.width();
         let height = self.world.height();
-        let mut out = Resources::new(width, height, Vec::with_capacity(0));
+        let mut out = Resources::new(width, height, HashSet::with_capacity(0));
         self.add_limited_resources(&mut out);
         self.add_unlimited_resources(&mut out);
         out
@@ -77,7 +77,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             let candidates = self.reduce_candidates(candidates, resource, count);
             let chosen = candidates.choose_multiple(&mut self.rng, count);
             for choice in chosen {
-                *resources.mut_cell_unsafe(choice) = vec![resource];
+                *resources.mut_cell_unsafe(choice) = hashset! {resource};
                 taken.insert(*choice);
             }
         }
@@ -143,7 +143,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn add_unlimited_resource(&self, resources: &mut Resources, position: &V2<usize>) {
-        if *resources.get_cell_unsafe(position) != vec![] {
+        if !resources.get_cell_unsafe(position).is_empty() {
             return;
         }
         let resource = [
@@ -155,7 +155,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         .iter()
         .find(|&resource| self.is_candidate(*resource, position));
         if let Some(resource) = resource {
-            *resources.mut_cell_unsafe(position) = vec![*resource];
+            *resources.mut_cell_unsafe(position) = hashset! {*resource};
         }
     }
 

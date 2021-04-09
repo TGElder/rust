@@ -165,7 +165,7 @@ impl System {
             resources: Arc::new(RwLock::new(Resources::new(
                 params.width,
                 params.width,
-                Vec::with_capacity(0),
+                HashSet::with_capacity(0),
             ))),
             rotate_tx,
             route_to_ports: Arc::default(),
