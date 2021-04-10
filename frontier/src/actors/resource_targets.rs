@@ -1,5 +1,6 @@
 use crate::resource::{Resource, Resources, RESOURCES};
 use crate::traits::{InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources};
+use crate::world::WorldObject;
 use commons::grid::Grid;
 use commons::{v2, V2};
 use std::collections::HashSet;
@@ -60,6 +61,15 @@ fn resource_at(resources: &Resources, resource: Resource, position: &V2<usize>) 
 
 pub fn target_set(resource: Resource) -> String {
     format!("resource-{}", resource.name())
+}
+
+pub fn blocked_by(resource: Resource, world_object: WorldObject) -> bool {
+    match (resource, world_object) {
+        (Resource::Pasture, WorldObject::Crop(..)) => true,
+        (Resource::Wood, WorldObject::Crop(..)) => true,
+        _ => false,
+    }
+
 }
 
 #[cfg(test)]
