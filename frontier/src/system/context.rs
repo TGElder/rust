@@ -25,11 +25,11 @@ use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::{HasFollowAvatar, HasParameters};
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
-    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendRotate, SendSystem,
-    SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
-    WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithResources,
-    WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic,
-    WithVisibility, WithVisited, WithWorld,
+    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate,
+    SendSystem, SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist,
+    WithAvatars, WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder,
+    WithResources, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory,
+    WithTraffic, WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
 use crate::world::World;
@@ -227,6 +227,17 @@ impl SendPositionBuildSim for Context {
     {
         self.position_sim_tx
             .send_future(move |position_sim| function(position_sim));
+    }
+}
+
+#[async_trait]
+impl SendResourceTargets for Context {
+    async fn send_resource_targets<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut ResourceTargets<Self>) -> O + Send + 'static,
+    {
+        self.resource_targets_tx.send(function).await
     }
 }
 
