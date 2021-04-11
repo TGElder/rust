@@ -25,11 +25,11 @@ use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::{HasFollowAvatar, HasParameters};
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
-    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendRotate, SendSystem,
-    SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
-    WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithResources,
-    WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic,
-    WithVisibility, WithVisited, WithWorld,
+    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate,
+    SendSystem, SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist,
+    WithAvatars, WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder,
+    WithResources, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory,
+    WithTraffic, WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
 use crate::world::World;
@@ -195,9 +195,7 @@ impl SendEdgeBuildSim for Context {
         O: Send + 'static,
         F: FnOnce(&mut EdgeBuildSimulation<Self, Self::D>) -> BoxFuture<O> + Send + 'static,
     {
-        self.edge_sim_tx
-            .send_future(move |edge_sim| function(edge_sim))
-            .await
+        self.edge_sim_tx.send_future(function).await
     }
 }
 
@@ -215,9 +213,7 @@ impl SendPositionBuildSim for Context {
         O: Send + 'static,
         F: FnOnce(&mut PositionBuildSimulation<Self>) -> BoxFuture<O> + Send + 'static,
     {
-        self.position_sim_tx
-            .send_future(move |position_sim| function(position_sim))
-            .await
+        self.position_sim_tx.send_future(function).await
     }
 
     fn send_position_build_sim_future_background<F, O>(&self, function: F)
@@ -225,8 +221,18 @@ impl SendPositionBuildSim for Context {
         O: Send + 'static,
         F: FnOnce(&mut PositionBuildSimulation<Self>) -> BoxFuture<O> + Send + 'static,
     {
-        self.position_sim_tx
-            .send_future(move |position_sim| function(position_sim));
+        self.position_sim_tx.send_future(function);
+    }
+}
+
+#[async_trait]
+impl SendResourceTargets for Context {
+    async fn send_resource_targets_future<F, O>(&self, function: F) -> O
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut ResourceTargets<Self>) -> BoxFuture<O> + Send + 'static,
+    {
+        self.resource_targets_tx.send_future(function).await
     }
 }
 
@@ -256,9 +262,7 @@ impl SendSystem for Context {
         O: Send + 'static,
         F: FnOnce(&mut super::System) -> BoxFuture<O> + Send + 'static,
     {
-        self.system_tx
-            .send_future(move |system| function(system))
-            .await
+        self.system_tx.send_future(function).await
     }
 }
 
@@ -269,8 +273,7 @@ impl SendTownHouseArtist for Context {
         O: Send + 'static,
         F: FnOnce(&mut TownHouseArtist<Self>) -> BoxFuture<O> + Send + 'static,
     {
-        self.town_house_artist_tx
-            .send_future(move |town_house_artist| function(town_house_artist));
+        self.town_house_artist_tx.send_future(function);
     }
 }
 
@@ -281,8 +284,7 @@ impl SendTownLabelArtist for Context {
         O: Send + 'static,
         F: FnOnce(&mut TownLabelArtist<Self>) -> BoxFuture<O> + Send + 'static,
     {
-        self.town_label_artist_tx
-            .send_future(move |town_label_artist| function(town_label_artist));
+        self.town_label_artist_tx.send_future(function);
     }
 }
 
@@ -292,8 +294,7 @@ impl SendVoyager for Context {
         O: Send + 'static,
         F: FnOnce(&mut Voyager<Self>) -> BoxFuture<O> + Send + 'static,
     {
-        self.voyager_tx
-            .send_future(move |voyager| function(voyager));
+        self.voyager_tx.send_future(function);
     }
 }
 
@@ -303,8 +304,7 @@ impl SendWorldArtist for Context {
         O: Send + 'static,
         F: FnOnce(&mut WorldArtistActor<Self>) -> BoxFuture<O> + Send + 'static,
     {
-        self.world_artist_tx
-            .send_future(move |world_artist| function(world_artist));
+        self.world_artist_tx.send_future(function);
     }
 }
 
