@@ -21,6 +21,7 @@ FindPath SendPathfinder
 GetBuildInstruction SendBuildQueue
 GetNationDescription WithNations
 GetSettlement WithSettlements
+GetWorldObject WithWorld
 InBounds SendPathfinder
 InitTargets SendPathfinder
 InsertBuildInstruction SendBuildQueue
@@ -134,6 +135,7 @@ SendPrimeMover WithAvatars
 SendPrimeMover WithRoutes
 SendPrimeMover WithSettlements
 SendPrimeMover WithWorld
+SendResourceTargets GetWorldObject
 SendResourceTargets InitTargets
 SendResourceTargets LoadTarget
 SendResourceTargets WithResources
