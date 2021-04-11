@@ -6,6 +6,11 @@ use crate::traits::{DrawWorld, Micros, WithWorld};
 use crate::world::{World, WorldObject};
 
 #[async_trait]
+pub trait GetWorldObject {
+    async fn get_world_object(&self, position: &V2<usize>) -> Option<WorldObject>;
+}
+
+#[async_trait]
 pub trait SetWorldObject {
     async fn set_world_object(&self, object: WorldObject, position: &V2<usize>) -> bool;
 }
@@ -18,6 +23,17 @@ pub trait ForceWorldObject {
 #[async_trait]
 pub trait RemoveWorldObject {
     async fn remove_world_object(&self, position: &V2<usize>);
+}
+
+#[async_trait]
+impl<T> GetWorldObject for T
+where
+    T: WithWorld + Sync,
+{
+    async fn get_world_object(&self, position: &V2<usize>) -> Option<WorldObject> {
+        self.with_world(|world| world.get_cell(position).map(|cell| cell.object))
+            .await
+    }
 }
 
 #[async_trait]
