@@ -143,17 +143,20 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn add_unlimited_resource(&self, resources: &mut Resources, position: &V2<usize>) {
-        [
+        if !resources.get_cell_unsafe(position).is_empty() {
+            return;
+        }
+        let resource = [
             Resource::Crops,
             Resource::Pasture,
             Resource::Stone,
             Resource::Wood,
         ]
         .iter()
-        .filter(|&resource| self.is_candidate(*resource, position))
-        .for_each(|resource| {
-            resources.mut_cell_unsafe(position).insert(*resource);
-        });
+        .find(|&resource| self.is_candidate(*resource, position));
+        if let Some(resource) = resource {
+            *resources.mut_cell_unsafe(position) = hashset! {*resource};
+        }
     }
 
     fn is_candidate(&self, resource: Resource, position: &V2<usize>) -> bool {
@@ -174,6 +177,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             Resource::Crabs => self.in_shallow_sea(position),
             Resource::Crops => {
                 !self.tile_is_beach(position)
+                    && !self.tile_has_object(position)
                     && self.tile_by_river(position)
                     && self.tile_is_arable_gradient(position)
                     && self.tile_is_farmable_climate(position)
@@ -198,6 +202,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             }
             Resource::Pasture => {
                 !self.tile_is_beach(position)
+                    && !self.tile_has_object(position)
                     && !self.tile_is_cliff(position)
                     && self.tile_is_farmable_climate(position)
             }
