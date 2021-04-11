@@ -1,5 +1,8 @@
 use crate::resource::{Resource, Resources, RESOURCES};
-use crate::traits::{InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources};
+use crate::traits::{
+    GetWorldObject, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources,
+};
+use crate::world::WorldObject;
 use commons::grid::Grid;
 use commons::{v2, V2};
 use std::collections::HashSet;
@@ -10,56 +13,72 @@ pub struct ResourceTargets<T> {
 
 impl<T> ResourceTargets<T>
 where
-    T: InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithResources,
+    T: GetWorldObject + InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithResources,
 {
     pub fn new(cx: T) -> ResourceTargets<T> {
         ResourceTargets { cx }
     }
 
-    pub async fn init(&mut self) {
+    pub async fn init(&self) {
+        self.init_targets().await;
+        self.refresh_targets(self.all_positions().await).await
+    }
+
+    async fn init_targets(&self) {
         for resource in RESOURCES.iter() {
-            self.init_resource(*resource).await;
+            self.cx.init_targets(target_set(*resource)).await;
         }
     }
 
-    async fn init_resource(&mut self, resource: Resource) {
-        let targets = self.get_targets(resource).await;
-        self.load_targets(target_set(resource), targets).await;
+    pub async fn refresh_targets(&self, positions: HashSet<V2<usize>>) {
+        for position in positions.iter() {
+            self.refresh_targets_at(position).await;
+        }
     }
 
-    async fn get_targets(&self, resource: Resource) -> HashSet<V2<usize>> {
+    async fn refresh_targets_at(&self, position: &V2<usize>) {
+        let resources = self
+            .cx
+            .with_resources(|resources| resources.get_cell_unsafe(position).clone())
+            .await;
+        let object = self.cx.get_world_object(position).await.unwrap();
+        for resource in resources {
+            self.cx
+                .load_target(
+                    &target_set(resource),
+                    position,
+                    !blocked_by(resource, object),
+                )
+                .await;
+        }
+    }
+
+    async fn all_positions(&self) -> HashSet<V2<usize>> {
         self.cx
-            .with_resources(|resources| resource_positions(resources, resource))
+            .with_resources(|resources| all_positions(resources))
             .await
-    }
-
-    async fn load_targets(&self, target_set: String, targets: HashSet<V2<usize>>) {
-        self.cx.init_targets(target_set.clone()).await;
-        for target in targets {
-            self.cx.load_target(&target_set, &target, true).await
-        }
     }
 }
 
-fn resource_positions(resources: &Resources, resource: Resource) -> HashSet<V2<usize>> {
+fn all_positions(resources: &Resources) -> HashSet<V2<usize>> {
     let mut out = HashSet::new();
     for x in 0..resources.width() {
         for y in 0..resources.height() {
-            let position = &v2(x, y);
-            if resource_at(&resources, resource, &position) {
-                out.insert(*position);
-            }
+            out.insert(v2(x, y));
         }
     }
     out
 }
 
-fn resource_at(resources: &Resources, resource: Resource, position: &V2<usize>) -> bool {
-    resources.get_cell_unsafe(position).contains(&resource)
-}
-
 pub fn target_set(resource: Resource) -> String {
     format!("resource-{}", resource.name())
+}
+
+pub fn blocked_by(resource: Resource, object: WorldObject) -> bool {
+    matches!((resource, object),
+        (Resource::Pasture, WorldObject::Crop{..}) |
+        (Resource::Wood, WorldObject::Crop{..})
+    )
 }
 
 #[cfg(test)]
@@ -73,16 +92,36 @@ mod tests {
     use std::sync::Mutex;
 
     struct Cx {
-        targets: Mutex<HashMap<String, M<bool>>>,
         resources: Mutex<Resources>,
+        targets: Mutex<HashMap<String, M<bool>>>,
+        world_object: WorldObject,
     }
 
     impl Default for Cx {
         fn default() -> Self {
             Cx {
-                targets: Mutex::default(),
                 resources: Mutex::new(Resources::new(3, 3, HashSet::with_capacity(0))),
+                targets: Mutex::default(),
+                world_object: WorldObject::None,
             }
+        }
+    }
+
+    impl Cx {
+        fn get_targets(&self, target_set: &str) -> M<bool> {
+            self.targets
+                .lock()
+                .unwrap()
+                .get(target_set)
+                .unwrap()
+                .clone()
+        }
+    }
+
+    #[async_trait]
+    impl GetWorldObject for Cx {
+        async fn get_world_object(&self, _: &V2<usize>) -> Option<WorldObject> {
+            Some(self.world_object)
         }
     }
 
@@ -128,8 +167,8 @@ mod tests {
 
     #[test]
     #[rustfmt::skip]
-    fn test() {
-
+    fn test_init() {
+        // Given
         let cx = Cx::default();
         {
             let mut resources = cx.resources.lock().unwrap();
@@ -138,16 +177,14 @@ mod tests {
             *resources.mut_cell_unsafe(&v2(0, 2)) = hashset!{Resource::Coal, Resource::Whales};
         }
 
-        let mut resource_targets = ResourceTargets::new(cx);
+        let resource_targets = ResourceTargets::new(cx);
+
+        // When
         block_on(resource_targets.init());
 
+        // Then
         assert_eq!(
-            *resource_targets.cx
-                .targets
-                .lock()
-                .unwrap()
-                .get("resource-coal")
-                .unwrap(),
+            resource_targets.cx.get_targets("resource-coal"),
             M::from_vec(
                 3,
                 3,
@@ -159,13 +196,72 @@ mod tests {
             ),
         );
         assert_eq!(
-            *resource_targets.cx
-                .targets
-                .lock()
-                .unwrap()
-                .get("resource-crops")
-                .unwrap(),
+            resource_targets.cx.get_targets("resource-crops"),
             M::from_element(3, 3, false),
+        );
+    }
+
+    #[test]
+    fn test_refresh_targets_at() {
+        // Given
+        let resource_targets = ResourceTargets::new(Cx::default());
+        block_on(resource_targets.init());
+        {
+            let mut resources = resource_targets.cx.resources.lock().unwrap();
+            *resources.mut_cell_unsafe(&v2(1, 0)) = hashset! {Resource::Coal, Resource::Stone};
+        }
+
+        // When
+        block_on(resource_targets.refresh_targets(hashset! {v2(1, 0)}));
+
+        // Then
+        assert_eq!(
+            *resource_targets
+                .cx
+                .get_targets("resource-coal")
+                .get_cell_unsafe(&v2(1, 0)),
+            true
+        );
+        assert_eq!(
+            *resource_targets
+                .cx
+                .get_targets("resource-stone")
+                .get_cell_unsafe(&v2(1, 0)),
+            true
+        );
+        assert_eq!(
+            *resource_targets
+                .cx
+                .get_targets("resource-crops")
+                .get_cell_unsafe(&v2(1, 0)),
+            false
+        );
+    }
+
+    #[test]
+    fn test_refresh_targets_at_blocked_by() {
+        // Given
+        let cx = Cx {
+            world_object: WorldObject::Crop { rotated: true },
+            ..Cx::default()
+        };
+        let resource_targets = ResourceTargets::new(cx);
+        block_on(resource_targets.init());
+        {
+            let mut resources = resource_targets.cx.resources.lock().unwrap();
+            *resources.mut_cell_unsafe(&v2(1, 0)) = hashset! {Resource::Wood};
+        }
+
+        // When
+        block_on(resource_targets.refresh_targets(hashset! {v2(1, 0)}));
+
+        // Then
+        assert_eq!(
+            *resource_targets
+                .cx
+                .get_targets("resource-wood")
+                .get_cell_unsafe(&v2(1, 0)),
+            false
         );
     }
 }
