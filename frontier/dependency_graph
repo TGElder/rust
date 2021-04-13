@@ -1,6 +1,4 @@
 AddController WithTerritory
-AddCrops ForceWorldObject
-AddCrops RefreshTargets
 AddRoad UpdateRoads
 AddRoad WithWorld
 AddTown AddController
