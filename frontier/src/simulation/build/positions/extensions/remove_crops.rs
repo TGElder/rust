@@ -28,7 +28,7 @@ where
         for position in positions.iter() {
             if self.has_crops_build_instruction(position).await {
                 self.cx
-                    .remove_build_instruction(&BuildKey::Crops(*position))
+                    .remove_build_instruction(&BuildKey::Object(*position))
                     .await;
             }
         }
@@ -50,7 +50,7 @@ where
 
     async fn has_crops_build_instruction(&self, position: &V2<usize>) -> bool {
         self.cx
-            .get_build_instruction(&BuildKey::Crops(*position))
+            .get_build_instruction(&BuildKey::Object(*position))
             .await
             .is_some()
     }
@@ -245,9 +245,9 @@ mod tests {
         // Given
         let mut cx = happy_path_tx();
         cx.get_build_instruction = Some(BuildInstruction {
-            what: Build::Crops {
+            what: Build::Object {
                 position: v2(1, 1),
-                rotated: true,
+                object: WorldObject::Crop { rotated: true },
             },
             when: 1,
         });
@@ -261,7 +261,7 @@ mod tests {
         // Then
         assert_eq!(
             *sim.cx.removed_build_instructions.lock().unwrap(),
-            hashset! { BuildKey::Crops(v2(1, 1)) }
+            hashset! { BuildKey::Object(v2(1, 1)) }
         );
     }
 
@@ -298,9 +298,9 @@ mod tests {
         // Given
         let mut cx = happy_path_tx();
         cx.get_build_instruction = Some(BuildInstruction {
-            what: Build::Crops {
+            what: Build::Object {
                 position: v2(1, 1),
-                rotated: true,
+                object: WorldObject::Crop { rotated: true },
             },
             when: 1,
         });

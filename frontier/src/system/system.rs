@@ -12,14 +12,14 @@ use tokio::sync::RwLock;
 
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
-    Cheats, FollowAvatar, Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover,
+    Cheats, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls, PrimeMover,
     ResourceGenActor, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility,
     SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
     WorldColoringParameters, WorldGen,
 };
 use crate::artists::{AvatarArtist, AvatarArtistParameters, WorldArtist, WorldArtistParameters};
 use crate::avatar::AvatarTravelDuration;
-use crate::build::builders::{CropsBuilder, RoadBuilder, TownBuilder};
+use crate::build::builders::{ObjectBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::resource::Resources;
@@ -54,7 +54,7 @@ struct Processes {
     event_forwarder: Process<EventForwarderActor>,
     follow_avatar: Process<FollowAvatar<Context>>,
     labels: Process<Labels<Context>>,
-    object_builder: Process<ObjectBuilder<Context>>,
+    object_builder: Process<ObjectBuilderActor<Context>>,
     pathfinding_avatar_controls: Process<PathfindingAvatarControls<Context>>,
     position_sims: Vec<Process<PositionBuildSimulation<Context>>>,
     prime_mover: Process<PrimeMover<Context>>,
@@ -247,7 +247,7 @@ impl System {
                         vec![
                             Box::new(TownBuilder::new(cx.clone_with_name("town_builder"))),
                             Box::new(RoadBuilder::new(cx.clone_with_name("road_builder"))),
-                            Box::new(CropsBuilder::new(cx.clone_with_name("crops_builder"))),
+                            Box::new(ObjectBuilder::new(cx.clone_with_name("crops_builder"))),
                         ],
                     ),
                     builder_rx,
@@ -274,7 +274,7 @@ impl System {
                 ),
                 labels: Process::new(Labels::new(cx.clone_with_name("labels")), labels_rx),
                 object_builder: Process::new(
-                    ObjectBuilder::new(cx.clone_with_name("object_builder"), params.seed),
+                    ObjectBuilderActor::new(cx.clone_with_name("object_builder"), params.seed),
                     object_builder_rx,
                 ),
                 pathfinding_avatar_controls: Process::new(

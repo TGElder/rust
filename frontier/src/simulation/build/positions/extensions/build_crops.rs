@@ -52,9 +52,11 @@ where
     ) {
         self.cx
             .insert_build_instruction(BuildInstruction {
-                what: Build::Crops {
+                what: Build::Object {
                     position,
-                    rotated: self.rng.gen(),
+                    object: WorldObject::Crop {
+                        rotated: self.rng.gen(),
+                    },
                 },
                 when: unwrap_or!(self.first_visit(route_keys).await, return),
             })
@@ -251,7 +253,7 @@ mod tests {
         assert!(matches!(
             build_crops.cx.build_instructions.lock().unwrap()[0],
             BuildInstruction{
-                what: Build::Crops{position, .. },
+                what: Build::Object{position, object: WorldObject::Crop{ .. } },
                 when: 11
             } if position == v2(1, 1)
         ));

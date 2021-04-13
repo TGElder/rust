@@ -1,6 +1,6 @@
 use crate::actors::{
     AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor, Cheats, FollowAvatar,
-    Labels, ObjectBuilder, PathfindingAvatarControls, PrimeMover, ResourceGenActor,
+    Labels, ObjectBuilderActor, PathfindingAvatarControls, PrimeMover, ResourceGenActor,
     ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
     TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
@@ -63,7 +63,7 @@ pub struct Context {
     pub follow_avatar_tx: FnSender<FollowAvatar<Context>>,
     pub labels_tx: FnSender<Labels<Context>>,
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
-    pub object_builder_tx: FnSender<ObjectBuilder<Context>>,
+    pub object_builder_tx: FnSender<ObjectBuilderActor<Context>>,
     pub parameters: Arc<Parameters>,
     pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
