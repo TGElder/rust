@@ -1,5 +1,6 @@
 AddController WithTerritory
-AddCrops SetWorldObject
+AddCrops ForceWorldObject
+AddCrops RefreshTargets
 AddRoad UpdateRoads
 AddRoad WithWorld
 AddTown AddController
@@ -36,6 +37,7 @@ RandomTownName WithNations
 RefreshEdges SendEdgeBuildSim
 RefreshPositions SendPositionBuildSim
 RefreshPositionsBackground SendPositionBuildSim
+RefreshTargets SendResourceTargets
 RemoveBuildInstruction SendBuildQueue
 RemoveController WithTerritory
 RemoveRoad UpdateRoads
@@ -124,6 +126,7 @@ SendPositionBuildSim GetSettlement
 SendPositionBuildSim HasParameters
 SendPositionBuildSim InsertBuildInstruction
 SendPositionBuildSim RandomTownName
+SendPositionBuildSim RefreshTargets
 SendPositionBuildSim RemoveBuildInstruction
 SendPositionBuildSim RemoveWorldObject
 SendPositionBuildSim WithRouteToPorts

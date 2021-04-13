@@ -117,9 +117,10 @@ fn free_destinations(world: &World, route_keys: HashSet<RouteKey>) -> HashSet<Ro
 }
 
 fn is_free(world: &World, position: &V2<usize>) -> bool {
-    world
-        .get_cell(&position)
-        .map_or(false, |cell| cell.object == WorldObject::None)
+    world.get_cell(&position).map_or(
+        false,
+        |cell| matches!(cell.object, WorldObject::None | WorldObject::Vegetation{..}),
+    )
 }
 
 #[cfg(test)]
