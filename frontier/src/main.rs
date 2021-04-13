@@ -56,8 +56,8 @@ fn main() {
 
     let mut engine = IsometricEngine::new(IsometricEngineParameters {
         title: "Frontier",
-        width: 1024,
-        height: 1024,
+        width: 512,
+        height: 512,
         max_z: params.world_gen.max_height as f32 + 1.2, // +1.2 for resources at top
         label_padding: params.label_padding,
     });

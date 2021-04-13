@@ -8,13 +8,19 @@ use crate::resource::Resource;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traffic::Traffic;
 use crate::traits::{
-    GetBuildInstruction, RemoveBuildInstruction, RemoveWorldObject, WithTraffic, WithWorld,
+    GetBuildInstruction, RefreshTargets, RemoveBuildInstruction, RemoveWorldObject, WithTraffic,
+    WithWorld,
 };
 use crate::world::{World, WorldCell, WorldObject};
 
 impl<T> PositionBuildSimulation<T>
 where
-    T: GetBuildInstruction + RemoveBuildInstruction + RemoveWorldObject + WithTraffic + WithWorld,
+    T: GetBuildInstruction
+        + RefreshTargets
+        + RemoveBuildInstruction
+        + RemoveWorldObject
+        + WithTraffic
+        + WithWorld,
 {
     pub async fn remove_crops(&self, mut positions: HashSet<V2<usize>>) {
         self.filter_without_crop_routes(&mut positions).await;
@@ -27,9 +33,11 @@ where
             }
         }
 
-        for position in self.have_crops(positions).await {
+        for position in self.have_crops(positions.clone()).await {
             self.cx.remove_world_object(&position).await;
         }
+
+        self.cx.refresh_targets(positions).await;
     }
 
     async fn filter_without_crop_routes(&self, positions: &mut HashSet<V2<usize>>) {
@@ -92,6 +100,7 @@ mod tests {
 
     struct Cx {
         get_build_instruction: Option<BuildInstruction>,
+        refreshed_targets: Mutex<HashSet<V2<usize>>>,
         removed_build_instructions: Mutex<HashSet<BuildKey>>,
         removed_world_objects: Mutex<Vec<V2<usize>>>,
         traffic: Mutex<Traffic>,
@@ -102,6 +111,13 @@ mod tests {
     impl GetBuildInstruction for Cx {
         async fn get_build_instruction(&self, _: &BuildKey) -> Option<BuildInstruction> {
             self.get_build_instruction.to_owned()
+        }
+    }
+
+    #[async_trait]
+    impl RefreshTargets for Cx {
+        async fn refresh_targets(&self, positions: HashSet<V2<usize>>) {
+            self.refreshed_targets.lock().unwrap().extend(positions);
         }
     }
 
@@ -161,6 +177,7 @@ mod tests {
         world.mut_cell_unsafe(&v2(1, 1)).object = WorldObject::Crop { rotated: true };
         Cx {
             get_build_instruction: None,
+            refreshed_targets: Mutex::default(),
             removed_build_instructions: Mutex::default(),
             removed_world_objects: Mutex::default(),
             traffic: Mutex::new(Traffic::same_size_as(&world, hashset! {})),
@@ -181,6 +198,10 @@ mod tests {
         assert_eq!(
             *sim.cx.removed_world_objects.lock().unwrap(),
             vec![v2(1, 1)]
+        );
+        assert_eq!(
+            *sim.cx.refreshed_targets.lock().unwrap(),
+            hashset! {v2(1, 1)}
         );
     }
 
@@ -212,6 +233,10 @@ mod tests {
         assert_eq!(
             *sim.cx.removed_world_objects.lock().unwrap(),
             vec![v2(1, 1)]
+        );
+        assert_eq!(
+            *sim.cx.refreshed_targets.lock().unwrap(),
+            hashset! {v2(1, 1)}
         );
     }
 
@@ -302,5 +327,6 @@ mod tests {
 
         // Then
         assert!(sim.cx.removed_build_instructions.lock().unwrap().is_empty());
+        assert!(sim.cx.refreshed_targets.lock().unwrap().is_empty());
     }
 }

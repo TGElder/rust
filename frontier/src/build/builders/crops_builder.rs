@@ -62,9 +62,8 @@ mod tests {
 
     #[async_trait]
     impl AddCrops for Cx {
-        async fn add_crops(&self, position: &V2<usize>, rotated: bool) -> bool {
+        async fn add_crops(&self, position: &V2<usize>, rotated: bool) {
             self.crops.lock().unwrap().insert(*position, rotated);
-            true
         }
     }
 
