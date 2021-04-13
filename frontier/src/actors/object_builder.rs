@@ -9,7 +9,7 @@ use isometric::coords::WorldCoord;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
 
-pub struct ObjectBuilder<T> {
+pub struct ObjectBuilderActor<T> {
     cx: T,
     rng: SmallRng,
     bindings: ObjectBuilderBindings,
@@ -21,12 +21,12 @@ struct ObjectBuilderBindings {
     demolish: Button,
 }
 
-impl<T> ObjectBuilder<T>
+impl<T> ObjectBuilderActor<T>
 where
     T: RemoveWorldObject + SetWorldObject,
 {
-    pub fn new(cx: T, seed: u64) -> ObjectBuilder<T> {
-        ObjectBuilder {
+    pub fn new(cx: T, seed: u64) -> ObjectBuilderActor<T> {
+        ObjectBuilderActor {
             cx,
             rng: SeedableRng::seed_from_u64(seed),
             bindings: ObjectBuilderBindings {
@@ -66,7 +66,7 @@ where
 }
 
 #[async_trait]
-impl<T> HandleEngineEvent for ObjectBuilder<T>
+impl<T> HandleEngineEvent for ObjectBuilderActor<T>
 where
     T: RemoveWorldObject + SetWorldObject + Send + Sync + 'static,
 {

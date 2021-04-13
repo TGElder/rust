@@ -1,6 +1,4 @@
 AddController WithTerritory
-AddCrops ForceWorldObject
-AddCrops RefreshTargets
 AddRoad UpdateRoads
 AddRoad WithWorld
 AddTown AddController
@@ -84,11 +82,12 @@ SendBasicRoadBuilder SelectedAvatar
 SendBasicRoadBuilder UpdateAvatarJourney
 SendBasicRoadBuilder UpdateRoads
 SendBasicRoadBuilder WithWorld
-SendBuildActor AddCrops
 SendBuildActor AddRoad
 SendBuildActor AddTown
+SendBuildActor ForceWorldObject
 SendBuildActor GetSettlement
 SendBuildActor Micros
+SendBuildActor RefreshTargets
 SendBuildActor TakeBuildInstructionsBefore
 SendBuildActor UpdateTerritory
 SendBuildActor WhoControlsTile

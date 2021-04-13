@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::settlement::Settlement;
+use crate::world::WorldObject;
 use commons::edge::Edge;
 use commons::V2;
 
@@ -8,14 +9,17 @@ use commons::V2;
 pub enum Build {
     Road(Edge),
     Town(Settlement),
-    Crops { position: V2<usize>, rotated: bool },
+    Object {
+        position: V2<usize>,
+        object: WorldObject,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum BuildKey {
     Road(Edge),
     Town(V2<usize>),
-    Crops(V2<usize>),
+    Object(V2<usize>),
 }
 
 impl Build {
@@ -23,7 +27,7 @@ impl Build {
         match self {
             Build::Road(edge) => BuildKey::Road(*edge),
             Build::Town(Settlement { position, .. }) => BuildKey::Town(*position),
-            Build::Crops { position, .. } => BuildKey::Crops(*position),
+            Build::Object { position, .. } => BuildKey::Object(*position),
         }
     }
 }
@@ -59,15 +63,15 @@ mod tests {
     }
 
     #[test]
-    fn crops_build_key() {
+    fn object_build_key() {
         // Given
         let position = v2(1, 2);
-        let build = Build::Crops {
+        let build = Build::Object {
             position,
-            rotated: true,
+            object: WorldObject::Crop { rotated: true },
         };
 
         // Then
-        assert_eq!(build.key(), BuildKey::Crops(position));
+        assert_eq!(build.key(), BuildKey::Object(position));
     }
 }
