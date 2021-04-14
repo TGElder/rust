@@ -202,7 +202,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                     && !self.tile_is_cliff(position)
                     && self.tile_is_farmable_climate(position)
             }
-            Resource::Shelter => !self.tile_is_cliff(position),
+            Resource::Shelter => !self.tile_is_beach(position) && !self.tile_is_cliff(position),
             Resource::Spice => {
                 !self.is_sea(position)
                     && self.has_vegetation_type_adjacent(position, VegetationType::PalmTree)
