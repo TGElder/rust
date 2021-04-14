@@ -75,7 +75,7 @@ impl Resource {
 pub type Resources = Vec2D<HashSet<Resource>>;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct Mine{
+pub struct Mine {
     pub resource: Resource,
     pub mine: WorldObject,
 }

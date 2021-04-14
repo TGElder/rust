@@ -4,9 +4,9 @@ use commons::V2;
 
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, RandomTownName,
-    RefreshTargets, RemoveBuildInstruction, RemoveWorldObject, WithRouteToPorts, WithRoutes,
-    WithTraffic, WithWorld,
+    AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, Micros,
+    RandomTownName, RefreshTargets, RemoveBuildInstruction, RemoveWorldObject, WithRouteToPorts,
+    WithRoutes, WithTraffic, WithWorld,
 };
 
 use std::collections::HashSet;
@@ -32,6 +32,7 @@ where
         + GetSettlement
         + HasParameters
         + InsertBuildInstruction
+        + Micros
         + RandomTownName
         + RefreshTargets
         + RemoveBuildInstruction
@@ -42,10 +43,9 @@ where
         + WithWorld,
 {
     pub async fn refresh_positions(&mut self, positions: HashSet<V2<usize>>) {
-        self.build_crops(positions.clone()).await;
         join!(
             self.build_town(positions.clone()),
-            self.remove_crops(positions),
+            self.build_mines(positions),
         );
     }
 }

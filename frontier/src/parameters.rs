@@ -4,7 +4,7 @@ use crate::avatar::AvatarTravelParams;
 use crate::commons::persistence::Load;
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
-use crate::resource::{Resource, Mine};
+use crate::resource::{Mine, Resource};
 use crate::resource_gen::ResourceGenParameters;
 use crate::road_builder::AutoRoadTravelParams;
 use crate::simulation::SimulationParameters;
@@ -70,14 +70,14 @@ impl Default for Parameters {
             default_speed: 3600.0,
             simulation: SimulationParameters::default(),
             mines: vec![
-                Mine{
+                Mine {
                     resource: Resource::Crops,
-                    mine: WorldObject::Crop{rotated: false},
+                    mine: WorldObject::Crop { rotated: false },
                 },
-                Mine{
+                Mine {
                     resource: Resource::Pasture,
                     mine: WorldObject::None,
-                }
+                },
             ],
         }
     }

@@ -124,6 +124,7 @@ SendPositionBuildSim GetBuildInstruction
 SendPositionBuildSim GetSettlement
 SendPositionBuildSim HasParameters
 SendPositionBuildSim InsertBuildInstruction
+SendPositionBuildSim Micros
 SendPositionBuildSim RandomTownName
 SendPositionBuildSim RefreshTargets
 SendPositionBuildSim RemoveBuildInstruction

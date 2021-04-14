@@ -4,9 +4,9 @@ use futures::future::BoxFuture;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, RandomTownName,
-    RefreshTargets, RemoveBuildInstruction, RemoveWorldObject, WithRouteToPorts, WithRoutes,
-    WithTraffic, WithWorld,
+    AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, Micros,
+    RandomTownName, RefreshTargets, RemoveBuildInstruction, RemoveWorldObject, WithRouteToPorts,
+    WithRoutes, WithTraffic, WithWorld,
 };
 
 #[async_trait]
@@ -16,6 +16,7 @@ pub trait SendPositionBuildSim:
     + GetSettlement
     + HasParameters
     + InsertBuildInstruction
+    + Micros
     + RandomTownName
     + RefreshTargets
     + RemoveBuildInstruction
