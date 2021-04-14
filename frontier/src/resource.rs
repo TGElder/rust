@@ -3,6 +3,8 @@ use std::collections::HashSet;
 use commons::index2d::Vec2D;
 use serde::{Deserialize, Serialize};
 
+use crate::world::WorldObject;
+
 pub const RESOURCES: [Resource; 17] = [
     Resource::Bananas,
     Resource::Bison,
@@ -71,3 +73,9 @@ impl Resource {
 }
 
 pub type Resources = Vec2D<HashSet<Resource>>;
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct Mine{
+    pub resource: Resource,
+    pub mine: WorldObject,
+}
