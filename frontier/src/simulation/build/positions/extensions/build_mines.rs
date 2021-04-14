@@ -97,6 +97,6 @@ fn is_change(plan: &Option<WorldObject>, actual: WorldObject) -> bool {
     if let Some(plan) = plan {
         *plan != actual
     } else {
-        matches!(actual, WorldObject::Crop{..})
+        matches!(actual, WorldObject::Crop{..} | WorldObject::House)
     }
 }

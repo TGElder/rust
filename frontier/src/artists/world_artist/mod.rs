@@ -42,6 +42,7 @@ pub struct WorldArtist {
     height: usize,
     drawing: TerrainDrawing,
     vegetation_artist: VegetationArtist,
+    house_artist: HouseArtist,
     crop_artist: CropArtist,
     params: WorldArtistParameters,
 }
@@ -59,6 +60,7 @@ impl WorldArtist {
             height,
             drawing: TerrainDrawing::new("terrain".to_string(), width, height, params.slab_size),
             vegetation_artist: VegetationArtist::new(),
+            house_artist: HouseArtist::new(),
             crop_artist: CropArtist::new(),
             params,
         }
@@ -81,6 +83,7 @@ impl WorldArtist {
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
         out.append(&mut self.draw_slab_crops(world, coloring, &from, &to));
         out.append(&mut self.draw_slab_vegetation(world, &from, &to));
+        out.append(&mut self.house_artist.draw(world, &from, &to));
 
         out
     }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::world::WorldObject;
 
-pub const RESOURCES: [Resource; 17] = [
+pub const RESOURCES: [Resource; 18] = [
     Resource::Bananas,
     Resource::Bison,
     Resource::Coal,
@@ -18,6 +18,7 @@ pub const RESOURCES: [Resource; 17] = [
     Resource::Iron,
     Resource::Ivory,
     Resource::Pasture,
+    Resource::Shelter,
     Resource::Spice,
     Resource::Stone,
     Resource::Truffles,
@@ -40,6 +41,7 @@ pub enum Resource {
     Iron,
     Ivory,
     Pasture,
+    Shelter,
     Spice,
     Stone,
     Truffles,
@@ -63,6 +65,7 @@ impl Resource {
             Resource::Iron => "iron",
             Resource::Ivory => "ivory",
             Resource::Pasture => "pasture",
+            Resource::Shelter => "shelter",
             Resource::Spice => "spice",
             Resource::Stone => "stone",
             Resource::Truffles => "truffles",
