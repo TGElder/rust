@@ -2,9 +2,8 @@ use commons::V2;
 
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    AnyoneControls, GetBuildInstruction, GetSettlement, InsertBuildInstruction, Micros,
-    RandomTownName, RefreshTargets, RemoveBuildInstruction, RemoveWorldObject, WithRouteToPorts,
-    WithRoutes, WithTraffic, WithWorld,
+    AnyoneControls, GetSettlement, InsertBuildInstruction, Micros, RandomTownName,
+    WithRouteToPorts, WithRoutes, WithTraffic, WithWorld,
 };
 
 use std::collections::HashSet;
@@ -22,15 +21,11 @@ impl<T> PositionBuildSimulation<T> {
 impl<T> PositionBuildSimulation<T>
 where
     T: AnyoneControls
-        + GetBuildInstruction
         + GetSettlement
         + HasParameters
         + InsertBuildInstruction
         + Micros
         + RandomTownName
-        + RefreshTargets
-        + RemoveBuildInstruction
-        + RemoveWorldObject
         + WithRoutes
         + WithRouteToPorts
         + WithTraffic

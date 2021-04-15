@@ -18,12 +18,12 @@ where
 {
     pub async fn build_mines(&self, positions: HashSet<V2<usize>>) {
         let mines = &self.cx.parameters().mines;
-        let expected = self.expected_mines(positions, mines).await;
+        let expected = self.get_expected_mines(positions, mines).await;
         let changes = self.get_changes(expected, mines).await;
         self.apply_changes(changes).await;
     }
 
-    async fn expected_mines(
+    async fn get_expected_mines(
         &self,
         positions: HashSet<V2<usize>>,
         mines: &[Mine],
@@ -32,7 +32,7 @@ where
             .with_traffic(|traffic| {
                 positions
                     .into_iter()
-                    .map(|position| (position, expected_mine(traffic, &position, mines)))
+                    .map(|position| (position, get_expected_mine(&position, traffic, mines)))
                     .collect()
             })
             .await
@@ -71,7 +71,11 @@ where
     }
 }
 
-fn expected_mine(traffic: &Traffic, position: &V2<usize>, mines: &[Mine]) -> Option<WorldObject> {
+fn get_expected_mine(
+    position: &V2<usize>,
+    traffic: &Traffic,
+    mines: &[Mine],
+) -> Option<WorldObject> {
     let traffic = traffic.get_cell_unsafe(position);
     for mine in mines {
         if traffic
@@ -79,17 +83,18 @@ fn expected_mine(traffic: &Traffic, position: &V2<usize>, mines: &[Mine]) -> Opt
             .filter(|RouteKey { destination, .. }| position == destination)
             .any(|RouteKey { resource, .. }| *resource == mine.resource)
         {
-            return Some(mine.mine);
+            return Some(mine.object);
         }
     }
     None
 }
 
 fn is_change(expected: &Option<WorldObject>, actual: WorldObject, mines: &[Mine]) -> bool {
-    if let Some(expected) = expected {
-        *expected != actual
-    } else {
-        mines.iter().any(|Mine { mine, .. }| *mine == actual)
+    match expected {
+        Some(expected) => *expected != actual,
+        None => mines
+            .iter()
+            .any(|Mine { object: mine, .. }| *mine == actual),
     }
 }
 
@@ -103,14 +108,14 @@ mod tests {
 
     use crate::parameters::Parameters;
     use crate::resource::Resource;
-    use crate::world::World;
+    use crate::world::{VegetationType, World};
 
     use super::*;
 
     struct Cx {
         build_instructions: Mutex<Vec<BuildInstruction>>,
-        parameters: Parameters,
         micros: u128,
+        parameters: Parameters,
         traffic: Traffic,
         world: World,
     }
@@ -174,30 +179,31 @@ mod tests {
 
     impl Default for Cx {
         fn default() -> Self {
+            let position = v2(1, 2);
             let route_key = RouteKey {
                 settlement: v2(0, 0),
-                destination: v2(1, 2),
+                destination: position,
                 resource: Resource::Crops,
             };
             let mut traffic = Traffic::new(3, 3, HashSet::with_capacity(0));
-            traffic.mut_cell_unsafe(&v2(1, 2)).insert(route_key);
+            traffic.mut_cell_unsafe(&position).insert(route_key);
 
             Cx {
                 build_instructions: Mutex::default(),
+                micros: 808,
                 parameters: Parameters {
                     mines: vec![
                         Mine {
-                            resource: Resource::Crops,
-                            mine: WorldObject::Crop { rotated: true },
+                            resource: Resource::Pasture,
+                            object: WorldObject::Pasture,
                         },
                         Mine {
-                            resource: Resource::Pasture,
-                            mine: WorldObject::Pasture,
+                            resource: Resource::Crops,
+                            object: WorldObject::Crop { rotated: true },
                         },
                     ],
                     ..Parameters::default()
                 },
-                micros: 808,
                 traffic,
                 world: World::new(M::zeros(3, 3), 0.0),
             }
@@ -208,6 +214,33 @@ mod tests {
     fn should_build_mine_if_mine_expected_and_mine_does_not_exist() {
         // Given
         let sim = PositionBuildSimulation::new(Cx::default());
+
+        // When
+        block_on(sim.build_mines(hashset! {v2(1, 2)}));
+
+        // Then
+        assert_eq!(
+            *sim.cx.build_instructions.lock().unwrap(),
+            vec![BuildInstruction {
+                what: Build::Object {
+                    position: v2(1, 2),
+                    object: WorldObject::Crop { rotated: true },
+                },
+                when: 808,
+            }]
+        );
+    }
+
+    #[test]
+    fn should_build_mine_if_object_already_exists_at_position() {
+        // Given
+        let mut cx = Cx::default();
+        cx.world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Vegetation {
+            vegetation_type: VegetationType::Cactus,
+            offset: v2(0.0, 0.0),
+        };
+
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_mines(hashset! {v2(1, 2)}));
@@ -303,7 +336,7 @@ mod tests {
             vec![BuildInstruction {
                 what: Build::Object {
                     position: v2(1, 2),
-                    object: WorldObject::Crop { rotated: true },
+                    object: WorldObject::Pasture,
                 },
                 when: 808,
             }]
