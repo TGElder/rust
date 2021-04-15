@@ -1,5 +1,3 @@
-use commons::rand::prelude::SmallRng;
-use commons::rand::SeedableRng;
 use commons::V2;
 
 use crate::traits::has::HasParameters;
@@ -13,15 +11,11 @@ use std::collections::HashSet;
 
 pub struct PositionBuildSimulation<T> {
     pub(super) cx: T,
-    pub(super) rng: SmallRng,
 }
 
 impl<T> PositionBuildSimulation<T> {
-    pub fn new(cx: T, seed: u64) -> PositionBuildSimulation<T> {
-        PositionBuildSimulation {
-            cx,
-            rng: SeedableRng::seed_from_u64(seed),
-        }
+    pub fn new(cx: T) -> PositionBuildSimulation<T> {
+        PositionBuildSimulation { cx }
     }
 }
 

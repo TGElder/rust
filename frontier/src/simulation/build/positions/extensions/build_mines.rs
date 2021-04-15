@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use commons::grid::Grid;
-use commons::log::debug;
 use commons::V2;
 
 use crate::build::{Build, BuildInstruction};
@@ -18,22 +17,22 @@ where
     T: HasParameters + InsertBuildInstruction + Micros + WithTraffic + WithWorld,
 {
     pub async fn build_mines(&self, positions: HashSet<V2<usize>>) {
-        let plans = self.plan_mines(positions).await;
-        let changes = self.get_changes(plans).await;
+        let mines = &self.cx.parameters().mines;
+        let expected = self.expected_mines(positions, mines).await;
+        let changes = self.get_changes(expected, mines).await;
         self.apply_changes(changes).await;
     }
 
-    async fn plan_mines(
+    async fn expected_mines(
         &self,
         positions: HashSet<V2<usize>>,
+        mines: &[Mine],
     ) -> HashMap<V2<usize>, Option<WorldObject>> {
-        let mines = &self.cx.parameters().mines;
-
         self.cx
             .with_traffic(|traffic| {
                 positions
                     .into_iter()
-                    .map(|position| (position, plan_mine(traffic, &position, mines)))
+                    .map(|position| (position, expected_mine(traffic, &position, mines)))
                     .collect()
             })
             .await
@@ -41,22 +40,15 @@ where
 
     async fn get_changes(
         &self,
-        plans: HashMap<V2<usize>, Option<WorldObject>>,
+        expected: HashMap<V2<usize>, Option<WorldObject>>,
+        mines: &[Mine],
     ) -> HashMap<V2<usize>, Option<WorldObject>> {
         self.cx
             .with_world(|world| {
-                plans
+                expected
                     .into_iter()
-                    .filter(|(position, plan)| {
-                        let is_change = is_change(plan, world.get_cell_unsafe(position).object);
-                        if is_change {
-                            debug!(
-                                "Expected {:?} found {:?}",
-                                plan,
-                                world.get_cell_unsafe(position).object
-                            );
-                        }
-                        is_change
+                    .filter(|(position, expected)| {
+                        is_change(expected, world.get_cell_unsafe(position).object, mines)
                     })
                     .collect()
             })
@@ -79,7 +71,7 @@ where
     }
 }
 
-fn plan_mine(traffic: &Traffic, position: &V2<usize>, mines: &[Mine]) -> Option<WorldObject> {
+fn expected_mine(traffic: &Traffic, position: &V2<usize>, mines: &[Mine]) -> Option<WorldObject> {
     let traffic = traffic.get_cell_unsafe(position);
     for mine in mines {
         if traffic
@@ -93,11 +85,11 @@ fn plan_mine(traffic: &Traffic, position: &V2<usize>, mines: &[Mine]) -> Option<
     None
 }
 
-fn is_change(plan: &Option<WorldObject>, actual: WorldObject) -> bool {
-    if let Some(plan) = plan {
-        *plan != actual
+fn is_change(expected: &Option<WorldObject>, actual: WorldObject, mines: &[Mine]) -> bool {
+    if let Some(expected) = expected {
+        *expected != actual
     } else {
-        matches!(actual, WorldObject::Crop{..})
+        mines.iter().any(|Mine { mine, .. }| *mine == actual)
     }
 }
 
@@ -200,7 +192,7 @@ mod tests {
                         },
                         Mine {
                             resource: Resource::Pasture,
-                            mine: WorldObject::None,
+                            mine: WorldObject::Pasture,
                         },
                     ],
                     ..Parameters::default()
@@ -215,7 +207,7 @@ mod tests {
     #[test]
     fn should_build_mine_if_mine_expected_and_mine_does_not_exist() {
         // Given
-        let sim = PositionBuildSimulation::new(Cx::default(), 0);
+        let sim = PositionBuildSimulation::new(Cx::default());
 
         // When
         block_on(sim.build_mines(hashset! {v2(1, 2)}));
@@ -239,7 +231,7 @@ mod tests {
         let mut cx = Cx::default();
         cx.world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_mines(hashset! {v2(1, 2)}));
@@ -260,7 +252,7 @@ mod tests {
            }
         };
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_mines(hashset! {v2(1, 2)}));
@@ -281,7 +273,7 @@ mod tests {
            }
         };
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_mines(hashset! {v2(1, 2)}));
@@ -300,7 +292,7 @@ mod tests {
             resource: Resource::Pasture,
         });
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_mines(hashset! {v2(1, 2)}));
@@ -325,7 +317,7 @@ mod tests {
         *cx.traffic.mut_cell_unsafe(&v2(1, 2)) = hashset! {};
         cx.world.mut_cell_unsafe(&v2(1, 2)).object = WorldObject::Crop { rotated: true };
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_mines(hashset! {v2(1, 2)}));
@@ -349,7 +341,7 @@ mod tests {
         let mut cx = Cx::default();
         *cx.traffic.mut_cell_unsafe(&v2(1, 2)) = hashset! {};
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_mines(hashset! {v2(1, 2)}));

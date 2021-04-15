@@ -76,7 +76,7 @@ impl Default for Parameters {
                 },
                 Mine {
                     resource: Resource::Pasture,
-                    mine: WorldObject::None,
+                    mine: WorldObject::Pasture,
                 },
             ],
         }
