@@ -198,7 +198,6 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             }
             Resource::Pasture => {
                 !self.tile_is_beach(position)
-                    && !self.tile_has_object(position)
                     && !self.tile_is_cliff(position)
                     && self.tile_is_farmable_climate(position)
             }

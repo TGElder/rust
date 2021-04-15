@@ -4,9 +4,11 @@ use crate::avatar::AvatarTravelParams;
 use crate::commons::persistence::Load;
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
+use crate::resource::{Mine, Resource};
 use crate::resource_gen::ResourceGenParameters;
 use crate::road_builder::AutoRoadTravelParams;
 use crate::simulation::SimulationParameters;
+use crate::world::WorldObject;
 use crate::world_gen::WorldGenParameters;
 use commons::{v3, V3};
 use isometric::Color;
@@ -39,6 +41,7 @@ pub struct Parameters {
     pub nations: Vec<NationDescription>,
     pub default_speed: f32,
     pub simulation: SimulationParameters,
+    pub mines: Vec<Mine>,
 }
 
 impl Default for Parameters {
@@ -66,6 +69,16 @@ impl Default for Parameters {
             nations: nation_descriptions(),
             default_speed: 3600.0,
             simulation: SimulationParameters::default(),
+            mines: vec![
+                Mine {
+                    resource: Resource::Crops,
+                    object: WorldObject::Crop { rotated: false },
+                },
+                Mine {
+                    resource: Resource::Pasture,
+                    object: WorldObject::Pasture,
+                },
+            ],
         }
     }
 }

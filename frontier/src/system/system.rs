@@ -287,7 +287,7 @@ impl System {
                 position_sims: (0..params.simulation.threads)
                     .map(|_| {
                         Process::new(
-                            PositionBuildSimulation::new(cx.clone_with_name("position_sim"), 0),
+                            PositionBuildSimulation::new(cx.clone_with_name("position_sim")),
                             position_sim_rx.clone(),
                         )
                     })

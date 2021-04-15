@@ -371,7 +371,7 @@ mod tests {
         // Given
         let mut cx = happy_path_tx();
         cx.parameters.simulation.initial_town_population = 1.1;
-        let build_town = PositionBuildSimulation::new(cx, 0);
+        let build_town = PositionBuildSimulation::new(cx);
 
         // When
         block_on(build_town.build_town(hashset! {v2(1, 1)}));
@@ -402,7 +402,7 @@ mod tests {
     #[test]
     fn should_not_build_for_any_route() {
         // Given
-        let sim = PositionBuildSimulation::new(happy_path_tx(), 0);
+        let sim = PositionBuildSimulation::new(happy_path_tx());
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 0)}));
@@ -420,7 +420,7 @@ mod tests {
             .unwrap()
             .insert(happy_path_route_key(), hashset! {v2(1, 0)});
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 0)}));
@@ -437,7 +437,7 @@ mod tests {
         let cx = happy_path_tx();
         *cx.traffic.lock().unwrap() = Vec2D::new(3, 3, HashSet::new());
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -460,7 +460,7 @@ mod tests {
             },
         );
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -481,7 +481,7 @@ mod tests {
             world.mut_cell_unsafe(&v2(1, 1)).visible = false;
         }
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -496,7 +496,7 @@ mod tests {
         let cx = happy_path_tx();
         *cx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -511,7 +511,7 @@ mod tests {
         let mut cx = happy_path_tx();
         cx.anyone_controls = true;
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -526,7 +526,7 @@ mod tests {
         let cx = happy_path_tx();
         *cx.routes.lock().unwrap() = Routes::default();
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));
@@ -541,7 +541,7 @@ mod tests {
         let mut cx = happy_path_tx();
         cx.get_settlement = None;
 
-        let sim = PositionBuildSimulation::new(cx, 0);
+        let sim = PositionBuildSimulation::new(cx);
 
         // When
         block_on(sim.build_town(hashset! {v2(1, 1)}));

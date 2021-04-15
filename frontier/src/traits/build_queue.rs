@@ -50,19 +50,3 @@ where
             .await
     }
 }
-
-#[async_trait]
-pub trait GetBuildInstruction {
-    async fn get_build_instruction(&self, build_key: &BuildKey) -> Option<BuildInstruction>;
-}
-
-#[async_trait]
-impl<T> GetBuildInstruction for T
-where
-    T: WithBuildQueue + Send + Sync,
-{
-    async fn get_build_instruction(&self, build_key: &BuildKey) -> Option<BuildInstruction> {
-        self.with_build_queue(|queue| queue.get(build_key).cloned())
-            .await
-    }
-}
