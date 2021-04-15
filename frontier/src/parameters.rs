@@ -72,15 +72,15 @@ impl Default for Parameters {
             mines: vec![
                 Mine {
                     resource: Resource::Shelter,
-                    mine: WorldObject::House,
+                    object: WorldObject::House,
                 },
                 Mine {
                     resource: Resource::Crops,
-                    mine: WorldObject::Crop { rotated: false },
+                    object: WorldObject::Crop { rotated: false },
                 },
                 Mine {
                     resource: Resource::Pasture,
-                    mine: WorldObject::None,
+                    object: WorldObject::Pasture,
                 },
             ],
         }

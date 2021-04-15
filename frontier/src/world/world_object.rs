@@ -13,4 +13,5 @@ pub enum WorldObject {
         rotated: bool,
     },
     House,
+    Pasture,
 }
