@@ -3,7 +3,7 @@ use crate::resource::{Resource, Resources, RESOURCES};
 use crate::world::*;
 use commons::edge::Edge;
 use commons::equalize::{equalize_with_filter, PositionValue};
-use commons::grid::Grid;
+use commons::grid::{get_corners, Grid};
 use commons::perlin::stacked_perlin_noise;
 use commons::rand::prelude::*;
 use commons::rand::seq::SliceRandom;
@@ -158,6 +158,9 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn is_candidate(&self, resource: Resource, position: &V2<usize>) -> bool {
+        if let Resource::Shelter = resource {
+            return !self.is_sea(position) && !self.tile_is_cliff(position);
+        }
         if self.is_beach(position) {
             return false;
         }
@@ -202,7 +205,6 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                     && !self.tile_is_cliff(position)
                     && self.tile_is_farmable_climate(position)
             }
-            Resource::Shelter => !self.tile_is_beach(position) && !self.tile_is_cliff(position),
             Resource::Spice => {
                 !self.is_sea(position)
                     && self.has_vegetation_type_adjacent(position, VegetationType::PalmTree)
@@ -222,7 +224,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                             .has_vegetation_type_adjacent(position, VegetationType::EvergreenTree)
                         || self.has_vegetation_type_adjacent(position, VegetationType::SnowTree))
             }
-            Resource::None => false,
+            _ => false,
         }
     }
 
@@ -235,7 +237,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn is_sea(&self, position: &V2<usize>) -> bool {
-        self.world.is_sea(position)
+       self.world.is_sea(position)
     }
 
     fn has_vegetation_type_adjacent(

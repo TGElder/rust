@@ -431,19 +431,20 @@ pub struct GLZFinder {}
 
 impl ZFinder for GLZFinder {
     fn get_z_at(&self, buffer_coordinate: BufferCoordinate) -> f32 {
-        let mut buffer: Vec<f32> = vec![0.0];
-        unsafe {
-            gl::ReadBuffer(gl::BACK);
-            gl::ReadPixels(
-                buffer_coordinate.x,
-                buffer_coordinate.y,
-                1,
-                1,
-                gl::DEPTH_COMPONENT,
-                gl::FLOAT,
-                buffer.as_mut_ptr() as *mut c_void,
-            );
-        }
-        2.0 * buffer[0] - 1.0
+        // let mut buffer: Vec<f32> = vec![0.0];
+        // unsafe {
+        //     gl::ReadBuffer(gl::BACK);
+        //     gl::ReadPixels(
+        //         buffer_coordinate.x,
+        //         buffer_coordinate.y,
+        //         1,
+        //         1,
+        //         gl::DEPTH_COMPONENT,
+        //         gl::FLOAT,
+        //         buffer.as_mut_ptr() as *mut c_void,
+        //     );
+        // }
+        // 2.0 * buffer[0] - 1.0
+        0.0
     }
 }

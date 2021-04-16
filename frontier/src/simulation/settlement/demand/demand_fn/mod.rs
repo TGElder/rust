@@ -22,7 +22,7 @@ fn get_sources(population: f64, resource: Resource) -> usize {
     let sources = match resource {
         Resource::Crops => population / 2.0,
         Resource::Pasture => population / 2.0,
-        Resource::Shelter => population / 32.0,
+        Resource::Shelter => population / 16.0,
         Resource::Stone => population / 8.0,
         Resource::Wood => population / 4.0,
         _ => 1.0,
