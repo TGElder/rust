@@ -237,7 +237,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn is_sea(&self, position: &V2<usize>) -> bool {
-       self.world.is_sea(position)
+        self.world.is_sea(position)
     }
 
     fn has_vegetation_type_adjacent(

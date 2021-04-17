@@ -40,9 +40,9 @@ where
     }
 
     async fn try_build_object(&self, position: &V2<usize>, object: WorldObject) {
-        if let Some(Settlement { class: Town, .. }) = self.cx.get_settlement(position).await {
-            return;
-        }
+        // if let Some(Settlement { class: Town, .. }) = self.cx.get_settlement(position).await {
+        //     return;
+        // }
         self.cx.force_world_object(object, position).await;
         self.cx.refresh_targets(hashset! {*position}).await;
     }

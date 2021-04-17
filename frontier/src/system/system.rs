@@ -564,7 +564,7 @@ impl Processes {
         )
         .await;
         self.voyager.run_passive(pool).await;
-        self.town_house_artist.run_passive(pool).await;
+        // self.town_house_artist.run_passive(pool).await;
         self.town_label_artist.run_passive(pool).await;
         join_all(self.edge_sims.iter_mut().map(|sim| sim.run_passive(pool))).await;
         self.resource_targets.run_passive(pool).await;

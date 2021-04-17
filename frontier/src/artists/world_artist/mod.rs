@@ -13,6 +13,7 @@ use isometric::*;
 pub struct WorldColoring<'a> {
     pub terrain: Box<dyn TerrainColoring<WorldCell> + 'a>,
     pub crops: Box<dyn TerrainColoring<WorldCell> + 'a>,
+    pub overlay: Box<dyn TerrainColoring<WorldCell> + 'a>,
 }
 
 #[derive(Clone)]
@@ -83,7 +84,7 @@ impl WorldArtist {
         let to = v2(to.x.min(self.width - 1), to.y.min(self.height - 1));
         out.append(&mut self.draw_slab_crops(world, coloring, &from, &to));
         out.append(&mut self.draw_slab_vegetation(world, &from, &to));
-        out.append(&mut self.house_artist.draw(world, &from, &to));
+        out.append(&mut self.house_artist.draw(world, &from, &to, coloring));
 
         out
     }

@@ -12,7 +12,13 @@ impl HouseArtist {
         HouseArtist {}
     }
 
-    pub fn draw(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Vec<Command> {
+    pub fn draw(
+        &self,
+        world: &World,
+        from: &V2<usize>,
+        to: &V2<usize>,
+        coloring: &WorldColoring,
+    ) -> Vec<Command> {
         let mut out = vec![];
         for x in from.x..to.x {
             for y in from.y..to.y {
@@ -26,7 +32,10 @@ impl HouseArtist {
                         width: 0.25,
                         height: 0.25,
                         roof_height: 0.5,
-                        base_color: Color::new(1.0, 0.0, 0.0, 1.0),
+                        base_color: coloring
+                            .overlay
+                            .color(world, &tile, &[v3(0.0, 0.0, 0.0); 3])[0]
+                            .unwrap_or_else(|| Color::new(1.0, 1.0, 1.0, 1.0)),
                         light_direction: v3(0.0, 8.0, -1.0),
                     };
                     out.append(&mut draw_house(name(&tile), world, &tile, &params));
