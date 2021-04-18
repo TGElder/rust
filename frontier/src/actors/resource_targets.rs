@@ -1,11 +1,12 @@
 use crate::resource::{Resource, Resources, RESOURCES};
 use crate::traits::{
-    GetWorldObjects, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources,
+    GetWorldObjects, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, Target, WithResources,
 };
 use crate::world::WorldObject;
 use commons::grid::Grid;
 use commons::{v2, V2};
 use std::collections::HashSet;
+use std::iter::once;
 
 pub struct ResourceTargets<T> {
     cx: T,
@@ -49,11 +50,11 @@ where
             .unwrap();
         for resource in resources {
             self.cx
-                .load_target(
-                    &target_set(resource),
+                .load_targets(once(Target {
+                    name: &target_set(resource),
                     position,
-                    !blocked_by(resource, object),
-                )
+                    target: !blocked_by(resource, object),
+                }))
                 .await;
         }
     }
@@ -88,6 +89,8 @@ pub fn blocked_by(resource: Resource, object: WorldObject) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::traits::Target;
+
     use super::*;
 
     use commons::async_trait::async_trait;
@@ -148,14 +151,24 @@ mod tests {
 
     #[async_trait]
     impl LoadTargetWithPlannedRoads for Cx {
-        async fn load_target(&self, name: &str, position: &V2<usize>, target: bool) {
-            *self
-                .targets
-                .lock()
-                .unwrap()
-                .get_mut(name)
-                .unwrap()
-                .mut_cell_unsafe(position) = target;
+        async fn load_targets<'a, I>(&self, targets: I)
+        where
+            I: Iterator<Item = Target<'a>> + Send,
+        {
+            for Target {
+                name,
+                position,
+                target,
+            } in targets
+            {
+                *self
+                    .targets
+                    .lock()
+                    .unwrap()
+                    .get_mut(name)
+                    .unwrap()
+                    .mut_cell_unsafe(position) = target;
+            }
         }
     }
 
