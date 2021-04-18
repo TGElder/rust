@@ -26,7 +26,7 @@ where
         let count = build.len();
         let objects = get_objects_to_build(build);
 
-        // let objects = self.filter_positions_with_settlements(objects).await;
+        let objects = self.filter_positions_with_settlements(objects).await;
 
         self.cx.set_world_objects(&objects).await;
 

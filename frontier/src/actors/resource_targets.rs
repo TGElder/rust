@@ -6,7 +6,6 @@ use crate::world::WorldObject;
 use commons::grid::Grid;
 use commons::{v2, V2};
 use std::collections::{HashMap, HashSet};
-use std::iter::empty;
 
 pub struct ResourceTargets<T> {
     cx: T,
@@ -36,12 +35,10 @@ where
             self.get_resources(&positions),
             self.cx.get_world_objects(&positions)
         );
-        self.cx
-            .load_targets(
-                self.get_targets(&positions, &resources, &world_objects)
-                    .await,
-            )
-            .await;
+
+        let targets = get_targets(&positions, &resources, &world_objects);
+
+        self.cx.load_targets(targets).await;
     }
 
     async fn get_resources(
@@ -58,17 +55,6 @@ where
             .await
     }
 
-    async fn get_targets<'a>(
-        &self,
-        positions: &'a HashSet<V2<usize>>,
-        resources: &'a HashMap<V2<usize>, HashSet<Resource>>,
-        world_objects: &'a HashMap<V2<usize>, WorldObject>,
-    ) -> impl Iterator<Item = Target<'a>> {
-        positions
-            .iter()
-            .flat_map(move |position| get_targets_at(&position, &resources, &world_objects))
-    }
-
     async fn all_positions(&self) -> HashSet<V2<usize>> {
         self.cx
             .with_resources(|resources| all_positions(resources))
@@ -76,19 +62,26 @@ where
     }
 }
 
-fn get_targets_at<'a>(
-    position: &'a V2<usize>,
+fn get_targets<'a>(
+    positions: &'a HashSet<V2<usize>>,
     resources: &'a HashMap<V2<usize>, HashSet<Resource>>,
     world_objects: &'a HashMap<V2<usize>, WorldObject>,
-) -> Box<dyn Iterator<Item = Target<'a>> + Send + 'a> {
-    let resources = unwrap_or!(resources.get(position), return Box::new(empty()));
-    let world_object = unwrap_or!(world_objects.get(position), return Box::new(empty()));
+) -> impl Iterator<Item = Target<'a>> {
+    positions.iter().flat_map(move |position| {
+        get_targets_at(&position, &resources[position], &world_objects[position])
+    })
+}
 
-    Box::new(resources.iter().map(move |resource| Target {
+fn get_targets_at<'a>(
+    position: &'a V2<usize>,
+    resources: &'a HashSet<Resource>,
+    world_object: &'a WorldObject,
+) -> impl Iterator<Item = Target<'a>> {
+    resources.iter().map(move |resource| Target {
         position,
         name: resource.name(),
         target: !blocked_by(*resource, world_object),
-    }))
+    })
 }
 
 fn all_positions(resources: &Resources) -> HashSet<V2<usize>> {
