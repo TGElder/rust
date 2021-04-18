@@ -87,6 +87,7 @@ SendBuildActor AddTown
 SendBuildActor GetSettlement
 SendBuildActor Micros
 SendBuildActor RefreshTargets
+SendBuildActor RemoveWorldObjects
 SendBuildActor SetWorldObjects
 SendBuildActor TakeBuildInstructionsBefore
 SendBuildActor UpdateTerritory
@@ -110,8 +111,6 @@ SendEdgeBuildSim WithWorld
 SendFollowAvatar HasFollowAvatar
 SendLabels SendEngineCommands
 SendLabels WithWorld
-SendObjectBuilder RemoveWorldObjects
-SendObjectBuilder SetWorldObjects
 SendPathfinder WithWorld
 SendPathfindingAvatarControls FindPath
 SendPathfindingAvatarControls Micros

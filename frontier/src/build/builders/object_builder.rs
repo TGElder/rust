@@ -3,7 +3,6 @@ use super::*;
 use crate::settlement::{Settlement, SettlementClass::Town};
 use crate::traits::{GetSettlement, RefreshTargets, SetWorldObjects};
 use crate::world::WorldObject;
-use commons::log::debug;
 use commons::V2;
 
 pub struct ObjectBuilder<T> {
@@ -20,16 +19,9 @@ where
     }
 
     async fn build(&mut self, build: Vec<Build>) {
-        let start = std::time::Instant::now();
-        let count = build.len();
         for build in build {
             self.try_build(build).await;
         }
-        debug!(
-            "Took {}ms to build {} objects",
-            start.elapsed().as_millis(),
-            count
-        );
     }
 }
 
