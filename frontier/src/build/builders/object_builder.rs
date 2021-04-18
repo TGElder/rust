@@ -1,7 +1,9 @@
+use std::collections::{HashMap, HashSet};
+
 use super::*;
 
-use crate::settlement::{Settlement, SettlementClass::Town};
-use crate::traits::{GetSettlement, RefreshTargets, SetWorldObjects};
+use crate::settlement::Settlement;
+use crate::traits::{RefreshTargets, SetWorldObjects, Settlements};
 use crate::world::WorldObject;
 use commons::V2;
 
@@ -12,42 +14,65 @@ pub struct ObjectBuilder<T> {
 #[async_trait]
 impl<T> Builder for ObjectBuilder<T>
 where
-    T: GetSettlement + RefreshTargets + SetWorldObjects + Send + Sync,
+    T: RefreshTargets + Settlements + SetWorldObjects + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
         matches!(build, Build::Object { .. })
     }
 
     async fn build(&mut self, build: Vec<Build>) {
-        for build in build {
-            self.try_build(build).await;
-        }
+        let objects = get_objects_to_build(build);
+
+        let objects = self.filter_positions_with_settlements(objects).await;
+
+        self.cx.set_world_objects(&objects).await;
+
+        let positions = objects.into_iter().map(|(position, _)| position).collect();
+        self.cx.refresh_targets(positions).await;
     }
 }
 
 impl<T> ObjectBuilder<T>
 where
-    T: GetSettlement + RefreshTargets + SetWorldObjects + Send + Sync,
+    T: RefreshTargets + Settlements + SetWorldObjects + Send + Sync,
 {
     pub fn new(cx: T) -> ObjectBuilder<T> {
         ObjectBuilder { cx }
     }
 
-    async fn try_build(&self, build: Build) {
-        if let Build::Object { position, object } = build {
-            self.try_build_object(&position, object).await;
-        }
+    async fn filter_positions_with_settlements(
+        &self,
+        objects: HashMap<V2<usize>, WorldObject>,
+    ) -> HashMap<V2<usize>, WorldObject> {
+        let settlements = self.get_settlement_positions().await;
+        objects
+            .into_iter()
+            .filter(|(position, _)| !settlements.contains(position))
+            .collect()
     }
 
-    async fn try_build_object(&self, position: &V2<usize>, object: WorldObject) {
-        if let Some(Settlement { class: Town, .. }) = self.cx.get_settlement(position).await {
-            return;
-        }
+    async fn get_settlement_positions(&self) -> HashSet<V2<usize>> {
         self.cx
-            .set_world_objects(&hashmap! {*position => object})
-            .await;
-        self.cx.refresh_targets(hashset! {*position}).await;
+            .settlements()
+            .await
+            .into_iter()
+            .map(|Settlement { position, .. }| position)
+            .collect()
     }
+}
+
+fn get_objects_to_build(build: Vec<Build>) -> HashMap<V2<usize>, WorldObject> {
+    build
+        .into_iter()
+        .flat_map(try_get_object_to_build)
+        .collect()
+}
+
+fn try_get_object_to_build(build: Build) -> Option<(V2<usize>, WorldObject)> {
+    if let Build::Object { position, object } = build {
+        return Some((position, object));
+    }
+    None
 }
 
 #[cfg(test)]
@@ -81,9 +106,9 @@ mod tests {
     }
 
     #[async_trait]
-    impl GetSettlement for Cx {
-        async fn get_settlement(&self, position: &V2<usize>) -> Option<Settlement> {
-            self.settlements.get(position).cloned()
+    impl Settlements for Cx {
+        async fn settlements(&self) -> Vec<Settlement> {
+            self.settlements.values().cloned().collect()
         }
     }
 
@@ -132,7 +157,6 @@ mod tests {
         // Given
         let settlement = Settlement {
             position: v2(1, 2),
-            class: Town,
             ..Settlement::default()
         };
         let cx = Cx {
