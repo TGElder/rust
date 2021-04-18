@@ -1,4 +1,3 @@
-use crate::actors::target_set;
 use crate::pathfinder::ClosestTargetResult;
 use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::settlement::demand::Demand;
@@ -37,7 +36,7 @@ where
             return vec![];
         }
 
-        let target_set = target_set(demand.resource);
+        let target_set = demand.resource.name();
         let sources = demand.sources;
         let corners_in_bounds = self.corners_in_bound(&demand.position).await;
         self.cx
