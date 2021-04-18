@@ -5,7 +5,6 @@ use super::*;
 use crate::settlement::Settlement;
 use crate::traits::{RefreshTargets, SetWorldObjects, Settlements};
 use crate::world::WorldObject;
-use commons::log::debug;
 use commons::V2;
 
 pub struct ObjectBuilder<T> {
@@ -22,8 +21,6 @@ where
     }
 
     async fn build(&mut self, build: Vec<Build>) {
-        let start = std::time::Instant::now();
-        let count = build.len();
         let objects = get_objects_to_build(build);
 
         let objects = self.filter_positions_with_settlements(objects).await;
@@ -32,11 +29,6 @@ where
 
         let positions = objects.into_iter().map(|(position, _)| position).collect();
         self.cx.refresh_targets(positions).await;
-        debug!(
-            "Built {} objects in {}us",
-            count,
-            start.elapsed().as_micros()
-        );
     }
 }
 

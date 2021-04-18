@@ -138,7 +138,7 @@ mod tests {
             _: usize,
         ) -> Vec<ClosestTargetResult> {
             assert!(same_elements(positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
-            assert_eq!(target_set, "resource-coal");
+            assert_eq!(target_set, "coal");
             self.closest_targets.clone()
         }
     }
