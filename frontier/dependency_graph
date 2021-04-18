@@ -4,7 +4,7 @@ AddRoad WithWorld
 AddTown AddController
 AddTown DrawTown
 AddTown GetSettlement
-AddTown RemoveWorldObject
+AddTown RemoveWorldObjects
 AddTown Visibility
 AddTown WithSettlements
 AddTown WithWorld
@@ -20,7 +20,7 @@ FindPath SendPathfinder
 GetBuildInstruction SendBuildQueue
 GetNationDescription WithNations
 GetSettlement WithSettlements
-GetWorldObject WithWorld
+GetWorldObjects WithWorld
 InBounds SendPathfinder
 InitTargets SendPathfinder
 InsertBuildInstruction SendBuildQueue
@@ -45,9 +45,9 @@ RemoveTown Micros
 RemoveTown RemoveController
 RemoveTown SetControlDurations
 RemoveTown WithSettlements
-RemoveWorldObject DrawWorld
-RemoveWorldObject Micros
-RemoveWorldObject WithWorld
+RemoveWorldObjects DrawWorld
+RemoveWorldObjects Micros
+RemoveWorldObjects WithWorld
 RevealAll DrawWorld
 RevealAll Micros
 RevealAll RefreshPositions
@@ -84,10 +84,11 @@ SendBasicRoadBuilder UpdateRoads
 SendBasicRoadBuilder WithWorld
 SendBuildActor AddRoad
 SendBuildActor AddTown
-SendBuildActor ForceWorldObject
 SendBuildActor GetSettlement
 SendBuildActor Micros
 SendBuildActor RefreshTargets
+SendBuildActor RemoveWorldObjects
+SendBuildActor SetWorldObjects
 SendBuildActor TakeBuildInstructionsBefore
 SendBuildActor UpdateTerritory
 SendBuildActor WhoControlsTile
@@ -110,8 +111,6 @@ SendEdgeBuildSim WithWorld
 SendFollowAvatar HasFollowAvatar
 SendLabels SendEngineCommands
 SendLabels WithWorld
-SendObjectBuilder RemoveWorldObject
-SendObjectBuilder SetWorldObject
 SendPathfinder WithWorld
 SendPathfindingAvatarControls FindPath
 SendPathfindingAvatarControls Micros
@@ -134,7 +133,7 @@ SendPrimeMover WithAvatars
 SendPrimeMover WithRoutes
 SendPrimeMover WithSettlements
 SendPrimeMover WithWorld
-SendResourceTargets GetWorldObject
+SendResourceTargets GetWorldObjects
 SendResourceTargets InitTargets
 SendResourceTargets LoadTarget
 SendResourceTargets WithResources
@@ -176,7 +175,7 @@ SendTownBuilder Micros
 SendTownBuilder NationDescriptions
 SendTownBuilder RandomTownName
 SendTownBuilder RemoveTown
-SendTownBuilder SetWorldObject
+SendTownBuilder SetWorldObjects
 SendTownHouseArtist GetNationDescription
 SendTownHouseArtist GetSettlement
 SendTownHouseArtist SendEngineCommands
@@ -207,9 +206,9 @@ SetControlDurations ExpandPositions
 SetControlDurations Micros
 SetControlDurations WithTerritory
 SetControlDurations WithWorld
-SetWorldObject DrawWorld
-SetWorldObject Micros
-SetWorldObject WithWorld
+SetWorldObjects DrawWorld
+SetWorldObjects Micros
+SetWorldObjects WithWorld
 Settlements WithSettlements
 TakeBuildInstructionsBefore SendBuildQueue
 UpdateAvatarJourney WithAvatars

@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::settlement::{Settlement, SettlementClass::Town};
-use crate::traits::{ForceWorldObject, GetSettlement, RefreshTargets};
+use crate::traits::{GetSettlement, RefreshTargets, SetWorldObjects};
 use crate::world::WorldObject;
 use commons::V2;
 
@@ -12,7 +12,7 @@ pub struct ObjectBuilder<T> {
 #[async_trait]
 impl<T> Builder for ObjectBuilder<T>
 where
-    T: ForceWorldObject + GetSettlement + RefreshTargets + Send + Sync,
+    T: GetSettlement + RefreshTargets + SetWorldObjects + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
         matches!(build, Build::Object { .. })
@@ -27,7 +27,7 @@ where
 
 impl<T> ObjectBuilder<T>
 where
-    T: ForceWorldObject + GetSettlement + RefreshTargets + Send + Sync,
+    T: GetSettlement + RefreshTargets + SetWorldObjects + Send + Sync,
 {
     pub fn new(cx: T) -> ObjectBuilder<T> {
         ObjectBuilder { cx }
@@ -43,7 +43,9 @@ where
         if let Some(Settlement { class: Town, .. }) = self.cx.get_settlement(position).await {
             return;
         }
-        self.cx.force_world_object(object, position).await;
+        self.cx
+            .set_world_objects(&hashmap! {*position => object})
+            .await;
         self.cx.refresh_targets(hashset! {*position}).await;
     }
 }
@@ -65,9 +67,9 @@ mod tests {
     }
 
     #[async_trait]
-    impl ForceWorldObject for Cx {
-        async fn force_world_object(&self, object: WorldObject, position: &V2<usize>) {
-            self.world_objects.lock().unwrap().insert(*position, object);
+    impl SetWorldObjects for Cx {
+        async fn set_world_objects(&self, objects: &HashMap<V2<usize>, WorldObject>) {
+            self.world_objects.lock().unwrap().extend(objects);
         }
     }
 

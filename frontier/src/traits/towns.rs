@@ -1,7 +1,7 @@
 use crate::settlement::{Settlement, SettlementClass};
 use crate::traits::{
     AddController, DrawTown, GetSettlement, InsertSettlement, Micros, RemoveController,
-    RemoveWorldObject, SetControlDurations, Visibility, WithSettlements, WithWorld,
+    RemoveWorldObjects, SetControlDurations, Visibility, WithSettlements, WithWorld,
 };
 use commons::async_trait::async_trait;
 use commons::grid::Grid;
@@ -18,7 +18,7 @@ where
     T: AddController
         + GetSettlement
         + DrawTown
-        + RemoveWorldObject
+        + RemoveWorldObjects
         + Visibility
         + WithSettlements
         + WithWorld
@@ -39,7 +39,7 @@ where
             self.add_controller(controller),
             check_visibility_from_town(self, town.position),
             async {
-                self.remove_world_object(&remove).await;
+                self.remove_world_objects(&hashset! {remove}).await;
                 self.insert_settlement(to_insert).await;
                 self.draw_town(town);
             }

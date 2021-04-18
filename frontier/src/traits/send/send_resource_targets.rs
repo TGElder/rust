@@ -3,12 +3,12 @@ use futures::future::BoxFuture;
 
 use crate::actors::ResourceTargets;
 use crate::traits::{
-    GetWorldObject, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources,
+    GetWorldObjects, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources,
 };
 
 #[async_trait]
 pub trait SendResourceTargets:
-    GetWorldObject
+    GetWorldObjects
     + InitTargetsWithPlannedRoads
     + LoadTargetWithPlannedRoads
     + WithResources
