@@ -21,7 +21,10 @@ where
     }
 
     async fn build(&mut self, build: Vec<Build>) {
-        let objects = self.get_objects_to_build(build).await;
+        let objects = get_objects_to_build(build);
+
+        let objects = self.filter_positions_with_settlements(objects).await;
+
         self.cx.set_world_objects(&objects).await;
 
         let positions = objects.into_iter().map(|(position, _)| position).collect();
@@ -37,12 +40,15 @@ where
         ObjectBuilder { cx }
     }
 
-    async fn get_objects_to_build(&self, build: Vec<Build>) -> HashMap<V2<usize>, WorldObject> {
+    async fn filter_positions_with_settlements(
+        &self,
+        objects: HashMap<V2<usize>, WorldObject>,
+    ) -> HashMap<V2<usize>, WorldObject> {
         let settlements = self.get_settlement_positions().await;
-        get_objects_to_build(build)
+        objects
             .into_iter()
             .filter(|(position, _)| !settlements.contains(position))
-            .collect::<HashMap<_, _>>()
+            .collect()
     }
 
     async fn get_settlement_positions(&self) -> HashSet<V2<usize>> {
