@@ -12,7 +12,7 @@ pub struct ObjectBuilder<T> {
 #[async_trait]
 impl<T> Builder for ObjectBuilder<T>
 where
-    T: SetWorldObjects + GetSettlement + RefreshTargets + Send + Sync,
+    T: GetSettlement + RefreshTargets + SetWorldObjects + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
         matches!(build, Build::Object { .. })
