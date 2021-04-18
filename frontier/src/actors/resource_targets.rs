@@ -1,6 +1,6 @@
 use crate::resource::{Resource, Resources, RESOURCES};
 use crate::traits::{
-    GetWorldObject, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources,
+    GetWorldObjects, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources,
 };
 use crate::world::WorldObject;
 use commons::grid::Grid;
@@ -13,7 +13,7 @@ pub struct ResourceTargets<T> {
 
 impl<T> ResourceTargets<T>
 where
-    T: GetWorldObject + InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithResources,
+    T: GetWorldObjects + InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithResources,
 {
     pub fn new(cx: T) -> ResourceTargets<T> {
         ResourceTargets { cx }
@@ -41,7 +41,12 @@ where
             .cx
             .with_resources(|resources| resources.get_cell_unsafe(position).clone())
             .await;
-        let object = self.cx.get_world_object(position).await.unwrap();
+        let object = *self
+            .cx
+            .get_world_objects(&hashset! {*position})
+            .await
+            .get(position)
+            .unwrap();
         for resource in resources {
             self.cx
                 .load_target(
@@ -119,9 +124,15 @@ mod tests {
     }
 
     #[async_trait]
-    impl GetWorldObject for Cx {
-        async fn get_world_object(&self, _: &V2<usize>) -> Option<WorldObject> {
-            Some(self.world_object)
+    impl GetWorldObjects for Cx {
+        async fn get_world_objects(
+            &self,
+            positions: &HashSet<V2<usize>>,
+        ) -> HashMap<V2<usize>, WorldObject> {
+            positions
+                .iter()
+                .map(|position| (*position, self.world_object))
+                .collect()
         }
     }
 
