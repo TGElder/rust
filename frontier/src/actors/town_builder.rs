@@ -2,7 +2,7 @@ use crate::settlement::{Settlement, SettlementClass};
 
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
-    AddTown, GetSettlement, Micros, NationDescriptions, RandomTownName, RemoveTown, SetWorldObject,
+    AddTown, GetSettlement, Micros, NationDescriptions, RandomTownName, RemoveTown, SetWorldObjects,
 };
 use commons::async_trait::async_trait;
 use commons::V2;
@@ -25,7 +25,7 @@ where
         + NationDescriptions
         + RandomTownName
         + RemoveTown
-        + SetWorldObject,
+        + SetWorldObjects,
 {
     pub fn new(cx: T) -> TownBuilderActor<T> {
         TownBuilderActor {
@@ -92,7 +92,7 @@ where
         + NationDescriptions
         + RandomTownName
         + RemoveTown
-        + SetWorldObject
+        + SetWorldObjects
         + Send
         + Sync
         + 'static,

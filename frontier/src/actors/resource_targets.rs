@@ -1,11 +1,12 @@
 use crate::resource::{Resource, Resources, RESOURCES};
 use crate::traits::{
-    GetWorldObject, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources,
+    GetWorldObjects, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, Target, WithResources,
 };
 use crate::world::WorldObject;
 use commons::grid::Grid;
 use commons::{v2, V2};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::iter::empty;
 
 pub struct ResourceTargets<T> {
     cx: T,
@@ -13,7 +14,7 @@ pub struct ResourceTargets<T> {
 
 impl<T> ResourceTargets<T>
 where
-    T: GetWorldObject + InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithResources,
+    T: GetWorldObjects + InitTargetsWithPlannedRoads + LoadTargetWithPlannedRoads + WithResources,
 {
     pub fn new(cx: T) -> ResourceTargets<T> {
         ResourceTargets { cx }
@@ -26,31 +27,46 @@ where
 
     async fn init_targets(&self) {
         for resource in RESOURCES.iter() {
-            self.cx.init_targets(target_set(*resource)).await;
+            self.cx.init_targets(resource.name().to_string()).await;
         }
     }
 
     pub async fn refresh_targets(&self, positions: HashSet<V2<usize>>) {
-        for position in positions.iter() {
-            self.refresh_targets_at(position).await;
-        }
+        let (resources, world_objects) = join!(
+            self.get_resources(&positions),
+            self.cx.get_world_objects(&positions)
+        );
+        self.cx
+            .load_targets(
+                self.get_targets(&positions, &resources, &world_objects)
+                    .await,
+            )
+            .await;
     }
 
-    async fn refresh_targets_at(&self, position: &V2<usize>) {
-        let resources = self
-            .cx
-            .with_resources(|resources| resources.get_cell_unsafe(position).clone())
-            .await;
-        let object = self.cx.get_world_object(position).await.unwrap();
-        for resource in resources {
-            self.cx
-                .load_target(
-                    &target_set(resource),
-                    position,
-                    !blocked_by(resource, object),
-                )
-                .await;
-        }
+    async fn get_resources(
+        &self,
+        positions: &HashSet<V2<usize>>,
+    ) -> HashMap<V2<usize>, HashSet<Resource>> {
+        self.cx
+            .with_resources(|resources| {
+                positions
+                    .iter()
+                    .map(|position| (*position, resources.get_cell_unsafe(position).clone()))
+                    .collect()
+            })
+            .await
+    }
+
+    async fn get_targets<'a>(
+        &self,
+        positions: &'a HashSet<V2<usize>>,
+        resources: &'a HashMap<V2<usize>, HashSet<Resource>>,
+        world_objects: &'a HashMap<V2<usize>, WorldObject>,
+    ) -> impl Iterator<Item = Target<'a>> {
+        positions
+            .iter()
+            .flat_map(move |position| get_targets_at(&position, &resources, &world_objects))
     }
 
     async fn all_positions(&self) -> HashSet<V2<usize>> {
@@ -58,6 +74,21 @@ where
             .with_resources(|resources| all_positions(resources))
             .await
     }
+}
+
+fn get_targets_at<'a>(
+    position: &'a V2<usize>,
+    resources: &'a HashMap<V2<usize>, HashSet<Resource>>,
+    world_objects: &'a HashMap<V2<usize>, WorldObject>,
+) -> Box<dyn Iterator<Item = Target<'a>> + Send + 'a> {
+    let resources = unwrap_or!(resources.get(position), return Box::new(empty()));
+    let world_object = unwrap_or!(world_objects.get(position), return Box::new(empty()));
+
+    Box::new(resources.iter().map(move |resource| Target {
+        position,
+        name: resource.name(),
+        target: !blocked_by(*resource, world_object),
+    }))
 }
 
 fn all_positions(resources: &Resources) -> HashSet<V2<usize>> {
@@ -70,11 +101,7 @@ fn all_positions(resources: &Resources) -> HashSet<V2<usize>> {
     out
 }
 
-pub fn target_set(resource: Resource) -> String {
-    format!("resource-{}", resource.name())
-}
-
-pub fn blocked_by(resource: Resource, object: WorldObject) -> bool {
+pub fn blocked_by(resource: Resource, object: &WorldObject) -> bool {
     matches!((resource, object),
         (Resource::Pasture, WorldObject::Crop{..}) |
         (Resource::Wood, WorldObject::Crop{..})
@@ -83,6 +110,8 @@ pub fn blocked_by(resource: Resource, object: WorldObject) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::traits::Target;
+
     use super::*;
 
     use commons::async_trait::async_trait;
@@ -119,9 +148,15 @@ mod tests {
     }
 
     #[async_trait]
-    impl GetWorldObject for Cx {
-        async fn get_world_object(&self, _: &V2<usize>) -> Option<WorldObject> {
-            Some(self.world_object)
+    impl GetWorldObjects for Cx {
+        async fn get_world_objects(
+            &self,
+            positions: &HashSet<V2<usize>>,
+        ) -> HashMap<V2<usize>, WorldObject> {
+            positions
+                .iter()
+                .map(|position| (*position, self.world_object))
+                .collect()
         }
     }
 
@@ -137,14 +172,24 @@ mod tests {
 
     #[async_trait]
     impl LoadTargetWithPlannedRoads for Cx {
-        async fn load_target(&self, name: &str, position: &V2<usize>, target: bool) {
-            *self
-                .targets
-                .lock()
-                .unwrap()
-                .get_mut(name)
-                .unwrap()
-                .mut_cell_unsafe(position) = target;
+        async fn load_targets<'a, I>(&self, targets: I)
+        where
+            I: Iterator<Item = Target<'a>> + Send,
+        {
+            for Target {
+                name,
+                position,
+                target,
+            } in targets
+            {
+                *self
+                    .targets
+                    .lock()
+                    .unwrap()
+                    .get_mut(name)
+                    .unwrap()
+                    .mut_cell_unsafe(position) = target;
+            }
         }
     }
 
@@ -184,7 +229,7 @@ mod tests {
 
         // Then
         assert_eq!(
-            resource_targets.cx.get_targets("resource-coal"),
+            resource_targets.cx.get_targets("coal"),
             M::from_vec(
                 3,
                 3,
@@ -196,7 +241,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            resource_targets.cx.get_targets("resource-crops"),
+            resource_targets.cx.get_targets("crops"),
             M::from_element(3, 3, false),
         );
     }
@@ -218,21 +263,21 @@ mod tests {
         assert_eq!(
             *resource_targets
                 .cx
-                .get_targets("resource-coal")
+                .get_targets("coal")
                 .get_cell_unsafe(&v2(1, 0)),
             true
         );
         assert_eq!(
             *resource_targets
                 .cx
-                .get_targets("resource-stone")
+                .get_targets("stone")
                 .get_cell_unsafe(&v2(1, 0)),
             true
         );
         assert_eq!(
             *resource_targets
                 .cx
-                .get_targets("resource-crops")
+                .get_targets("crops")
                 .get_cell_unsafe(&v2(1, 0)),
             false
         );
@@ -259,7 +304,7 @@ mod tests {
         assert_eq!(
             *resource_targets
                 .cx
-                .get_targets("resource-wood")
+                .get_targets("wood")
                 .get_cell_unsafe(&v2(1, 0)),
             false
         );

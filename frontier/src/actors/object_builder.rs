@@ -1,5 +1,5 @@
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::{RemoveWorldObject, SetWorldObject};
+use crate::traits::{RemoveWorldObjects, SetWorldObjects};
 use crate::world::WorldObject;
 use commons::async_trait::async_trait;
 use commons::rand::rngs::SmallRng;
@@ -23,7 +23,7 @@ struct ObjectBuilderBindings {
 
 impl<T> ObjectBuilderActor<T>
 where
-    T: RemoveWorldObject + SetWorldObject,
+    T: RemoveWorldObjects + SetWorldObjects,
 {
     pub fn new(cx: T, seed: u64) -> ObjectBuilderActor<T> {
         ObjectBuilderActor {
@@ -49,13 +49,15 @@ where
 
     async fn build_object_at_cursor(&self, object: WorldObject) {
         if let Some(position) = self.get_position() {
-            self.cx.set_world_object(object, &position).await;
+            self.cx
+                .set_world_objects(&hashmap! {position => object})
+                .await;
         }
     }
 
     async fn clear_object_at_cursor(&self) {
         if let Some(position) = self.get_position() {
-            self.cx.remove_world_object(&position).await;
+            self.cx.remove_world_objects(&hashset! {position}).await;
         }
     }
 
@@ -68,7 +70,7 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for ObjectBuilderActor<T>
 where
-    T: RemoveWorldObject + SetWorldObject + Send + Sync + 'static,
+    T: RemoveWorldObjects + SetWorldObjects + Send + Sync + 'static,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::WorldPositionChanged(world_coord) = *event {

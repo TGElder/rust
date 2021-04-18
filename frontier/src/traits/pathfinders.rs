@@ -5,7 +5,8 @@ use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
-    ClosestTargets, CostOfPath, InBounds, InitTargets, LoadTarget, WithPathfinder, WithWorld,
+    ClosestTargets, CostOfPath, InBounds, InitTargets, LoadTargets, Target, WithPathfinder,
+    WithWorld,
 };
 
 pub trait PathfinderWithPlannedRoads {
@@ -50,7 +51,9 @@ where
 
 #[async_trait]
 pub trait LoadTargetWithPlannedRoads {
-    async fn load_target(&self, name: &str, position: &V2<usize>, target: bool);
+    async fn load_targets<'a, I>(&self, targets: I)
+    where
+        I: Iterator<Item = Target<'a>> + Send;
 }
 
 #[async_trait]
@@ -58,9 +61,12 @@ impl<T> LoadTargetWithPlannedRoads for T
 where
     T: PathfinderWithPlannedRoads + Sync,
 {
-    async fn load_target(&self, name: &str, position: &V2<usize>, target: bool) {
+    async fn load_targets<'a, I>(&self, targets: I)
+    where
+        I: Iterator<Item = Target<'a>> + Send,
+    {
         self.pathfinder_with_planned_roads()
-            .load_target(name, position, target)
+            .load_targets(targets)
             .await
     }
 }

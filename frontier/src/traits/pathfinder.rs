@@ -163,18 +163,38 @@ where
 }
 
 #[async_trait]
-pub trait LoadTarget {
-    async fn load_target(&self, name: &str, position: &V2<usize>, target: bool);
+pub trait LoadTargets {
+    async fn load_targets<'a, I>(&self, targets: I)
+    where
+        I: Iterator<Item = Target<'a>> + Send;
+}
+
+pub struct Target<'a> {
+    pub name: &'a str,
+    pub position: &'a V2<usize>,
+    pub target: bool,
 }
 
 #[async_trait]
-impl<T> LoadTarget for T
+impl<T> LoadTargets for T
 where
     T: WithPathfinder + Sync,
 {
-    async fn load_target(&self, name: &str, position: &V2<usize>, target: bool) {
-        self.mut_pathfinder(move |pathfinder| pathfinder.load_target(&name, position, target))
-            .await
+    async fn load_targets<'a, I>(&self, targets: I)
+    where
+        I: Iterator<Item = Target<'a>> + Send,
+    {
+        self.mut_pathfinder(|pathfinder| {
+            for Target {
+                name,
+                position,
+                target,
+            } in targets
+            {
+                pathfinder.load_target(name, position, target);
+            }
+        })
+        .await;
     }
 }
 
