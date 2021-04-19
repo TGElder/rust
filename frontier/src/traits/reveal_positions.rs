@@ -6,8 +6,7 @@ use commons::V2;
 use futures::FutureExt;
 
 use crate::traits::{
-    DrawWorld, Micros, RefreshPositionsBackground, SendVoyager, UpdatePositionsAllPathfinders,
-    WithWorld,
+    DrawWorld, RefreshPositionsBackground, SendVoyager, UpdatePositionsAllPathfinders, WithWorld,
 };
 
 #[async_trait]
@@ -23,7 +22,6 @@ pub trait RevealPositions {
 impl<T> RevealPositions for T
 where
     T: DrawWorld
-        + Micros
         + RefreshPositionsBackground
         + SendVoyager
         + UpdatePositionsAllPathfinders
@@ -45,13 +43,13 @@ where
         set_visible(self, &newly_visible).await;
 
         join!(
-            redraw(self, &newly_visible),
+            self.draw_world_tiles(newly_visible.clone()),
             self.update_positions_all_pathfinders(newly_visible.clone()),
         );
 
         voyage(self, newly_visible.clone(), revealed_by);
 
-        self.refresh_positions_background(newly_visible.clone());
+        self.refresh_positions_background(newly_visible);
     }
 }
 
@@ -96,14 +94,4 @@ where
     cx.send_voyager_future_background(move |voyager| {
         voyager.voyage_to(positions, revealed_by).boxed()
     });
-}
-
-async fn redraw<T>(cx: &T, positions: &HashSet<V2<usize>>)
-where
-    T: DrawWorld + Micros,
-{
-    let micros = cx.micros().await;
-    for position in positions {
-        cx.draw_world_tile(*position, micros);
-    }
 }

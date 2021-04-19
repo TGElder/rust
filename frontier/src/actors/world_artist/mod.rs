@@ -118,9 +118,14 @@ where
         }
     }
 
-    pub async fn redraw_tile_at(&mut self, tile: V2<usize>, when: u128) {
-        let slab = Slab::at(tile, self.world_artist.params().slab_size);
-        self.redraw_slab(slab, when).await;
+    pub async fn redraw_tiles_at(&mut self, tiles: HashSet<V2<usize>>, when: u128) {
+        let slabs = tiles
+            .into_iter()
+            .map(|tile| Slab::at(tile, self.world_artist.params().slab_size))
+            .collect::<HashSet<_>>();
+        for slab in slabs {
+            self.redraw_slab(slab, when).await;
+        }
     }
 
     async fn when(&mut self) -> u128 {

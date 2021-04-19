@@ -1,5 +1,5 @@
 use crate::road_builder::RoadBuilderResult;
-use crate::traits::{DrawWorld, Micros, UpdatePositionsAllPathfinders, Visibility, WithWorld};
+use crate::traits::{DrawWorld, UpdatePositionsAllPathfinders, Visibility, WithWorld};
 use commons::async_trait::async_trait;
 use commons::V2;
 use std::collections::HashSet;
@@ -13,14 +13,7 @@ pub trait UpdateRoads {
 #[async_trait]
 impl<T> UpdateRoads for T
 where
-    T: DrawWorld
-        + Micros
-        + UpdatePositionsAllPathfinders
-        + Visibility
-        + WithWorld
-        + Send
-        + Sync
-        + 'static,
+    T: DrawWorld + UpdatePositionsAllPathfinders + Visibility + WithWorld + Send + Sync + 'static,
 {
     async fn update_roads(&self, result: RoadBuilderResult) {
         let result = Arc::new(result);
@@ -31,8 +24,8 @@ where
         check_visibility_and_reveal(self, &positions).await;
 
         join!(
-            redraw(self, &positions),
-            self.update_positions_all_pathfinders(positions.clone())
+            self.draw_world_tiles(positions.clone()),
+            self.update_positions_all_pathfinders(positions)
         );
     }
 }
@@ -44,16 +37,6 @@ where
     with_world
         .mut_world(|world| result.update_roads(world))
         .await;
-}
-
-async fn redraw<T>(cx: &T, positions: &HashSet<V2<usize>>)
-where
-    T: DrawWorld + Micros,
-{
-    let micros = cx.micros().await;
-    for position in positions {
-        cx.draw_world_tile(*position, micros);
-    }
 }
 
 async fn check_visibility_and_reveal<T>(cx: &T, positions: &HashSet<V2<usize>>)

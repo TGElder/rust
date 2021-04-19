@@ -1,5 +1,5 @@
 use crate::settlement::{Settlement, SettlementClass};
-use crate::traits::{Controlled, DrawTown, DrawWorld, ExpandPositions, Micros, WithSettlements};
+use crate::traits::{Controlled, DrawTown, DrawWorld, ExpandPositions, WithSettlements};
 use commons::async_trait::async_trait;
 use commons::V2;
 
@@ -43,7 +43,7 @@ pub trait UpdateSettlement {
 #[async_trait]
 impl<T> UpdateSettlement for T
 where
-    T: Controlled + DrawTown + DrawWorld + ExpandPositions + Micros + WithSettlements + Sync,
+    T: Controlled + DrawTown + DrawWorld + ExpandPositions + WithSettlements + Sync,
 {
     async fn update_settlement(&self, settlement: Settlement) {
         let settlement_to_send = settlement.clone();
@@ -59,11 +59,9 @@ where
 
         if let SettlementClass::Town = settlement.class {
             if nation_changed {
-                let (controlled, micros) =
-                    join!(self.controlled(&settlement.position), self.micros(),);
-                for tile in self.expand_positions(&controlled).await {
-                    self.draw_world_tile(tile, micros);
-                }
+                let controlled = self.controlled(&settlement.position).await;
+                let tiles = self.expand_positions(&controlled).await;
+                self.draw_world_tiles(tiles).await;
             }
 
             self.draw_town(settlement);
