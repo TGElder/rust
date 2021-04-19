@@ -45,13 +45,13 @@ where
         set_visible(self, &newly_visible).await;
 
         join!(
-            redraw(self, &newly_visible),
+            redraw(self, newly_visible.clone()),
             self.update_positions_all_pathfinders(newly_visible.clone()),
         );
 
         voyage(self, newly_visible.clone(), revealed_by);
 
-        self.refresh_positions_background(newly_visible.clone());
+        self.refresh_positions_background(newly_visible);
     }
 }
 
@@ -98,12 +98,10 @@ where
     });
 }
 
-async fn redraw<T>(cx: &T, positions: &HashSet<V2<usize>>)
+async fn redraw<T>(cx: &T, positions: HashSet<V2<usize>>)
 where
     T: DrawWorld + Micros,
 {
     let micros = cx.micros().await;
-    for position in positions {
-        cx.draw_world_tile(*position, micros);
-    }
+    cx.draw_world_tiles(positions, micros);
 }

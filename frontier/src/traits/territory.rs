@@ -91,9 +91,8 @@ where
 
         let when = self.micros().await;
 
-        for tile in self.expand_positions(&positions).await {
-            self.draw_world_tile(tile, when)
-        }
+        let tiles = self.expand_positions(&positions).await;
+        self.draw_world_tiles(tiles, when)
     }
 }
 

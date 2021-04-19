@@ -31,8 +31,8 @@ where
         check_visibility_and_reveal(self, &positions).await;
 
         join!(
-            redraw(self, &positions),
-            self.update_positions_all_pathfinders(positions.clone())
+            redraw(self, positions.clone()),
+            self.update_positions_all_pathfinders(positions)
         );
     }
 }
@@ -46,14 +46,12 @@ where
         .await;
 }
 
-async fn redraw<T>(cx: &T, positions: &HashSet<V2<usize>>)
+async fn redraw<T>(cx: &T, positions: HashSet<V2<usize>>)
 where
     T: DrawWorld + Micros,
 {
     let micros = cx.micros().await;
-    for position in positions {
-        cx.draw_world_tile(*position, micros);
-    }
+    cx.draw_world_tiles(positions, micros);
 }
 
 async fn check_visibility_and_reveal<T>(cx: &T, positions: &HashSet<V2<usize>>)

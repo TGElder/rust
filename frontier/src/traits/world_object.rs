@@ -61,10 +61,10 @@ where
             }
         })
         .await;
+
         let when = self.micros().await;
-        for position in objects.keys() {
-            self.draw_world_tile(*position, when);
-        }
+        let tiles = objects.keys().copied().collect::<HashSet<_>>();
+        self.draw_world_tiles(tiles, when);
     }
 }
 
