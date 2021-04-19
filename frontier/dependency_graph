@@ -14,6 +14,7 @@ Controlled WithTerritory
 CostOfPath SendPathfinder
 DrawTown SendTownHouseArtist
 DrawTown SendTownLabelArtist
+DrawWorld Micros
 DrawWorld SendWorldArtist
 ExpandPositions WithWorld
 FindPath SendPathfinder
@@ -46,15 +47,11 @@ RemoveTown RemoveController
 RemoveTown SetControlDurations
 RemoveTown WithSettlements
 RemoveWorldObjects DrawWorld
-RemoveWorldObjects Micros
 RemoveWorldObjects WithWorld
 RevealAll DrawWorld
-RevealAll Micros
-RevealAll RefreshPositions
 RevealAll UpdatePositionsAllPathfinders
 RevealAll WithWorld
 RevealPositions DrawWorld
-RevealPositions Micros
 RevealPositions RefreshPositionsBackground
 RevealPositions SendVoyager
 RevealPositions UpdatePositionsAllPathfinders
@@ -207,7 +204,6 @@ SetControlDurations Micros
 SetControlDurations WithTerritory
 SetControlDurations WithWorld
 SetWorldObjects DrawWorld
-SetWorldObjects Micros
 SetWorldObjects WithWorld
 Settlements WithSettlements
 TakeBuildInstructionsBefore SendBuildQueue
@@ -217,7 +213,6 @@ UpdatePathfinderPositions WithWorld
 UpdatePositionsAllPathfinders SendPathfinder
 UpdatePositionsAllPathfinders UpdatePathfinderPositions
 UpdateRoads DrawWorld
-UpdateRoads Micros
 UpdateRoads UpdatePositionsAllPathfinders
 UpdateRoads Visibility
 UpdateRoads WithWorld
@@ -225,7 +220,6 @@ UpdateSettlement Controlled
 UpdateSettlement DrawTown
 UpdateSettlement DrawWorld
 UpdateSettlement ExpandPositions
-UpdateSettlement Micros
 UpdateSettlement WithSettlements
 UpdateTerritory HasParameters
 UpdateTerritory Micros
