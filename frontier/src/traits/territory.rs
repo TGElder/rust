@@ -89,10 +89,8 @@ where
             .map(|change| change.position)
             .collect();
 
-        let when = self.micros().await;
-
         let tiles = self.expand_positions(&positions).await;
-        self.draw_world_tiles(tiles, when)
+        self.draw_world_tiles(tiles).await;
     }
 }
 

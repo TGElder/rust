@@ -4,7 +4,7 @@ use commons::async_trait::async_trait;
 use commons::grid::Grid;
 use commons::V2;
 
-use crate::traits::{DrawWorld, Micros, WithWorld};
+use crate::traits::{DrawWorld, WithWorld};
 use crate::world::WorldObject;
 
 #[async_trait]
@@ -51,7 +51,7 @@ where
 #[async_trait]
 impl<T> SetWorldObjects for T
 where
-    T: DrawWorld + Micros + WithWorld + Sync,
+    T: DrawWorld + WithWorld + Sync,
 {
     async fn set_world_objects(&self, objects: &HashMap<V2<usize>, WorldObject>) {
         self.mut_world(|world| {
@@ -62,16 +62,15 @@ where
         })
         .await;
 
-        let when = self.micros().await;
-        let tiles = objects.keys().copied().collect::<HashSet<_>>();
-        self.draw_world_tiles(tiles, when);
+        let tiles = objects.keys().copied().collect();
+        self.draw_world_tiles(tiles).await;
     }
 }
 
 #[async_trait]
 impl<T> RemoveWorldObjects for T
 where
-    T: DrawWorld + Micros + WithWorld + Sync,
+    T: DrawWorld + WithWorld + Sync,
 {
     async fn remove_world_objects(&self, positions: &HashSet<V2<usize>>) {
         self.set_world_objects(
