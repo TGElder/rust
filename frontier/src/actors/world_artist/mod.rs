@@ -143,11 +143,11 @@ where
         let territory_colors = self.get_territory_colors(&slab).await;
 
         let generated_after = self.cx.micros().await;
-        self.draw_slab_with_house_artist(&slab, &territory_colors)
-            .await;
-        self.draw_slab_with_world_artist(&slab, territory_colors)
+        self.draw_slab_with_world_artist(&slab, &territory_colors)
             .await;
         self.draw_slab_with_resource_artist(&slab).await;
+        self.draw_slab_with_house_artist(&slab, &territory_colors)
+            .await;
 
         self.last_redraw.insert(slab.from, generated_after);
     }
@@ -167,7 +167,7 @@ where
     async fn draw_slab_with_world_artist(
         &mut self,
         slab: &Slab,
-        territory_colors: M<Option<Color>>,
+        territory_colors: &M<Option<Color>>,
     ) {
         let overlay = self.get_territory_overlay(&slab, territory_colors);
         let commands = self
@@ -183,11 +183,11 @@ where
         self.cx.send_engine_commands(commands).await;
     }
 
-    fn get_territory_overlay(
+    fn get_territory_overlay<'a>(
         &self,
         slab: &Slab,
-        territory_colors: M<Option<Color>>,
-    ) -> Option<Overlay> {
+        territory_colors: &'a M<Option<Color>>,
+    ) -> Option<Overlay<'a>> {
         if !self.territory_layer {
             None
         } else {
