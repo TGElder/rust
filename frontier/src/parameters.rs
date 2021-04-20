@@ -71,6 +71,10 @@ impl Default for Parameters {
             simulation: SimulationParameters::default(),
             mines: vec![
                 Mine {
+                    resource: Resource::Shelter,
+                    object: WorldObject::House,
+                },
+                Mine {
                     resource: Resource::Crops,
                     object: WorldObject::Crop { rotated: false },
                 },

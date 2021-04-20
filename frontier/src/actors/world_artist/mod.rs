@@ -3,7 +3,7 @@ mod coloring;
 pub use coloring::{BaseColors, WorldColoringParameters};
 use commons::async_trait::async_trait;
 
-use crate::artists::{ResourceArtist, ResourceArtistParameters, Slab, WorldArtist};
+use crate::artists::{HouseArtist, ResourceArtist, ResourceArtistParameters, Slab, WorldArtist};
 use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::has::HasParameters;
@@ -33,6 +33,7 @@ pub struct WorldArtistActor<T> {
     bindings: WorldArtistActorBindings,
     world_artist: WorldArtist,
     resource_artist: Option<ResourceArtist>,
+    house_artist: HouseArtist,
     coloring_params: WorldColoringParameters,
     last_redraw: HashMap<V2<usize>, u128>,
     territory_layer: bool,
@@ -54,6 +55,7 @@ where
     pub fn new(
         cx: T,
         world_artist: WorldArtist,
+        house_artist: HouseArtist,
         coloring_params: WorldColoringParameters,
         overlay_alpha: f32,
         nation_descriptions: &[NationDescription],
@@ -64,6 +66,7 @@ where
             last_redraw: hashmap! {},
             world_artist,
             resource_artist: None,
+            house_artist,
             coloring_params,
             nation_colors: Self::get_nation_colors(nation_descriptions, overlay_alpha),
             territory_layer: false,
@@ -137,15 +140,36 @@ where
             return;
         }
 
+        let territory_colors = self.get_territory_colors(&slab).await;
+
         let generated_after = self.cx.micros().await;
-        self.draw_slab_with_world_artist(&slab).await;
+        self.draw_slab_with_world_artist(&slab, &territory_colors)
+            .await;
         self.draw_slab_with_resource_artist(&slab).await;
+        self.draw_slab_with_house_artist(&slab, &territory_colors)
+            .await;
 
         self.last_redraw.insert(slab.from, generated_after);
     }
 
-    async fn draw_slab_with_world_artist(&mut self, slab: &Slab) {
-        let overlay = self.get_territory_overlay(&slab).await;
+    async fn get_territory_colors(&self, slab: &Slab) -> M<Option<Color>> {
+        let territory = self.get_territory(slab).await;
+        let nations = self.get_nations(&territory).await;
+
+        territory.map(|settlement| {
+            settlement
+                .and_then(|settlement| nations.get(&settlement))
+                .and_then(|nation| self.nation_colors.get(nation))
+                .copied()
+        })
+    }
+
+    async fn draw_slab_with_world_artist(
+        &mut self,
+        slab: &Slab,
+        territory_colors: &M<Option<Color>>,
+    ) {
+        let overlay = self.get_territory_overlay(&slab, territory_colors);
         let commands = self
             .cx
             .with_world(|world| {
@@ -159,6 +183,21 @@ where
         self.cx.send_engine_commands(commands).await;
     }
 
+    fn get_territory_overlay<'a>(
+        &self,
+        slab: &Slab,
+        territory_colors: &'a M<Option<Color>>,
+    ) -> Option<Overlay<'a>> {
+        if !self.territory_layer {
+            None
+        } else {
+            Some(Overlay {
+                from: slab.from,
+                colors: territory_colors,
+            })
+        }
+    }
+
     async fn draw_slab_with_resource_artist(&mut self, slab: &Slab) {
         let resource_artist = unwrap_or!(&self.resource_artist, return);
         let commands = self
@@ -168,34 +207,26 @@ where
         self.cx.send_engine_commands(commands).await;
     }
 
+    async fn draw_slab_with_house_artist(
+        &mut self,
+        slab: &Slab,
+        territory_colors: &M<Option<Color>>,
+    ) {
+        let commands = self
+            .cx
+            .with_world(|world| {
+                self.house_artist
+                    .draw(world, &slab.from, &slab.to(), territory_colors)
+            })
+            .await;
+        self.cx.send_engine_commands(commands).await;
+    }
+
     fn has_been_redrawn_after(&self, slab: &Slab, when: &u128) -> bool {
         self.last_redraw
             .get(&slab.from)
             .map(|last_redraw| when < last_redraw)
             .unwrap_or(false)
-    }
-
-    async fn get_territory_overlay(&self, slab: &Slab) -> Option<Overlay> {
-        if !self.territory_layer {
-            None
-        } else {
-            Some(Overlay {
-                from: slab.from,
-                colors: self.get_territory_colors(slab).await,
-            })
-        }
-    }
-
-    async fn get_territory_colors(&self, slab: &Slab) -> M<Option<Color>> {
-        let territory = self.get_territory(slab).await;
-        let nations = self.get_nations(&territory).await;
-
-        territory.map(|settlement| {
-            settlement
-                .and_then(|settlement| nations.get(&settlement))
-                .and_then(|nation| self.nation_colors.get(nation))
-                .copied()
-        })
     }
 
     async fn get_territory(&self, slab: &Slab) -> M<Option<V2<usize>>> {

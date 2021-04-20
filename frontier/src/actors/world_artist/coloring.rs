@@ -135,12 +135,12 @@ impl<'a> TerrainColoring<WorldCell> for BaseColoring<'a> {
 }
 
 #[derive(Clone)]
-pub struct Overlay {
+pub struct Overlay<'a> {
     pub from: V2<usize>,
-    pub colors: M<Option<Color>>,
+    pub colors: &'a M<Option<Color>>,
 }
 
-impl TerrainColoring<WorldCell> for Overlay {
+impl<'a> TerrainColoring<WorldCell> for Overlay<'a> {
     fn color(
         &self,
         _: &dyn Grid<WorldCell>,

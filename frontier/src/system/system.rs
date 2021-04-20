@@ -17,7 +17,10 @@ use crate::actors::{
     SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
     WorldColoringParameters, WorldGen,
 };
-use crate::artists::{AvatarArtist, AvatarArtistParameters, WorldArtist, WorldArtistParameters};
+use crate::artists::{
+    AvatarArtist, AvatarArtistParameters, HouseArtist, HouseArtistParameters, WorldArtist,
+    WorldArtistParameters,
+};
 use crate::avatar::AvatarTravelDuration;
 use crate::build::builders::{ObjectBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
@@ -362,6 +365,10 @@ impl System {
                                 ..WorldArtistParameters::default()
                             },
                         ),
+                        HouseArtist::new(HouseArtistParameters {
+                            light_direction: params.light_direction,
+                            ..HouseArtistParameters::default()
+                        }),
                         WorldColoringParameters {
                             colors: params.base_colors,
                             beach_level: params.world_gen.beach_level,

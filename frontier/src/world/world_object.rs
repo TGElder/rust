@@ -12,5 +12,6 @@ pub enum WorldObject {
     Crop {
         rotated: bool,
     },
+    House,
     Pasture,
 }
