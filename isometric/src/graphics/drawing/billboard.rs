@@ -33,10 +33,6 @@ fn get_floats(billboard: Billboard) -> Vec<f32> {
     ]
 }
 
-pub fn create_billboard(name: String) -> Command {
-    Command::CreateDrawing(Drawing::billboard(name, BILLBOARD_FLOATS))
-}
-
 pub fn create_billboards(name: String, count: usize) -> Command {
     Command::CreateDrawing(Drawing::billboard(name, BILLBOARD_FLOATS * count))
 }
@@ -46,15 +42,6 @@ pub fn update_billboard_texture(name: String, texture: &str) -> Command {
         name,
         texture: Some(texture.to_string()),
     }
-}
-
-pub fn update_billboard_vertices(name: String, billboard: Billboard) -> Vec<Command> {
-    let floats = get_floats(billboard);
-    vec![Command::UpdateVertices {
-        name,
-        index: 0,
-        floats,
-    }]
 }
 
 pub fn update_billboards_vertices(name: String, billboards: Vec<Billboard>) -> Command {

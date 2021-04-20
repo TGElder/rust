@@ -3,7 +3,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 
 use commons::grid::Grid;
-use isometric::drawing::{draw_house, DrawHouseParams};
+use isometric::drawing::{create_house_drawing, update_house_drawing_vertices, House};
 use isometric::Color;
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
@@ -31,8 +31,8 @@ pub struct HouseArtist {
 }
 
 impl HouseArtist {
-    pub fn new(params: HouseArtistParameters) -> HouseArtist {
-        HouseArtist { parameters: params }
+    pub fn new(parameters: HouseArtistParameters) -> HouseArtist {
+        HouseArtist { parameters }
     }
 
     pub fn draw(
@@ -42,7 +42,8 @@ impl HouseArtist {
         to: &V2<usize>,
         territory_colors: &M<Option<Color>>,
     ) -> Vec<Command> {
-        let mut out = vec![];
+        let mut houses = vec![];
+
         for x in from.x..to.x {
             for y in from.y..to.y {
                 let tile = v2(x, y);
@@ -53,21 +54,30 @@ impl HouseArtist {
                 {
                     let base_color =
                         unwrap_or!(territory_colors.get_cell_unsafe(&(tile - from)), continue);
-                    let params = DrawHouseParams {
-                        width: self.parameters.house_width,
-                        height: self.parameters.house_height,
-                        roof_height: self.parameters.house_roof_height,
-                        base_color: *base_color,
-                        light_direction: self.parameters.light_direction,
-                    };
-                    out.append(&mut draw_house(name(&tile), world, &tile, &params));
+                    houses.push(House {
+                        position: tile,
+                        width: &self.parameters.house_width,
+                        height: &self.parameters.house_height,
+                        roof_height: &self.parameters.house_roof_height,
+                        base_color: &base_color,
+                        light_direction: &self.parameters.light_direction,
+                    });
                 }
             }
         }
-        out
+
+        if houses.is_empty() {
+            return vec![];
+        }
+
+        let name = name(from);
+        vec![
+            create_house_drawing(name.clone(), houses.len()),
+            update_house_drawing_vertices(name, world, houses),
+        ]
     }
 }
 
 fn name(at: &V2<usize>) -> String {
-    format!("{:?}-house", at)
+    format!("{:?}-houses", at)
 }
