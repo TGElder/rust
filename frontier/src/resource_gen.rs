@@ -3,7 +3,7 @@ use crate::resource::{Resource, Resources, RESOURCES};
 use crate::world::*;
 use commons::edge::Edge;
 use commons::equalize::{equalize_with_filter, PositionValue};
-use commons::grid::{get_corners, Grid};
+use commons::grid::Grid;
 use commons::perlin::stacked_perlin_noise;
 use commons::rand::prelude::*;
 use commons::rand::seq::SliceRandom;

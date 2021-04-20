@@ -48,7 +48,6 @@ pub fn world_coloring<'a>(
     WorldColoring {
         terrain: terrain(world, params, overlay),
         crops: crops(world, overlay),
-        overlay: Box::new(overlay),
     }
 }
 
