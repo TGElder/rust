@@ -49,6 +49,7 @@ RemoveTown WithSettlements
 RemoveWorldObjects DrawWorld
 RemoveWorldObjects WithWorld
 RevealAll DrawWorld
+RevealAll RefreshPositions
 RevealAll UpdatePositionsAllPathfinders
 RevealAll WithWorld
 RevealPositions DrawWorld
