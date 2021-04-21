@@ -125,11 +125,11 @@ fn get_house_base_coord(
     WorldCoord::new(
         house_position.x as f32 + 0.5,
         house_position.y as f32 + 0.5,
-        get_base_z(world, house_position, params.house_width),
+        get_base_z(world, house_position, &params.house_width),
     )
 }
 
-fn get_base_z(world: &World, house_position: &V2<usize>, house_width: f32) -> f32 {
+fn get_base_z(world: &World, house_position: &V2<usize>, house_width: &f32) -> f32 {
     let [a, b, c, d] = get_house_base_corners(world, house_position, house_width);
     let zs = [a.z, b.z, c.z, d.z];
     *zs.iter().max_by(unsafe_ordering).unwrap()

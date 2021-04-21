@@ -3,9 +3,8 @@ use crate::settlement::*;
 use crate::traits::{
     GetNationDescription, GetSettlement, SendEngineCommands, Settlements, WithWorld,
 };
-use crate::world::World;
 use commons::V2;
-use isometric::drawing::{draw_house, DrawHouseParams};
+use isometric::drawing::{create_and_update_house_drawing, House};
 use isometric::{Color, Command};
 
 pub struct TownHouseArtist<T> {
@@ -43,15 +42,16 @@ where
         if settlement.class != SettlementClass::Town {
             return;
         }
-        let params = DrawHouseParams {
-            width: self.params.house_width,
-            height: self.params.house_height,
-            roof_height: self.params.house_roof_height,
-            base_color: self.get_nation_color(&settlement.nation).await,
-            light_direction: self.params.light_direction,
+        let house = House {
+            position: &settlement.position,
+            width: &self.params.house_width,
+            height: &self.params.house_height,
+            roof_height: &self.params.house_roof_height,
+            base_color: &self.get_nation_color(&settlement.nation).await,
+            light_direction: &self.params.light_direction,
         };
 
-        self.draw_house(params, settlement).await;
+        self.draw_house(house).await;
     }
 
     async fn get_nation_color(&self, nation: &str) -> Color {
@@ -63,11 +63,12 @@ where
             .primary
     }
 
-    async fn draw_house(&self, params: DrawHouseParams, settlement: Settlement) {
-        let name = get_name(&settlement.position);
+    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
+    async fn draw_house<'a>(&self, house: House<'a>) {
+        let name = get_name(&house.position);
         let commands = self
             .cx
-            .with_world(|world| get_draw_commands(name, world, &settlement.position, params))
+            .with_world(|world| create_and_update_house_drawing(name, world, vec![house]))
             .await;
         self.cx.send_engine_commands(commands).await;
     }
@@ -78,15 +79,6 @@ where
     }
 }
 
-pub fn get_draw_commands(
-    name: String,
-    world: &World,
-    position: &V2<usize>,
-    params: DrawHouseParams,
-) -> Vec<Command> {
-    draw_house(name, world, position, &params)
-}
-
 fn get_name(position: &V2<usize>) -> String {
-    format!("house-{:?}", position)
+    format!("town-house-{:?}", position)
 }

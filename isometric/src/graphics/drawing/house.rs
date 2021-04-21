@@ -8,43 +8,51 @@ use commons::*;
 use graphics::Drawing;
 use Command;
 
-pub struct DrawHouseParams {
-    pub width: f32,
-    pub height: f32,
-    pub roof_height: f32,
-    pub base_color: Color,
-    pub light_direction: V3<f32>,
+pub const HOUSE_FLOATS: usize = 216;
+
+pub struct House<'a> {
+    pub position: &'a V2<usize>,
+    pub width: &'a f32,
+    pub height: &'a f32,
+    pub roof_height: &'a f32,
+    pub base_color: &'a Color,
+    pub light_direction: &'a V3<f32>,
 }
 
 #[allow(clippy::many_single_char_names)]
-pub fn draw_house<T>(
-    name: String,
-    terrain: &dyn Grid<T>,
-    position: &V2<usize>,
-    p: &DrawHouseParams,
-) -> Vec<Command>
+fn get_floats<T>(terrain: &dyn Grid<T>, house: House) -> Vec<f32>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
 {
-    let triangle_coloring = AngleTriangleColoring::new(p.base_color, p.light_direction);
-    let square_coloring = AngleSquareColoring::new(p.base_color, p.light_direction);
+    let House {
+        position,
+        width,
+        height,
+        roof_height,
+        base_color,
+        light_direction,
+    } = house;
+
+    let triangle_coloring = AngleTriangleColoring::new(*base_color, *light_direction);
+    let square_coloring = AngleSquareColoring::new(*base_color, *light_direction);
 
     let x = position.x as f32 + 0.5;
     let y = position.y as f32 + 0.5;
-    let w = p.width;
+    let w = width;
 
-    let [a, b, c, d] = get_house_base_corners(terrain, position, w);
+    let [a, b, c, d] = get_house_base_corners(terrain, &position, w);
     let zs = [a.z, b.z, c.z, d.z];
     let floor_z = zs.iter().max_by(unsafe_ordering).unwrap();
 
-    let e = v3(x - w, y - w, floor_z + p.height);
-    let f = v3(x + w, y - w, floor_z + p.height);
-    let g = v3(x + w, y + w, floor_z + p.height);
-    let h = v3(x - w, y + w, floor_z + p.height);
+    let e = v3(x - w, y - w, floor_z + height);
+    let f = v3(x + w, y - w, floor_z + height);
+    let g = v3(x + w, y + w, floor_z + height);
+    let h = v3(x - w, y + w, floor_z + height);
 
-    let s = v3(x, y, floor_z + p.height + p.roof_height);
+    let s = v3(x, y, floor_z + height + roof_height);
 
-    let mut floats = vec![];
+    let mut floats = Vec::with_capacity(HOUSE_FLOATS);
+
     floats.append(&mut get_colored_vertices_from_square(
         &[e, h, d, a],
         &square_coloring,
@@ -78,20 +86,13 @@ where
         &triangle_coloring,
     ));
 
-    vec![
-        Command::CreateDrawing(Drawing::plain(name.clone(), floats.len())),
-        Command::UpdateVertices {
-            name,
-            index: 0,
-            floats,
-        },
-    ]
+    floats
 }
 
 pub fn get_house_base_corners<T>(
     terrain: &dyn Grid<T>,
     position: &V2<usize>,
-    width: f32,
+    width: &f32,
 ) -> [V3<f32>; 4]
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
@@ -119,5 +120,44 @@ where
         get_base_corner(v2(1, 0)),
         get_base_corner(v2(1, 1)),
         get_base_corner(v2(0, 1)),
+    ]
+}
+
+pub fn create_house_drawing(name: String, count: usize) -> Command {
+    Command::CreateDrawing(Drawing::plain(name, HOUSE_FLOATS * count))
+}
+
+pub fn update_house_drawing_vertices<T>(
+    name: String,
+    terrain: &dyn Grid<T>,
+    houses: Vec<House>,
+) -> Command
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    let mut floats = Vec::with_capacity(HOUSE_FLOATS * houses.len());
+
+    for house in houses {
+        floats.append(&mut get_floats(terrain, house));
+    }
+
+    Command::UpdateVertices {
+        name,
+        index: 0,
+        floats,
+    }
+}
+
+pub fn create_and_update_house_drawing<T>(
+    name: String,
+    terrain: &dyn Grid<T>,
+    houses: Vec<House>,
+) -> Vec<Command>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    vec![
+        create_house_drawing(name.clone(), houses.len()),
+        update_house_drawing_vertices(name, terrain, houses),
     ]
 }
