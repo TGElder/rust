@@ -11,7 +11,7 @@ use Command;
 pub const HOUSE_FLOATS: usize = 216;
 
 pub struct House<'a> {
-    pub position: V2<usize>,
+    pub position: &'a V2<usize>,
     pub width: &'a f32,
     pub height: &'a f32,
     pub roof_height: &'a f32,
@@ -20,7 +20,7 @@ pub struct House<'a> {
 }
 
 #[allow(clippy::many_single_char_names)]
-pub fn get_floats<T>(terrain: &dyn Grid<T>, house: House) -> Vec<f32>
+fn get_floats<T>(terrain: &dyn Grid<T>, house: House) -> Vec<f32>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
 {
@@ -146,4 +146,18 @@ where
         index: 0,
         floats,
     }
+}
+
+pub fn create_and_update_house_drawing<T>(
+    name: String,
+    terrain: &dyn Grid<T>,
+    houses: Vec<House>,
+) -> Vec<Command>
+where
+    T: WithPosition + WithElevation + WithVisibility + WithJunction,
+{
+    vec![
+        create_house_drawing(name.clone(), houses.len()),
+        update_house_drawing_vertices(name, terrain, houses),
+    ]
 }

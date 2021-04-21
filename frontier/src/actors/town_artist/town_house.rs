@@ -3,9 +3,8 @@ use crate::settlement::*;
 use crate::traits::{
     GetNationDescription, GetSettlement, SendEngineCommands, Settlements, WithWorld,
 };
-use crate::world::World;
 use commons::V2;
-use isometric::drawing::{create_house_drawing, update_house_drawing_vertices, House};
+use isometric::drawing::{create_and_update_house_drawing, House};
 use isometric::{Color, Command};
 
 pub struct TownHouseArtist<T> {
@@ -44,7 +43,7 @@ where
             return;
         }
         let house = House {
-            position: settlement.position,
+            position: &settlement.position,
             width: &self.params.house_width,
             height: &self.params.house_height,
             roof_height: &self.params.house_roof_height,
@@ -69,7 +68,7 @@ where
         let name = get_name(&house.position);
         let commands = self
             .cx
-            .with_world(|world| get_draw_commands(name, world, house))
+            .with_world(|world| create_and_update_house_drawing(name, world, vec![house]))
             .await;
         self.cx.send_engine_commands(commands).await;
     }
@@ -78,13 +77,6 @@ where
         let command = Command::Erase(get_name(&settlement.position));
         self.cx.send_engine_commands(vec![command]).await;
     }
-}
-
-pub fn get_draw_commands(name: String, world: &World, house: House) -> Vec<Command> {
-    vec![
-        create_house_drawing(name.clone(), 1),
-        update_house_drawing_vertices(name, world, vec![house]),
-    ]
 }
 
 fn get_name(position: &V2<usize>) -> String {
