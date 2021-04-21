@@ -47,22 +47,27 @@ impl HouseArtist {
         for x in from.x..to.x {
             for y in from.y..to.y {
                 let tile = v2(x, y);
-                if let Some(WorldCell {
-                    object: WorldObject::House,
-                    ..
-                }) = world.get_cell(&tile)
-                {
-                    let base_color =
-                        unwrap_or!(territory_colors.get_cell_unsafe(&(tile - from)), continue);
-                    houses.push(House {
-                        position: tile,
-                        width: &self.parameters.house_width,
-                        height: &self.parameters.house_height,
-                        roof_height: &self.parameters.house_roof_height,
-                        base_color: &base_color,
-                        light_direction: &self.parameters.light_direction,
-                    });
+                if matches!(
+                    world.get_cell(&tile),
+                    Some(WorldCell {
+                        object: WorldObject::House,
+                        ..
+                    })
+                ) {
+                    continue;
                 }
+
+                let base_color =
+                    unwrap_or!(territory_colors.get_cell_unsafe(&(tile - from)), continue);
+
+                houses.push(House {
+                    position: tile,
+                    width: &self.parameters.house_width,
+                    height: &self.parameters.house_height,
+                    roof_height: &self.parameters.house_roof_height,
+                    base_color: &base_color,
+                    light_direction: &self.parameters.light_direction,
+                });
             }
         }
 
