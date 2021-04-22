@@ -1,7 +1,7 @@
 use super::*;
 
+use crate::resource::Mine;
 use crate::settlement::Settlement;
-use crate::world::WorldObject;
 use commons::edge::Edge;
 use commons::V2;
 
@@ -9,17 +9,14 @@ use commons::V2;
 pub enum Build {
     Road(Edge),
     Town(Settlement),
-    Object {
-        position: V2<usize>,
-        object: WorldObject,
-    },
+    Mine { position: V2<usize>, mine: Mine },
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum BuildKey {
     Road(Edge),
     Town(V2<usize>),
-    Object(V2<usize>),
+    Mine(V2<usize>),
 }
 
 impl Build {
@@ -27,7 +24,7 @@ impl Build {
         match self {
             Build::Road(edge) => BuildKey::Road(*edge),
             Build::Town(Settlement { position, .. }) => BuildKey::Town(*position),
-            Build::Object { position, .. } => BuildKey::Object(*position),
+            Build::Mine { position, .. } => BuildKey::Mine(*position),
         }
     }
 }
@@ -66,12 +63,12 @@ mod tests {
     fn object_build_key() {
         // Given
         let position = v2(1, 2);
-        let build = Build::Object {
+        let build = Build::Mine {
             position,
-            object: WorldObject::Crop { rotated: true },
+            mine: Mine::Crop,
         };
 
         // Then
-        assert_eq!(build.key(), BuildKey::Object(position));
+        assert_eq!(build.key(), BuildKey::Mine(position));
     }
 }

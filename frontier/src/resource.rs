@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use commons::index2d::Vec2D;
+use commons::rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::world::WorldObject;
@@ -78,7 +79,36 @@ impl Resource {
 pub type Resources = Vec2D<HashSet<Resource>>;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct Mine {
+pub struct MineRule {
     pub resource: Resource,
-    pub object: WorldObject,
+    pub mine: Mine,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+pub enum Mine {
+    None,
+    Crop,
+    Pasture,
+    House,
+}
+
+impl Mine {
+    pub fn matches(&self, world_object: &WorldObject) -> bool {
+        matches!((self, world_object),
+            (Mine::None, WorldObject::None) |
+            (Mine::None, WorldObject::Vegetation{..}) |
+            (Mine::Crop, WorldObject::Crop{..}) |
+            (Mine::Pasture, WorldObject::Pasture) |
+            (Mine::House, WorldObject::House)
+        )
+    }
+
+    pub fn get_world_object<R: Rng>(&self, rng: &mut R) -> WorldObject {
+        match self {
+            Mine::None => WorldObject::None,
+            Mine::Crop => WorldObject::Crop { rotated: rng.gen() },
+            Mine::Pasture => WorldObject::Pasture,
+            Mine::House => WorldObject::House,
+        }
+    }
 }

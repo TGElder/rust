@@ -2,28 +2,34 @@ use std::collections::{HashMap, HashSet};
 
 use super::*;
 
+use crate::resource::Mine;
 use crate::settlement::Settlement;
 use crate::traits::{RefreshTargets, SetWorldObjects, Settlements};
 use crate::world::WorldObject;
+use commons::rand::rngs::SmallRng;
+use commons::rand::SeedableRng;
 use commons::V2;
 
-pub struct ObjectBuilder<T> {
+pub struct MineBuilder<T> {
     cx: T,
+    rng: SmallRng,
 }
 
 #[async_trait]
-impl<T> Builder for ObjectBuilder<T>
+impl<T> Builder for MineBuilder<T>
 where
     T: RefreshTargets + Settlements + SetWorldObjects + Send + Sync,
 {
     fn can_build(&self, build: &Build) -> bool {
-        matches!(build, Build::Object { .. })
+        matches!(build, Build::Mine { .. })
     }
 
     async fn build(&mut self, build: Vec<Build>) {
-        let objects = get_objects_to_build(build);
+        let mines = get_mines_to_build(build);
 
-        let objects = self.filter_positions_with_settlements(objects).await;
+        let mines = self.filter_positions_with_settlements(mines).await;
+
+        let objects = self.get_objects_to_build(mines);
 
         self.cx.set_world_objects(&objects).await;
 
@@ -32,18 +38,21 @@ where
     }
 }
 
-impl<T> ObjectBuilder<T>
+impl<T> MineBuilder<T>
 where
     T: RefreshTargets + Settlements + SetWorldObjects + Send + Sync,
 {
-    pub fn new(cx: T) -> ObjectBuilder<T> {
-        ObjectBuilder { cx }
+    pub fn new(cx: T, seed: u64) -> MineBuilder<T> {
+        MineBuilder {
+            cx,
+            rng: SeedableRng::seed_from_u64(seed),
+        }
     }
 
     async fn filter_positions_with_settlements(
         &self,
-        objects: HashMap<V2<usize>, WorldObject>,
-    ) -> HashMap<V2<usize>, WorldObject> {
+        objects: HashMap<V2<usize>, Mine>,
+    ) -> HashMap<V2<usize>, Mine> {
         let settlements = self.get_settlement_positions().await;
         objects
             .into_iter()
@@ -59,18 +68,25 @@ where
             .map(|Settlement { position, .. }| position)
             .collect()
     }
+
+    fn get_objects_to_build(
+        &mut self,
+        mines: HashMap<V2<usize>, Mine>,
+    ) -> HashMap<V2<usize>, WorldObject> {
+        mines
+            .into_iter()
+            .map(|(position, mine)| (position, mine.get_world_object(&mut self.rng)))
+            .collect()
+    }
 }
 
-fn get_objects_to_build(build: Vec<Build>) -> HashMap<V2<usize>, WorldObject> {
-    build
-        .into_iter()
-        .flat_map(try_get_object_to_build)
-        .collect()
+fn get_mines_to_build(build: Vec<Build>) -> HashMap<V2<usize>, Mine> {
+    build.into_iter().flat_map(try_get_mine_to_build).collect()
 }
 
-fn try_get_object_to_build(build: Build) -> Option<(V2<usize>, WorldObject)> {
-    if let Build::Object { position, object } = build {
-        return Some((position, object));
+fn try_get_mine_to_build(build: Build) -> Option<(V2<usize>, Mine)> {
+    if let Build::Mine { position, mine } = build {
+        return Some((position, mine));
     }
     None
 }
@@ -116,12 +132,12 @@ mod tests {
     fn can_build_object() {
         // Given
         let cx = Cx::default();
-        let builder = ObjectBuilder::new(cx);
+        let builder = MineBuilder::new(cx, 0);
 
         // When
-        let can_build = builder.can_build(&Build::Object {
+        let can_build = builder.can_build(&Build::Mine {
             position: v2(1, 2),
-            object: WorldObject::Crop { rotated: true },
+            mine: Mine::Pasture,
         });
 
         // Then
@@ -132,19 +148,19 @@ mod tests {
     fn should_build_object_if_no_town_on_tile() {
         // Given
         let cx = Cx::default();
-        let object = WorldObject::Crop { rotated: true };
-        let mut builder = ObjectBuilder::new(cx);
+        let mine = Mine::Pasture;
+        let mut builder = MineBuilder::new(cx, 0);
 
         // When
-        block_on(builder.build(vec![Build::Object {
+        block_on(builder.build(vec![Build::Mine {
             position: v2(1, 2),
-            object,
+            mine,
         }]));
 
         // Then
         assert_eq!(
             *builder.cx.world_objects.lock().unwrap(),
-            hashmap! {v2(1, 2) => object}
+            hashmap! {v2(1, 2) => WorldObject::Pasture}
         );
         assert_eq!(
             *builder.cx.refreshed_targets.lock().unwrap(),
@@ -163,12 +179,12 @@ mod tests {
             settlements: hashmap! {v2(1, 2) => settlement},
             ..Cx::default()
         };
-        let mut builder = ObjectBuilder::new(cx);
+        let mut builder = MineBuilder::new(cx, 0);
 
         // When
-        block_on(builder.build(vec![Build::Object {
+        block_on(builder.build(vec![Build::Mine {
             position: v2(1, 2),
-            object: WorldObject::Crop { rotated: true },
+            mine: Mine::Pasture,
         }]));
 
         // Then
@@ -180,18 +196,17 @@ mod tests {
     fn should_build_all_objects() {
         // Given
         let cx = Cx::default();
-        let crops = WorldObject::Crop { rotated: true };
-        let mut builder = ObjectBuilder::new(cx);
+        let mut builder = MineBuilder::new(cx, 0);
 
         // When
         block_on(builder.build(vec![
-            Build::Object {
+            Build::Mine {
                 position: v2(1, 2),
-                object: crops,
+                mine: Mine::Pasture,
             },
-            Build::Object {
+            Build::Mine {
                 position: v2(3, 4),
-                object: WorldObject::None,
+                mine: Mine::None,
             },
         ]));
 
@@ -199,7 +214,7 @@ mod tests {
         assert_eq!(
             *builder.cx.world_objects.lock().unwrap(),
             hashmap! {
-                v2(1, 2) => crops,
+                v2(1, 2) => WorldObject::Pasture,
                 v2(3, 4) => WorldObject::None,
             }
         );

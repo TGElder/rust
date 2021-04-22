@@ -4,66 +4,54 @@ use commons::grid::Grid;
 use commons::V2;
 
 use crate::build::{Build, BuildInstruction};
-use crate::resource::Mine;
+use crate::resource::{Mine, MineRule};
 use crate::route::RouteKey;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traffic::Traffic;
 use crate::traits::has::HasParameters;
 use crate::traits::{InsertBuildInstruction, Micros, WithTraffic, WithWorld};
-use crate::world::WorldObject;
 
 impl<T> PositionBuildSimulation<T>
 where
     T: HasParameters + InsertBuildInstruction + Micros + WithTraffic + WithWorld,
 {
     pub async fn build_mines(&self, positions: HashSet<V2<usize>>) {
-        let mines = &self.cx.parameters().mines;
-        let expected = self.get_expected_mines(positions, mines).await;
-        let changes = self.get_changes(expected, mines).await;
+        let expected = self.get_expected_mines(positions).await;
+        let changes = self.get_changes(expected).await;
         self.apply_changes(changes).await;
     }
 
-    async fn get_expected_mines(
-        &self,
-        positions: HashSet<V2<usize>>,
-        mines: &[Mine],
-    ) -> HashMap<V2<usize>, Option<WorldObject>> {
+    async fn get_expected_mines(&self, positions: HashSet<V2<usize>>) -> HashMap<V2<usize>, Mine> {
+        let rules = &self.cx.parameters().mine_rules;
         self.cx
             .with_traffic(|traffic| {
                 positions
                     .into_iter()
-                    .map(|position| (position, get_expected_mine(&position, traffic, mines)))
+                    .map(|position| (position, get_expected_mine(&position, traffic, rules)))
                     .collect()
             })
             .await
     }
 
-    async fn get_changes(
-        &self,
-        expected: HashMap<V2<usize>, Option<WorldObject>>,
-        mines: &[Mine],
-    ) -> HashMap<V2<usize>, Option<WorldObject>> {
+    async fn get_changes(&self, expected: HashMap<V2<usize>, Mine>) -> HashMap<V2<usize>, Mine> {
         self.cx
             .with_world(|world| {
                 expected
                     .into_iter()
-                    .filter(|(position, expected)| {
-                        is_change(expected, world.get_cell_unsafe(position).object, mines)
+                    .filter(|(position, mine)| {
+                        !mine.matches(&world.get_cell_unsafe(position).object)
                     })
                     .collect()
             })
             .await
     }
 
-    async fn apply_changes(&self, changes: HashMap<V2<usize>, Option<WorldObject>>) {
+    async fn apply_changes(&self, changes: HashMap<V2<usize>, Mine>) {
         let when = self.cx.micros().await;
-        for (position, change) in changes {
+        for (position, mine) in changes {
             self.cx
                 .insert_build_instruction(BuildInstruction {
-                    what: Build::Object {
-                        position,
-                        object: change.unwrap_or(WorldObject::None),
-                    },
+                    what: Build::Mine { position, mine },
                     when,
                 })
                 .await
@@ -71,31 +59,18 @@ where
     }
 }
 
-fn get_expected_mine(
-    position: &V2<usize>,
-    traffic: &Traffic,
-    mines: &[Mine],
-) -> Option<WorldObject> {
+fn get_expected_mine(position: &V2<usize>, traffic: &Traffic, rules: &[MineRule]) -> Mine {
     let traffic = traffic.get_cell_unsafe(position);
-    for mine in mines {
+    for rule in rules {
         if traffic
             .iter()
             .filter(|RouteKey { destination, .. }| position == destination)
-            .any(|RouteKey { resource, .. }| *resource == mine.resource)
+            .any(|RouteKey { resource, .. }| *resource == rule.resource)
         {
-            return Some(mine.object);
+            return rule.mine;
         }
     }
-    None
-}
-
-fn is_change(expected: &Option<WorldObject>, actual: WorldObject, mines: &[Mine]) -> bool {
-    match expected {
-        Some(expected) => *expected != actual,
-        None => mines
-            .iter()
-            .any(|Mine { object: mine, .. }| *mine == actual),
-    }
+    Mine::None
 }
 
 #[cfg(test)]
@@ -108,7 +83,7 @@ mod tests {
 
     use crate::parameters::Parameters;
     use crate::resource::Resource;
-    use crate::world::{VegetationType, World};
+    use crate::world::{VegetationType, World, WorldObject};
 
     use super::*;
 
@@ -192,14 +167,14 @@ mod tests {
                 build_instructions: Mutex::default(),
                 micros: 808,
                 parameters: Parameters {
-                    mines: vec![
-                        Mine {
+                    mine_rules: vec![
+                        MineRule {
                             resource: Resource::Pasture,
-                            object: WorldObject::Pasture,
+                            mine: Mine::Pasture,
                         },
-                        Mine {
+                        MineRule {
                             resource: Resource::Crops,
-                            object: WorldObject::Crop { rotated: true },
+                            mine: Mine::Crop,
                         },
                     ],
                     ..Parameters::default()
@@ -222,9 +197,9 @@ mod tests {
         assert_eq!(
             *sim.cx.build_instructions.lock().unwrap(),
             vec![BuildInstruction {
-                what: Build::Object {
+                what: Build::Mine {
                     position: v2(1, 2),
-                    object: WorldObject::Crop { rotated: true },
+                    mine: Mine::Crop,
                 },
                 when: 808,
             }]
@@ -249,9 +224,9 @@ mod tests {
         assert_eq!(
             *sim.cx.build_instructions.lock().unwrap(),
             vec![BuildInstruction {
-                what: Build::Object {
+                what: Build::Mine {
                     position: v2(1, 2),
-                    object: WorldObject::Crop { rotated: true },
+                    mine: Mine::Crop,
                 },
                 when: 808,
             }]
@@ -334,9 +309,9 @@ mod tests {
         assert_eq!(
             *sim.cx.build_instructions.lock().unwrap(),
             vec![BuildInstruction {
-                what: Build::Object {
+                what: Build::Mine {
                     position: v2(1, 2),
-                    object: WorldObject::Pasture,
+                    mine: Mine::Pasture,
                 },
                 when: 808,
             }]
@@ -359,9 +334,9 @@ mod tests {
         assert_eq!(
             *sim.cx.build_instructions.lock().unwrap(),
             vec![BuildInstruction {
-                what: Build::Object {
+                what: Build::Mine {
                     position: v2(1, 2),
-                    object: WorldObject::None,
+                    mine: Mine::None,
                 },
                 when: 808,
             }]
