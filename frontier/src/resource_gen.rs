@@ -217,12 +217,10 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             Resource::Whales => self.in_deep_sea(position),
             Resource::Wood => {
                 !self.is_sea(position)
-                    && (self.has_vegetation_type_adjacent(position, VegetationType::PalmTree)
-                        || self
-                            .has_vegetation_type_adjacent(position, VegetationType::DeciduousTree)
-                        || self
-                            .has_vegetation_type_adjacent(position, VegetationType::EvergreenTree)
-                        || self.has_vegetation_type_adjacent(position, VegetationType::SnowTree))
+                    && (self.tile_has_vegetation_type(position, VegetationType::PalmTree)
+                        || self.tile_has_vegetation_type(position, VegetationType::DeciduousTree)
+                        || self.tile_has_vegetation_type(position, VegetationType::EvergreenTree)
+                        || self.tile_has_vegetation_type(position, VegetationType::SnowTree))
             }
             _ => false,
         }

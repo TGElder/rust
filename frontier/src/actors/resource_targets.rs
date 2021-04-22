@@ -80,7 +80,7 @@ fn get_targets_at<'a>(
     resources.iter().map(move |resource| Target {
         position,
         name: resource.name(),
-        target: !blocked_by(*resource, world_object),
+        target: !blocks(world_object, *resource),
     })
 }
 
@@ -94,10 +94,17 @@ fn all_positions(resources: &Resources) -> HashSet<V2<usize>> {
     out
 }
 
-pub fn blocked_by(resource: Resource, object: &WorldObject) -> bool {
-    matches!((resource, object),
-        (Resource::Pasture, WorldObject::Crop{..}) |
-        (Resource::Wood, WorldObject::Crop{..})
+pub fn blocks(object: &WorldObject, resource: Resource) -> bool {
+    matches!((object, resource),
+        (WorldObject::House, Resource::Crops) |
+        (WorldObject::House, Resource::Pasture) |
+        (WorldObject::House, Resource::Wood) |
+        (WorldObject::House, Resource::Stone) |
+        (WorldObject::Crop{..}, Resource::Pasture) |
+        (WorldObject::Crop{..}, Resource::Wood) |
+        (WorldObject::Crop {..}, Resource::Stone) |
+        (WorldObject::Pasture, Resource::Wood) |
+        (WorldObject::Pasture, Resource::Stone)
     )
 }
 
