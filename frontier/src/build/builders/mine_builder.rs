@@ -26,11 +26,9 @@ where
 
     async fn build(&mut self, build: Vec<Build>) {
         let mines = get_mines_to_build(build);
-
-        let mines = self.filter_positions_with_settlements(mines).await;
+        let mines = self.filter_out_positions_with_settlements(mines).await;
 
         let objects = self.get_objects_to_build(mines);
-
         self.cx.set_world_objects(&objects).await;
 
         let positions = objects.into_iter().map(|(position, _)| position).collect();
@@ -49,7 +47,7 @@ where
         }
     }
 
-    async fn filter_positions_with_settlements(
+    async fn filter_out_positions_with_settlements(
         &self,
         objects: HashMap<V2<usize>, Mine>,
     ) -> HashMap<V2<usize>, Mine> {

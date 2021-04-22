@@ -60,7 +60,7 @@ mod tests {
     }
 
     #[test]
-    fn object_build_key() {
+    fn mine_build_key() {
         // Given
         let position = v2(1, 2);
         let build = Build::Mine {
