@@ -19,7 +19,7 @@ impl Default for HouseArtistParameters {
         HouseArtistParameters {
             house_width: 0.25,
             house_height: 0.25,
-            house_roof_height: 0.5,
+            house_roof_height: 0.25,
             light_direction: v3(0.0, 8.0, -1.0),
         }
     }
@@ -49,26 +49,24 @@ impl HouseArtist {
         let mut houses = vec![];
 
         for tile in tiles.iter() {
-            if !matches!(
-                world.get_cell(&tile),
-                Some(WorldCell {
-                    object: WorldObject::House,
-                    ..
-                })
-            ) {
-                continue;
+            if let Some(WorldCell {
+                object: WorldObject::House { rotated },
+                ..
+            }) = world.get_cell(&tile)
+            {
+                let base_color =
+                    unwrap_or!(territory_colors.get_cell_unsafe(&(tile - from)), continue);
+
+                houses.push(House {
+                    position: tile,
+                    width: &self.parameters.house_width,
+                    height: &self.parameters.house_height,
+                    roof_height: &self.parameters.house_roof_height,
+                    base_color: &base_color,
+                    light_direction: &self.parameters.light_direction,
+                    rotated: *rotated,
+                });
             }
-
-            let base_color = unwrap_or!(territory_colors.get_cell_unsafe(&(tile - from)), continue);
-
-            houses.push(House {
-                position: tile,
-                width: &self.parameters.house_width,
-                height: &self.parameters.house_height,
-                roof_height: &self.parameters.house_roof_height,
-                base_color: &base_color,
-                light_direction: &self.parameters.light_direction,
-            });
         }
 
         if houses.is_empty() {

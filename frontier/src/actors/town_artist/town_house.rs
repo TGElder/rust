@@ -49,6 +49,7 @@ where
             roof_height: &self.params.house_roof_height,
             base_color: &self.get_nation_color(&settlement.nation).await,
             light_direction: &self.params.light_direction,
+            rotated: false,
         };
 
         self.draw_house(house).await;

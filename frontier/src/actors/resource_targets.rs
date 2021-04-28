@@ -96,10 +96,10 @@ fn all_positions(resources: &Resources) -> HashSet<V2<usize>> {
 
 pub fn blocks(object: &WorldObject, resource: Resource) -> bool {
     matches!((object, resource),
-        (WorldObject::House, Resource::Crops) |
-        (WorldObject::House, Resource::Pasture) |
-        (WorldObject::House, Resource::Wood) |
-        (WorldObject::House, Resource::Stone) |
+        (WorldObject::House{..}, Resource::Crops) |
+        (WorldObject::House{..}, Resource::Pasture) |
+        (WorldObject::House{..}, Resource::Wood) |
+        (WorldObject::House{..}, Resource::Stone) |
         (WorldObject::Crop{..}, Resource::Pasture) |
         (WorldObject::Crop{..}, Resource::Wood) |
         (WorldObject::Crop {..}, Resource::Stone) |

@@ -99,7 +99,7 @@ impl Mine {
             (Mine::None, WorldObject::Vegetation{..}) |
             (Mine::Crop, WorldObject::Crop{..}) |
             (Mine::Pasture, WorldObject::Pasture) |
-            (Mine::House, WorldObject::House)
+            (Mine::House, WorldObject::House{ .. })
         )
     }
 
@@ -108,7 +108,7 @@ impl Mine {
             Mine::None => WorldObject::None,
             Mine::Crop => WorldObject::Crop { rotated: rng.gen() },
             Mine::Pasture => WorldObject::Pasture,
-            Mine::House => WorldObject::House,
+            Mine::House => WorldObject::House { rotated: rng.gen() },
         }
     }
 }

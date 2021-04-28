@@ -8,18 +8,18 @@ use commons::*;
 use graphics::Drawing;
 use Command;
 
-pub const HOUSE_FLOATS: usize = 216;
+pub const HOUSE_FLOATS: usize = 252;
 
 pub struct House<'a> {
     pub position: &'a V2<usize>,
     pub width: &'a f32,
     pub height: &'a f32,
     pub roof_height: &'a f32,
+    pub rotated: bool,
     pub base_color: &'a Color,
     pub light_direction: &'a V3<f32>,
 }
 
-#[allow(clippy::many_single_char_names)]
 fn get_floats<T>(terrain: &dyn Grid<T>, house: House) -> Vec<f32>
 where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
@@ -29,6 +29,7 @@ where
         width,
         height,
         roof_height,
+        rotated,
         base_color,
         light_direction,
     } = house;
@@ -40,50 +41,69 @@ where
     let y = position.y as f32 + 0.5;
     let w = width;
 
-    let [a, b, c, d] = get_house_base_corners(terrain, &position, w);
-    let zs = [a.z, b.z, c.z, d.z];
+    let [base_a, base_b, base_c, base_d] = get_house_base_corners(terrain, &position, w);
+    let zs = [base_a.z, base_b.z, base_c.z, base_d.z];
     let floor_z = zs.iter().max_by(unsafe_ordering).unwrap();
 
-    let e = v3(x - w, y - w, floor_z + height);
-    let f = v3(x + w, y - w, floor_z + height);
-    let g = v3(x + w, y + w, floor_z + height);
-    let h = v3(x - w, y + w, floor_z + height);
+    let top_a = v3(x - w, y - w, floor_z + height);
+    let top_b = v3(x + w, y - w, floor_z + height);
+    let top_c = v3(x + w, y + w, floor_z + height);
+    let top_d = v3(x - w, y + w, floor_z + height);
 
-    let s = v3(x, y, floor_z + height + roof_height);
+    let (roof_a, roof_b, roof_c, roof_d, ridge_a, ridge_b) = if rotated {
+        (
+            top_a,
+            top_b,
+            top_c,
+            top_d,
+            v3(x - w, y, floor_z + height + roof_height),
+            v3(x + w, y, floor_z + height + roof_height),
+        )
+    } else {
+        (
+            top_b,
+            top_c,
+            top_d,
+            top_a,
+            v3(x, y - w, floor_z + height + roof_height),
+            v3(x, y + w, floor_z + height + roof_height),
+        )
+    };
 
     let mut floats = Vec::with_capacity(HOUSE_FLOATS);
 
     floats.append(&mut get_colored_vertices_from_square(
-        &[e, h, d, a],
+        &[top_a, top_d, base_d, base_a],
         &square_coloring,
     ));
     floats.append(&mut get_colored_vertices_from_square(
-        &[h, g, c, d],
+        &[top_d, top_c, base_c, base_d],
         &square_coloring,
     ));
     floats.append(&mut get_colored_vertices_from_square(
-        &[g, f, b, c],
+        &[top_c, top_b, base_b, base_c],
         &square_coloring,
     ));
     floats.append(&mut get_colored_vertices_from_square(
-        &[f, e, a, b],
+        &[top_b, top_a, base_a, base_b],
+        &square_coloring,
+    ));
+
+    floats.append(&mut get_colored_vertices_from_triangle(
+        &[roof_d, roof_a, ridge_a],
+        &triangle_coloring,
+    ));
+    floats.append(&mut get_colored_vertices_from_square(
+        &[roof_c, roof_d, ridge_a, ridge_b],
         &square_coloring,
     ));
     floats.append(&mut get_colored_vertices_from_triangle(
-        &[h, e, s],
+        &[roof_b, roof_c, ridge_b],
         &triangle_coloring,
     ));
-    floats.append(&mut get_colored_vertices_from_triangle(
-        &[g, h, s],
-        &triangle_coloring,
-    ));
-    floats.append(&mut get_colored_vertices_from_triangle(
-        &[f, g, s],
-        &triangle_coloring,
-    ));
-    floats.append(&mut get_colored_vertices_from_triangle(
-        &[e, f, s],
-        &triangle_coloring,
+    floats.append(&mut get_colored_vertices_from_square(
+        &[roof_a, roof_b, ridge_b, ridge_a],
+        &square_coloring,
     ));
 
     floats
