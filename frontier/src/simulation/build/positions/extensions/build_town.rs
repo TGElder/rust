@@ -33,10 +33,12 @@ where
     }
 
     async fn build_town_at_position(&self, position: V2<usize>) {
+        let cliff_gradient = &self.cx.parameters().world_gen.cliff_gradient;
+
         let (route_keys, anyone_controls_position, tiles) = join!(
             self.get_route_keys(&position),
             self.cx.anyone_controls(&position),
-            self.get_tiles(&position)
+            self.get_tiles(&position, cliff_gradient)
         );
 
         if route_keys.is_empty() || anyone_controls_position || tiles.is_empty() {
@@ -117,7 +119,7 @@ where
             .await
     }
 
-    async fn get_tiles(&self, position: &V2<usize>) -> Vec<V2<usize>> {
+    async fn get_tiles(&self, position: &V2<usize>, cliff_gradient: &f32) -> Vec<V2<usize>> {
         self.cx
             .with_world(|world| {
                 world
@@ -126,6 +128,7 @@ where
                     .filter(|tile| {
                         world.get_cell(tile).map_or(false, |cell| cell.visible)
                             && !world.is_sea(tile)
+                            && world.get_max_abs_rise(tile) < *cliff_gradient
                     })
                     .collect()
             })
@@ -495,6 +498,26 @@ mod tests {
         // Given
         let cx = happy_path_tx();
         *cx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
+
+        let sim = PositionBuildSimulation::new(cx);
+
+        // When
+        block_on(sim.build_town(hashset! {v2(1, 1)}));
+
+        // Then
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn should_not_build_if_cliff() {
+        // Given
+        let mut cx = happy_path_tx();
+        cx.parameters.world_gen.cliff_gradient = 1.0;
+        cx.world
+            .lock()
+            .unwrap()
+            .mut_cell_unsafe(&v2(1, 1))
+            .elevation = 2.0;
 
         let sim = PositionBuildSimulation::new(cx);
 

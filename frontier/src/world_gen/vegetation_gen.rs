@@ -63,7 +63,7 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
     fn suitable_for_vegetation(&self, position: &V2<usize>) -> bool {
         let world = &self.world;
         !world.is_sea(&position)
-            && world.get_max_abs_rise(&position) <= self.params.cliff_gradient
+            && world.get_max_abs_rise(&position) < self.params.cliff_gradient
             && world.get_lowest_corner(&position) > self.params.beach_level
     }
 

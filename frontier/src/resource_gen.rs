@@ -278,7 +278,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         self.get_adjacent_edges(position)
             .iter()
             .flat_map(|edge| self.world.get_rise(edge.from(), edge.to()))
-            .filter(|rise| rise.abs() > self.params.world_gen.cliff_gradient)
+            .filter(|rise| rise.abs() >= self.params.world_gen.cliff_gradient)
             .count()
     }
 
@@ -366,7 +366,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
     }
 
     fn tile_is_cliff(&self, position: &V2<usize>) -> bool {
-        self.world.get_max_abs_rise(position) > self.params.world_gen.cliff_gradient
+        self.world.get_max_abs_rise(position) >= self.params.world_gen.cliff_gradient
     }
 
     fn tile_is_arable_gradient(&self, position: &V2<usize>) -> bool {

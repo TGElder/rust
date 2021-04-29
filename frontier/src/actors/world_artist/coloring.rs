@@ -98,7 +98,7 @@ impl<'a> BaseColoring<'a> {
         let snow_temperature = self.params.snow_temperature;
         let max_gradient = world.get_max_abs_rise(&position);
         let min_elevation = world.get_lowest_corner(&position);
-        if max_gradient > cliff_gradient {
+        if max_gradient >= cliff_gradient {
             self.params.colors.cliff
         } else if world
             .tile_avg_temperature(position)
