@@ -100,7 +100,7 @@ pub struct Context {
 }
 
 pub struct TravelDurations {
-    pub npc_display: AvatarTravelDuration,
+    pub npc: AvatarTravelDuration,
 }
 
 impl Context {
@@ -184,8 +184,8 @@ impl HasParameters for Context {
 }
 
 impl HasTravelDurations for Context {
-    fn npc_display_travel_duration(&self) -> &AvatarTravelDuration {
-        &self.travel_duration.npc_display
+    fn npc_travel_duration(&self) -> &AvatarTravelDuration {
+        &self.travel_duration.npc
     }
 }
 

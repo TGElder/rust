@@ -90,7 +90,7 @@ impl System {
         let avatar_travel_duration_with_planned_roads = Arc::new(
             AvatarTravelDuration::with_planned_roads_as_roads(&npc_avatar_travel_params),
         );
-        let npc_display_travel_duration =
+        let npc_travel_duration =
             AvatarTravelDuration::with_planned_roads_ignored(&npc_avatar_travel_params);
         let avatar_travel_duration_without_planned_roads = Arc::new(
             AvatarTravelDuration::with_planned_roads_ignored(&params.avatar_travel),
@@ -199,7 +199,7 @@ impl System {
                 HashSet::with_capacity(0),
             ))),
             travel_duration: Arc::new(TravelDurations {
-                npc_display: npc_display_travel_duration,
+                npc: npc_travel_duration,
             }),
             visibility: Arc::new(RwLock::new(VisibilityService::new())),
             visited: Arc::new(RwLock::new(Visited {

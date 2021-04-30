@@ -201,7 +201,7 @@ where
                     .map(|(key, outbound)| {
                         let journey = Self::get_out_and_back_journey(
                             world,
-                            self.cx.npc_display_travel_duration(),
+                            self.cx.npc_travel_duration(),
                             &self.durations,
                             &start_at,
                             outbound,
