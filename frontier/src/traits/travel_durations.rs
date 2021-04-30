@@ -40,7 +40,7 @@ pub trait NPCDisplayCostOfPath {
 #[async_trait]
 impl<T> NPCDisplayCostOfPath for T
 where
-    T: HasTravelDurations + WithWorld + Sync,
+    T: CostOfPath + HasTravelDurations + Sync,
 {
     async fn npc_display_cost_of_path(&self, path: &[V2<usize>]) -> Option<Duration> {
         self.cost_of_path(self.npc_display_travel_duration(), path)
