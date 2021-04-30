@@ -22,7 +22,7 @@ use crate::simulation::settlement::SettlementSimulation;
 use crate::system::System;
 use crate::territory::Territory;
 use crate::traffic::{EdgeTraffic, Traffic};
-use crate::traits::has::{HasFollowAvatar, HasParameters};
+use crate::traits::has::{HasFollowAvatar, HasParameters, HasTravelDurations};
 use crate::traits::{
     NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
     SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate,
@@ -86,6 +86,7 @@ pub struct Context {
     pub speed_control_tx: FnSender<SpeedControl<Context>>,
     pub system_tx: FnSender<System>,
     pub territory: Arc<RwLock<Territory>>,
+    pub travel_duration: Arc<TravelDurations>,
     pub town_builder_tx: FnSender<TownBuilderActor<Context>>,
     pub town_house_artist_tx: FnSender<TownHouseArtist<Context>>,
     pub town_label_artist_tx: FnSender<TownLabelArtist<Context>>,
@@ -96,6 +97,10 @@ pub struct Context {
     pub world: Arc<RwLock<World>>,
     pub world_artist_tx: FnSender<WorldArtistActor<Context>>,
     pub world_gen_tx: FnSender<WorldGen<Context>>,
+}
+
+pub struct TravelDurations {
+    pub npc: AvatarTravelDuration,
 }
 
 impl Context {
@@ -147,6 +152,7 @@ impl Context {
             system_tx: self.system_tx.clone_with_name(name),
             territory: self.territory.clone(),
             traffic: self.traffic.clone(),
+            travel_duration: self.travel_duration.clone(),
             town_builder_tx: self.town_builder_tx.clone_with_name(name),
             town_house_artist_tx: self.town_house_artist_tx.clone_with_name(name),
             town_label_artist_tx: self.town_label_artist_tx.clone_with_name(name),
@@ -174,6 +180,12 @@ impl HasFollowAvatar for Context {
 impl HasParameters for Context {
     fn parameters(&self) -> &Parameters {
         self.parameters.as_ref()
+    }
+}
+
+impl HasTravelDurations for Context {
+    fn npc_travel_duration(&self) -> &AvatarTravelDuration {
+        &self.travel_duration.npc
     }
 }
 

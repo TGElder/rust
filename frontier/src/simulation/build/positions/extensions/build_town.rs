@@ -509,7 +509,7 @@ mod tests {
     }
 
     #[test]
-    fn should_not_build_if_cliff() {
+    fn should_not_build_on_cliff() {
         // Given
         let mut cx = happy_path_tx();
         cx.parameters.world_gen.cliff_gradient = 1.0;

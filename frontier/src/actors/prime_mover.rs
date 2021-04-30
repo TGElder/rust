@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use std::sync::Arc;
 use std::time::Duration;
 
 use commons::async_std::task::sleep;
@@ -18,13 +17,13 @@ use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Journey};
 use crate::nation::{NationColors, NationDescription};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
+use crate::traits::has::HasTravelDurations;
 use crate::traits::{Micros, WithAvatars, WithRoutes, WithSettlements, WithWorld};
 use crate::world::World;
 
 pub struct PrimeMover<T> {
     cx: T,
     avatars: usize,
-    travel_duration: Arc<AvatarTravelDuration>,
     durations: Durations,
     rng: SmallRng,
     active: HashMap<String, RouteKey>,
@@ -54,19 +53,24 @@ impl Default for Durations {
 
 impl<T> PrimeMover<T>
 where
-    T: Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
+    T: HasTravelDurations
+        + Micros
+        + WithAvatars
+        + WithRoutes
+        + WithSettlements
+        + WithWorld
+        + Send
+        + Sync,
 {
     pub fn new(
         cx: T,
         avatars: usize,
         seed: u64,
-        travel_duration: Arc<AvatarTravelDuration>,
         nation_descriptions: &[NationDescription],
     ) -> PrimeMover<T> {
         PrimeMover {
             cx,
             avatars,
-            travel_duration,
             durations: Durations::default(),
             rng: SeedableRng::seed_from_u64(seed),
             active: HashMap::with_capacity(avatars),
@@ -197,7 +201,7 @@ where
                     .map(|(key, outbound)| {
                         let journey = Self::get_out_and_back_journey(
                             world,
-                            &self.travel_duration,
+                            self.cx.npc_travel_duration(),
                             &self.durations,
                             &start_at,
                             outbound,
@@ -332,7 +336,14 @@ fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done_micros: &u128) -> boo
 #[async_trait]
 impl<T> Step for PrimeMover<T>
 where
-    T: Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
+    T: HasTravelDurations
+        + Micros
+        + WithAvatars
+        + WithRoutes
+        + WithSettlements
+        + WithWorld
+        + Send
+        + Sync,
 {
     async fn step(&mut self) {
         let micros = self.cx.micros().await;
