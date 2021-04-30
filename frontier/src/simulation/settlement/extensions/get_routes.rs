@@ -93,7 +93,7 @@ where
         self.cx
             .npc_cost_of_path(path)
             .await
-            .expect("Found route with planned roads but not without planned roads!")
+            .expect("Found route but not NPC duration!")
     }
 }
 
