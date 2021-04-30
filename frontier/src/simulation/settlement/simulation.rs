@@ -10,8 +10,8 @@ use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::{RouteChange, Routes};
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    ClosestTargetsWithPlannedRoads, Controlled, CostOfPathWithoutPlannedRoads, GetSettlement,
-    InBoundsWithPlannedRoads, Micros, RefreshEdges, RefreshPositions, RemoveTown,
+    ClosestTargetsWithPlannedRoads, Controlled, GetSettlement, InBoundsWithPlannedRoads, Micros,
+    NPCDisplayCostOfPath, RefreshEdges, RefreshPositions, RemoveTown,
     UpdateSettlement as UpdateSettlementTrait, UpdateTerritory, VisibleLandPositions,
     WithEdgeTraffic, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTraffic,
     WithWorld,
@@ -40,11 +40,11 @@ impl<T> Step for SettlementSimulation<T>
 where
     T: ClosestTargetsWithPlannedRoads
         + Controlled
-        + CostOfPathWithoutPlannedRoads
         + GetSettlement
         + HasParameters
         + InBoundsWithPlannedRoads
         + Micros
+        + NPCDisplayCostOfPath
         + RefreshEdges
         + RefreshPositions
         + RemoveTown
@@ -75,11 +75,11 @@ impl<T> SettlementSimulation<T>
 where
     T: ClosestTargetsWithPlannedRoads
         + Controlled
-        + CostOfPathWithoutPlannedRoads
         + GetSettlement
         + HasParameters
         + InBoundsWithPlannedRoads
         + Micros
+        + NPCDisplayCostOfPath
         + RefreshEdges
         + RefreshPositions
         + RemoveTown

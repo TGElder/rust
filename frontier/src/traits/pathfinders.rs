@@ -1,13 +1,8 @@
-use std::time::Duration;
-
 use commons::async_trait::async_trait;
 use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
-use crate::traits::{
-    ClosestTargets, CostOfPath, InBounds, InitTargets, LoadTargets, Target, WithPathfinder,
-    WithWorld,
-};
+use crate::traits::{ClosestTargets, InBounds, InitTargets, LoadTargets, Target, WithPathfinder};
 
 pub trait PathfinderWithPlannedRoads {
     type T: WithPathfinder + Clone + Send + Sync + 'static;
@@ -102,20 +97,4 @@ pub trait PathfinderWithoutPlannedRoads {
     type T: WithPathfinder + Clone + Send + Sync + 'static;
 
     fn pathfinder_without_planned_roads(&self) -> &Self::T;
-}
-
-#[async_trait]
-pub trait CostOfPathWithoutPlannedRoads {
-    async fn cost_of_path_without_planned_roads(&self, path: &[V2<usize>]) -> Option<Duration>;
-}
-
-#[async_trait]
-impl<T> CostOfPathWithoutPlannedRoads for T
-where
-    T: PathfinderWithoutPlannedRoads + WithWorld + Sync,
-{
-    async fn cost_of_path_without_planned_roads(&self, path: &[V2<usize>]) -> Option<Duration> {
-        self.cost_of_path(self.pathfinder_without_planned_roads(), path)
-            .await
-    }
 }
