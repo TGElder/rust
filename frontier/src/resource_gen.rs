@@ -174,7 +174,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                     && self.is_flat(position)
                     && self.among_vegetation_type(position, VegetationType::EvergreenTree)
             }
-            Resource::Coal => !self.is_sea(position) && self.is_cliff(position),
+            Resource::Coal => !self.is_sea(position) && self.is_accessible_cliff(position),
             Resource::Crabs => self.in_shallow_sea(position),
             Resource::Crops => {
                 !self.tile_is_beach(position)
@@ -194,7 +194,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             }
             Resource::Gems => !self.is_sea(position),
             Resource::Gold => !self.is_sea(position) && self.in_river(position),
-            Resource::Iron => !self.is_sea(position) && self.is_cliff(position),
+            Resource::Iron => !self.is_sea(position) && self.is_accessible_cliff(position),
             Resource::Ivory => {
                 !self.is_sea(position)
                     && self.is_flat(position)
@@ -209,7 +209,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
                 !self.is_sea(position)
                     && self.has_vegetation_type_adjacent(position, VegetationType::PalmTree)
             }
-            Resource::Stone => !self.is_sea(position) && self.is_cliff(position),
+            Resource::Stone => !self.is_sea(position) && self.is_accessible_cliff(position),
             Resource::Truffles => {
                 !self.is_sea(position)
                     && self.has_vegetation_type_adjacent(position, VegetationType::DeciduousTree)
@@ -264,12 +264,6 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             && vegetation_type.in_range_groundwater(groundwater)
     }
 
-    fn is_cliff(&self, position: &V2<usize>) -> bool {
-        let adjacent_cliff_edges = self.count_adjacent_cliff_edges(position);
-        adjacent_cliff_edges >= self.params.resource_gen.cliff_edges_for_cliff.0
-            && adjacent_cliff_edges <= self.params.resource_gen.cliff_edges_for_cliff.1
-    }
-
     fn is_flat(&self, position: &V2<usize>) -> bool {
         self.count_adjacent_cliff_edges(position) == 0
     }
@@ -280,6 +274,21 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
             .flat_map(|edge| self.world.get_rise(edge.from(), edge.to()))
             .filter(|rise| rise.abs() >= self.params.world_gen.cliff_gradient)
             .count()
+    }
+
+    fn is_accessible_cliff(&self, position: &V2<usize>) -> bool {
+        let adjacent_tiles_in_bounds = self.world.get_adjacent_tiles_in_bounds(position);
+
+        let adjacent_cliffs = adjacent_tiles_in_bounds
+            .iter()
+            .filter(|tile| {
+                self.world.get_max_abs_rise(tile) >= self.params.world_gen.cliff_gradient
+            })
+            .count();
+
+        let adjacent_not_cliffs = adjacent_tiles_in_bounds.len() - adjacent_cliffs;
+
+        adjacent_cliffs > 0 && adjacent_not_cliffs > 0
     }
 
     fn get_adjacent_edges(&self, position: &V2<usize>) -> Vec<Edge> {
