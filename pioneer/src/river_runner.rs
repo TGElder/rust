@@ -89,7 +89,10 @@ fn get_junction_matrix_from_flow_map(
     let mut junctions = M::from_element(width, width, Junction::default());
 
     let max_flow_over_sea_level = get_max_flow_over_sea_level(mesh, sea_level, flow_map) as f64;
-    let flow_scale = Scale::new((threshold as f64, max_flow_over_sea_level), flow_to_width);
+    let flow_to_width_squared = Scale::new(
+        (threshold as f64, max_flow_over_sea_level),
+        (flow_to_width.0.powf(2.0), flow_to_width.1.powf(2.0)),
+    );
 
     for x in 0..mesh.get_width() {
         for y in 0..mesh.get_width() {
@@ -98,8 +101,9 @@ fn get_junction_matrix_from_flow_map(
                 let position = v2(x as usize, y as usize);
                 if let Some(neighbour) = get_neighbour(position, mesh, downhill_map) {
                     let neighbour_flow = flow_map.get_flow(neighbour.x as i32, neighbour.y as i32);
-                    let position_width = flow_scale.scale(flow as f64) as f32;
-                    let neighbour_width = flow_scale.scale(neighbour_flow as f64) as f32;
+                    let position_width = (flow_to_width_squared.scale(flow as f64) as f32).sqrt();
+                    let neighbour_width =
+                        (flow_to_width_squared.scale(neighbour_flow as f64) as f32).sqrt();
                     let edge = Edge::new(position, v2(neighbour.x, neighbour.y));
                     junctions
                         .mut_cell_unsafe(&position)
@@ -268,7 +272,7 @@ mod tests {
             Junction {
                 horizontal: Junction1D::default(),
                 vertical: Junction1D {
-                    width: 1.5,
+                    width: 1.5f32.sqrt(),
                     from: false,
                     to: true
                 },
@@ -280,7 +284,7 @@ mod tests {
             Junction {
                 horizontal: Junction1D::default(),
                 vertical: Junction1D {
-                    width: 0.5,
+                    width: 0.5f32.sqrt(),
                     from: true,
                     to: false
                 },
