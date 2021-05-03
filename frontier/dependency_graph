@@ -29,8 +29,8 @@ IsRoad WithWorld
 LoadTarget SendPathfinder
 Micros SendClock
 NationDescriptions WithNations
-NPCCostOfPath CostOfPath
-NPCCostOfPath HasTravelDurations
+NpcCostOfPath CostOfPath
+NpcCostOfPath HasTravelDurations
 PlanRoad SendPathfinder
 PlanRoad UpdatePathfinderPositions
 PlanRoad WithWorld
@@ -145,7 +145,7 @@ SendSettlementSim GetSettlement
 SendSettlementSim HasParameters
 SendSettlementSim InBounds
 SendSettlementSim Micros
-SendSettlementSim NPCCostOfPath
+SendSettlementSim NpcCostOfPath
 SendSettlementSim RefreshEdges
 SendSettlementSim RefreshPositions
 SendSettlementSim RemoveTown

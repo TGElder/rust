@@ -33,12 +33,12 @@ where
 }
 
 #[async_trait]
-pub trait NPCCostOfPath {
+pub trait NpcCostOfPath {
     async fn npc_cost_of_path(&self, path: &[V2<usize>]) -> Option<Duration>;
 }
 
 #[async_trait]
-impl<T> NPCCostOfPath for T
+impl<T> NpcCostOfPath for T
 where
     T: CostOfPath + HasTravelDurations + Sync,
 {

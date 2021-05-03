@@ -94,12 +94,13 @@ pub enum Mine {
 
 impl Mine {
     pub fn matches(&self, world_object: &WorldObject) -> bool {
-        matches!((self, world_object),
-            (Mine::None, WorldObject::None) |
-            (Mine::None, WorldObject::Vegetation{..}) |
-            (Mine::Crop, WorldObject::Crop{..}) |
-            (Mine::Pasture, WorldObject::Pasture) |
-            (Mine::House, WorldObject::House{ .. })
+        matches!(
+            (self, world_object),
+            (Mine::None, WorldObject::None)
+                | (Mine::None, WorldObject::Vegetation { .. })
+                | (Mine::Crop, WorldObject::Crop { .. })
+                | (Mine::Pasture, WorldObject::Pasture)
+                | (Mine::House, WorldObject::House { .. })
         )
     }
 

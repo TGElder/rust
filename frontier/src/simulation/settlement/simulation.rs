@@ -11,7 +11,7 @@ use crate::simulation::settlement::model::{RouteChange, Routes};
 use crate::traits::has::HasParameters;
 use crate::traits::{
     ClosestTargetsWithPlannedRoads, Controlled, GetSettlement, InBoundsWithPlannedRoads, Micros,
-    NPCCostOfPath, RefreshEdges, RefreshPositions, RemoveTown,
+    NpcCostOfPath, RefreshEdges, RefreshPositions, RemoveTown,
     UpdateSettlement as UpdateSettlementTrait, UpdateTerritory, VisibleLandPositions,
     WithEdgeTraffic, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTraffic,
     WithWorld,
@@ -44,7 +44,7 @@ where
         + HasParameters
         + InBoundsWithPlannedRoads
         + Micros
-        + NPCCostOfPath
+        + NpcCostOfPath
         + RefreshEdges
         + RefreshPositions
         + RemoveTown
@@ -79,7 +79,7 @@ where
         + HasParameters
         + InBoundsWithPlannedRoads
         + Micros
-        + NPCCostOfPath
+        + NpcCostOfPath
         + RefreshEdges
         + RefreshPositions
         + RemoveTown

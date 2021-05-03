@@ -76,22 +76,28 @@ where
     }
 
     async fn rotate_clockwise(&self) {
-        if let Some(Avatar { name, journey, .. }) = self.cx.selected_avatar().await {
-            if let Some(journey) = journey {
-                self.cx
-                    .update_avatar_journey(&name, Some(journey.then_rotate_clockwise()))
-                    .await;
-            }
+        if let Some(Avatar {
+            name,
+            journey: Some(journey),
+            ..
+        }) = self.cx.selected_avatar().await
+        {
+            self.cx
+                .update_avatar_journey(&name, Some(journey.then_rotate_clockwise()))
+                .await;
         }
     }
 
     async fn rotate_anticlockwise(&self) {
-        if let Some(Avatar { name, journey, .. }) = self.cx.selected_avatar().await {
-            if let Some(journey) = journey {
-                self.cx
-                    .update_avatar_journey(&name, Some(journey.then_rotate_anticlockwise()))
-                    .await;
-            }
+        if let Some(Avatar {
+            name,
+            journey: Some(journey),
+            ..
+        }) = self.cx.selected_avatar().await
+        {
+            self.cx
+                .update_avatar_journey(&name, Some(journey.then_rotate_anticlockwise()))
+                .await;
         }
     }
 }

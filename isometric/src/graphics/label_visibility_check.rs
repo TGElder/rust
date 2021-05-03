@@ -1,9 +1,9 @@
-use super::{GLZFinder, GraphicsEngine};
+use super::{GlZFinder, GraphicsEngine};
 use commons::na::Matrix2;
 use commons::rectangle::Rectangle;
 use commons::{v2, V2};
 use coords::WorldCoord;
-use coords::{GLCoord2D, GLCoord3D, ZFinder};
+use coords::{GlCoord2D, GlCoord3D, ZFinder};
 use glutin::dpi::PhysicalSize;
 use transform::Transform;
 
@@ -30,14 +30,14 @@ impl<'a> LabelVisibilityChecker<'a> {
             padding: graphics_engine.label_padding,
             transform: &graphics_engine.transform,
             physical_size: &graphics_engine.viewport_size,
-            z_finder: &GLZFinder {},
+            z_finder: &GlZFinder {},
             pixel_to_screen: graphics_engine.get_pixel_to_screen(),
             ui_elements: vec![],
         }
     }
 
     pub fn is_visible(&mut self, check: &LabelVisibilityCheck) -> bool {
-        if let VisibleBeforeUI::Yes(visible_coord) = self.visible_before_ui(check) {
+        if let VisibleBeforeUi::Yes(visible_coord) = self.visible_before_ui(check) {
             let ui_element = self.get_ui_element(&visible_coord, &check.ui_offsets);
             if self.ui_element_is_visible(&ui_element) {
                 self.ui_elements.push(ui_element);
@@ -47,26 +47,26 @@ impl<'a> LabelVisibilityChecker<'a> {
         false
     }
 
-    fn visible_before_ui(&self, check: &'a LabelVisibilityCheck) -> VisibleBeforeUI {
+    fn visible_before_ui(&self, check: &'a LabelVisibilityCheck) -> VisibleBeforeUi {
         let expected_gl_coord_4 = check.world_coord.to_gl_coord_4d(self.transform);
-        let gl_coord_2 = GLCoord2D::new(expected_gl_coord_4.x, expected_gl_coord_4.y);
+        let gl_coord_2 = GlCoord2D::new(expected_gl_coord_4.x, expected_gl_coord_4.y);
         let visibile_screen_coord = gl_coord_2.to_gl_coord_3d(self.physical_size, self.z_finder);
 
         if expected_gl_coord_4.z - visibile_screen_coord.z < VISIBILITY_TOLERANCE {
-            VisibleBeforeUI::Yes(visibile_screen_coord)
+            VisibleBeforeUi::Yes(visibile_screen_coord)
         } else {
-            VisibleBeforeUI::No
+            VisibleBeforeUi::No
         }
     }
 
-    fn get_ui_element(&self, screen_coord: &GLCoord3D, offsets: &Rectangle<f32>) -> Rectangle<f32> {
+    fn get_ui_element(&self, screen_coord: &GlCoord3D, offsets: &Rectangle<f32>) -> Rectangle<f32> {
         Rectangle {
             from: self.to_screen_coord(screen_coord, offsets.from),
             to: self.to_screen_coord(screen_coord, offsets.to),
         }
     }
 
-    fn to_screen_coord(&self, screen_coord: &GLCoord3D, offset: V2<f32>) -> V2<f32> {
+    fn to_screen_coord(&self, screen_coord: &GlCoord3D, offset: V2<f32>) -> V2<f32> {
         self.pixel_to_screen * (offset * self.padding) + v2(screen_coord.x, screen_coord.y)
     }
 
@@ -78,8 +78,8 @@ impl<'a> LabelVisibilityChecker<'a> {
     }
 }
 
-enum VisibleBeforeUI {
-    Yes(GLCoord3D),
+enum VisibleBeforeUi {
+    Yes(GlCoord3D),
     No,
 }
 
@@ -87,7 +87,7 @@ enum VisibleBeforeUI {
 mod tests {
 
     use super::*;
-    use coords::{BufferCoordinate, GLCoord2D};
+    use coords::{BufferCoordinate, GlCoord2D};
     use transform::Identity;
 
     struct MockZFinder {}
@@ -108,8 +108,8 @@ mod tests {
         };
 
         let transform = Transform::new(
-            GLCoord3D::new(1.0, 1.0, 1.0),
-            GLCoord2D::new(0.0, 0.0),
+            GlCoord3D::new(1.0, 1.0, 1.0),
+            GlCoord2D::new(0.0, 0.0),
             Box::new(Identity {}),
         );
         let physical_size = PhysicalSize::new(100, 100);

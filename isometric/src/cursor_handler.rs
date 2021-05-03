@@ -1,23 +1,23 @@
-use coords::{GLCoord4D, PhysicalPositionExt, WorldCoord};
+use coords::{GlCoord4D, PhysicalPositionExt, WorldCoord};
 use engine::Event;
 use events::EventConsumer;
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
-use graphics::GLZFinder;
+use graphics::GlZFinder;
 use std::sync::Arc;
 use transform::Transform;
 
 pub struct CursorHandler {
-    z_finder: GLZFinder,
+    z_finder: GlZFinder,
     physical_window_size: PhysicalSize<u32>,
     screen_cursor: Option<PhysicalPosition<f64>>,
-    gl_cursor: Option<GLCoord4D>,
+    gl_cursor: Option<GlCoord4D>,
     world_cursor: Option<WorldCoord>,
 }
 
 impl CursorHandler {
     pub fn new(physical_window_size: PhysicalSize<u32>) -> CursorHandler {
         CursorHandler {
-            z_finder: GLZFinder {},
+            z_finder: GlZFinder {},
             physical_window_size,
             screen_cursor: None,
             gl_cursor: None,
@@ -25,7 +25,7 @@ impl CursorHandler {
         }
     }
 
-    pub fn gl_cursor(&self) -> Option<GLCoord4D> {
+    pub fn gl_cursor(&self) -> Option<GlCoord4D> {
         self.gl_cursor
     }
 
@@ -33,7 +33,7 @@ impl CursorHandler {
         self.world_cursor
     }
 
-    fn get_gl_cursor(&self) -> Option<GLCoord4D> {
+    fn get_gl_cursor(&self) -> Option<GlCoord4D> {
         self.screen_cursor
             .map(|position| position.to_gl_coord_4d(self.physical_window_size, &self.z_finder))
     }

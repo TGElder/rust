@@ -21,10 +21,10 @@ pub enum Event {
     Start,
     Tick,
     Shutdown,
-    CursorMoved(Option<GLCoord4D>),
+    CursorMoved(Option<GlCoord4D>),
     WorldPositionChanged(Option<WorldCoord>),
     GlutinEvent(glutin::event::Event<'static, ()>),
-    Drag(GLCoord4D),
+    Drag(GlCoord4D),
     Button {
         button: Button,
         state: glutin::event::ElementState,
@@ -36,13 +36,13 @@ pub enum Event {
 pub enum Command {
     Shutdown,
     Resize(glutin::dpi::PhysicalSize<u32>),
-    Translate(GLCoord2D),
+    Translate(GlCoord2D),
     Scale {
-        center: GLCoord4D,
-        scale: GLCoord2D,
+        center: GlCoord4D,
+        scale: GlCoord2D,
     },
     Rotate {
-        center: GLCoord4D,
+        center: GlCoord4D,
         yaw: f32,
     },
     Event(Event),

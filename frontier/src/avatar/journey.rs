@@ -22,22 +22,22 @@ pub struct Frame {
     pub load: AvatarLoad,
 }
 
-impl Into<WorldCoord> for &Frame {
-    fn into(self) -> WorldCoord {
+impl From<&Frame> for WorldCoord {
+    fn from(frame: &Frame) -> Self {
         WorldCoord::new(
-            self.position.x as f32,
-            self.position.y as f32,
-            self.elevation,
+            frame.position.x as f32,
+            frame.position.y as f32,
+            frame.elevation,
         )
     }
 }
 
-impl Into<V3<f32>> for &Frame {
-    fn into(self) -> V3<f32> {
+impl From<&Frame> for V3<f32> {
+    fn from(frame: &Frame) -> Self {
         V3::new(
-            self.position.x as f32,
-            self.position.y as f32,
-            self.elevation,
+            frame.position.x as f32,
+            frame.position.y as f32,
+            frame.elevation,
         )
     }
 }

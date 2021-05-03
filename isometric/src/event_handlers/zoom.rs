@@ -1,4 +1,4 @@
-use coords::{GLCoord2D, GLCoord4D};
+use coords::{GlCoord2D, GlCoord4D};
 use engine::{Button, Command, Event};
 use events::EventHandler;
 use std::default::Default;
@@ -6,7 +6,7 @@ use std::sync::Arc;
 use {ElementState, VirtualKeyCode};
 
 pub struct ZoomHandler {
-    cursor_position: Option<GLCoord4D>,
+    cursor_position: Option<GlCoord4D>,
 }
 
 impl ZoomHandler {
@@ -14,7 +14,7 @@ impl ZoomHandler {
         if let Some(center) = self.cursor_position {
             vec![Command::Scale {
                 center,
-                scale: GLCoord2D::new(delta, delta),
+                scale: GlCoord2D::new(delta, delta),
             }]
         } else {
             vec![]

@@ -1,4 +1,4 @@
-use coords::GLCoord4D;
+use coords::GlCoord4D;
 use engine::{Button, Command, Event};
 use events::EventHandler;
 use std::f32::consts::PI;
@@ -8,7 +8,7 @@ use {ElementState, VirtualKeyCode};
 const DELTA: f32 = PI / 16.0;
 
 pub struct RotateHandler {
-    cursor_position: Option<GLCoord4D>,
+    cursor_position: Option<GlCoord4D>,
     clockwise_key: VirtualKeyCode,
     anticlockwise_key: VirtualKeyCode,
     rotate_over_undrawn: bool,

@@ -1,4 +1,4 @@
-use coords::GLCoord4D;
+use coords::GlCoord4D;
 use engine::{Command, Event};
 use events::EventHandler;
 use std::sync::Arc;
@@ -6,7 +6,7 @@ use std::sync::Arc;
 #[derive(Default)]
 pub struct DragHandler {
     dragging: bool,
-    last_pos: Option<GLCoord4D>,
+    last_pos: Option<GlCoord4D>,
 }
 
 impl DragHandler {
@@ -18,10 +18,10 @@ impl DragHandler {
         vec![]
     }
 
-    fn handle_cursor_moved(&mut self, position: Option<GLCoord4D>) -> Vec<Command> {
+    fn handle_cursor_moved(&mut self, position: Option<GlCoord4D>) -> Vec<Command> {
         let out = if self.dragging {
             if let (Some(last_pos), Some(position)) = (self.last_pos, position) {
-                let drag = GLCoord4D::new(
+                let drag = GlCoord4D::new(
                     position.x - last_pos.x,
                     position.y - last_pos.y,
                     position.z - last_pos.z,

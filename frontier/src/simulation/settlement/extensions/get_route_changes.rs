@@ -40,7 +40,7 @@ fn add_and_get_new_and_changed(
 ) -> Vec<RouteChange> {
     route_set
         .iter()
-        .flat_map(move |(key, route)| add_and_get_change(routes, *set_key, *key, route.clone()))
+        .map(move |(key, route)| add_and_get_change(routes, *set_key, *key, route.clone()))
         .collect()
 }
 
@@ -49,24 +49,24 @@ fn add_and_get_change(
     set_key: RouteSetKey,
     key: RouteKey,
     route: Route,
-) -> Option<RouteChange> {
+) -> RouteChange {
     let route_set = routes.entry(set_key).or_insert_with(HashMap::new);
     match route_set.entry(key) {
         Entry::Occupied(mut entry) => {
             if *entry.get() == route {
-                Some(RouteChange::NoChange { key, route })
+                RouteChange::NoChange { key, route }
             } else {
                 let old = entry.insert(route.clone());
-                Some(RouteChange::Updated {
+                RouteChange::Updated {
                     key,
                     old,
                     new: route,
-                })
+                }
             }
         }
         Entry::Vacant(entry) => {
             entry.insert(route.clone());
-            Some(RouteChange::New { key, route })
+            RouteChange::New { key, route }
         }
     }
 }

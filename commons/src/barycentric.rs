@@ -1,6 +1,7 @@
 use super::{v2, v3, V2, V3};
 
 // https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
+#[allow(clippy::suspicious_operation_groupings)]
 pub fn barycentric(p: &V2<f32>, triangle: &[V2<f32>; 3]) -> V3<f32> {
     let v0 = triangle[1] - triangle[0];
     let v1 = triangle[2] - triangle[0];

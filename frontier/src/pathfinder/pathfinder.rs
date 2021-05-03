@@ -104,8 +104,7 @@ where
         match path {
             Some(ref path) if path.is_empty() => None,
             Some(ref path) => {
-                let mut out = vec![];
-                out.push(self.get_position_from_network_index(path[0].from).unwrap());
+                let mut out = vec![self.get_position_from_network_index(path[0].from).unwrap()];
                 for edge in path {
                     out.push(self.get_position_from_network_index(edge.to).unwrap());
                 }

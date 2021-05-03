@@ -8,7 +8,7 @@ mod vertex_objects;
 use self::label_visibility_check::{LabelVisibilityCheck, LabelVisibilityChecker};
 use self::program::Program;
 use self::texture::{Texture, TextureLibrary};
-use self::vertex_objects::MultiVBO;
+use self::vertex_objects::MultiVbo;
 use commons::na;
 use coords::*;
 use glutin::dpi::PhysicalSize;
@@ -24,7 +24,7 @@ pub struct GraphicsEngine {
     label_padding: f32,
     transform: Transform,
     projection: Isometric,
-    drawings: HashMap<String, GLDrawing>,
+    drawings: HashMap<String, GlDrawing>,
     texture_library: TextureLibrary,
 }
 
@@ -68,12 +68,12 @@ impl GraphicsEngine {
         let projection = Isometric::new(PI / 4.0, PI / 3.0);
 
         let transform = Transform::new(
-            GLCoord3D::new(
+            GlCoord3D::new(
                 params.viewport_size.width as f32 * params.initial_zoom,
                 params.viewport_size.height as f32 * params.initial_zoom,
                 params.z_scale,
             ),
-            GLCoord2D::new(0.0, 0.0),
+            GlCoord2D::new(0.0, 0.0),
             Box::new(projection),
         );
 
@@ -105,8 +105,8 @@ impl GraphicsEngine {
         &mut self.transform
     }
 
-    fn compute_draw_order(&self, drawing_type: DrawingType) -> Vec<&GLDrawing> {
-        let mut out: Vec<&GLDrawing> = self
+    fn compute_draw_order(&self, drawing_type: DrawingType) -> Vec<&GlDrawing> {
+        let mut out: Vec<&GlDrawing> = self
             .drawings
             .values()
             .filter(|d| d.drawing.drawing_type == drawing_type)
@@ -122,7 +122,7 @@ impl GraphicsEngine {
 
     pub fn add_drawing(&mut self, drawing: Drawing) {
         self.drawings
-            .insert(drawing.name.clone(), GLDrawing::new(drawing));
+            .insert(drawing.name.clone(), GlDrawing::new(drawing));
     }
 
     pub fn update_vertices(&mut self, name: String, index: usize, vertices: Vec<f32>) {
@@ -187,7 +187,7 @@ impl GraphicsEngine {
         }
     }
 
-    pub fn rotate(&mut self, center: GLCoord4D, yaw: f32) {
+    pub fn rotate(&mut self, center: GlCoord4D, yaw: f32) {
         self.projection.yaw = (self.projection.yaw + PI * 2.0 + yaw) % (PI * 2.0);
         let proj = self.projection;
 
@@ -264,8 +264,8 @@ impl GraphicsEngine {
 
     pub fn set_viewport_size(&mut self, viewport_size: PhysicalSize<u32>) {
         self.transform.scale(
-            GLCoord4D::new(0.0, 0.0, 0.0, 1.0),
-            GLCoord2D::new(
+            GlCoord4D::new(0.0, 0.0, 0.0, 1.0),
+            GlCoord2D::new(
                 (self.viewport_size.width as f32) / (viewport_size.width as f32),
                 (self.viewport_size.height as f32) / (viewport_size.height as f32),
             ),
@@ -397,17 +397,17 @@ impl Drawing {
     }
 }
 
-struct GLDrawing {
+struct GlDrawing {
     drawing: Drawing,
-    buffer: MultiVBO,
+    buffer: MultiVbo,
     texture: Option<Arc<Texture>>,
     mask: Option<Arc<Texture>>,
 }
 
-impl GLDrawing {
-    pub fn new(drawing: Drawing) -> GLDrawing {
-        GLDrawing {
-            buffer: MultiVBO::new(
+impl GlDrawing {
+    pub fn new(drawing: Drawing) -> GlDrawing {
+        GlDrawing {
+            buffer: MultiVbo::new(
                 drawing.drawing_type,
                 drawing.indices,
                 drawing.max_floats_per_index,
@@ -427,9 +427,9 @@ impl GLDrawing {
     }
 }
 
-pub struct GLZFinder {}
+pub struct GlZFinder {}
 
-impl ZFinder for GLZFinder {
+impl ZFinder for GlZFinder {
     fn get_z_at(&self, buffer_coordinate: BufferCoordinate) -> f32 {
         let mut buffer: Vec<f32> = vec![0.0];
         unsafe {

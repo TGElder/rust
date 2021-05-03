@@ -4,21 +4,21 @@ fn get_bytes<T>(floats: usize) -> usize {
     floats * std::mem::size_of::<T>()
 }
 
-pub struct VBO {
+pub struct Vbo {
     id: gl::types::GLuint,
-    vao: VAO,
+    vao: Vao,
     floats: usize,
 }
 
-impl VBO {
+impl Vbo {
     const MAX_BYTES: usize = 2_147_483_648;
 
-    pub fn new(drawing_type: DrawingType) -> VBO {
+    pub fn new(drawing_type: DrawingType) -> Vbo {
         let mut id: gl::types::GLuint = 0;
-        let vao = VAO::new(drawing_type);
+        let vao = Vao::new(drawing_type);
         unsafe {
             gl::GenBuffers(1, &mut id);
-            let out = VBO { id, vao, floats: 0 };
+            let out = Vbo { id, vao, floats: 0 };
             out.set_vao();
             out
         }
@@ -47,17 +47,17 @@ impl VBO {
     }
 
     fn check_floats_against_max_bytes(floats: usize) {
-        if get_bytes::<f32>(floats) > VBO::MAX_BYTES {
+        if get_bytes::<f32>(floats) > Vbo::MAX_BYTES {
             panic!(
-                "Trying to create a VBO with {} bytes. Max allowed is {}.",
+                "Trying to create a Vbo with {} bytes. Max allowed is {}.",
                 get_bytes::<f32>(floats),
-                VBO::MAX_BYTES
+                Vbo::MAX_BYTES
             );
         }
     }
 
     pub fn _load(&mut self, floats: Vec<f32>) {
-        VBO::check_floats_against_max_bytes(floats.len());
+        Vbo::check_floats_against_max_bytes(floats.len());
         self.floats = floats.len();
         self.bind();
         unsafe {
@@ -72,7 +72,7 @@ impl VBO {
     }
 
     fn alloc(&mut self, floats: usize) {
-        VBO::check_floats_against_max_bytes(floats);
+        Vbo::check_floats_against_max_bytes(floats);
         self.floats = floats;
         self.bind();
         unsafe {
@@ -143,7 +143,7 @@ impl VBO {
     }
 }
 
-impl Drop for VBO {
+impl Drop for Vbo {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteBuffers(1, &self.id);
@@ -151,17 +151,17 @@ impl Drop for VBO {
     }
 }
 
-pub struct MultiVBO {
-    vbo: VBO,
+pub struct MultiVbo {
+    vbo: Vbo,
     max_floats_per_index: usize,
     floats_at_index: Vec<usize>,
 }
 
-impl MultiVBO {
-    pub fn new(drawing_type: DrawingType, indices: usize, max_floats_per_index: usize) -> MultiVBO {
-        let mut vbo = VBO::new(drawing_type);
+impl MultiVbo {
+    pub fn new(drawing_type: DrawingType, indices: usize, max_floats_per_index: usize) -> MultiVbo {
+        let mut vbo = Vbo::new(drawing_type);
         vbo.alloc(indices * max_floats_per_index);
-        MultiVBO {
+        MultiVbo {
             vbo,
             max_floats_per_index,
             floats_at_index: vec![0; indices],
@@ -180,18 +180,18 @@ impl MultiVBO {
     }
 }
 
-pub struct VAO {
+pub struct Vao {
     id: gl::types::GLuint,
     drawing_type: DrawingType,
 }
 
-impl VAO {
-    pub fn new(drawing_type: DrawingType) -> VAO {
+impl Vao {
+    pub fn new(drawing_type: DrawingType) -> Vao {
         let mut id: gl::types::GLuint = 0;
         unsafe {
             gl::GenVertexArrays(1, &mut id);
         }
-        VAO { id, drawing_type }
+        Vao { id, drawing_type }
     }
 
     fn setup_for_plain_drawing() {
@@ -325,11 +325,11 @@ impl VAO {
     fn setup(&self) {
         self.bind();
         match self.drawing_type {
-            DrawingType::Plain => VAO::setup_for_plain_drawing(),
-            DrawingType::Label => VAO::setup_for_sprite_drawing(),
-            DrawingType::Billboard => VAO::setup_for_sprite_drawing(),
-            DrawingType::MaskedBillboard => VAO::setup_for_masked_sprite_drawing(),
-            DrawingType::Textured => VAO::setup_for_textured_drawing(),
+            DrawingType::Plain => Vao::setup_for_plain_drawing(),
+            DrawingType::Label => Vao::setup_for_sprite_drawing(),
+            DrawingType::Billboard => Vao::setup_for_sprite_drawing(),
+            DrawingType::MaskedBillboard => Vao::setup_for_masked_sprite_drawing(),
+            DrawingType::Textured => Vao::setup_for_textured_drawing(),
         }
         self.unbind();
     }
@@ -361,7 +361,7 @@ impl VAO {
     }
 }
 
-impl Drop for VAO {
+impl Drop for Vao {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteVertexArrays(1, &self.id);

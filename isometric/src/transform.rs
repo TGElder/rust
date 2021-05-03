@@ -55,15 +55,15 @@ impl Projection for Identity {
 }
 
 pub struct Transform {
-    scale: GLCoord3D,
-    translation: GLCoord2D,
+    scale: GlCoord3D,
+    translation: GlCoord2D,
     projection: Box<dyn Projection>,
 }
 
 impl Transform {
     pub fn new(
-        scale: GLCoord3D,
-        translation: GLCoord2D,
+        scale: GlCoord3D,
+        translation: GlCoord2D,
         projection: Box<dyn Projection>,
     ) -> Transform {
         Transform {
@@ -98,14 +98,14 @@ impl Transform {
         )
     }
 
-    pub fn translate(&mut self, delta: GLCoord2D) {
+    pub fn translate(&mut self, delta: GlCoord2D) {
         self.translation.x += delta.x;
         self.translation.y += delta.y;
     }
 
     pub fn transform_maintaining_center(
         &mut self,
-        center: GLCoord4D,
+        center: GlCoord4D,
         mut transformation: Box<dyn FnMut(&mut Self)>,
     ) {
         let old_x = center.x;
@@ -117,7 +117,7 @@ impl Transform {
         self.translation.y += old_y - center.y;
     }
 
-    pub fn scale(&mut self, center: GLCoord4D, delta: GLCoord2D) {
+    pub fn scale(&mut self, center: GlCoord4D, delta: GlCoord2D) {
         self.transform_maintaining_center(
             center,
             Box::new(move |transform| {
@@ -133,15 +133,15 @@ impl Transform {
 
     pub fn look_at(&mut self, world_coord: WorldCoord) {
         let gl_coord = world_coord.to_gl_coord_4d(self);
-        self.translate(GLCoord2D::new(-gl_coord.x, -gl_coord.y));
+        self.translate(GlCoord2D::new(-gl_coord.x, -gl_coord.y));
     }
 
-    pub fn project(&self, world_coord: WorldCoord) -> GLCoord4D {
+    pub fn project(&self, world_coord: WorldCoord) -> GlCoord4D {
         let point: na::Point4<f32> = world_coord.into();
         (self.compute_transformation_matrix() * point).into()
     }
 
-    pub fn unproject(&self, projected_coord: GLCoord4D) -> WorldCoord {
+    pub fn unproject(&self, projected_coord: GlCoord4D) -> WorldCoord {
         let projected_point: na::Point4<f32> = projected_coord.into();
         (self.compute_inverse_matrix() * projected_point).into()
     }
@@ -172,38 +172,38 @@ mod tests {
     #[test]
     fn test_translate_in_constructor() {
         let transform = Transform::new(
-            GLCoord3D::new(1.0, 1.0, 1.0),
-            GLCoord2D::new(-1.0, 2.0),
+            GlCoord3D::new(1.0, 1.0, 1.0),
+            GlCoord2D::new(-1.0, 2.0),
             Identity::boxed(),
         );
 
         assert_eq!(
             transform.project(WorldCoord::new(0.0, 0.0, 0.0)),
-            GLCoord4D::new(-1.0, 2.0, 0.0, 1.0)
+            GlCoord4D::new(-1.0, 2.0, 0.0, 1.0)
         );
     }
 
     #[test]
     fn test_translate_method() {
         let mut transform = Transform::new(
-            GLCoord3D::new(1.0, 1.0, 1.0),
-            GLCoord2D::new(0.0, 0.0),
+            GlCoord3D::new(1.0, 1.0, 1.0),
+            GlCoord2D::new(0.0, 0.0),
             Identity::boxed(),
         );
 
-        transform.translate(GLCoord2D::new(-2.0, 1.0));
+        transform.translate(GlCoord2D::new(-2.0, 1.0));
 
         assert_eq!(
             transform.project(WorldCoord::new(0.0, 0.0, 0.0)),
-            GLCoord4D::new(-2.0, 1.0, 0.0, 1.0)
+            GlCoord4D::new(-2.0, 1.0, 0.0, 1.0)
         );
     }
 
     #[test]
     fn test_get_scale_as_matrix() {
         let transform = Transform::new(
-            GLCoord3D::new(2.0, 4.0, 5.0),
-            GLCoord2D::new(0.0, 0.0),
+            GlCoord3D::new(2.0, 4.0, 5.0),
+            GlCoord2D::new(0.0, 0.0),
             Identity::boxed(),
         );
 
@@ -216,79 +216,79 @@ mod tests {
     #[test]
     fn test_scale_in_constructor() {
         let transform = Transform::new(
-            GLCoord3D::new(2.0, 4.0, 5.0),
-            GLCoord2D::new(0.0, 0.0),
+            GlCoord3D::new(2.0, 4.0, 5.0),
+            GlCoord2D::new(0.0, 0.0),
             Identity::boxed(),
         );
 
         assert_eq!(
             transform.project(WorldCoord::new(1.0, 1.0, 1.0)),
-            GLCoord4D::new(2.0, 4.0, 5.0, 1.0)
+            GlCoord4D::new(2.0, 4.0, 5.0, 1.0)
         );
     }
 
     #[test]
     fn test_scale_with_translation() {
         let transform = Transform::new(
-            GLCoord3D::new(2.0, 4.0, 5.0),
-            GLCoord2D::new(-3.0, 1.0),
+            GlCoord3D::new(2.0, 4.0, 5.0),
+            GlCoord2D::new(-3.0, 1.0),
             Identity::boxed(),
         );
 
         assert_eq!(
             transform.project(WorldCoord::new(1.0, 1.0, 1.0)),
-            GLCoord4D::new(-1.0, 5.0, 5.0, 1.0)
+            GlCoord4D::new(-1.0, 5.0, 5.0, 1.0)
         );
     }
 
     #[test]
     fn test_scale_method_center_point_should_not_change() {
         let mut transform = Transform::new(
-            GLCoord3D::new(1.0, 1.0, 1.0),
-            GLCoord2D::new(0.0, 0.0),
+            GlCoord3D::new(1.0, 1.0, 1.0),
+            GlCoord2D::new(0.0, 0.0),
             Identity::boxed(),
         );
 
         transform.scale(
-            GLCoord4D::new(1.0, -1.0, 7.0, 1.0),
-            GLCoord2D::new(3.0, 2.0),
+            GlCoord4D::new(1.0, -1.0, 7.0, 1.0),
+            GlCoord2D::new(3.0, 2.0),
         );
 
         assert_eq!(
             transform.project(WorldCoord::new(1.0, -1.0, 7.0)),
-            GLCoord4D::new(1.0, -1.0, 7.0, 1.0)
+            GlCoord4D::new(1.0, -1.0, 7.0, 1.0)
         );
     }
 
     #[test]
     fn test_scale_method_distance_to_other_point_should_scale() {
         let mut transform = Transform::new(
-            GLCoord3D::new(1.0, 1.0, 1.0),
-            GLCoord2D::new(0.0, 0.0),
+            GlCoord3D::new(1.0, 1.0, 1.0),
+            GlCoord2D::new(0.0, 0.0),
             Identity::boxed(),
         );
 
         transform.scale(
-            GLCoord4D::new(1.0, -1.0, 7.0, 1.0),
-            GLCoord2D::new(3.0, 2.0),
+            GlCoord4D::new(1.0, -1.0, 7.0, 1.0),
+            GlCoord2D::new(3.0, 2.0),
         );
 
         assert_eq!(
             transform.project(WorldCoord::new(0.0, 0.0, 7.0)),
-            GLCoord4D::new(-2.0, 1.0, 7.0, 1.0)
+            GlCoord4D::new(-2.0, 1.0, 7.0, 1.0)
         );
     }
 
     #[test]
     fn test_transform_maintaining_center() {
         let mut transform = Transform::new(
-            GLCoord3D::new(1.0, 1.0, 1.0),
-            GLCoord2D::new(0.0, 0.0),
+            GlCoord3D::new(1.0, 1.0, 1.0),
+            GlCoord2D::new(0.0, 0.0),
             Identity::boxed(),
         );
 
         transform.transform_maintaining_center(
-            GLCoord4D::new(11.0, -17.0, 7.0, 0.0),
+            GlCoord4D::new(11.0, -17.0, 7.0, 0.0),
             Box::new(|transform: &mut Transform| {
                 transform.projection = Box::new(Isometric::new(PI / 5.0, PI / 3.0))
             }),
@@ -305,8 +305,8 @@ mod tests {
     #[test]
     pub fn test_look_at() {
         let mut transform = Transform::new(
-            GLCoord3D::new(4.0, 1.0, 3.0),
-            GLCoord2D::new(7.0, -2.0),
+            GlCoord3D::new(4.0, 1.0, 3.0),
+            GlCoord2D::new(7.0, -2.0),
             Box::new(Isometric::new(PI / 5.0, PI / 3.0)),
         );
         let world_coord = WorldCoord::new(12.0, 34.0, 100.0);

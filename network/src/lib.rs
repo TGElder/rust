@@ -338,32 +338,32 @@ impl Network {
         n_closest: usize,
     ) -> Vec<ClosestTargetResult> {
         #[derive(Eq)]
-        struct CTNode {
+        struct CtNode {
             index: usize,
             cost: u128,
             entry: Option<Edge>,
         }
 
-        impl CTNode {
-            fn new(index: usize, cost: u128, entry: Option<Edge>) -> CTNode {
-                CTNode { index, cost, entry }
+        impl CtNode {
+            fn new(index: usize, cost: u128, entry: Option<Edge>) -> CtNode {
+                CtNode { index, cost, entry }
             }
         }
 
-        impl Ord for CTNode {
-            fn cmp(&self, other: &CTNode) -> Ordering {
+        impl Ord for CtNode {
+            fn cmp(&self, other: &CtNode) -> Ordering {
                 self.cost.cmp(&other.cost).reverse()
             }
         }
 
-        impl PartialOrd for CTNode {
-            fn partial_cmp(&self, other: &CTNode) -> Option<Ordering> {
+        impl PartialOrd for CtNode {
+            fn partial_cmp(&self, other: &CtNode) -> Option<Ordering> {
                 Some(self.cmp(other))
             }
         }
 
-        impl PartialEq for CTNode {
-            fn eq(&self, other: &CTNode) -> bool {
+        impl PartialEq for CtNode {
+            fn eq(&self, other: &CtNode) -> bool {
                 self.cost == other.cost
             }
         }
@@ -383,10 +383,10 @@ impl Network {
         let mut last_cost = None;
 
         for node in start_nodes {
-            heap.push(CTNode::new(*node, 0, None))
+            heap.push(CtNode::new(*node, 0, None))
         }
 
-        while let Some(CTNode { index, cost, entry }) = heap.pop() {
+        while let Some(CtNode { index, cost, entry }) = heap.pop() {
             if closed[index] {
                 continue;
             }
@@ -414,7 +414,7 @@ impl Network {
                 if closed[neighbour] {
                     continue;
                 }
-                heap.push(CTNode {
+                heap.push(CtNode {
                     index: neighbour,
                     cost: cost + u128::from(edge.cost),
                     entry: Some(*edge),

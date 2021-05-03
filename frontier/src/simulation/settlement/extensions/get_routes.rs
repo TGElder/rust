@@ -4,7 +4,7 @@ use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{
-    ClosestTargetsWithPlannedRoads, InBoundsWithPlannedRoads, Micros, NPCCostOfPath,
+    ClosestTargetsWithPlannedRoads, InBoundsWithPlannedRoads, Micros, NpcCostOfPath,
 };
 use commons::grid::get_corners;
 use commons::V2;
@@ -13,7 +13,7 @@ use std::time::Duration;
 
 impl<T> SettlementSimulation<T>
 where
-    T: ClosestTargetsWithPlannedRoads + InBoundsWithPlannedRoads + Micros + NPCCostOfPath,
+    T: ClosestTargetsWithPlannedRoads + InBoundsWithPlannedRoads + Micros + NpcCostOfPath,
 {
     pub async fn get_routes(&self, demand: Demand) -> Routes {
         let micros = self.cx.micros().await;
@@ -120,7 +120,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl NPCCostOfPath for HappyPathTx {
+    impl NpcCostOfPath for HappyPathTx {
         async fn npc_cost_of_path(&self, _: &[V2<usize>]) -> Option<Duration> {
             Some(Duration::from_secs(303))
         }
@@ -306,7 +306,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl NPCCostOfPath for PanicPathfinderTx {
+    impl NpcCostOfPath for PanicPathfinderTx {
         async fn npc_cost_of_path(&self, _: &[V2<usize>]) -> Option<Duration> {
             Some(Duration::from_secs(303))
         }
