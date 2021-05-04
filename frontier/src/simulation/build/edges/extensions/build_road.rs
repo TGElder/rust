@@ -23,7 +23,7 @@ where
         + WithWorld
         + Send
         + Sync,
-    D: TravelDuration + 'static,
+    D: TravelDuration,
 {
     pub async fn build_road(&self, edges: &HashSet<Edge>) {
         let threshold = self.cx.parameters().simulation.road_build_threshold;

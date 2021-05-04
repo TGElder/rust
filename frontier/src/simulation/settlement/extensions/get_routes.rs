@@ -93,7 +93,7 @@ where
         self.cx
             .cost_of_path(self.travel_duration.as_ref(), path)
             .await
-            .expect("Found route with planned roads but not without planned roads!")
+            .expect("Found route but not duration!")
     }
 }
 

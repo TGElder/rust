@@ -38,7 +38,7 @@ where
         + WithWorld
         + Send
         + Sync,
-    D: TravelDuration + 'static,
+    D: TravelDuration,
 {
     pub async fn refresh_edges(&mut self, edges: HashSet<Edge>) {
         join!(self.build_road(&edges), self.remove_road(&edges),);
