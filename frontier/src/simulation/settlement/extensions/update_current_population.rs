@@ -4,7 +4,7 @@ use crate::simulation::MaxAbsPopulationChange;
 use crate::traits::has::HasParameters;
 use crate::traits::Micros;
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: HasParameters + Micros,
 {
@@ -70,6 +70,7 @@ mod tests {
     use commons::async_trait::async_trait;
     use commons::v2;
     use futures::executor::block_on;
+    use std::sync::Arc;
     use std::time::Duration;
 
     struct Cx {
@@ -114,7 +115,7 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(cx());
+        let sim = SettlementSimulation::new(cx(), Arc::new(()));
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));
@@ -136,7 +137,7 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(cx());
+        let sim = SettlementSimulation::new(cx(), Arc::new(()));
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));
@@ -158,7 +159,7 @@ mod tests {
             class: Town,
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(cx());
+        let sim = SettlementSimulation::new(cx(), Arc::new(()));
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));
@@ -183,7 +184,7 @@ mod tests {
             ..Settlement::default()
         };
         let cx = Cx { micros: 11, ..cx() };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let result = block_on(sim.update_current_population(settlement.clone()));
@@ -206,7 +207,7 @@ mod tests {
         };
         let mut cx = cx();
         cx.parameters.simulation.max_abs_population_change.town = 1.0;
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));
@@ -230,7 +231,7 @@ mod tests {
         };
         let mut cx = cx();
         cx.parameters.simulation.max_abs_population_change.town = 1.0;
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let settlement = block_on(sim.update_current_population(settlement));

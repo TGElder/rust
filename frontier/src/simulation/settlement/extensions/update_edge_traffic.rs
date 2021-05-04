@@ -7,7 +7,7 @@ use futures::future::join_all;
 use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: WithEdgeTraffic,
 {
@@ -97,7 +97,7 @@ mod tests {
     use commons::async_trait::async_trait;
     use commons::v2;
     use futures::executor::block_on;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     fn key() -> RouteKey {
@@ -156,7 +156,7 @@ mod tests {
             route: route_1(),
         };
         let cx = Cx::default();
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_edge_traffic(&[change]));
@@ -184,7 +184,7 @@ mod tests {
         let cx = Cx {
             edge_traffic: Mutex::new(edge_traffic),
         };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_edge_traffic(&[change]));
@@ -212,7 +212,7 @@ mod tests {
         let cx = Cx {
             edge_traffic: Mutex::new(edge_traffic),
         };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_edge_traffic(&[change]));
@@ -239,7 +239,7 @@ mod tests {
         let cx = Cx {
             edge_traffic: Mutex::new(edge_traffic),
         };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_edge_traffic(&[change]));
@@ -256,7 +256,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.update_all_edge_traffic(&[change]));
@@ -284,7 +284,7 @@ mod tests {
         let cx = Cx {
             edge_traffic: Mutex::new(edge_traffic),
         };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_edge_traffic(&[change]));
@@ -316,7 +316,7 @@ mod tests {
         let cx = Cx {
             edge_traffic: Mutex::new(edge_traffic),
         };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_edge_traffic(&[change]));

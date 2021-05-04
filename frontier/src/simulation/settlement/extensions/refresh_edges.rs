@@ -4,7 +4,7 @@ use crate::traits::RefreshEdges;
 use commons::edge::{Edge, Edges};
 use std::collections::HashSet;
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: RefreshEdges,
 {
@@ -40,7 +40,7 @@ mod tests {
     use commons::async_trait::async_trait;
     use commons::v2;
     use futures::executor::block_on;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     fn key() -> RouteKey {
@@ -91,7 +91,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_edges(&[change]));
@@ -120,7 +120,7 @@ mod tests {
         for edge in route_1().path.edges() {
             edge_traffic.insert(edge, hashset! {key()});
         }
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_edges(&[change]));
@@ -150,7 +150,7 @@ mod tests {
         for edge in route_1().path.edges() {
             edge_traffic.insert(edge, hashset! {key()});
         }
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_edges(&[change]));
@@ -174,7 +174,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_edges(&[change]));
@@ -206,7 +206,7 @@ mod tests {
             },
             route: route_2(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_edges(&[change_1, change_2]));

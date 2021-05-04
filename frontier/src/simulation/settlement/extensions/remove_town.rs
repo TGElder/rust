@@ -4,7 +4,7 @@ use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{Controlled, RefreshPositions, RemoveTown as RemoveTownTrait};
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: Controlled + HasParameters + RefreshPositions + RemoveTownTrait,
 {
@@ -35,7 +35,7 @@ mod tests {
     use futures::executor::block_on;
     use std::collections::HashSet;
     use std::default::Default;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     #[derive(Default)]
@@ -83,7 +83,7 @@ mod tests {
         };
         let mut cx = Cx::default();
         cx.parameters.simulation.town_removal_population = 0.3;
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let removed = block_on(sim.remove_town(&settlement, &[]));
@@ -102,7 +102,7 @@ mod tests {
         };
         let mut cx = Cx::default();
         cx.parameters.simulation.town_removal_population = 0.3;
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let removed = block_on(sim.remove_town(
@@ -128,7 +128,7 @@ mod tests {
         };
         let mut cx = Cx::default();
         cx.parameters.simulation.town_removal_population = 0.3;
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let removed = block_on(sim.remove_town(&settlement, &[]));
@@ -150,7 +150,7 @@ mod tests {
             ..Cx::default()
         };
         cx.parameters.simulation.town_removal_population = 0.3;
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.remove_town(&settlement, &[]));

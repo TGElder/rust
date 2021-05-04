@@ -33,7 +33,7 @@ impl Default for AvatarTravelParams {
             river_1_cell_duration_millis: 900_000.0,
             road_1_cell_duration_millis: 1_200_000,
             sea_1_cell_duration_millis: 900_000,
-            travel_mode_change_penalty_millis: 3_600_000,
+            travel_mode_change_penalty_millis: 1_800_000,
         }
     }
 }

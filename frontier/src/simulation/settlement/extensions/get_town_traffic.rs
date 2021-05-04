@@ -9,7 +9,7 @@ use commons::V2;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: WithRoutes + WithRouteToPorts + WithSettlements + WithTraffic,
 {
@@ -161,7 +161,7 @@ mod tests {
 
     use std::collections::HashMap;
     use std::default::Default;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     struct Cx {
@@ -295,7 +295,7 @@ mod tests {
         };
         cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -342,7 +342,7 @@ mod tests {
         };
         cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -389,7 +389,7 @@ mod tests {
         };
         cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -436,7 +436,7 @@ mod tests {
         };
         cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -499,7 +499,7 @@ mod tests {
         };
         cx.add_route(route_key_2, route_2);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -562,7 +562,7 @@ mod tests {
         };
         cx.add_route(route_key_2, route_2);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -622,7 +622,7 @@ mod tests {
         };
         cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -658,7 +658,7 @@ mod tests {
         };
         cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -698,7 +698,7 @@ mod tests {
         };
         cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -737,7 +737,7 @@ mod tests {
         cx.add_route(route_key, route);
         cx.routes = Mutex::default(); // Removing route to create invalid state
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -775,7 +775,7 @@ mod tests {
         };
         cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));
@@ -811,7 +811,7 @@ mod tests {
         };
         cx.add_route(route_key, route);
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let traffic_summaries = block_on(sim.get_town_traffic(&territory));

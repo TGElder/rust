@@ -3,20 +3,17 @@ use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traits::{
-    ClosestTargetsWithPlannedRoads, CostOfPathWithoutPlannedRoads, InBoundsWithPlannedRoads, Micros,
-};
+use crate::traits::{ClosestTargetsWithPlannedRoads, CostOfPath, InBoundsWithPlannedRoads, Micros};
+use crate::travel_duration::TravelDuration;
 use commons::grid::get_corners;
 use commons::V2;
 use std::collections::HashMap;
 use std::time::Duration;
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
-    T: ClosestTargetsWithPlannedRoads
-        + CostOfPathWithoutPlannedRoads
-        + InBoundsWithPlannedRoads
-        + Micros,
+    T: ClosestTargetsWithPlannedRoads + CostOfPath + InBoundsWithPlannedRoads + Micros,
+    D: TravelDuration,
 {
     pub async fn get_routes(&self, demand: Demand) -> Routes {
         let micros = self.cx.micros().await;
@@ -94,7 +91,7 @@ where
 
     async fn route_duration(&self, path: &[V2<usize>]) -> Duration {
         self.cx
-            .cost_of_path_without_planned_roads(path)
+            .cost_of_path(self.travel_duration.as_ref(), path)
             .await
             .expect("Found route with planned roads but not without planned roads!")
     }
@@ -105,10 +102,13 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
+    use crate::travel_duration::TravelDuration;
+    use crate::world::World;
     use commons::async_trait::async_trait;
     use commons::{same_elements, v2};
     use futures::executor::block_on;
     use std::collections::HashMap;
+    use std::sync::Arc;
     use std::time::Duration;
 
     struct HappyPathTx {
@@ -123,8 +123,11 @@ mod tests {
     }
 
     #[async_trait]
-    impl CostOfPathWithoutPlannedRoads for HappyPathTx {
-        async fn cost_of_path_without_planned_roads(&self, _: &[V2<usize>]) -> Option<Duration> {
+    impl CostOfPath for HappyPathTx {
+        async fn cost_of_path<D>(&self, _: &D, _: &[V2<usize>]) -> Option<Duration>
+        where
+            D: TravelDuration,
+        {
             Some(Duration::from_secs(303))
         }
     }
@@ -150,6 +153,22 @@ mod tests {
         }
     }
 
+    struct PanicTravelDuration {}
+
+    impl TravelDuration for PanicTravelDuration {
+        fn get_duration(&self, _: &World, _: &V2<usize>, _: &V2<usize>) -> Option<Duration> {
+            panic!("Not expecting travel duration to be used!");
+        }
+
+        fn min_duration(&self) -> Duration {
+            panic!("Not expecting travel duration to be used!");
+        }
+
+        fn max_duration(&self) -> Duration {
+            panic!("Not expecting travel duration to be used!");
+        }
+    }
+
     #[test]
     fn test() {
         // Given
@@ -165,7 +184,10 @@ mod tests {
                 duration: Duration::from_secs(4),
             },
         ];
-        let sim = SettlementSimulation::new(HappyPathTx { closest_targets });
+        let sim = SettlementSimulation::new(
+            HappyPathTx { closest_targets },
+            Arc::new(PanicTravelDuration {}),
+        );
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -221,7 +243,10 @@ mod tests {
     fn test_no_closest_targets() {
         // Given
         let closest_targets = vec![];
-        let sim = SettlementSimulation::new(HappyPathTx { closest_targets });
+        let sim = SettlementSimulation::new(
+            HappyPathTx { closest_targets },
+            Arc::new(PanicTravelDuration {}),
+        );
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -260,7 +285,10 @@ mod tests {
                 duration: Duration::from_secs(4),
             },
         ];
-        let sim = SettlementSimulation::new(HappyPathTx { closest_targets });
+        let sim = SettlementSimulation::new(
+            HappyPathTx { closest_targets },
+            Arc::new(PanicTravelDuration {}),
+        );
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -309,8 +337,11 @@ mod tests {
     }
 
     #[async_trait]
-    impl CostOfPathWithoutPlannedRoads for PanicPathfinderTx {
-        async fn cost_of_path_without_planned_roads(&self, _: &[V2<usize>]) -> Option<Duration> {
+    impl CostOfPath for PanicPathfinderTx {
+        async fn cost_of_path<D>(&self, _: &D, _: &[V2<usize>]) -> Option<Duration>
+        where
+            D: TravelDuration,
+        {
             Some(Duration::from_secs(303))
         }
     }
@@ -337,7 +368,7 @@ mod tests {
     #[test]
     fn zero_source_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
-        let sim = SettlementSimulation::new(PanicPathfinderTx {});
+        let sim = SettlementSimulation::new(PanicPathfinderTx {}, Arc::new(PanicTravelDuration {}));
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,
@@ -364,7 +395,7 @@ mod tests {
     #[test]
     fn zero_quantity_route_should_return_empty_route_set_and_should_not_call_pathfinder() {
         // Given
-        let sim = SettlementSimulation::new(PanicPathfinderTx {});
+        let sim = SettlementSimulation::new(PanicPathfinderTx {}, Arc::new(PanicTravelDuration {}));
         let demand = Demand {
             position: v2(1, 3),
             resource: Resource::Coal,

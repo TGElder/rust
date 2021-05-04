@@ -226,9 +226,9 @@ where
 
 #[async_trait]
 pub trait CostOfPath {
-    async fn cost_of_path<P>(&self, pathfinder: &P, path: &[V2<usize>]) -> Option<Duration>
+    async fn cost_of_path<D>(&self, travel_duration: &D, path: &[V2<usize>]) -> Option<Duration>
     where
-        P: WithPathfinder + Send + Sync;
+        D: TravelDuration;
 }
 
 #[async_trait]
@@ -236,14 +236,10 @@ impl<T> CostOfPath for T
 where
     T: WithWorld + Sync,
 {
-    async fn cost_of_path<P>(&self, pathfinder: &P, path: &[V2<usize>]) -> Option<Duration>
+    async fn cost_of_path<D>(&self, travel_duration: &D, path: &[V2<usize>]) -> Option<Duration>
     where
-        P: WithPathfinder + Send + Sync,
+        D: TravelDuration,
     {
-        let travel_duration = pathfinder
-            .with_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
-            .await;
-
         self.with_world(|world| {
             (0..path.len() - 1)
                 .map(|i| travel_duration.get_duration(world, &path[i], &path[i + 1]))

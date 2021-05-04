@@ -21,7 +21,7 @@ use crate::artists::{
     AvatarArtist, AvatarArtistParameters, HouseArtist, HouseArtistParameters, WorldArtist,
     WorldArtistParameters,
 };
-use crate::avatar::AvatarTravelDuration;
+use crate::avatar::{AvatarTravelDuration, AvatarTravelParams};
 use crate::build::builders::{MineBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
@@ -64,7 +64,7 @@ struct Processes {
     resource_gen: Process<ResourceGenActor<Context>>,
     resource_targets: Process<ResourceTargets<Context>>,
     rotate: Process<Rotate<Context>>,
-    settlement_sims: Vec<Process<SettlementSimulation<Context>>>,
+    settlement_sims: Vec<Process<SettlementSimulation<Context, AvatarTravelDuration>>>,
     setup_new_world: Process<SetupNewWorld<Context>>,
     setup_pathfinders: Process<SetupPathfinders<Context>>,
     setup_visibility: Process<SetupVisibility<Context>>,
@@ -81,9 +81,17 @@ impl System {
     pub fn new(params: Parameters, engine: &mut IsometricEngine) -> System {
         let params = Arc::new(params);
 
+        let npc_avatar_travel_params = AvatarTravelParams {
+            travel_mode_change_penalty_millis: params.npc_travel_mode_change_penalty_millis,
+            ..params.avatar_travel
+        };
+
         let avatar_travel_duration_with_planned_roads = Arc::new(
-            AvatarTravelDuration::with_planned_roads_as_roads(&params.avatar_travel),
+            AvatarTravelDuration::with_planned_roads_as_roads(&npc_avatar_travel_params),
         );
+        let npc_travel_duration = Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
+            &npc_avatar_travel_params,
+        ));
         let avatar_travel_duration_without_planned_roads = Arc::new(
             AvatarTravelDuration::with_planned_roads_ignored(&params.avatar_travel),
         );
@@ -286,7 +294,7 @@ impl System {
                 pathfinding_avatar_controls: Process::new(
                     PathfindingAvatarControls::new(
                         cx.clone_with_name("pathfinding_avatar_controls"),
-                        avatar_travel_duration_without_planned_roads.clone(),
+                        avatar_travel_duration_without_planned_roads,
                     ),
                     pathfinding_avatar_controls_rx,
                 ),
@@ -303,7 +311,7 @@ impl System {
                         cx.clone_with_name("prime_mover"),
                         params.avatars,
                         params.seed,
-                        avatar_travel_duration_without_planned_roads,
+                        npc_travel_duration.clone(),
                         &params.nations,
                     ),
                     prime_mover_rx,
@@ -321,7 +329,10 @@ impl System {
                     .into_iter()
                     .map(|rx| {
                         Process::new(
-                            SettlementSimulation::new(cx.clone_with_name("settlement_simulation")),
+                            SettlementSimulation::new(
+                                cx.clone_with_name("settlement_simulation"),
+                                npc_travel_duration.clone(),
+                            ),
                             rx,
                         )
                     })

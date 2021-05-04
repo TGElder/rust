@@ -115,7 +115,11 @@ where
     T: PathfinderWithoutPlannedRoads + WithWorld + Sync,
 {
     async fn cost_of_path_without_planned_roads(&self, path: &[V2<usize>]) -> Option<Duration> {
-        self.cost_of_path(self.pathfinder_without_planned_roads(), path)
-            .await
+        let travel_duration = self
+            .pathfinder_without_planned_roads()
+            .with_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
+            .await;
+
+        self.cost_of_path(travel_duration.as_ref(), path).await
     }
 }
