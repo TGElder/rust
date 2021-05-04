@@ -4,7 +4,7 @@ use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{
-    ClosestTargetsWithPlannedRoads, InBoundsWithPlannedRoads, Micros, NpcCostOfPath,
+    ClosestTargetsWithPlannedRoads, CostOfPathWithoutPlannedRoads, InBoundsWithPlannedRoads, Micros,
 };
 use commons::grid::get_corners;
 use commons::V2;
@@ -13,7 +13,10 @@ use std::time::Duration;
 
 impl<T> SettlementSimulation<T>
 where
-    T: ClosestTargetsWithPlannedRoads + InBoundsWithPlannedRoads + Micros + NpcCostOfPath,
+    T: ClosestTargetsWithPlannedRoads
+        + CostOfPathWithoutPlannedRoads
+        + InBoundsWithPlannedRoads
+        + Micros,
 {
     pub async fn get_routes(&self, demand: Demand) -> Routes {
         let micros = self.cx.micros().await;
@@ -91,9 +94,9 @@ where
 
     async fn route_duration(&self, path: &[V2<usize>]) -> Duration {
         self.cx
-            .npc_cost_of_path(path)
+            .cost_of_path_without_planned_roads(path)
             .await
-            .expect("Found route but not NPC duration!")
+            .expect("Found route with planned roads but not without planned roads!")
     }
 }
 
@@ -120,8 +123,8 @@ mod tests {
     }
 
     #[async_trait]
-    impl NpcCostOfPath for HappyPathTx {
-        async fn npc_cost_of_path(&self, _: &[V2<usize>]) -> Option<Duration> {
+    impl CostOfPathWithoutPlannedRoads for HappyPathTx {
+        async fn cost_of_path_without_planned_roads(&self, _: &[V2<usize>]) -> Option<Duration> {
             Some(Duration::from_secs(303))
         }
     }
@@ -306,8 +309,8 @@ mod tests {
     }
 
     #[async_trait]
-    impl NpcCostOfPath for PanicPathfinderTx {
-        async fn npc_cost_of_path(&self, _: &[V2<usize>]) -> Option<Duration> {
+    impl CostOfPathWithoutPlannedRoads for PanicPathfinderTx {
+        async fn cost_of_path_without_planned_roads(&self, _: &[V2<usize>]) -> Option<Duration> {
             Some(Duration::from_secs(303))
         }
     }

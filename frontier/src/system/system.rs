@@ -21,7 +21,7 @@ use crate::artists::{
     AvatarArtist, AvatarArtistParameters, HouseArtist, HouseArtistParameters, WorldArtist,
     WorldArtistParameters,
 };
-use crate::avatar::{AvatarTravelDuration, AvatarTravelParams};
+use crate::avatar::AvatarTravelDuration;
 use crate::build::builders::{MineBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
@@ -32,7 +32,6 @@ use crate::services::{BackgroundService, VisibilityService};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::system::context::TravelDurations;
 use crate::system::{Context, EventForwarderActor, EventForwarderConsumer, SystemController};
 use crate::territory::Territory;
 use crate::traffic::Traffic;
@@ -82,16 +81,9 @@ impl System {
     pub fn new(params: Parameters, engine: &mut IsometricEngine) -> System {
         let params = Arc::new(params);
 
-        let npc_avatar_travel_params = AvatarTravelParams {
-            travel_mode_change_penalty_millis: params.npc_travel_mode_change_penalty_millis,
-            ..params.avatar_travel
-        };
-
         let avatar_travel_duration_with_planned_roads = Arc::new(
-            AvatarTravelDuration::with_planned_roads_as_roads(&npc_avatar_travel_params),
+            AvatarTravelDuration::with_planned_roads_as_roads(&params.avatar_travel),
         );
-        let npc_travel_duration =
-            AvatarTravelDuration::with_planned_roads_ignored(&npc_avatar_travel_params);
         let avatar_travel_duration_without_planned_roads = Arc::new(
             AvatarTravelDuration::with_planned_roads_ignored(&params.avatar_travel),
         );
@@ -198,9 +190,6 @@ impl System {
                 params.width,
                 HashSet::with_capacity(0),
             ))),
-            travel_duration: Arc::new(TravelDurations {
-                npc: npc_travel_duration,
-            }),
             visibility: Arc::new(RwLock::new(VisibilityService::new())),
             visited: Arc::new(RwLock::new(Visited {
                 positions: M::from_element(params.width, params.width, false),
@@ -297,7 +286,7 @@ impl System {
                 pathfinding_avatar_controls: Process::new(
                     PathfindingAvatarControls::new(
                         cx.clone_with_name("pathfinding_avatar_controls"),
-                        avatar_travel_duration_without_planned_roads,
+                        avatar_travel_duration_without_planned_roads.clone(),
                     ),
                     pathfinding_avatar_controls_rx,
                 ),
@@ -314,6 +303,7 @@ impl System {
                         cx.clone_with_name("prime_mover"),
                         params.avatars,
                         params.seed,
+                        avatar_travel_duration_without_planned_roads,
                         &params.nations,
                     ),
                     prime_mover_rx,

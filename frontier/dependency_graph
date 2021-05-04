@@ -11,7 +11,7 @@ AddTown WithWorld
 AnyoneControls WithTerritory
 ClosestTargets SendPathfinder
 Controlled WithTerritory
-CostOfPath SendWorld
+CostOfPath SendPathfinder
 DrawTown SendTownHouseArtist
 DrawTown SendTownLabelArtist
 DrawWorld Micros
@@ -29,8 +29,6 @@ IsRoad WithWorld
 LoadTarget SendPathfinder
 Micros SendClock
 NationDescriptions WithNations
-NpcCostOfPath CostOfPath
-NpcCostOfPath HasTravelDurations
 PlanRoad SendPathfinder
 PlanRoad UpdatePathfinderPositions
 PlanRoad WithWorld
@@ -128,7 +126,6 @@ SendPositionBuildSim WithRouteToPorts
 SendPositionBuildSim WithRoutes
 SendPositionBuildSim WithTraffic
 SendPositionBuildSim WithWorld
-SendPrimeMover HasTravelDurations
 SendPrimeMover Micros
 SendPrimeMover WithAvatars
 SendPrimeMover WithRoutes
@@ -141,11 +138,11 @@ SendResourceTargets WithResources
 SendRotate SendEngineCommands
 SendSettlementSim ClosestTargets
 SendSettlementSim Controlled
+SendSettlementSim CostOfPath
 SendSettlementSim GetSettlement
 SendSettlementSim HasParameters
 SendSettlementSim InBounds
 SendSettlementSim Micros
-SendSettlementSim NpcCostOfPath
 SendSettlementSim RefreshEdges
 SendSettlementSim RefreshPositions
 SendSettlementSim RemoveTown
