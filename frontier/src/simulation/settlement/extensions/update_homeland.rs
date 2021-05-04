@@ -3,7 +3,7 @@ use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::VisibleLandPositions;
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: HasParameters + VisibleLandPositions,
 {
@@ -20,6 +20,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
     use crate::parameters::Parameters;
     use crate::settlement::SettlementClass::Homeland;
@@ -53,7 +55,7 @@ mod tests {
             visible_land_positions: 202,
         };
         cx.parameters.homeland.count = 2;
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let settlement = Settlement {

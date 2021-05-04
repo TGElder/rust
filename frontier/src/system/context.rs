@@ -77,7 +77,7 @@ pub struct Context {
     pub rotate_tx: FnSender<Rotate<Context>>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
-    pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Context>>>,
+    pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Context, AvatarTravelDuration>>>,
     pub settlements: Arc<RwLock<HashMap<V2<usize>, Settlement>>>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Context>>,
     pub setup_pathfinders_tx: FnSender<SetupPathfinders<Context>>,

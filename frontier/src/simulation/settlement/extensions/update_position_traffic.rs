@@ -7,7 +7,7 @@ use commons::V2;
 use futures::future::join_all;
 use std::collections::HashSet;
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: WithTraffic,
 {
@@ -84,7 +84,7 @@ mod tests {
     use commons::index2d::Vec2D;
     use commons::v2;
     use futures::executor::block_on;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     fn key() -> RouteKey {
@@ -153,7 +153,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.update_all_position_traffic(&[change]));
@@ -181,7 +181,7 @@ mod tests {
         let cx = Cx {
             traffic: Mutex::new(tx_traffic),
         };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_position_traffic(&[change]));
@@ -209,7 +209,7 @@ mod tests {
         let cx = Cx {
             traffic: Mutex::new(tx_traffic),
         };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_position_traffic(&[change]));
@@ -233,7 +233,7 @@ mod tests {
         for position in route_1().path.iter() {
             tx_traffic.mut_cell_unsafe(position).insert(key());
         }
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.update_all_position_traffic(&[change]));
@@ -250,7 +250,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.update_all_position_traffic(&[change]));
@@ -278,7 +278,7 @@ mod tests {
         let cx = Cx {
             traffic: Mutex::new(tx_traffic),
         };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_position_traffic(&[change]));
@@ -312,7 +312,7 @@ mod tests {
         let cx = Cx {
             traffic: Mutex::new(tx_traffic),
         };
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         block_on(sim.update_all_position_traffic(&[change]));

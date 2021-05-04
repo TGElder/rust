@@ -11,7 +11,7 @@ AddTown WithWorld
 AnyoneControls WithTerritory
 ClosestTargets SendPathfinder
 Controlled WithTerritory
-CostOfPath SendPathfinder
+CostOfPath SendWorld
 DrawTown SendTownHouseArtist
 DrawTown SendTownLabelArtist
 DrawWorld Micros

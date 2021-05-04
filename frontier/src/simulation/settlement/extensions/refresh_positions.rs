@@ -4,7 +4,7 @@ use crate::traits::RefreshPositions;
 use commons::V2;
 use std::collections::HashSet;
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: RefreshPositions,
 {
@@ -43,7 +43,7 @@ mod tests {
     use commons::async_trait::async_trait;
     use commons::v2;
     use futures::executor::block_on;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     fn key() -> RouteKey {
@@ -101,7 +101,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_positions(&[change]));
@@ -121,7 +121,7 @@ mod tests {
             old: route_1(),
             new: route_2(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_positions(&[change]));
@@ -140,7 +140,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_positions(&[change]));
@@ -159,7 +159,7 @@ mod tests {
             key: key(),
             route: route_1(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_positions(&[change]));
@@ -186,7 +186,7 @@ mod tests {
             },
             route: route_2(),
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         block_on(sim.refresh_positions(&[change_1, change_2]));

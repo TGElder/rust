@@ -6,7 +6,7 @@ use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::has::HasParameters;
 use commons::unsafe_ordering;
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: HasParameters,
 {
@@ -86,6 +86,7 @@ mod tests {
     use futures::executor::block_on;
 
     use std::default::Default;
+    use std::sync::Arc;
 
     struct Cx {
         parameters: Parameters,
@@ -116,7 +117,7 @@ mod tests {
     fn should_update_target_population_based_on_total_traffic_share() {
         // Given
         let settlement = Settlement::default();
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         let updated = block_on(sim.update_town(
@@ -146,7 +147,7 @@ mod tests {
             target_population: 0.5,
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         let updated = block_on(sim.update_town(settlement, &[]));
@@ -162,7 +163,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let update_town = SettlementSimulation::new(Cx::default());
+        let update_town = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         let updated = block_on(update_town.update_town(
@@ -192,7 +193,7 @@ mod tests {
             nation: "A".to_string(),
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         let updated = block_on(sim.update_town(
@@ -221,7 +222,7 @@ mod tests {
     {
         // Given
         let settlement = Settlement::default();
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         let updated = block_on(sim.update_town(
@@ -253,7 +254,7 @@ mod tests {
             gap_half_life: Duration::from_millis(4),
             ..Settlement::default()
         };
-        let sim = SettlementSimulation::new(Cx::default());
+        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
 
         // When
         let updated = block_on(sim.update_town(settlement, &[]));

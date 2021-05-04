@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use commons::async_trait::async_trait;
 use commons::log::debug;
 use commons::process::Step;
@@ -10,37 +12,40 @@ use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::{RouteChange, Routes};
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    ClosestTargetsWithPlannedRoads, Controlled, CostOfPathWithoutPlannedRoads, GetSettlement,
+    ClosestTargetsWithPlannedRoads, Controlled, CostOfPath, GetSettlement,
     InBoundsWithPlannedRoads, Micros, RefreshEdges, RefreshPositions, RemoveTown,
     UpdateSettlement as UpdateSettlementTrait, UpdateTerritory, VisibleLandPositions,
     WithEdgeTraffic, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTraffic,
     WithWorld,
 };
+use crate::travel_duration::TravelDuration;
 
 use super::demand::demand_fn::{homeland_demand_fn, town_demand_fn};
 
-pub struct SettlementSimulation<T> {
+pub struct SettlementSimulation<T, D> {
     pub(super) cx: T,
     pub(super) homeland_demand_fn: fn(&Settlement) -> Vec<Demand>,
     pub(super) town_demand_fn: fn(&Settlement) -> Vec<Demand>,
+    pub(super) travel_duration: Arc<D>,
 }
 
-impl<T> SettlementSimulation<T> {
-    pub fn new(cx: T) -> SettlementSimulation<T> {
+impl<T, D> SettlementSimulation<T, D> {
+    pub fn new(cx: T, travel_duration: Arc<D>) -> SettlementSimulation<T, D> {
         SettlementSimulation {
             cx,
             homeland_demand_fn,
             town_demand_fn,
+            travel_duration,
         }
     }
 }
 
 #[async_trait]
-impl<T> Step for SettlementSimulation<T>
+impl<T, D> Step for SettlementSimulation<T, D>
 where
     T: ClosestTargetsWithPlannedRoads
         + Controlled
-        + CostOfPathWithoutPlannedRoads
+        + CostOfPath
         + GetSettlement
         + HasParameters
         + InBoundsWithPlannedRoads
@@ -60,6 +65,7 @@ where
         + WithWorld
         + Send
         + Sync,
+    D: TravelDuration,
 {
     async fn step(&mut self) {
         let position = self.cx.mut_sim_queue(|sim_queue| sim_queue.pop()).await;
@@ -71,11 +77,11 @@ where
     }
 }
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: ClosestTargetsWithPlannedRoads
         + Controlled
-        + CostOfPathWithoutPlannedRoads
+        + CostOfPath
         + GetSettlement
         + HasParameters
         + InBoundsWithPlannedRoads
@@ -93,6 +99,7 @@ where
         + WithSimQueue
         + WithTraffic
         + WithWorld,
+    D: TravelDuration,
 {
     async fn update_settlement_at(&self, position: &V2<usize>) {
         let settlement = unwrap_or!(self.cx.get_settlement(position).await, return);

@@ -5,7 +5,7 @@ use commons::V2;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{Controlled, UpdateTerritory};
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: Controlled + UpdateTerritory,
 {
@@ -23,6 +23,7 @@ mod tests {
     use commons::{v2, Arm};
     use futures::executor::block_on;
     use std::collections::HashSet;
+    use std::sync::Arc;
 
     struct Cx {
         territory: HashSet<V2<usize>>,
@@ -53,7 +54,7 @@ mod tests {
             updated_territory: updated_territory.clone(),
         };
 
-        let sim = SettlementSimulation::new(cx);
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // Given
         let actual = block_on(sim.get_territory(&v2(0, 0)));

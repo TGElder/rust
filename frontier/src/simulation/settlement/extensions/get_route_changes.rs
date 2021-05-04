@@ -5,7 +5,7 @@ use crate::traits::WithRoutes;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 
-impl<T> SettlementSimulation<T>
+impl<T, D> SettlementSimulation<T, D>
 where
     T: WithRoutes,
 {
@@ -96,7 +96,7 @@ mod tests {
     use commons::same_elements;
     use commons::v2;
     use futures::executor::block_on;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     #[test]
@@ -127,7 +127,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = SettlementSimulation::new(routes);
+        let sim = SettlementSimulation::new(routes, Arc::new(()));
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
@@ -187,7 +187,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = SettlementSimulation::new(routes);
+        let sim = SettlementSimulation::new(routes, Arc::new(()));
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
@@ -240,7 +240,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = SettlementSimulation::new(routes);
+        let sim = SettlementSimulation::new(routes, Arc::new(()));
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set.clone()));
 
         // Then
@@ -285,7 +285,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = SettlementSimulation::new(routes);
+        let sim = SettlementSimulation::new(routes, Arc::new(()));
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
@@ -340,7 +340,7 @@ mod tests {
         let routes = Mutex::new(routes);
 
         // When
-        let sim = SettlementSimulation::new(routes);
+        let sim = SettlementSimulation::new(routes, Arc::new(()));
         let route_changes = block_on(sim.update_routes_and_get_changes(set_key, route_set));
 
         // Then
