@@ -81,20 +81,18 @@ impl System {
     pub fn new(params: Parameters, engine: &mut IsometricEngine) -> System {
         let params = Arc::new(params);
 
-        let npc_avatar_travel_params = AvatarTravelParams {
+        let avatar_travel_duration_with_planned_roads =
+            Arc::new(AvatarTravelDuration::new(&AvatarTravelParams {
+                travel_mode_change_penalty_millis: params.npc_travel_mode_change_penalty_millis,
+                include_planned_roads: true,
+                ..params.avatar_travel
+            }));
+        let npc_travel_duration = Arc::new(AvatarTravelDuration::new(&AvatarTravelParams {
             travel_mode_change_penalty_millis: params.npc_travel_mode_change_penalty_millis,
             ..params.avatar_travel
-        };
-
-        let avatar_travel_duration_with_planned_roads = Arc::new(
-            AvatarTravelDuration::with_planned_roads_as_roads(&npc_avatar_travel_params),
-        );
-        let npc_travel_duration = Arc::new(AvatarTravelDuration::with_planned_roads_ignored(
-            &npc_avatar_travel_params,
-        ));
-        let avatar_travel_duration_without_planned_roads = Arc::new(
-            AvatarTravelDuration::with_planned_roads_ignored(&params.avatar_travel),
-        );
+        }));
+        let avatar_travel_duration_without_planned_roads =
+            Arc::new(AvatarTravelDuration::new(&params.avatar_travel));
         let road_build_travel_duration = Arc::new(AutoRoadTravelDuration::from_params(
             &params.auto_road_travel,
         ));

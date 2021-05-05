@@ -20,6 +20,7 @@ pub struct AvatarTravelParams {
     pub road_1_cell_duration_millis: u64,
     pub sea_1_cell_duration_millis: u64,
     pub travel_mode_change_penalty_millis: u64,
+    pub include_planned_roads: bool,
 }
 
 impl Default for AvatarTravelParams {
@@ -34,6 +35,7 @@ impl Default for AvatarTravelParams {
             road_1_cell_duration_millis: 1_200_000,
             sea_1_cell_duration_millis: 900_000,
             travel_mode_change_penalty_millis: 1_800_000,
+            include_planned_roads: false,
         }
     }
 }
@@ -54,25 +56,15 @@ impl AvatarTravelDuration {
         &self.travel_mode_fn
     }
 
-    pub fn with_planned_roads_as_roads(p: &AvatarTravelParams) -> AvatarTravelDuration {
+    pub fn new(p: &AvatarTravelParams) -> AvatarTravelDuration {
         AvatarTravelDuration {
-            travel_mode_fn: AvatarTravelModeFn::new(p.min_navigable_river_width),
+            travel_mode_fn: AvatarTravelModeFn::new(
+                p.min_navigable_river_width,
+                p.include_planned_roads,
+            ),
             walk: Self::walk(p),
             road: Self::road(p),
             planned_road: Self::road(p),
-            stream: Self::stream(p),
-            river: Self::river(p),
-            sea: Self::sea(p),
-            travel_mode_change_penalty_millis: p.travel_mode_change_penalty_millis,
-        }
-    }
-
-    pub fn with_planned_roads_ignored(p: &AvatarTravelParams) -> AvatarTravelDuration {
-        AvatarTravelDuration {
-            travel_mode_fn: AvatarTravelModeFn::new(p.min_navigable_river_width),
-            walk: Self::walk(p),
-            road: Self::road(p),
-            planned_road: Self::walk(p),
             stream: Self::stream(p),
             river: Self::river(p),
             sea: Self::sea(p),
@@ -198,7 +190,7 @@ mod tests {
 
     fn avatar_travel_duration() -> AvatarTravelDuration {
         AvatarTravelDuration {
-            travel_mode_fn: AvatarTravelModeFn::new(0.5),
+            travel_mode_fn: AvatarTravelModeFn::new(0.5, true),
             walk: test_travel_duration(),
             road: test_travel_duration(),
             planned_road: test_travel_duration(),
