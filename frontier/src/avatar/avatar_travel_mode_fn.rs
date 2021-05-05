@@ -8,6 +8,7 @@ use commons::*;
 #[derive(Debug, PartialEq, Clone)]
 pub struct AvatarTravelModeFn {
     min_river_width: f32,
+    include_planned_roads: bool,
 }
 
 impl TravelModeFn for AvatarTravelModeFn {
@@ -22,7 +23,9 @@ impl TravelModeFn for AvatarTravelModeFn {
                 Some(TravelMode::Sea)
             } else if world.is_road(&Edge::new(*from, *to)) {
                 Some(TravelMode::Road)
-            } else if world.road_planned(&Edge::new(*from, *to)).is_some() {
+            } else if self.include_planned_roads
+                && world.road_planned(&Edge::new(*from, *to)).is_some()
+            {
                 Some(TravelMode::PlannedRoad)
             } else if self.is_navigable_river(world, from, to) {
                 Some(TravelMode::River)
@@ -39,22 +42,20 @@ impl TravelModeFn for AvatarTravelModeFn {
     fn travel_modes_here(&self, world: &World, position: &V2<usize>) -> Vec<TravelMode> {
         let mut out = vec![];
         if let Some(cell) = world.get_cell(position) {
+            if cell.road.here() {
+                out.push(TravelMode::Road);
+            } else if self.include_planned_roads && cell.planned_road.here() {
+                out.push(TravelMode::PlannedRoad);
+            }
             if world.is_sea(position) {
                 out.push(TravelMode::Sea);
-            } else {
-                if cell.road.here() {
-                    out.push(TravelMode::Road);
-                } else if cell.planned_road.here() {
-                    out.push(TravelMode::PlannedRoad);
-                }
-                if self.is_navigable_river_here(world, position) {
-                    out.push(TravelMode::River);
-                } else if cell.river.here() {
-                    out.push(TravelMode::Stream);
-                }
-                if out.is_empty() {
-                    out.push(TravelMode::Walk);
-                }
+            } else if self.is_navigable_river_here(world, position) {
+                out.push(TravelMode::River);
+            } else if cell.river.here() {
+                out.push(TravelMode::Stream);
+            }
+            if out.is_empty() {
+                out.push(TravelMode::Walk);
             }
         }
         out
@@ -62,8 +63,11 @@ impl TravelModeFn for AvatarTravelModeFn {
 }
 
 impl AvatarTravelModeFn {
-    pub fn new(min_river_width: f32) -> AvatarTravelModeFn {
-        AvatarTravelModeFn { min_river_width }
+    pub fn new(min_river_width: f32, include_planned_roads: bool) -> AvatarTravelModeFn {
+        AvatarTravelModeFn {
+            min_river_width,
+            include_planned_roads,
+        }
     }
 
     pub fn is_navigable_river_here(&self, world: &World, position: &V2<usize>) -> bool {
@@ -119,7 +123,7 @@ mod tests {
     }
 
     fn travel_mode_fn() -> AvatarTravelModeFn {
-        AvatarTravelModeFn::new(0.15)
+        AvatarTravelModeFn::new(0.15, true)
     }
 
     #[test]
@@ -153,7 +157,7 @@ mod tests {
     #[test]
     fn travel_mode_in_stream() {
         let world = world();
-        let travel_mode_fn = AvatarTravelModeFn::new(0.5);
+        let travel_mode_fn = AvatarTravelModeFn::new(0.5, true);
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(1, 1), &v2(2, 1)),
             Some(TravelMode::Stream)
@@ -167,7 +171,7 @@ mod tests {
     #[test]
     fn travel_mode_into_stream() {
         let world = world();
-        let travel_mode_fn = AvatarTravelModeFn::new(0.5);
+        let travel_mode_fn = AvatarTravelModeFn::new(0.5, true);
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(0, 0), &v2(0, 1)),
             Some(TravelMode::Walk)
@@ -235,9 +239,9 @@ mod tests {
     }
 
     #[test]
-    fn travel_mode_on_planned_road() {
+    fn travel_mode_on_planned_road_include_planned_roads() {
         let mut world = world();
-        let travel_mode_fn = travel_mode_fn();
+        let travel_mode_fn = AvatarTravelModeFn::new(0.15, true);
         let edge = Edge::new(v2(0, 3), v2(1, 3));
         world.set_road(&edge, false);
         world.plan_road(&edge, Some(0));
@@ -248,6 +252,23 @@ mod tests {
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(1, 3), &v2(0, 3)),
             Some(TravelMode::PlannedRoad)
+        );
+    }
+
+    #[test]
+    fn travel_mode_on_planned_road_ignore_planned_roads() {
+        let mut world = world();
+        let travel_mode_fn = AvatarTravelModeFn::new(0.15, false);
+        let edge = Edge::new(v2(0, 3), v2(1, 3));
+        world.set_road(&edge, false);
+        world.plan_road(&edge, Some(0));
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(0, 3), &v2(1, 3)),
+            Some(TravelMode::Walk)
+        );
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(1, 3), &v2(0, 3)),
+            Some(TravelMode::Walk)
         );
     }
 
@@ -357,15 +378,28 @@ mod tests {
     }
 
     #[test]
-    fn travel_mode_here_planned_road() {
+    fn travel_mode_here_planned_road_include_planned_roads() {
         let mut world = world();
-        let travel_mode_fn = travel_mode_fn();
+        let travel_mode_fn = AvatarTravelModeFn::new(0.15, true);
         let edge = Edge::new(v2(0, 3), v2(1, 3));
         world.set_road(&edge, false);
         world.plan_road(&edge, Some(0));
         assert_eq!(
             travel_mode_fn.travel_modes_here(&world, &v2(0, 3)),
             vec![TravelMode::PlannedRoad]
+        );
+    }
+
+    #[test]
+    fn travel_mode_here_planned_road_ignore_planned_roads() {
+        let mut world = world();
+        let travel_mode_fn = AvatarTravelModeFn::new(0.15, false);
+        let edge = Edge::new(v2(0, 3), v2(1, 3));
+        world.set_road(&edge, false);
+        world.plan_road(&edge, Some(0));
+        assert_eq!(
+            travel_mode_fn.travel_modes_here(&world, &v2(0, 3)),
+            vec![TravelMode::Walk]
         );
     }
 

@@ -164,7 +164,10 @@ where
     }
 
     fn avatar_travel_mode_fn(&self) -> AvatarTravelModeFn {
-        AvatarTravelModeFn::new(self.cx.parameters().avatar_travel.min_navigable_river_width)
+        AvatarTravelModeFn::new(
+            self.cx.parameters().avatar_travel.min_navigable_river_width,
+            true,
+        )
     }
 
     async fn replenish_sim_queue(&self) {
