@@ -6,7 +6,7 @@ use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
 use crate::resource::{Mine, MineRule, Resource};
 use crate::resource_gen::ResourceGenParameters;
-use crate::road_builder::AutoRoadTravelParams;
+use crate::road_builder::RoadBuildTravelParams;
 use crate::simulation::SimulationParameters;
 use crate::world_gen::WorldGenParameters;
 use commons::{v3, V3};
@@ -27,7 +27,7 @@ pub struct Parameters {
     pub base_colors: BaseColors,
     pub avatar_travel: AvatarTravelParams,
     pub npc_travel_mode_change_penalty_millis: u64,
-    pub auto_road_travel: AutoRoadTravelParams,
+    pub auto_road_travel: RoadBuildTravelParams,
     pub light_direction: V3<f32>,
     pub snow_temperature: f32,
     pub town_travel_duration: Duration,
@@ -42,6 +42,7 @@ pub struct Parameters {
     pub default_speed: f32,
     pub simulation: SimulationParameters,
     pub mine_rules: Vec<MineRule>,
+    pub deep_sea_pc: f32,
 }
 
 impl Default for Parameters {
@@ -56,7 +57,7 @@ impl Default for Parameters {
             base_colors: BaseColors::default(),
             avatar_travel: AvatarTravelParams::default(),
             npc_travel_mode_change_penalty_millis: 86_400_000,
-            auto_road_travel: AutoRoadTravelParams::default(),
+            auto_road_travel: RoadBuildTravelParams::default(),
             light_direction: v3(0.0, 8.0, -1.0),
             snow_temperature: 0.0,
             town_travel_duration: Duration::from_secs(60 * 60 * 6),
@@ -84,6 +85,7 @@ impl Default for Parameters {
                     mine: Mine::Pasture,
                 },
             ],
+            deep_sea_pc: 0.67,
         }
     }
 }

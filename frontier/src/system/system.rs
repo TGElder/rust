@@ -26,7 +26,7 @@ use crate::build::builders::{MineBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::resource::Resources;
-use crate::road_builder::AutoRoadTravelDuration;
+use crate::road_builder::{RoadBuildTravelDuration, RoadBuildTravelParams};
 use crate::services::clock::{Clock, RealTime};
 use crate::services::{BackgroundService, VisibilityService};
 use crate::simulation::build::edges::EdgeBuildSimulation;
@@ -53,7 +53,7 @@ struct Processes {
     basic_road_builder: Process<BasicRoadBuilder<Context>>,
     builder: Process<BuilderActor<Context>>,
     cheats: Process<Cheats<Context>>,
-    edge_sims: Vec<Process<EdgeBuildSimulation<Context, AutoRoadTravelDuration>>>,
+    edge_sims: Vec<Process<EdgeBuildSimulation<Context, RoadBuildTravelDuration>>>,
     event_forwarder: Process<EventForwarderActor>,
     follow_avatar: Process<FollowAvatar<Context>>,
     labels: Process<Labels<Context>>,
@@ -81,20 +81,31 @@ impl System {
     pub fn new(params: Parameters, engine: &mut IsometricEngine) -> System {
         let params = Arc::new(params);
 
+        let sea_level = params.world_gen.sea_level as f32;
+        let deep_sea_level = params.world_gen.sea_level as f32 * params.deep_sea_pc;
+        let avatar_travel_params = AvatarTravelParams {
+            sea_level,
+            deep_sea_level,
+            ..params.avatar_travel
+        };
         let avatar_travel_duration_with_planned_roads =
-            Arc::new(AvatarTravelDuration::new(&AvatarTravelParams {
+            Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
                 travel_mode_change_penalty_millis: params.npc_travel_mode_change_penalty_millis,
                 include_planned_roads: true,
-                ..params.avatar_travel
+                ..avatar_travel_params
             }));
-        let npc_travel_duration = Arc::new(AvatarTravelDuration::new(&AvatarTravelParams {
+        let npc_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
             travel_mode_change_penalty_millis: params.npc_travel_mode_change_penalty_millis,
-            ..params.avatar_travel
+            ..avatar_travel_params
         }));
         let avatar_travel_duration_without_planned_roads =
-            Arc::new(AvatarTravelDuration::new(&params.avatar_travel));
-        let road_build_travel_duration = Arc::new(AutoRoadTravelDuration::from_params(
-            &params.auto_road_travel,
+            Arc::new(AvatarTravelDuration::new(avatar_travel_params));
+        let road_build_travel_duration = Arc::new(RoadBuildTravelDuration::from_params(
+            RoadBuildTravelParams {
+                sea_level,
+                deep_sea_level,
+                ..params.auto_road_travel
+            },
         ));
 
         let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();

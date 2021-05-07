@@ -11,7 +11,7 @@ use crate::nation::Nation;
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::resource::Resources;
-use crate::road_builder::AutoRoadTravelDuration;
+use crate::road_builder::RoadBuildTravelDuration;
 use crate::route::{RouteKey, Routes};
 use crate::services::clock::{Clock, RealTime};
 use crate::services::{BackgroundService, VisibilityService};
@@ -56,7 +56,7 @@ pub struct Context {
     pub build_queue: Arc<RwLock<BuildQueue>>,
     pub cheats_tx: FnSender<Cheats<Context>>,
     pub clock: Arc<RwLock<Clock<RealTime>>>,
-    pub edge_sim_tx: FnSender<EdgeBuildSimulation<Context, AutoRoadTravelDuration>>,
+    pub edge_sim_tx: FnSender<EdgeBuildSimulation<Context, RoadBuildTravelDuration>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
     pub engine_tx: Sender<Vec<Command>>,
     pub follow_avatar: Arc<RwLock<bool>>,
@@ -188,7 +188,7 @@ impl RunInBackground for Context {
 
 #[async_trait]
 impl SendEdgeBuildSim for Context {
-    type D = AutoRoadTravelDuration;
+    type D = RoadBuildTravelDuration;
 
     async fn send_edge_build_sim_future<F, O>(&self, function: F) -> O
     where
