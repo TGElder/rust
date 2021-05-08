@@ -67,7 +67,7 @@ impl RoadBuildTravelDuration {
             return false;
         }
 
-        return true;
+        true
     }
 }
 

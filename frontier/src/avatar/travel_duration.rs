@@ -171,7 +171,7 @@ impl AvatarTravelDuration {
             return false;
         }
 
-        return true;
+        true
     }
 }
 
