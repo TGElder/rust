@@ -185,6 +185,22 @@ where
             && triangle[1].z.almost(&self.sea_level)
             && triangle[2].z.almost(&self.sea_level)
     }
+
+    fn sea_color(&self, terrain: &dyn Grid<T>, tile: &V2<usize>) -> Option<Color> {
+        let depth_pc = self.min_tile_elevation(terrain, tile) / self.sea_level;
+        self.sea_colors
+            .as_ref()
+            .map(|SeaColors { shallow, deep }| shallow.blend(depth_pc, deep))
+    }
+
+    fn min_tile_elevation(&self, terrain: &dyn Grid<T>, tile: &V2<usize>) -> f32 {
+        terrain
+            .get_corners_in_bounds(tile)
+            .into_iter()
+            .map(|corner| terrain.get_cell_unsafe(&corner).elevation())
+            .max_by(unsafe_ordering)
+            .unwrap()
+    }
 }
 
 impl<'a, T> TerrainColoring<T> for SeaLevelColoring<'a, T>
@@ -197,17 +213,8 @@ where
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
-        let deepest_corner = terrain
-            .get_corners_in_bounds(tile)
-            .into_iter()
-            .map(|corner| terrain.get_cell_unsafe(&corner).elevation())
-            .max_by(unsafe_ordering)
-            .unwrap();
-        let depth = deepest_corner / self.sea_level;
-        let color = self
-            .sea_colors
-            .as_ref()
-            .map(|SeaColors { shallow, deep }| shallow.blend(depth, deep));
+        let color = self.sea_color(terrain, tile);
+
         if self.entire_triangle_at_sea_level(triangle) {
             [color, color, color]
         } else {

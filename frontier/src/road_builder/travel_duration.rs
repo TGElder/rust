@@ -279,7 +279,15 @@ mod tests {
     #[test]
     fn can_not_build_in_sea() {
         let mut world = World::new(
-            M::from_vec(3, 3, vec![1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0]),
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 0.0, //
+                    1.0, 1.0, 0.0, //
+                    1.0, 1.0, 0.0, //
+                ],
+            ),
             0.5,
         );
 
