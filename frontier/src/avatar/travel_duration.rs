@@ -216,6 +216,8 @@ impl TravelDuration for AvatarTravelDuration {
 #[cfg(test)]
 mod tests {
 
+    use commons::junction::PositionJunction;
+
     use super::*;
 
     fn avatar_travel_duration() -> AvatarTravelDuration {
@@ -229,6 +231,8 @@ mod tests {
             sea: test_travel_duration(),
             parameters: AvatarTravelParams {
                 travel_mode_change_penalty_millis: 100,
+                deep_sea_level: 0.5,
+                sea_level: 1.0,
                 ..AvatarTravelParams::default()
             },
         }
@@ -238,39 +242,138 @@ mod tests {
         ConstantTravelDuration::boxed(Duration::from_millis(10))
     }
 
-    #[rustfmt::skip]
     #[test]
     fn cannot_travel_into_invisible() {
-         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
         world.reveal_all();
         world.mut_cell_unsafe(&v2(0, 0)).visible = false;
 
-        assert_eq!(avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), None);
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            None
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn cannot_travel_from_invisible() {
-         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
         world.reveal_all();
         world.mut_cell_unsafe(&v2(0, 0)).visible = false;
 
-        assert_eq!(avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)), None);
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            None
+        );
+    }
+
+    #[test]
+    fn can_travel_on_and_off_accessible_shore() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.0, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        world.reveal_all();
+
+        assert!(avatar_travel_duration()
+            .get_duration(&world, &v2(0, 0), &v2(1, 0))
+            .is_some());
+        assert!(avatar_travel_duration()
+            .get_duration(&world, &v2(1, 0), &v2(0, 0))
+            .is_some());
+    }
+
+    #[test]
+    fn cannot_travel_on_or_off_inaccessible_shore() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.6, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        world.reveal_all();
+
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            None
+        );
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            None
+        );
+    }
+
+    #[test]
+    fn can_travel_on_or_off_inaccessible_shore_via_river() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.6, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let mut river_1 = PositionJunction::new(v2(0, 0));
+        river_1.junction.horizontal.width = 1.0;
+        river_1.junction.horizontal.from = true;
+        world.add_river(river_1);
+
+        let mut river_2 = PositionJunction::new(v2(1, 0));
+        river_2.junction.horizontal.width = 1.0;
+        river_2.junction.horizontal.to = true;
+        world.add_river(river_2);
+
+        world.reveal_all();
+
+        assert!(avatar_travel_duration()
+            .get_duration(&world, &v2(0, 0), &v2(1, 0))
+            .is_some());
+        assert!(avatar_travel_duration()
+            .get_duration(&world, &v2(1, 0), &v2(0, 0))
+            .is_some());
     }
 }
