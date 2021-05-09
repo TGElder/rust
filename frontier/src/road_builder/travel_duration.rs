@@ -9,53 +9,69 @@ use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::time::Duration;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct AutoRoadTravelParams {
-    max_gradient: f32,
-    cost_at_level: f32,
-    cost_at_max_gradient: f32,
-    cost_on_existing_road: u64,
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RoadBuildTravelParams {
+    pub max_gradient: f32,
+    pub cost_at_level: f32,
+    pub cost_at_max_gradient: f32,
+    pub cost_on_existing_road: u64,
+    pub sea_level: f32,
+    pub deep_sea_level: f32,
 }
 
-impl Default for AutoRoadTravelParams {
-    fn default() -> AutoRoadTravelParams {
-        AutoRoadTravelParams {
+impl Default for RoadBuildTravelParams {
+    fn default() -> RoadBuildTravelParams {
+        RoadBuildTravelParams {
             max_gradient: 0.5,
             cost_at_level: 575.0,
             cost_at_max_gradient: 925.0,
             cost_on_existing_road: 100,
+            sea_level: 1.0,
+            deep_sea_level: 0.67,
         }
     }
 }
 
-pub struct AutoRoadTravelDuration {
+pub struct RoadBuildTravelDuration {
     off_road: Box<dyn TravelDuration>,
     road: Box<dyn TravelDuration>,
+    parameters: RoadBuildTravelParams,
 }
 
-impl AutoRoadTravelDuration {
-    pub fn new(
-        off_road: Box<dyn TravelDuration>,
-        road: Box<dyn TravelDuration>,
-    ) -> AutoRoadTravelDuration {
-        AutoRoadTravelDuration { off_road, road }
-    }
-
-    pub fn from_params(params: &AutoRoadTravelParams) -> AutoRoadTravelDuration {
-        AutoRoadTravelDuration::new(
-            GradientTravelDuration::boxed(
+impl RoadBuildTravelDuration {
+    pub fn from_params(p: RoadBuildTravelParams) -> RoadBuildTravelDuration {
+        RoadBuildTravelDuration {
+            off_road: GradientTravelDuration::boxed(
                 Scale::new(
-                    (-params.max_gradient, params.max_gradient),
-                    (params.cost_at_level, params.cost_at_max_gradient),
+                    (-p.max_gradient, p.max_gradient),
+                    (p.cost_at_level, p.cost_at_max_gradient),
                 ),
                 true,
             ),
-            ConstantTravelDuration::boxed(Duration::from_millis(params.cost_on_existing_road)),
-        )
+            road: ConstantTravelDuration::boxed(Duration::from_millis(p.cost_on_existing_road)),
+            parameters: p,
+        }
+    }
+
+    fn is_inaccessible_shore(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> bool {
+        let from_elevation = world.get_cell_unsafe(from).elevation;
+        if from_elevation < self.parameters.deep_sea_level {
+            return false;
+        }
+        if from_elevation > self.parameters.sea_level {
+            return false;
+        }
+
+        let to_elevation = world.get_cell_unsafe(to).elevation;
+        if to_elevation <= self.parameters.sea_level {
+            return false;
+        }
+
+        true
     }
 }
 
-impl TravelDuration for AutoRoadTravelDuration {
+impl TravelDuration for RoadBuildTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
         match world.get_cell(from) {
             Some(WorldCell { visible: true, .. }) => (),
@@ -65,6 +81,11 @@ impl TravelDuration for AutoRoadTravelDuration {
             Some(WorldCell { visible: true, .. }) => (),
             _ => return None,
         };
+        if self.is_inaccessible_shore(world, from, to)
+            || self.is_inaccessible_shore(world, to, from)
+        {
+            return None;
+        }
         if world.is_sea(from) && world.is_sea(to) {
             return None;
         }
@@ -108,36 +129,53 @@ mod tests {
         ConstantTravelDuration::boxed(Duration::from_millis(1000))
     }
 
-    fn auto_road_travel_duration() -> AutoRoadTravelDuration {
-        AutoRoadTravelDuration::new(off_road_travel_duration(), road_travel_duration())
+    fn road_build_travel_duration() -> RoadBuildTravelDuration {
+        RoadBuildTravelDuration {
+            off_road: off_road_travel_duration(),
+            road: road_travel_duration(),
+            parameters: RoadBuildTravelParams {
+                sea_level: 1.0,
+                deep_sea_level: 0.5,
+                ..RoadBuildTravelParams::default()
+            },
+        }
     }
 
-    #[rustfmt::skip]
     #[test]
     fn defaults_to_off_road_travel_duration() {
         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
         world.reveal_all();
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 1), &v2(1, 1)), Some(off_road_travel_duration().max_duration()));
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(0, 1), &v2(1, 1)),
+            Some(off_road_travel_duration().max_duration())
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn can_not_build_over_river_corner() {
         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
@@ -158,18 +196,24 @@ mod tests {
 
         world.reveal_all();
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 1), &v2(1, 1)), None);
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(0, 1), &v2(1, 1)),
+            None
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn can_not_build_along_river() {
         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
@@ -189,18 +233,24 @@ mod tests {
 
         world.reveal_all();
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(1, 0), &v2(1, 1)), None);
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(1, 0), &v2(1, 1)),
+            None
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn can_cross_river_at_90_degrees() {
         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
@@ -220,36 +270,47 @@ mod tests {
 
         world.reveal_all();
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 1), &v2(1, 1)), 
-            Some(off_road_travel_duration().max_duration()));
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(0, 1), &v2(1, 1)),
+            Some(off_road_travel_duration().max_duration())
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn can_not_build_in_sea() {
-         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 0.0,
-                1.0, 1.0, 0.0,
-                1.0, 1.0, 0.0,
-            ]),
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 0.0, //
+                    1.0, 1.0, 0.0, //
+                    1.0, 1.0, 0.0, //
+                ],
+            ),
             0.5,
         );
 
         world.reveal_all();
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(2, 1), &v2(3, 1)), None);
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(2, 1), &v2(3, 1)),
+            None
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn uses_road_travel_duration_for_existing_roads() {
         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
@@ -257,18 +318,24 @@ mod tests {
 
         world.set_road(&Edge::new(v2(0, 0), v2(0, 1)), true);
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(0, 1)), Some(road_travel_duration().max_duration()));
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(0, 0), &v2(0, 1)),
+            Some(road_travel_duration().max_duration())
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn uses_road_travel_duration_for_planned_roads() {
         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
@@ -276,70 +343,146 @@ mod tests {
 
         world.plan_road(&Edge::new(v2(0, 0), v2(0, 1)), Some(404));
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(0, 1)), Some(road_travel_duration().max_duration()));
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(0, 0), &v2(0, 1)),
+            Some(road_travel_duration().max_duration())
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn cannot_build_into_invisible() {
-         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
         world.reveal_all();
         world.mut_cell_unsafe(&v2(0, 0)).visible = false;
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), None);
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            None
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn cannot_build_from_invisible() {
-         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
         world.reveal_all();
         world.mut_cell_unsafe(&v2(0, 0)).visible = false;
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)), None);
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            None
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn can_not_build_from_invisible() {
-         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
         world.mut_cell_unsafe(&v2(1, 0)).visible = true;
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), None);
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            None
+        );
 
         world.mut_cell_unsafe(&v2(0, 0)).visible = true;
 
-        assert_eq!(auto_road_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), Some(off_road_travel_duration().max_duration()));
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            Some(off_road_travel_duration().max_duration())
+        );
+    }
+
+    #[test]
+    fn can_build_on_and_off_accessible_shore() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.0, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        world.reveal_all();
+
+        assert!(road_build_travel_duration()
+            .get_duration(&world, &v2(0, 0), &v2(1, 0))
+            .is_some());
+        assert!(road_build_travel_duration()
+            .get_duration(&world, &v2(1, 0), &v2(0, 0))
+            .is_some());
+    }
+
+    #[test]
+    fn cannot_build_on_or_off_inaccessible_shore() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.6, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        world.reveal_all();
+
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            None
+        );
+        assert_eq!(
+            road_build_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            None
+        );
     }
 
     #[test]
     fn min_duration() {
         assert_eq!(
-            auto_road_travel_duration().min_duration(),
+            road_build_travel_duration().min_duration(),
             Duration::from_millis(10)
         );
     }
@@ -347,7 +490,7 @@ mod tests {
     #[test]
     fn max_duration() {
         assert_eq!(
-            auto_road_travel_duration().max_duration(),
+            road_build_travel_duration().max_duration(),
             Duration::from_millis(1000)
         );
     }

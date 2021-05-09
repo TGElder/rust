@@ -3,7 +3,7 @@ use crate::world::{World, WorldCell, WorldObject};
 use commons::grid::Grid;
 use commons::{v2, M, V2, V3};
 use isometric::drawing::{
-    LayerColoring, SeaLevelColoring, ShadedTileTerrainColoring, TerrainColoring,
+    LayerColoring, SeaColors, SeaLevelColoring, ShadedTileTerrainColoring, TerrainColoring,
 };
 use isometric::*;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,8 @@ pub struct WorldColoringParameters {
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BaseColors {
-    sea: Color,
+    shallow_sea: Color,
+    deep_sea: Color,
     cliff: Color,
     beach: Color,
     desert: Color,
@@ -30,7 +31,8 @@ pub struct BaseColors {
 impl Default for BaseColors {
     fn default() -> BaseColors {
         BaseColors {
-            sea: Color::new(0.0, 0.0, 1.0, 1.0),
+            shallow_sea: Color::new(0.0, 0.0, 1.0, 1.0),
+            deep_sea: Color::new(0.0, 0.0, 0.5, 1.0),
             cliff: Color::new(0.5, 0.4, 0.3, 1.0),
             beach: Color::new(1.0, 1.0, 0.0, 1.0),
             desert: Color::new(1.0, 0.8, 0.6, 1.0),
@@ -62,7 +64,10 @@ fn terrain<'a>(
         Box::new(LayerColoring::new(vec![shaded, Box::new(overlay)]));
     Box::new(SeaLevelColoring::new(
         with_overlay,
-        Some(params.colors.sea),
+        Some(SeaColors {
+            shallow: params.colors.shallow_sea,
+            deep: params.colors.deep_sea,
+        }),
         world.sea_level(),
     ))
 }

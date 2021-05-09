@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::time::Duration;
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct AvatarTravelParams {
     pub max_walk_gradient: f32,
     pub walk_1_cell_duration_millis_range: (f32, f32),
@@ -21,6 +21,8 @@ pub struct AvatarTravelParams {
     pub sea_1_cell_duration_millis: u64,
     pub travel_mode_change_penalty_millis: u64,
     pub include_planned_roads: bool,
+    pub sea_level: f32,
+    pub deep_sea_level: f32,
 }
 
 impl Default for AvatarTravelParams {
@@ -36,6 +38,8 @@ impl Default for AvatarTravelParams {
             sea_1_cell_duration_millis: 900_000,
             travel_mode_change_penalty_millis: 1_800_000,
             include_planned_roads: false,
+            sea_level: 1.0,
+            deep_sea_level: 0.67,
         }
     }
 }
@@ -48,7 +52,7 @@ pub struct AvatarTravelDuration {
     stream: Box<dyn TravelDuration>,
     river: Box<dyn TravelDuration>,
     sea: Box<dyn TravelDuration>,
-    travel_mode_change_penalty_millis: u64,
+    parameters: AvatarTravelParams,
 }
 
 impl AvatarTravelDuration {
@@ -56,19 +60,19 @@ impl AvatarTravelDuration {
         &self.travel_mode_fn
     }
 
-    pub fn new(p: &AvatarTravelParams) -> AvatarTravelDuration {
+    pub fn new(p: AvatarTravelParams) -> AvatarTravelDuration {
         AvatarTravelDuration {
             travel_mode_fn: AvatarTravelModeFn::new(
                 p.min_navigable_river_width,
                 p.include_planned_roads,
             ),
-            walk: Self::walk(p),
-            road: Self::road(p),
-            planned_road: Self::road(p),
-            stream: Self::stream(p),
-            river: Self::river(p),
-            sea: Self::sea(p),
-            travel_mode_change_penalty_millis: p.travel_mode_change_penalty_millis,
+            walk: Self::walk(&p),
+            road: Self::road(&p),
+            planned_road: Self::road(&p),
+            stream: Self::stream(&p),
+            river: Self::river(&p),
+            sea: Self::sea(&p),
+            parameters: p,
         }
     }
 
@@ -143,10 +147,31 @@ impl AvatarTravelDuration {
         to: &V2<usize>,
     ) -> Duration {
         if self.travel_mode_fn.travel_mode_change(world, from, to) {
-            Duration::from_millis(self.travel_mode_change_penalty_millis)
+            Duration::from_millis(self.parameters.travel_mode_change_penalty_millis)
         } else {
             Duration::from_millis(0)
         }
+    }
+
+    fn is_inaccessible_shore(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> bool {
+        if self.travel_mode_fn.travel_mode_between(world, from, to) == Some(TravelMode::River) {
+            return false;
+        }
+
+        let from_elevation = world.get_cell_unsafe(from).elevation;
+        if from_elevation < self.parameters.deep_sea_level {
+            return false;
+        }
+        if from_elevation > self.parameters.sea_level {
+            return false;
+        }
+
+        let to_elevation = world.get_cell_unsafe(to).elevation;
+        if to_elevation <= self.parameters.sea_level {
+            return false;
+        }
+
+        true
     }
 }
 
@@ -160,6 +185,11 @@ impl TravelDuration for AvatarTravelDuration {
             Some(WorldCell { visible: true, .. }) => (),
             _ => return None,
         };
+        if self.is_inaccessible_shore(world, from, to)
+            || self.is_inaccessible_shore(world, to, from)
+        {
+            return None;
+        }
         self.get_duration_fn(world, from, to)
             .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
             .map(|duration| duration + self.travel_mode_change_penalty(world, from, to))
@@ -179,12 +209,14 @@ impl TravelDuration for AvatarTravelDuration {
             .max(self.road.max_duration())
             .max(self.stream.max_duration())
             .max(self.river.max_duration())
-            + Duration::from_millis(self.travel_mode_change_penalty_millis)
+            + Duration::from_millis(self.parameters.travel_mode_change_penalty_millis)
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use commons::junction::PositionJunction;
 
     use super::*;
 
@@ -197,7 +229,12 @@ mod tests {
             stream: test_travel_duration(),
             river: test_travel_duration(),
             sea: test_travel_duration(),
-            travel_mode_change_penalty_millis: 100,
+            parameters: AvatarTravelParams {
+                travel_mode_change_penalty_millis: 100,
+                deep_sea_level: 0.5,
+                sea_level: 1.0,
+                ..AvatarTravelParams::default()
+            },
         }
     }
 
@@ -205,39 +242,138 @@ mod tests {
         ConstantTravelDuration::boxed(Duration::from_millis(10))
     }
 
-    #[rustfmt::skip]
     #[test]
     fn cannot_travel_into_invisible() {
-         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
         world.reveal_all();
         world.mut_cell_unsafe(&v2(0, 0)).visible = false;
 
-        assert_eq!(avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)), None);
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            None
+        );
     }
 
-    #[rustfmt::skip]
     #[test]
     fn cannot_travel_from_invisible() {
-         let mut world = World::new(
-            M::from_vec(3, 3, vec![
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-                1.0, 1.0, 1.0,
-            ]),
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
             0.5,
         );
 
         world.reveal_all();
         world.mut_cell_unsafe(&v2(0, 0)).visible = false;
 
-        assert_eq!(avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)), None);
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            None
+        );
+    }
+
+    #[test]
+    fn can_travel_on_and_off_accessible_shore() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.0, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        world.reveal_all();
+
+        assert!(avatar_travel_duration()
+            .get_duration(&world, &v2(0, 0), &v2(1, 0))
+            .is_some());
+        assert!(avatar_travel_duration()
+            .get_duration(&world, &v2(1, 0), &v2(0, 0))
+            .is_some());
+    }
+
+    #[test]
+    fn cannot_travel_on_or_off_inaccessible_shore() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.6, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        world.reveal_all();
+
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            None
+        );
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            None
+        );
+    }
+
+    #[test]
+    fn can_travel_on_or_off_inaccessible_shore_via_river() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.6, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let mut river_1 = PositionJunction::new(v2(0, 0));
+        river_1.junction.horizontal.width = 1.0;
+        river_1.junction.horizontal.from = true;
+        world.add_river(river_1);
+
+        let mut river_2 = PositionJunction::new(v2(1, 0));
+        river_2.junction.horizontal.width = 1.0;
+        river_2.junction.horizontal.to = true;
+        world.add_river(river_2);
+
+        world.reveal_all();
+
+        assert!(avatar_travel_duration()
+            .get_duration(&world, &v2(0, 0), &v2(1, 0))
+            .is_some());
+        assert!(avatar_travel_duration()
+            .get_duration(&world, &v2(1, 0), &v2(0, 0))
+            .is_some());
     }
 }

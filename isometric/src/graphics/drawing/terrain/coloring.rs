@@ -153,9 +153,14 @@ where
     T: WithPosition + WithElevation + WithVisibility + WithJunction,
 {
     coloring: Box<dyn TerrainColoring<T> + 'a>,
-    sea_color: Option<Color>,
+    sea_colors: Option<SeaColors>,
     sea_level: f32,
     phantom: PhantomData<T>,
+}
+
+pub struct SeaColors {
+    pub shallow: Color,
+    pub deep: Color,
 }
 
 impl<'a, T> SeaLevelColoring<'a, T>
@@ -164,12 +169,12 @@ where
 {
     pub fn new(
         coloring: Box<dyn TerrainColoring<T> + 'a>,
-        sea_color: Option<Color>,
+        sea_colors: Option<SeaColors>,
         sea_level: f32,
     ) -> SeaLevelColoring<'a, T> {
         SeaLevelColoring {
             coloring,
-            sea_color,
+            sea_colors,
             sea_level,
             phantom: PhantomData,
         }
@@ -179,6 +184,22 @@ where
         triangle[0].z.almost(&self.sea_level)
             && triangle[1].z.almost(&self.sea_level)
             && triangle[2].z.almost(&self.sea_level)
+    }
+
+    fn sea_color(&self, terrain: &dyn Grid<T>, tile: &V2<usize>) -> Option<Color> {
+        let depth_pc = self.min_tile_elevation(terrain, tile) / self.sea_level;
+        self.sea_colors
+            .as_ref()
+            .map(|SeaColors { shallow, deep }| shallow.blend(depth_pc, deep))
+    }
+
+    fn min_tile_elevation(&self, terrain: &dyn Grid<T>, tile: &V2<usize>) -> f32 {
+        terrain
+            .get_corners_in_bounds(tile)
+            .into_iter()
+            .map(|corner| terrain.get_cell_unsafe(&corner).elevation())
+            .max_by(unsafe_ordering)
+            .unwrap()
     }
 }
 
@@ -192,8 +213,10 @@ where
         tile: &V2<usize>,
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
+        let color = self.sea_color(terrain, tile);
+
         if self.entire_triangle_at_sea_level(triangle) {
-            [self.sea_color, self.sea_color, self.sea_color]
+            [color, color, color]
         } else {
             self.coloring.color(terrain, tile, triangle)
         }

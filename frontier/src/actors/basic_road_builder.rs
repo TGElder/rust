@@ -1,5 +1,5 @@
 use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
-use crate::road_builder::{AutoRoadTravelDuration, RoadBuildMode, RoadBuilderResult};
+use crate::road_builder::{RoadBuildMode, RoadBuildTravelDuration, RoadBuilderResult};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, UpdateRoads, WithWorld};
 use crate::travel_duration::TravelDuration;
@@ -12,7 +12,7 @@ use std::sync::Arc;
 pub struct BasicRoadBuilder<T> {
     cx: T,
     avatar_travel_duration: Arc<AvatarTravelDuration>,
-    road_build_travel_duration: Arc<AutoRoadTravelDuration>,
+    road_build_travel_duration: Arc<RoadBuildTravelDuration>,
     binding: Button,
 }
 
@@ -23,7 +23,7 @@ where
     pub fn new(
         cx: T,
         avatar_travel_duration: Arc<AvatarTravelDuration>,
-        road_build_travel_duration: Arc<AutoRoadTravelDuration>,
+        road_build_travel_duration: Arc<RoadBuildTravelDuration>,
     ) -> BasicRoadBuilder<T> {
         BasicRoadBuilder {
             cx,
