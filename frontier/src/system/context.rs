@@ -24,7 +24,7 @@ use crate::territory::Territory;
 use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::{HasFollowAvatar, HasParameters};
 use crate::traits::{
-    NotMock, PathfinderForPlayer, PathfinderForRouting, RunInBackground, SendEdgeBuildSim,
+    NotMock, PathfinderForPlayer, PathfinderForRoutes, RunInBackground, SendEdgeBuildSim,
     SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate, SendSystem,
     SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
     WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithResources,
@@ -76,7 +76,7 @@ pub struct Context {
     pub rotate_tx: FnSender<Rotate<Context>>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
-    pub routing_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub routes_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Context, AvatarTravelDuration>>>,
     pub settlements: Arc<RwLock<HashMap<V2<usize>, Settlement>>>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Context>>,
@@ -132,7 +132,7 @@ impl Context {
             rotate_tx: self.rotate_tx.clone_with_name(name),
             route_to_ports: self.route_to_ports.clone(),
             routes: self.routes.clone(),
-            routing_pathfinder: self.routing_pathfinder.clone(),
+            routes_pathfinder: self.routes_pathfinder.clone(),
             settlement_sim_txs: self
                 .settlement_sim_txs
                 .iter()
@@ -616,11 +616,11 @@ impl WithPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
     }
 }
 
-impl PathfinderForRouting for Context {
+impl PathfinderForRoutes for Context {
     type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
-    fn routing_pathfinder(&self) -> &Self::T {
-        &self.routing_pathfinder
+    fn routes_pathfinder(&self) -> &Self::T {
+        &self.routes_pathfinder
     }
 }
 

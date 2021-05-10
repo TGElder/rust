@@ -6,7 +6,7 @@ use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
-    PathfinderForPlayer, PathfinderForRouting, RunInBackground, WithPathfinder, WithWorld,
+    PathfinderForPlayer, PathfinderForRoutes, RunInBackground, WithPathfinder, WithWorld,
 };
 use crate::travel_duration::{EdgeDuration, TravelDuration};
 
@@ -125,18 +125,18 @@ pub trait UpdatePositionsAllPathfinders {
 #[async_trait]
 impl<T> UpdatePositionsAllPathfinders for T
 where
-    T: PathfinderForPlayer + PathfinderForRouting + UpdatePathfinderPositions + Send + Sync,
+    T: PathfinderForPlayer + PathfinderForRoutes + UpdatePathfinderPositions + Send + Sync,
 {
     async fn update_positions_all_pathfinders<I>(&self, positions: I)
     where
         I: IntoIterator<Item = V2<usize>> + Clone + Send + Sync + 'static,
     {
-        let routing_pathfinder = self.routing_pathfinder();
         let player_pathfinder = self.player_pathfinder();
+        let routes_pathfinder = self.routes_pathfinder();
 
         join!(
-            self.update_pathfinder_positions(player_pathfinder, positions),
-            self.update_pathfinder_positions(routing_pathfinder, positions.clone()),
+            self.update_pathfinder_positions(player_pathfinder, positions.clone()),
+            self.update_pathfinder_positions(routes_pathfinder, positions),
         );
     }
 }

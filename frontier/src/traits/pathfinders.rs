@@ -9,64 +9,64 @@ use crate::traits::{
     WithWorld,
 };
 
-pub trait PathfinderForRouting {
+pub trait PathfinderForRoutes {
     type T: WithPathfinder + Clone + Send + Sync + 'static;
 
-    fn routing_pathfinder(&self) -> &Self::T;
+    fn routes_pathfinder(&self) -> &Self::T;
 }
 
 #[async_trait]
-pub trait InBoundsForRouting {
+pub trait InBoundsForRoutes {
     async fn in_bounds(&self, position: &V2<usize>) -> bool;
 }
 
 #[async_trait]
-impl<T> InBoundsForRouting for T
+impl<T> InBoundsForRoutes for T
 where
-    T: PathfinderForRouting + Sync,
+    T: PathfinderForRoutes + Sync,
 {
     async fn in_bounds(&self, position: &V2<usize>) -> bool {
-        self.routing_pathfinder().in_bounds(position).await
+        self.routes_pathfinder().in_bounds(position).await
     }
 }
 
 #[async_trait]
-pub trait InitTargetsForRouting {
+pub trait InitTargetsForRoutes {
     async fn init_targets(&self, name: String);
 }
 
 #[async_trait]
-impl<T> InitTargetsForRouting for T
+impl<T> InitTargetsForRoutes for T
 where
-    T: PathfinderForRouting + Sync,
+    T: PathfinderForRoutes + Sync,
 {
     async fn init_targets(&self, name: String) {
-        self.routing_pathfinder().init_targets(name).await;
+        self.routes_pathfinder().init_targets(name).await;
     }
 }
 
 #[async_trait]
-pub trait LoadTargetForRouting {
+pub trait LoadTargetForRoutes {
     async fn load_targets<'a, I>(&self, targets: I)
     where
         I: Iterator<Item = Target<'a>> + Send;
 }
 
 #[async_trait]
-impl<T> LoadTargetForRouting for T
+impl<T> LoadTargetForRoutes for T
 where
-    T: PathfinderForRouting + Sync,
+    T: PathfinderForRoutes + Sync,
 {
     async fn load_targets<'a, I>(&self, targets: I)
     where
         I: Iterator<Item = Target<'a>> + Send,
     {
-        self.routing_pathfinder().load_targets(targets).await
+        self.routes_pathfinder().load_targets(targets).await
     }
 }
 
 #[async_trait]
-pub trait ClosestTargetsForRouting {
+pub trait ClosestTargetsForRoutes {
     async fn closest_targets(
         &self,
         positions: &[V2<usize>],
@@ -76,9 +76,9 @@ pub trait ClosestTargetsForRouting {
 }
 
 #[async_trait]
-impl<T> ClosestTargetsForRouting for T
+impl<T> ClosestTargetsForRoutes for T
 where
-    T: PathfinderForRouting + Sync,
+    T: PathfinderForRoutes + Sync,
 {
     async fn closest_targets(
         &self,
@@ -86,7 +86,7 @@ where
         targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult> {
-        self.routing_pathfinder()
+        self.routes_pathfinder()
             .closest_targets(positions, targets, n_closest)
             .await
     }

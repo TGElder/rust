@@ -7,7 +7,7 @@ use commons::V2;
 
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    DrawWorld, ExpandPositions, Micros, PathfinderForRouting, PositionsWithin, WithTerritory,
+    DrawWorld, ExpandPositions, Micros, PathfinderForRoutes, PositionsWithin, WithTerritory,
     WithWorld,
 };
 
@@ -102,12 +102,12 @@ pub trait UpdateTerritory {
 #[async_trait]
 impl<T> UpdateTerritory for T
 where
-    T: HasParameters + Micros + PathfinderForRouting + SetControlDurations + Clone + Send + Sync,
+    T: HasParameters + Micros + PathfinderForRoutes + SetControlDurations + Clone + Send + Sync,
 {
     async fn update_territory(&self, controller: V2<usize>) {
         let duration = self.parameters().town_travel_duration;
         let corners = get_corners(&controller);
-        let pathfinder = self.routing_pathfinder();
+        let pathfinder = self.routes_pathfinder();
         let durations = pathfinder.positions_within(&corners, &duration).await;
         let micros = self.micros().await;
         self.set_control_durations(controller, &durations, &micros)

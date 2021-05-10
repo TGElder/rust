@@ -1,6 +1,6 @@
 use crate::resource::{Resource, Resources, RESOURCES};
 use crate::traits::{
-    GetWorldObjects, InitTargetsForRouting, LoadTargetForRouting, Target, WithResources,
+    GetWorldObjects, InitTargetsForRoutes, LoadTargetForRoutes, Target, WithResources,
 };
 use crate::world::WorldObject;
 use commons::grid::Grid;
@@ -13,7 +13,7 @@ pub struct ResourceTargets<T> {
 
 impl<T> ResourceTargets<T>
 where
-    T: GetWorldObjects + InitTargetsForRouting + LoadTargetForRouting + WithResources,
+    T: GetWorldObjects + InitTargetsForRoutes + LoadTargetForRoutes + WithResources,
 {
     pub fn new(cx: T) -> ResourceTargets<T> {
         ResourceTargets { cx }
@@ -162,7 +162,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl InitTargetsForRouting for Cx {
+    impl InitTargetsForRoutes for Cx {
         async fn init_targets(&self, name: String) {
             self.targets
                 .lock()
@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl LoadTargetForRouting for Cx {
+    impl LoadTargetForRoutes for Cx {
         async fn load_targets<'a, I>(&self, targets: I)
         where
             I: Iterator<Item = Target<'a>> + Send,

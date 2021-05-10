@@ -186,7 +186,7 @@ impl System {
             rotate_tx,
             route_to_ports: Arc::default(),
             routes: Arc::default(),
-            routing_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
+            routes_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
                 params.width,
                 params.width,
                 routing_travel_duration,
