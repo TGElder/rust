@@ -15,11 +15,22 @@ where
         settlement: Settlement,
         traffic: &[TownTrafficSummary],
     ) -> Settlement {
-        let params = self.cx.parameters().simulation;
+        let params = self.cx.parameters();
         Settlement {
-            target_population: get_target_population(traffic, params.traffic_to_population),
-            nation: get_nation(&settlement.nation, traffic, params.nation_flip_traffic_pc),
-            gap_half_life: get_gap_half_life(settlement.gap_half_life, traffic),
+            target_population: get_target_population(
+                traffic,
+                params.simulation.traffic_to_population,
+            ),
+            nation: get_nation(
+                &settlement.nation,
+                traffic,
+                params.simulation.nation_flip_traffic_pc,
+            ),
+            gap_half_life: get_gap_half_life(
+                settlement.gap_half_life,
+                traffic,
+                params.half_life_factor,
+            ),
             ..settlement
         }
     }
@@ -59,7 +70,11 @@ fn get_nation(
     }
 }
 
-fn get_gap_half_life(original: Duration, traffic_summaries: &[TownTrafficSummary]) -> Duration {
+fn get_gap_half_life(
+    original: Duration,
+    traffic_summaries: &[TownTrafficSummary],
+    half_life_factor: f32,
+) -> Duration {
     if traffic_summaries.is_empty() {
         return original;
     }
@@ -72,7 +87,7 @@ fn get_gap_half_life(original: Duration, traffic_summaries: &[TownTrafficSummary
         .iter()
         .map(|summary| summary.traffic_share)
         .sum::<f64>();
-    numerator.div_f64(denominator).mul_f64(5.19) // converting "seven-eighth life" to half life
+    numerator.div_f64(denominator).mul_f32(half_life_factor)
 }
 
 #[cfg(test)]
@@ -217,12 +232,14 @@ mod tests {
     }
 
     #[test]
-    // equivalent half life is (ln(0.5) / ln(0.75)) * three-quarter life
-    fn should_set_gap_seven_eigth_life_to_total_round_trip_duration_divided_by_total_traffic_share()
-    {
+    fn should_set_gap_to_total_round_trip_duration_divided_by_total_traffic_share_multiplied_by_half_life_factor(
+    ) {
         // Given
         let settlement = Settlement::default();
-        let sim = SettlementSimulation::new(Cx::default(), Arc::new(()));
+
+        let mut cx = Cx::default();
+        cx.parameters.half_life_factor = 2.0;
+        let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
         let updated = block_on(sim.update_town(
@@ -243,7 +260,7 @@ mod tests {
 
         // Then
         let gap_half_life_millis = updated.gap_half_life.as_nanos() as f32 / 1000000.0;
-        assert!(gap_half_life_millis.almost(&31.14));
+        assert!(gap_half_life_millis.almost(&12.0));
     }
 
     #[test]
