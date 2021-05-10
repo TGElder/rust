@@ -43,6 +43,7 @@ pub struct Parameters {
     pub simulation: SimulationParameters,
     pub mine_rules: Vec<MineRule>,
     pub deep_sea_pc: f32,
+    pub half_life_factor: f32,
 }
 
 impl Default for Parameters {
@@ -86,6 +87,7 @@ impl Default for Parameters {
                 },
             ],
             deep_sea_pc: 0.67,
+            half_life_factor: 5.19,
         }
     }
 }

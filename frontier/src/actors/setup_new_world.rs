@@ -108,6 +108,7 @@ where
             &homeland_starts,
             &nations,
             initial_population,
+            self.cx.parameters().half_life_factor,
         )
     }
 
@@ -214,6 +215,7 @@ fn gen_homelands(
     homeland_starts: &[HomelandStart],
     nations: &HashMap<String, Nation>,
     initial_population: f64,
+    half_life_factor: f32,
 ) -> HashMap<V2<usize>, Settlement> {
     nations
         .keys()
@@ -224,6 +226,7 @@ fn gen_homelands(
                 &homeland_starts[i],
                 nation.to_string(),
                 initial_population,
+                half_life_factor,
             )
         })
         .map(|settlement| (settlement.position, settlement))
@@ -235,6 +238,7 @@ fn gen_homeland(
     homeland_start: &HomelandStart,
     nation: String,
     initial_population: f64,
+    half_life_factor: f32,
 ) -> Settlement {
     Settlement {
         class: SettlementClass::Homeland,
@@ -243,7 +247,7 @@ fn gen_homeland(
         nation,
         current_population: initial_population,
         target_population: 0.0,
-        gap_half_life: (*homeland_distance * 2).mul_f32(5.19), // 5.19 makes half life equivalent to '7/8th life'
+        gap_half_life: (*homeland_distance * 2).mul_f32(half_life_factor),
         last_population_update_micros: 0,
     }
 }
