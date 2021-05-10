@@ -25,8 +25,8 @@ pub struct Parameters {
     pub world_gen: WorldGenParameters,
     pub resource_gen: ResourceGenParameters,
     pub base_colors: BaseColors,
-    pub avatar_travel: AvatarTravelParams,
-    pub npc_travel_mode_change_penalty_millis: u64,
+    pub player_travel: AvatarTravelParams,
+    pub npc_travel: AvatarTravelParams,
     pub auto_road_travel: RoadBuildTravelParams,
     pub light_direction: V3<f32>,
     pub snow_temperature: f32,
@@ -56,8 +56,11 @@ impl Default for Parameters {
             world_gen: WorldGenParameters::default(),
             resource_gen: ResourceGenParameters::default(),
             base_colors: BaseColors::default(),
-            avatar_travel: AvatarTravelParams::default(),
-            npc_travel_mode_change_penalty_millis: 86_400_000,
+            player_travel: AvatarTravelParams::default(),
+            npc_travel: AvatarTravelParams {
+                travel_mode_change_penalty_millis: 86_400_000,
+                ..AvatarTravelParams::default()
+            },
             auto_road_travel: RoadBuildTravelParams::default(),
             light_direction: v3(0.0, 8.0, -1.0),
             snow_temperature: 0.0,
@@ -87,7 +90,7 @@ impl Default for Parameters {
                 },
             ],
             deep_sea_pc: 0.67,
-            half_life_factor: 5.19,
+            half_life_factor: 5.19, // ln(0.5) / ln(0.875) - converts 7/8 life to 1/2 life
         }
     }
 }

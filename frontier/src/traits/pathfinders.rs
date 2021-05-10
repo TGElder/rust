@@ -9,70 +9,64 @@ use crate::traits::{
     WithWorld,
 };
 
-pub trait PathfinderWithPlannedRoads {
+pub trait PathfinderForRoutes {
     type T: WithPathfinder + Clone + Send + Sync + 'static;
 
-    fn pathfinder_with_planned_roads(&self) -> &Self::T;
+    fn routes_pathfinder(&self) -> &Self::T;
 }
 
 #[async_trait]
-pub trait InBoundsWithPlannedRoads {
+pub trait InBoundsForRoutes {
     async fn in_bounds(&self, position: &V2<usize>) -> bool;
 }
 
 #[async_trait]
-impl<T> InBoundsWithPlannedRoads for T
+impl<T> InBoundsForRoutes for T
 where
-    T: PathfinderWithPlannedRoads + Sync,
+    T: PathfinderForRoutes + Sync,
 {
     async fn in_bounds(&self, position: &V2<usize>) -> bool {
-        self.pathfinder_with_planned_roads()
-            .in_bounds(position)
-            .await
+        self.routes_pathfinder().in_bounds(position).await
     }
 }
 
 #[async_trait]
-pub trait InitTargetsWithPlannedRoads {
+pub trait InitTargetsForRoutes {
     async fn init_targets(&self, name: String);
 }
 
 #[async_trait]
-impl<T> InitTargetsWithPlannedRoads for T
+impl<T> InitTargetsForRoutes for T
 where
-    T: PathfinderWithPlannedRoads + Sync,
+    T: PathfinderForRoutes + Sync,
 {
     async fn init_targets(&self, name: String) {
-        self.pathfinder_with_planned_roads()
-            .init_targets(name)
-            .await;
+        self.routes_pathfinder().init_targets(name).await;
     }
 }
 
 #[async_trait]
-pub trait LoadTargetWithPlannedRoads {
+pub trait LoadTargetForRoutes {
     async fn load_targets<'a, I>(&self, targets: I)
     where
         I: Iterator<Item = Target<'a>> + Send;
 }
 
 #[async_trait]
-impl<T> LoadTargetWithPlannedRoads for T
+impl<T> LoadTargetForRoutes for T
 where
-    T: PathfinderWithPlannedRoads + Sync,
+    T: PathfinderForRoutes + Sync,
 {
     async fn load_targets<'a, I>(&self, targets: I)
     where
         I: Iterator<Item = Target<'a>> + Send,
     {
-        self.pathfinder_with_planned_roads()
-            .load_targets(targets)
-            .await
+        self.routes_pathfinder().load_targets(targets).await
     }
 }
 
 #[async_trait]
-pub trait ClosestTargetsWithPlannedRoads {
+pub trait ClosestTargetsForRoutes {
     async fn closest_targets(
         &self,
         positions: &[V2<usize>],
@@ -82,9 +76,9 @@ pub trait ClosestTargetsWithPlannedRoads {
 }
 
 #[async_trait]
-impl<T> ClosestTargetsWithPlannedRoads for T
+impl<T> ClosestTargetsForRoutes for T
 where
-    T: PathfinderWithPlannedRoads + Sync,
+    T: PathfinderForRoutes + Sync,
 {
     async fn closest_targets(
         &self,
@@ -92,31 +86,31 @@ where
         targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult> {
-        self.pathfinder_with_planned_roads()
+        self.routes_pathfinder()
             .closest_targets(positions, targets, n_closest)
             .await
     }
 }
 
-pub trait PathfinderWithoutPlannedRoads {
+pub trait PathfinderForPlayer {
     type T: WithPathfinder + Clone + Send + Sync + 'static;
 
-    fn pathfinder_without_planned_roads(&self) -> &Self::T;
+    fn player_pathfinder(&self) -> &Self::T;
 }
 
 #[async_trait]
-pub trait CostOfPathWithoutPlannedRoads {
-    async fn cost_of_path_without_planned_roads(&self, path: &[V2<usize>]) -> Option<Duration>;
+pub trait CostOfPathForPlayer {
+    async fn cost_of_path_for_player(&self, path: &[V2<usize>]) -> Option<Duration>;
 }
 
 #[async_trait]
-impl<T> CostOfPathWithoutPlannedRoads for T
+impl<T> CostOfPathForPlayer for T
 where
-    T: PathfinderWithoutPlannedRoads + WithWorld + Sync,
+    T: PathfinderForPlayer + WithWorld + Sync,
 {
-    async fn cost_of_path_without_planned_roads(&self, path: &[V2<usize>]) -> Option<Duration> {
+    async fn cost_of_path_for_player(&self, path: &[V2<usize>]) -> Option<Duration> {
         let travel_duration = self
-            .pathfinder_without_planned_roads()
+            .player_pathfinder()
             .with_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
             .await;
 

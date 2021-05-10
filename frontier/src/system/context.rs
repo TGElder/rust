@@ -24,12 +24,12 @@ use crate::territory::Territory;
 use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::{HasFollowAvatar, HasParameters};
 use crate::traits::{
-    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
-    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate,
-    SendSystem, SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist,
-    WithAvatars, WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder,
-    WithResources, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory,
-    WithTraffic, WithVisibility, WithVisited, WithWorld,
+    NotMock, PathfinderForPlayer, PathfinderForRoutes, RunInBackground, SendEdgeBuildSim,
+    SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate, SendSystem,
+    SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
+    WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithResources,
+    WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic,
+    WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
 use crate::world::World;
@@ -65,8 +65,7 @@ pub struct Context {
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
     pub object_builder_tx: FnSender<ObjectBuilderActor<Context>>,
     pub parameters: Arc<Parameters>,
-    pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
-    pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub player_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Context>>,
     pub pool: ThreadPool,
     pub position_sim_tx: FnSender<PositionBuildSimulation<Context>>,
@@ -77,6 +76,7 @@ pub struct Context {
     pub rotate_tx: FnSender<Rotate<Context>>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
+    pub routes_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Context, AvatarTravelDuration>>>,
     pub settlements: Arc<RwLock<HashMap<V2<usize>, Settlement>>>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Context>>,
@@ -119,8 +119,7 @@ impl Context {
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             parameters: self.parameters.clone(),
-            pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
-            pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
+            player_pathfinder: self.player_pathfinder.clone(),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
                 .clone_with_name(name),
@@ -133,6 +132,7 @@ impl Context {
             rotate_tx: self.rotate_tx.clone_with_name(name),
             route_to_ports: self.route_to_ports.clone(),
             routes: self.routes.clone(),
+            routes_pathfinder: self.routes_pathfinder.clone(),
             settlement_sim_txs: self
                 .settlement_sim_txs
                 .iter()
@@ -616,19 +616,19 @@ impl WithPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
     }
 }
 
-impl PathfinderWithPlannedRoads for Context {
+impl PathfinderForRoutes for Context {
     type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
-    fn pathfinder_with_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_with_planned_roads
+    fn routes_pathfinder(&self) -> &Self::T {
+        &self.routes_pathfinder
     }
 }
 
-impl PathfinderWithoutPlannedRoads for Context {
+impl PathfinderForPlayer for Context {
     type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
-    fn pathfinder_without_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_without_planned_roads
+    fn player_pathfinder(&self) -> &Self::T {
+        &self.player_pathfinder
     }
 }
 

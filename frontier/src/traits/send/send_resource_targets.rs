@@ -2,18 +2,11 @@ use commons::async_trait::async_trait;
 use futures::future::BoxFuture;
 
 use crate::actors::ResourceTargets;
-use crate::traits::{
-    GetWorldObjects, InitTargetsWithPlannedRoads, LoadTargetWithPlannedRoads, WithResources,
-};
+use crate::traits::{GetWorldObjects, InitTargetsForRoutes, LoadTargetForRoutes, WithResources};
 
 #[async_trait]
 pub trait SendResourceTargets:
-    GetWorldObjects
-    + InitTargetsWithPlannedRoads
-    + LoadTargetWithPlannedRoads
-    + WithResources
-    + Send
-    + Sync
+    GetWorldObjects + InitTargetsForRoutes + LoadTargetForRoutes + WithResources + Send + Sync
 {
     async fn send_resource_targets_future<F, O>(&self, function: F) -> O
     where
