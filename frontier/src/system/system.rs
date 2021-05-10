@@ -95,7 +95,7 @@ impl System {
             deep_sea_level,
             ..params.npc_travel
         };
-        let routing_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
+        let routes_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
             include_planned_roads: true,
             ..npc_travel_params
         }));
@@ -189,7 +189,7 @@ impl System {
             routes_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
                 params.width,
                 params.width,
-                routing_travel_duration,
+                routes_travel_duration,
             ))),
             settlement_sim_txs,
             settlements: Arc::default(),
