@@ -24,12 +24,12 @@ use crate::territory::Territory;
 use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::{HasFollowAvatar, HasParameters};
 use crate::traits::{
-    NotMock, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, RunInBackground,
-    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate,
-    SendSystem, SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist,
-    WithAvatars, WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder,
-    WithResources, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory,
-    WithTraffic, WithVisibility, WithVisited, WithWorld,
+    NotMock, PathfinderForPlayer, PathfinderForRouting, RunInBackground, SendEdgeBuildSim,
+    SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate, SendSystem,
+    SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
+    WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithResources,
+    WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic,
+    WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
 use crate::world::World;
@@ -65,8 +65,8 @@ pub struct Context {
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
     pub object_builder_tx: FnSender<ObjectBuilderActor<Context>>,
     pub parameters: Arc<Parameters>,
-    pub pathfinder_with_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
-    pub pathfinder_without_planned_roads: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub routing_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub player_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Context>>,
     pub pool: ThreadPool,
     pub position_sim_tx: FnSender<PositionBuildSimulation<Context>>,
@@ -119,8 +119,8 @@ impl Context {
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             parameters: self.parameters.clone(),
-            pathfinder_with_planned_roads: self.pathfinder_with_planned_roads.clone(),
-            pathfinder_without_planned_roads: self.pathfinder_without_planned_roads.clone(),
+            routing_pathfinder: self.routing_pathfinder.clone(),
+            player_pathfinder: self.player_pathfinder.clone(),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
                 .clone_with_name(name),
@@ -616,19 +616,19 @@ impl WithPathfinder for Arc<RwLock<Pathfinder<AvatarTravelDuration>>> {
     }
 }
 
-impl PathfinderWithPlannedRoads for Context {
+impl PathfinderForRouting for Context {
     type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
-    fn pathfinder_with_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_with_planned_roads
+    fn routing_pathfinder(&self) -> &Self::T {
+        &self.routing_pathfinder
     }
 }
 
-impl PathfinderWithoutPlannedRoads for Context {
+impl PathfinderForPlayer for Context {
     type T = Arc<RwLock<Pathfinder<AvatarTravelDuration>>>;
 
-    fn pathfinder_without_planned_roads(&self) -> &Self::T {
-        &self.pathfinder_without_planned_roads
+    fn player_pathfinder(&self) -> &Self::T {
+        &self.player_pathfinder
     }
 }
 

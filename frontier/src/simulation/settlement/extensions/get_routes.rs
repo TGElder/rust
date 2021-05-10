@@ -3,7 +3,7 @@ use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traits::{ClosestTargetsWithPlannedRoads, CostOfPath, InBoundsWithPlannedRoads, Micros};
+use crate::traits::{ClosestTargetsForRouting, CostOfPath, InBoundsForRouting, Micros};
 use crate::travel_duration::TravelDuration;
 use commons::grid::get_corners;
 use commons::V2;
@@ -12,7 +12,7 @@ use std::time::Duration;
 
 impl<T, D> SettlementSimulation<T, D>
 where
-    T: ClosestTargetsWithPlannedRoads + CostOfPath + InBoundsWithPlannedRoads + Micros,
+    T: ClosestTargetsForRouting + CostOfPath + InBoundsForRouting + Micros,
     D: TravelDuration,
 {
     pub async fn get_routes(&self, demand: Demand) -> Routes {
@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl ClosestTargetsWithPlannedRoads for HappyPathTx {
+    impl ClosestTargetsForRouting for HappyPathTx {
         async fn closest_targets(
             &self,
             positions: &[V2<usize>],
@@ -147,7 +147,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl InBoundsWithPlannedRoads for HappyPathTx {
+    impl InBoundsForRouting for HappyPathTx {
         async fn in_bounds(&self, position: &V2<usize>) -> bool {
             *position != v2(2, 4)
         }
@@ -347,7 +347,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl ClosestTargetsWithPlannedRoads for PanicPathfinderTx {
+    impl ClosestTargetsForRouting for PanicPathfinderTx {
         async fn closest_targets(
             &self,
             _: &[V2<usize>],
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl InBoundsWithPlannedRoads for PanicPathfinderTx {
+    impl InBoundsForRouting for PanicPathfinderTx {
         async fn in_bounds(&self, _: &V2<usize>) -> bool {
             panic!("in_bounds was called!");
         }
