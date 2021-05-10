@@ -167,11 +167,6 @@ impl System {
             nations: Arc::default(),
             object_builder_tx,
             parameters: params.clone(),
-            routing_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
-                params.width,
-                params.width,
-                routing_travel_duration,
-            ))),
             player_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
                 params.width,
                 params.width,
@@ -191,6 +186,11 @@ impl System {
             rotate_tx,
             route_to_ports: Arc::default(),
             routes: Arc::default(),
+            routing_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
+                params.width,
+                params.width,
+                routing_travel_duration,
+            ))),
             settlement_sim_txs,
             settlements: Arc::default(),
             setup_new_world_tx,

@@ -65,7 +65,6 @@ pub struct Context {
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
     pub object_builder_tx: FnSender<ObjectBuilderActor<Context>>,
     pub parameters: Arc<Parameters>,
-    pub routing_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub player_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Context>>,
     pub pool: ThreadPool,
@@ -77,6 +76,7 @@ pub struct Context {
     pub rotate_tx: FnSender<Rotate<Context>>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
+    pub routing_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Context, AvatarTravelDuration>>>,
     pub settlements: Arc<RwLock<HashMap<V2<usize>, Settlement>>>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Context>>,
@@ -119,7 +119,6 @@ impl Context {
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             parameters: self.parameters.clone(),
-            routing_pathfinder: self.routing_pathfinder.clone(),
             player_pathfinder: self.player_pathfinder.clone(),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
@@ -133,6 +132,7 @@ impl Context {
             rotate_tx: self.rotate_tx.clone_with_name(name),
             route_to_ports: self.route_to_ports.clone(),
             routes: self.routes.clone(),
+            routing_pathfinder: self.routing_pathfinder.clone(),
             settlement_sim_txs: self
                 .settlement_sim_txs
                 .iter()

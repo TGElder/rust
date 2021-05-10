@@ -18,8 +18,8 @@ where
     T: Micros
         + Redraw
         + Visibility
-        + PathfinderForPlayer
         + PathfinderForRouting
+        + PathfinderForPlayer
         + WithWorld
         + Send
         + Sync
@@ -61,7 +61,7 @@ fn check_visibility_and_reveal(cx: &dyn Visibility, result: &Arc<RoadBuilderResu
 
 async fn update_pathfinders<T>(cx: &T, result: &Arc<RoadBuilderResult>)
 where
-    T: PathfinderForRouting + PathfinderForPlayer + WithWorld,
+    T: PathfinderForPlayer + PathfinderForRouting + WithWorld,
 {
     let pathfinder_with = cx.routing_pathfinder().clone();
     let pathfinder_without = cx.player_pathfinder().clone();

@@ -164,7 +164,7 @@ where
 
     fn avatar_travel_mode_fn(&self) -> AvatarTravelModeFn {
         AvatarTravelModeFn::new(
-            self.cx.parameters().player_travel.min_navigable_river_width,
+            self.cx.parameters().npc_travel.min_navigable_river_width,
             true,
         )
     }

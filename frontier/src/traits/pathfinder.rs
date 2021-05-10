@@ -125,18 +125,18 @@ pub trait UpdatePositionsAllPathfinders {
 #[async_trait]
 impl<T> UpdatePositionsAllPathfinders for T
 where
-    T: PathfinderForRouting + PathfinderForPlayer + UpdatePathfinderPositions + Send + Sync,
+    T: PathfinderForPlayer + PathfinderForRouting + UpdatePathfinderPositions + Send + Sync,
 {
     async fn update_positions_all_pathfinders<I>(&self, positions: I)
     where
         I: IntoIterator<Item = V2<usize>> + Clone + Send + Sync + 'static,
     {
-        let pathfinder_with = self.routing_pathfinder();
-        let pathfinder_without = self.player_pathfinder();
+        let routing_pathfinder = self.routing_pathfinder();
+        let player_pathfinder = self.player_pathfinder();
 
         join!(
-            self.update_pathfinder_positions(pathfinder_with, positions.clone()),
-            self.update_pathfinder_positions(pathfinder_without, positions),
+            self.update_pathfinder_positions(player_pathfinder, positions),
+            self.update_pathfinder_positions(routing_pathfinder, positions.clone()),
         );
     }
 }
