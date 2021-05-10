@@ -90,7 +90,7 @@ impl Default for Parameters {
                 },
             ],
             deep_sea_pc: 0.67,
-            half_life_factor: 1.0,
+            half_life_factor: 5.19, // ln(0.5) / ln(0.875) - converts 7/8 life to 1/2 life
         }
     }
 }
