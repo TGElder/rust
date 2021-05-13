@@ -6,6 +6,7 @@ use crate::actors::{
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
+use crate::bridge::Bridges;
 use crate::build::BuildQueue;
 use crate::nation::Nation;
 use crate::parameters::Parameters;
@@ -52,6 +53,7 @@ pub struct Context {
     pub background_service: Arc<BackgroundService>,
     pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Context>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Context>>,
+    pub bridges: Arc<RwLock<Bridges>>,
     pub builder_tx: FnSender<BuilderActor<Context>>,
     pub build_queue: Arc<RwLock<BuildQueue>>,
     pub cheats_tx: FnSender<Cheats<Context>>,
@@ -106,6 +108,7 @@ impl Context {
             background_service: self.background_service.clone(),
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
+            bridges: self.bridges.clone(),
             builder_tx: self.builder_tx.clone_with_name(name),
             build_queue: self.build_queue.clone(),
             cheats_tx: self.cheats_tx.clone_with_name(name),
