@@ -72,7 +72,7 @@ pub trait TravelDuration: Send + Sync {
                     duration: self.get_duration(world, &neighbour, &position),
                 }))
             });
-        
+
         let bridges = world.bridges(&position).into_iter().flat_map(move |edge| {
             once(EdgeDuration {
                 from: *edge.from(),

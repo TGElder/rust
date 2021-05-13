@@ -34,7 +34,7 @@ where
     async fn new_edge_traffic(&self, key: &RouteKey, route: &Route) {
         self.cx
             .mut_edge_traffic(|edge_traffic| {
-                for edge in route.path.edges() {
+                for edge in route.path.unit_edges() {
                     edge_traffic
                         .entry(edge)
                         .or_insert_with(HashSet::new)

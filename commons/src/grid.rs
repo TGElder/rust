@@ -84,20 +84,25 @@ pub trait Grid<T> {
             .collect()
     }
 
-    fn bridges(& self, position: & V2<usize>) -> Vec<Edge> {
+    fn bridges(&self, position: &V2<usize>) -> Vec<Edge> {
         once(
-            match (self.offset(position, v2(-1, 0)), self.offset(position, v2(1, 0))) {
+            match (
+                self.offset(position, v2(-1, 0)),
+                self.offset(position, v2(1, 0)),
+            ) {
                 (Some(from), Some(to)) => Some(Edge::new(from, to)),
                 _ => None,
-            }
-        ).chain(
-            once(
-                match (self.offset(position, v2(0, -1)), self.offset(position, v2(0, 1))) {
-                    (Some(from), Some(to)) => Some(Edge::new(from, to)),
-                    _ => None,
-                }
-            )
+            },
         )
+        .chain(once(
+            match (
+                self.offset(position, v2(0, -1)),
+                self.offset(position, v2(0, 1)),
+            ) {
+                (Some(from), Some(to)) => Some(Edge::new(from, to)),
+                _ => None,
+            },
+        ))
         .flatten()
         .collect()
     }

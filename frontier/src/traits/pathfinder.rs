@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
-use commons::log::error;
 use commons::grid::Grid;
+use commons::log::error;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
@@ -242,17 +242,22 @@ where
                 .map(|i| travel_duration.get_duration(world, &path[i], &path[i + 1]))
                 .sum();
 
-
             if out.is_none() {
-                for i in 0..path.len() -1 {
-                    if travel_duration.get_duration(world, &path[i], &path[i + 1]).is_none() {
-                        error!("{:?} -> {:?}", world.get_cell_unsafe(&path[i]), world.get_cell_unsafe(&path[i + 1]));
+                for i in 0..path.len() - 1 {
+                    if travel_duration
+                        .get_duration(world, &path[i], &path[i + 1])
+                        .is_none()
+                    {
+                        error!(
+                            "{:?} -> {:?}",
+                            world.get_cell_unsafe(&path[i]),
+                            world.get_cell_unsafe(&path[i + 1])
+                        );
                     }
                 }
             }
             out
         })
         .await
-
     }
 }

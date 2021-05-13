@@ -184,18 +184,24 @@ impl AvatarTravelDuration {
         if !self.travel_mode_fn.is_navigable_river_here(world, &middle) {
             return None;
         }
-        if world.is_road(&Edge::new(*from, middle)) && world.is_road(&Edge::new(middle, *to)) { // TODO planned roads
-            match (self.road.get_duration(world, from, &middle), self.road.get_duration(world, &middle, to)) {
+        if world.is_road(&Edge::new(*from, middle)) && world.is_road(&Edge::new(middle, *to)) {
+            // TODO planned roads
+            match (
+                self.road.get_duration(world, from, &middle),
+                self.road.get_duration(world, &middle, to),
+            ) {
                 (Some(from), Some(to)) => Some((from + to) / 2),
-                _ => None
+                _ => None,
             }
         } else {
-            match (self.get_duration(world, from, &middle), self.get_duration(world, &middle, to)) {
+            match (
+                self.get_duration(world, from, &middle),
+                self.get_duration(world, &middle, to),
+            ) {
                 (Some(from), Some(to)) => Some(from + to),
-                _ => None
+                _ => None,
             }
         }
-        
     }
 }
 
@@ -231,12 +237,14 @@ impl TravelDuration for AvatarTravelDuration {
     }
 
     fn max_duration(&self) -> Duration {
-        (self.walk
+        (self
+            .walk
             .max_duration()
             .max(self.road.max_duration())
             .max(self.stream.max_duration())
             .max(self.river.max_duration())
-            + Duration::from_millis(self.parameters.travel_mode_change_penalty_millis)) * 2
+            + Duration::from_millis(self.parameters.travel_mode_change_penalty_millis))
+            * 2
     }
 }
 
