@@ -1,4 +1,5 @@
 mod with_avatars;
+mod with_bridges;
 mod with_build_queue;
 mod with_clock;
 mod with_edge_traffic;
@@ -16,6 +17,7 @@ mod with_visited;
 mod with_world;
 
 pub use with_avatars::*;
+pub use with_bridges::*;
 pub use with_build_queue::*;
 pub use with_clock::*;
 pub use with_edge_traffic::*;

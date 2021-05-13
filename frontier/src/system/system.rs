@@ -83,23 +83,24 @@ impl System {
 
         let sea_level = params.world_gen.sea_level as f32;
         let deep_sea_level = params.world_gen.sea_level as f32 * params.deep_sea_pc;
-        let avatar_travel_params = AvatarTravelParams {
+
+        let player_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
             sea_level,
             deep_sea_level,
-            ..params.avatar_travel
-        };
-        let avatar_travel_duration_with_planned_roads =
-            Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
-                travel_mode_change_penalty_millis: params.npc_travel_mode_change_penalty_millis,
-                include_planned_roads: true,
-                ..avatar_travel_params
-            }));
-        let npc_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
-            travel_mode_change_penalty_millis: params.npc_travel_mode_change_penalty_millis,
-            ..avatar_travel_params
+            ..params.player_travel
         }));
-        let avatar_travel_duration_without_planned_roads =
-            Arc::new(AvatarTravelDuration::new(avatar_travel_params));
+
+        let npc_travel_params = AvatarTravelParams {
+            sea_level,
+            deep_sea_level,
+            ..params.npc_travel
+        };
+        let routes_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
+            include_planned_roads: true,
+            ..npc_travel_params
+        }));
+        let npc_travel_duration = Arc::new(AvatarTravelDuration::new(npc_travel_params));
+
         let road_build_travel_duration = Arc::new(RoadBuildTravelDuration::from_params(
             RoadBuildTravelParams {
                 sea_level,
@@ -153,6 +154,7 @@ impl System {
             background_service: Arc::new(BackgroundService::new(pool.clone())),
             basic_avatar_controls_tx,
             basic_road_builder_tx,
+            bridges: Arc::default(),
             builder_tx,
             build_queue: Arc::default(),
             cheats_tx,
@@ -166,15 +168,10 @@ impl System {
             nations: Arc::default(),
             object_builder_tx,
             parameters: params.clone(),
-            pathfinder_with_planned_roads: Arc::new(RwLock::new(Pathfinder::new(
+            player_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
                 params.width,
                 params.width,
-                avatar_travel_duration_with_planned_roads,
-            ))),
-            pathfinder_without_planned_roads: Arc::new(RwLock::new(Pathfinder::new(
-                params.width,
-                params.width,
-                avatar_travel_duration_without_planned_roads.clone(),
+                player_travel_duration.clone(),
             ))),
             pathfinding_avatar_controls_tx,
             pool,
@@ -190,6 +187,11 @@ impl System {
             rotate_tx,
             route_to_ports: Arc::default(),
             routes: Arc::default(),
+            routes_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
+                params.width,
+                params.width,
+                routes_travel_duration,
+            ))),
             settlement_sim_txs,
             settlements: Arc::default(),
             setup_new_world_tx,
@@ -249,14 +251,14 @@ impl System {
                 basic_avatar_controls: Process::new(
                     BasicAvatarControls::new(
                         cx.clone_with_name("basic_avatar_controls"),
-                        avatar_travel_duration_without_planned_roads.clone(),
+                        player_travel_duration.clone(),
                     ),
                     basic_avatar_controls_rx,
                 ),
                 basic_road_builder: Process::new(
                     BasicRoadBuilder::new(
                         cx.clone_with_name("basic_road_builder"),
-                        avatar_travel_duration_without_planned_roads.clone(),
+                        player_travel_duration.clone(),
                         road_build_travel_duration.clone(),
                     ),
                     basic_road_builder_rx,
@@ -303,7 +305,7 @@ impl System {
                 pathfinding_avatar_controls: Process::new(
                     PathfindingAvatarControls::new(
                         cx.clone_with_name("pathfinding_avatar_controls"),
-                        avatar_travel_duration_without_planned_roads,
+                        player_travel_duration,
                     ),
                     pathfinding_avatar_controls_rx,
                 ),
@@ -383,7 +385,7 @@ impl System {
                             params.width,
                             WorldArtistParameters {
                                 waterfall_gradient: params
-                                    .avatar_travel
+                                    .player_travel
                                     .max_navigable_river_gradient,
                                 ..WorldArtistParameters::default()
                             },
@@ -483,6 +485,11 @@ impl System {
             .await
             .save(&format!("{}.avatars", path));
         self.cx
+            .bridges
+            .read()
+            .await
+            .save(&format!("{}.bridges", path));
+        self.cx
             .build_queue
             .read()
             .await
@@ -547,6 +554,7 @@ impl System {
         self.cx.clock.write().await.load(&format!("{}.clock", path));
 
         *self.cx.avatars.write().await = <_>::load(&format!("{}.avatars", path));
+        *self.cx.bridges.write().await = <_>::load(&format!("{}.bridges", path));
         *self.cx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
         *self.cx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
         *self.cx.nations.write().await = <_>::load(&format!("{}.nations", path));

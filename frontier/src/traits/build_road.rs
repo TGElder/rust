@@ -1,6 +1,6 @@
 use crate::road_builder::RoadBuilderResult;
 use crate::traits::{
-    Micros, PathfinderWithPlannedRoads, PathfinderWithoutPlannedRoads, Redraw, SendPathfinder,
+    Micros, PathfinderForRoutes, PathfinderForPlayer, Redraw, SendPathfinder,
     WithWorld, Visibility,
 };
 use crate::travel_duration::{EdgeDuration, TravelDuration};
@@ -18,8 +18,8 @@ where
     T: Micros
         + Redraw
         + Visibility
-        + PathfinderWithoutPlannedRoads
-        + PathfinderWithPlannedRoads
+        + PathfinderForRoutes
+        + PathfinderForPlayer
         + WithWorld
         + Send
         + Sync
@@ -61,10 +61,10 @@ fn check_visibility_and_reveal(cx: &dyn Visibility, result: &Arc<RoadBuilderResu
 
 async fn update_pathfinders<T>(cx: &T, result: &Arc<RoadBuilderResult>)
 where
-    T: PathfinderWithPlannedRoads + PathfinderWithoutPlannedRoads + WithWorld,
+    T: PathfinderForPlayer + PathfinderForRoutes + WithWorld,
 {
-    let pathfinder_with = cx.pathfinder_with_planned_roads().clone();
-    let pathfinder_without = cx.pathfinder_without_planned_roads().clone();
+    let pathfinder_with = cx.routes_pathfinder().clone();
+    let pathfinder_without = cx.player_pathfinder().clone();
 
     join!(
         update_pathfinder(cx, pathfinder_with, result),

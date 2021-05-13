@@ -10,6 +10,7 @@ mod args;
 mod artists;
 mod avatar;
 mod avatars;
+mod bridge;
 mod build;
 mod homeland_start;
 mod label_editor;
