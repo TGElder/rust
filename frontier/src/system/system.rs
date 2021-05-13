@@ -163,6 +163,7 @@ impl System {
             background_service: Arc::new(BackgroundService::new(pool.clone())),
             basic_avatar_controls_tx,
             basic_road_builder_tx,
+            bridges: Arc::default(),
             builder_tx,
             build_queue: Arc::default(),
             cheats_tx,
@@ -515,6 +516,11 @@ impl System {
             .await
             .save(&format!("{}.avatars", path));
         self.cx
+            .bridges
+            .read()
+            .await
+            .save(&format!("{}.bridges", path));
+        self.cx
             .build_queue
             .read()
             .await
@@ -579,6 +585,7 @@ impl System {
         self.cx.clock.write().await.load(&format!("{}.clock", path));
 
         *self.cx.avatars.write().await = <_>::load(&format!("{}.avatars", path));
+        *self.cx.bridges.write().await = <_>::load(&format!("{}.bridges", path));
         *self.cx.build_queue.write().await = <_>::load(&format!("{}.build_queue", path));
         *self.cx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
         *self.cx.nations.write().await = <_>::load(&format!("{}.nations", path));
