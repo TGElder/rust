@@ -11,10 +11,7 @@ where
     fn travel_mode_change(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> bool {
         let from_classes = self.travel_mode_classes_here(world, from);
         let to_classes = self.travel_mode_classes_here(world, to);
-        if from_classes.is_empty() && to_classes.is_empty() {
-            return false;
-        }
-        !from_classes.intersection(&to_classes).any(|_| true)
+        from_classes != to_classes
     }
 }
 

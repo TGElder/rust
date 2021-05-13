@@ -2,6 +2,7 @@ use super::*;
 
 use crate::travel_duration::*;
 use crate::world::{World, WorldCell};
+use commons::edge::Edge;
 use commons::grid::Grid;
 use commons::scale::*;
 use commons::*;
@@ -34,7 +35,7 @@ impl Default for AvatarTravelParams {
             min_navigable_river_width: 0.1,
             max_navigable_river_gradient: 0.1,
             river_1_cell_duration_millis: 900_000.0,
-            road_1_cell_duration_millis: 1_200_000,
+            road_1_cell_duration_millis: 900_000,
             sea_1_cell_duration_millis: 900_000,
             travel_mode_change_penalty_millis: 1_800_000,
             include_planned_roads: false,
@@ -147,7 +148,11 @@ impl AvatarTravelDuration {
         to: &V2<usize>,
     ) -> Duration {
         if self.travel_mode_fn.travel_mode_change(world, from, to) {
-            Duration::from_millis(self.parameters.travel_mode_change_penalty_millis)
+            if world.get_cell_unsafe(from).road.here() || world.get_cell_unsafe(to).road.here() {
+                Duration::from_millis(self.parameters.travel_mode_change_penalty_millis) / 2
+            } else {
+                Duration::from_millis(self.parameters.travel_mode_change_penalty_millis)
+            }
         } else {
             Duration::from_millis(0)
         }
@@ -173,10 +178,32 @@ impl AvatarTravelDuration {
 
         true
     }
+
+    fn bridge_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
+        let middle = (from + to) / 2;
+        if !self.travel_mode_fn.is_navigable_river_here(world, &middle) {
+            return None;
+        }
+        if world.is_road(&Edge::new(*from, middle)) && world.is_road(&Edge::new(middle, *to)) { // TODO planned roads
+            match (self.road.get_duration(world, from, &middle), self.road.get_duration(world, &middle, to)) {
+                (Some(from), Some(to)) => Some((from + to) / 2),
+                _ => None
+            }
+        } else {
+            match (self.get_duration(world, from, &middle), self.get_duration(world, &middle, to)) {
+                (Some(from), Some(to)) => Some(from + to),
+                _ => None
+            }
+        }
+        
+    }
 }
 
 impl TravelDuration for AvatarTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
+        if abs_sub(to.x, from.x) + abs_sub(to.y, from.y) == 2 {
+            return self.bridge_duration(world, from, to);
+        }
         match world.get_cell(from) {
             Some(WorldCell { visible: true, .. }) => (),
             _ => return None,
@@ -204,12 +231,12 @@ impl TravelDuration for AvatarTravelDuration {
     }
 
     fn max_duration(&self) -> Duration {
-        self.walk
+        (self.walk
             .max_duration()
             .max(self.road.max_duration())
             .max(self.stream.max_duration())
             .max(self.river.max_duration())
-            + Duration::from_millis(self.parameters.travel_mode_change_penalty_millis)
+            + Duration::from_millis(self.parameters.travel_mode_change_penalty_millis)) * 2
     }
 }
 

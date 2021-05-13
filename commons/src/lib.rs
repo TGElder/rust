@@ -83,6 +83,14 @@ where
     true
 }
 
+pub fn abs_sub(a: usize, b: usize) -> usize {
+    if a > b {
+        a - b
+    } else {
+        b - a
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

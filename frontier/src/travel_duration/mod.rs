@@ -72,7 +72,21 @@ pub trait TravelDuration: Send + Sync {
                     duration: self.get_duration(world, &neighbour, &position),
                 }))
             });
-        Box::new(iterator)
+        
+        let bridges = world.bridges(&position).into_iter().flat_map(move |edge| {
+            once(EdgeDuration {
+                from: *edge.from(),
+                to: *edge.to(),
+                duration: self.get_duration(world, edge.from(), edge.to()),
+            })
+            .chain(once(EdgeDuration {
+                from: *edge.to(),
+                to: *edge.from(),
+                duration: self.get_duration(world, edge.to(), edge.from()),
+            }))
+        });
+
+        Box::new(iterator.chain(bridges))
     }
 }
 

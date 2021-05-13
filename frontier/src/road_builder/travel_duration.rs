@@ -73,6 +73,9 @@ impl RoadBuildTravelDuration {
 
 impl TravelDuration for RoadBuildTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
+        if abs_sub(to.x, from.x) + abs_sub(to.y, from.y) == 2 {
+            return None;
+        }
         match world.get_cell(from) {
             Some(WorldCell { visible: true, .. }) => (),
             _ => return None,

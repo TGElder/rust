@@ -42,19 +42,17 @@ impl TravelModeFn for AvatarTravelModeFn {
     fn travel_modes_here(&self, world: &World, position: &V2<usize>) -> Vec<TravelMode> {
         let mut out = vec![];
         if let Some(cell) = world.get_cell(position) {
-            if cell.road.here() {
-                out.push(TravelMode::Road);
-            } else if self.include_planned_roads && cell.planned_road.here() {
-                out.push(TravelMode::PlannedRoad);
-            }
             if world.is_sea(position) {
                 out.push(TravelMode::Sea);
             } else if self.is_navigable_river_here(world, position) {
                 out.push(TravelMode::River);
             } else if cell.river.here() {
                 out.push(TravelMode::Stream);
-            }
-            if out.is_empty() {
+            } else if cell.road.here() {
+                out.push(TravelMode::Road);
+            } else if self.include_planned_roads && cell.planned_road.here() {
+                out.push(TravelMode::PlannedRoad);
+            } else if out.is_empty() {
                 out.push(TravelMode::Walk);
             }
         }

@@ -1,3 +1,7 @@
+use std::iter::once;
+
+use crate::edge::Edge;
+
 use super::*;
 
 pub fn get_corners(position: &V2<usize>) -> Vec<V2<usize>> {
@@ -78,6 +82,24 @@ pub trait Grid<T> {
             .iter()
             .flat_map(|offset| self.offset(position, *offset))
             .collect()
+    }
+
+    fn bridges(& self, position: & V2<usize>) -> Vec<Edge> {
+        once(
+            match (self.offset(position, v2(-1, 0)), self.offset(position, v2(1, 0))) {
+                (Some(from), Some(to)) => Some(Edge::new(from, to)),
+                _ => None,
+            }
+        ).chain(
+            once(
+                match (self.offset(position, v2(0, -1)), self.offset(position, v2(0, 1))) {
+                    (Some(from), Some(to)) => Some(Edge::new(from, to)),
+                    _ => None,
+                }
+            )
+        )
+        .flatten()
+        .collect()
     }
 
     fn get_corners_in_bounds(&self, position: &V2<usize>) -> Vec<V2<usize>> {
