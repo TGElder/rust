@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::avatar::{TravelMode, TravelModeFn};
 use crate::world::World;
 
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum Vehicle {
     None,
     Boat,

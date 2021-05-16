@@ -1,9 +1,11 @@
 use commons::async_trait::async_trait;
+use commons::edge::Edge;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use commons::V2;
 
+use crate::bridge::Bridges;
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
     PathfinderForPlayer, PathfinderForRoutes, RunInBackground, WithPathfinder, WithWorld,
@@ -221,7 +223,12 @@ where
 
 #[async_trait]
 pub trait CostOfPath {
-    async fn cost_of_path<D>(&self, travel_duration: &D, path: &[V2<usize>]) -> Option<Duration>
+    async fn cost_of_path<D>(
+        &self,
+        travel_duration: &D,
+        bridges: &Bridges,
+        path: &[V2<usize>],
+    ) -> Option<Duration>
     where
         D: TravelDuration;
 }
@@ -231,13 +238,26 @@ impl<T> CostOfPath for T
 where
     T: WithWorld + Sync,
 {
-    async fn cost_of_path<D>(&self, travel_duration: &D, path: &[V2<usize>]) -> Option<Duration>
+    async fn cost_of_path<D>(
+        &self,
+        travel_duration: &D,
+        bridges: &Bridges,
+        path: &[V2<usize>],
+    ) -> Option<Duration>
     where
         D: TravelDuration,
     {
         self.with_world(|world| {
             (0..path.len() - 1)
-                .map(|i| travel_duration.get_duration(world, &path[i], &path[i + 1]))
+                .map(|i| {
+                    travel_duration
+                        .get_duration(world, &path[i], &path[i + 1])
+                        .or_else(|| {
+                            bridges
+                                .get(&Edge::new(path[i], path[i + 1]))
+                                .map(|bridge| bridge.duration)
+                        })
+                })
                 .sum()
         })
         .await

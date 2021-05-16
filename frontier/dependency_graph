@@ -114,6 +114,7 @@ SendPathfindingAvatarControls FindPath
 SendPathfindingAvatarControls Micros
 SendPathfindingAvatarControls SelectedAvatar
 SendPathfindingAvatarControls UpdateAvatarJourney
+SendPathfindingAvatarControls WithBridges
 SendPathfindingAvatarControls WithPathfinder
 SendPathfindingAvatarControls WithWorld
 SendPositionBuildSim AnyoneControls
@@ -128,6 +129,7 @@ SendPositionBuildSim WithTraffic
 SendPositionBuildSim WithWorld
 SendPrimeMover Micros
 SendPrimeMover WithAvatars
+SendPrimeMover WithBridges
 SendPrimeMover WithRoutes
 SendPrimeMover WithSettlements
 SendPrimeMover WithWorld

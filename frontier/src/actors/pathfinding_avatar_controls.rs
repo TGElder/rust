@@ -2,7 +2,8 @@ use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
-    FindPath, Micros, PathfinderForPlayer, SelectedAvatar, UpdateAvatarJourney, WithWorld,
+    FindPath, Micros, PathfinderForPlayer, SelectedAvatar, UpdateAvatarJourney, WithBridges,
+    WithWorld,
 };
 use commons::async_trait::async_trait;
 use commons::V2;
@@ -34,7 +35,12 @@ impl Default for PathfinderAvatarBindings {
 
 impl<T> PathfindingAvatarControls<T>
 where
-    T: Micros + PathfinderForPlayer + SelectedAvatar + UpdateAvatarJourney + WithWorld,
+    T: Micros
+        + PathfinderForPlayer
+        + SelectedAvatar
+        + UpdateAvatarJourney
+        + WithBridges
+        + WithWorld,
 {
     pub fn new(cx: T, travel_duration: Arc<AvatarTravelDuration>) -> PathfindingAvatarControls<T> {
         PathfindingAvatarControls {
@@ -90,6 +96,7 @@ where
         start_at: u128,
         travel_duration: &AvatarTravelDuration,
     ) -> Option<Journey> {
+        let bridges = self.cx.with_bridges(|bridges| (*bridges).clone()).await;
         self.cx
             .with_world(|world| {
                 journey.append(Journey::new(
@@ -98,6 +105,7 @@ where
                     travel_duration,
                     travel_duration.travel_mode_fn(),
                     start_at,
+                    &bridges,
                 ))
             })
             .await
@@ -124,6 +132,7 @@ where
         + PathfinderForPlayer
         + SelectedAvatar
         + UpdateAvatarJourney
+        + WithBridges
         + WithWorld
         + Send
         + Sync,
