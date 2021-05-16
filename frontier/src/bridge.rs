@@ -1,12 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashSet;
+use std::collections::HashMap;
+use std::time::Duration;
 
 use commons::edge::Edge;
 
-#[derive(Eq, Hash, PartialEq, Deserialize, Serialize)]
+use crate::avatar::Vehicle;
+
+#[derive(Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Bridge {
     pub edge: Edge,
+    pub duration: Duration,
+    pub vehicle: Vehicle,
 }
 
-pub type Bridges = HashSet<Bridge>;
+pub type Bridges = HashMap<Edge, Bridge>;

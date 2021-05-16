@@ -160,6 +160,7 @@ where
                     self.travel_duration.as_ref(),
                     self.travel_duration.travel_mode_fn(),
                     micros,
+                    &hashmap! {},
                 )
             })
             .await;
@@ -436,6 +437,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
+                &hashmap! {},
             ))
         );
     }
@@ -483,6 +485,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
+                &hashmap! {},
             ))
         );
     }
@@ -545,6 +548,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
+                &hashmap! {},
             ))
         );
     }
@@ -607,6 +611,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
+                &hashmap! {},
             ))
         );
     }
@@ -688,6 +693,7 @@ mod tests {
             travel_duration.as_ref(),
             travel_duration.travel_mode_fn(),
             0,
+            &hashmap! {},
         ));
         cx.avatar.lock().unwrap().journey = original_journey.clone();
 
@@ -775,6 +781,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
+                &hashmap! {},
             ))
         );
     }

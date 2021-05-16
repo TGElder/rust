@@ -3,7 +3,7 @@ use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traits::{ClosestTargetsForRoutes, CostOfPath, InBoundsForRoutes, Micros};
+use crate::traits::{ClosestTargetsForRoutes, CostOfPath, InBoundsForRoutes, Micros, WithBridges};
 use crate::travel_duration::TravelDuration;
 use commons::grid::get_corners;
 use commons::V2;
@@ -12,7 +12,7 @@ use std::time::Duration;
 
 impl<T, D> SettlementSimulation<T, D>
 where
-    T: ClosestTargetsForRoutes + CostOfPath + InBoundsForRoutes + Micros,
+    T: ClosestTargetsForRoutes + CostOfPath + InBoundsForRoutes + Micros + WithBridges,
     D: TravelDuration,
 {
     pub async fn get_routes(&self, demand: Demand) -> Routes {
@@ -90,8 +90,9 @@ where
     }
 
     async fn route_duration(&self, path: &[V2<usize>]) -> Duration {
+        let bridges = self.cx.with_bridges(|bridges| (*bridges).clone()).await;
         self.cx
-            .cost_of_path(self.travel_duration.as_ref(), path)
+            .cost_of_path(self.travel_duration.as_ref(), &bridges, path)
             .await
             .expect("Found route but not duration!")
     }
@@ -101,6 +102,7 @@ where
 mod tests {
     use super::*;
 
+    use crate::bridge::Bridges;
     use crate::resource::Resource;
     use crate::travel_duration::TravelDuration;
     use crate::world::World;
@@ -108,11 +110,13 @@ mod tests {
     use commons::{same_elements, v2};
     use futures::executor::block_on;
     use std::collections::HashMap;
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    #[derive(Default)]
     struct HappyPathTx {
         closest_targets: Vec<ClosestTargetResult>,
+        bridges: Mutex<Bridges>,
     }
 
     #[async_trait]
@@ -124,7 +128,7 @@ mod tests {
 
     #[async_trait]
     impl CostOfPath for HappyPathTx {
-        async fn cost_of_path<D>(&self, _: &D, _: &[V2<usize>]) -> Option<Duration>
+        async fn cost_of_path<D>(&self, _: &D, _: &Bridges, _: &[V2<usize>]) -> Option<Duration>
         where
             D: TravelDuration,
         {
@@ -150,6 +154,23 @@ mod tests {
     impl InBoundsForRoutes for HappyPathTx {
         async fn in_bounds(&self, position: &V2<usize>) -> bool {
             *position != v2(2, 4)
+        }
+    }
+
+    #[async_trait]
+    impl WithBridges for HappyPathTx {
+        async fn with_bridges<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&Bridges) -> O + Send,
+        {
+            function(&self.bridges.lock().unwrap())
+        }
+
+        async fn mut_bridges<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Bridges) -> O + Send,
+        {
+            function(&mut self.bridges.lock().unwrap())
         }
     }
 
@@ -185,7 +206,10 @@ mod tests {
             },
         ];
         let sim = SettlementSimulation::new(
-            HappyPathTx { closest_targets },
+            HappyPathTx {
+                closest_targets,
+                ..HappyPathTx::default()
+            },
             Arc::new(PanicTravelDuration {}),
         );
         let demand = Demand {
@@ -244,7 +268,10 @@ mod tests {
         // Given
         let closest_targets = vec![];
         let sim = SettlementSimulation::new(
-            HappyPathTx { closest_targets },
+            HappyPathTx {
+                closest_targets,
+                ..HappyPathTx::default()
+            },
             Arc::new(PanicTravelDuration {}),
         );
         let demand = Demand {
@@ -286,7 +313,10 @@ mod tests {
             },
         ];
         let sim = SettlementSimulation::new(
-            HappyPathTx { closest_targets },
+            HappyPathTx {
+                closest_targets,
+                ..HappyPathTx::default()
+            },
             Arc::new(PanicTravelDuration {}),
         );
         let demand = Demand {
@@ -338,7 +368,7 @@ mod tests {
 
     #[async_trait]
     impl CostOfPath for PanicPathfinderTx {
-        async fn cost_of_path<D>(&self, _: &D, _: &[V2<usize>]) -> Option<Duration>
+        async fn cost_of_path<D>(&self, _: &D, _: &Bridges, _: &[V2<usize>]) -> Option<Duration>
         where
             D: TravelDuration,
         {
@@ -362,6 +392,23 @@ mod tests {
     impl InBoundsForRoutes for PanicPathfinderTx {
         async fn in_bounds(&self, _: &V2<usize>) -> bool {
             panic!("in_bounds was called!");
+        }
+    }
+
+    #[async_trait]
+    impl WithBridges for PanicPathfinderTx {
+        async fn with_bridges<F, O>(&self, _: F) -> O
+        where
+            F: FnOnce(&Bridges) -> O + Send,
+        {
+            panic!("with_bridges was called!");
+        }
+
+        async fn mut_bridges<F, O>(&self, _: F) -> O
+        where
+            F: FnOnce(&mut Bridges) -> O + Send,
+        {
+            panic!("mut_bridges was called!");
         }
     }
 

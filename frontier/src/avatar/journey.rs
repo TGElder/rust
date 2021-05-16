@@ -1,6 +1,8 @@
 use super::*;
+use crate::bridge::Bridges;
 use crate::travel_duration::*;
 use crate::world::World;
+use commons::edge::Edge;
 use commons::grid::Grid;
 use commons::V2;
 use commons::V3;
@@ -49,6 +51,7 @@ impl Journey {
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
         start_at: u128,
+        bridges: &Bridges,
     ) -> Journey {
         Journey {
             frames: Journey::compute_frames(
@@ -57,6 +60,7 @@ impl Journey {
                 start_at,
                 travel_duration,
                 vehicle_fn,
+                bridges,
             ),
         }
     }
@@ -85,6 +89,7 @@ impl Journey {
         start_at: u128,
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
+        bridges: &Bridges,
     ) -> Vec<Frame> {
         let mut next_arrival_time = start_at;
         let mut out = Vec::with_capacity(positions.len());
@@ -92,20 +97,20 @@ impl Journey {
             position: positions[0],
             elevation: Self::get_elevation(world, &positions[0]),
             arrival: next_arrival_time,
-            vehicle: Self::vehicle(world, &positions[0], &positions[1], vehicle_fn),
+            vehicle: Self::vehicle(world, &positions[0], &positions[1], vehicle_fn, bridges),
             rotation: Self::rotation(&positions[0], &positions[1]),
             load: AvatarLoad::None,
         });
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            let duration = Self::travel_duration(world, &from, &to, travel_duration);
+            let duration = Self::travel_duration(world, &from, &to, travel_duration, bridges);
             next_arrival_time += duration.as_micros();
             out.push(Frame {
                 position: to,
                 elevation: Self::get_elevation(world, &to),
                 arrival: next_arrival_time,
-                vehicle: Self::vehicle(world, &from, &to, vehicle_fn),
+                vehicle: Self::vehicle(world, &from, &to, vehicle_fn, bridges),
                 rotation: Self::rotation(&from, &to),
                 load: AvatarLoad::None,
             });
@@ -118,9 +123,15 @@ impl Journey {
         from: &V2<usize>,
         to: &V2<usize>,
         vehicle_fn: &dyn VehicleFn,
+        bridges: &Bridges,
     ) -> Vehicle {
         vehicle_fn
             .vehicle_between(world, &from, &to)
+            .or_else(|| {
+                bridges
+                    .get(&Edge::new(*from, *to))
+                    .map(|bridge| bridge.vehicle)
+            })
             .unwrap_or_else(|| {
                 panic!(
                     "Tried to create avatar journey over edge without vehicle from {:?} to {:?}",
@@ -152,9 +163,15 @@ impl Journey {
         from: &V2<usize>,
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
+        bridges: &Bridges,
     ) -> Duration {
         travel_duration
             .get_duration(world, &from, &to)
+            .or_else(|| {
+                bridges
+                    .get(&Edge::new(*from, *to))
+                    .map(|bridge| bridge.duration)
+            })
             .unwrap_or_else(|| {
                 panic!(
                     "Tried to create avatar journey over impassable edge from {:?} to {:?}",
@@ -410,7 +427,14 @@ mod tests {
     fn test_new() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let actual = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let actual = Journey::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            0,
+            &hashmap! {},
+        );
         let expected = Journey {
             frames: vec![
                 Frame {
@@ -462,7 +486,14 @@ mod tests {
     fn test_final_frame() {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let journey = Journey::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            0,
+            &hashmap! {},
+        );
         assert_eq!(
             journey.final_frame(),
             &Frame {
@@ -487,6 +518,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             instant,
+            &hashmap! {},
         );
         assert!(!journey.done(&instant));
         let done_at = instant + 10_000;
@@ -499,7 +531,14 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let journey = Journey::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            start,
+            &hashmap! {},
+        );
         let at = start + 1_500;
 
         // When
@@ -521,7 +560,14 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 10;
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let journey = Journey::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            start,
+            &hashmap! {},
+        );
 
         // When
         let progress = journey.progress_at(&0);
@@ -536,7 +582,14 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let journey = Journey::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            start,
+            &hashmap! {},
+        );
 
         // When
         let progress = journey.progress_at(&20_000);
@@ -611,7 +664,14 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 1;
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let journey = Journey::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            start,
+            &hashmap! {},
+        );
         assert_eq!(journey.index_at(&start), 1);
         let at = start + 1_500;
         assert_eq!(journey.index_at(&at), 2);
@@ -623,7 +683,14 @@ mod tests {
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
         let start = 0;
 
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), start);
+        let journey = Journey::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            start,
+            &hashmap! {},
+        );
         let frames = journey.frames.clone();
 
         assert_eq!(journey.clone().stop(&start).frames, vec![frames[0]]);
@@ -636,7 +703,14 @@ mod tests {
         let world = world();
         let positions = vec![v2(0, 0), v2(0, 1), v2(1, 1), v2(1, 2), v2(2, 2)];
 
-        let journey = Journey::new(&world, positions, &travel_duration(), &vehicle_fn(), 0);
+        let journey = Journey::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            0,
+            &hashmap! {},
+        );
         let frames = journey.frames.clone();
 
         assert_eq!(journey.stop(&20000).frames, vec![frames[4]]);

@@ -15,10 +15,11 @@ use commons::V2;
 use isometric::Color;
 
 use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Journey};
+use crate::bridge::Bridges;
 use crate::nation::{NationColors, NationDescription};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
-use crate::traits::{Micros, WithAvatars, WithRoutes, WithSettlements, WithWorld};
+use crate::traits::{Micros, WithAvatars, WithBridges, WithRoutes, WithSettlements, WithWorld};
 use crate::world::World;
 
 pub struct PrimeMover<T> {
@@ -54,7 +55,7 @@ impl Default for Durations {
 
 impl<T> PrimeMover<T>
 where
-    T: Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
+    T: Micros + WithAvatars + WithBridges + WithRoutes + WithSettlements + WithWorld + Send + Sync,
 {
     pub fn new(
         cx: T,
@@ -190,6 +191,8 @@ where
         paths: HashMap<RouteKey, Vec<V2<usize>>>,
         start_at: u128,
     ) -> HashMap<RouteKey, Journey> {
+        let bridges = self.cx.with_bridges(|bridges| (*bridges).clone()).await;
+
         self.cx
             .with_world(|world| {
                 paths
@@ -202,6 +205,7 @@ where
                             &start_at,
                             outbound,
                             key.resource,
+                            &bridges,
                         );
                         (key, journey)
                     })
@@ -217,6 +221,7 @@ where
         start_at: &u128,
         outbound: Vec<V2<usize>>,
         resource: Resource,
+        bridges: &Bridges,
     ) -> Journey {
         let mut inbound = outbound.clone();
         inbound.reverse();
@@ -227,6 +232,7 @@ where
             travel_duration,
             travel_duration.travel_mode_fn(),
             *start_at,
+            bridges,
         )
         .with_pause_at_start(durations.pause_at_start.as_micros())
         .with_pause_at_end(durations.pause_in_middle.as_micros() / 2);
@@ -238,6 +244,7 @@ where
             travel_duration,
             travel_duration.travel_mode_fn(),
             inbound_start,
+            bridges,
         )
         .with_pause_at_start(durations.pause_in_middle.as_micros() / 2)
         .with_pause_at_end(durations.pause_at_end.as_micros())
@@ -332,7 +339,7 @@ fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done_micros: &u128) -> boo
 #[async_trait]
 impl<T> Step for PrimeMover<T>
 where
-    T: Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
+    T: Micros + WithAvatars + WithBridges + WithRoutes + WithSettlements + WithWorld + Send + Sync,
 {
     async fn step(&mut self) {
         let micros = self.cx.micros().await;
