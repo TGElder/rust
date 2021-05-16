@@ -83,6 +83,7 @@ where
                     self.avatar_travel_duration.as_ref(),
                     self.avatar_travel_duration.travel_mode_fn(),
                     start_at,
+                    &hashmap! {},
                 )
             })
             .await

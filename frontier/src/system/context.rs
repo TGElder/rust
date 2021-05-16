@@ -29,9 +29,9 @@ use crate::traits::{
     NotMock, PathfinderForPlayer, PathfinderForRoutes, RunInBackground, SendEdgeBuildSim,
     SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate, SendSystem,
     SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
-    WithBuildQueue, WithClock, WithControllers, WithEdgeTraffic, WithNations, WithPathfinder,
-    WithResources, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory,
-    WithTraffic, WithVisibility, WithVisited, WithWorld,
+    WithBridges, WithBuildQueue, WithClock, WithControllers, WithEdgeTraffic, WithNations,
+    WithPathfinder, WithResources, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue,
+    WithTerritory, WithTraffic, WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
 use crate::world::World;
@@ -334,6 +334,25 @@ impl WithAvatars for Context {
     {
         let mut avatars = self.avatars.write().await;
         function(&mut avatars)
+    }
+}
+
+#[async_trait]
+impl WithBridges for Context {
+    async fn with_bridges<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&Bridges) -> O + Send,
+    {
+        let bridges = self.bridges.read().await;
+        function(&bridges)
+    }
+
+    async fn mut_bridges<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut Bridges) -> O + Send,
+    {
+        let mut bridges = self.bridges.write().await;
+        function(&mut bridges)
     }
 }
 

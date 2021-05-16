@@ -5,8 +5,8 @@ use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
-    ClosestTargets, CostOfPath, InBounds, InitTargets, LoadTargets, Target, WithPathfinder,
-    WithWorld,
+    ClosestTargets, CostOfPath, InBounds, InitTargets, LoadTargets, Target, WithBridges,
+    WithPathfinder, WithWorld,
 };
 
 pub trait PathfinderForRoutes {
@@ -106,7 +106,7 @@ pub trait CostOfPathForPlayer {
 #[async_trait]
 impl<T> CostOfPathForPlayer for T
 where
-    T: PathfinderForPlayer + WithWorld + Sync,
+    T: PathfinderForPlayer + WithBridges + WithWorld + Sync,
 {
     async fn cost_of_path_for_player(&self, path: &[V2<usize>]) -> Option<Duration> {
         let travel_duration = self
@@ -114,6 +114,9 @@ where
             .with_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
             .await;
 
-        self.cost_of_path(travel_duration.as_ref(), path).await
+        let bridges = self.with_bridges(|bridges| (*bridges).clone()).await;
+
+        self.cost_of_path(travel_duration.as_ref(), &bridges, path)
+            .await
     }
 }
