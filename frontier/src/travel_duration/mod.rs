@@ -76,7 +76,7 @@ pub trait TravelDuration: Send + Sync {
     }
 }
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct EdgeDuration {
     pub from: V2<usize>,
     pub to: V2<usize>,

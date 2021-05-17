@@ -1,4 +1,5 @@
 mod avatars;
+mod bridges;
 mod build_queue;
 mod draw_town;
 mod draw_world;
@@ -26,6 +27,7 @@ mod world;
 mod world_object;
 
 pub use avatars::*;
+pub use bridges::*;
 pub use build_queue::*;
 pub use draw_town::*;
 pub use draw_world::*;
