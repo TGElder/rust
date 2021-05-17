@@ -118,6 +118,41 @@ where
 }
 
 #[async_trait]
+pub trait UpdatePathfinderEdges {
+    async fn update_pathfinder_edges<P, I>(&self, pathfinder: &P, edges: I)
+    where
+        P: WithPathfinder + Clone + Send + Sync + 'static,
+        I: IntoIterator<Item = EdgeDuration> + Send + Sync + 'static;
+}
+
+#[async_trait]
+impl<T> UpdatePathfinderEdges for T
+where
+    T: RunInBackground + Send + Sync,
+{
+    async fn update_pathfinder_edges<P, I>(&self, pathfinder: &P, edges: I)
+    where
+        P: WithPathfinder + Clone + Send + Sync + 'static,
+        I: IntoIterator<Item = EdgeDuration> + Send + Sync + 'static,
+    {
+        let pathfinder = (*pathfinder).clone();
+        let pathfinder_future = async move {
+            pathfinder
+                .mut_pathfinder(move |pathfinder| {
+                    for EdgeDuration { from, to, duration } in edges {
+                        match duration {
+                            Some(duration) => pathfinder.set_edge_duration(&from, &to, &duration),
+                            None => pathfinder.remove_edge(&from, &to),
+                        }
+                    }
+                })
+                .await;
+        };
+        self.run_in_background(pathfinder_future);
+    }
+}
+
+#[async_trait]
 pub trait UpdatePositionsAllPathfinders {
     async fn update_positions_all_pathfinders<I>(&self, positions: I)
     where
@@ -139,6 +174,32 @@ where
         join!(
             self.update_pathfinder_positions(player_pathfinder, positions.clone()),
             self.update_pathfinder_positions(routes_pathfinder, positions),
+        );
+    }
+}
+
+#[async_trait]
+pub trait UpdateEdgesAllPathfinders {
+    async fn update_edges_all_pathfinders<I>(&self, edges: I)
+    where
+        I: IntoIterator<Item = EdgeDuration> + Clone + Send + Sync + 'static;
+}
+
+#[async_trait]
+impl<T> UpdateEdgesAllPathfinders for T
+where
+    T: PathfinderForPlayer + PathfinderForRoutes + UpdatePathfinderEdges + Send + Sync,
+{
+    async fn update_edges_all_pathfinders<I>(&self, edges: I)
+    where
+        I: IntoIterator<Item = EdgeDuration> + Clone + Send + Sync + 'static,
+    {
+        let player_pathfinder = self.player_pathfinder();
+        let routes_pathfinder = self.routes_pathfinder();
+
+        join!(
+            self.update_pathfinder_edges(player_pathfinder, edges.clone()),
+            self.update_pathfinder_edges(routes_pathfinder, edges),
         );
     }
 }
