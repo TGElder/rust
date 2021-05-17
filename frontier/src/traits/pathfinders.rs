@@ -1,13 +1,8 @@
-use std::time::Duration;
-
 use commons::async_trait::async_trait;
 use commons::V2;
 
 use crate::pathfinder::ClosestTargetResult;
-use crate::traits::{
-    ClosestTargets, CostOfPath, InBounds, InitTargets, LoadTargets, Target, WithBridges,
-    WithPathfinder, WithWorld,
-};
+use crate::traits::{ClosestTargets, InBounds, InitTargets, LoadTargets, Target, WithPathfinder};
 
 pub trait PathfinderForRoutes {
     type T: WithPathfinder + Clone + Send + Sync + 'static;
@@ -96,27 +91,4 @@ pub trait PathfinderForPlayer {
     type T: WithPathfinder + Clone + Send + Sync + 'static;
 
     fn player_pathfinder(&self) -> &Self::T;
-}
-
-#[async_trait]
-pub trait CostOfPathForPlayer {
-    async fn cost_of_path_for_player(&self, path: &[V2<usize>]) -> Option<Duration>;
-}
-
-#[async_trait]
-impl<T> CostOfPathForPlayer for T
-where
-    T: PathfinderForPlayer + WithBridges + WithWorld + Sync,
-{
-    async fn cost_of_path_for_player(&self, path: &[V2<usize>]) -> Option<Duration> {
-        let travel_duration = self
-            .player_pathfinder()
-            .with_pathfinder(|pathfinder| pathfinder.travel_duration().clone())
-            .await;
-
-        let bridges = self.with_bridges(|bridges| (*bridges).clone()).await;
-
-        self.cost_of_path(travel_duration.as_ref(), &bridges, path)
-            .await
-    }
 }
