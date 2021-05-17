@@ -1,5 +1,6 @@
 use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 
+use crate::bridge::Bridges;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
     FindPath, Micros, PathfinderForPlayer, SelectedAvatar, UpdateAvatarJourney, WithBridges,
@@ -73,8 +74,9 @@ where
         );
 
         let start_at = stopped.final_frame().arrival.max(micros);
+        let bridges = self.cx.with_bridges(|bridges| (*bridges).clone()).await;
         let travelling = self
-            .extend(stopped, path, start_at, &self.travel_duration)
+            .extend(stopped, path, start_at, &self.travel_duration, &bridges)
             .await;
 
         if travelling.is_some() {
@@ -95,8 +97,8 @@ where
         positions: Vec<V2<usize>>,
         start_at: u128,
         travel_duration: &AvatarTravelDuration,
+        bridges: &Bridges,
     ) -> Option<Journey> {
-        let bridges = self.cx.with_bridges(|bridges| (*bridges).clone()).await;
         self.cx
             .with_world(|world| {
                 journey.append(Journey::new(
@@ -105,7 +107,7 @@ where
                     travel_duration,
                     travel_duration.travel_mode_fn(),
                     start_at,
-                    &bridges,
+                    bridges,
                 ))
             })
             .await
