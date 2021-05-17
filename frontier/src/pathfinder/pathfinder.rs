@@ -59,9 +59,13 @@ where
             .collect()
     }
 
-    pub fn set_edge_duration(&mut self, from: &V2<usize>, to: &V2<usize>, duration: &Duration) {
+    pub fn remove_edge(&mut self, from: &V2<usize>, to: &V2<usize>) {
         self.network
             .remove_edges(self.get_network_index(from), self.get_network_index(to));
+    }
+
+    pub fn set_edge_duration(&mut self, from: &V2<usize>, to: &V2<usize>, duration: &Duration) {
+        self.remove_edge(from, to);
         let network_edge = NetworkEdge::new(
             self.get_network_index(from),
             self.get_network_index(to),
@@ -443,6 +447,34 @@ mod tests {
                 to: 1,
                 cost: 0
             })
+        );
+    }
+
+    #[test]
+    fn test_remove_edge() {
+        // Given
+        let mut pathfinder = pathfinder();
+
+        // When
+        pathfinder.set_edge_duration(&v2(0, 0), &v2(1, 0), &Duration::from_millis(0));
+        pathfinder.remove_edge(&v2(0, 0), &v2(1, 0));
+
+        // Then
+        assert_eq!(
+            pathfinder
+                .network
+                .get_out(&0)
+                .iter()
+                .find(|edge| edge.to == 1),
+            None
+        );
+        assert_eq!(
+            pathfinder
+                .network
+                .get_in(&1)
+                .iter()
+                .find(|edge| edge.from == 0),
+            None
         );
     }
 
