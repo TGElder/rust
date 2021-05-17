@@ -372,7 +372,7 @@ mod tests {
         where
             D: TravelDuration,
         {
-            Some(Duration::from_secs(303))
+            panic!("cost_of_path was called!");
         }
     }
 

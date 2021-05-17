@@ -30,6 +30,10 @@ impl Edge {
     pub fn horizontal(&self) -> bool {
         self.from.y == self.to.y
     }
+
+    pub fn length(&self) -> usize {
+        (self.to.x - self.from.x) + (self.to.y - self.from.y)
+    }
 }
 
 pub trait Edges {
@@ -98,6 +102,15 @@ mod tests {
 
         let edge = Edge::new(v2(10, 1), v2(10, 10));
         assert!(!edge.horizontal());
+    }
+
+    #[test]
+    fn test_length() {
+        let edge = Edge::new(v2(1, 10), v2(10, 10));
+        assert_eq!(edge.length(), 9);
+
+        let edge = Edge::new(v2(10, 1), v2(10, 10));
+        assert_eq!(edge.length(), 9);
     }
 
     #[test]

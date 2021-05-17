@@ -168,8 +168,12 @@ where
     }
 
     async fn get_journies(&self, keys: &[RouteKey], start_at: u128) -> HashMap<RouteKey, Journey> {
-        let paths = self.get_paths(&keys).await;
-        self.get_journies_from_paths(paths, start_at).await
+        let (paths, bridges) = join!(
+            self.get_paths(&keys),
+            self.cx.with_bridges(|bridges| (*bridges).clone()),
+        );
+        self.get_journies_from_paths(paths, start_at, &bridges)
+            .await
     }
 
     async fn get_paths(&self, keys: &[RouteKey]) -> HashMap<RouteKey, Vec<V2<usize>>> {
@@ -190,9 +194,8 @@ where
         &self,
         paths: HashMap<RouteKey, Vec<V2<usize>>>,
         start_at: u128,
+        bridges: &Bridges,
     ) -> HashMap<RouteKey, Journey> {
-        let bridges = self.cx.with_bridges(|bridges| (*bridges).clone()).await;
-
         self.cx
             .with_world(|world| {
                 paths
@@ -205,7 +208,7 @@ where
                             &start_at,
                             outbound,
                             key.resource,
-                            &bridges,
+                            bridges,
                         );
                         (key, journey)
                     })

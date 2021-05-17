@@ -363,6 +363,8 @@ impl Add for Journey {
 #[cfg(test)]
 mod tests {
 
+    use crate::bridge::Bridge;
+
     use super::*;
     use commons::almost::Almost;
     use commons::*;
@@ -372,7 +374,11 @@ mod tests {
     }
 
     impl TravelDuration for TestTravelDuration {
-        fn get_duration(&self, _: &World, _: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
+        fn get_duration(&self, _: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
+            if Edge::new(*from, *to).length() > 1 {
+                // bridge case
+                return None;
+            }
             if to.x <= 2 && to.y <= 2 {
                 Some(Duration::from_millis((to.x + to.y) as u64))
             } else {
@@ -404,6 +410,10 @@ mod tests {
             from: &V2<usize>,
             to: &V2<usize>,
         ) -> Option<Vehicle> {
+            if Edge::new(*from, *to).length() > 1 {
+                // bridge case
+                return None;
+            }
             if world.get_cell_unsafe(from).elevation < world.sea_level()
                 || world.get_cell_unsafe(to).elevation < world.sea_level()
             {
@@ -1197,6 +1207,46 @@ mod tests {
             ],
         };
         assert_eq!(a.with_load(AvatarLoad::Resource(Resource::Deer)), expected);
+    }
+
+    #[test]
+    fn test_using_bridge() {
+        let world = world();
+        let positions = vec![v2(2, 0), v2(0, 0)];
+        let bridge = Bridge {
+            edge: Edge::new(v2(0, 0), v2(2, 0)),
+            duration: Duration::from_micros(404),
+            vehicle: Vehicle::Boat,
+        };
+        let actual = Journey::new(
+            &world,
+            positions,
+            &travel_duration(),
+            &vehicle_fn(),
+            0,
+            &hashmap! { bridge.edge => bridge },
+        );
+        let expected = Journey {
+            frames: vec![
+                Frame {
+                    position: v2(2, 0),
+                    elevation: 3.0,
+                    arrival: 0,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
+                    load: AvatarLoad::None,
+                },
+                Frame {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    arrival: 404,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
+                    load: AvatarLoad::None,
+                },
+            ],
+        };
+        assert_eq!(actual, expected);
     }
 
     #[test]
