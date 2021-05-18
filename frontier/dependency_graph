@@ -1,3 +1,5 @@
+AddBridge UpdateEdgesAllPathfinders
+AddBridge WithBridges
 AddController WithTerritory
 AddRoad UpdateRoads
 AddRoad WithWorld
@@ -39,6 +41,8 @@ RefreshPositionsBackground SendPositionBuildSim
 RefreshTargets SendResourceTargets
 RemoveBuildInstruction SendBuildQueue
 RemoveController WithTerritory
+RemoveBridge UpdateEdgesAllPathfinders
+RemoveBridge WithBridges
 RemoveRoad UpdateRoads
 RemoveRoad WithWorld
 RemoveTown DrawTown
@@ -80,6 +84,7 @@ SendBasicRoadBuilder SelectedAvatar
 SendBasicRoadBuilder UpdateAvatarJourney
 SendBasicRoadBuilder UpdateRoads
 SendBasicRoadBuilder WithWorld
+SendBridgeBuilderActor AddBridge
 SendBuildActor AddRoad
 SendBuildActor AddTown
 SendBuildActor GetSettlement
@@ -109,7 +114,8 @@ SendEdgeBuildSim WithWorld
 SendFollowAvatar HasFollowAvatar
 SendLabels SendEngineCommands
 SendLabels WithWorld
-WithPathfinder WithWorld
+SendObjectBuilderActor RemoveWorldObjects
+SendObjectBuilderActor SetWorldObjects
 SendPathfindingAvatarControls FindPath
 SendPathfindingAvatarControls Micros
 SendPathfindingAvatarControls SelectedAvatar
@@ -165,7 +171,9 @@ SendSetupNewWorld WithNations
 SendSetupNewWorld WithSettlements
 SendSetupNewWorld WithWorld
 SendSetupPathfinder HasParameters
+SendSetupPathfinder UpdateEdgesAllPathfinders
 SendSetupPathfinder UpdatePositionsAllPathfinders
+SendSetupPathfinder WithBridges
 SendSetupVisibility WithVisibility
 SendSetupVisibility WithWorld
 SendSpeedControl SendClock
@@ -234,3 +242,4 @@ Visibility WithVisited
 VisibleLandPositions WithWorld
 WhoControlsTile WithTerritory
 WithAvatars WithAvatarsActor
+WithPathfinder WithWorld
