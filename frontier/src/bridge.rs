@@ -7,7 +7,7 @@ use commons::edge::Edge;
 
 use crate::avatar::Vehicle;
 
-#[derive(Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Bridge {
     pub edge: Edge,
     pub duration: Duration,

@@ -1,8 +1,9 @@
 use crate::actors::{
-    AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor, Cheats, FollowAvatar,
-    Labels, ObjectBuilderActor, PathfindingAvatarControls, PrimeMover, ResourceGenActor,
-    ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
+    AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeBuilderActor, BuilderActor,
+    Cheats, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls, PrimeMover,
+    ResourceGenActor, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility,
+    SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
+    WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -53,6 +54,7 @@ pub struct Context {
     pub background_service: Arc<BackgroundService>,
     pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Context>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Context>>,
+    pub bridge_builder_tx: FnSender<BridgeBuilderActor<Context>>,
     pub bridges: Arc<RwLock<Bridges>>,
     pub builder_tx: FnSender<BuilderActor<Context>>,
     pub build_queue: Arc<RwLock<BuildQueue>>,
@@ -108,6 +110,7 @@ impl Context {
             background_service: self.background_service.clone(),
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
+            bridge_builder_tx: self.bridge_builder_tx.clone_with_name(name),
             bridges: self.bridges.clone(),
             builder_tx: self.builder_tx.clone_with_name(name),
             build_queue: self.build_queue.clone(),
