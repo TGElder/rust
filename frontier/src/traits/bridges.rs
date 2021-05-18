@@ -15,18 +15,7 @@ where
     T: UpdateEdgesAllPathfinders + WithBridges + Sync,
 {
     async fn add_bridge(&self, bridge: Bridge) {
-        let edge_durations = vec![
-            EdgeDuration {
-                from: *bridge.edge.from(),
-                to: *bridge.edge.to(),
-                duration: Some(bridge.duration),
-            },
-            EdgeDuration {
-                from: *bridge.edge.to(),
-                to: *bridge.edge.from(),
-                duration: Some(bridge.duration),
-            },
-        ];
+        let edge_durations = bridge.edge_durations().collect::<Vec<_>>();
         self.mut_bridges(|bridges| bridges.insert(bridge.edge, bridge))
             .await;
         self.update_edges_all_pathfinders(edge_durations).await;
@@ -44,18 +33,13 @@ where
     T: UpdateEdgesAllPathfinders + WithBridges + Sync,
 {
     async fn remove_bridge(&self, bridge: Bridge) {
-        let edge_durations = vec![
-            EdgeDuration {
-                from: *bridge.edge.from(),
-                to: *bridge.edge.to(),
+        let edge_durations = bridge
+            .edge_durations()
+            .map(|duration| EdgeDuration {
                 duration: None,
-            },
-            EdgeDuration {
-                from: *bridge.edge.to(),
-                to: *bridge.edge.from(),
-                duration: None,
-            },
-        ];
+                ..duration
+            })
+            .collect::<Vec<_>>();
         self.mut_bridges(|bridges| bridges.remove(&bridge.edge))
             .await;
         self.update_edges_all_pathfinders(edge_durations).await;
