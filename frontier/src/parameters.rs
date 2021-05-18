@@ -28,6 +28,7 @@ pub struct Parameters {
     pub player_travel: AvatarTravelParams,
     pub npc_travel: AvatarTravelParams,
     pub auto_road_travel: RoadBuildTravelParams,
+    pub bridge_1_cell_duration_millis: u64,
     pub light_direction: V3<f32>,
     pub snow_temperature: f32,
     pub town_travel_duration: Duration,
@@ -63,6 +64,7 @@ impl Default for Parameters {
                 ..AvatarTravelParams::default()
             },
             auto_road_travel: RoadBuildTravelParams::default(),
+            bridge_1_cell_duration_millis: 1_200_000,
             light_direction: v3(0.0, 8.0, -1.0),
             snow_temperature: 0.0,
             town_travel_duration: Duration::from_secs(60 * 60 * 6),
