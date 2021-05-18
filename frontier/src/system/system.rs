@@ -15,11 +15,11 @@ use crate::actors::ControllersActorParameters;
 use crate::actors::RiverExplorer;
 use crate::actors::RiverExplorerParameters;
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
-    Cheats, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls, PrimeMover,
-    ResourceGenActor, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility,
-    SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
-    WorldColoringParameters, WorldGen,
+    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeBuilderActor,
+    BuilderActor, Cheats, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls,
+    PrimeMover, ResourceGenActor, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders,
+    SetupVisibility, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager,
+    WorldArtistActor, WorldColoringParameters, WorldGen,
 };
 use crate::artists::{
     AvatarArtist, AvatarArtistParameters, HouseArtist, HouseArtistParameters, WorldArtist,
@@ -56,6 +56,7 @@ struct Processes {
     avatar_visibility: Process<AvatarVisibility<Context>>,
     basic_avatar_controls: Process<BasicAvatarControls<Context>>,
     basic_road_builder: Process<BasicRoadBuilder<Context>>,
+    bridge_builder: Process<BridgeBuilderActor<Context>>,
     builder: Process<BuilderActor<Context>>,
     cheats: Process<Cheats<Context>>,
     controllers: Process<ControllersActor<Context>>,
@@ -119,6 +120,7 @@ impl System {
         let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
+        let (bridge_builder_tx, bridge_builder_rx) = fn_channel();
         let (builder_tx, builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
         let (controllers_tx, controllers_rx) = fn_channel();
@@ -163,6 +165,7 @@ impl System {
             background_service: Arc::new(BackgroundService::new(pool.clone())),
             basic_avatar_controls_tx,
             basic_road_builder_tx,
+            bridge_builder_tx,
             bridges: Arc::default(),
             builder_tx,
             build_queue: Arc::default(),
@@ -278,6 +281,13 @@ impl System {
                         road_build_travel_duration.clone(),
                     ),
                     basic_road_builder_rx,
+                ),
+                bridge_builder: Process::new(
+                    BridgeBuilderActor::new(
+                        cx.clone_with_name("bridge_builder"),
+                        params.bridge_1_cell_duration_millis,
+                    ),
+                    bridge_builder_rx,
                 ),
                 builder: Process::new(
                     BuilderActor::new(
@@ -655,6 +665,7 @@ impl Processes {
         self.controllers.run_active(pool).await;
         self.cheats.run_passive(pool).await;
         self.builder.run_active(pool).await;
+        self.bridge_builder.run_passive(pool).await;
         self.basic_road_builder.run_passive(pool).await;
         self.basic_avatar_controls.run_passive(pool).await;
         self.avatar_visibility.run_active(pool).await;
@@ -666,6 +677,7 @@ impl Processes {
         self.avatar_visibility.drain(pool, true).await;
         self.basic_avatar_controls.drain(pool, true).await;
         self.basic_road_builder.drain(pool, true).await;
+        self.bridge_builder.drain(pool, true).await;
         self.builder.drain(pool, true).await;
         self.cheats.drain(pool, true).await;
         self.controllers.drain(pool, true).await;
