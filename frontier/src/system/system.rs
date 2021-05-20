@@ -11,15 +11,15 @@ use isometric::IsometricEngine;
 use tokio::sync::RwLock;
 
 use crate::actors::{
-    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeBuilderActor,
-    BuilderActor, Cheats, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls,
-    PrimeMover, ResourceGenActor, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders,
-    SetupVisibility, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager,
-    WorldArtistActor, WorldColoringParameters, WorldGen,
+    AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeArtistActor,
+    BridgeBuilderActor, BuilderActor, Cheats, FollowAvatar, Labels, ObjectBuilderActor,
+    PathfindingAvatarControls, PrimeMover, ResourceGenActor, ResourceTargets, Rotate,
+    SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
 use crate::artists::{
-    AvatarArtist, AvatarArtistParameters, HouseArtist, HouseArtistParameters, WorldArtist,
-    WorldArtistParameters,
+    AvatarArtist, AvatarArtistParameters, BridgeArtist, BridgeArtistParameters, HouseArtist,
+    HouseArtistParameters, WorldArtist, WorldArtistParameters,
 };
 use crate::avatar::{AvatarTravelDuration, AvatarTravelParams};
 use crate::build::builders::{MineBuilder, RoadBuilder, TownBuilder};
@@ -37,7 +37,7 @@ use crate::territory::Territory;
 use crate::traffic::Traffic;
 use crate::traits::WithClock;
 use crate::visited::Visited;
-use crate::world::World;
+use crate::world::{World, ROAD_WIDTH};
 use commons::process::Process;
 
 pub struct System {
@@ -51,6 +51,7 @@ struct Processes {
     avatar_visibility: Process<AvatarVisibility<Context>>,
     basic_avatar_controls: Process<BasicAvatarControls<Context>>,
     basic_road_builder: Process<BasicRoadBuilder<Context>>,
+    bridge_artist: Process<BridgeArtistActor<Context>>,
     bridge_builder: Process<BridgeBuilderActor<Context>>,
     builder: Process<BuilderActor<Context>>,
     cheats: Process<Cheats<Context>>,
@@ -113,6 +114,7 @@ impl System {
         let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();
         let (basic_avatar_controls_tx, basic_avatar_controls_rx) = fn_channel();
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
+        let (bridge_artist_tx, bridge_artist_rx) = fn_channel();
         let (bridge_builder_tx, bridge_builder_rx) = fn_channel();
         let (builder_tx, builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
@@ -156,6 +158,7 @@ impl System {
             background_service: Arc::new(BackgroundService::new(pool.clone())),
             basic_avatar_controls_tx,
             basic_road_builder_tx,
+            bridge_artist_tx,
             bridge_builder_tx,
             bridges: Arc::default(),
             builder_tx,
@@ -265,6 +268,16 @@ impl System {
                         road_build_travel_duration.clone(),
                     ),
                     basic_road_builder_rx,
+                ),
+                bridge_artist: Process::new(
+                    BridgeArtistActor::new(
+                        cx.clone_with_name("bridge_artist"),
+                        BridgeArtist::new(BridgeArtistParameters {
+                            color: params.road_color,
+                            offset: ROAD_WIDTH,
+                        }),
+                    ),
+                    bridge_artist_rx,
                 ),
                 bridge_builder: Process::new(
                     BridgeBuilderActor::new(
@@ -394,6 +407,7 @@ impl System {
                             params.width,
                             params.width,
                             WorldArtistParameters {
+                                road_color: params.road_color,
                                 waterfall_gradient: params
                                     .player_travel
                                     .max_navigable_river_gradient,
@@ -429,6 +443,9 @@ impl System {
     }
 
     pub fn send_init_messages(&self) {
+        self.cx
+            .bridge_artist_tx
+            .send_future(|bridge_artist| bridge_artist.init().boxed());
         self.cx
             .labels_tx
             .send_future(|labels| labels.init().boxed());
@@ -633,6 +650,7 @@ impl Processes {
         self.cheats.run_passive(pool).await;
         self.builder.run_active(pool).await;
         self.bridge_builder.run_passive(pool).await;
+        self.bridge_artist.run_passive(pool).await;
         self.basic_road_builder.run_passive(pool).await;
         self.basic_avatar_controls.run_passive(pool).await;
         self.avatar_visibility.run_active(pool).await;
@@ -644,6 +662,7 @@ impl Processes {
         self.avatar_visibility.drain(pool, true).await;
         self.basic_avatar_controls.drain(pool, true).await;
         self.basic_road_builder.drain(pool, true).await;
+        self.bridge_artist.drain(pool, true).await;
         self.bridge_builder.drain(pool, true).await;
         self.builder.drain(pool, true).await;
         self.cheats.drain(pool, true).await;

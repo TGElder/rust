@@ -2,6 +2,7 @@ use super::*;
 
 use crate::travel_duration::*;
 use crate::world::{World, WorldCell};
+use commons::edge::Edge;
 use commons::grid::Grid;
 use commons::scale::*;
 use commons::*;
@@ -177,6 +178,9 @@ impl AvatarTravelDuration {
 
 impl TravelDuration for AvatarTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
+        if Edge::new(*from, *to).length() > 1 {
+            return None;
+        }
         match world.get_cell(from) {
             Some(WorldCell { visible: true, .. }) => (),
             _ => return None,
