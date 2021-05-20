@@ -18,7 +18,7 @@ use commons::*;
 use isometric::cell_traits::*;
 use serde::{Deserialize, Serialize};
 
-const ROAD_WIDTH: f32 = 0.05;
+pub const ROAD_WIDTH: f32 = 0.05;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct World {
