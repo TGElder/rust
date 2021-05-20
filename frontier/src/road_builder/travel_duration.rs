@@ -73,6 +73,10 @@ impl RoadBuildTravelDuration {
 
 impl TravelDuration for RoadBuildTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
+        let edge = Edge::new(*from, *to);
+        if edge.length() > 1 {
+            return None;
+        }
         match world.get_cell(from) {
             Some(WorldCell { visible: true, .. }) => (),
             _ => return None,
@@ -90,7 +94,6 @@ impl TravelDuration for RoadBuildTravelDuration {
             return None;
         }
         if let (Some(from), Some(to)) = (world.get_cell(from), world.get_cell(to)) {
-            let edge = Edge::new(from.position(), to.position());
             if from.river.corner() || to.river.corner() || (from.river.here() && to.river.here()) {
                 None
             } else if world.is_road(&edge) || world.road_planned(&edge).is_some() {
