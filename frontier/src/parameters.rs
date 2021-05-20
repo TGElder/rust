@@ -25,6 +25,7 @@ pub struct Parameters {
     pub world_gen: WorldGenParameters,
     pub resource_gen: ResourceGenParameters,
     pub base_colors: BaseColors,
+    pub road_color: Color,
     pub player_travel: AvatarTravelParams,
     pub npc_travel: AvatarTravelParams,
     pub auto_road_travel: RoadBuildTravelParams,
@@ -58,6 +59,7 @@ impl Default for Parameters {
             world_gen: WorldGenParameters::default(),
             resource_gen: ResourceGenParameters::default(),
             base_colors: BaseColors::default(),
+            road_color: Color::new(0.6, 0.4, 0.0, 1.0),
             player_travel: AvatarTravelParams::default(),
             npc_travel: AvatarTravelParams {
                 travel_mode_change_penalty_millis: 86_400_000,

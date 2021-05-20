@@ -1,9 +1,9 @@
 use crate::actors::{
-    AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeBuilderActor, BuilderActor,
-    Cheats, ControllersActor, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls,
-    PrimeMover, ResourceGenActor, ResourceTargets, RiverExplorer, Rotate, SetupNewWorld,
-    SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor, TownHouseArtist,
-    TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
+    AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeArtistActor, BridgeBuilderActor,
+    BuilderActor, Cheats, ControllersActor, FollowAvatar, Labels, ObjectBuilderActor,
+    PathfindingAvatarControls, PrimeMover, ResourceGenActor, ResourceTargets, RiverExplorer,
+    Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
+    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -26,12 +26,12 @@ use crate::territory::{Controllers, Territory};
 use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::{HasFollowAvatar, HasParameters};
 use crate::traits::{
-    NotMock, PathfinderForPlayer, PathfinderForRoutes, RunInBackground, SendEdgeBuildSim,
-    SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate, SendSystem,
-    SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
-    WithBridges, WithBuildQueue, WithClock, WithControllers, WithEdgeTraffic, WithNations,
-    WithPathfinder, WithResources, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue,
-    WithTerritory, WithTraffic, WithVisibility, WithVisited, WithWorld,
+    NotMock, PathfinderForPlayer, PathfinderForRoutes, RunInBackground, SendBridgeArtistActor,
+    SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate,
+    SendSystem, SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist,
+    WithAvatars, WithBridges, WithBuildQueue, WithClock, WithControllers, WithEdgeTraffic,
+    WithNations, WithPathfinder, WithResources, WithRouteToPorts, WithRoutes, WithSettlements,
+    WithSimQueue, WithTerritory, WithTraffic, WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
 use crate::world::World;
@@ -54,6 +54,7 @@ pub struct Context {
     pub background_service: Arc<BackgroundService>,
     pub basic_avatar_controls_tx: FnSender<BasicAvatarControls<Context>>,
     pub basic_road_builder_tx: FnSender<BasicRoadBuilder<Context>>,
+    pub bridge_artist_tx: FnSender<BridgeArtistActor<Context>>,
     pub bridge_builder_tx: FnSender<BridgeBuilderActor<Context>>,
     pub bridges: Arc<RwLock<Bridges>>,
     pub builder_tx: FnSender<BuilderActor<Context>>,
@@ -113,6 +114,7 @@ impl Context {
             background_service: self.background_service.clone(),
             basic_avatar_controls_tx: self.basic_avatar_controls_tx.clone_with_name(name),
             basic_road_builder_tx: self.basic_road_builder_tx.clone_with_name(name),
+            bridge_artist_tx: self.bridge_artist_tx.clone_with_name(name),
             bridge_builder_tx: self.bridge_builder_tx.clone_with_name(name),
             bridges: self.bridges.clone(),
             builder_tx: self.builder_tx.clone_with_name(name),
@@ -195,6 +197,17 @@ impl RunInBackground for Context {
         Fut: Future<Output = ()> + Send + 'static,
     {
         self.background_service.run_in_background(future);
+    }
+}
+
+#[async_trait]
+impl SendBridgeArtistActor for Context {
+    fn send_bridge_artist_future_background<F, O>(&self, function: F)
+    where
+        O: Send + 'static,
+        F: FnOnce(&mut BridgeArtistActor<Self>) -> BoxFuture<O> + Send + 'static,
+    {
+        self.bridge_artist_tx.send_future(function);
     }
 }
 
