@@ -178,8 +178,7 @@ impl AvatarTravelDuration {
 
 impl TravelDuration for AvatarTravelDuration {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration> {
-        let edge = Edge::new(*from, *to);
-        if edge.length() > 1 {
+        if Edge::new(*from, *to).length() > 1 {
             return None;
         }
         match world.get_cell(from) {

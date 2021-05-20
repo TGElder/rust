@@ -18,8 +18,8 @@ use crate::actors::{
     TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
 use crate::artists::{
-    AvatarArtist, AvatarArtistParameters, BridgeArtist, HouseArtist, HouseArtistParameters,
-    WorldArtist, WorldArtistParameters,
+    AvatarArtist, AvatarArtistParameters, BridgeArtist, BridgeArtistParameters, HouseArtist,
+    HouseArtistParameters, WorldArtist, WorldArtistParameters,
 };
 use crate::avatar::{AvatarTravelDuration, AvatarTravelParams};
 use crate::build::builders::{MineBuilder, RoadBuilder, TownBuilder};
@@ -272,7 +272,10 @@ impl System {
                 bridge_artist: Process::new(
                     BridgeArtistActor::new(
                         cx.clone_with_name("bridge_artist"),
-                        BridgeArtist::new(params.road_color, ROAD_WIDTH),
+                        BridgeArtist::new(BridgeArtistParameters {
+                            color: params.road_color,
+                            offset: ROAD_WIDTH,
+                        }),
                     ),
                     bridge_artist_rx,
                 ),

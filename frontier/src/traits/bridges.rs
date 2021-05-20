@@ -23,6 +23,7 @@ where
         self.send_bridge_artist_future_background(|bridge_artist| {
             bridge_artist.draw_bridge(bridge_for_artist).boxed()
         });
+
         self.mut_bridges(|bridges| bridges.insert(bridge.edge, bridge))
             .await;
 
@@ -45,6 +46,7 @@ where
         self.send_bridge_artist_future_background(move |bridge_artist| {
             bridge_artist.erase_bridge(edge_for_artist).boxed()
         });
+
         self.mut_bridges(|bridges| bridges.remove(&edge)).await;
 
         let edge_durations = vec![

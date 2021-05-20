@@ -86,6 +86,7 @@ SendBasicRoadBuilder SelectedAvatar
 SendBasicRoadBuilder UpdateAvatarJourney
 SendBasicRoadBuilder UpdateRoads
 SendBasicRoadBuilder WithWorld
+SendBridgeArtistActor SendEngineCommands
 SendBridgeArtistActor WithBridges
 SendBridgeArtistActor WithWorld
 SendBridgeBuilderActor AddBridge
