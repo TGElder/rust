@@ -122,8 +122,9 @@ impl WorldArtist {
                 let position = v2(x, y);
                 if let Some(cell) = world.get_cell(&position) {
                     let road = cell.road;
+                    let platform = cell.platform;
                     let river = cell.river;
-                    if road.here() {
+                    if road.here() || platform.here() {
                         result.road_positions.push(position);
                     }
                     if river.here() {
