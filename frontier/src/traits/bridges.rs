@@ -33,7 +33,7 @@ where
 
 #[async_trait]
 pub trait RemoveBridge {
-    async fn remove_bridge(&self, edge: Edge);
+    async fn remove_bridge(&self, edge: Edge) -> bool;
 }
 
 #[async_trait]
@@ -41,13 +41,15 @@ impl<T> RemoveBridge for T
 where
     T: SendBridgeArtistActor + UpdateEdgesAllPathfinders + WithBridges + Sync,
 {
-    async fn remove_bridge(&self, edge: Edge) {
-        let edge_for_artist = edge;
-        self.send_bridge_artist_future_background(move |bridge_artist| {
-            bridge_artist.erase_bridge(edge_for_artist).boxed()
-        });
+    async fn remove_bridge(&self, edge: Edge) -> bool {
+        let removed = self
+            .mut_bridges(|bridges| bridges.remove(&edge))
+            .await
+            .is_some();
 
-        self.mut_bridges(|bridges| bridges.remove(&edge)).await;
+        if !removed {
+            return false;
+        }
 
         let edge_durations = vec![
             EdgeDuration {
@@ -62,5 +64,11 @@ where
             },
         ];
         self.update_edges_all_pathfinders(edge_durations).await;
+
+        self.send_bridge_artist_future_background(move |bridge_artist| {
+            bridge_artist.erase_bridge(edge).boxed()
+        });
+
+        true
     }
 }
