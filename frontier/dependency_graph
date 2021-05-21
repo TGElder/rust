@@ -90,6 +90,8 @@ SendBridgeArtistActor SendEngineCommands
 SendBridgeArtistActor WithBridges
 SendBridgeArtistActor WithWorld
 SendBridgeBuilderActor AddBridge
+SendBridgeBuilderActor RemoveBridge
+SendBridgeBuilderActor WithWorld
 SendBuildActor AddRoad
 SendBuildActor AddTown
 SendBuildActor GetSettlement

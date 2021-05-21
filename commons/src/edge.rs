@@ -1,3 +1,6 @@
+use std::error;
+use std::fmt;
+
 use crate::V2;
 use serde::{Deserialize, Serialize};
 
@@ -9,13 +12,17 @@ pub struct Edge {
 
 impl Edge {
     pub fn new(from: V2<usize>, to: V2<usize>) -> Edge {
-        if to.x > from.x && to.y > from.y {
-            panic!("Diagonal edge {:?} from {:?}", from, to);
+        Self::new_safe(from, to).unwrap()
+    }
+
+    pub fn new_safe(from: V2<usize>, to: V2<usize>) -> Result<Edge, DiagonalEdge> {
+        if to.x != from.x && to.y != from.y {
+            return Err(DiagonalEdge { from, to });
         }
         if to.x > from.x || to.y > from.y {
-            Edge { from, to }
+            Ok(Edge { from, to })
         } else {
-            Edge { from: to, to: from }
+            Ok(Edge { from: to, to: from })
         }
     }
 
@@ -35,6 +42,20 @@ impl Edge {
         (self.to.x - self.from.x) + (self.to.y - self.from.y)
     }
 }
+
+#[derive(Debug)]
+pub struct DiagonalEdge {
+    from: V2<usize>,
+    to: V2<usize>,
+}
+
+impl fmt::Display for DiagonalEdge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Diagonal edge {:?} from {:?}!", self.from, self.to)
+    }
+}
+
+impl error::Error for DiagonalEdge {}
 
 pub trait Edges {
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = Edge> + 'a>;
