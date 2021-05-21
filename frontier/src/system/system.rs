@@ -16,9 +16,9 @@ use crate::actors::RiverExplorer;
 use crate::actors::RiverExplorerParameters;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeArtistActor,
-    BridgeBuilderActor, BuilderActor, Cheats, FollowAvatar, Labels, ObjectBuilderActor,
-    PathfindingAvatarControls, PrimeMover, ResourceGenActor, ResourceTargets, Rotate,
-    SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
+    BridgeBuilderActor, BridgeBuilderParameters, BuilderActor, Cheats, FollowAvatar, Labels,
+    ObjectBuilderActor, PathfindingAvatarControls, PrimeMover, ResourceGenActor, ResourceTargets,
+    Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
     TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
 use crate::artists::{
@@ -298,7 +298,11 @@ impl System {
                 bridge_builder: Process::new(
                     BridgeBuilderActor::new(
                         cx.clone_with_name("bridge_builder"),
-                        params.bridge_1_cell_duration_millis,
+                        BridgeBuilderParameters {
+                            bridge_duration_millis: params.bridge_1_cell_duration_millis,
+                            max_gradient: params.world_gen.cliff_gradient / 2.0,
+                            ..BridgeBuilderParameters::default()
+                        },
                     ),
                     bridge_builder_rx,
                 ),

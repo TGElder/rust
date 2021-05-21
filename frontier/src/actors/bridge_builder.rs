@@ -1,8 +1,9 @@
 use crate::bridge::Bridge;
 use crate::system::{Capture, HandleEngineEvent};
-use crate::traits::AddBridge;
+use crate::traits::{AddBridge, RemoveBridge, WithWorld};
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
+use commons::grid::Grid;
 use commons::V2;
 use isometric::coords::WorldCoord;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
@@ -14,20 +15,38 @@ pub struct BridgeBuilderActor<T> {
     binding: Button,
     from: Option<V2<usize>>,
     world_coord: Option<WorldCoord>,
-    bridge_duration_millis: u64,
+    parameters: BridgeBuilderParameters,
+}
+
+pub struct BridgeBuilderParameters {
+    pub bridge_duration_millis: u64,
+    pub min_length: usize,
+    pub max_length: usize,
+    pub max_gradient: f32,
+}
+
+impl Default for BridgeBuilderParameters {
+    fn default() -> Self {
+        BridgeBuilderParameters {
+            bridge_duration_millis: 1_200_000,
+            min_length: 2,
+            max_length: 3,
+            max_gradient: 0.5,
+        }
+    }
 }
 
 impl<T> BridgeBuilderActor<T>
 where
-    T: AddBridge,
+    T: AddBridge + RemoveBridge + WithWorld,
 {
-    pub fn new(cx: T, bridge_duration_millis: u64) -> BridgeBuilderActor<T> {
+    pub fn new(cx: T, parameters: BridgeBuilderParameters) -> BridgeBuilderActor<T> {
         BridgeBuilderActor {
             cx,
             binding: Button::Key(VirtualKeyCode::G),
             from: None,
             world_coord: None,
-            bridge_duration_millis,
+            parameters,
         }
     }
 
@@ -45,20 +64,47 @@ where
     }
 
     async fn complete_bridge(&mut self, from: V2<usize>, to: V2<usize>) {
-        let edge = Edge::new(from, to);
+        let edge = ok_or!(Edge::new_safe(from, to), return);
+        if self.cx.remove_bridge(edge).await {
+            return;
+        }
+        if !self.is_valid_bridge(&edge).await {
+            return;
+        }
         let bridge = Bridge {
-            duration: Duration::from_millis(self.bridge_duration_millis) * (edge.length() as u32),
+            duration: Duration::from_millis(self.parameters.bridge_duration_millis)
+                * (edge.length() as u32),
             edge,
             vehicle: crate::avatar::Vehicle::None,
         };
         self.cx.add_bridge(bridge).await;
+    }
+
+    async fn is_valid_bridge(&self, edge: &Edge) -> bool {
+        let length = edge.length();
+        if length < self.parameters.min_length || length > self.parameters.max_length {
+            return false;
+        }
+        let rise = unwrap_or!(self.get_rise(edge).await, return false);
+        (rise / length as f32) <= self.parameters.max_gradient
+    }
+
+    async fn get_rise(&self, edge: &Edge) -> Option<f32> {
+        self.cx
+            .with_world(
+                |world| match (world.get_cell(edge.from()), world.get_cell(edge.to())) {
+                    (Some(from), Some(to)) => Some((from.elevation - to.elevation).abs()),
+                    _ => None,
+                },
+            )
+            .await
     }
 }
 
 #[async_trait]
 impl<T> HandleEngineEvent for BridgeBuilderActor<T>
 where
-    T: AddBridge + Send + Sync,
+    T: AddBridge + RemoveBridge + WithWorld + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::WorldPositionChanged(world_coord) = *event {
