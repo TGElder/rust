@@ -1,6 +1,6 @@
 use crate::travel_duration::*;
-use commons::index2d::*;
 use commons::manhattan::ManhattanDistance;
+use commons::{index2d::*, V2};
 use network::ClosestTargetResult as NetworkClosestTargetResult;
 use network::Edge as NetworkEdge;
 use network::Network;
@@ -89,16 +89,17 @@ where
     }
 
     pub fn manhattan_distance(&self, to: &[TravelPosition]) -> impl Fn(usize) -> u32 {
-        let to = to.to_vec();
+        let to = to.iter().map(|to| to.into()).collect::<Vec<V2<usize>>>();
         let index = self.index;
+        let indices = self.index.indices();
         let minimum_duration = self.travel_duration.min_duration();
         let minimum_cost = self
             .travel_duration
             .get_cost_from_duration_u8(&minimum_duration) as u32;
         move |from| {
-            let from = index.get_position(from).unwrap();
+            let from = index.get_position(from % indices).unwrap();
             to.iter()
-                .map(|to| from.manhattan_distance(&to.into()) as u32 * minimum_cost)
+                .map(|to| from.manhattan_distance(&to) as u32 * minimum_cost)
                 .min()
                 .unwrap()
         }
@@ -607,6 +608,10 @@ mod tests {
             64 * 3
         );
         assert_eq!(
+            manhattan_distance(pathfinder.get_network_index(&water(0, 0))),
+            64 * 3
+        );
+        assert_eq!(
             manhattan_distance(pathfinder.get_network_index(&land(1, 2))),
             0
         );
@@ -618,6 +623,10 @@ mod tests {
         let manhattan_distance = pathfinder.manhattan_distance(&[land(0, 2), land(1, 2)]);
         assert_eq!(
             manhattan_distance(pathfinder.get_network_index(&land(0, 0))),
+            64 * 2
+        );
+        assert_eq!(
+            manhattan_distance(pathfinder.get_network_index(&water(0, 0))),
             64 * 2
         );
         assert_eq!(

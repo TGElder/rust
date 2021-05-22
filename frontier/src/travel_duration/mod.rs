@@ -28,18 +28,6 @@ pub enum TravelMode {
     Water = 1,
 }
 
-impl From<&TravelPosition> for V2<usize> {
-    fn from(position: &TravelPosition) -> Self {
-        v2(position.x as usize, position.y as usize)
-    }
-}
-
-impl From<TravelPosition> for V2<usize> {
-    fn from(position: TravelPosition) -> Self {
-        v2(position.x as usize, position.y as usize)
-    }
-}
-
 pub fn land(x: u16, y: u16) -> TravelPosition {
     TravelPosition {
         x,
@@ -53,6 +41,18 @@ pub fn water(x: u16, y: u16) -> TravelPosition {
         x,
         y,
         mode: TravelMode::Water,
+    }
+}
+
+impl From<&TravelPosition> for V2<usize> {
+    fn from(position: &TravelPosition) -> Self {
+        v2(position.x as usize, position.y as usize)
+    }
+}
+
+impl From<TravelPosition> for V2<usize> {
+    fn from(position: TravelPosition) -> Self {
+        v2(position.x as usize, position.y as usize)
     }
 }
 
