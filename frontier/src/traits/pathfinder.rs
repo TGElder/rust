@@ -8,11 +8,15 @@ use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
     PathfinderForPlayer, PathfinderForRoutes, RunInBackground, WithPathfinder, WithWorld,
 };
-use crate::travel_duration::{EdgeDuration, TravelDuration};
+use crate::travel_duration::{EdgeDuration, TravelDuration, TravelPosition};
 
 #[async_trait]
 pub trait FindPath {
-    async fn find_path(&self, from: &[V2<usize>], to: &[V2<usize>]) -> Option<Vec<V2<usize>>>;
+    async fn find_path(
+        &self,
+        from: &[TravelPosition],
+        to: &[TravelPosition],
+    ) -> Option<Vec<TravelPosition>>;
 }
 
 #[async_trait]
@@ -20,7 +24,11 @@ impl<T> FindPath for T
 where
     T: WithPathfinder + Sync,
 {
-    async fn find_path(&self, from: &[V2<usize>], to: &[V2<usize>]) -> Option<Vec<V2<usize>>> {
+    async fn find_path(
+        &self,
+        from: &[TravelPosition],
+        to: &[TravelPosition],
+    ) -> Option<Vec<TravelPosition>> {
         self.with_pathfinder(|pathfinder| pathfinder.find_path(from, to))
             .await
     }
@@ -28,7 +36,7 @@ where
 
 #[async_trait]
 pub trait InBounds {
-    async fn in_bounds(&self, position: &V2<usize>) -> bool;
+    async fn in_bounds(&self, position: &TravelPosition) -> bool;
 }
 
 #[async_trait]
@@ -36,7 +44,7 @@ impl<T> InBounds for T
 where
     T: WithPathfinder + Sync,
 {
-    async fn in_bounds(&self, position: &V2<usize>) -> bool {
+    async fn in_bounds(&self, position: &TravelPosition) -> bool {
         self.with_pathfinder(|pathfinder| pathfinder.in_bounds(position))
             .await
     }
@@ -46,9 +54,9 @@ where
 pub trait PositionsWithin {
     async fn positions_within(
         &self,
-        positions: &[V2<usize>],
+        positions: &[TravelPosition],
         duration: &Duration,
-    ) -> HashMap<V2<usize>, Duration>;
+    ) -> HashMap<TravelPosition, Duration>;
 }
 
 #[async_trait]
@@ -58,9 +66,9 @@ where
 {
     async fn positions_within(
         &self,
-        positions: &[V2<usize>],
+        positions: &[TravelPosition],
         duration: &Duration,
-    ) -> HashMap<V2<usize>, Duration> {
+    ) -> HashMap<TravelPosition, Duration> {
         self.with_pathfinder(|pathfinder| pathfinder.positions_within(positions, duration))
             .await
     }
@@ -166,7 +174,7 @@ pub trait LoadTargets {
 
 pub struct Target<'a> {
     pub name: &'a str,
-    pub position: &'a V2<usize>,
+    pub position: &'a TravelPosition,
     pub target: bool,
 }
 
@@ -197,7 +205,7 @@ where
 pub trait ClosestTargets {
     async fn closest_targets(
         &self,
-        positions: &[V2<usize>],
+        positions: &[TravelPosition],
         targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult>;
@@ -210,7 +218,7 @@ where
 {
     async fn closest_targets(
         &self,
-        positions: &[V2<usize>],
+        positions: &[TravelPosition],
         targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult> {

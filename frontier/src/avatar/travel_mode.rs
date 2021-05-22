@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum TravelMode {
+pub enum AvatarTravelMode {
     Walk,
     Road,
     PlannedRoad,
@@ -16,15 +16,15 @@ pub enum TravelModeClass {
     Water,
 }
 
-impl TravelMode {
+impl AvatarTravelMode {
     pub fn class(&self) -> TravelModeClass {
         match self {
-            TravelMode::Walk => TravelModeClass::Land,
-            TravelMode::Road => TravelModeClass::Land,
-            TravelMode::PlannedRoad => TravelModeClass::Land,
-            TravelMode::Stream => TravelModeClass::Land,
-            TravelMode::River => TravelModeClass::Water,
-            TravelMode::Sea => TravelModeClass::Water,
+            AvatarTravelMode::Walk => TravelModeClass::Land,
+            AvatarTravelMode::Road => TravelModeClass::Land,
+            AvatarTravelMode::PlannedRoad => TravelModeClass::Land,
+            AvatarTravelMode::Stream => TravelModeClass::Land,
+            AvatarTravelMode::River => TravelModeClass::Water,
+            AvatarTravelMode::Sea => TravelModeClass::Water,
         }
     }
 }

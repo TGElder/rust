@@ -131,12 +131,12 @@ impl AvatarTravelDuration {
         self.travel_mode_fn
             .travel_mode_between(world, from, to)
             .map(|travel_mode| match travel_mode {
-                TravelMode::Walk => self.walk.as_ref(),
-                TravelMode::Road => self.road.as_ref(),
-                TravelMode::PlannedRoad => self.planned_road.as_ref(),
-                TravelMode::Stream => self.stream.as_ref(),
-                TravelMode::River => self.river.as_ref(),
-                TravelMode::Sea => self.sea.as_ref(),
+                AvatarTravelMode::Walk => self.walk.as_ref(),
+                AvatarTravelMode::Road => self.road.as_ref(),
+                AvatarTravelMode::PlannedRoad => self.planned_road.as_ref(),
+                AvatarTravelMode::Stream => self.stream.as_ref(),
+                AvatarTravelMode::River => self.river.as_ref(),
+                AvatarTravelMode::Sea => self.sea.as_ref(),
             })
     }
 
@@ -154,7 +154,8 @@ impl AvatarTravelDuration {
     }
 
     fn is_inaccessible_shore(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> bool {
-        if self.travel_mode_fn.travel_mode_between(world, from, to) == Some(TravelMode::River) {
+        if self.travel_mode_fn.travel_mode_between(world, from, to) == Some(AvatarTravelMode::River)
+        {
             return false;
         }
 

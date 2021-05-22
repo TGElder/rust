@@ -26,7 +26,7 @@ mod tests {
     use std::collections::HashMap;
 
     struct MockTravelModeFn {
-        map: HashMap<V2<usize>, Vec<TravelMode>>,
+        map: HashMap<V2<usize>, Vec<AvatarTravelMode>>,
     }
 
     impl TravelModeFn for MockTravelModeFn {
@@ -35,11 +35,11 @@ mod tests {
             _: &World,
             _: &V2<usize>,
             _: &V2<usize>,
-        ) -> Option<TravelMode> {
+        ) -> Option<AvatarTravelMode> {
             None
         }
 
-        fn travel_modes_here(&self, _: &World, position: &V2<usize>) -> Vec<TravelMode> {
+        fn travel_modes_here(&self, _: &World, position: &V2<usize>) -> Vec<AvatarTravelMode> {
             self.map[position].clone()
         }
     }
@@ -48,7 +48,11 @@ mod tests {
         World::new(M::zeros(3, 3), 0.0)
     }
 
-    fn test_travel_mode_change(from: Vec<TravelMode>, to: Vec<TravelMode>, expected: bool) {
+    fn test_travel_mode_change(
+        from: Vec<AvatarTravelMode>,
+        to: Vec<AvatarTravelMode>,
+        expected: bool,
+    ) {
         let map = hashmap! {
             v2(0, 0) => from,
             v2(1, 1) => to,
@@ -66,59 +70,75 @@ mod tests {
 
     #[test]
     fn test_travel_mode_change_land_to_land() {
-        test_travel_mode_change(vec![TravelMode::Walk], vec![TravelMode::Walk], false);
+        test_travel_mode_change(
+            vec![AvatarTravelMode::Walk],
+            vec![AvatarTravelMode::Walk],
+            false,
+        );
     }
 
     #[test]
     fn test_travel_mode_change_land_to_water() {
-        test_travel_mode_change(vec![TravelMode::Walk], vec![TravelMode::Sea], true);
+        test_travel_mode_change(
+            vec![AvatarTravelMode::Walk],
+            vec![AvatarTravelMode::Sea],
+            true,
+        );
     }
 
     #[test]
     fn test_travel_mode_change_land_to_mix() {
         test_travel_mode_change(
-            vec![TravelMode::Walk],
-            vec![TravelMode::Walk, TravelMode::Sea],
+            vec![AvatarTravelMode::Walk],
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
             false,
         );
     }
 
     #[test]
     fn test_travel_mode_change_land_to_empty() {
-        test_travel_mode_change(vec![TravelMode::Walk], vec![], true);
+        test_travel_mode_change(vec![AvatarTravelMode::Walk], vec![], true);
     }
 
     #[test]
     fn test_travel_mode_change_water_to_water() {
-        test_travel_mode_change(vec![TravelMode::Sea], vec![TravelMode::Sea], false);
+        test_travel_mode_change(
+            vec![AvatarTravelMode::Sea],
+            vec![AvatarTravelMode::Sea],
+            false,
+        );
     }
 
     #[test]
     fn test_travel_mode_change_water_to_mix() {
         test_travel_mode_change(
-            vec![TravelMode::Sea],
-            vec![TravelMode::Walk, TravelMode::Sea],
+            vec![AvatarTravelMode::Sea],
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
             false,
         );
     }
 
     #[test]
     fn test_travel_mode_change_water_to_empty() {
-        test_travel_mode_change(vec![TravelMode::Sea], vec![], true);
+        test_travel_mode_change(vec![AvatarTravelMode::Sea], vec![], true);
     }
 
     #[test]
     fn test_travel_mode_change_mix_to_mix() {
         test_travel_mode_change(
-            vec![TravelMode::Walk, TravelMode::Sea],
-            vec![TravelMode::Walk, TravelMode::Sea],
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
             false,
         );
     }
 
     #[test]
     fn test_travel_mode_change_mix_to_empty() {
-        test_travel_mode_change(vec![TravelMode::Walk, TravelMode::Sea], vec![], true);
+        test_travel_mode_change(
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
+            vec![],
+            true,
+        );
     }
 
     #[test]

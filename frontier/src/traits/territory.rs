@@ -10,6 +10,7 @@ use crate::traits::{
     DrawWorld, ExpandPositions, Micros, PathfinderForRoutes, PositionsWithin, WithTerritory,
     WithWorld,
 };
+use crate::travel_duration::land;
 
 #[async_trait]
 pub trait AddController {
@@ -106,9 +107,16 @@ where
 {
     async fn update_territory(&self, controller: V2<usize>) {
         let duration = self.parameters().town_travel_duration;
-        let corners = get_corners(&controller);
+        let corners = get_corners(&controller)
+            .into_iter()
+            .map(|corner| land(corner.x as u16, corner.y as u16))
+            .collect::<Vec<_>>();
         let pathfinder = self.routes_pathfinder();
         let durations = pathfinder.positions_within(&corners, &duration).await;
+        let durations = durations
+            .into_iter()
+            .map(|(position, duration)| (position.into(), duration))
+            .collect();
         let micros = self.micros().await;
         self.set_control_durations(controller, &durations, &micros)
             .await
