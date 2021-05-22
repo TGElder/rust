@@ -4,7 +4,7 @@ use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{ClosestTargetsForRoutes, CostOfPath, InBoundsForRoutes, Micros};
-use crate::travel_duration::{land, TravelDuration, TravelPosition};
+use crate::travel::{land, TravelDuration, TravelPosition};
 use commons::grid::get_corners;
 use commons::V2;
 use std::collections::HashMap;
@@ -108,7 +108,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use crate::travel_duration::{land, TravelDuration};
+    use crate::travel::{land, TravelDuration};
     use crate::world::World;
     use commons::async_trait::async_trait;
     use commons::{same_elements, v2};

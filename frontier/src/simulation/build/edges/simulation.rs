@@ -5,7 +5,7 @@ use crate::traits::{
     InsertBuildInstruction, IsRoad, PlanRoad, RemoveBuildInstruction,
     RemoveRoad as RemoveRoadTrait, RoadPlanned, WithEdgeTraffic, WithRoutes, WithWorld,
 };
-use crate::travel_duration::TravelDuration;
+use crate::travel::TravelDuration;
 
 use std::collections::HashSet;
 use std::sync::Arc;

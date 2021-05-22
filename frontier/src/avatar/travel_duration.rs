@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::travel_duration::*;
+use crate::travel::*;
 use crate::world::{World, WorldCell};
 use commons::grid::Grid;
 use commons::scale::*;

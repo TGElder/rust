@@ -10,7 +10,7 @@ use crate::traits::{
     DrawWorld, ExpandPositions, Micros, PathfinderForRoutes, PositionsWithin, WithTerritory,
     WithWorld,
 };
-use crate::travel_duration::{land, TravelMode, TravelPosition};
+use crate::travel::{land, TravelMode, TravelPosition};
 
 #[async_trait]
 pub trait AddController {

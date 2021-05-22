@@ -1,4 +1,4 @@
-use crate::travel_duration::*;
+use crate::travel::*;
 use crate::world::{World, WorldCell};
 use commons::edge::*;
 use commons::grid::Grid;

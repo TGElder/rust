@@ -9,7 +9,7 @@ use crate::traits::has::HasParameters;
 use crate::traits::{
     InsertBuildInstruction, PlanRoad, RoadPlanned, WithEdgeTraffic, WithRoutes, WithWorld,
 };
-use crate::travel_duration::TravelDuration;
+use crate::travel::TravelDuration;
 use crate::world::World;
 
 impl<T, D> EdgeBuildSimulation<T, D>

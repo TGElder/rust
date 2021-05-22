@@ -4,7 +4,7 @@ use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
     FindPath, Micros, PathfinderForPlayer, SelectedAvatar, UpdateAvatarJourney, WithWorld,
 };
-use crate::travel_duration::land;
+use crate::travel::land;
 use commons::async_trait::async_trait;
 use commons::V2;
 use isometric::{coords::*, ElementState, Event};

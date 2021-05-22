@@ -17,7 +17,7 @@ use crate::traits::{
     UpdateTerritory, VisibleLandPositions, WithEdgeTraffic, WithRouteToPorts, WithRoutes,
     WithSettlements, WithSimQueue, WithTraffic, WithWorld,
 };
-use crate::travel_duration::TravelDuration;
+use crate::travel::TravelDuration;
 
 use super::demand::demand_fn::{homeland_demand_fn, town_demand_fn};
 

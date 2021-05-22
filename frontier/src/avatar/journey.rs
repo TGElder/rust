@@ -1,5 +1,5 @@
 use super::*;
-use crate::travel_duration::*;
+use crate::travel::*;
 use crate::world::World;
 use commons::grid::Grid;
 use commons::V2;

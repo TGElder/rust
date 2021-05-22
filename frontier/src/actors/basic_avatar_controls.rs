@@ -1,7 +1,7 @@
 use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, WithWorld};
-use crate::travel_duration::TravelDuration;
+use crate::travel::TravelDuration;
 use commons::async_trait::async_trait;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::default::Default;

@@ -15,7 +15,7 @@ use crate::avatar::{Avatar, AvatarTravelDuration, Frame, Journey, Rotation};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::has::HasParameters;
 use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, WithWorld};
-use crate::travel_duration::TravelDuration;
+use crate::travel::TravelDuration;
 use crate::world::{World, WorldCell};
 
 pub struct RiverExplorer<T> {

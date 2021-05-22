@@ -4,7 +4,7 @@ use crate::traits::{
     InsertBuildInstruction, IsRoad, PlanRoad, RemoveBuildInstruction, RemoveRoad, RoadPlanned,
     WithEdgeTraffic, WithRoutes, WithWorld,
 };
-use crate::travel_duration::TravelDuration;
+use crate::travel::TravelDuration;
 use commons::async_trait::async_trait;
 use futures::future::BoxFuture;
 

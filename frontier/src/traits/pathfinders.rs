@@ -8,7 +8,7 @@ use crate::traits::{
     ClosestTargets, CostOfPath, InBounds, InitTargets, LoadTargets, Target, WithPathfinder,
     WithWorld,
 };
-use crate::travel_duration::TravelPosition;
+use crate::travel::TravelPosition;
 
 pub trait PathfinderForRoutes {
     type T: WithPathfinder + Clone + Send + Sync + 'static;

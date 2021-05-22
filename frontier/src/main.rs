@@ -28,7 +28,7 @@ mod system;
 mod territory;
 mod traffic;
 mod traits;
-mod travel_duration;
+mod travel;
 mod visibility_computer;
 mod visited;
 mod world;

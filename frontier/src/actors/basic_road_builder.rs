@@ -2,7 +2,7 @@ use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 use crate::road_builder::{RoadBuildMode, RoadBuildTravelDuration, RoadBuilderResult};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, UpdateRoads, WithWorld};
-use crate::travel_duration::TravelDuration;
+use crate::travel::TravelDuration;
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
 use commons::{unwrap_or, V2};

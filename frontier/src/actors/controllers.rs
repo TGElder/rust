@@ -19,7 +19,7 @@ use crate::traits::has::HasParameters;
 use crate::traits::DrawWorld;
 use crate::traits::WithWorld;
 use crate::traits::{PathfinderForRoutes, Settlements, WithControllers, WithPathfinder};
-use crate::travel_duration::{land, TravelMode};
+use crate::travel::{land, TravelMode};
 use crate::world::World;
 
 pub struct ControllersActor<T> {

@@ -2,7 +2,7 @@ use crate::resource::{Resource, Resources, RESOURCES};
 use crate::traits::{
     GetWorldObjects, InitTargetsForRoutes, LoadTargetForRoutes, Target, WithResources,
 };
-use crate::travel_duration::{land, TravelPosition};
+use crate::travel::{land, TravelPosition};
 use crate::world::WorldObject;
 use commons::grid::Grid;
 use commons::{v2, V2};

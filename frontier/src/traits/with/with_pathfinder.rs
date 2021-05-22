@@ -1,7 +1,7 @@
 use commons::async_trait::async_trait;
 
 use crate::pathfinder::Pathfinder;
-use crate::travel_duration::TravelDuration;
+use crate::travel::TravelDuration;
 
 #[async_trait]
 pub trait WithPathfinder {

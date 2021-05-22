@@ -8,7 +8,7 @@ use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
     PathfinderForPlayer, PathfinderForRoutes, RunInBackground, WithPathfinder, WithWorld,
 };
-use crate::travel_duration::{EdgeDuration, TravelDuration, TravelPosition};
+use crate::travel::{EdgeDuration, TravelDuration, TravelPosition};
 
 #[async_trait]
 pub trait FindPath {

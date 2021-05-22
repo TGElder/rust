@@ -1,4 +1,3 @@
-use crate::travel_duration::*;
 use commons::grid::Grid;
 use commons::index2d::{Index2D, IndexOutOfBounds, Vec2D};
 use commons::manhattan::ManhattanDistance;
@@ -12,6 +11,8 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
+
+use crate::travel::{land, water, TravelDuration, TravelMode, TravelPosition};
 
 pub struct Pathfinder<T>
 where
@@ -234,6 +235,7 @@ pub struct ClosestTargetResult {
 #[cfg(test)]
 mod tests {
 
+    use crate::travel::EdgeDuration;
     use crate::world::World;
 
     use super::*;
