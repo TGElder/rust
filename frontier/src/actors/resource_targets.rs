@@ -2,6 +2,7 @@ use crate::resource::{Resource, Resources, RESOURCES};
 use crate::traits::{
     GetWorldObjects, InitTargetsForRoutes, LoadTargetForRoutes, Target, WithResources,
 };
+use crate::travel_duration::{land, TravelPosition};
 use crate::world::WorldObject;
 use commons::grid::Grid;
 use commons::{v2, V2};
@@ -36,6 +37,10 @@ where
             self.cx.get_world_objects(&positions)
         );
 
+        let positions = positions
+            .into_iter()
+            .map(|position| land(position.x as u16, position.y as u16))
+            .collect();
         let targets = get_targets(&positions, &resources, &world_objects);
 
         self.cx.load_targets(targets).await;
@@ -63,17 +68,21 @@ where
 }
 
 fn get_targets<'a>(
-    positions: &'a HashSet<V2<usize>>,
+    positions: &'a HashSet<TravelPosition>,
     resources: &'a HashMap<V2<usize>, HashSet<Resource>>,
     world_objects: &'a HashMap<V2<usize>, WorldObject>,
 ) -> impl Iterator<Item = Target<'a>> {
     positions.iter().flat_map(move |position| {
-        get_targets_at(&position, &resources[position], &world_objects[position])
+        get_targets_at(
+            &position,
+            &resources[&position.into()],
+            &world_objects[&position.into()],
+        )
     })
 }
 
 fn get_targets_at<'a>(
-    position: &'a V2<usize>,
+    position: &'a TravelPosition,
     resources: &'a HashSet<Resource>,
     world_object: &'a WorldObject,
 ) -> impl Iterator<Item = Target<'a>> {
@@ -189,7 +198,7 @@ mod tests {
                     .unwrap()
                     .get_mut(name)
                     .unwrap()
-                    .mut_cell_unsafe(position) = target;
+                    .mut_cell_unsafe(&position.into()) = target;
             }
         }
     }

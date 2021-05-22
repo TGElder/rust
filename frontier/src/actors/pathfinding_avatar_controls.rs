@@ -4,6 +4,7 @@ use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
     FindPath, Micros, PathfinderForPlayer, SelectedAvatar, UpdateAvatarJourney, WithWorld,
 };
+use crate::travel_duration::land;
 use commons::async_trait::async_trait;
 use commons::V2;
 use isometric::{coords::*, ElementState, Event};
@@ -47,6 +48,7 @@ where
 
     async fn walk_to(&mut self) {
         let to = unwrap_or!(self.world_coord, return).to_v2_round();
+        let to = land(to.x as u16, to.y as u16);
 
         let micros = self.cx.micros().await;
 
@@ -57,6 +59,7 @@ where
             .update_avatar_journey(&name, Some(stopped.clone()))
             .await;
         let stop_position = stopped.final_frame().position;
+        let stop_position = land(stop_position.x as u16, stop_position.y as u16);
 
         let path = unwrap_or!(
             self.cx
@@ -65,6 +68,7 @@ where
                 .await,
             return
         );
+        let path = path.into_iter().map(|position| position.into()).collect();
 
         let start_at = stopped.final_frame().arrival.max(micros);
         let travelling = self

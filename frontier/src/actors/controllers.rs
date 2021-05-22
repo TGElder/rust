@@ -19,6 +19,7 @@ use crate::traits::has::HasParameters;
 use crate::traits::DrawWorld;
 use crate::traits::WithWorld;
 use crate::traits::{PathfinderForRoutes, Settlements, WithControllers, WithPathfinder};
+use crate::travel_duration::{land, TravelMode};
 use crate::world::World;
 
 pub struct ControllersActor<T> {
@@ -79,13 +80,19 @@ where
         for town in towns {
             let origin = unwrap_or!(nation_to_origin.get(&town.nation), continue);
             let positions = origin_to_positions.get_mut(origin).unwrap();
-            positions.append(&mut get_corners_in_bounds(&town.position, &width, &width));
+            positions.extend(
+                &mut get_corners_in_bounds(&town.position, &width, &width)
+                    .into_iter()
+                    .map(|corner| land(corner.x as u16, corner.y as u16)),
+            );
         }
 
         let closest_origins = self
             .cx
             .routes_pathfinder()
-            .with_pathfinder(|pathfinder| pathfinder.closest_origins(&origin_to_positions))
+            .with_pathfinder(|pathfinder| {
+                pathfinder.closest_origins(&origin_to_positions, TravelMode::Land)
+            })
             .await;
 
         self.get_controllers_from_closest_origins(closest_origins)

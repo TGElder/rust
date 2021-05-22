@@ -8,6 +8,7 @@ use crate::traits::{
     ClosestTargets, CostOfPath, InBounds, InitTargets, LoadTargets, Target, WithPathfinder,
     WithWorld,
 };
+use crate::travel_duration::TravelPosition;
 
 pub trait PathfinderForRoutes {
     type T: WithPathfinder + Clone + Send + Sync + 'static;
@@ -17,7 +18,7 @@ pub trait PathfinderForRoutes {
 
 #[async_trait]
 pub trait InBoundsForRoutes {
-    async fn in_bounds(&self, position: &V2<usize>) -> bool;
+    async fn in_bounds(&self, position: &TravelPosition) -> bool;
 }
 
 #[async_trait]
@@ -25,7 +26,7 @@ impl<T> InBoundsForRoutes for T
 where
     T: PathfinderForRoutes + Sync,
 {
-    async fn in_bounds(&self, position: &V2<usize>) -> bool {
+    async fn in_bounds(&self, position: &TravelPosition) -> bool {
         self.routes_pathfinder().in_bounds(position).await
     }
 }
@@ -69,7 +70,7 @@ where
 pub trait ClosestTargetsForRoutes {
     async fn closest_targets(
         &self,
-        positions: &[V2<usize>],
+        positions: &[TravelPosition],
         targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult>;
@@ -82,7 +83,7 @@ where
 {
     async fn closest_targets(
         &self,
-        positions: &[V2<usize>],
+        positions: &[TravelPosition],
         targets: &str,
         n_closest: usize,
     ) -> Vec<ClosestTargetResult> {

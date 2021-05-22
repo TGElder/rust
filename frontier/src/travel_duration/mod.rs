@@ -8,10 +8,53 @@ pub use no_river_corners::*;
 
 use crate::world::World;
 use commons::grid::Grid;
-use commons::scale::*;
 use commons::V2;
+use commons::{scale::*, v2};
+use serde::{Deserialize, Serialize};
 use std::iter::once;
 use std::time::Duration;
+use std::usize;
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub struct TravelPosition {
+    pub x: u16,
+    pub y: u16,
+    pub mode: TravelMode,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub enum TravelMode {
+    Land = 0,
+    Water = 1,
+}
+
+pub fn land(x: u16, y: u16) -> TravelPosition {
+    TravelPosition {
+        x,
+        y,
+        mode: TravelMode::Land,
+    }
+}
+
+pub fn water(x: u16, y: u16) -> TravelPosition {
+    TravelPosition {
+        x,
+        y,
+        mode: TravelMode::Water,
+    }
+}
+
+impl From<&TravelPosition> for V2<usize> {
+    fn from(position: &TravelPosition) -> Self {
+        v2(position.x as usize, position.y as usize)
+    }
+}
+
+impl From<TravelPosition> for V2<usize> {
+    fn from(position: TravelPosition) -> Self {
+        v2(position.x as usize, position.y as usize)
+    }
+}
 
 pub trait TravelDuration: Send + Sync {
     fn get_duration(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Duration>;
@@ -57,18 +100,20 @@ pub trait TravelDuration: Send + Sync {
         world: &'a World,
         position: V2<usize>,
     ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
+        let from = land(position.x as u16, position.y as u16);
         let iterator = world
             .neighbours(&position)
             .into_iter()
             .flat_map(move |neighbour| {
+                let to = land(neighbour.x as u16, neighbour.y as u16);
                 once(EdgeDuration {
-                    from: position,
-                    to: neighbour,
+                    from,
+                    to,
                     duration: self.get_duration(world, &position, &neighbour),
                 })
                 .chain(once(EdgeDuration {
-                    from: neighbour,
-                    to: position,
+                    from: to,
+                    to: from,
                     duration: self.get_duration(world, &neighbour, &position),
                 }))
             });
@@ -78,8 +123,8 @@ pub trait TravelDuration: Send + Sync {
 
 #[derive(Debug, Eq, Hash, PartialEq)]
 pub struct EdgeDuration {
-    pub from: V2<usize>,
-    pub to: V2<usize>,
+    pub from: TravelPosition,
+    pub to: TravelPosition,
     pub duration: Option<Duration>,
 }
 
@@ -199,36 +244,36 @@ mod tests {
         assert_eq!(
             travel_duration.get_durations_for_position(&world(), v2(1, 1)).collect::<HashSet<EdgeDuration>>(),
             hashset!{EdgeDuration{
-                from: v2(1, 1),
-                to: v2(2, 1),
+                from: land(1, 1),
+                to: land(2, 1),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(2, 1),
-                to: v2(1, 1),
+                from: land(2, 1),
+                to: land(1, 1),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(1, 1),
-                to: v2(1, 2),
+                from: land(1, 1),
+                to: land(1, 2),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(1, 2),
-                to: v2(1, 1),
+                from: land(1, 2),
+                to: land(1, 1),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(1, 1),
-                to: v2(0, 1),
+                from: land(1, 1),
+                to: land(0, 1),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(0, 1),
-                to: v2(1, 1),
+                from: land(0, 1),
+                to: land(1, 1),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(1, 1),
-                to: v2(1, 0),
+                from: land(1, 1),
+                to: land(1, 0),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(1, 0),
-                to: v2(1, 1),
+                from: land(1, 0),
+                to: land(1, 1),
                 duration: Some(Duration::from_millis(1))
             }}
         );
@@ -245,20 +290,20 @@ mod tests {
         assert_eq!(
             travel_duration.get_durations_for_position(&world(), v2(0, 0)).collect::<HashSet<EdgeDuration>>(),
             hashset!{EdgeDuration{
-                from: v2(0, 0),
-                to: v2(1, 0),
+                from: land(0, 0),
+                to: land(1, 0),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(1, 0),
-                to: v2(0, 0),
+                from: land(1, 0),
+                to: land(0, 0),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(0, 0),
-                to: v2(0, 1),
+                from: land(0, 0),
+                to: land(0, 1),
                 duration: Some(Duration::from_millis(1))
             },EdgeDuration{
-                from: v2(0, 1),
-                to: v2(0, 0),
+                from: land(0, 1),
+                to: land(0, 0),
                 duration: Some(Duration::from_millis(1))
             }}
         );

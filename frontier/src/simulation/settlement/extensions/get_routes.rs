@@ -4,7 +4,7 @@ use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::{ClosestTargetsForRoutes, CostOfPath, InBoundsForRoutes, Micros};
-use crate::travel_duration::TravelDuration;
+use crate::travel_duration::{land, TravelDuration, TravelPosition};
 use commons::grid::get_corners;
 use commons::V2;
 use std::collections::HashMap;
@@ -41,9 +41,10 @@ where
             .await
     }
 
-    async fn corners_in_bound(&self, position: &V2<usize>) -> Vec<V2<usize>> {
+    async fn corners_in_bound(&self, position: &V2<usize>) -> Vec<TravelPosition> {
         let mut out = vec![];
         for corner in get_corners(&position) {
+            let corner = land(corner.x as u16, corner.y as u16);
             if self.cx.in_bounds(&corner).await {
                 out.push(corner);
             }
@@ -74,15 +75,20 @@ where
         demand: &Demand,
         target: ClosestTargetResult,
     ) -> (RouteKey, Route) {
+        let path = target
+            .path
+            .into_iter()
+            .map(|position| position.into())
+            .collect::<Vec<_>>();
         (
             RouteKey {
                 settlement: demand.position,
                 resource: demand.resource,
-                destination: target.position,
+                destination: target.position.into(),
             },
             Route {
-                duration: self.route_duration(&target.path).await,
-                path: target.path,
+                duration: self.route_duration(&path).await,
+                path,
                 start_micros,
                 traffic: demand.quantity,
             },
@@ -102,7 +108,7 @@ mod tests {
     use super::*;
 
     use crate::resource::Resource;
-    use crate::travel_duration::TravelDuration;
+    use crate::travel_duration::{land, TravelDuration};
     use crate::world::World;
     use commons::async_trait::async_trait;
     use commons::{same_elements, v2};
@@ -136,11 +142,14 @@ mod tests {
     impl ClosestTargetsForRoutes for HappyPathTx {
         async fn closest_targets(
             &self,
-            positions: &[V2<usize>],
+            positions: &[TravelPosition],
             target_set: &str,
             _: usize,
         ) -> Vec<ClosestTargetResult> {
-            assert!(same_elements(positions, &[v2(1, 3), v2(2, 3), v2(1, 4)]));
+            assert!(same_elements(
+                positions,
+                &[land(1, 3), land(2, 3), land(1, 4)]
+            ));
             assert_eq!(target_set, "coal");
             self.closest_targets.clone()
         }
@@ -148,8 +157,9 @@ mod tests {
 
     #[async_trait]
     impl InBoundsForRoutes for HappyPathTx {
-        async fn in_bounds(&self, position: &V2<usize>) -> bool {
-            *position != v2(2, 4)
+        async fn in_bounds(&self, position: &TravelPosition) -> bool {
+            let position: V2<usize> = position.into();
+            position != v2(2, 4)
         }
     }
 
@@ -174,13 +184,13 @@ mod tests {
         // Given
         let closest_targets = vec![
             ClosestTargetResult {
-                position: v2(1, 5),
-                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                position: land(1, 5),
+                path: vec![land(1, 3), land(1, 4), land(1, 5)],
                 duration: Duration::from_secs(2),
             },
             ClosestTargetResult {
-                position: v2(5, 3),
-                path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
+                position: land(5, 3),
+                path: vec![land(1, 3), land(2, 3), land(3, 3), land(4, 3), land(5, 3)],
                 duration: Duration::from_secs(4),
             },
         ];
@@ -275,13 +285,13 @@ mod tests {
         // Given
         let closest_targets = vec![
             ClosestTargetResult {
-                position: v2(1, 5),
-                path: vec![v2(1, 3), v2(1, 4), v2(1, 5)],
+                position: land(1, 5),
+                path: vec![land(1, 3), land(1, 4), land(1, 5)],
                 duration: Duration::from_secs(2),
             },
             ClosestTargetResult {
-                position: v2(5, 3),
-                path: vec![v2(1, 3), v2(2, 3), v2(3, 3), v2(4, 3), v2(5, 3)],
+                position: land(5, 3),
+                path: vec![land(1, 3), land(2, 3), land(3, 3), land(4, 3), land(5, 3)],
                 duration: Duration::from_secs(4),
             },
         ];
@@ -350,7 +360,7 @@ mod tests {
     impl ClosestTargetsForRoutes for PanicPathfinderTx {
         async fn closest_targets(
             &self,
-            _: &[V2<usize>],
+            _: &[TravelPosition],
             _: &str,
             _: usize,
         ) -> Vec<ClosestTargetResult> {
@@ -360,7 +370,7 @@ mod tests {
 
     #[async_trait]
     impl InBoundsForRoutes for PanicPathfinderTx {
-        async fn in_bounds(&self, _: &V2<usize>) -> bool {
+        async fn in_bounds(&self, _: &TravelPosition) -> bool {
             panic!("in_bounds was called!");
         }
     }

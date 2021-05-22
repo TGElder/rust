@@ -34,7 +34,7 @@ mod tests {
     use std::collections::HashMap;
 
     struct MockTravelModeFn {
-        map: HashMap<V2<usize>, Vec<TravelMode>>,
+        map: HashMap<V2<usize>, Vec<AvatarTravelMode>>,
     }
 
     impl TravelModeFn for MockTravelModeFn {
@@ -43,11 +43,11 @@ mod tests {
             _: &World,
             _: &V2<usize>,
             _: &V2<usize>,
-        ) -> Option<TravelMode> {
+        ) -> Option<AvatarTravelMode> {
             None
         }
 
-        fn travel_modes_here(&self, _: &World, position: &V2<usize>) -> Vec<TravelMode> {
+        fn travel_modes_here(&self, _: &World, position: &V2<usize>) -> Vec<AvatarTravelMode> {
             self.map[position].clone()
         }
     }
@@ -57,8 +57,8 @@ mod tests {
     }
 
     fn test_check_for_port(
-        from: Vec<TravelMode>,
-        to: Vec<TravelMode>,
+        from: Vec<AvatarTravelMode>,
+        to: Vec<AvatarTravelMode>,
         from_port: bool,
         to_port: bool,
     ) {
@@ -86,19 +86,29 @@ mod tests {
 
     #[test]
     fn test_check_for_port_land_to_land() {
-        test_check_for_port(vec![TravelMode::Walk], vec![TravelMode::Walk], false, false);
+        test_check_for_port(
+            vec![AvatarTravelMode::Walk],
+            vec![AvatarTravelMode::Walk],
+            false,
+            false,
+        );
     }
 
     #[test]
     fn test_check_for_port_land_to_water() {
-        test_check_for_port(vec![TravelMode::Walk], vec![TravelMode::Sea], true, false);
+        test_check_for_port(
+            vec![AvatarTravelMode::Walk],
+            vec![AvatarTravelMode::Sea],
+            true,
+            false,
+        );
     }
 
     #[test]
     fn test_check_for_port_land_to_mix() {
         test_check_for_port(
-            vec![TravelMode::Walk],
-            vec![TravelMode::Walk, TravelMode::Sea],
+            vec![AvatarTravelMode::Walk],
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
             true,
             false,
         );
@@ -106,19 +116,24 @@ mod tests {
 
     #[test]
     fn test_check_for_port_land_to_empty() {
-        test_check_for_port(vec![TravelMode::Walk], vec![], false, false);
+        test_check_for_port(vec![AvatarTravelMode::Walk], vec![], false, false);
     }
 
     #[test]
     fn test_check_for_port_water_to_water() {
-        test_check_for_port(vec![TravelMode::Sea], vec![TravelMode::Sea], false, false);
+        test_check_for_port(
+            vec![AvatarTravelMode::Sea],
+            vec![AvatarTravelMode::Sea],
+            false,
+            false,
+        );
     }
 
     #[test]
     fn test_check_for_port_water_to_mix() {
         test_check_for_port(
-            vec![TravelMode::Sea],
-            vec![TravelMode::Walk, TravelMode::Sea],
+            vec![AvatarTravelMode::Sea],
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
             false,
             false,
         );
@@ -126,14 +141,14 @@ mod tests {
 
     #[test]
     fn test_check_for_port_water_to_empty() {
-        test_check_for_port(vec![TravelMode::Sea], vec![], false, false);
+        test_check_for_port(vec![AvatarTravelMode::Sea], vec![], false, false);
     }
 
     #[test]
     fn test_check_for_port_mix_to_mix() {
         test_check_for_port(
-            vec![TravelMode::Walk, TravelMode::Sea],
-            vec![TravelMode::Walk, TravelMode::Sea],
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
             false,
             false,
         );
@@ -142,7 +157,7 @@ mod tests {
     #[test]
     fn test_check_for_port_mix_to_empty() {
         test_check_for_port(
-            vec![TravelMode::Walk, TravelMode::Sea],
+            vec![AvatarTravelMode::Walk, AvatarTravelMode::Sea],
             vec![],
             false,
             false,
