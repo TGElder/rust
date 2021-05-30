@@ -1378,6 +1378,7 @@ name = "network"
 version = "0.1.0"
 dependencies = [
  "hamcrest",
+ "maplit",
 ]
 
 [[package]]

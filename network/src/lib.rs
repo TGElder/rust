@@ -1,9 +1,12 @@
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 use std::iter::once;
+
 #[cfg(test)]
 #[macro_use]
 extern crate hamcrest;
+
+mod algorithms;
 
 #[derive(Eq)]
 struct Node {
