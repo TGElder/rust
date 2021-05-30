@@ -1,11 +1,15 @@
 use crate::travel_duration::*;
+use commons::grid::Grid;
 use commons::index2d::*;
 use commons::manhattan::ManhattanDistance;
 use commons::*;
+use network::algorithms::ClosestOrigins;
 use network::ClosestTargetResult as NetworkClosestTargetResult;
 use network::Edge as NetworkEdge;
 use network::Network;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -170,6 +174,26 @@ where
             path: self.get_positions_from_network_indices(&result.path),
             duration: self.travel_duration.get_duration_from_cost(result.cost),
         }
+    }
+
+    fn closest_origins<U: Copy + Eq + Hash>(
+        &self,
+        origin_to_positions: &HashMap<U, Vec<V2<usize>>>,
+    ) -> Vec2D<HashSet<U>> {
+        let origin_to_indices = origin_to_positions
+            .iter()
+            .map(|(origin, positions)| (*origin, self.get_network_indices(positions)))
+            .collect();
+
+        let closest_origins = self.network.closest_origins(&origin_to_indices);
+
+        let mut out = Vec2D::new(self.index.columns(), self.index.rows(), hashset! {});
+        for (index, origin) in closest_origins.into_iter().enumerate() {
+            let position = self.get_position_from_network_index(index).unwrap();
+            *out.mut_cell_unsafe(&position) = origin;
+        }
+
+        out
     }
 }
 
@@ -526,5 +550,57 @@ mod tests {
         assert!(!pathfinder.in_bounds(&v2(1, 3)));
         assert!(!pathfinder.in_bounds(&v2(2, 3)));
         assert!(!pathfinder.in_bounds(&v2(3, 3)));
+    }
+
+    #[test]
+    fn test_closest_origins() {
+        // Given
+        struct TestTravelDuration {}
+
+        impl TravelDuration for TestTravelDuration {
+            fn get_duration(&self, _: &World, _: &V2<usize>, _: &V2<usize>) -> Option<Duration> {
+                panic!("Not expecting get_duration to be called!");
+            }
+
+            fn min_duration(&self) -> Duration {
+                Duration::from_secs(1)
+            }
+
+            fn max_duration(&self) -> Duration {
+                Duration::from_secs(2)
+            }
+        }
+
+        let travel_duration = Arc::new(TestTravelDuration {});
+        let mut pathfinder = Pathfinder::new(5, 3, travel_duration);
+        pathfinder.set_edge_duration(&v2(0, 0), &v2(0, 2), &Duration::from_secs(1));
+        pathfinder.set_edge_duration(&v2(0, 0), &v2(1, 1), &Duration::from_secs(1));
+        pathfinder.set_edge_duration(&v2(0, 0), &v2(2, 0), &Duration::from_secs(1));
+        pathfinder.set_edge_duration(&v2(0, 2), &v2(1, 1), &Duration::from_secs(1));
+        pathfinder.set_edge_duration(&v2(0, 2), &v2(2, 2), &Duration::from_secs(1));
+        pathfinder.set_edge_duration(&v2(2, 0), &v2(3, 1), &Duration::from_secs(1));
+        pathfinder.set_edge_duration(&v2(2, 0), &v2(4, 1), &Duration::from_secs(1));
+        pathfinder.set_edge_duration(&v2(2, 2), &v2(3, 1), &Duration::from_secs(2));
+        pathfinder.set_edge_duration(&v2(2, 2), &v2(4, 1), &Duration::from_secs(2));
+        pathfinder.set_edge_duration(&v2(4, 2), &v2(4, 1), &Duration::from_secs(1));
+
+        // When
+        let actual = pathfinder.closest_origins(&hashmap! {
+            v2(0, 0) => vec![v2(0, 0)],
+            v2(4, 2) => vec![v2(0, 2), v2(4, 2)],
+        });
+
+        // Then
+        let mut expected = Vec2D::new(5, 3, hashset! {});
+        expected.mut_cell_unsafe(&v2(0, 0)).insert(v2(0, 0));
+        expected.mut_cell_unsafe(&v2(0, 2)).insert(v2(4, 2));
+        expected.mut_cell_unsafe(&v2(1, 1)).insert(v2(0, 0));
+        expected.mut_cell_unsafe(&v2(1, 1)).insert(v2(4, 2));
+        expected.mut_cell_unsafe(&v2(2, 0)).insert(v2(0, 0));
+        expected.mut_cell_unsafe(&v2(2, 2)).insert(v2(4, 2));
+        expected.mut_cell_unsafe(&v2(3, 1)).insert(v2(0, 0));
+        expected.mut_cell_unsafe(&v2(4, 1)).insert(v2(4, 2));
+        expected.mut_cell_unsafe(&v2(4, 2)).insert(v2(4, 2));
+        assert_eq!(actual, expected);
     }
 }

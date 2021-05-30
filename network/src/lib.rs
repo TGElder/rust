@@ -6,7 +6,7 @@ use std::iter::once;
 #[macro_use]
 extern crate hamcrest;
 
-mod algorithms;
+pub mod algorithms;
 
 #[derive(Eq)]
 struct Node {

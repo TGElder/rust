@@ -25,6 +25,18 @@ impl Index2D {
         Index2D { columns, rows }
     }
 
+    pub fn columns(&self) -> usize {
+        self.columns
+    }
+
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+
+    pub fn indices(&self) -> usize {
+        self.columns * self.rows
+    }
+
     pub fn get_index(&self, position: &V2<usize>) -> Result<usize, PositionOutOfBounds> {
         if position.x >= self.columns || position.y >= self.rows {
             Err(PositionOutOfBounds {
@@ -45,10 +57,6 @@ impl Index2D {
         } else {
             Ok(v2(index % self.columns, index / self.columns))
         }
-    }
-
-    pub fn indices(&self) -> usize {
-        self.columns * self.rows
     }
 }
 
