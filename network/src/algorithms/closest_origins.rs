@@ -42,10 +42,10 @@ impl ClosestOrigins for Network {
         }) = heap.pop()
         {
             if let Some(min_cost) = min_costs[index] {
-                if cost != min_cost {
+                if cost > min_cost || out[index].contains(&origin) {
                     continue;
                 }
-            } else {
+            }else {
                 min_costs[index] = Some(cost);
             }
 
@@ -55,6 +55,12 @@ impl ClosestOrigins for Network {
                 let neighbour = edge.to;
                 let cost = cost + u128::from(edge.cost);
 
+                
+                if let Some(min_cost) = min_costs[neighbour] {
+                    if cost > min_cost || out[neighbour].contains(&origin) {
+                        continue;
+                    }
+                }
                 heap.push(Node {
                     index: neighbour,
                     cost,
