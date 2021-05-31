@@ -66,7 +66,7 @@ impl Default for Parameters {
             light_direction: v3(0.0, 8.0, -1.0),
             snow_temperature: 0.0,
             town_travel_duration: Duration::from_secs(60 * 60 * 6),
-            avatars: 10000,
+            avatars: 1000,
             homeland: HomelandParams::default(),
             avatar_color: Color::new(0.5, 0.5, 0.5, 1.0),
             town_artist: TownArtistParameters::default(),

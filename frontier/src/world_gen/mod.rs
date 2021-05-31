@@ -55,9 +55,9 @@ impl Default for WorldGenParameters {
             latitude_range: (0.0, 50.0),
             cliff_gradient: 0.5,
             split_range: (0.0, 0.9),
-            max_height: 16.0,
-            sea_level: 1.0,
-            beach_level: 1.05,
+            max_height: 8.0,
+            sea_level: 0.5,
+            beach_level: 0.55,
             erosion_iterations: 16,
             erosion_amount: 0.9,
             river_threshold: 16.0,
@@ -86,16 +86,14 @@ fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParame
     println!("Generating world...");
     for i in 0..power {
         mesh = MeshSplitter::split(&mesh, rng, params.split_range);
-        if i < (power - 1) {
-            let threshold = i * 2;
-            mesh = Erosion::erode(
-                mesh,
-                rng,
-                threshold as f64,
-                params.erosion_iterations,
-                params.erosion_amount,
-            );
-        }
+        let threshold = i * 2;
+        mesh = Erosion::erode(
+            mesh,
+            rng,
+            threshold as f64,
+            params.erosion_iterations,
+            params.erosion_amount,
+        );
         println!("{}", power - i);
     }
 
