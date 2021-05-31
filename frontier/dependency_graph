@@ -194,7 +194,7 @@ SendWorldArtist GetNationDescription
 SendWorldArtist HasParameters
 SendWorldArtist Micros
 SendWorldArtist SendEngineCommands
-SendWorldArtist WithHomelandTerritory
+SendWorldArtist WithControllers
 SendWorldArtist WithResources
 SendWorldArtist WithSettlements
 SendWorldArtist WithWorld

@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
-pub type HomelandTerritory = M<Option<V2<usize>>>;
+pub type Controllers = M<Option<V2<usize>>>;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Claim {

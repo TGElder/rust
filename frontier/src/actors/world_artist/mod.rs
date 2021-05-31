@@ -4,12 +4,11 @@ pub use coloring::{BaseColors, WorldColoringParameters};
 use commons::async_trait::async_trait;
 
 use crate::artists::{HouseArtist, ResourceArtist, ResourceArtistParameters, Slab, WorldArtist};
-use crate::settlement::SettlementClass;
+use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    GetNationDescription, Micros, SendEngineCommands, WithHomelandTerritory, WithResources,
-    WithSettlements, WithWorld,
+    Micros, SendEngineCommands, WithControllers, WithResources, WithSettlements, WithWorld,
 };
 use coloring::{world_coloring, Overlay};
 use commons::{M, V2};
@@ -38,16 +37,15 @@ pub struct WorldArtistActor<T> {
     coloring_params: WorldColoringParameters,
     last_redraw: HashMap<V2<usize>, u128>,
     territory_layer: bool,
-    homeland_colors: HashMap<V2<usize>, Color>,
+    nation_colors: HashMap<String, Color>,
 }
 
 impl<T> WorldArtistActor<T>
 where
-    T: GetNationDescription
-        + HasParameters
+    T: HasParameters
         + Micros
         + SendEngineCommands
-        + WithHomelandTerritory
+        + WithControllers
         + WithResources
         + WithSettlements
         + WithWorld
@@ -59,6 +57,8 @@ where
         world_artist: WorldArtist,
         house_artist: HouseArtist,
         coloring_params: WorldColoringParameters,
+        overlay_alpha: f32,
+        nation_descriptions: &[NationDescription],
     ) -> WorldArtistActor<T> {
         WorldArtistActor {
             cx,
@@ -68,40 +68,27 @@ where
             resource_artist: None,
             house_artist,
             coloring_params,
-            homeland_colors: HashMap::default(),
+            nation_colors: Self::get_nation_colors(nation_descriptions, overlay_alpha),
             territory_layer: false,
         }
     }
 
-    async fn init_homeland_colors(&self) -> HashMap<V2<usize>, Color> {
-        let overlay_alpha = self.cx.parameters().territory_overlay_alpha;
-        let homeland_to_nation = self
-            .cx
-            .with_settlements(|settlements| {
-                settlements
-                    .values()
-                    .filter(|settlement| settlement.class == SettlementClass::Homeland)
-                    .map(|homeland| (homeland.position, homeland.nation.clone()))
-                    .collect::<HashMap<_, _>>()
+    fn get_nation_colors(
+        nation_descriptions: &[NationDescription],
+        overlay_alpha: f32,
+    ) -> HashMap<String, Color> {
+        nation_descriptions
+            .iter()
+            .map(|description| {
+                (
+                    description.name.clone(),
+                    description.colors.primary.with_alpha(overlay_alpha),
+                )
             })
-            .await;
-        let mut out = hashmap! {};
-        for (homeland, nation) in homeland_to_nation {
-            let color = self
-                .cx
-                .get_nation_description(&nation)
-                .await
-                .unwrap_or_else(|| panic!("Invalid nation {:?}!", nation))
-                .colors
-                .primary
-                .with_alpha(overlay_alpha);
-            out.insert(homeland, color);
-        }
-        out
+            .collect()
     }
 
     pub async fn init(&mut self) {
-        self.init_homeland_colors().await;
         self.init_world_artist().await;
         self.init_resource_artist().await;
         self.redraw_all().await;
@@ -166,15 +153,15 @@ where
     }
 
     async fn get_territory_colors(&self, slab: &Slab) -> M<Option<Color>> {
-        self.cx
-            .with_homeland_territory(|territory| {
-                M::from_fn(slab.slab_size, slab.slab_size, |x, y| {
-                    territory[(slab.from.x + x, slab.from.y + y)]
-                        .and_then(|homeland| self.homeland_colors.get(&homeland))
-                        .copied()
-                })
-            })
-            .await
+        let territory = self.get_territory(slab).await;
+        let nations = self.get_nations(&territory).await;
+
+        territory.map(|settlement| {
+            settlement
+                .and_then(|settlement| nations.get(&settlement))
+                .and_then(|nation| self.nation_colors.get(nation))
+                .copied()
+        })
     }
 
     async fn draw_slab_with_world_artist(
@@ -242,6 +229,29 @@ where
             .unwrap_or(false)
     }
 
+    async fn get_territory(&self, slab: &Slab) -> M<Option<V2<usize>>> {
+        self.cx
+            .with_controllers(|controllers| {
+                M::from_fn(slab.slab_size, slab.slab_size, |x, y| {
+                    controllers[(slab.from.x + x, slab.from.y + y)]
+                })
+            })
+            .await
+    }
+
+    async fn get_nations(&self, territory: &M<Option<V2<usize>>>) -> HashMap<V2<usize>, String> {
+        let distinct = territory.iter().flatten().copied().collect::<HashSet<_>>();
+        self.cx
+            .with_settlements(|settlements| {
+                distinct
+                    .iter()
+                    .flat_map(|settlement| settlements.get(settlement))
+                    .map(|settlement| (settlement.position, settlement.nation.clone()))
+                    .collect()
+            })
+            .await
+    }
+
     async fn toggle_territory_layer(&mut self) {
         self.territory_layer = !self.territory_layer;
         self.redraw_all().await;
@@ -251,11 +261,10 @@ where
 #[async_trait]
 impl<T> HandleEngineEvent for WorldArtistActor<T>
 where
-    T: GetNationDescription
-        + HasParameters
+    T: HasParameters
         + Micros
         + SendEngineCommands
-        + WithHomelandTerritory
+        + WithControllers
         + WithResources
         + WithSettlements
         + WithWorld
