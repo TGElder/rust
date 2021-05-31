@@ -190,7 +190,6 @@ SendVisibility WithWorld
 SendVoyager RevealPositionsVoyager
 SendVoyager WithSettlements
 SendVoyager WithWorld
-SendWorldArtist GetNationDescription
 SendWorldArtist HasParameters
 SendWorldArtist Micros
 SendWorldArtist SendEngineCommands

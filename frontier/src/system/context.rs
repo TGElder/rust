@@ -55,13 +55,13 @@ pub struct Context {
     pub builder_tx: FnSender<BuilderActor<Context>>,
     pub build_queue: Arc<RwLock<BuildQueue>>,
     pub cheats_tx: FnSender<Cheats<Context>>,
+    pub controllers: Arc<RwLock<Controllers>>,
     pub clock: Arc<RwLock<Clock<RealTime>>>,
     pub edge_sim_tx: FnSender<EdgeBuildSimulation<Context, RoadBuildTravelDuration>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
     pub engine_tx: Sender<Vec<Command>>,
     pub follow_avatar: Arc<RwLock<bool>>,
     pub follow_avatar_tx: FnSender<FollowAvatar<Context>>,
-    pub controllers: Arc<RwLock<Controllers>>,
     pub labels_tx: FnSender<Labels<Context>>,
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
     pub object_builder_tx: FnSender<ObjectBuilderActor<Context>>,
@@ -369,24 +369,6 @@ impl WithClock for Context {
     }
 }
 
-#[async_trait]
-impl WithEdgeTraffic for Context {
-    async fn with_edge_traffic<F, O>(&self, function: F) -> O
-    where
-        F: FnOnce(&EdgeTraffic) -> O + Send,
-    {
-        let edge_traffic = self.edge_traffic.read().await;
-        function(&edge_traffic)
-    }
-
-    async fn mut_edge_traffic<F, O>(&self, function: F) -> O
-    where
-        F: FnOnce(&mut EdgeTraffic) -> O + Send,
-    {
-        let mut edge_traffic = self.edge_traffic.write().await;
-        function(&mut edge_traffic)
-    }
-}
 
 #[async_trait]
 impl WithControllers for Context {
@@ -404,6 +386,24 @@ impl WithControllers for Context {
     {
         let mut controllers = self.controllers.write().await;
         function(&mut controllers)
+    }
+}
+#[async_trait]
+impl WithEdgeTraffic for Context {
+    async fn with_edge_traffic<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&EdgeTraffic) -> O + Send,
+    {
+        let edge_traffic = self.edge_traffic.read().await;
+        function(&edge_traffic)
+    }
+
+    async fn mut_edge_traffic<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut EdgeTraffic) -> O + Send,
+    {
+        let mut edge_traffic = self.edge_traffic.write().await;
+        function(&mut edge_traffic)
     }
 }
 
