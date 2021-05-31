@@ -70,7 +70,14 @@ fn get_controller(
     {
         *candidates.entry(*controller).or_default() += 1;
     }
-    candidates.into_iter().max_by_key(|kv| kv.1).map(|(a, _)| a)
+    candidates
+        .into_iter()
+        .max_by(|a, b| {
+            a.1.cmp(&b.1)
+                .then(a.0.x.cmp(&b.0.x))
+                .then(a.0.y.cmp(&b.0.y))
+        })
+        .map(|(a, _)| a)
 }
 
 #[async_trait]
