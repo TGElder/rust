@@ -369,7 +369,6 @@ impl WithClock for Context {
     }
 }
 
-
 #[async_trait]
 impl WithControllers for Context {
     async fn with_controllers<F, O>(&self, function: F) -> O
