@@ -176,7 +176,7 @@ where
         }
     }
 
-    fn closest_origins<U: Copy + Eq + Hash>(
+    pub fn closest_origins<U: Copy + Eq + Hash>(
         &self,
         origin_to_positions: &HashMap<U, Vec<V2<usize>>>,
     ) -> Vec2D<HashSet<U>> {

@@ -1,8 +1,9 @@
 use crate::actors::{
-    AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor, Cheats, FollowAvatar,
-    Labels, ObjectBuilderActor, PathfindingAvatarControls, PrimeMover, ResourceGenActor,
-    ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
-    TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
+    AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor, Cheats,
+    ControllersActor, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls,
+    PrimeMover, ResourceGenActor, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders,
+    SetupVisibility, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager,
+    WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -56,6 +57,7 @@ pub struct Context {
     pub build_queue: Arc<RwLock<BuildQueue>>,
     pub cheats_tx: FnSender<Cheats<Context>>,
     pub controllers: Arc<RwLock<Controllers>>,
+    pub controllers_tx: FnSender<ControllersActor<Context>>,
     pub clock: Arc<RwLock<Clock<RealTime>>>,
     pub edge_sim_tx: FnSender<EdgeBuildSimulation<Context, RoadBuildTravelDuration>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
@@ -117,6 +119,7 @@ impl Context {
             follow_avatar: self.follow_avatar.clone(),
             follow_avatar_tx: self.follow_avatar_tx.clone(),
             controllers: self.controllers.clone(),
+            controllers_tx: self.controllers_tx.clone(),
             labels_tx: self.labels_tx.clone_with_name(name),
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),

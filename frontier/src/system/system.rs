@@ -10,6 +10,7 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 use tokio::sync::RwLock;
 
+use crate::actors::ControllersActor;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
     Cheats, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls, PrimeMover,
@@ -54,6 +55,7 @@ struct Processes {
     basic_road_builder: Process<BasicRoadBuilder<Context>>,
     builder: Process<BuilderActor<Context>>,
     cheats: Process<Cheats<Context>>,
+    controllers: Process<ControllersActor<Context>>,
     edge_sims: Vec<Process<EdgeBuildSimulation<Context, RoadBuildTravelDuration>>>,
     event_forwarder: Process<EventForwarderActor>,
     follow_avatar: Process<FollowAvatar<Context>>,
@@ -115,6 +117,7 @@ impl System {
         let (basic_road_builder_tx, basic_road_builder_rx) = fn_channel();
         let (builder_tx, builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
+        let (controllers_tx, controllers_rx) = fn_channel();
         let (edge_sim_tx, edge_sim_rx) = fn_channel();
         let (follow_avatar_tx, follow_avatar_rx) = fn_channel();
         let (labels_tx, labels_rx) = fn_channel();
@@ -164,6 +167,7 @@ impl System {
                 params.width,
                 None,
             ))),
+            controllers_tx,
             edge_sim_tx,
             edge_traffic: Arc::default(),
             engine_tx: engine.command_tx(),
@@ -283,6 +287,10 @@ impl System {
                     builder_rx,
                 ),
                 cheats: Process::new(Cheats::new(cx.clone_with_name("cheats")), cheats_rx),
+                controllers: Process::new(
+                    ControllersActor::new(cx.clone_with_name("controllers")),
+                    controllers_rx,
+                ),
                 edge_sims: (0..params.simulation.threads)
                     .map(|_| {
                         Process::new(
@@ -619,6 +627,7 @@ impl Processes {
         self.object_builder.run_passive(pool).await;
         self.labels.run_passive(pool).await;
         self.follow_avatar.run_passive(pool).await;
+        self.controllers.run_passive(pool).await;
         self.cheats.run_passive(pool).await;
         self.builder.run_active(pool).await;
         self.basic_road_builder.run_passive(pool).await;
@@ -634,6 +643,7 @@ impl Processes {
         self.basic_road_builder.drain(pool, true).await;
         self.builder.drain(pool, true).await;
         self.cheats.drain(pool, true).await;
+        self.controllers.drain(pool, true).await;
         self.labels.drain(pool, true).await;
         self.follow_avatar.drain(pool, true).await;
         self.object_builder.drain(pool, true).await;
