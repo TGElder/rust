@@ -1,6 +1,7 @@
 mod with_avatars;
 mod with_build_queue;
 mod with_clock;
+mod with_controllers;
 mod with_edge_traffic;
 mod with_nations;
 mod with_pathfinder;
@@ -18,6 +19,7 @@ mod with_world;
 pub use with_avatars::*;
 pub use with_build_queue::*;
 pub use with_clock::*;
+pub use with_controllers::*;
 pub use with_edge_traffic::*;
 pub use with_nations::*;
 pub use with_pathfinder::*;

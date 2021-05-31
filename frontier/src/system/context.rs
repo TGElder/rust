@@ -20,16 +20,16 @@ use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::system::System;
-use crate::territory::Territory;
+use crate::territory::{Controllers, Territory};
 use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::{HasFollowAvatar, HasParameters};
 use crate::traits::{
     NotMock, PathfinderForPlayer, PathfinderForRoutes, RunInBackground, SendEdgeBuildSim,
     SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate, SendSystem,
     SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
-    WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithResources,
-    WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic,
-    WithVisibility, WithVisited, WithWorld,
+    WithBuildQueue, WithClock, WithControllers, WithEdgeTraffic, WithNations, WithPathfinder,
+    WithResources, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory,
+    WithTraffic, WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
 use crate::world::World;
@@ -55,6 +55,7 @@ pub struct Context {
     pub builder_tx: FnSender<BuilderActor<Context>>,
     pub build_queue: Arc<RwLock<BuildQueue>>,
     pub cheats_tx: FnSender<Cheats<Context>>,
+    pub controllers: Arc<RwLock<Controllers>>,
     pub clock: Arc<RwLock<Clock<RealTime>>>,
     pub edge_sim_tx: FnSender<EdgeBuildSimulation<Context, RoadBuildTravelDuration>>,
     pub edge_traffic: Arc<RwLock<EdgeTraffic>>,
@@ -115,6 +116,7 @@ impl Context {
             engine_tx: self.engine_tx.clone(),
             follow_avatar: self.follow_avatar.clone(),
             follow_avatar_tx: self.follow_avatar_tx.clone(),
+            controllers: self.controllers.clone(),
             labels_tx: self.labels_tx.clone_with_name(name),
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
@@ -367,6 +369,24 @@ impl WithClock for Context {
     }
 }
 
+#[async_trait]
+impl WithControllers for Context {
+    async fn with_controllers<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&Controllers) -> O + Send,
+    {
+        let controllers = self.controllers.read().await;
+        function(&controllers)
+    }
+
+    async fn mut_controllers<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut Controllers) -> O + Send,
+    {
+        let mut controllers = self.controllers.write().await;
+        function(&mut controllers)
+    }
+}
 #[async_trait]
 impl WithEdgeTraffic for Context {
     async fn with_edge_traffic<F, O>(&self, function: F) -> O

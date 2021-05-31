@@ -8,10 +8,10 @@ use crate::nation::NationDescription;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    Micros, SendEngineCommands, WithResources, WithSettlements, WithTerritory, WithWorld,
+    Micros, SendEngineCommands, WithControllers, WithResources, WithSettlements, WithWorld,
 };
 use coloring::{world_coloring, Overlay};
-use commons::{v2, M, V2};
+use commons::{M, V2};
 use isometric::{Button, Color, ElementState, Event, VirtualKeyCode};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -45,9 +45,9 @@ where
     T: HasParameters
         + Micros
         + SendEngineCommands
+        + WithControllers
         + WithResources
         + WithSettlements
-        + WithTerritory
         + WithWorld
         + Send
         + Sync,
@@ -231,11 +231,9 @@ where
 
     async fn get_territory(&self, slab: &Slab) -> M<Option<V2<usize>>> {
         self.cx
-            .with_territory(|territory| {
+            .with_controllers(|controllers| {
                 M::from_fn(slab.slab_size, slab.slab_size, |x, y| {
-                    territory
-                        .who_controls_tile(&v2(slab.from.x + x, slab.from.y + y))
-                        .map(|claim| claim.controller)
+                    controllers[(slab.from.x + x, slab.from.y + y)]
                 })
             })
             .await
@@ -266,9 +264,9 @@ where
     T: HasParameters
         + Micros
         + SendEngineCommands
+        + WithControllers
         + WithResources
         + WithSettlements
-        + WithTerritory
         + WithWorld
         + Send
         + Sync,

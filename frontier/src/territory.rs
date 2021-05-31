@@ -7,6 +7,8 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
+pub type Controllers = M<Option<V2<usize>>>;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Claim {
     pub controller: V2<usize>,

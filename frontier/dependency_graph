@@ -193,9 +193,9 @@ SendVoyager WithWorld
 SendWorldArtist HasParameters
 SendWorldArtist Micros
 SendWorldArtist SendEngineCommands
+SendWorldArtist WithControllers
 SendWorldArtist WithResources
 SendWorldArtist WithSettlements
-SendWorldArtist WithTerritory
 SendWorldArtist WithWorld
 SendWorldGen HasParameters
 SendWorldGen WithWorld

@@ -33,6 +33,7 @@ use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::system::{Context, EventForwarderActor, EventForwarderConsumer, SystemController};
+use crate::territory::Controllers;
 use crate::territory::Territory;
 use crate::traffic::Traffic;
 use crate::traits::WithClock;
@@ -158,6 +159,11 @@ impl System {
             build_queue: Arc::default(),
             cheats_tx,
             clock: Arc::new(RwLock::new(Clock::new(RealTime {}, params.default_speed))),
+            controllers: Arc::new(RwLock::new(Controllers::from_element(
+                params.width,
+                params.width,
+                None,
+            ))),
             edge_sim_tx,
             edge_traffic: Arc::default(),
             engine_tx: engine.command_tx(),
@@ -400,7 +406,7 @@ impl System {
                             snow_temperature: params.snow_temperature,
                             light_direction: params.light_direction,
                         },
-                        0.3,
+                        params.territory_overlay_alpha,
                         &params.nations,
                     ),
                     world_artist_rx,
