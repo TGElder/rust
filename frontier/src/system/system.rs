@@ -33,6 +33,7 @@ use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::system::{Context, EventForwarderActor, EventForwarderConsumer, SystemController};
+use crate::territory::HomelandTerritory;
 use crate::territory::Territory;
 use crate::traffic::Traffic;
 use crate::traits::WithClock;
@@ -163,6 +164,11 @@ impl System {
             engine_tx: engine.command_tx(),
             follow_avatar: Arc::new(RwLock::new(true)),
             follow_avatar_tx,
+            homeland_territory: Arc::new(RwLock::new(HomelandTerritory::from_element(
+                params.width,
+                params.width,
+                None,
+            ))),
             labels_tx,
             nations: Arc::default(),
             object_builder_tx,
@@ -400,8 +406,6 @@ impl System {
                             snow_temperature: params.snow_temperature,
                             light_direction: params.light_direction,
                         },
-                        0.3,
-                        &params.nations,
                     ),
                     world_artist_rx,
                 ),

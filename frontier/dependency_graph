@@ -190,12 +190,13 @@ SendVisibility WithWorld
 SendVoyager RevealPositionsVoyager
 SendVoyager WithSettlements
 SendVoyager WithWorld
+SendWorldArtist GetNationDescription
 SendWorldArtist HasParameters
 SendWorldArtist Micros
 SendWorldArtist SendEngineCommands
+SendWorldArtist WithHomelandTerritory
 SendWorldArtist WithResources
 SendWorldArtist WithSettlements
-SendWorldArtist WithTerritory
 SendWorldArtist WithWorld
 SendWorldGen HasParameters
 SendWorldGen WithWorld

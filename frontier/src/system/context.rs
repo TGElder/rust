@@ -20,16 +20,16 @@ use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::system::System;
-use crate::territory::Territory;
+use crate::territory::{HomelandTerritory, Territory};
 use crate::traffic::{EdgeTraffic, Traffic};
 use crate::traits::has::{HasFollowAvatar, HasParameters};
 use crate::traits::{
     NotMock, PathfinderForPlayer, PathfinderForRoutes, RunInBackground, SendEdgeBuildSim,
     SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate, SendSystem,
     SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist, WithAvatars,
-    WithBuildQueue, WithClock, WithEdgeTraffic, WithNations, WithPathfinder, WithResources,
-    WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory, WithTraffic,
-    WithVisibility, WithVisited, WithWorld,
+    WithBuildQueue, WithClock, WithEdgeTraffic, WithHomelandTerritory, WithNations, WithPathfinder,
+    WithResources, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTerritory,
+    WithTraffic, WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
 use crate::world::World;
@@ -61,6 +61,7 @@ pub struct Context {
     pub engine_tx: Sender<Vec<Command>>,
     pub follow_avatar: Arc<RwLock<bool>>,
     pub follow_avatar_tx: FnSender<FollowAvatar<Context>>,
+    pub homeland_territory: Arc<RwLock<HomelandTerritory>>,
     pub labels_tx: FnSender<Labels<Context>>,
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
     pub object_builder_tx: FnSender<ObjectBuilderActor<Context>>,
@@ -115,6 +116,7 @@ impl Context {
             engine_tx: self.engine_tx.clone(),
             follow_avatar: self.follow_avatar.clone(),
             follow_avatar_tx: self.follow_avatar_tx.clone(),
+            homeland_territory: self.homeland_territory.clone(),
             labels_tx: self.labels_tx.clone_with_name(name),
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
@@ -383,6 +385,25 @@ impl WithEdgeTraffic for Context {
     {
         let mut edge_traffic = self.edge_traffic.write().await;
         function(&mut edge_traffic)
+    }
+}
+
+#[async_trait]
+impl WithHomelandTerritory for Context {
+    async fn with_homeland_territory<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&HomelandTerritory) -> O + Send,
+    {
+        let homeland_territory = self.homeland_territory.read().await;
+        function(&homeland_territory)
+    }
+
+    async fn mut_homeland_territory<F, O>(&self, function: F) -> O
+    where
+        F: FnOnce(&mut HomelandTerritory) -> O + Send,
+    {
+        let mut homeland_territory = self.homeland_territory.write().await;
+        function(&mut homeland_territory)
     }
 }
 

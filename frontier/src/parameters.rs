@@ -44,6 +44,7 @@ pub struct Parameters {
     pub mine_rules: Vec<MineRule>,
     pub deep_sea_pc: f32,
     pub half_life_factor: f32,
+    pub territory_overlay_alpha: f32,
 }
 
 impl Default for Parameters {
@@ -91,6 +92,7 @@ impl Default for Parameters {
             ],
             deep_sea_pc: 0.67,
             half_life_factor: 5.19, // ln(0.5) / ln(0.875) - converts 7/8 life to 1/2 life
+            territory_overlay_alpha: 0.3,
         }
     }
 }
