@@ -9,6 +9,17 @@ pub fn get_corners(position: &V2<usize>) -> Vec<V2<usize>> {
     ]
 }
 
+pub fn get_corners_in_bounds(
+    position: &V2<usize>,
+    width: &usize,
+    height: &usize,
+) -> Vec<V2<usize>> {
+    get_corners(position)
+        .into_iter()
+        .filter(|corner| corner.x < *width && corner.y < *height)
+        .collect::<Vec<_>>()
+}
+
 pub trait Grid<T> {
     fn width(&self) -> usize;
     fn height(&self) -> usize;
@@ -285,7 +296,12 @@ mod tests {
     }
 
     #[test]
-    fn test_get_corners_in_bounds() {
+    fn test_get_corners_in_bound() {
+        assert_eq!(get_corners_in_bounds(&v2(1, 1), &2, &2), [v2(1, 1)]);
+    }
+
+    #[test]
+    fn test_get_corners_in_bounds_grid() {
         let matrix: M<usize> = M::zeros(3, 3);
         assert_eq!(matrix.get_corners_in_bounds(&v2(2, 2)), [v2(2, 2)]);
     }

@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use commons::async_trait::async_trait;
 use commons::grid::get_corners;
+use commons::grid::get_corners_in_bounds;
 use commons::grid::Grid;
 use commons::index2d::Vec2D;
 use commons::v2;
@@ -14,9 +15,11 @@ use isometric::ElementState;
 use isometric::Event;
 use isometric::VirtualKeyCode;
 
-use crate::settlement::SettlementClass::Town;
+use crate::settlement::Settlement;
+use crate::settlement::SettlementClass::Homeland;
 use crate::system::Capture;
 use crate::system::HandleEngineEvent;
+use crate::traits::has::HasParameters;
 use crate::traits::{PathfinderForRoutes, Settlements, WithControllers, WithPathfinder};
 
 pub struct ControllersActor<T> {
@@ -25,20 +28,31 @@ pub struct ControllersActor<T> {
 
 impl<T> ControllersActor<T>
 where
-    T: PathfinderForRoutes + Settlements + WithControllers,
+    T: HasParameters + PathfinderForRoutes + Settlements + WithControllers,
 {
     pub fn new(t: T) -> ControllersActor<T> {
         ControllersActor { cx: t }
     }
 
     pub async fn recompute(&self) {
-        let origin_to_positions = self
-            .cx
-            .settlements()
-            .await
+        let settlements = self.cx.settlements().await;
+
+        let (homelands, towns): (Vec<Settlement>, Vec<Settlement>) = settlements
             .into_iter()
-            .filter(|settlement| settlement.class == Town)
-            .map(|settlement| (settlement.position, get_corners(&settlement.position)))
+            .partition(|settlement| settlement.class == Homeland);
+
+        let nation_to_origin = homelands
+            .into_iter()
+            .filter(|settlement| settlement.class == Homeland)
+            .map(|homeland| (homeland.nation, homeland.position))
+            .collect::<HashMap<_, _>>();
+
+        let width = self.cx.parameters().width;
+
+        let origin_to_positions = towns
+            .into_iter()
+            .flat_map(|settlement| nation_to_origin.get(&settlement.nation))
+            .map(|position| (*position, get_corners_in_bounds(position, &width, &width)))
             .collect::<HashMap<_, _>>();
 
         let closest_origins = self
@@ -83,7 +97,7 @@ fn get_controller(
 #[async_trait]
 impl<T> HandleEngineEvent for ControllersActor<T>
 where
-    T: PathfinderForRoutes + Settlements + WithControllers + Send + Sync,
+    T: HasParameters + PathfinderForRoutes + Settlements + WithControllers + Send + Sync,
 {
     async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
         if let Event::Button {
