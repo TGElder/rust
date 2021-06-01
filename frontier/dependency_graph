@@ -96,6 +96,7 @@ SendCheats Visibility
 SendCheats WithAvatars
 SendCheats WithVisibility
 SendCheats WithWorld
+SendControllerActor HasParameters
 SendControllerActor Settlements
 SendControllerActor WithControllers
 SendControllerActor WithPathfinder
