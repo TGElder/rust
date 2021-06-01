@@ -11,6 +11,7 @@ use isometric::IsometricEngine;
 use tokio::sync::RwLock;
 
 use crate::actors::ControllersActor;
+use crate::actors::ControllersActorParameters;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
     Cheats, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls, PrimeMover,
@@ -288,7 +289,10 @@ impl System {
                 ),
                 cheats: Process::new(Cheats::new(cx.clone_with_name("cheats")), cheats_rx),
                 controllers: Process::new(
-                    ControllersActor::new(cx.clone_with_name("controllers")),
+                    ControllersActor::new(
+                        cx.clone_with_name("controllers"),
+                        ControllersActorParameters::default(),
+                    ),
                     controllers_rx,
                 ),
                 edge_sims: (0..params.simulation.threads)
@@ -627,7 +631,7 @@ impl Processes {
         self.object_builder.run_passive(pool).await;
         self.labels.run_passive(pool).await;
         self.follow_avatar.run_passive(pool).await;
-        self.controllers.run_passive(pool).await;
+        self.controllers.run_active(pool).await;
         self.cheats.run_passive(pool).await;
         self.builder.run_active(pool).await;
         self.basic_road_builder.run_passive(pool).await;

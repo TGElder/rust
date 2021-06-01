@@ -25,7 +25,6 @@ impl EventForwarderActor {
         send_event(&self.cx.basic_avatar_controls_tx, &event);
         send_event(&self.cx.basic_road_builder_tx, &event);
         send_event(&self.cx.cheats_tx, &event);
-        send_event(&self.cx.controllers_tx, &event);
         send_event(&self.cx.follow_avatar_tx, &event);
         send_event(&self.cx.object_builder_tx, &event);
         send_event(&self.cx.pathfinding_avatar_controls_tx, &event);

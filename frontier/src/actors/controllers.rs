@@ -1,40 +1,63 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::time::Duration;
 
+use commons::async_std::task::sleep;
 use commons::async_trait::async_trait;
 use commons::grid::get_corners;
 use commons::grid::get_corners_in_bounds;
 use commons::grid::Grid;
 use commons::index2d::Vec2D;
+use commons::process::Step;
 use commons::v2;
 use commons::M;
 use commons::V2;
-use isometric::Button;
-use isometric::ElementState;
-use isometric::Event;
-use isometric::VirtualKeyCode;
 
 use crate::settlement::Settlement;
 use crate::settlement::SettlementClass::Homeland;
-use crate::system::Capture;
-use crate::system::HandleEngineEvent;
+use crate::territory::Controllers;
 use crate::traits::has::HasParameters;
+use crate::traits::DrawWorld;
 use crate::traits::{PathfinderForRoutes, Settlements, WithControllers, WithPathfinder};
 
 pub struct ControllersActor<T> {
     cx: T,
+    parameters: ControllersActorParameters,
+}
+
+pub struct ControllersActorParameters {
+    pub refresh_interval: Duration,
+}
+
+impl Default for ControllersActorParameters {
+    fn default() -> ControllersActorParameters {
+        ControllersActorParameters {
+            refresh_interval: Duration::from_secs(10),
+        }
+    }
 }
 
 impl<T> ControllersActor<T>
 where
-    T: HasParameters + PathfinderForRoutes + Settlements + WithControllers,
+    T: DrawWorld + HasParameters + PathfinderForRoutes + Settlements + WithControllers,
 {
-    pub fn new(t: T) -> ControllersActor<T> {
-        ControllersActor { cx: t }
+    pub fn new(t: T, parameters: ControllersActorParameters) -> ControllersActor<T> {
+        ControllersActor { cx: t, parameters }
     }
 
-    pub async fn recompute(&self) {
+    async fn update_controllers(&self) {
+        let new_controllers = self.get_controllers().await;
+
+        let changes = self.get_changes(&new_controllers).await;
+
+        self.cx
+            .mut_controllers(|controllers| *controllers = new_controllers)
+            .await;
+
+        self.cx.draw_world_tiles(changes).await;
+    }
+
+    async fn get_controllers(&self) -> Controllers {
         let settlements = self.cx.settlements().await;
 
         let (homelands, towns): (Vec<Settlement>, Vec<Settlement>) = settlements
@@ -49,11 +72,15 @@ where
 
         let width = self.cx.parameters().width;
 
-        let origin_to_positions = towns
-            .into_iter()
-            .flat_map(|settlement| nation_to_origin.get(&settlement.nation))
-            .map(|position| (*position, get_corners_in_bounds(position, &width, &width)))
+        let mut origin_to_positions = nation_to_origin
+            .values()
+            .map(|origin| (*origin, vec![]))
             .collect::<HashMap<_, _>>();
+        for town in towns {
+            let origin = unwrap_or!(nation_to_origin.get(&town.nation), continue);
+            let positions = origin_to_positions.get_mut(origin).unwrap();
+            positions.append(&mut get_corners_in_bounds(&town.position, &width, &width));
+        }
 
         let closest_origins = self
             .cx
@@ -61,14 +88,28 @@ where
             .with_pathfinder(|pathfinder| pathfinder.closest_origins(&origin_to_positions))
             .await;
 
-        let new_controllers =
-            M::from_fn(closest_origins.width(), closest_origins.height(), |x, y| {
-                get_controller(&closest_origins, &v2(x, y))
-            });
+        M::from_fn(closest_origins.width(), closest_origins.height(), |x, y| {
+            get_controller(&closest_origins, &v2(x, y))
+        })
+    }
 
+    async fn get_changes(&self, new_controllers: &Controllers) -> HashSet<V2<usize>> {
         self.cx
-            .mut_controllers(|controllers| *controllers = new_controllers)
-            .await;
+            .with_controllers(|controllers| {
+                let mut out = hashset! {};
+                for x in 0..controllers.width() {
+                    for y in 0..controllers.height() {
+                        let position = v2(x, y);
+                        if controllers.get_cell_unsafe(&position)
+                            != new_controllers.get_cell_unsafe(&position)
+                        {
+                            out.insert(position);
+                        }
+                    }
+                }
+                out
+            })
+            .await
     }
 }
 
@@ -95,22 +136,19 @@ fn get_controller(
 }
 
 #[async_trait]
-impl<T> HandleEngineEvent for ControllersActor<T>
+impl<T> Step for ControllersActor<T>
 where
-    T: HasParameters + PathfinderForRoutes + Settlements + WithControllers + Send + Sync,
+    T: DrawWorld
+        + HasParameters
+        + PathfinderForRoutes
+        + Settlements
+        + WithControllers
+        + Send
+        + Sync,
 {
-    async fn handle_engine_event(&mut self, event: Arc<Event>) -> Capture {
-        if let Event::Button {
-            ref button,
-            state: ElementState::Pressed,
-            modifiers,
-            ..
-        } = *event
-        {
-            if button == &Button::Key(VirtualKeyCode::C) && !modifiers.alt() && modifiers.ctrl() {
-                self.recompute().await;
-            }
-        }
-        Capture::No
+    async fn step(&mut self) {
+        self.update_controllers().await;
+
+        sleep(self.parameters.refresh_interval).await;
     }
 }
