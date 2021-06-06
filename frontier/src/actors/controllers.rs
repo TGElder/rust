@@ -12,11 +12,14 @@ use commons::v2;
 use commons::M;
 use commons::V2;
 
+use crate::route::RouteKey;
 use crate::settlement::Settlement;
 use crate::settlement::SettlementClass::Homeland;
 use crate::territory::Controllers;
 use crate::traits::has::HasParameters;
 use crate::traits::DrawWorld;
+use crate::traits::WithEdgeTraffic;
+use crate::traits::WithTraffic;
 use crate::traits::WithWorld;
 use crate::traits::{PathfinderForRoutes, Settlements, WithControllers, WithPathfinder};
 use crate::world::World;
@@ -40,7 +43,13 @@ impl Default for ControllersActorParameters {
 
 impl<T> ControllersActor<T>
 where
-    T: DrawWorld + HasParameters + PathfinderForRoutes + Settlements + WithControllers + WithWorld,
+    T: DrawWorld
+        + HasParameters
+        + PathfinderForRoutes
+        + Settlements
+        + WithControllers
+        + WithTraffic
+        + WithWorld,
 {
     pub fn new(t: T, parameters: ControllersActorParameters) -> ControllersActor<T> {
         ControllersActor { cx: t, parameters }
@@ -70,17 +79,41 @@ where
             .map(|homeland| (homeland.nation, homeland.position))
             .collect::<HashMap<_, _>>();
 
+        let town_to_origin: HashMap<&V2<usize>, &V2<usize>> = towns
+            .iter()
+            .flat_map(|town| {
+                nation_to_origin
+                    .get(&town.nation)
+                    .map(|origin| (&town.position, origin))
+            })
+            .collect();
+
         let width = self.cx.parameters().width;
 
         let mut origin_to_positions = nation_to_origin
             .values()
             .map(|origin| (*origin, vec![]))
             .collect::<HashMap<_, _>>();
-        for town in towns {
-            let origin = unwrap_or!(nation_to_origin.get(&town.nation), continue);
-            let positions = origin_to_positions.get_mut(origin).unwrap();
-            positions.append(&mut get_corners_in_bounds(&town.position, &width, &width));
-        }
+
+        self.cx
+            .with_traffic(|traffic| {
+                for x in 0..traffic.width() {
+                    for y in 0..traffic.height() {
+                        let position = v2(x, y);
+                        if let Some(king) =
+                            get_traffic_king(traffic.get_cell_unsafe(&position), &town_to_origin)
+                        {
+                            origin_to_positions.entry(king).or_default().push(position);
+                        }
+                    }
+                }
+            })
+            .await;
+        // for town in towns {
+        //     let origin = unwrap_or!(nation_to_origin.get(&town.nation), continue);
+        //     let positions = origin_to_positions.get_mut(origin).unwrap();
+        //     positions.append(&mut get_corners_in_bounds(&town.position, &width, &width));
+        // }
 
         let closest_origins = self
             .cx
@@ -131,6 +164,21 @@ struct ControlCounts {
     from_water: usize,
 }
 
+fn get_traffic_king(
+    routes: &HashSet<RouteKey>,
+    town_to_origin: &HashMap<&V2<usize>, &V2<usize>>,
+) -> Option<V2<usize>> {
+    let mut counts: HashMap<&V2<usize>, usize> = hashmap! {};
+    for route in routes {
+        let origin = unwrap_or!(town_to_origin.get(&route.settlement), continue);
+        *counts.entry(origin).or_default() += 1
+    }
+    counts
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(origin, _)| *origin)
+}
+
 fn get_controller(
     world: &World,
     closest_origins: &Vec2D<HashSet<V2<usize>>>,
@@ -164,6 +212,7 @@ where
         + PathfinderForRoutes
         + Settlements
         + WithControllers
+        + WithTraffic
         + WithWorld
         + Send
         + Sync,
