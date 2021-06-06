@@ -86,16 +86,14 @@ fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParame
     println!("Generating world...");
     for i in 0..power {
         mesh = MeshSplitter::split(&mesh, rng, params.split_range);
-        if i < (power - 1) {
-            let threshold = i * 2;
-            mesh = Erosion::erode(
-                mesh,
-                rng,
-                threshold as f64,
-                params.erosion_iterations,
-                params.erosion_amount,
-            );
-        }
+        let threshold = i * 2;
+        mesh = Erosion::erode(
+            mesh,
+            rng,
+            threshold as f64,
+            params.erosion_iterations,
+            params.erosion_amount,
+        );
         println!("{}", power - i);
     }
 
