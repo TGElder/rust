@@ -14,4 +14,4 @@ pioneer = { path = "../pioneer" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 simple_logger = "1.11"
-tokio = { version = "1.4", features = ["sync"] }
+tokio = { version = "1.6", features = ["sync"] }
