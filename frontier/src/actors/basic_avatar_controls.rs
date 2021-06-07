@@ -82,8 +82,9 @@ where
             ..
         }) = self.cx.selected_avatar().await
         {
+            let new_rotation = journey.final_frame().rotation.clockwise();
             self.cx
-                .update_avatar_journey(&name, Some(journey.then_rotate_clockwise()))
+                .update_avatar_journey(&name, Some(journey.then_rotate_to(new_rotation)))
                 .await;
         }
     }
@@ -95,8 +96,9 @@ where
             ..
         }) = self.cx.selected_avatar().await
         {
+            let new_rotation = journey.final_frame().rotation.anticlockwise();
             self.cx
-                .update_avatar_journey(&name, Some(journey.then_rotate_anticlockwise()))
+                .update_avatar_journey(&name, Some(journey.then_rotate_to(new_rotation)))
                 .await;
         }
     }

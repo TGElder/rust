@@ -72,7 +72,7 @@ impl AvatarTravelModeFn {
 
     pub fn is_navigable_river_here(&self, world: &World, position: &V2<usize>) -> bool {
         if let Some(cell) = world.get_cell(position) {
-            cell.river.width().max(cell.river.height()) >= self.min_river_width
+            cell.river.longest_side() >= self.min_river_width
         } else {
             false
         }

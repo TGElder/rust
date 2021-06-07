@@ -64,7 +64,7 @@ impl Rotation {
         }
     }
 
-    fn clockwise(self) -> Rotation {
+    pub fn clockwise(self) -> Rotation {
         match self {
             Rotation::Left => Rotation::Up,
             Rotation::Up => Rotation::Right,
@@ -73,7 +73,7 @@ impl Rotation {
         }
     }
 
-    fn anticlockwise(self) -> Rotation {
+    pub fn anticlockwise(self) -> Rotation {
         match self {
             Rotation::Left => Rotation::Down,
             Rotation::Up => Rotation::Left,

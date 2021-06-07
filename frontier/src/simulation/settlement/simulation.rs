@@ -102,10 +102,10 @@ where
 {
     async fn update_settlement_at(&self, position: &V2<usize>) {
         let settlement = unwrap_or!(self.cx.get_settlement(position).await, return);
-        debug!(
-            "{:?} {} -> {}",
-            settlement.name, settlement.current_population, settlement.target_population
-        );
+        // debug!(
+        //     "{:?} {} -> {}",
+        //     settlement.name, settlement.current_population, settlement.target_population
+        // );
         match settlement.class {
             SettlementClass::Homeland => self.update_homeland_settlement(settlement).await,
             SettlementClass::Town => self.update_town_settlement(settlement).await,

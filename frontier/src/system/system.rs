@@ -327,7 +327,7 @@ impl System {
                 pathfinding_avatar_controls: Process::new(
                     PathfindingAvatarControls::new(
                         cx.clone_with_name("pathfinding_avatar_controls"),
-                        player_travel_duration,
+                        player_travel_duration.clone(),
                     ),
                     pathfinding_avatar_controls_rx,
                 ),
@@ -361,6 +361,7 @@ impl System {
                     RiverExplorer::new(
                         cx.clone_with_name("river_explorer"),
                         RiverExplorerParameters::default(),
+                        player_travel_duration,
                     ),
                     river_explorer_rx,
                 ),
