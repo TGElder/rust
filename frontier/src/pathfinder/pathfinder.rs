@@ -188,9 +188,9 @@ where
         let closest_origins = self.network.closest_origins(&origin_to_indices);
 
         let mut out = Vec2D::new(self.index.columns(), self.index.rows(), hashset! {});
-        for (index, origin) in closest_origins.into_iter().enumerate() {
+        for (index, origins) in closest_origins.into_iter().enumerate() {
             let position = self.get_position_from_network_index(index).unwrap();
-            *out.mut_cell_unsafe(&position) = origin;
+            *out.mut_cell_unsafe(&position) = origins;
         }
 
         out

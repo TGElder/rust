@@ -96,11 +96,12 @@ SendCheats Visibility
 SendCheats WithAvatars
 SendCheats WithVisibility
 SendCheats WithWorld
-SendControllerActor DrawWorld
-SendControllerActor HasParameters
-SendControllerActor Settlements
-SendControllerActor WithControllers
-SendControllerActor WithPathfinder
+SendControllersActor DrawWorld
+SendControllersActor HasParameters
+SendControllersActor Settlements
+SendControllersActor WithControllers
+SendControllersActor WithPathfinder
+SendControllersActor WithWorld
 SendEdgeBuildSim HasParameters
 SendEdgeBuildSim InsertBuildInstruction
 SendEdgeBuildSim IsRoad

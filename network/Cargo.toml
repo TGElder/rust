@@ -6,4 +6,4 @@ edition = "2018"
 
 [dependencies]
 hamcrest = "*"
-maplit = "1.0.2"
+maplit = "1.0"

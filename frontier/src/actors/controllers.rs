@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use commons::async_std::task::sleep;
 use commons::async_trait::async_trait;
-use commons::grid::get_corners;
 use commons::grid::get_corners_in_bounds;
 use commons::grid::Grid;
 use commons::index2d::Vec2D;
@@ -18,7 +17,9 @@ use crate::settlement::SettlementClass::Homeland;
 use crate::territory::Controllers;
 use crate::traits::has::HasParameters;
 use crate::traits::DrawWorld;
+use crate::traits::WithWorld;
 use crate::traits::{PathfinderForRoutes, Settlements, WithControllers, WithPathfinder};
+use crate::world::World;
 
 pub struct ControllersActor<T> {
     cx: T,
@@ -39,7 +40,7 @@ impl Default for ControllersActorParameters {
 
 impl<T> ControllersActor<T>
 where
-    T: DrawWorld + HasParameters + PathfinderForRoutes + Settlements + WithControllers,
+    T: DrawWorld + HasParameters + PathfinderForRoutes + Settlements + WithControllers + WithWorld,
 {
     pub fn new(t: T, parameters: ControllersActorParameters) -> ControllersActor<T> {
         ControllersActor { cx: t, parameters }
@@ -66,7 +67,6 @@ where
 
         let nation_to_origin = homelands
             .into_iter()
-            .filter(|settlement| settlement.class == Homeland)
             .map(|homeland| (homeland.nation, homeland.position))
             .collect::<HashMap<_, _>>();
 
@@ -88,9 +88,21 @@ where
             .with_pathfinder(|pathfinder| pathfinder.closest_origins(&origin_to_positions))
             .await;
 
-        M::from_fn(closest_origins.width(), closest_origins.height(), |x, y| {
-            get_controller(&closest_origins, &v2(x, y))
-        })
+        self.get_controllers_from_closest_origins(closest_origins)
+            .await
+    }
+
+    async fn get_controllers_from_closest_origins(
+        &self,
+        closest_origins: Vec2D<HashSet<V2<usize>>>,
+    ) -> Controllers {
+        self.cx
+            .with_world(|world| {
+                M::from_fn(closest_origins.width(), closest_origins.height(), |x, y| {
+                    get_controller(&world, &closest_origins, &v2(x, y))
+                })
+            })
+            .await
     }
 
     async fn get_changes(&self, new_controllers: &Controllers) -> HashSet<V2<usize>> {
@@ -113,26 +125,35 @@ where
     }
 }
 
+#[derive(Default)]
+struct ControlCounts {
+    from_land: usize,
+    from_water: usize,
+}
+
 fn get_controller(
+    world: &World,
     closest_origins: &Vec2D<HashSet<V2<usize>>>,
-    position: &V2<usize>,
+    tile: &V2<usize>,
 ) -> Option<V2<usize>> {
-    let mut candidates: HashMap<V2<usize>, usize> = hashmap! {};
-    for controller in get_corners(position)
-        .iter()
-        .flat_map(|position| closest_origins.get_cell(position))
-        .flatten()
-    {
-        *candidates.entry(*controller).or_default() += 1;
+    let mut candidates: HashMap<V2<usize>, ControlCounts> = hashmap! {};
+    for corner in world.get_corners_in_bounds(tile) {
+        for controller in closest_origins.get_cell_unsafe(&corner) {
+            let mut counts = candidates.entry(*controller).or_default();
+            if world.is_sea(&corner) || world.get_cell_unsafe(&corner).river.here() {
+                counts.from_water += 1;
+            } else {
+                counts.from_land += 1;
+            }
+        }
     }
+
     candidates
         .into_iter()
-        .max_by(|a, b| {
-            a.1.cmp(&b.1)
-                .then(a.0.x.cmp(&b.0.x))
-                .then(a.0.y.cmp(&b.0.y))
+        .max_by_key(|(position, counts)| {
+            (counts.from_land, counts.from_water, position.x, position.y)
         })
-        .map(|(a, _)| a)
+        .map(|(position, _)| position)
 }
 
 #[async_trait]
@@ -143,6 +164,7 @@ where
         + PathfinderForRoutes
         + Settlements
         + WithControllers
+        + WithWorld
         + Send
         + Sync,
 {

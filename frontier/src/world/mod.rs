@@ -226,7 +226,7 @@ impl World {
         if values.is_empty() {
             None
         } else {
-            Some(values.iter().sum::<f32>() / (values.iter().count() as f32))
+            Some(values.iter().sum::<f32>() / (values.len() as f32))
         }
     }
 
