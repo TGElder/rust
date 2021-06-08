@@ -81,27 +81,27 @@ mod tests {
 
     #[test]
     fn longest_side() {
-        let junction = Junction{
-            horizontal: Junction1D{
+        let junction = Junction {
+            horizontal: Junction1D {
                 width: 0.2,
                 ..Junction1D::default()
             },
-            vertical: Junction1D{
+            vertical: Junction1D {
                 width: 0.3,
                 ..Junction1D::default()
-            }
+            },
         };
         assert!(junction.longest_side().almost(&0.3));
 
-        let junction = Junction{
-            horizontal: Junction1D{
+        let junction = Junction {
+            horizontal: Junction1D {
                 width: 0.4,
                 ..Junction1D::default()
             },
-            vertical: Junction1D{
+            vertical: Junction1D {
                 width: 0.1,
                 ..Junction1D::default()
-            }
+            },
         };
         assert!(junction.longest_side().almost(&0.4));
     }

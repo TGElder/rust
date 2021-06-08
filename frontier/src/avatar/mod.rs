@@ -33,7 +33,7 @@ pub struct Avatar {
     pub skin_color: Color,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum Rotation {
     Left = 0,
     Up = 1,

@@ -1,17 +1,20 @@
-use std::{sync::Arc, time::Duration};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 
-use commons::{
-    async_std::task::sleep, async_trait::async_trait, grid::Grid, log::info, process::Step,
-    unsafe_ordering, v2, V2,
-};
+use commons::async_std::task::sleep;
+use commons::async_trait::async_trait;
+use commons::grid::Grid;
+use commons::process::Step;
+use commons::{unsafe_ordering, v2, V2};
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 
-use crate::{
-    avatar::{Avatar, AvatarTravelDuration, Frame, Journey, Rotation},
-    system::{Capture, HandleEngineEvent},
-    traits::{has::HasParameters, Micros, SelectedAvatar, UpdateAvatarJourney, WithWorld},
-    travel_duration::TravelDuration,
-};
+use crate::avatar::{Avatar, AvatarTravelDuration, Frame, Journey, Rotation};
+use crate::system::{Capture, HandleEngineEvent};
+use crate::traits::has::HasParameters;
+use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, WithWorld};
+use crate::travel_duration::TravelDuration;
+use crate::world::{World, WorldCell};
 
 pub struct RiverExplorer<T> {
     cx: T,
@@ -89,50 +92,49 @@ where
         let grid_width = self.cx.parameters().width;
         let behind = unwrap_or!(behind(&position, &rotation, &grid_width), return None);
         let forward_candidates = forward_candidates(&rotation);
-        self.choose_candidate(&behind, position, forward_candidates)
+        self.find_valid_direction(&behind, position, forward_candidates)
             .await
     }
 
-    async fn choose_candidate(
+    async fn find_valid_direction(
         &self,
-        behind: &V2<usize>,
-        position: &V2<usize>,
-        forward_candidates: Vec<Rotation>,
+        current_position: &V2<usize>,
+        position_behind: &V2<usize>,
+        possible_directions: Vec<Rotation>,
     ) -> Option<Rotation> {
         let min_navigable_river_width = self.parameters.min_navigable_river_width;
         self.cx
             .with_world(|world| {
-                let position = unwrap_or!(world.get_cell(position), return None);
-                if position.river.longest_side() < min_navigable_river_width {
+                let current_cell = unwrap_or!(world.get_cell(current_position), return None);
+                if current_cell.river.longest_side() < min_navigable_river_width {
                     return None;
                 }
-                let behind = unwrap_or!(world.get_cell(behind), return None);
-                forward_candidates
-                    .into_iter()
-                    .flat_map(|candidate| {
-                        world
-                            .offset(&position.position, offset(&candidate))
-                            .and_then(|position| world.get_cell(&position))
-                            .map(|cell| (candidate, cell))
-                    })
-                    .filter(|(_, forward)| {
+
+                let direction_to_cell = lookup_cells(world, current_cell, possible_directions);
+
+                let valid_direction_to_cells = direction_to_cell
+                    .filter(|(_, cell)| cell.river.longest_side() >= min_navigable_river_width)
+                    .filter(|(_, next_cell)| {
                         self.travel_duration
-                            .get_duration(world, &position.position, &forward.position)
+                            .get_duration(world, &current_cell.position, &next_cell.position)
                             .is_some()
                     })
-                    .filter(|(_, forward)| {
-                        forward.river.longest_side() >= min_navigable_river_width
-                    })
-                    .filter(|(_, forward)| {
-                        (behind.elevation <= position.elevation)
-                            && (position.elevation <= forward.elevation)
-                            || (behind.elevation >= position.elevation)
-                                && (position.elevation >= forward.elevation)
-                    })
-                    .max_by(|a, b| {
-                        unsafe_ordering(&a.1.river.longest_side(), &b.1.river.longest_side())
-                    })
-                    .map(|(candidate, _)| candidate)
+                    .collect::<HashMap<_, _>>();
+
+                if valid_direction_to_cells.is_empty() {
+                    None
+                } else if valid_direction_to_cells.len() == 1 {
+                    valid_direction_to_cells
+                        .into_iter()
+                        .next()
+                        .map(|(direction, _)| direction)
+                } else {
+                    choose_from_multiple_valid_directions(
+                        valid_direction_to_cells,
+                        current_cell,
+                        &world.get_cell(position_behind),
+                    )
+                }
             })
             .await
     }
@@ -158,6 +160,55 @@ where
             .await;
         new_journey
     }
+}
+
+fn lookup_cells<'a>(
+    world: &'a World,
+    position: &'a WorldCell,
+    directions: Vec<Rotation>,
+) -> impl Iterator<Item = (Rotation, &'a WorldCell)> {
+    directions.into_iter().flat_map(move |candidate| {
+        world
+            .offset(&position.position, offset(&candidate))
+            .and_then(|position| world.get_cell(&position))
+            .map(|cell| (candidate, cell))
+    })
+}
+
+fn choose_from_multiple_valid_directions(
+    direction_to_cell: HashMap<Rotation, &WorldCell>,
+    current_cell: &WorldCell,
+    cell_behind: &Option<&WorldCell>,
+) -> Option<Rotation> {
+    let mut ordering_to_direction_to_cell = direction_to_cell
+        .into_iter()
+        .map(|(direction, next_cell)| {
+            (
+                unsafe_ordering(&current_cell.elevation, &next_cell.elevation),
+                (direction, next_cell),
+            )
+        })
+        .collect::<HashMap<_, _>>();
+    let direction_to_cell = if ordering_to_direction_to_cell.len() == 1 {
+        ordering_to_direction_to_cell
+            .into_iter()
+            .next()
+            .map(|(_, direction_to_cell)| direction_to_cell)
+    } else {
+        match cell_behind {
+            Some(cell_behind) => ordering_to_direction_to_cell.remove(&unsafe_ordering(
+                &cell_behind.river.longest_side(),
+                &current_cell.river.longest_side(),
+            )),
+            None => None,
+        }
+    };
+    direction_to_cell
+        .into_iter()
+        .max_by(|(_, cell_a), (_, cell_b)| {
+            unsafe_ordering(&cell_a.river.longest_side(), &cell_b.river.longest_side())
+        })
+        .map(|(direction, _)| direction)
 }
 
 fn forward_candidates(rotation: &Rotation) -> Vec<Rotation> {
