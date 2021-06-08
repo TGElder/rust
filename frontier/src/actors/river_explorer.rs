@@ -91,7 +91,7 @@ where
     ) -> Option<Rotation> {
         let grid_width = self.cx.parameters().width;
         let behind = unwrap_or!(behind(&position, &rotation, &grid_width), return None);
-        let forward_candidates = forward_candidates(&rotation);
+        let forward_candidates = possible_directions(&rotation);
         self.find_valid_direction(&behind, position, forward_candidates)
             .await
     }
@@ -162,16 +162,47 @@ where
     }
 }
 
+fn possible_directions(rotation: &Rotation) -> Vec<Rotation> {
+    match rotation {
+        Rotation::Left => vec![Rotation::Down, Rotation::Left, Rotation::Up],
+        Rotation::Up => vec![Rotation::Left, Rotation::Up, Rotation::Right],
+        Rotation::Right => vec![Rotation::Up, Rotation::Right, Rotation::Down],
+        Rotation::Down => vec![Rotation::Right, Rotation::Down, Rotation::Left],
+    }
+}
+
+fn offset(direction: &Rotation) -> V2<i32> {
+    match direction {
+        Rotation::Left => v2(-1, 0),
+        Rotation::Up => v2(0, 1),
+        Rotation::Right => v2(1, 0),
+        Rotation::Down => v2(0, -1),
+    }
+}
+
+fn behind(position: &V2<usize>, rotation: &Rotation, grid_width: &usize) -> Option<V2<usize>> {
+    let behind = v2(position.x as i32, position.y as i32) + offset(&rotation) * -1;
+    if behind.x >= 0
+        && behind.y >= 0
+        && (behind.x as usize) < *grid_width
+        && (behind.y as usize) < *grid_width
+    {
+        Some(v2(behind.x as usize, behind.y as usize))
+    } else {
+        None
+    }
+}
+
 fn lookup_cells<'a>(
     world: &'a World,
-    position: &'a WorldCell,
+    current_cell: &'a WorldCell,
     directions: Vec<Rotation>,
 ) -> impl Iterator<Item = (Rotation, &'a WorldCell)> {
-    directions.into_iter().flat_map(move |candidate| {
+    directions.into_iter().flat_map(move |direction| {
         world
-            .offset(&position.position, offset(&candidate))
+            .offset(&current_cell.position, offset(&direction))
             .and_then(|position| world.get_cell(&position))
-            .map(|cell| (candidate, cell))
+            .map(|cell| (direction, cell))
     })
 }
 
@@ -209,37 +240,6 @@ fn choose_from_multiple_valid_directions(
             unsafe_ordering(&cell_a.river.longest_side(), &cell_b.river.longest_side())
         })
         .map(|(direction, _)| direction)
-}
-
-fn forward_candidates(rotation: &Rotation) -> Vec<Rotation> {
-    match rotation {
-        Rotation::Left => vec![Rotation::Down, Rotation::Left, Rotation::Up],
-        Rotation::Up => vec![Rotation::Left, Rotation::Up, Rotation::Right],
-        Rotation::Right => vec![Rotation::Up, Rotation::Right, Rotation::Down],
-        Rotation::Down => vec![Rotation::Right, Rotation::Down, Rotation::Left],
-    }
-}
-
-fn offset(rotation: &Rotation) -> V2<i32> {
-    match rotation {
-        Rotation::Left => v2(-1, 0),
-        Rotation::Up => v2(0, 1),
-        Rotation::Right => v2(1, 0),
-        Rotation::Down => v2(0, -1),
-    }
-}
-
-fn behind(position: &V2<usize>, rotation: &Rotation, grid_width: &usize) -> Option<V2<usize>> {
-    let behind = v2(position.x as i32, position.y as i32) + offset(&rotation) * -1;
-    if behind.x >= 0
-        && behind.y >= 0
-        && (behind.x as usize) < *grid_width
-        && (behind.y as usize) < *grid_width
-    {
-        Some(v2(behind.x as usize, behind.y as usize))
-    } else {
-        None
-    }
 }
 
 #[async_trait]
@@ -289,4 +289,91 @@ where
         }
         Capture::No
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use commons::M;
+    use isometric::Color;
+
+    use crate::avatar::Vehicle;
+    use crate::parameters::Parameters;
+
+    use super::*;
+
+    struct Cx {
+        avatar: Mutex<Avatar>,
+        parameters: Parameters,
+        world: Mutex<World>,
+    }
+
+    impl Default for Cx {
+        fn default() -> Self {
+            let world = World::new(M::from_element(3, 3, 1.0), 0.0);
+            Cx {
+                avatar: Mutex::new(Avatar {
+                    name: "".to_string(),
+                    journey: Some(Journey::stationary(
+                        &world,
+                        v2(1, 1),
+                        Vehicle::None,
+                        Rotation::Right,
+                    )),
+                    color: Color::transparent(),
+                    skin_color: Color::transparent(),
+                }),
+                parameters: Parameters::default(),
+                world: Mutex::new(world),
+            }
+        }
+    }
+
+    impl HasParameters for Cx {
+        fn parameters(&self) -> &Parameters {
+            &self.parameters
+        }
+    }
+
+    #[async_trait]
+    impl Micros for Cx {
+        async fn micros(&self) -> u128 {
+            0
+        }
+    }
+
+    #[async_trait]
+    impl SelectedAvatar for Cx {
+        async fn selected_avatar(&self) -> Option<Avatar> {
+            Some(self.avatar.lock().unwrap().clone())
+        }
+    }
+
+    #[async_trait]
+    impl UpdateAvatarJourney for Cx {
+        async fn update_avatar_journey(&self, _: &str, journey: Option<Journey>) {
+            self.avatar.lock().unwrap().journey = journey;
+        }
+    }
+
+    #[async_trait]
+    impl WithWorld for Cx {
+        async fn with_world<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&World) -> O + Send,
+        {
+            function(&self.world.lock().unwrap())
+        }
+
+        async fn mut_world<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut World) -> O + Send,
+        {
+            function(&mut self.world.lock().unwrap())
+        }
+    }
+
+    #[test]
+    fn test_name() {}
 }
