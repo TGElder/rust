@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -92,7 +93,7 @@ where
         let grid_width = self.cx.parameters().width;
         let behind = unwrap_or!(behind(&position, &rotation, &grid_width), return None);
         let forward_candidates = possible_directions(&rotation);
-        self.find_valid_direction(&behind, position, forward_candidates)
+        self.find_valid_direction(&position, &behind, forward_candidates)
             .await
     }
 
@@ -111,6 +112,8 @@ where
                 }
 
                 let direction_to_cell = lookup_cells(world, current_cell, possible_directions);
+
+        
 
                 let valid_direction_to_cells = direction_to_cell
                     .filter(|(_, cell)| cell.river.longest_side() >= min_navigable_river_width)
@@ -211,15 +214,11 @@ fn choose_from_multiple_valid_directions(
     current_cell: &WorldCell,
     cell_behind: &Option<&WorldCell>,
 ) -> Option<Rotation> {
-    let mut ordering_to_direction_to_cell = direction_to_cell
-        .into_iter()
-        .map(|(direction, next_cell)| {
-            (
-                unsafe_ordering(&current_cell.elevation, &next_cell.elevation),
-                (direction, next_cell),
-            )
-        })
-        .collect::<HashMap<_, _>>();
+    let mut ordering_to_direction_to_cell: HashMap<Ordering, HashMap<Rotation, &WorldCell>> = hashmap! {};
+    for (direction, next_cell) in direction_to_cell {
+        let ordering = unsafe_ordering(&current_cell.river.longest_side(), &next_cell.river.longest_side());
+        ordering_to_direction_to_cell.entry(ordering).or_default().insert(direction, next_cell);
+    }
     let direction_to_cell = if ordering_to_direction_to_cell.len() == 1 {
         ordering_to_direction_to_cell
             .into_iter()
@@ -236,6 +235,7 @@ fn choose_from_multiple_valid_directions(
     };
     direction_to_cell
         .into_iter()
+        .flatten()
         .max_by(|(_, cell_a), (_, cell_b)| {
             unsafe_ordering(&cell_a.river.longest_side(), &cell_b.river.longest_side())
         })
@@ -295,10 +295,12 @@ where
 mod tests {
     use std::sync::Mutex;
 
+    use commons::junction::PositionJunction;
     use commons::M;
+    use futures::executor::block_on;
     use isometric::Color;
 
-    use crate::avatar::Vehicle;
+    use crate::avatar::{AvatarTravelParams, Vehicle};
     use crate::parameters::Parameters;
 
     use super::*;
@@ -311,7 +313,8 @@ mod tests {
 
     impl Default for Cx {
         fn default() -> Self {
-            let world = World::new(M::from_element(3, 3, 1.0), 0.0);
+            let mut world = World::new(M::from_element(3, 3, 1.0), 0.0);
+            world.reveal_all();
             Cx {
                 avatar: Mutex::new(Avatar {
                     name: "".to_string(),
@@ -324,7 +327,10 @@ mod tests {
                     color: Color::transparent(),
                     skin_color: Color::transparent(),
                 }),
-                parameters: Parameters::default(),
+                parameters: Parameters{
+                    width: 3,
+                    ..Parameters::default()
+                },
                 world: Mutex::new(world),
             }
         }
@@ -374,6 +380,368 @@ mod tests {
         }
     }
 
+    fn avatar_travel_duration() -> Arc<AvatarTravelDuration> {
+        Arc::new(AvatarTravelDuration::new(AvatarTravelParams::default()))
+    }
+
     #[test]
-    fn test_name() {}
+    fn single_candidate() {
+        // Given
+        let cx = Cx::default();
+
+        let mut river_1 = PositionJunction::new(v2(1, 1));
+        river_1.junction.horizontal.width = 1.0;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+
+        let mut river_2 = PositionJunction::new(v2(2, 1));
+        river_2.junction.horizontal.width = 1.0;
+        river_2.junction.horizontal.from = true;
+        river_2.junction.horizontal.to = true;
+
+        {
+            let mut world = cx.world.lock().unwrap();
+            world.add_river(river_1);
+            world.add_river(river_2);
+        }
+
+        let parameters = RiverExplorerParameters{
+            min_navigable_river_width: 0.1,
+            ..RiverExplorerParameters::default()
+        };
+
+        let travel_duration = avatar_travel_duration();
+
+        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+
+        // When
+        block_on(river_explorer.explore());
+
+        // Then
+        assert_eq!(river_explorer.cx.avatar.lock().unwrap().journey, Some(Journey::new(
+            &river_explorer.cx.world.lock().unwrap(),
+            vec![v2(1, 1), v2(2, 1)],
+            travel_duration.as_ref(),
+            travel_duration.travel_mode_fn(),
+            0,
+        )));
+    }
+
+    #[test]
+    fn multiple_candidates_all_upstream() {
+         // Given
+         let cx = Cx::default();
+
+         let mut river_1 = PositionJunction::new(v2(1, 1));
+         river_1.junction.vertical.width = 1.0;
+         river_1.junction.vertical.from = true;
+         river_1.junction.vertical.to = true;
+ 
+         let mut river_2 = PositionJunction::new(v2(1, 2));
+         river_2.junction.vertical.width = 1.5;
+         river_2.junction.vertical.from = true;
+         river_2.junction.vertical.to = true;
+
+         let mut river_3 = PositionJunction::new(v2(1, 0));
+         river_3.junction.vertical.width = 2.0;
+         river_3.junction.vertical.from = true;
+         river_3.junction.vertical.to = true;
+
+ 
+         {
+             let mut world = cx.world.lock().unwrap();
+             world.add_river(river_1);
+             world.add_river(river_2);
+             world.add_river(river_3);
+         }
+ 
+         let parameters = RiverExplorerParameters{
+             min_navigable_river_width: 0.1,
+             ..RiverExplorerParameters::default()
+         };
+ 
+         let travel_duration = avatar_travel_duration();
+ 
+         let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+ 
+         // When
+         block_on(river_explorer.explore());
+ 
+         // Then
+         assert_eq!(river_explorer.cx.avatar.lock().unwrap().journey, Some(Journey::new(
+             &river_explorer.cx.world.lock().unwrap(),
+             vec![v2(1, 1), v2(1, 0)],
+             travel_duration.as_ref(),
+             travel_duration.travel_mode_fn(),
+             0,
+         )));
+    }
+
+    #[test]
+    fn mixed_candidates_moving_downstream() {
+          // Given
+          let cx = Cx::default();
+
+          let mut river_1 = PositionJunction::new(v2(0, 1));
+          river_1.junction.horizontal.width = 2.0;
+          river_1.junction.horizontal.from = true;
+          river_1.junction.horizontal.to = true;
+
+          let mut river_2 = PositionJunction::new(v2(1, 1));
+          river_2.junction.horizontal.width = 1.0;
+          river_2.junction.horizontal.from = true;
+          river_2.junction.horizontal.to = true;
+          river_2.junction.vertical.width = 1.0;
+          river_2.junction.vertical.from = true;
+          river_2.junction.vertical.to = true;
+  
+          let mut river_3 = PositionJunction::new(v2(1, 2));
+          river_3.junction.vertical.width = 3.0;
+          river_3.junction.vertical.from = true;
+          river_3.junction.vertical.to = true;
+ 
+          let mut river_4 = PositionJunction::new(v2(1, 0));
+          river_4.junction.vertical.width = 0.5;
+          river_4.junction.vertical.from = true;
+          river_4.junction.vertical.to = true;
+
+          let mut river_5 = PositionJunction::new(v2(2, 1));
+          river_5.junction.horizontal.width = 4.0;
+          river_5.junction.horizontal.from = true;
+          river_5.junction.horizontal.to = true;
+  
+          {
+              let mut world = cx.world.lock().unwrap();
+              world.add_river(river_1);
+              world.add_river(river_2);
+              world.add_river(river_3);
+              world.add_river(river_4);
+              world.add_river(river_5);
+          }
+  
+          let parameters = RiverExplorerParameters{
+              min_navigable_river_width: 0.1,
+              ..RiverExplorerParameters::default()
+          };
+  
+          let travel_duration = avatar_travel_duration();
+  
+          let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+  
+          // When
+          block_on(river_explorer.explore());
+  
+          // Then
+          assert_eq!(river_explorer.cx.avatar.lock().unwrap().journey, Some(Journey::new(
+              &river_explorer.cx.world.lock().unwrap(),
+              vec![v2(1, 1), v2(1, 0)],
+              travel_duration.as_ref(),
+              travel_duration.travel_mode_fn(),
+              0,
+          )));
+    }
+
+    #[test]
+    fn mixed_candidates_moving_upstream() {
+          // Given
+          let cx = Cx::default();
+
+          let mut river_1 = PositionJunction::new(v2(0, 1));
+          river_1.junction.horizontal.width = 0.5;
+          river_1.junction.horizontal.from = true;
+          river_1.junction.horizontal.to = true;
+
+          let mut river_2 = PositionJunction::new(v2(1, 1));
+          river_2.junction.horizontal.width = 1.0;
+          river_2.junction.horizontal.from = true;
+          river_2.junction.horizontal.to = true;
+          river_2.junction.vertical.width = 1.0;
+          river_2.junction.vertical.from = true;
+          river_2.junction.vertical.to = true;
+  
+          let mut river_3 = PositionJunction::new(v2(1, 2));
+          river_3.junction.vertical.width = 3.0;
+          river_3.junction.vertical.from = true;
+          river_3.junction.vertical.to = true;
+ 
+          let mut river_4 = PositionJunction::new(v2(1, 0));
+          river_4.junction.vertical.width = 0.5;
+          river_4.junction.vertical.from = true;
+          river_4.junction.vertical.to = true;
+
+          let mut river_5 = PositionJunction::new(v2(2, 1));
+          river_5.junction.horizontal.width = 4.0;
+          river_5.junction.horizontal.from = true;
+          river_5.junction.horizontal.to = true;
+  
+          {
+              let mut world = cx.world.lock().unwrap();
+              world.add_river(river_1);
+              world.add_river(river_2);
+              world.add_river(river_3);
+              world.add_river(river_4);
+              world.add_river(river_5);
+          }
+  
+          let parameters = RiverExplorerParameters{
+              min_navigable_river_width: 0.1,
+              ..RiverExplorerParameters::default()
+          };
+  
+          let travel_duration = avatar_travel_duration();
+  
+          let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+  
+          // When
+          block_on(river_explorer.explore());
+  
+          // Then
+          assert_eq!(river_explorer.cx.avatar.lock().unwrap().journey, Some(Journey::new(
+              &river_explorer.cx.world.lock().unwrap(),
+              vec![v2(1, 1), v2(2, 1)],
+              travel_duration.as_ref(),
+              travel_duration.travel_mode_fn(),
+              0,
+          )));
+    }
+
+    #[test]
+    fn no_candidates() {
+        // Given
+        let cx = Cx::default();
+
+        let mut river_1 = PositionJunction::new(v2(1, 1));
+        river_1.junction.horizontal.width = 1.0;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+
+        let mut river_2 = PositionJunction::new(v2(0, 1)); // Behind
+        river_2.junction.horizontal.width = 1.0;
+        river_2.junction.horizontal.from = true;
+        river_2.junction.horizontal.to = true;
+
+        {
+            let mut world = cx.world.lock().unwrap();
+            world.add_river(river_1);
+            world.add_river(river_2);
+        }
+
+        let parameters = RiverExplorerParameters{
+            min_navigable_river_width: 0.1,
+            ..RiverExplorerParameters::default()
+        };
+
+        let travel_duration = avatar_travel_duration();
+
+        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+
+        // When
+        block_on(river_explorer.explore());
+
+        // Then
+        assert_eq!(river_explorer.cx.avatar.lock().unwrap().journey, Some(Journey::stationary(
+            &river_explorer.cx.world.lock().unwrap(),
+            v2(1, 1),
+            Vehicle::None,
+            Rotation::Right,
+        )));
+    }
+
+    #[test]
+    fn avatar_not_in_river() {
+         // Given
+         let cx = Cx::default();
+
+         let mut river_1 = PositionJunction::new(v2(2, 1));
+         river_1.junction.horizontal.width = 1.0;
+         river_1.junction.horizontal.from = true;
+         river_1.junction.horizontal.to = true;
+ 
+         {
+             let mut world = cx.world.lock().unwrap();
+             world.add_river(river_1);
+         }
+ 
+         let parameters = RiverExplorerParameters{
+             min_navigable_river_width: 0.1,
+             ..RiverExplorerParameters::default()
+         };
+ 
+         let travel_duration = avatar_travel_duration();
+ 
+         let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+ 
+         // When
+         block_on(river_explorer.explore());
+ 
+         // Then
+         assert_eq!(river_explorer.cx.avatar.lock().unwrap().journey, Some(Journey::stationary(
+             &river_explorer.cx.world.lock().unwrap(),
+             v2(1, 1),
+             Vehicle::None,
+             Rotation::Right,
+         )));
+    }
+
+    #[test]
+    fn should_not_cut_inside_u_bend() {
+        // Given
+        let cx = Cx::default();
+
+        let mut river_1 = PositionJunction::new(v2(1, 1));
+        river_1.junction.horizontal.width = 0.5;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+
+        let mut river_2 = PositionJunction::new(v2(2, 1));
+        river_2.junction.horizontal.width = 1.0;
+        river_2.junction.horizontal.from = true;
+        river_2.junction.horizontal.to = true;
+        river_2.junction.vertical.width = 1.0;
+        river_2.junction.vertical.from = true;
+        river_2.junction.vertical.to = true;
+
+        let mut river_3 = PositionJunction::new(v2(2, 2));
+        river_3.junction.horizontal.width = 2.0;
+        river_3.junction.horizontal.from = true;
+        river_3.junction.horizontal.to = true;
+        river_3.junction.vertical.width = 2.0;
+        river_3.junction.vertical.from = true;
+        river_3.junction.vertical.to = true;
+
+        let mut river_4 = PositionJunction::new(v2(1, 2));
+        river_4.junction.horizontal.width = 4.0;
+        river_4.junction.horizontal.from = true;
+        river_4.junction.horizontal.to = true;
+
+        {
+            let mut world = cx.world.lock().unwrap();
+            world.add_river(river_1);
+            world.add_river(river_2);
+            world.add_river(river_3);
+            world.add_river(river_4);
+        }
+
+        let parameters = RiverExplorerParameters{
+            min_navigable_river_width: 0.1,
+            ..RiverExplorerParameters::default()
+        };
+
+        let travel_duration = avatar_travel_duration();
+
+        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+
+        // When
+        block_on(river_explorer.explore());
+
+        // Then
+        assert_eq!(river_explorer.cx.avatar.lock().unwrap().journey, Some(Journey::new(
+            &river_explorer.cx.world.lock().unwrap(),
+            vec![v2(1, 1), v2(2, 1)],
+            travel_duration.as_ref(),
+            travel_duration.travel_mode_fn(),
+            0,
+        )));
+    }
+
 }
