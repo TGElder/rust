@@ -269,20 +269,24 @@ mod tests {
             0.5,
         );
         let mut river_1 = PositionJunction::new(v2(1, 0));
-        river_1.junction.vertical.from = true;
         river_1.junction.vertical.width = 0.1;
+        river_1.junction.vertical.from = true;
+        river_1.junction.vertical.to = true;
         let mut river_2 = PositionJunction::new(v2(1, 1));
-        river_2.junction.vertical.to = true;
-        river_2.junction.vertical.from = true;
         river_2.junction.vertical.width = 0.2;
+        river_2.junction.vertical.from = true;
+        river_2.junction.vertical.to = true;
         let mut river_3 = PositionJunction::new(v2(1, 2));
-        river_3.junction.vertical.to = true;
-        river_3.junction.vertical.width = 0.3;
-        river_3.junction.horizontal.from = true;
         river_3.junction.horizontal.width = 0.3;
+        river_3.junction.horizontal.from = true;
+        river_3.junction.horizontal.to = true;
+        river_3.junction.vertical.width = 0.3;
+        river_3.junction.vertical.from = true;
+        river_3.junction.vertical.to = true;
         let mut river_4 = PositionJunction::new(v2(2, 2));
+        river_4.junction.vertical.width = 0.4;
+        river_4.junction.vertical.from = true;
         river_4.junction.vertical.to = true;
-        river_4.junction.horizontal.width = 0.4;
 
         out.add_river(river_1);
         out.add_river(river_2);

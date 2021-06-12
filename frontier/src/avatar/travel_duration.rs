@@ -360,10 +360,12 @@ mod tests {
         let mut river_1 = PositionJunction::new(v2(0, 0));
         river_1.junction.horizontal.width = 1.0;
         river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
         world.add_river(river_1);
 
         let mut river_2 = PositionJunction::new(v2(1, 0));
         river_2.junction.horizontal.width = 1.0;
+        river_2.junction.horizontal.from = true;
         river_2.junction.horizontal.to = true;
         world.add_river(river_2);
 
