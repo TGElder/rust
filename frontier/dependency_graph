@@ -141,6 +141,11 @@ SendResourceTargets GetWorldObjects
 SendResourceTargets InitTargets
 SendResourceTargets LoadTarget
 SendResourceTargets WithResources
+SendRiverExplorer HasParameters
+SendRiverExplorer Micros
+SendRiverExplorer SelectedAvatar
+SendRiverExplorer UpdateAvatarJourney
+SendRiverExplorer WithWorld
 SendRotate SendEngineCommands
 SendSettlementSim ClosestTargets
 SendSettlementSim Controlled

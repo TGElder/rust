@@ -1,9 +1,9 @@
 use crate::actors::{
     AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor, Cheats,
     ControllersActor, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls,
-    PrimeMover, ResourceGenActor, ResourceTargets, Rotate, SetupNewWorld, SetupPathfinders,
-    SetupVisibility, SpeedControl, TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager,
-    WorldArtistActor, WorldGen,
+    PrimeMover, ResourceGenActor, ResourceTargets, RiverExplorer, Rotate, SetupNewWorld,
+    SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor, TownHouseArtist,
+    TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -76,6 +76,7 @@ pub struct Context {
     pub resource_gen_tx: FnSender<ResourceGenActor<Context>>,
     pub resource_targets_tx: FnSender<ResourceTargets<Context>>,
     pub resources: Arc<RwLock<Resources>>,
+    pub river_explorer_tx: FnSender<RiverExplorer<Context>>,
     pub rotate_tx: FnSender<Rotate<Context>>,
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
@@ -134,6 +135,7 @@ impl Context {
             resource_gen_tx: self.resource_gen_tx.clone_with_name(name),
             resource_targets_tx: self.resource_targets_tx.clone_with_name(name),
             resources: self.resources.clone(),
+            river_explorer_tx: self.river_explorer_tx.clone_with_name(name),
             rotate_tx: self.rotate_tx.clone_with_name(name),
             route_to_ports: self.route_to_ports.clone(),
             routes: self.routes.clone(),

@@ -33,7 +33,7 @@ pub struct Avatar {
     pub skin_color: Color,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum Rotation {
     Left = 0,
     Up = 1,
@@ -64,7 +64,7 @@ impl Rotation {
         }
     }
 
-    fn clockwise(self) -> Rotation {
+    pub fn clockwise(self) -> Rotation {
         match self {
             Rotation::Left => Rotation::Up,
             Rotation::Up => Rotation::Right,
@@ -73,7 +73,7 @@ impl Rotation {
         }
     }
 
-    fn anticlockwise(self) -> Rotation {
+    pub fn anticlockwise(self) -> Rotation {
         match self {
             Rotation::Left => Rotation::Down,
             Rotation::Up => Rotation::Left,

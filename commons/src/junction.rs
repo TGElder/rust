@@ -24,6 +24,10 @@ impl Junction {
         self.horizontal.width
     }
 
+    pub fn longest_side(&self) -> f32 {
+        self.width().max(self.height())
+    }
+
     pub fn here(&self) -> bool {
         self.width() > 0.0 || self.height() > 0.0
     }
@@ -71,7 +75,36 @@ impl Junction {
 #[cfg(test)]
 mod tests {
 
+    use crate::almost::Almost;
+
     use super::*;
+
+    #[test]
+    fn longest_side() {
+        let junction = Junction {
+            horizontal: Junction1D {
+                width: 0.2,
+                ..Junction1D::default()
+            },
+            vertical: Junction1D {
+                width: 0.3,
+                ..Junction1D::default()
+            },
+        };
+        assert!(junction.longest_side().almost(&0.3));
+
+        let junction = Junction {
+            horizontal: Junction1D {
+                width: 0.4,
+                ..Junction1D::default()
+            },
+            vertical: Junction1D {
+                width: 0.1,
+                ..Junction1D::default()
+            },
+        };
+        assert!(junction.longest_side().almost(&0.4));
+    }
 
     #[test]
     fn get_horizontal_edge_from_false() {

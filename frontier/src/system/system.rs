@@ -12,6 +12,8 @@ use tokio::sync::RwLock;
 
 use crate::actors::ControllersActor;
 use crate::actors::ControllersActorParameters;
+use crate::actors::RiverExplorer;
+use crate::actors::RiverExplorerParameters;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BuilderActor,
     Cheats, FollowAvatar, Labels, ObjectBuilderActor, PathfindingAvatarControls, PrimeMover,
@@ -67,6 +69,7 @@ struct Processes {
     prime_mover: Process<PrimeMover<Context>>,
     resource_gen: Process<ResourceGenActor<Context>>,
     resource_targets: Process<ResourceTargets<Context>>,
+    river_explorer: Process<RiverExplorer<Context>>,
     rotate: Process<Rotate<Context>>,
     settlement_sims: Vec<Process<SettlementSimulation<Context, AvatarTravelDuration>>>,
     setup_new_world: Process<SetupNewWorld<Context>>,
@@ -128,6 +131,7 @@ impl System {
         let (prime_mover_tx, prime_mover_rx) = fn_channel();
         let (resource_gen_tx, resource_gen_rx) = fn_channel();
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
+        let (river_explorer_tx, river_explorer_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (setup_pathfinders_tx, setup_pathfinders_rx) = fn_channel();
@@ -194,6 +198,7 @@ impl System {
                 params.width,
                 HashSet::with_capacity(0),
             ))),
+            river_explorer_tx,
             rotate_tx,
             route_to_ports: Arc::default(),
             routes: Arc::default(),
@@ -322,7 +327,7 @@ impl System {
                 pathfinding_avatar_controls: Process::new(
                     PathfindingAvatarControls::new(
                         cx.clone_with_name("pathfinding_avatar_controls"),
-                        player_travel_duration,
+                        player_travel_duration.clone(),
                     ),
                     pathfinding_avatar_controls_rx,
                 ),
@@ -351,6 +356,14 @@ impl System {
                 resource_targets: Process::new(
                     ResourceTargets::new(cx.clone_with_name("resource_targets")),
                     resource_targets_rx,
+                ),
+                river_explorer: Process::new(
+                    RiverExplorer::new(
+                        cx.clone_with_name("river_explorer"),
+                        RiverExplorerParameters::default(),
+                        player_travel_duration,
+                    ),
+                    river_explorer_rx,
                 ),
                 rotate: Process::new(Rotate::new(cx.clone_with_name("rotate")), rotate_rx),
                 settlement_sims: settlement_sim_rxs
@@ -626,6 +639,7 @@ impl Processes {
                 .map(|sim| sim.run_active(pool)),
         )
         .await;
+        self.river_explorer.run_active(pool).await;
         self.prime_mover.run_active(pool).await;
         self.pathfinding_avatar_controls.run_passive(pool).await;
         self.object_builder.run_passive(pool).await;
@@ -653,6 +667,7 @@ impl Processes {
         self.object_builder.drain(pool, true).await;
         self.pathfinding_avatar_controls.drain(pool, true).await;
         self.prime_mover.drain(pool, true).await;
+        self.river_explorer.drain(pool, true).await;
         join_all(
             self.settlement_sims
                 .iter_mut()

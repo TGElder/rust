@@ -256,16 +256,9 @@ impl Journey {
         self
     }
 
-    pub fn then_rotate_clockwise(mut self) -> Journey {
+    pub fn then_rotate_to(mut self, rotation: Rotation) -> Journey {
         let mut last_frame = *unwrap_or!(self.frames.last(), return self);
-        last_frame.rotation = last_frame.rotation.clockwise();
-        self.frames.push(last_frame);
-        self
-    }
-
-    pub fn then_rotate_anticlockwise(mut self) -> Journey {
-        let mut last_frame = *unwrap_or!(self.frames.last(), return self);
-        last_frame.rotation = last_frame.rotation.anticlockwise();
+        last_frame.rotation = rotation;
         self.frames.push(last_frame);
         self
     }
@@ -1008,9 +1001,9 @@ mod tests {
     }
 
     #[test]
-    fn test_then_rotate_clockwise() {
+    fn test_then_rotate_to() {
         let journey = Journey::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
-        let journey = journey.then_rotate_clockwise();
+        let journey = journey.then_rotate_to(Rotation::Right);
         assert_eq!(
             journey,
             Journey {
@@ -1029,35 +1022,6 @@ mod tests {
                         arrival: 0,
                         vehicle: Vehicle::None,
                         rotation: Rotation::Right,
-                        load: AvatarLoad::None,
-                    }
-                ]
-            }
-        );
-    }
-
-    #[test]
-    fn test_then_rotate_anticlockwise() {
-        let journey = Journey::stationary(&world(), v2(0, 0), Vehicle::None, Rotation::Up);
-        let journey = journey.then_rotate_anticlockwise();
-        assert_eq!(
-            journey,
-            Journey {
-                frames: vec![
-                    Frame {
-                        position: v2(0, 0),
-                        elevation: 1.0,
-                        arrival: 0,
-                        vehicle: Vehicle::None,
-                        rotation: Rotation::Up,
-                        load: AvatarLoad::None,
-                    },
-                    Frame {
-                        position: v2(0, 0),
-                        elevation: 1.0,
-                        arrival: 0,
-                        vehicle: Vehicle::None,
-                        rotation: Rotation::Left,
                         load: AvatarLoad::None,
                     }
                 ]
