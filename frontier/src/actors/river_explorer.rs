@@ -20,15 +20,14 @@ use crate::world::{World, WorldCell};
 
 pub struct RiverExplorer<T> {
     cx: T,
-    active: bool,
     travel_duration: Arc<AvatarTravelDuration>,
     parameters: RiverExplorerParameters,
+    active: bool,
 }
 
 pub struct RiverExplorerParameters {
     pub refresh_interval: Duration,
     pub binding: Button,
-    pub min_navigable_river_width: f32,
 }
 
 impl Default for RiverExplorerParameters {
@@ -36,7 +35,6 @@ impl Default for RiverExplorerParameters {
         RiverExplorerParameters {
             refresh_interval: Duration::from_millis(100),
             binding: Button::Key(VirtualKeyCode::X),
-            min_navigable_river_width: 0.1,
         }
     }
 }
@@ -52,9 +50,9 @@ where
     ) -> RiverExplorer<T> {
         RiverExplorer {
             cx,
-            active: false,
             travel_duration,
             parameters,
+            active: false,
         }
     }
 
@@ -76,7 +74,6 @@ where
         let Frame {
             position, rotation, ..
         } = journey.final_frame();
-
         let next_direction = unwrap_or!(self.get_next_direction(position, rotation).await, return);
 
         let new_journey = self.get_new_journey(journey, next_direction, micros).await;
@@ -104,7 +101,8 @@ where
         position_behind: &V2<usize>,
         possible_directions: Vec<Rotation>,
     ) -> Option<Rotation> {
-        let min_navigable_river_width = self.parameters.min_navigable_river_width;
+        let min_navigable_river_width =
+            self.cx.parameters().player_travel.min_navigable_river_width;
         self.cx
             .with_world(|world| {
                 let current_cell = unwrap_or!(world.get_cell(current_position), return None);
@@ -230,6 +228,7 @@ fn choose_from_multiple_valid_directions(
             .or_default()
             .insert(direction, next_cell);
     }
+
     let direction_to_cell = if ordering_to_direction_to_cell.len() == 1 {
         ordering_to_direction_to_cell
             .into_iter()
@@ -244,6 +243,7 @@ fn choose_from_multiple_valid_directions(
             None => None,
         }
     };
+
     direction_to_cell
         .into_iter()
         .flatten()
@@ -340,6 +340,10 @@ mod tests {
                 }),
                 parameters: Parameters {
                     width: 3,
+                    player_travel: AvatarTravelParams {
+                        min_navigable_river_width: 0.1,
+                        ..AvatarTravelParams::default()
+                    },
                     ..Parameters::default()
                 },
                 world: Mutex::new(world),
@@ -416,13 +420,8 @@ mod tests {
             world.add_river(river_2);
         }
 
-        let parameters = RiverExplorerParameters {
-            min_navigable_river_width: 0.1,
-            ..RiverExplorerParameters::default()
-        };
-
+        let parameters = RiverExplorerParameters::default();
         let travel_duration = avatar_travel_duration();
-
         let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
 
         // When
@@ -468,13 +467,8 @@ mod tests {
             world.add_river(river_3);
         }
 
-        let parameters = RiverExplorerParameters {
-            min_navigable_river_width: 0.1,
-            ..RiverExplorerParameters::default()
-        };
-
+        let parameters = RiverExplorerParameters::default();
         let travel_duration = avatar_travel_duration();
-
         let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
 
         // When
@@ -535,13 +529,8 @@ mod tests {
             world.add_river(river_5);
         }
 
-        let parameters = RiverExplorerParameters {
-            min_navigable_river_width: 0.1,
-            ..RiverExplorerParameters::default()
-        };
-
+        let parameters = RiverExplorerParameters::default();
         let travel_duration = avatar_travel_duration();
-
         let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
 
         // When
@@ -602,13 +591,8 @@ mod tests {
             world.add_river(river_5);
         }
 
-        let parameters = RiverExplorerParameters {
-            min_navigable_river_width: 0.1,
-            ..RiverExplorerParameters::default()
-        };
-
+        let parameters = RiverExplorerParameters::default();
         let travel_duration = avatar_travel_duration();
-
         let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
 
         // When
@@ -631,6 +615,7 @@ mod tests {
     fn no_candidates() {
         // Given
         let cx = Cx::default();
+        let original_journey = cx.avatar.lock().unwrap().journey.clone();
 
         let mut river_1 = PositionJunction::new(v2(1, 1));
         river_1.junction.horizontal.width = 1.0;
@@ -648,13 +633,8 @@ mod tests {
             world.add_river(river_2);
         }
 
-        let parameters = RiverExplorerParameters {
-            min_navigable_river_width: 0.1,
-            ..RiverExplorerParameters::default()
-        };
-
+        let parameters = RiverExplorerParameters::default();
         let travel_duration = avatar_travel_duration();
-
         let river_explorer = RiverExplorer::new(cx, parameters, travel_duration);
 
         // When
@@ -663,12 +643,7 @@ mod tests {
         // Then
         assert_eq!(
             river_explorer.cx.avatar.lock().unwrap().journey,
-            Some(Journey::stationary(
-                &river_explorer.cx.world.lock().unwrap(),
-                v2(1, 1),
-                Vehicle::None,
-                Rotation::Right,
-            ))
+            original_journey
         );
     }
 
@@ -676,6 +651,7 @@ mod tests {
     fn avatar_not_in_river() {
         // Given
         let cx = Cx::default();
+        let original_journey = cx.avatar.lock().unwrap().journey.clone();
 
         let mut river_1 = PositionJunction::new(v2(2, 1));
         river_1.junction.horizontal.width = 1.0;
@@ -687,13 +663,8 @@ mod tests {
             world.add_river(river_1);
         }
 
-        let parameters = RiverExplorerParameters {
-            min_navigable_river_width: 0.1,
-            ..RiverExplorerParameters::default()
-        };
-
+        let parameters = RiverExplorerParameters::default();
         let travel_duration = avatar_travel_duration();
-
         let river_explorer = RiverExplorer::new(cx, parameters, travel_duration);
 
         // When
@@ -702,12 +673,50 @@ mod tests {
         // Then
         assert_eq!(
             river_explorer.cx.avatar.lock().unwrap().journey,
-            Some(Journey::stationary(
-                &river_explorer.cx.world.lock().unwrap(),
-                v2(1, 1),
-                Vehicle::None,
-                Rotation::Right,
-            ))
+            original_journey
+        );
+    }
+
+    #[test]
+    fn avatar_moving() {
+        // Given
+        let cx = Cx::default();
+        let travel_duration = avatar_travel_duration();
+        let original_journey = Some(Journey::new(
+            &cx.world.lock().unwrap(),
+            vec![v2(0, 1), v2(1, 1)],
+            travel_duration.as_ref(),
+            travel_duration.travel_mode_fn(),
+            0,
+        ));
+        cx.avatar.lock().unwrap().journey = original_journey.clone();
+
+        let mut river_1 = PositionJunction::new(v2(1, 1));
+        river_1.junction.horizontal.width = 1.0;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+
+        let mut river_2 = PositionJunction::new(v2(2, 1));
+        river_2.junction.horizontal.width = 1.0;
+        river_2.junction.horizontal.from = true;
+        river_2.junction.horizontal.to = true;
+
+        {
+            let mut world = cx.world.lock().unwrap();
+            world.add_river(river_1);
+            world.add_river(river_2);
+        }
+
+        let parameters = RiverExplorerParameters::default();
+        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+
+        // When
+        block_on(river_explorer.explore());
+
+        // Then
+        assert_eq!(
+            river_explorer.cx.avatar.lock().unwrap().journey,
+            original_journey
         );
     }
 
@@ -750,13 +759,8 @@ mod tests {
             world.add_river(river_4);
         }
 
-        let parameters = RiverExplorerParameters {
-            min_navigable_river_width: 0.1,
-            ..RiverExplorerParameters::default()
-        };
-
+        let parameters = RiverExplorerParameters::default();
         let travel_duration = avatar_travel_duration();
-
         let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
 
         // When
