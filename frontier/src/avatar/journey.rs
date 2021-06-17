@@ -357,6 +357,7 @@ impl Add for Journey {
 mod tests {
 
     use crate::bridge::Bridge;
+    use crate::bridge::BridgeType::Built;
 
     use super::*;
     use commons::almost::Almost;
@@ -1181,6 +1182,7 @@ mod tests {
             edge: Edge::new(v2(0, 0), v2(2, 0)),
             duration: Duration::from_micros(404),
             vehicle: Vehicle::Boat,
+            bridge_type: Built,
         };
         let actual = Journey::new(
             &world,

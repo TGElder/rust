@@ -14,6 +14,13 @@ pub struct Bridge {
     pub edge: Edge,
     pub duration: Duration,
     pub vehicle: Vehicle,
+    pub bridge_type: BridgeType,
+}
+
+#[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub enum BridgeType {
+    Theoretical,
+    Built,
 }
 
 impl Bridge {

@@ -1,4 +1,5 @@
 use crate::bridge::Bridge;
+use crate::bridge::BridgeType::Built;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{AddBridge, RemoveBridge, WithWorld};
 use commons::async_trait::async_trait;
@@ -76,6 +77,7 @@ where
                 * (edge.length() as u32),
             edge,
             vehicle: crate::avatar::Vehicle::None,
+            bridge_type: Built,
         };
         self.cx.add_bridge(bridge).await;
     }
