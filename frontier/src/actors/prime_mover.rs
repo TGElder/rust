@@ -19,7 +19,7 @@ use crate::bridge::Bridges;
 use crate::nation::{NationColors, NationDescription};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
-use crate::traits::{Micros, WithAvatars, WithBridges, WithRoutes, WithSettlements, WithWorld};
+use crate::traits::{BuiltBridges, Micros, WithAvatars, WithRoutes, WithSettlements, WithWorld};
 use crate::world::World;
 
 pub struct PrimeMover<T> {
@@ -55,7 +55,7 @@ impl Default for Durations {
 
 impl<T> PrimeMover<T>
 where
-    T: Micros + WithAvatars + WithBridges + WithRoutes + WithSettlements + WithWorld + Send + Sync,
+    T: BuiltBridges + Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
 {
     pub fn new(
         cx: T,
@@ -168,10 +168,7 @@ where
     }
 
     async fn get_journies(&self, keys: &[RouteKey], start_at: u128) -> HashMap<RouteKey, Journey> {
-        let (paths, bridges) = join!(
-            self.get_paths(&keys),
-            self.cx.with_bridges(|bridges| (*bridges).clone()),
-        );
+        let (paths, bridges) = join!(self.get_paths(&keys), self.cx.built_bridges(),);
         self.get_journies_from_paths(paths, start_at, &bridges)
             .await
     }
@@ -342,7 +339,7 @@ fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done_micros: &u128) -> boo
 #[async_trait]
 impl<T> Step for PrimeMover<T>
 where
-    T: Micros + WithAvatars + WithBridges + WithRoutes + WithSettlements + WithWorld + Send + Sync,
+    T: BuiltBridges + Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
 {
     async fn step(&mut self) {
         let micros = self.cx.micros().await;

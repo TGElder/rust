@@ -714,7 +714,7 @@ mod tests {
         }
 
         let parameters = RiverExplorerParameters::default();
-        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration);
 
         // When
         block_on(river_explorer.explore());

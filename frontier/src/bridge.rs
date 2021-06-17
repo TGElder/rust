@@ -9,7 +9,7 @@ use commons::edge::Edge;
 use crate::avatar::Vehicle;
 use crate::travel_duration::EdgeDuration;
 
-#[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Bridge {
     pub edge: Edge,
     pub duration: Duration,
@@ -17,7 +17,7 @@ pub struct Bridge {
     pub bridge_type: BridgeType,
 }
 
-#[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum BridgeType {
     Theoretical,
     Built,
