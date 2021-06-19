@@ -1,5 +1,7 @@
+AddBridge PathfinderForPlayer
+AddBridge PathfinderForRoutes
 AddBridge SendBridgeArtistActor
-AddBridge UpdateEdgesAllPathfinders
+AddBridge UpdatePathfinderEdges
 AddBridge WithBridges
 AddController WithTerritory
 AddRoad UpdateRoads
@@ -129,11 +131,11 @@ SendLabels SendEngineCommands
 SendLabels WithWorld
 SendObjectBuilderActor RemoveWorldObjects
 SendObjectBuilderActor SetWorldObjects
+SendPathfindingAvatarControls BuiltBridges
 SendPathfindingAvatarControls FindPath
 SendPathfindingAvatarControls Micros
 SendPathfindingAvatarControls SelectedAvatar
 SendPathfindingAvatarControls UpdateAvatarJourney
-SendPathfindingAvatarControls WithBridges
 SendPathfindingAvatarControls WithPathfinder
 SendPathfindingAvatarControls WithWorld
 SendPositionBuildSim AnyoneControls
@@ -146,9 +148,9 @@ SendPositionBuildSim WithRouteToPorts
 SendPositionBuildSim WithRoutes
 SendPositionBuildSim WithTraffic
 SendPositionBuildSim WithWorld
+SendPrimeMover BuiltBridges
 SendPrimeMover Micros
 SendPrimeMover WithAvatars
-SendPrimeMover WithBridges
 SendPrimeMover WithRoutes
 SendPrimeMover WithSettlements
 SendPrimeMover WithWorld
@@ -162,6 +164,7 @@ SendRiverExplorer SelectedAvatar
 SendRiverExplorer UpdateAvatarJourney
 SendRiverExplorer WithWorld
 SendRotate SendEngineCommands
+SendSettlementSim BuiltBridges
 SendSettlementSim ClosestTargets
 SendSettlementSim Controlled
 SendSettlementSim CostOfPath
@@ -189,7 +192,9 @@ SendSetupNewWorld WithNations
 SendSetupNewWorld WithSettlements
 SendSetupNewWorld WithWorld
 SendSetupPathfinder HasParameters
-SendSetupPathfinder UpdateEdgesAllPathfinders
+SendSetupPathfinder PathfinderForPlayer
+SendSetupPathfinder PathfinderForRoutes
+SendSetupPathfinder UpdatePathfinderEdges
 SendSetupPathfinder UpdatePositionsAllPathfinders
 SendSetupPathfinder WithBridges
 SendSetupVisibility WithVisibility

@@ -12,10 +12,11 @@ use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::{RouteChange, Routes};
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    ClosestTargetsForRoutes, Controlled, CostOfPath, GetSettlement, InBoundsForRoutes, Micros,
-    RefreshEdges, RefreshPositions, RemoveTown, UpdateSettlement as UpdateSettlementTrait,
-    UpdateTerritory, VisibleLandPositions, WithBridges, WithEdgeTraffic, WithRouteToPorts,
-    WithRoutes, WithSettlements, WithSimQueue, WithTraffic, WithWorld,
+    BuiltBridges, ClosestTargetsForRoutes, Controlled, CostOfPath, GetSettlement,
+    InBoundsForRoutes, Micros, RefreshEdges, RefreshPositions, RemoveTown,
+    UpdateSettlement as UpdateSettlementTrait, UpdateTerritory, VisibleLandPositions,
+    WithEdgeTraffic, WithRouteToPorts, WithRoutes, WithSettlements, WithSimQueue, WithTraffic,
+    WithWorld,
 };
 use crate::travel_duration::TravelDuration;
 
@@ -42,7 +43,8 @@ impl<T, D> SettlementSimulation<T, D> {
 #[async_trait]
 impl<T, D> Step for SettlementSimulation<T, D>
 where
-    T: ClosestTargetsForRoutes
+    T: BuiltBridges
+        + ClosestTargetsForRoutes
         + Controlled
         + CostOfPath
         + GetSettlement
@@ -55,7 +57,6 @@ where
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
-        + WithBridges
         + WithEdgeTraffic
         + WithRoutes
         + WithRouteToPorts
@@ -79,7 +80,8 @@ where
 
 impl<T, D> SettlementSimulation<T, D>
 where
-    T: ClosestTargetsForRoutes
+    T: BuiltBridges
+        + ClosestTargetsForRoutes
         + Controlled
         + CostOfPath
         + GetSettlement
@@ -94,7 +96,6 @@ where
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
-        + WithBridges
         + WithEdgeTraffic
         + WithRouteToPorts
         + WithSimQueue

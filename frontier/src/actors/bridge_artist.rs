@@ -1,5 +1,6 @@
 use crate::artists::BridgeArtist;
 use crate::bridge::Bridge;
+use crate::bridge::BridgeType::Built;
 use crate::traits::{SendEngineCommands, WithBridges, WithWorld};
 use commons::edge::Edge;
 use isometric::Command;
@@ -34,6 +35,9 @@ where
     }
 
     pub async fn draw_bridge(&self, bridge: Bridge) {
+        if bridge.bridge_type != Built {
+            return;
+        }
         let commands = self.get_draw_commands(&bridge).await;
         self.cx.send_engine_commands(commands).await;
     }
