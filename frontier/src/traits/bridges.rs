@@ -18,21 +18,14 @@ pub trait AddBridge {
 #[async_trait]
 impl<T> AddBridge for T
 where
-    T: SendBridgeArtistActor
-        + PathfinderForPlayer
+    T: PathfinderForPlayer
         + PathfinderForRoutes
+        + SendBridgeArtistActor
         + UpdatePathfinderEdges
         + WithBridges
         + Sync,
 {
     async fn add_bridge(&self, bridge: Bridge) {
-        let player_edge_durations = if bridge.bridge_type == Built {
-            bridge.edge_durations().collect::<Vec<_>>()
-        } else {
-            vec![]
-        };
-        let routes_edge_durations = bridge.edge_durations().collect::<Vec<_>>();
-
         self.send_bridge_artist_future_background(move |bridge_artist| {
             bridge_artist.draw_bridge(bridge).boxed()
         });
@@ -40,11 +33,28 @@ where
         self.mut_bridges(|bridges| bridges.insert(bridge.edge, bridge))
             .await;
 
+        let player_edge_durations = if bridge.bridge_type == Built {
+            bridge.edge_durations().collect::<Vec<_>>()
+        } else {
+            vec![]
+        };
+        let routes_edge_durations = bridge.edge_durations().collect::<Vec<_>>();
+
         let player_pathfinder = self.player_pathfinder();
         let routes_pathfinder = self.routes_pathfinder();
         join!(
-            self.update_pathfinder_edges(player_pathfinder, player_edge_durations),
-            self.update_pathfinder_edges(routes_pathfinder, routes_edge_durations),
+            async {
+                if !player_edge_durations.is_empty() {
+                    self.update_pathfinder_edges(player_pathfinder, player_edge_durations)
+                        .await;
+                }
+            },
+            async {
+                if !routes_edge_durations.is_empty() {
+                    self.update_pathfinder_edges(routes_pathfinder, routes_edge_durations)
+                        .await;
+                }
+            }
         );
     }
 }

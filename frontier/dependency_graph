@@ -1,6 +1,6 @@
-AddBridge SendBridgeArtistActor
 AddBridge PathfinderForPlayer
 AddBridge PathfinderForRoutes
+AddBridge SendBridgeArtistActor
 AddBridge UpdatePathfinderEdges
 AddBridge WithBridges
 AddController WithTerritory

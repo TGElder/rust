@@ -168,7 +168,7 @@ where
     }
 
     async fn get_journies(&self, keys: &[RouteKey], start_at: u128) -> HashMap<RouteKey, Journey> {
-        let (paths, bridges) = join!(self.get_paths(&keys), self.cx.built_bridges(),);
+        let (paths, bridges) = join!(self.get_paths(&keys), self.cx.built_bridges());
         self.get_journies_from_paths(paths, start_at, &bridges)
             .await
     }
