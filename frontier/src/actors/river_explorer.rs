@@ -138,6 +138,7 @@ where
                         valid_direction_to_cells,
                         current_cell,
                         &world.get_cell(position_behind),
+                        min_navigable_river_width,
                     )
                 }
             })
@@ -215,6 +216,7 @@ fn choose_from_multiple_valid_directions(
     direction_to_cell: HashMap<Rotation, &WorldCell>,
     current_cell: &WorldCell,
     cell_behind: &Option<&WorldCell>,
+    min_navigable_river_width: f32,
 ) -> Option<Rotation> {
     let mut ordering_to_direction_to_cell: HashMap<Ordering, HashMap<Rotation, &WorldCell>> =
         hashmap! {};
@@ -236,11 +238,13 @@ fn choose_from_multiple_valid_directions(
             .map(|(_, direction_to_cell)| direction_to_cell)
     } else {
         match cell_behind {
-            Some(cell_behind) => ordering_to_direction_to_cell.remove(&unsafe_ordering(
-                &cell_behind.river.longest_side(),
-                &current_cell.river.longest_side(),
-            )),
-            None => None,
+            Some(cell_behind) if cell_behind.river.longest_side() >= min_navigable_river_width => {
+                ordering_to_direction_to_cell.remove(&unsafe_ordering(
+                    &cell_behind.river.longest_side(),
+                    &current_cell.river.longest_side(),
+                ))
+            }
+            _ => None,
         }
     };
 
@@ -608,6 +612,48 @@ mod tests {
                 travel_duration.travel_mode_fn(),
                 0,
             ))
+        );
+    }
+
+    #[test]
+    fn mixed_candidates_no_river_behind() {
+        // Given
+        let cx = Cx::default();
+        let original_journey = cx.avatar.lock().unwrap().journey.clone();
+
+        let mut river_1 = PositionJunction::new(v2(1, 1));
+        river_1.junction.vertical.width = 1.0;
+        river_1.junction.vertical.from = true;
+        river_1.junction.vertical.to = true;
+
+        let mut river_2 = PositionJunction::new(v2(1, 2));
+        river_2.junction.vertical.width = 0.5;
+        river_2.junction.vertical.from = true;
+        river_2.junction.vertical.to = true;
+
+        let mut river_3 = PositionJunction::new(v2(1, 0));
+        river_3.junction.vertical.width = 2.0;
+        river_3.junction.vertical.from = true;
+        river_3.junction.vertical.to = true;
+
+        {
+            let mut world = cx.world.lock().unwrap();
+            world.add_river(river_1);
+            world.add_river(river_2);
+            world.add_river(river_3);
+        }
+
+        let parameters = RiverExplorerParameters::default();
+        let travel_duration = avatar_travel_duration();
+        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+
+        // When
+        block_on(river_explorer.explore());
+
+        // Then
+        assert_eq!(
+            river_explorer.cx.avatar.lock().unwrap().journey,
+            original_journey
         );
     }
 
