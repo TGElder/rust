@@ -10,6 +10,7 @@ use crate::world::World;
 use commons::grid::Grid;
 use commons::scale::*;
 use commons::V2;
+use serde::{Deserialize, Serialize};
 use std::iter::once;
 use std::time::Duration;
 
@@ -76,7 +77,7 @@ pub trait TravelDuration: Send + Sync {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct EdgeDuration {
     pub from: V2<usize>,
     pub to: V2<usize>,

@@ -104,16 +104,19 @@ impl Journey {
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            let duration = Self::travel_duration(world, &from, &to, travel_duration, bridges);
-            next_arrival_time += duration.as_micros();
-            out.push(Frame {
-                position: to,
-                elevation: Self::get_elevation(world, &to),
-                arrival: next_arrival_time,
-                vehicle: Self::vehicle(world, &from, &to, vehicle_fn, bridges),
-                rotation: Self::rotation(&from, &to),
-                load: AvatarLoad::None,
-            });
+            for EdgeDuration { from, to, duration } in
+                Self::edge_durations(world, &from, &to, travel_duration, bridges)
+            {
+                next_arrival_time += duration.unwrap().as_micros(); // TODO handle unwrap better
+                out.push(Frame {
+                    position: to,
+                    elevation: Self::get_elevation(world, &to),
+                    arrival: next_arrival_time,
+                    vehicle: Self::vehicle(world, &from, &to, vehicle_fn, bridges),
+                    rotation: Self::rotation(&from, &to),
+                    load: AvatarLoad::None,
+                });
+            }
         }
         out
     }
@@ -158,19 +161,31 @@ impl Journey {
         }
     }
 
-    fn travel_duration(
+    fn edge_durations(
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
         bridges: &Bridges,
-    ) -> Duration {
+    ) -> Vec<EdgeDuration> {
+        // TODO can this be an iterator?
         travel_duration
             .get_duration(world, &from, &to)
+            .map(|duration| {
+                vec![EdgeDuration {
+                    from: *from,
+                    to: *to,
+                    duration: Some(duration),
+                }]
+            })
             .or_else(|| {
-                bridges
-                    .get(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.duration)
+                bridges.get(&Edge::new(*from, *to)).map(|bridge| {
+                    let mut edges = bridge.edges.clone(); // TODO handle in bridge
+                    if edges[0].from != *from {
+                        edges.reverse();
+                    }
+                    edges
+                })
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -1179,8 +1194,11 @@ mod tests {
         let world = world();
         let positions = vec![v2(2, 0), v2(0, 0)];
         let bridge = Bridge {
-            edge: Edge::new(v2(0, 0), v2(2, 0)),
-            duration: Duration::from_micros(404),
+            edges: vec![EdgeDuration {
+                from: v2(0, 0),
+                to: v2(2, 0),
+                duration: Some(Duration::from_micros(404)),
+            }],
             vehicle: Vehicle::Boat,
             bridge_type: Built,
         };
@@ -1190,7 +1208,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             0,
-            &hashmap! { bridge.edge => bridge },
+            &hashmap! { bridge.edge() => bridge },
         );
         let expected = Journey {
             frames: vec![

@@ -24,7 +24,7 @@ where
             bridge_artist.draw_bridge(bridge_for_artist).boxed()
         });
 
-        self.mut_bridges(|bridges| bridges.insert(bridge.edge, bridge))
+        self.mut_bridges(|bridges| bridges.insert(bridge.edge(), bridge))
             .await;
 
         self.update_edges_all_pathfinders(edge_durations).await;

@@ -316,7 +316,7 @@ where
                         .or_else(|| {
                             bridges
                                 .get(&Edge::new(path[i], path[i + 1]))
-                                .map(|bridge| bridge.duration)
+                                .map(|bridge| bridge.duration())
                         })
                 })
                 .sum()
