@@ -7,6 +7,7 @@ use commons::grid::Grid;
 use commons::V2;
 use commons::V3;
 use isometric::coords::*;
+use std::iter::once;
 use std::ops::Add;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -104,6 +105,7 @@ impl Journey {
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
+            let vehicle = Self::vehicle(world, &from, &to, vehicle_fn, bridges);
             for EdgeDuration { from, to, duration } in
                 Self::edge_durations(world, &from, &to, travel_duration, bridges)
             {
@@ -112,7 +114,7 @@ impl Journey {
                     position: to,
                     elevation: Self::get_elevation(world, &to),
                     arrival: next_arrival_time,
-                    vehicle: Self::vehicle(world, &from, &to, vehicle_fn, bridges),
+                    vehicle,
                     rotation: Self::rotation(&from, &to),
                     load: AvatarLoad::None,
                 });
@@ -161,27 +163,28 @@ impl Journey {
         }
     }
 
-    fn edge_durations(
+    fn edge_durations<'a>(
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
-        bridges: &Bridges,
-    ) -> Vec<EdgeDuration> {
-        // TODO can this be an iterator?
+        bridges: &'a Bridges,
+    ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
         travel_duration
             .get_duration(world, &from, &to)
             .map(|duration| {
-                vec![EdgeDuration {
-                    from: *from,
-                    to: *to,
-                    duration: Some(duration),
-                }]
+                let iterator: Box<dyn Iterator<Item = EdgeDuration>> =
+                    Box::new(once(EdgeDuration {
+                        from: *from,
+                        to: *to,
+                        duration: Some(duration),
+                    }));
+                iterator
             })
             .or_else(|| {
                 bridges
                     .get(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.one_way_edges(from).collect())
+                    .map(|bridge| bridge.one_way_edges(from))
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -1192,11 +1195,18 @@ mod tests {
         let world = world();
         let positions = vec![v2(2, 0), v2(0, 0)];
         let bridge = Bridge::new(
-            vec![EdgeDuration {
-                from: v2(0, 0),
-                to: v2(2, 0),
-                duration: Some(Duration::from_micros(404)),
-            }],
+            vec![
+                EdgeDuration {
+                    from: v2(0, 0),
+                    to: v2(1, 0),
+                    duration: Some(Duration::from_micros(202)),
+                },
+                EdgeDuration {
+                    from: v2(1, 0),
+                    to: v2(2, 0),
+                    duration: Some(Duration::from_micros(404)),
+                },
+            ],
             Vehicle::Boat,
             Built,
         )
@@ -1220,9 +1230,17 @@ mod tests {
                     load: AvatarLoad::None,
                 },
                 Frame {
+                    position: v2(1, 0),
+                    elevation: 2.0,
+                    arrival: 404,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
+                    load: AvatarLoad::None,
+                },
+                Frame {
                     position: v2(0, 0),
                     elevation: 1.0,
-                    arrival: 404,
+                    arrival: 606,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,
                     load: AvatarLoad::None,
