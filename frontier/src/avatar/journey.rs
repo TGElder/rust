@@ -1199,7 +1199,8 @@ mod tests {
             }],
             Vehicle::Boat,
             Built,
-        );
+        )
+        .unwrap();
         let actual = Journey::new(
             &world,
             positions,

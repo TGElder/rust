@@ -85,7 +85,9 @@ where
             crate::avatar::Vehicle::None,
             Built,
         );
-        self.cx.add_bridge(bridge).await;
+        if let Ok(bridge) = bridge {
+            self.cx.add_bridge(bridge).await;
+        }
     }
 
     async fn is_valid_bridge(&self, edge: &Edge) -> bool {
