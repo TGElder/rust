@@ -650,7 +650,7 @@ mod tests {
 
         let parameters = RiverExplorerParameters::default();
         let travel_duration = avatar_travel_duration();
-        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration);
 
         // When
         block_on(river_explorer.explore());
@@ -760,7 +760,7 @@ mod tests {
         }
 
         let parameters = RiverExplorerParameters::default();
-        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration.clone());
+        let river_explorer = RiverExplorer::new(cx, parameters, travel_duration);
 
         // When
         block_on(river_explorer.explore());

@@ -73,8 +73,8 @@ where
         if !self.is_valid_bridge(&edge).await {
             return;
         }
-        let bridge = Bridge {
-            edges: vec![EdgeDuration {
+        let bridge = Bridge::new(
+            vec![EdgeDuration {
                 from,
                 to,
                 duration: Some(
@@ -82,9 +82,9 @@ where
                         * (edge.length() as u32),
                 ),
             }],
-            vehicle: crate::avatar::Vehicle::None,
-            bridge_type: Built,
-        };
+            crate::avatar::Vehicle::None,
+            Built,
+        );
         self.cx.add_bridge(bridge).await;
     }
 

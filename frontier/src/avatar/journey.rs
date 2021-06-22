@@ -133,7 +133,7 @@ impl Journey {
             .or_else(|| {
                 bridges
                     .get(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.vehicle)
+                    .map(|bridge| *bridge.vehicle())
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -179,13 +179,9 @@ impl Journey {
                 }]
             })
             .or_else(|| {
-                bridges.get(&Edge::new(*from, *to)).map(|bridge| {
-                    let mut edges = bridge.edges.clone(); // TODO handle in bridge
-                    if edges[0].from != *from {
-                        edges.reverse();
-                    }
-                    edges
-                })
+                bridges
+                    .get(&Edge::new(*from, *to))
+                    .map(|bridge| bridge.one_way_edges(from).collect())
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -370,6 +366,8 @@ impl Add for Journey {
 
 #[cfg(test)]
 mod tests {
+
+    use std::time::Duration;
 
     use crate::bridge::Bridge;
     use crate::bridge::BridgeType::Built;
@@ -1193,15 +1191,15 @@ mod tests {
     fn test_using_bridge() {
         let world = world();
         let positions = vec![v2(2, 0), v2(0, 0)];
-        let bridge = Bridge {
-            edges: vec![EdgeDuration {
+        let bridge = Bridge::new(
+            vec![EdgeDuration {
                 from: v2(0, 0),
                 to: v2(2, 0),
                 duration: Some(Duration::from_micros(404)),
             }],
-            vehicle: Vehicle::Boat,
-            bridge_type: Built,
-        };
+            Vehicle::Boat,
+            Built,
+        );
         let actual = Journey::new(
             &world,
             positions,

@@ -34,7 +34,7 @@ where
 
         let edge_durations = bridges
             .values()
-            .flat_map(|bridge| bridge.edge_durations())
+            .flat_map(|bridge| bridge.both_way_edges())
             .collect::<Vec<_>>();
 
         self.cx.update_edges_all_pathfinders(edge_durations).await;
