@@ -17,7 +17,7 @@ where
     T: SendBridgeArtistActor + UpdateEdgesAllPathfinders + WithBridges + Sync,
 {
     async fn add_bridge(&self, bridge: Bridge) {
-        let edge_durations = bridge.both_way_edges().collect::<Vec<_>>();
+        let edge_durations = bridge.edges_both_ways().collect::<Vec<_>>();
 
         let bridge_for_artist = bridge.clone();
         self.send_bridge_artist_future_background(|bridge_artist| {

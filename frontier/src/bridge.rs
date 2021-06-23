@@ -60,23 +60,14 @@ impl Bridge {
     }
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    pub fn one_way_edges<'a>(
+    pub fn edges_one_way<'a>(
         &'a self,
         from: &V2<usize>,
     ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
         if self.start() == *from {
             Box::new(self.edges.iter().cloned())
         } else if self.end() == *from {
-            Box::new(
-                self.edges
-                    .iter()
-                    .map(|edge| EdgeDuration {
-                        from: edge.to,
-                        to: edge.from,
-                        duration: edge.duration,
-                    })
-                    .rev(),
-            )
+            Box::new(self.edges_reversed())
         } else {
             panic!(
                 "Position {} is at neither end of the bridge {:?}!",
@@ -86,9 +77,20 @@ impl Bridge {
     }
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    pub fn both_way_edges<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
-        self.one_way_edges(&self.start())
-            .chain(self.one_way_edges(&self.end()))
+    fn edges_reversed<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
+        self.edges
+            .iter()
+            .map(|edge| EdgeDuration {
+                from: edge.to,
+                to: edge.from,
+                duration: edge.duration,
+            })
+            .rev()
+    }
+
+    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
+    pub fn edges_both_ways<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
+        self.edges.iter().cloned().chain(self.edges_reversed())
     }
 
     pub fn duration(&self) -> Duration {
@@ -284,7 +286,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            bridge.one_way_edges(&v2(0, 0)).collect::<Vec<_>>(),
+            bridge.edges_one_way(&v2(0, 0)).collect::<Vec<_>>(),
             vec![
                 EdgeDuration {
                     from: v2(0, 0),
@@ -321,7 +323,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            bridge.one_way_edges(&v2(2, 0)).collect::<Vec<_>>(),
+            bridge.edges_one_way(&v2(2, 0)).collect::<Vec<_>>(),
             vec![
                 EdgeDuration {
                     from: v2(2, 0),
@@ -358,7 +360,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            bridge.both_way_edges().collect::<HashSet<_>>(),
+            bridge.edges_both_ways().collect::<HashSet<_>>(),
             hashset! {
                 EdgeDuration {
                     from: v2(0, 0),

@@ -109,7 +109,7 @@ impl Journey {
             for EdgeDuration { from, to, duration } in
                 Self::edge_durations(world, &from, &to, travel_duration, bridges)
             {
-                next_arrival_time += duration.unwrap().as_micros(); // TODO handle unwrap better
+                next_arrival_time += duration.unwrap_or_default().as_micros();
                 out.push(Frame {
                     position: to,
                     elevation: Self::get_elevation(world, &to),
@@ -173,18 +173,18 @@ impl Journey {
         travel_duration
             .get_duration(world, &from, &to)
             .map(|duration| {
-                let iterator: Box<dyn Iterator<Item = EdgeDuration>> =
-                    Box::new(once(EdgeDuration {
-                        from: *from,
-                        to: *to,
-                        duration: Some(duration),
-                    }));
+                let edge = EdgeDuration {
+                    from: *from,
+                    to: *to,
+                    duration: Some(duration),
+                };
+                let iterator: Box<dyn Iterator<Item = EdgeDuration>> = Box::new(once(edge));
                 iterator
             })
             .or_else(|| {
                 bridges
                     .get(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.one_way_edges(from))
+                    .map(|bridge| bridge.edges_one_way(from))
             })
             .unwrap_or_else(|| {
                 panic!(
