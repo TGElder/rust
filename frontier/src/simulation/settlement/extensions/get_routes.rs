@@ -3,7 +3,7 @@ use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traits::{ClosestTargetsForRoutes, CostOfPath, InBoundsForRoutes, Micros, WithBridges};
+use crate::traits::{AllBridges, ClosestTargetsForRoutes, CostOfPath, InBoundsForRoutes, Micros};
 use crate::travel_duration::TravelDuration;
 use commons::grid::get_corners;
 use commons::V2;
@@ -12,7 +12,7 @@ use std::time::Duration;
 
 impl<T, D> SettlementSimulation<T, D>
 where
-    T: ClosestTargetsForRoutes + CostOfPath + InBoundsForRoutes + Micros + WithBridges,
+    T: AllBridges + ClosestTargetsForRoutes + CostOfPath + InBoundsForRoutes + Micros,
     D: TravelDuration,
 {
     pub async fn get_routes(&self, demand: Demand) -> Routes {
@@ -90,7 +90,7 @@ where
     }
 
     async fn route_duration(&self, path: &[V2<usize>]) -> Duration {
-        let bridges = self.cx.with_bridges(|bridges| (*bridges).clone()).await;
+        let bridges = self.cx.all_bridges().await;
         self.cx
             .cost_of_path(self.travel_duration.as_ref(), &bridges, path)
             .await
@@ -110,13 +110,13 @@ mod tests {
     use commons::{same_elements, v2};
     use futures::executor::block_on;
     use std::collections::HashMap;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
     use std::time::Duration;
 
     #[derive(Default)]
     struct HappyPathTx {
         closest_targets: Vec<ClosestTargetResult>,
-        bridges: Mutex<Bridges>,
+        bridges: Bridges,
     }
 
     #[async_trait]
@@ -158,19 +158,9 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithBridges for HappyPathTx {
-        async fn with_bridges<F, O>(&self, function: F) -> O
-        where
-            F: FnOnce(&Bridges) -> O + Send,
-        {
-            function(&self.bridges.lock().unwrap())
-        }
-
-        async fn mut_bridges<F, O>(&self, function: F) -> O
-        where
-            F: FnOnce(&mut Bridges) -> O + Send,
-        {
-            function(&mut self.bridges.lock().unwrap())
+    impl AllBridges for HappyPathTx {
+        async fn all_bridges(&self) -> Bridges {
+            self.bridges.clone()
         }
     }
 
@@ -396,19 +386,9 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithBridges for PanicPathfinderTx {
-        async fn with_bridges<F, O>(&self, _: F) -> O
-        where
-            F: FnOnce(&Bridges) -> O + Send,
-        {
-            panic!("with_bridges was called!");
-        }
-
-        async fn mut_bridges<F, O>(&self, _: F) -> O
-        where
-            F: FnOnce(&mut Bridges) -> O + Send,
-        {
-            panic!("mut_bridges was called!");
+    impl AllBridges for PanicPathfinderTx {
+        async fn all_bridges(&self) -> Bridges {
+            panic!("all_bridges was called!");
         }
     }
 
