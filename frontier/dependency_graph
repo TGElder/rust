@@ -200,7 +200,6 @@ SendSetupPathfinder PathfinderForPlayer
 SendSetupPathfinder PathfinderForRoutes
 SendSetupPathfinder UpdatePathfinderEdges
 SendSetupPathfinder UpdatePositionsAllPathfinders
-SendSetupPathfinder WithBridges
 SendSetupVisibility WithVisibility
 SendSpeedControl SendClock
 SendTownBuilder AddTown
