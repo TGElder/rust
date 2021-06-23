@@ -1,7 +1,10 @@
 use commons::v2;
 
 use crate::traits::has::HasParameters;
-use crate::traits::{UpdateEdgesAllPathfinders, UpdatePositionsAllPathfinders, WithBridges};
+use crate::traits::{
+    AllBridges, BuiltBridges, PathfinderForPlayer, PathfinderForRoutes, UpdatePathfinderEdges,
+    UpdatePositionsAllPathfinders,
+};
 
 pub struct SetupPathfinders<T> {
     cx: T,
@@ -9,7 +12,13 @@ pub struct SetupPathfinders<T> {
 
 impl<T> SetupPathfinders<T>
 where
-    T: HasParameters + UpdateEdgesAllPathfinders + UpdatePositionsAllPathfinders + WithBridges,
+    T: AllBridges
+        + BuiltBridges
+        + HasParameters
+        + PathfinderForPlayer
+        + PathfinderForRoutes
+        + UpdatePathfinderEdges
+        + UpdatePositionsAllPathfinders,
 {
     pub fn new(cx: T) -> SetupPathfinders<T> {
         SetupPathfinders { cx }
@@ -30,13 +39,30 @@ where
     }
 
     async fn init_bridges(&self) {
-        let bridges = self.cx.with_bridges(|bridges| (*bridges).clone()).await;
-
-        let edge_durations = bridges
+        let player_edge_durations = self
+            .cx
+            .built_bridges()
+            .await
             .values()
             .flat_map(|bridge| bridge.edges_both_ways())
             .collect::<Vec<_>>();
 
-        self.cx.update_edges_all_pathfinders(edge_durations).await;
+        let routes_edge_durations = self
+            .cx
+            .all_bridges()
+            .await
+            .values()
+            .flat_map(|bridge| bridge.edges_both_ways())
+            .collect::<Vec<_>>();
+
+        let player_pathfinder = self.cx.player_pathfinder();
+        let routes_pathfinder = self.cx.routes_pathfinder();
+
+        join!(
+            self.cx
+                .update_pathfinder_edges(player_pathfinder, player_edge_durations),
+            self.cx
+                .update_pathfinder_edges(routes_pathfinder, routes_edge_durations),
+        );
     }
 }

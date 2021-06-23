@@ -2,8 +2,12 @@ use commons::async_trait::async_trait;
 use commons::edge::Edge;
 use futures::FutureExt;
 
-use crate::bridge::Bridge;
-use crate::traits::{SendBridgeArtistActor, UpdateEdgesAllPathfinders, WithBridges};
+use crate::bridge::BridgeType::Built;
+use crate::bridge::{Bridge, Bridges};
+use crate::traits::{
+    PathfinderForPlayer, PathfinderForRoutes, SendBridgeArtistActor, UpdateEdgesAllPathfinders,
+    UpdatePathfinderEdges, WithBridges,
+};
 use crate::travel_duration::EdgeDuration;
 
 #[async_trait]
@@ -14,20 +18,45 @@ pub trait AddBridge {
 #[async_trait]
 impl<T> AddBridge for T
 where
-    T: SendBridgeArtistActor + UpdateEdgesAllPathfinders + WithBridges + Sync,
+    T: PathfinderForPlayer
+        + PathfinderForRoutes
+        + SendBridgeArtistActor
+        + UpdatePathfinderEdges
+        + WithBridges
+        + Sync,
 {
     async fn add_bridge(&self, bridge: Bridge) {
-        let edge_durations = bridge.edges_both_ways().collect::<Vec<_>>();
-
-        let bridge_for_artist = bridge.clone();
-        self.send_bridge_artist_future_background(|bridge_artist| {
-            bridge_artist.draw_bridge(bridge_for_artist).boxed()
-        });
-
-        self.mut_bridges(|bridges| bridges.insert(bridge.edge(), bridge))
+        let bridge_to_add = bridge.clone();
+        self.mut_bridges(|bridges| bridges.insert(bridge.edge(), bridge_to_add))
             .await;
 
-        self.update_edges_all_pathfinders(edge_durations).await;
+        let player_edge_durations = if *bridge.bridge_type() == Built {
+            bridge.edges_both_ways().collect::<Vec<_>>()
+        } else {
+            vec![]
+        };
+        let routes_edge_durations = bridge.edges_both_ways().collect::<Vec<_>>();
+
+        let player_pathfinder = self.player_pathfinder();
+        let routes_pathfinder = self.routes_pathfinder();
+        join!(
+            async {
+                if !player_edge_durations.is_empty() {
+                    self.update_pathfinder_edges(player_pathfinder, player_edge_durations)
+                        .await;
+                }
+            },
+            async {
+                if !routes_edge_durations.is_empty() {
+                    self.update_pathfinder_edges(routes_pathfinder, routes_edge_durations)
+                        .await;
+                }
+            }
+        );
+
+        self.send_bridge_artist_future_background(move |bridge_artist| {
+            bridge_artist.draw_bridge(bridge).boxed()
+        });
     }
 }
 
@@ -70,5 +99,42 @@ where
         });
 
         true
+    }
+}
+
+#[async_trait]
+pub trait AllBridges {
+    async fn all_bridges(&self) -> Bridges;
+}
+
+#[async_trait]
+impl<T> AllBridges for T
+where
+    T: WithBridges + Sync,
+{
+    async fn all_bridges(&self) -> Bridges {
+        self.with_bridges(|bridges| (*bridges).clone()).await
+    }
+}
+
+#[async_trait]
+pub trait BuiltBridges {
+    async fn built_bridges(&self) -> Bridges;
+}
+
+#[async_trait]
+impl<T> BuiltBridges for T
+where
+    T: WithBridges + Sync,
+{
+    async fn built_bridges(&self) -> Bridges {
+        self.with_bridges(|bridges| {
+            bridges
+                .iter()
+                .filter(|(_, bridge)| *bridge.bridge_type() == Built)
+                .map(|(edge, bridge)| (*edge, bridge.clone()))
+                .collect()
+        })
+        .await
     }
 }

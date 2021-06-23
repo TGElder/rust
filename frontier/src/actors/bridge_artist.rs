@@ -1,6 +1,7 @@
 use crate::artists::BridgeArtist;
 use crate::bridge::Bridge;
-use crate::traits::{SendEngineCommands, WithBridges, WithWorld};
+use crate::bridge::BridgeType::Built;
+use crate::traits::{BuiltBridges, SendEngineCommands, WithWorld};
 use commons::edge::Edge;
 use isometric::Command;
 
@@ -11,7 +12,7 @@ pub struct BridgeArtistActor<T> {
 
 impl<T> BridgeArtistActor<T>
 where
-    T: SendEngineCommands + WithBridges + WithWorld + Send + Sync,
+    T: BuiltBridges + SendEngineCommands + WithWorld + Send + Sync,
 {
     pub fn new(cx: T, artist: BridgeArtist) -> BridgeArtistActor<T> {
         BridgeArtistActor { cx, artist }
@@ -22,18 +23,15 @@ where
     }
 
     pub async fn draw_all(&self) {
-        for bridge in self.bridges().await {
+        for (_, bridge) in self.cx.built_bridges().await {
             self.draw_bridge(bridge).await;
         }
     }
 
-    async fn bridges(&self) -> Vec<Bridge> {
-        self.cx
-            .with_bridges(|bridges| bridges.values().cloned().collect())
-            .await
-    }
-
     pub async fn draw_bridge(&self, bridge: Bridge) {
+        if *bridge.bridge_type() != Built {
+            return;
+        }
         let commands = self.get_draw_commands(&bridge).await;
         self.cx.send_engine_commands(commands).await;
     }
