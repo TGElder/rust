@@ -17,14 +17,14 @@ where
     T: SendBridgeArtistActor + UpdateEdgesAllPathfinders + WithBridges + Sync,
 {
     async fn add_bridge(&self, bridge: Bridge) {
-        let edge_durations = bridge.edge_durations().collect::<Vec<_>>();
+        let edge_durations = bridge.edges_both_ways().collect::<Vec<_>>();
 
         let bridge_for_artist = bridge.clone();
         self.send_bridge_artist_future_background(|bridge_artist| {
             bridge_artist.draw_bridge(bridge_for_artist).boxed()
         });
 
-        self.mut_bridges(|bridges| bridges.insert(bridge.edge, bridge))
+        self.mut_bridges(|bridges| bridges.insert(bridge.edge(), bridge))
             .await;
 
         self.update_edges_all_pathfinders(edge_durations).await;

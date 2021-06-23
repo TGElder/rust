@@ -2,6 +2,7 @@ use crate::bridge::Bridge;
 use crate::bridge::BridgeType::Built;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{AddBridge, RemoveBridge, WithWorld};
+use crate::travel_duration::EdgeDuration;
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
 use commons::grid::Grid;
@@ -72,14 +73,21 @@ where
         if !self.is_valid_bridge(&edge).await {
             return;
         }
-        let bridge = Bridge {
-            duration: Duration::from_millis(self.parameters.bridge_duration_millis)
-                * (edge.length() as u32),
-            edge,
-            vehicle: crate::avatar::Vehicle::None,
-            bridge_type: Built,
-        };
-        self.cx.add_bridge(bridge).await;
+        let bridge = Bridge::new(
+            vec![EdgeDuration {
+                from,
+                to,
+                duration: Some(
+                    Duration::from_millis(self.parameters.bridge_duration_millis)
+                        * (edge.length() as u32),
+                ),
+            }],
+            crate::avatar::Vehicle::None,
+            Built,
+        );
+        if let Ok(bridge) = bridge {
+            self.cx.add_bridge(bridge).await;
+        }
     }
 
     async fn is_valid_bridge(&self, edge: &Edge) -> bool {

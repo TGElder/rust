@@ -23,7 +23,6 @@ use isometric::Color;
 use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::f32::consts::PI;
-use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Avatar {

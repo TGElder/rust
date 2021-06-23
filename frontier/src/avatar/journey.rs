@@ -7,6 +7,7 @@ use commons::grid::Grid;
 use commons::V2;
 use commons::V3;
 use isometric::coords::*;
+use std::iter::once;
 use std::ops::Add;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -104,16 +105,20 @@ impl Journey {
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            let duration = Self::travel_duration(world, &from, &to, travel_duration, bridges);
-            next_arrival_time += duration.as_micros();
-            out.push(Frame {
-                position: to,
-                elevation: Self::get_elevation(world, &to),
-                arrival: next_arrival_time,
-                vehicle: Self::vehicle(world, &from, &to, vehicle_fn, bridges),
-                rotation: Self::rotation(&from, &to),
-                load: AvatarLoad::None,
-            });
+            let vehicle = Self::vehicle(world, &from, &to, vehicle_fn, bridges);
+            for EdgeDuration { from, to, duration } in
+                Self::edge_durations(world, &from, &to, travel_duration, bridges)
+            {
+                next_arrival_time += duration.unwrap_or_default().as_micros();
+                out.push(Frame {
+                    position: to,
+                    elevation: Self::get_elevation(world, &to),
+                    arrival: next_arrival_time,
+                    vehicle,
+                    rotation: Self::rotation(&from, &to),
+                    load: AvatarLoad::None,
+                });
+            }
         }
         out
     }
@@ -130,7 +135,7 @@ impl Journey {
             .or_else(|| {
                 bridges
                     .get(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.vehicle)
+                    .map(|bridge| *bridge.vehicle())
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -158,19 +163,28 @@ impl Journey {
         }
     }
 
-    fn travel_duration(
+    fn edge_durations<'a>(
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
-        bridges: &Bridges,
-    ) -> Duration {
+        bridges: &'a Bridges,
+    ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
         travel_duration
             .get_duration(world, &from, &to)
+            .map(|duration| {
+                let edge = EdgeDuration {
+                    from: *from,
+                    to: *to,
+                    duration: Some(duration),
+                };
+                let iterator: Box<dyn Iterator<Item = EdgeDuration>> = Box::new(once(edge));
+                iterator
+            })
             .or_else(|| {
                 bridges
                     .get(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.duration)
+                    .map(|bridge| bridge.edges_one_way(from))
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -355,6 +369,8 @@ impl Add for Journey {
 
 #[cfg(test)]
 mod tests {
+
+    use std::time::Duration;
 
     use crate::bridge::Bridge;
     use crate::bridge::BridgeType::Built;
@@ -1178,19 +1194,30 @@ mod tests {
     fn test_using_bridge() {
         let world = world();
         let positions = vec![v2(2, 0), v2(0, 0)];
-        let bridge = Bridge {
-            edge: Edge::new(v2(0, 0), v2(2, 0)),
-            duration: Duration::from_micros(404),
-            vehicle: Vehicle::Boat,
-            bridge_type: Built,
-        };
+        let bridge = Bridge::new(
+            vec![
+                EdgeDuration {
+                    from: v2(0, 0),
+                    to: v2(1, 0),
+                    duration: Some(Duration::from_micros(202)),
+                },
+                EdgeDuration {
+                    from: v2(1, 0),
+                    to: v2(2, 0),
+                    duration: Some(Duration::from_micros(404)),
+                },
+            ],
+            Vehicle::Boat,
+            Built,
+        )
+        .unwrap();
         let actual = Journey::new(
             &world,
             positions,
             &travel_duration(),
             &vehicle_fn(),
             0,
-            &hashmap! { bridge.edge => bridge },
+            &hashmap! { bridge.edge() => bridge },
         );
         let expected = Journey {
             frames: vec![
@@ -1203,9 +1230,17 @@ mod tests {
                     load: AvatarLoad::None,
                 },
                 Frame {
+                    position: v2(1, 0),
+                    elevation: 2.0,
+                    arrival: 404,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Left,
+                    load: AvatarLoad::None,
+                },
+                Frame {
                     position: v2(0, 0),
                     elevation: 1.0,
-                    arrival: 404,
+                    arrival: 606,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,
                     load: AvatarLoad::None,
