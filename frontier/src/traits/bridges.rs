@@ -27,15 +27,15 @@ where
 {
     async fn add_bridge(&self, bridge: Bridge) {
         let bridge_to_add = bridge.clone();
-        self.mut_bridges(|bridges| bridges.insert(bridge.edge(), bridge_to_add))
+        self.mut_bridges(|bridges| bridges.insert(bridge.total_edge(), bridge_to_add))
             .await;
 
         let player_edge_durations = if *bridge.bridge_type() == Built {
-            bridge.edges_both_ways().collect::<Vec<_>>()
+            bridge.total_edge_durations().collect::<Vec<_>>()
         } else {
             vec![]
         };
-        let routes_edge_durations = bridge.edges_both_ways().collect::<Vec<_>>();
+        let routes_edge_durations = bridge.total_edge_durations().collect::<Vec<_>>();
 
         let player_pathfinder = self.player_pathfinder();
         let routes_pathfinder = self.routes_pathfinder();

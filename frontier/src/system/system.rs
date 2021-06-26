@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Duration;
 
 use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver};
 use commons::persistence::{Load, Save};
@@ -10,7 +11,6 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 use tokio::sync::RwLock;
 
-use crate::actors::ControllersActor;
 use crate::actors::ControllersActorParameters;
 use crate::actors::RiverExplorer;
 use crate::actors::RiverExplorerParameters;
@@ -21,6 +21,7 @@ use crate::actors::{
     Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
     TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
+use crate::actors::{ControllersActor, Crossings};
 use crate::artists::{
     AvatarArtist, AvatarArtistParameters, BridgeArtist, BridgeArtistParameters, HouseArtist,
     HouseArtistParameters, WorldArtist, WorldArtistParameters,
@@ -61,6 +62,7 @@ struct Processes {
     builder: Process<BuilderActor<Context>>,
     cheats: Process<Cheats<Context>>,
     controllers: Process<ControllersActor<Context>>,
+    crossings: Process<Crossings<Context>>,
     edge_sims: Vec<Process<EdgeBuildSimulation<Context, RoadBuildTravelDuration>>>,
     event_forwarder: Process<EventForwarderActor>,
     follow_avatar: Process<FollowAvatar<Context>>,
@@ -126,6 +128,7 @@ impl System {
         let (builder_tx, builder_rx) = fn_channel();
         let (cheats_tx, cheats_rx) = fn_channel();
         let (controllers_tx, controllers_rx) = fn_channel();
+        let (crossings_tx, crossings_rx) = fn_channel();
         let (edge_sim_tx, edge_sim_rx) = fn_channel();
         let (follow_avatar_tx, follow_avatar_rx) = fn_channel();
         let (labels_tx, labels_rx) = fn_channel();
@@ -180,6 +183,7 @@ impl System {
                 None,
             ))),
             controllers_tx,
+            crossings_tx,
             edge_sim_tx,
             edge_traffic: Arc::default(),
             engine_tx: engine.command_tx(),
@@ -299,7 +303,7 @@ impl System {
                     BridgeBuilderActor::new(
                         cx.clone_with_name("bridge_builder"),
                         BridgeBuilderParameters {
-                            bridge_duration_millis: params.bridge_1_cell_duration_millis,
+                            bridge_duration_millis: params.built_bridge_1_cell_duration_millis,
                             max_gradient: params.world_gen.cliff_gradient / 2.0,
                             ..BridgeBuilderParameters::default()
                         },
@@ -327,6 +331,13 @@ impl System {
                         ControllersActorParameters::default(),
                     ),
                     controllers_rx,
+                ),
+                crossings: Process::new(
+                    Crossings::new(
+                        cx.clone_with_name("crossings"),
+                        Duration::from_millis(params.theoretical_bridge_1_cell_duration_millis),
+                    ),
+                    crossings_rx,
                 ),
                 edge_sims: (0..params.simulation.threads)
                     .map(|_| {
@@ -509,6 +520,9 @@ impl System {
 
     pub fn new_game(&self) {
         self.cx
+            .crossings_tx
+            .send_future(|crossings| crossings.new_game().boxed());
+        self.cx
             .prime_mover_tx
             .send_future(|prime_mover| prime_mover.new_game().boxed());
         self.cx
@@ -651,6 +665,7 @@ impl System {
 impl Processes {
     async fn start(&mut self, pool: &ThreadPool) {
         self.world_gen.run_passive(pool).await;
+        self.crossings.run_passive(pool).await;
         self.resource_gen.run_passive(pool).await;
         self.setup_visibility.run_passive(pool).await;
         self.setup_new_world.run_passive(pool).await;
@@ -736,6 +751,7 @@ impl Processes {
         self.setup_new_world.drain(pool, true).await;
         self.setup_visibility.drain(pool, true).await;
         self.resource_gen.drain(pool, true).await;
+        self.crossings.drain(pool, true).await;
         self.world_gen.drain(pool, true).await;
     }
 

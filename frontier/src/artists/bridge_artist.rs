@@ -22,7 +22,7 @@ impl BridgeArtist {
     }
 
     pub fn draw_bridge(&self, world: &World, bridge: &Bridge) -> Vec<Command> {
-        let edge = bridge.edge();
+        let edge = bridge.total_edge();
 
         let coordinates = if edge.horizontal() {
             self.coordinates_horizontal(world, &edge)

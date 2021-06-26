@@ -1217,7 +1217,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             0,
-            &hashmap! { bridge.edge() => bridge },
+            &hashmap! { bridge.total_edge() => bridge },
         );
         let expected = Journey {
             frames: vec![
