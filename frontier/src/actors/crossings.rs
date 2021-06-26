@@ -12,15 +12,18 @@ use crate::world::World;
 
 pub struct Crossings<T> {
     cx: T,
-    edge_duration: Duration,
+    one_cell_duration: Duration,
 }
 
 impl<T> Crossings<T>
 where
     T: HasParameters + WithBridges + WithWorld,
 {
-    pub fn new(cx: T, edge_duration: Duration) -> Crossings<T> {
-        Crossings { cx, edge_duration }
+    pub fn new(cx: T, one_cell_duration: Duration) -> Crossings<T> {
+        Crossings {
+            cx,
+            one_cell_duration,
+        }
     }
 
     pub async fn new_game(&self) {
@@ -40,7 +43,7 @@ where
     async fn get_bridges(&self, crossings: Vec<[V2<usize>; 3]>) -> Vec<Bridge> {
         crossings
             .into_iter()
-            .flat_map(|crossing| get_bridge(crossing, self.edge_duration))
+            .flat_map(|crossing| get_bridge(crossing, self.one_cell_duration))
             .collect()
     }
 
@@ -96,7 +99,7 @@ fn is_crossing(world: &World, min_navigable_river_width: &f32, positions: &[V2<u
         .collect::<Vec<_>>();
 
     if cells.len() != 3 {
-        // At least one of the cells is invalid
+        // At least one of the positions is out of bounds
         return false;
     }
 

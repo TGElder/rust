@@ -118,6 +118,9 @@ SendControllersActor Settlements
 SendControllersActor WithControllers
 SendControllersActor WithPathfinder
 SendControllersActor WithWorld
+SendCrossings HasParameters
+SendCrossings WithBridges
+SendCrossings WithWorld
 SendEdgeBuildSim HasParameters
 SendEdgeBuildSim InsertBuildInstruction
 SendEdgeBuildSim IsRoad
