@@ -2,6 +2,7 @@ use commons::V2;
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
+use std::iter::once;
 use std::time::Duration;
 use std::{error, fmt};
 
@@ -55,10 +56,6 @@ impl Bridge {
         self.edges.last().unwrap().to
     }
 
-    pub fn edge(&self) -> Edge {
-        Edge::new(self.start(), self.end())
-    }
-
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
     pub fn edges_one_way<'a>(
         &'a self,
@@ -88,13 +85,28 @@ impl Bridge {
             .rev()
     }
 
-    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    pub fn edges_both_ways<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
-        self.edges.iter().cloned().chain(self.edges_reversed())
+    pub fn total_edge(&self) -> Edge {
+        Edge::new(self.start(), self.end())
     }
 
-    pub fn duration(&self) -> Duration {
+    pub fn total_duration(&self) -> Duration {
         self.edges.iter().flat_map(|edge| edge.duration).sum()
+    }
+
+    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
+    pub fn total_edge_durations<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
+        let edge = self.total_edge();
+        let duration = self.total_duration();
+        once(EdgeDuration {
+            from: *edge.to(),
+            to: *edge.from(),
+            duration: Some(duration),
+        })
+        .chain(once(EdgeDuration {
+            from: *edge.from(),
+            to: *edge.to(),
+            duration: Some(duration),
+        }))
     }
 
     fn validate_edges(edges: &[EdgeDuration]) -> Result<(), InvalidBridge> {
@@ -243,29 +255,6 @@ mod tests {
     }
 
     #[test]
-    fn edge() {
-        let bridge = Bridge::new(
-            vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(0)),
-                },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(0)),
-                },
-            ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
-
-        assert_eq!(bridge.edge(), Edge::new(v2(0, 0), v2(2, 0)));
-    }
-
-    #[test]
     fn one_way_edges_from_start() {
         let bridge = Bridge::new(
             vec![
@@ -340,7 +329,53 @@ mod tests {
     }
 
     #[test]
-    fn both_way_edges() {
+    fn total_edge() {
+        let bridge = Bridge::new(
+            vec![
+                EdgeDuration {
+                    from: v2(0, 0),
+                    to: v2(1, 0),
+                    duration: Some(Duration::from_secs(0)),
+                },
+                EdgeDuration {
+                    from: v2(1, 0),
+                    to: v2(2, 0),
+                    duration: Some(Duration::from_secs(0)),
+                },
+            ],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+
+        assert_eq!(bridge.total_edge(), Edge::new(v2(0, 0), v2(2, 0)));
+    }
+
+    #[test]
+    fn total_duration() {
+        let bridge = Bridge::new(
+            vec![
+                EdgeDuration {
+                    from: v2(0, 0),
+                    to: v2(1, 0),
+                    duration: Some(Duration::from_secs(1)),
+                },
+                EdgeDuration {
+                    from: v2(1, 0),
+                    to: v2(2, 0),
+                    duration: Some(Duration::from_secs(2)),
+                },
+            ],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+
+        assert_eq!(bridge.total_duration(), Duration::from_secs(3));
+    }
+
+    #[test]
+    fn total_edge_durations() {
         let bridge = Bridge::new(
             vec![
                 EdgeDuration {
@@ -360,52 +395,19 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            bridge.edges_both_ways().collect::<HashSet<_>>(),
+            bridge.total_edge_durations().collect::<HashSet<_>>(),
             hashset! {
                 EdgeDuration {
                     from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(1)),
-                },
-                EdgeDuration {
-                    from: v2(1, 0),
                     to: v2(2, 0),
-                    duration: Some(Duration::from_secs(2)),
+                    duration: Some(Duration::from_secs(3)),
                 },
                 EdgeDuration {
                     from: v2(2, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(2)),
-                },
-                EdgeDuration {
-                    from: v2(1, 0),
                     to: v2(0, 0),
-                    duration: Some(Duration::from_secs(1)),
+                    duration: Some(Duration::from_secs(3)),
                 }
             }
         );
-    }
-
-    #[test]
-    fn duration() {
-        let bridge = Bridge::new(
-            vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(1)),
-                },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(2)),
-                },
-            ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
-
-        assert_eq!(bridge.duration(), Duration::from_secs(3));
     }
 }

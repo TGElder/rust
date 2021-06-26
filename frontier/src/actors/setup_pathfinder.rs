@@ -44,7 +44,7 @@ where
             .built_bridges()
             .await
             .values()
-            .flat_map(|bridge| bridge.edges_both_ways())
+            .flat_map(|bridge| bridge.total_edge_durations())
             .collect::<Vec<_>>();
 
         let routes_edge_durations = self
@@ -52,7 +52,7 @@ where
             .all_bridges()
             .await
             .values()
-            .flat_map(|bridge| bridge.edges_both_ways())
+            .flat_map(|bridge| bridge.total_edge_durations())
             .collect::<Vec<_>>();
 
         let player_pathfinder = self.cx.player_pathfinder();
