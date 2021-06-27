@@ -1,7 +1,5 @@
-AddBridge PathfinderForPlayer
-AddBridge PathfinderForRoutes
 AddBridge SendBridgeArtistActor
-AddBridge UpdatePathfinderEdges
+AddBridge UpdateBridgesAllPathfinders
 AddBridge WithBridges
 AddController WithTerritory
 AddRoad UpdateRoads
@@ -47,7 +45,7 @@ RefreshTargets SendResourceTargets
 RemoveBuildInstruction SendBuildQueue
 RemoveController WithTerritory
 RemoveBridge SendBridgeArtistActor
-RemoveBridge UpdateEdgesAllPathfinders
+RemoveBridge UpdateBridgesAllPathfinders
 RemoveBridge WithBridges
 RemoveRoad UpdateRoads
 RemoveRoad WithWorld
@@ -247,9 +245,12 @@ SetWorldObjects WithWorld
 Settlements WithSettlements
 TakeBuildInstructionsBefore SendBuildQueue
 UpdateAvatarJourney WithAvatars
+UpdateBridgesAllPathfinders UpdatePathfinderEdges
+UpdateBridgesAllPathfinders WithBridges
+UpdateEdgesAllPathfinders UpdatePathfinderEdges
+UpdatePathfinderEdges WithPathfinder
 UpdatePathfinderPositions WithPathfinder
 UpdatePathfinderPositions WithWorld
-UpdatePositionsAllPathfinders WithPathfinder
 UpdatePositionsAllPathfinders UpdatePathfinderPositions
 UpdateRoads DrawWorld
 UpdateRoads UpdatePositionsAllPathfinders
