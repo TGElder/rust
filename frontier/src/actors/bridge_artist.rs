@@ -23,8 +23,10 @@ where
     }
 
     pub async fn draw_all(&self) {
-        for (_, bridge) in self.cx.built_bridges().await {
-            self.draw_bridge(bridge).await;
+        for (_, bridges) in self.cx.built_bridges().await {
+            for bridge in bridges {
+                self.draw_bridge(bridge).await;
+            }
         }
     }
 

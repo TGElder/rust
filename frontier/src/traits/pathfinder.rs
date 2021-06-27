@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use commons::V2;
 
-use crate::bridge::Bridges;
+use crate::bridge::{Bridges, BridgesExt};
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
     PathfinderForPlayer, PathfinderForRoutes, RunInBackground, WithPathfinder, WithWorld,
@@ -315,7 +315,7 @@ where
                         .get_duration(world, &path[i], &path[i + 1])
                         .or_else(|| {
                             bridges
-                                .get(&Edge::new(path[i], path[i + 1]))
+                                .get_lowest_duration_bridge(&Edge::new(path[i], path[i + 1]))
                                 .map(|bridge| bridge.total_duration())
                         })
                 })

@@ -44,6 +44,7 @@ where
             .built_bridges()
             .await
             .values()
+            .flat_map(|bridges| bridges.iter().min_by_key(|bridge| bridge.total_duration()))
             .flat_map(|bridge| bridge.total_edge_durations())
             .collect::<Vec<_>>();
 
@@ -52,6 +53,7 @@ where
             .all_bridges()
             .await
             .values()
+            .flat_map(|bridges| bridges.iter().min_by_key(|bridge| bridge.total_duration()))
             .flat_map(|bridge| bridge.total_edge_durations())
             .collect::<Vec<_>>();
 

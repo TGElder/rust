@@ -1,5 +1,5 @@
 use super::*;
-use crate::bridge::Bridges;
+use crate::bridge::{Bridges, BridgesExt};
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::Edge;
@@ -134,7 +134,7 @@ impl Journey {
             .vehicle_between(world, &from, &to)
             .or_else(|| {
                 bridges
-                    .get(&Edge::new(*from, *to))
+                    .get_lowest_duration_bridge(&Edge::new(*from, *to))
                     .map(|bridge| *bridge.vehicle())
             })
             .unwrap_or_else(|| {
@@ -183,7 +183,7 @@ impl Journey {
             })
             .or_else(|| {
                 bridges
-                    .get(&Edge::new(*from, *to))
+                    .get_lowest_duration_bridge(&Edge::new(*from, *to))
                     .map(|bridge| bridge.edges_one_way(from))
             })
             .unwrap_or_else(|| {
@@ -1217,7 +1217,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             0,
-            &hashmap! { bridge.total_edge() => bridge },
+            &hashmap! { bridge.total_edge() => hashset!{ bridge } },
         );
         let expected = Journey {
             frames: vec![

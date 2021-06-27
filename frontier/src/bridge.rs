@@ -1,7 +1,7 @@
 use commons::V2;
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter::once;
 use std::time::Duration;
 use std::{error, fmt};
@@ -24,7 +24,7 @@ pub enum BridgeType {
     Built,
 }
 
-pub type Bridges = HashMap<Edge, Bridge>;
+pub type Bridges = HashMap<Edge, HashSet<Bridge>>;
 
 impl Bridge {
     pub fn new(
@@ -125,6 +125,17 @@ impl Bridge {
                 Ok(())
             }
         })
+    }
+}
+
+pub trait BridgesExt {
+    fn get_lowest_duration_bridge(&self, edge: &Edge) -> Option<&Bridge>;
+}
+
+impl BridgesExt for Bridges {
+    fn get_lowest_duration_bridge(&self, edge: &Edge) -> Option<&Bridge> {
+        self.get(edge)
+            .and_then(|bridges| bridges.iter().min_by_key(|bridge| bridge.total_duration()))
     }
 }
 

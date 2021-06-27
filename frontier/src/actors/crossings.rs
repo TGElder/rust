@@ -51,7 +51,10 @@ where
         self.cx
             .mut_bridges(|bridges| {
                 for bridge in to_build {
-                    bridges.insert(bridge.total_edge(), bridge);
+                    bridges
+                        .entry(bridge.total_edge())
+                        .or_default()
+                        .insert(bridge);
                 }
             })
             .await;

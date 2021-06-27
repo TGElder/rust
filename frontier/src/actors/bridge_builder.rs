@@ -67,9 +67,7 @@ where
 
     async fn complete_bridge(&mut self, from: V2<usize>, to: V2<usize>) {
         let edge = ok_or!(Edge::new_safe(from, to), return);
-        if self.cx.remove_bridge(edge).await {
-            return;
-        }
+
         if !self.is_valid_bridge(&edge).await {
             return;
         }
@@ -86,7 +84,11 @@ where
             Built,
         );
         if let Ok(bridge) = bridge {
-            self.cx.add_bridge(bridge).await;
+            if self.cx.remove_bridge(bridge.clone()).await {
+                return;
+            } else {
+                self.cx.add_bridge(bridge).await;
+            }
         }
     }
 
