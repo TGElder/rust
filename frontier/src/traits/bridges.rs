@@ -23,8 +23,21 @@ where
         let edge = bridge.total_edge();
 
         let bridge_to_add = bridge.clone();
-        self.mut_bridges(|bridges| bridges.entry(edge).or_default().insert(bridge_to_add))
+        let added = self
+            .mut_bridges(|bridges| {
+                let bridges = bridges.entry(edge).or_default();
+                if bridges.contains(&bridge_to_add) {
+                    false
+                } else {
+                    bridges.insert(bridge_to_add);
+                    true
+                }
+            })
             .await;
+
+        if !added {
+            return;
+        }
 
         self.update_bridges_all_pathfinders(&edge).await;
 

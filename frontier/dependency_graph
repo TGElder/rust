@@ -127,6 +127,7 @@ SendEdgeBuildSim PlanRoad
 SendEdgeBuildSim RemoveBuildInstruction
 SendEdgeBuildSim RemoveRoad
 SendEdgeBuildSim RoadPlanned
+SendEdgeBuildSim WithBridges
 SendEdgeBuildSim WithEdgeTraffic
 SendEdgeBuildSim WithRoutes
 SendEdgeBuildSim WithWorld

@@ -3,7 +3,8 @@ use commons::edge::Edge;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     InsertBuildInstruction, IsRoad, PlanRoad, RemoveBuildInstruction,
-    RemoveRoad as RemoveRoadTrait, RoadPlanned, WithEdgeTraffic, WithRoutes, WithWorld,
+    RemoveRoad as RemoveRoadTrait, RoadPlanned, WithBridges, WithEdgeTraffic, WithRoutes,
+    WithWorld,
 };
 use crate::travel_duration::TravelDuration;
 
@@ -33,6 +34,7 @@ where
         + RemoveBuildInstruction
         + RemoveRoadTrait
         + RoadPlanned
+        + WithBridges
         + WithRoutes
         + WithEdgeTraffic
         + WithWorld
@@ -41,6 +43,10 @@ where
     D: TravelDuration,
 {
     pub async fn refresh_edges(&mut self, edges: HashSet<Edge>) {
-        join!(self.build_road(&edges), self.remove_road(&edges),);
+        join!(
+            self.build_road(&edges),
+            self.build_bridge(&edges),
+            self.remove_road(&edges),
+        );
     }
 }
