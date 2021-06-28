@@ -27,7 +27,7 @@ use crate::artists::{
     HouseArtistParameters, WorldArtist, WorldArtistParameters,
 };
 use crate::avatar::{AvatarTravelDuration, AvatarTravelParams};
-use crate::build::builders::{MineBuilder, RoadBuilder, TownBuilder};
+use crate::build::builders::{BridgeBuilder, MineBuilder, RoadBuilder, TownBuilder};
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::resource::Resources;
@@ -316,6 +316,7 @@ impl System {
                         vec![
                             Box::new(TownBuilder::new(cx.clone_with_name("town_builder"))),
                             Box::new(RoadBuilder::new(cx.clone_with_name("road_builder"))),
+                            Box::new(BridgeBuilder::new(cx.clone_with_name("bridge_builder"))),
                             Box::new(MineBuilder::new(
                                 cx.clone_with_name("crops_builder"),
                                 params.seed,

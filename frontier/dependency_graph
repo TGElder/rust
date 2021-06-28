@@ -94,6 +94,7 @@ SendBridgeArtistActor WithWorld
 SendBridgeBuilderActor AddBridge
 SendBridgeBuilderActor RemoveBridge
 SendBridgeBuilderActor WithWorld
+SendBuildActor AddBridge
 SendBuildActor AddRoad
 SendBuildActor AddTown
 SendBuildActor GetSettlement

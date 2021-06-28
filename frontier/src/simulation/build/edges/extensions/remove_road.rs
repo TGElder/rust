@@ -97,7 +97,7 @@ mod tests {
             self.removed_build_instructions
                 .lock()
                 .unwrap()
-                .insert(*build_key);
+                .insert(build_key.clone());
         }
     }
 

@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::bridge::Bridge;
 use crate::resource::Mine;
 use crate::settlement::Settlement;
 use commons::edge::Edge;
@@ -8,13 +9,15 @@ use commons::V2;
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Build {
     Road(Edge),
+    Bridge(Bridge),
     Town(Settlement),
     Mine { position: V2<usize>, mine: Mine },
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum BuildKey {
     Road(Edge),
+    Bridge(Bridge),
     Town(V2<usize>),
     Mine(V2<usize>),
 }
@@ -23,6 +26,7 @@ impl Build {
     pub fn key(&self) -> BuildKey {
         match self {
             Build::Road(edge) => BuildKey::Road(*edge),
+            Build::Bridge(bridge) => BuildKey::Bridge(bridge.clone()),
             Build::Town(Settlement { position, .. }) => BuildKey::Town(*position),
             Build::Mine { position, .. } => BuildKey::Mine(*position),
         }
@@ -31,6 +35,12 @@ impl Build {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use crate::avatar::Vehicle;
+    use crate::bridge::BridgeType;
+    use crate::travel_duration::EdgeDuration;
+
     use super::*;
 
     use commons::v2;
@@ -43,6 +53,32 @@ mod tests {
 
         // Then
         assert_eq!(build.key(), BuildKey::Road(edge));
+    }
+
+    #[test]
+    fn bridge_build_key() {
+        // Given
+        let bridge = Bridge::new(
+            vec![
+                EdgeDuration {
+                    from: v2(0, 0),
+                    to: v2(1, 0),
+                    duration: Some(Duration::from_millis(1)),
+                },
+                EdgeDuration {
+                    from: v2(1, 0),
+                    to: v2(2, 0),
+                    duration: Some(Duration::from_millis(2)),
+                },
+            ],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+        let build = Build::Bridge(bridge.clone());
+
+        // Then
+        assert_eq!(build.key(), BuildKey::Bridge(bridge));
     }
 
     #[test]
