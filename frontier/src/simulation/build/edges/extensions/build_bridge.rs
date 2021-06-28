@@ -102,18 +102,16 @@ fn get_candidates(bridges: &Bridges, edges: &HashSet<Edge>, duration: &Duration)
 
 fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<Bridge> {
     let edge_bridges = bridges.get(edge)?;
-    let theoretical = edge_bridges
+    edge_bridges
         .iter()
         .find(|bridge| *bridge.bridge_type() == BridgeType::Theoretical)?;
 
     let built = Bridge::new(
-        theoretical
-            .edges_one_way(edge.from())
-            .map(|edge_duration| EdgeDuration {
-                duration: Some(*duration),
-                ..edge_duration
-            })
-            .collect::<Vec<_>>(),
+        vec![EdgeDuration {
+            from: *edge.from(),
+            to: *edge.to(),
+            duration: Some(*duration * 2),
+        }],
         Vehicle::None,
         BridgeType::Built,
     )
