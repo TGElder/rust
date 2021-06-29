@@ -107,7 +107,7 @@ mod tests {
     use std::time::Duration;
 
     use commons::async_trait::async_trait;
-    use commons::{v2, M, V2};
+    use commons::v2;
     use futures::executor::block_on;
 
     use crate::parameters::Parameters;
@@ -208,7 +208,20 @@ mod tests {
         Edge::new(v2(1, 0), v2(1, 2))
     }
 
-    fn happy_path_tx() -> Cx {
+    fn happy_path_bridge() -> Bridge {
+        Bridge::new(
+            vec![EdgeDuration {
+                from: v2(1, 0),
+                to: v2(1, 2),
+                duration: Some(Duration::from_millis(11 * 2)),
+            }],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap()
+    }
+
+    fn happy_path_cx() -> Cx {
         let bridges = hashmap! {
             happy_path_edge() => hashset!{
                 Bridge::new(
@@ -299,25 +312,14 @@ mod tests {
     #[test]
     fn should_build_bridge_if_traffic_meets_threshold() {
         // Given
-        let sim = EdgeBuildSimulation::new(happy_path_tx(), Arc::new(()));
+        let sim = EdgeBuildSimulation::new(happy_path_cx(), Arc::new(()));
 
         // When
         block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
-            what: Build::Bridge(
-                Bridge::new(
-                    vec![EdgeDuration {
-                        from: v2(1, 0),
-                        to: v2(1, 2),
-                        duration: Some(Duration::from_millis(11 * 2)),
-                    }],
-                    Vehicle::None,
-                    BridgeType::Built,
-                )
-                .unwrap(),
-            ),
+            what: Build::Bridge(happy_path_bridge()),
             when: 11,
         }];
         assert_eq!(
@@ -325,115 +327,116 @@ mod tests {
             expected_build_queue
         );
     }
+
+    #[test]
+    fn should_not_build_if_no_traffic_entry() {
+        // Given
+        let mut cx = happy_path_cx();
+        cx.edge_traffic = Mutex::default();
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn should_not_build_if_traffic_below_threshold() {
+        // Given
+        let mut cx = happy_path_cx();
+        cx.parameters.simulation.road_build_threshold = 9;
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn should_not_build_if_no_theoretical_bridge() {
+        // Given
+        let cx = happy_path_cx();
+        cx.bridges
+            .lock()
+            .unwrap()
+            .get_mut(&happy_path_edge())
+            .unwrap()
+            .clear();
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn should_not_build_if_bridge_already_exists() {
+        // Given
+        let cx = happy_path_cx();
+        cx.bridges
+            .lock()
+            .unwrap()
+            .get_mut(&happy_path_edge())
+            .unwrap()
+            .insert(happy_path_bridge());
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn should_not_build_if_bridge_planned_earlier() {
+        // Given
+        let cx = happy_path_cx();
+        let earlier = BuildInstruction {
+            what: Build::Bridge(happy_path_bridge()),
+            when: 10,
+        };
+        cx.build_instructions.lock().unwrap().push(earlier.clone());
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        assert_eq!(*sim.cx.build_instructions.lock().unwrap(), vec![earlier]);
+    }
+
+    #[test]
+    fn should_build_if_bridge_planned_later() {
+        // Given
+        let cx = happy_path_cx();
+        cx.build_instructions
+            .lock()
+            .unwrap()
+            .push(BuildInstruction {
+                what: Build::Bridge(happy_path_bridge()),
+                when: 12,
+            });
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        assert!(sim
+            .cx
+            .build_instructions
+            .lock()
+            .unwrap()
+            .contains(&BuildInstruction {
+                what: Build::Bridge(happy_path_bridge()),
+                when: 11,
+            }));
+    }
 }
-
-//     #[test]
-//     fn should_not_build_if_no_traffic_entry() {
-//         // Given
-//         let mut cx = happy_path_tx();
-//         cx.edge_traffic = Mutex::default();
-//         let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
-
-//         // When
-//         block_on(sim.build_road(&hashset! {happy_path_edge()}));
-
-//         // Then
-//         assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
-//     }
-
-//     #[test]
-//     fn should_not_build_if_traffic_below_threshold() {
-//         // Given
-//         let sim = EdgeBuildSimulation::new(happy_path_tx(), happy_path_travel_duration());
-
-//         // When
-//         block_on(sim.build_road(&hashset! {Edge::new(v2(0, 0), v2(1, 0))}));
-
-//         // Then
-//         assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
-//     }
-
-//     #[test]
-//     fn should_not_build_if_road_already_exists() {
-//         // Given
-//         let cx = happy_path_tx();
-//         {
-//             let mut world = cx.world.lock().unwrap();
-//             world.set_road(&happy_path_edge(), true);
-//         }
-//         let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
-
-//         // When
-//         block_on(sim.build_road(&hashset! {happy_path_edge()}));
-
-//         // Then
-//         assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
-//     }
-
-//     #[test]
-//     fn should_not_build_if_road_planned_earlier() {
-//         // Given
-//         let mut cx = happy_path_tx();
-//         cx.road_planned = Some(1);
-//         let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
-
-//         // When
-//         block_on(sim.build_road(&hashset! {happy_path_edge()}));
-
-//         // Then
-//         assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
-//     }
-
-//     #[test]
-//     fn should_build_if_road_planned_later() {
-//         // Given
-//         let mut cx = happy_path_tx();
-//         cx.road_planned = Some(12);
-//         let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
-
-//         // When
-//         block_on(sim.build_road(&hashset! {happy_path_edge()}));
-
-//         // Then
-//         let expected_build_queue = vec![BuildInstruction {
-//             what: Build::Road(happy_path_edge()),
-//             when: 11,
-//         }];
-//         assert_eq!(
-//             *sim.cx.build_instructions.lock().unwrap(),
-//             expected_build_queue
-//         );
-//         assert_eq!(
-//             *sim.cx.planned_roads.lock().unwrap(),
-//             vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
-//         );
-//     }
-
-//     #[test]
-//     fn should_not_build_if_road_not_possible() {
-//         let sim = EdgeBuildSimulation::new(
-//             happy_path_tx(),
-//             Arc::new(MockTravelDuration { duration: None }),
-//         );
-
-//         // When
-//         block_on(sim.build_road(&hashset! {happy_path_edge()}));
-
-//         // Then
-//         assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
-//     }
-
-//     #[test]
-//     fn should_not_build_for_non_existent_route() {
-//         // Given
-//         let mut cx = happy_path_tx();
-//         cx.routes = Mutex::default();
-//         let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
-
-//         // When
-//         block_on(sim.build_road(&hashset! {happy_path_edge()}));
-
-//         // Then
-//         assert!(sim.cx.build_instructions.lock().unwrap().is_empty());
-//     }
-// }

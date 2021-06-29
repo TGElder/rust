@@ -217,7 +217,7 @@ mod tests {
         Edge::new(v2(1, 0), v2(1, 1))
     }
 
-    fn happy_path_tx() -> Cx {
+    fn happy_path_cx() -> Cx {
         let edge_traffic = hashmap! {
             Edge::new(v2(0, 0), v2(1, 0)) => hashset!{
                 RouteKey{
@@ -299,7 +299,7 @@ mod tests {
     #[test]
     fn should_build_road_if_traffic_meets_threshold() {
         // Given
-        let sim = EdgeBuildSimulation::new(happy_path_tx(), happy_path_travel_duration());
+        let sim = EdgeBuildSimulation::new(happy_path_cx(), happy_path_travel_duration());
 
         // When
         block_on(sim.build_road(&hashset! {happy_path_edge()}));
@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn should_not_build_if_no_traffic_entry() {
         // Given
-        let mut cx = happy_path_tx();
+        let mut cx = happy_path_cx();
         cx.edge_traffic = Mutex::default();
         let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
 
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn should_not_build_if_traffic_below_threshold() {
         // Given
-        let sim = EdgeBuildSimulation::new(happy_path_tx(), happy_path_travel_duration());
+        let sim = EdgeBuildSimulation::new(happy_path_cx(), happy_path_travel_duration());
 
         // When
         block_on(sim.build_road(&hashset! {Edge::new(v2(0, 0), v2(1, 0))}));
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn should_not_build_if_road_already_exists() {
         // Given
-        let cx = happy_path_tx();
+        let cx = happy_path_cx();
         {
             let mut world = cx.world.lock().unwrap();
             world.set_road(&happy_path_edge(), true);
@@ -366,7 +366,7 @@ mod tests {
     #[test]
     fn should_not_build_if_road_planned_earlier() {
         // Given
-        let mut cx = happy_path_tx();
+        let mut cx = happy_path_cx();
         cx.road_planned = Some(1);
         let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
 
@@ -380,7 +380,7 @@ mod tests {
     #[test]
     fn should_build_if_road_planned_later() {
         // Given
-        let mut cx = happy_path_tx();
+        let mut cx = happy_path_cx();
         cx.road_planned = Some(12);
         let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
 
@@ -405,7 +405,7 @@ mod tests {
     #[test]
     fn should_not_build_if_road_not_possible() {
         let sim = EdgeBuildSimulation::new(
-            happy_path_tx(),
+            happy_path_cx(),
             Arc::new(MockTravelDuration { duration: None }),
         );
 
@@ -419,7 +419,7 @@ mod tests {
     #[test]
     fn should_not_build_for_non_existent_route() {
         // Given
-        let mut cx = happy_path_tx();
+        let mut cx = happy_path_cx();
         cx.routes = Mutex::default();
         let sim = EdgeBuildSimulation::new(cx, happy_path_travel_duration());
 
