@@ -2,7 +2,7 @@ use commons::edge::Edge;
 
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    InsertBuildInstruction, IsRoad, PlanRoad, RemoveBuildInstruction,
+    GetBuildInstruction, InsertBuildInstruction, IsRoad, PlanRoad, RemoveBuildInstruction,
     RemoveRoad as RemoveRoadTrait, RoadPlanned, WithBridges, WithEdgeTraffic, WithRoutes,
     WithWorld,
 };
@@ -27,7 +27,8 @@ impl<T, D> EdgeBuildSimulation<T, D> {
 
 impl<T, D> EdgeBuildSimulation<T, D>
 where
-    T: HasParameters
+    T: GetBuildInstruction
+        + HasParameters
         + InsertBuildInstruction
         + IsRoad
         + PlanRoad

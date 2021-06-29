@@ -1,21 +1,23 @@
 use std::collections::HashSet;
+use std::convert::TryInto;
 use std::time::Duration;
 
 use commons::edge::Edge;
-use commons::log::info;
 
 use crate::avatar::Vehicle;
 use crate::bridge::{Bridge, BridgeType, Bridges};
-use crate::build::{Build, BuildInstruction};
-use crate::route::{Route, RouteKey, Routes, RoutesExt};
+use crate::build::{Build, BuildInstruction, BuildKey};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
-use crate::traits::{InsertBuildInstruction, WithBridges, WithEdgeTraffic, WithRoutes};
+use crate::traits::{
+    GetBuildInstruction, InsertBuildInstruction, WithBridges, WithEdgeTraffic, WithRoutes,
+};
 use crate::travel_duration::EdgeDuration;
 
 impl<T, D> EdgeBuildSimulation<T, D>
 where
-    T: HasParameters
+    T: GetBuildInstruction
+        + HasParameters
         + InsertBuildInstruction
         + WithBridges
         + WithRoutes
@@ -33,7 +35,7 @@ where
 
     async fn get_bridge_candidates(&self, edges: &HashSet<Edge>) -> Vec<Bridge> {
         let duration =
-            Duration::from_millis(self.cx.parameters().npc_travel.road_1_cell_duration_millis); // TODO new parameter
+            Duration::from_millis(self.cx.parameters().built_bridge_1_cell_duration_millis);
 
         self.cx
             .with_bridges(|bridges| get_candidates(bridges, edges, &duration))
@@ -41,15 +43,23 @@ where
     }
 
     async fn try_build_bridge(&self, bridge: Bridge, threshold: usize) {
-        let routes = self.get_route_summaries_bridge(&bridge.total_edge()).await;
+        let routes = self.get_route_summaries(&bridge.total_edge()).await;
 
         if routes.iter().map(|route| route.traffic).sum::<usize>() < threshold {
             return;
         }
 
-        let when = self.get_when_bridge(routes, threshold);
+        let when = self.get_when(routes, threshold);
 
-        info!("Building bridge {:?}", bridge);
+        if let Some(instruction) = self
+            .cx
+            .get_build_instruction(&BuildKey::Bridge(bridge.clone()))
+            .await
+        {
+            if instruction.when <= when {
+                return;
+            }
+        }
 
         self.cx
             .insert_build_instruction(BuildInstruction {
@@ -57,39 +67,6 @@ where
                 when,
             })
             .await;
-    }
-
-    async fn get_route_summaries_bridge(&self, edge: &Edge) -> Vec<RouteSummary> {
-        // TODO reuse from build_bridge
-        let route_keys = self.get_edge_traffic_bridge(edge).await;
-        if route_keys.is_empty() {
-            return vec![];
-        }
-
-        self.cx
-            .with_routes(|routes| get_route_summaries(routes, route_keys))
-            .await
-    }
-
-    async fn get_edge_traffic_bridge(&self, edge: &Edge) -> HashSet<RouteKey> {
-        self.cx
-            .with_edge_traffic(|edge_traffic| edge_traffic.get(edge).cloned().unwrap_or_default())
-            .await
-    }
-
-    fn get_when_bridge(&self, mut routes: Vec<RouteSummary>, threshold: usize) -> u128 {
-        routes.sort_by_key(|route| route.first_visit);
-        let mut traffic_cum = 0;
-        for route in routes {
-            traffic_cum += route.traffic;
-            if traffic_cum >= threshold {
-                return route.first_visit;
-            }
-        }
-        panic!(
-            "Total traffic {} does not exceed threshold for building bridge {}",
-            traffic_cum, threshold
-        );
     }
 }
 
@@ -110,7 +87,7 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
         vec![EdgeDuration {
             from: *edge.from(),
             to: *edge.to(),
-            duration: Some(*duration * 2),
+            duration: Some(*duration * edge.length().try_into().unwrap()),
         }],
         Vehicle::None,
         BridgeType::Built,
@@ -124,259 +101,231 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
     }
 }
 
-fn get_route_summaries(routes: &Routes, route_keys: HashSet<RouteKey>) -> Vec<RouteSummary> {
-    route_keys
-        .into_iter()
-        .flat_map(|route_key| routes.get_route(&route_key))
-        .map(|route| route.into())
-        .collect()
-}
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
-struct RouteSummary {
-    traffic: usize,
-    first_visit: u128,
-}
+    use commons::async_trait::async_trait;
+    use commons::{v2, M, V2};
+    use futures::executor::block_on;
 
-impl From<&Route> for RouteSummary {
-    fn from(route: &Route) -> Self {
-        RouteSummary {
-            traffic: route.traffic,
-            first_visit: route.start_micros + route.duration.as_micros(),
+    use crate::parameters::Parameters;
+    use crate::resource::Resource;
+    use crate::route::{Route, RouteKey, Routes, RoutesExt};
+    use crate::traffic::EdgeTraffic;
+
+    use super::*;
+
+    struct Cx {
+        bridges: Mutex<Bridges>,
+        build_instructions: Mutex<Vec<BuildInstruction>>,
+        edge_traffic: Mutex<EdgeTraffic>,
+        parameters: Parameters,
+        routes: Mutex<Routes>,
+    }
+
+    impl HasParameters for Cx {
+        fn parameters(&self) -> &Parameters {
+            &self.parameters
         }
     }
+
+    #[async_trait]
+    impl GetBuildInstruction for Cx {
+        async fn get_build_instruction(&self, key: &BuildKey) -> Option<BuildInstruction> {
+            self.build_instructions
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|instruction| instruction.what.key() == *key)
+                .cloned()
+        }
+    }
+
+    #[async_trait]
+    impl InsertBuildInstruction for Cx {
+        async fn insert_build_instruction(&self, build_instruction: BuildInstruction) {
+            self.build_instructions
+                .lock()
+                .unwrap()
+                .push(build_instruction)
+        }
+    }
+
+    #[async_trait]
+    impl WithBridges for Cx {
+        async fn with_bridges<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&Bridges) -> O + Send,
+        {
+            function(&self.bridges.lock().unwrap())
+        }
+
+        async fn mut_bridges<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Bridges) -> O + Send,
+        {
+            function(&mut self.bridges.lock().unwrap())
+        }
+    }
+
+    #[async_trait]
+    impl WithEdgeTraffic for Cx {
+        async fn with_edge_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&EdgeTraffic) -> O + Send,
+        {
+            function(&self.edge_traffic.lock().unwrap())
+        }
+
+        async fn mut_edge_traffic<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut EdgeTraffic) -> O + Send,
+        {
+            function(&mut self.edge_traffic.lock().unwrap())
+        }
+    }
+
+    #[async_trait]
+    impl WithRoutes for Cx {
+        async fn with_routes<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&Routes) -> O + Send,
+        {
+            function(&self.routes.lock().unwrap())
+        }
+
+        async fn mut_routes<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Routes) -> O + Send,
+        {
+            function(&mut self.routes.lock().unwrap())
+        }
+    }
+
+    fn happy_path_edge() -> Edge {
+        Edge::new(v2(1, 0), v2(1, 2))
+    }
+
+    fn happy_path_tx() -> Cx {
+        let bridges = hashmap! {
+            happy_path_edge() => hashset!{
+                Bridge::new(
+                    vec![
+                        EdgeDuration{
+                            from: v2(1, 0),
+                            to: v2(1, 2),
+                            duration: Some(Duration::from_micros(1)),
+                        }
+                    ],
+                    Vehicle::None,
+                    BridgeType::Theoretical
+                ).unwrap()
+            }
+        };
+
+        let edge_traffic = hashmap! {
+            Edge::new(v2(0, 0), v2(1, 0)) => hashset!{
+                RouteKey{
+                    settlement: v2(0, 0),
+                    resource: Resource::Truffles,
+                    destination: v2(1, 2),
+                }
+            },
+            Edge::new(v2(2, 0), v2(1, 0)) => hashset!{
+                RouteKey{
+                    settlement: v2(2, 0),
+                    resource: Resource::Truffles,
+                    destination: v2(1, 2),
+                }
+            },
+            Edge::new(v2(1, 0), v2(1, 2)) => hashset!{
+                RouteKey{
+                    settlement: v2(0, 0),
+                    resource: Resource::Truffles,
+                    destination: v2(1, 2),
+                }, RouteKey{
+                    settlement: v2(2, 0),
+                    resource: Resource::Truffles,
+                    destination: v2(1, 2),
+                }
+            },
+        };
+
+        let mut parameters = Parameters {
+            built_bridge_1_cell_duration_millis: 11,
+            ..Parameters::default()
+        };
+        parameters.simulation.road_build_threshold = 8;
+
+        let mut routes = Routes::default();
+        routes.insert_route(
+            RouteKey {
+                settlement: v2(0, 0),
+                resource: Resource::Truffles,
+                destination: v2(1, 2),
+            },
+            Route {
+                path: vec![v2(0, 0), v2(1, 0), v2(1, 2)],
+                start_micros: 1,
+                duration: Duration::from_micros(10),
+                traffic: 4,
+            },
+        );
+        routes.insert_route(
+            RouteKey {
+                settlement: v2(2, 0),
+                resource: Resource::Truffles,
+                destination: v2(1, 2),
+            },
+            Route {
+                path: vec![v2(2, 0), v2(1, 0), v2(1, 2)],
+                start_micros: 2,
+                duration: Duration::from_micros(7),
+                traffic: 4,
+            },
+        );
+
+        Cx {
+            bridges: Mutex::new(bridges),
+            build_instructions: Mutex::default(),
+            edge_traffic: Mutex::new(edge_traffic),
+            parameters,
+            routes: Mutex::new(routes),
+        }
+    }
+
+    #[test]
+    fn should_build_bridge_if_traffic_meets_threshold() {
+        // Given
+        let sim = EdgeBuildSimulation::new(happy_path_tx(), Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        let expected_build_queue = vec![BuildInstruction {
+            what: Build::Bridge(
+                Bridge::new(
+                    vec![EdgeDuration {
+                        from: v2(1, 0),
+                        to: v2(1, 2),
+                        duration: Some(Duration::from_millis(11 * 2)),
+                    }],
+                    Vehicle::None,
+                    BridgeType::Built,
+                )
+                .unwrap(),
+            ),
+            when: 11,
+        }];
+        assert_eq!(
+            *sim.cx.build_instructions.lock().unwrap(),
+            expected_build_queue
+        );
+    }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use std::sync::{Arc, Mutex};
-//     use std::time::Duration;
-
-//     use commons::async_trait::async_trait;
-//     use commons::{v2, M, V2};
-//     use futures::executor::block_on;
-
-//     use crate::parameters::Parameters;
-//     use crate::resource::Resource;
-//     use crate::route::{RouteKey, Routes, RoutesExt};
-//     use crate::traffic::EdgeTraffic;
-
-//     use super::*;
-
-//     struct Cx {
-//         build_instructions: Mutex<Vec<BuildInstruction>>,
-//         edge_traffic: Mutex<EdgeTraffic>,
-//         parameters: Parameters,
-//         planned_roads: Mutex<Vec<(Edge, Option<u128>)>>,
-//         road_planned: Option<u128>,
-//         routes: Mutex<Routes>,
-//         world: Mutex<World>,
-//     }
-
-//     impl HasParameters for Cx {
-//         fn parameters(&self) -> &Parameters {
-//             &self.parameters
-//         }
-//     }
-
-//     #[async_trait]
-//     impl InsertBuildInstruction for Cx {
-//         async fn insert_build_instruction(&self, build_instruction: BuildInstruction) {
-//             self.build_instructions
-//                 .lock()
-//                 .unwrap()
-//                 .push(build_instruction)
-//         }
-//     }
-
-//     #[async_trait]
-//     impl RoadPlanned for Cx {
-//         async fn road_planned(&self, _: &Edge) -> Option<u128> {
-//             self.road_planned
-//         }
-//     }
-
-//     #[async_trait]
-//     impl PlanRoad for Cx {
-//         async fn plan_road(&self, edge: &Edge, when: Option<u128>) {
-//             self.planned_roads.lock().unwrap().push((*edge, when));
-//         }
-//     }
-
-//     #[async_trait]
-//     impl WithRoutes for Cx {
-//         async fn with_routes<F, O>(&self, function: F) -> O
-//         where
-//             F: FnOnce(&Routes) -> O + Send,
-//         {
-//             function(&self.routes.lock().unwrap())
-//         }
-
-//         async fn mut_routes<F, O>(&self, function: F) -> O
-//         where
-//             F: FnOnce(&mut Routes) -> O + Send,
-//         {
-//             function(&mut self.routes.lock().unwrap())
-//         }
-//     }
-
-//     #[async_trait]
-//     impl WithWorld for Cx {
-//         async fn with_world<F, O>(&self, function: F) -> O
-//         where
-//             F: FnOnce(&World) -> O + Send,
-//         {
-//             function(&self.world.lock().unwrap())
-//         }
-
-//         async fn mut_world<F, O>(&self, function: F) -> O
-//         where
-//             F: FnOnce(&mut World) -> O + Send,
-//         {
-//             function(&mut self.world.lock().unwrap())
-//         }
-//     }
-
-//     #[async_trait]
-//     impl WithEdgeTraffic for Cx {
-//         async fn with_edge_traffic<F, O>(&self, function: F) -> O
-//         where
-//             F: FnOnce(&EdgeTraffic) -> O + Send,
-//         {
-//             function(&self.edge_traffic.lock().unwrap())
-//         }
-
-//         async fn mut_edge_traffic<F, O>(&self, function: F) -> O
-//         where
-//             F: FnOnce(&mut EdgeTraffic) -> O + Send,
-//         {
-//             function(&mut self.edge_traffic.lock().unwrap())
-//         }
-//     }
-
-//     struct MockTravelDuration {
-//         duration: Option<Duration>,
-//     }
-
-//     impl TravelDuration for MockTravelDuration {
-//         fn get_duration(&self, _: &World, _: &V2<usize>, _: &V2<usize>) -> Option<Duration> {
-//             self.duration
-//         }
-
-//         fn min_duration(&self) -> Duration {
-//             Duration::from_millis(1000)
-//         }
-
-//         fn max_duration(&self) -> Duration {
-//             Duration::from_millis(2000)
-//         }
-//     }
-
-//     fn happy_path_edge() -> Edge {
-//         Edge::new(v2(1, 0), v2(1, 1))
-//     }
-
-//     fn happy_path_tx() -> Cx {
-//         let edge_traffic = hashmap! {
-//             Edge::new(v2(0, 0), v2(1, 0)) => hashset!{
-//                 RouteKey{
-//                     settlement: v2(0, 0),
-//                     resource: Resource::Truffles,
-//                     destination: v2(1, 1),
-//                 }
-//             },
-//             Edge::new(v2(2, 0), v2(1, 0)) => hashset!{
-//                 RouteKey{
-//                     settlement: v2(2, 0),
-//                     resource: Resource::Truffles,
-//                     destination: v2(1, 1),
-//                 }
-//             },
-//             Edge::new(v2(1, 0), v2(1, 1)) => hashset!{
-//                 RouteKey{
-//                     settlement: v2(0, 0),
-//                     resource: Resource::Truffles,
-//                     destination: v2(1, 1),
-//                 }, RouteKey{
-//                     settlement: v2(2, 0),
-//                     resource: Resource::Truffles,
-//                     destination: v2(1, 1),
-//                 }
-//             },
-//         };
-
-//         let mut parameters = Parameters::default();
-//         parameters.simulation.road_build_threshold = 8;
-
-//         let mut routes = Routes::default();
-//         routes.insert_route(
-//             RouteKey {
-//                 settlement: v2(0, 0),
-//                 resource: Resource::Truffles,
-//                 destination: v2(1, 1),
-//             },
-//             Route {
-//                 path: vec![v2(0, 0), v2(1, 0), v2(1, 1)],
-//                 start_micros: 1,
-//                 duration: Duration::from_micros(10),
-//                 traffic: 4,
-//             },
-//         );
-//         routes.insert_route(
-//             RouteKey {
-//                 settlement: v2(2, 0),
-//                 resource: Resource::Truffles,
-//                 destination: v2(1, 1),
-//             },
-//             Route {
-//                 path: vec![v2(2, 0), v2(1, 0), v2(1, 1)],
-//                 start_micros: 2,
-//                 duration: Duration::from_micros(7),
-//                 traffic: 4,
-//             },
-//         );
-
-//         let world = World::new(M::from_element(3, 3, 1.0), 0.5);
-
-//         Cx {
-//             build_instructions: Mutex::default(),
-//             edge_traffic: Mutex::new(edge_traffic),
-//             parameters,
-//             planned_roads: Mutex::default(),
-//             road_planned: None,
-//             routes: Mutex::new(routes),
-//             world: Mutex::new(world),
-//         }
-//     }
-
-//     fn happy_path_travel_duration() -> Arc<MockTravelDuration> {
-//         Arc::new(MockTravelDuration {
-//             duration: Some(Duration::from_millis(1500)),
-//         })
-//     }
-
-//     #[test]
-//     fn should_build_road_if_traffic_meets_threshold() {
-//         // Given
-//         let sim = EdgeBuildSimulation::new(happy_path_tx(), happy_path_travel_duration());
-
-//         // When
-//         block_on(sim.build_road(&hashset! {happy_path_edge()}));
-
-//         // Then
-//         let expected_build_queue = vec![BuildInstruction {
-//             what: Build::Road(happy_path_edge()),
-//             when: 11,
-//         }];
-//         assert_eq!(
-//             *sim.cx.build_instructions.lock().unwrap(),
-//             expected_build_queue
-//         );
-
-//         assert_eq!(
-//             *sim.cx.planned_roads.lock().unwrap(),
-//             vec![(Edge::new(v2(1, 0), v2(1, 1)), Some(11))]
-//         );
-//     }
 
 //     #[test]
 //     fn should_not_build_if_no_traffic_entry() {

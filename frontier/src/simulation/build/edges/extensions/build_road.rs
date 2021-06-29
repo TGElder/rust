@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use commons::edge::Edge;
 
 use crate::build::{Build, BuildInstruction};
-use crate::route::{Route, RouteKey, Routes, RoutesExt};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
@@ -60,38 +59,6 @@ where
             .await;
     }
 
-    async fn get_route_summaries(&self, edge: &Edge) -> Vec<RouteSummary> {
-        let route_keys = self.get_edge_traffic(edge).await;
-        if route_keys.is_empty() {
-            return vec![];
-        }
-
-        self.cx
-            .with_routes(|routes| get_route_summaries(routes, route_keys))
-            .await
-    }
-
-    async fn get_edge_traffic(&self, edge: &Edge) -> HashSet<RouteKey> {
-        self.cx
-            .with_edge_traffic(|edge_traffic| edge_traffic.get(edge).cloned().unwrap_or_default())
-            .await
-    }
-
-    fn get_when(&self, mut routes: Vec<RouteSummary>, threshold: usize) -> u128 {
-        routes.sort_by_key(|route| route.first_visit);
-        let mut traffic_cum = 0;
-        for route in routes {
-            traffic_cum += route.traffic;
-            if traffic_cum >= threshold {
-                return route.first_visit;
-            }
-        }
-        panic!(
-            "Total traffic {} does not exceed threshold for building road {}",
-            traffic_cum, threshold
-        );
-    }
-
     async fn try_plan_road(&self, edge: &Edge, when: u128) -> bool {
         if matches!(self.cx.road_planned(edge).await, Some(existing) if existing <= when) {
             false
@@ -121,28 +88,6 @@ fn is_candidate(world: &World, travel_duration: &dyn TravelDuration, edge: &Edge
             .is_some()
 }
 
-fn get_route_summaries(routes: &Routes, route_keys: HashSet<RouteKey>) -> Vec<RouteSummary> {
-    route_keys
-        .into_iter()
-        .flat_map(|route_key| routes.get_route(&route_key))
-        .map(|route| route.into())
-        .collect()
-}
-
-struct RouteSummary {
-    traffic: usize,
-    first_visit: u128,
-}
-
-impl From<&Route> for RouteSummary {
-    fn from(route: &Route) -> Self {
-        RouteSummary {
-            traffic: route.traffic,
-            first_visit: route.start_micros + route.duration.as_micros(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
@@ -154,7 +99,7 @@ mod tests {
 
     use crate::parameters::Parameters;
     use crate::resource::Resource;
-    use crate::route::{RouteKey, Routes, RoutesExt};
+    use crate::route::{Route, RouteKey, Routes, RoutesExt};
     use crate::traffic::EdgeTraffic;
 
     use super::*;
