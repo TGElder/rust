@@ -51,7 +51,7 @@ where
             }
         }
         panic!(
-            "Total traffic {} does not exceed threshold for building road {}",
+            "Total traffic {} does not exceed threshold {}",
             traffic_cum, threshold
         );
     }

@@ -208,7 +208,7 @@ mod tests {
         Edge::new(v2(1, 0), v2(1, 2))
     }
 
-    fn happy_path_bridge() -> Bridge {
+    fn happy_path_bridge(bridge_type: BridgeType) -> Bridge {
         Bridge::new(
             vec![EdgeDuration {
                 from: v2(1, 0),
@@ -216,26 +216,14 @@ mod tests {
                 duration: Some(Duration::from_millis(11 * 2)),
             }],
             Vehicle::None,
-            BridgeType::Built,
+            bridge_type,
         )
         .unwrap()
     }
 
     fn happy_path_cx() -> Cx {
         let bridges = hashmap! {
-            happy_path_edge() => hashset!{
-                Bridge::new(
-                    vec![
-                        EdgeDuration{
-                            from: v2(1, 0),
-                            to: v2(1, 2),
-                            duration: Some(Duration::from_micros(1)),
-                        }
-                    ],
-                    Vehicle::None,
-                    BridgeType::Theoretical
-                ).unwrap()
-            }
+            happy_path_edge() => hashset!{happy_path_bridge(BridgeType::Theoretical)}
         };
 
         let edge_traffic = hashmap! {
@@ -319,7 +307,7 @@ mod tests {
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
-            what: Build::Bridge(happy_path_bridge()),
+            what: Build::Bridge(happy_path_bridge(BridgeType::Built)),
             when: 11,
         }];
         assert_eq!(
@@ -384,7 +372,7 @@ mod tests {
             .unwrap()
             .get_mut(&happy_path_edge())
             .unwrap()
-            .insert(happy_path_bridge());
+            .insert(happy_path_bridge(BridgeType::Built));
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
@@ -399,7 +387,7 @@ mod tests {
         // Given
         let cx = happy_path_cx();
         let earlier = BuildInstruction {
-            what: Build::Bridge(happy_path_bridge()),
+            what: Build::Bridge(happy_path_bridge(BridgeType::Built)),
             when: 10,
         };
         cx.build_instructions.lock().unwrap().push(earlier.clone());
@@ -420,7 +408,7 @@ mod tests {
             .lock()
             .unwrap()
             .push(BuildInstruction {
-                what: Build::Bridge(happy_path_bridge()),
+                what: Build::Bridge(happy_path_bridge(BridgeType::Built)),
                 when: 12,
             });
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
@@ -435,7 +423,7 @@ mod tests {
             .lock()
             .unwrap()
             .contains(&BuildInstruction {
-                what: Build::Bridge(happy_path_bridge()),
+                what: Build::Bridge(happy_path_bridge(BridgeType::Built)),
                 when: 11,
             }));
     }
