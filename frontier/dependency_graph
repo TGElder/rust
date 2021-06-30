@@ -120,6 +120,7 @@ SendControllersActor WithWorld
 SendCrossings HasParameters
 SendCrossings WithBridges
 SendCrossings WithWorld
+SendEdgeBuildSim GetBuildInstruction
 SendEdgeBuildSim HasParameters
 SendEdgeBuildSim InsertBuildInstruction
 SendEdgeBuildSim IsRoad
@@ -127,6 +128,7 @@ SendEdgeBuildSim PlanRoad
 SendEdgeBuildSim RemoveBuildInstruction
 SendEdgeBuildSim RemoveRoad
 SendEdgeBuildSim RoadPlanned
+SendEdgeBuildSim WithBridges
 SendEdgeBuildSim WithEdgeTraffic
 SendEdgeBuildSim WithRoutes
 SendEdgeBuildSim WithWorld

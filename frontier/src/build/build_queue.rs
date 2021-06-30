@@ -9,6 +9,10 @@ pub struct BuildQueue {
 }
 
 impl BuildQueue {
+    pub fn get_instruction(&self, key: &BuildKey) -> Option<&BuildInstruction> {
+        self.queue.get(key)
+    }
+
     pub fn insert(&mut self, build_instruction: BuildInstruction) {
         let key = build_instruction.what.key();
         match self.queue.entry(key) {
@@ -45,6 +49,29 @@ mod tests {
 
     use commons::edge::Edge;
     use commons::v2;
+
+    #[test]
+    fn get_instruction() {
+        // Given
+        let mut build_queue = BuildQueue::default();
+
+        let edge_a = Edge::new(v2(1, 2), v2(1, 3));
+        let instruction_a = BuildInstruction {
+            what: Build::Road(edge_a),
+            when: 0,
+        };
+        let edge_b = Edge::new(v2(2, 1), v2(3, 1));
+
+        // When
+        build_queue.insert(instruction_a.clone());
+
+        // Then
+        assert_eq!(
+            build_queue.get_instruction(&BuildKey::Road(edge_a)),
+            Some(&instruction_a)
+        );
+        assert_eq!(build_queue.get_instruction(&BuildKey::Road(edge_b)), None);
+    }
 
     #[test]
     fn insert_should_remove_later_instruction_with_same_key() {

@@ -4,6 +4,22 @@ use crate::build::{BuildInstruction, BuildKey};
 use crate::traits::WithBuildQueue;
 
 #[async_trait]
+pub trait GetBuildInstruction {
+    async fn get_build_instruction(&self, key: &BuildKey) -> Option<BuildInstruction>;
+}
+
+#[async_trait]
+impl<T> GetBuildInstruction for T
+where
+    T: WithBuildQueue + Send + Sync,
+{
+    async fn get_build_instruction(&self, key: &BuildKey) -> Option<BuildInstruction> {
+        self.with_build_queue(|build_queue| build_queue.get_instruction(key).cloned())
+            .await
+    }
+}
+
+#[async_trait]
 pub trait InsertBuildInstruction {
     async fn insert_build_instruction(&self, build_instruction: BuildInstruction);
 }
