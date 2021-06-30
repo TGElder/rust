@@ -9,12 +9,7 @@ where
     T: TravelModeFn,
 {
     fn travel_mode_change(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> bool {
-        let from_classes = self.travel_mode_classes_here(world, from);
-        let to_classes = self.travel_mode_classes_here(world, to);
-        if from_classes.is_empty() && to_classes.is_empty() {
-            return false;
-        }
-        !from_classes.intersection(&to_classes).any(|_| true)
+        self.travel_mode_classes_here(world, from) != self.travel_mode_classes_here(world, to)
     }
 }
 
@@ -79,7 +74,7 @@ mod tests {
         test_travel_mode_change(
             vec![TravelMode::Walk],
             vec![TravelMode::Walk, TravelMode::Sea],
-            false,
+            true,
         );
     }
 
@@ -98,7 +93,7 @@ mod tests {
         test_travel_mode_change(
             vec![TravelMode::Sea],
             vec![TravelMode::Walk, TravelMode::Sea],
-            false,
+            true,
         );
     }
 
