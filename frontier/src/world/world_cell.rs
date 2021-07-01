@@ -13,6 +13,7 @@ pub struct WorldCell {
     pub visible: bool,
     pub river: Junction,
     pub road: Junction,
+    pub platform: Junction,
     pub planned_road: PlannedRoad,
     pub climate: Climate,
     pub object: WorldObject,
@@ -26,6 +27,7 @@ impl WorldCell {
             visible: false,
             river: Junction::default(),
             road: Junction::default(),
+            platform: Junction::default(),
             planned_road: PlannedRoad::default(),
             climate: Climate::default(),
             object: WorldObject::None,
@@ -53,17 +55,25 @@ impl WithVisibility for WorldCell {
 
 impl WithJunction for WorldCell {
     fn junction(&self) -> Junction {
-        fn merge(a: Junction1D, b: Junction1D) -> Junction1D {
+        fn merge(a: Junction1D, b: Junction1D, c: Junction1D) -> Junction1D {
             Junction1D {
-                from: a.from || b.from,
-                to: a.to || b.to,
-                width: a.width.max(b.width),
+                from: a.from || b.from || c.from,
+                to: a.to || b.to || c.to,
+                width: a.width.max(b.width).max(c.width),
             }
         }
 
         Junction {
-            horizontal: merge(self.river.horizontal, self.road.horizontal),
-            vertical: merge(self.river.vertical, self.road.vertical),
+            horizontal: merge(
+                self.river.horizontal,
+                self.road.horizontal,
+                self.platform.horizontal,
+            ),
+            vertical: merge(
+                self.river.vertical,
+                self.road.vertical,
+                self.platform.vertical,
+            ),
         }
     }
 }
@@ -103,6 +113,23 @@ mod tests {
             Junction {
                 horizontal: Junction1D {
                     width: 2.0,
+                    from: true,
+                    to: true,
+                },
+                vertical: Junction1D {
+                    width: 2.0,
+                    from: false,
+                    to: true,
+                },
+            }
+        );
+        world_cell.platform.horizontal.to = true;
+        world_cell.platform.horizontal.width = 3.0;
+        assert_eq!(
+            world_cell.junction(),
+            Junction {
+                horizontal: Junction1D {
+                    width: 3.0,
                     from: true,
                     to: true,
                 },

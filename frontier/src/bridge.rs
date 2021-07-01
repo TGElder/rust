@@ -130,12 +130,24 @@ impl Bridge {
 
 pub trait BridgesExt {
     fn get_lowest_duration_bridge(&self, edge: &Edge) -> Option<&Bridge>;
+    fn count_bridges_at(&self, position: &V2<usize>, bridge_type: &BridgeType) -> usize;
 }
 
 impl BridgesExt for Bridges {
     fn get_lowest_duration_bridge(&self, edge: &Edge) -> Option<&Bridge> {
         self.get(edge)
             .and_then(|bridges| bridges.iter().min_by_key(|bridge| bridge.total_duration()))
+    }
+
+    fn count_bridges_at(&self, position: &V2<usize>, bridge_type: &BridgeType) -> usize {
+        self.iter()
+            .filter(|(key, _)| key.from() == position || key.to() == position)
+            .filter(|(_, bridges)| {
+                bridges
+                    .iter()
+                    .any(|bridge| bridge.bridge_type() == bridge_type)
+            })
+            .count()
     }
 }
 
@@ -420,5 +432,115 @@ mod tests {
                 }
             }
         );
+    }
+
+    #[test]
+    fn get_lowest_duration_bridge() {
+        // Given
+        let edge = Edge::new(v2(0, 0), v2(1, 0));
+        let bridge_1 = Bridge::new(
+            vec![EdgeDuration {
+                from: v2(0, 0),
+                to: v2(1, 0),
+                duration: Some(Duration::from_secs(1)),
+            }],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+        let bridge_2 = Bridge::new(
+            vec![EdgeDuration {
+                from: v2(0, 0),
+                to: v2(1, 0),
+                duration: Some(Duration::from_secs(2)),
+            }],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+
+        let bridges = hashmap! {
+            edge => hashset!{bridge_1.clone(), bridge_2},
+        };
+
+        // Then
+        assert_eq!(bridges.get_lowest_duration_bridge(&edge), Some(&bridge_1));
+    }
+
+    #[test]
+    fn count_bridges() {
+        // Given
+
+        // Edge from (1, 0) with with multiple built bridges - counts as 1
+        let edge_1 = Edge::new(v2(1, 0), v2(1, 1));
+        let edge_1_bridge_1 = Bridge::new(
+            vec![EdgeDuration {
+                from: v2(1, 0),
+                to: v2(1, 1),
+                duration: Some(Duration::from_secs(1)),
+            }],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+        let edge_1_bridge_2 = Bridge::new(
+            vec![EdgeDuration {
+                from: v2(1, 0),
+                to: v2(1, 1),
+                duration: Some(Duration::from_secs(2)),
+            }],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+
+        // Edge from (1, 0) with theoretical bridge - not counted
+        let edge_2 = Edge::new(v2(1, 0), v2(1, 2));
+        let edge_2_bridge_1 = Bridge::new(
+            vec![EdgeDuration {
+                from: v2(1, 0),
+                to: v2(1, 2),
+                duration: Some(Duration::from_secs(1)),
+            }],
+            Vehicle::None,
+            BridgeType::Theoretical,
+        )
+        .unwrap();
+
+        // Edge not from or to (1, 0) - not counted
+        let edge_3 = Edge::new(v2(1, 1), v2(1, 3));
+        let edge_3_bridge_1 = Bridge::new(
+            vec![EdgeDuration {
+                from: v2(1, 1),
+                to: v2(1, 3),
+                duration: Some(Duration::from_secs(1)),
+            }],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+
+        // Edge to (1, 0) - counts as 1
+        let edge_4 = Edge::new(v2(0, 0), v2(1, 0));
+        let edge_4_bridge_1 = Bridge::new(
+            vec![EdgeDuration {
+                from: v2(0, 0),
+                to: v2(1, 0),
+                duration: Some(Duration::from_secs(1)),
+            }],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+
+        let bridges = hashmap! {
+            edge_1 => hashset!{edge_1_bridge_1, edge_1_bridge_2},
+            edge_2 => hashset!{edge_2_bridge_1},
+            edge_3 => hashset!{edge_3_bridge_1},
+            edge_4 => hashset!{edge_4_bridge_1}
+        };
+
+        // Then
+        assert_eq!(bridges.count_bridges_at(&v2(1, 0), &BridgeType::Built), 2);
     }
 }

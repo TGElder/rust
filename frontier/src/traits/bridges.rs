@@ -1,13 +1,18 @@
+use std::collections::HashSet;
+
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
+use commons::grid::Grid;
+use commons::V2;
 use futures::FutureExt;
 
-use crate::bridge::BridgeType::Built;
-use crate::bridge::{Bridge, Bridges};
+use crate::bridge::BridgeType::{self, Built};
+use crate::bridge::{Bridge, Bridges, BridgesExt};
 use crate::traits::{
-    PathfinderForPlayer, PathfinderForRoutes, SendBridgeArtistActor, UpdatePathfinderEdges,
-    WithBridges,
+    DrawWorld, PathfinderForPlayer, PathfinderForRoutes, SendBridgeArtistActor,
+    UpdatePathfinderEdges, WithBridges, WithWorld,
 };
+use crate::world::ROAD_WIDTH;
 
 #[async_trait]
 pub trait AddBridge {
@@ -17,21 +22,29 @@ pub trait AddBridge {
 #[async_trait]
 impl<T> AddBridge for T
 where
-    T: SendBridgeArtistActor + UpdateBridgesAllPathfinders + WithBridges + Sync,
+    T: AddPlatforms + SendBridgeArtistActor + UpdateBridgesAllPathfinders + WithBridges + Sync,
 {
     async fn add_bridge(&self, bridge: Bridge) {
         let edge = bridge.total_edge();
 
         let bridge_to_add = bridge.clone();
-        let added = self
+        let (added, platforms_to_add) = self
             .mut_bridges(|bridges| {
-                let bridges = bridges.entry(edge).or_default();
-                if bridges.contains(&bridge_to_add) {
-                    false
-                } else {
-                    bridges.insert(bridge_to_add);
-                    true
+                let edge_bridges = bridges.entry(edge).or_default();
+                if edge_bridges.contains(&bridge_to_add) {
+                    return (false, hashset! {});
                 }
+
+                edge_bridges.insert(bridge_to_add);
+
+                let mut platforms_to_add = HashSet::with_capacity(2);
+                if bridges.count_bridges_at(edge.from(), &BridgeType::Built) == 1 {
+                    platforms_to_add.insert(*edge.from());
+                }
+                if bridges.count_bridges_at(edge.to(), &BridgeType::Built) == 1 {
+                    platforms_to_add.insert(*edge.to());
+                }
+                (true, platforms_to_add)
             })
             .await;
 
@@ -39,7 +52,10 @@ where
             return;
         }
 
-        self.update_bridges_all_pathfinders(&edge).await;
+        join!(
+            self.update_bridges_all_pathfinders(&edge),
+            self.add_platforms(platforms_to_add)
+        );
 
         self.send_bridge_artist_future_background(move |bridge_artist| {
             bridge_artist.draw_bridge(bridge).boxed()
@@ -55,18 +71,32 @@ pub trait RemoveBridge {
 #[async_trait]
 impl<T> RemoveBridge for T
 where
-    T: SendBridgeArtistActor + UpdateBridgesAllPathfinders + WithBridges + Sync,
+    T: RemovePlatforms + SendBridgeArtistActor + UpdateBridgesAllPathfinders + WithBridges + Sync,
 {
     async fn remove_bridge(&self, bridge: Bridge) -> bool {
         let edge = bridge.total_edge();
 
-        let removed = self
+        let (removed, platforms_to_remove) = self
             .mut_bridges(|bridges| {
-                let bridges = bridges.get_mut(&edge);
-                match bridges {
-                    Some(bridges) => bridges.remove(&bridge),
+                let edge_bridges = bridges.get_mut(&edge);
+
+                let removed = match edge_bridges {
+                    Some(edge_bridges) => edge_bridges.remove(&bridge),
                     None => false,
+                };
+
+                if !removed {
+                    return (false, hashset! {});
                 }
+
+                let mut platforms_to_remove = HashSet::with_capacity(2);
+                if bridges.count_bridges_at(edge.from(), &BridgeType::Built) == 0 {
+                    platforms_to_remove.insert(*edge.from());
+                }
+                if bridges.count_bridges_at(edge.to(), &BridgeType::Built) == 0 {
+                    platforms_to_remove.insert(*edge.to());
+                }
+                (true, platforms_to_remove)
             })
             .await;
 
@@ -74,7 +104,10 @@ where
             return false;
         }
 
-        self.update_bridges_all_pathfinders(&edge).await;
+        join!(
+            self.update_bridges_all_pathfinders(&edge),
+            self.remove_platforms(platforms_to_remove)
+        );
 
         self.send_bridge_artist_future_background(move |bridge_artist| {
             bridge_artist.erase_bridge(edge).boxed()
@@ -175,5 +208,57 @@ where
                 .collect()
         })
         .await
+    }
+}
+
+#[async_trait]
+pub trait AddPlatforms {
+    async fn add_platforms(&self, positions: HashSet<V2<usize>>);
+}
+
+#[async_trait]
+impl<T> AddPlatforms for T
+where
+    T: DrawWorld + WithWorld + Sync,
+{
+    async fn add_platforms(&self, positions: HashSet<V2<usize>>) {
+        if positions.is_empty() {
+            return;
+        }
+        self.mut_world(|world| {
+            for position in positions.iter() {
+                let cell = unwrap_or!(world.mut_cell(position), continue);
+                cell.platform.horizontal.width = ROAD_WIDTH;
+                cell.platform.vertical.width = ROAD_WIDTH;
+            }
+        })
+        .await;
+        self.draw_world_tiles(positions).await;
+    }
+}
+
+#[async_trait]
+pub trait RemovePlatforms {
+    async fn remove_platforms(&self, positions: HashSet<V2<usize>>);
+}
+
+#[async_trait]
+impl<T> RemovePlatforms for T
+where
+    T: DrawWorld + WithWorld + Sync,
+{
+    async fn remove_platforms(&self, positions: HashSet<V2<usize>>) {
+        if positions.is_empty() {
+            return;
+        }
+        self.mut_world(|world| {
+            for position in positions.iter() {
+                let cell = unwrap_or!(world.mut_cell(position), continue);
+                cell.platform.horizontal.width = 0.0;
+                cell.platform.vertical.width = 0.0;
+            }
+        })
+        .await;
+        self.draw_world_tiles(positions).await;
     }
 }
