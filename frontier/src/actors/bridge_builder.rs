@@ -73,8 +73,8 @@ where
         }
         let bridge = Bridge::new(
             vec![EdgeDuration {
-                from,
-                to,
+                from: *edge.from(),
+                to: *edge.to(),
                 duration: Some(
                     Duration::from_millis(self.parameters.bridge_duration_millis)
                         * (edge.length() as u32),
