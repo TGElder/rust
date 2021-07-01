@@ -1,7 +1,10 @@
+AddBridge AddPlatforms
 AddBridge SendBridgeArtistActor
 AddBridge UpdateBridgesAllPathfinders
 AddBridge WithBridges
 AddController WithTerritory
+AddPlatforms DrawWorld
+AddPlatforms WithWorld
 AddRoad UpdateRoads
 AddRoad WithWorld
 AddTown AddController
@@ -44,9 +47,12 @@ RefreshPositionsBackground SendPositionBuildSim
 RefreshTargets SendResourceTargets
 RemoveBuildInstruction SendBuildQueue
 RemoveController WithTerritory
+RemoveBridge RemovePlatforms
 RemoveBridge SendBridgeArtistActor
 RemoveBridge UpdateBridgesAllPathfinders
 RemoveBridge WithBridges
+RemovePlatforms DrawWorld
+RemovePlatforms WithWorld
 RemoveRoad UpdateRoads
 RemoveRoad WithWorld
 RemoveTown DrawTown

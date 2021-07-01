@@ -31,6 +31,7 @@ where
         let (added, platforms_to_add) = self
             .mut_bridges(|bridges| {
                 let edge_bridges = bridges.entry(edge).or_default();
+
                 if edge_bridges.contains(&bridge_to_add) {
                     return (false, hashset! {});
                 }
