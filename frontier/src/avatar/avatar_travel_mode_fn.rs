@@ -39,26 +39,24 @@ impl TravelModeFn for AvatarTravelModeFn {
         }
     }
 
-    fn travel_modes_here(&self, world: &World, position: &V2<usize>) -> Vec<TravelMode> {
-        let mut out = vec![];
+    fn travel_mode_here(&self, world: &World, position: &V2<usize>) -> Option<TravelMode> {
         if let Some(cell) = world.get_cell(position) {
-            if cell.road.here() {
-                out.push(TravelMode::Road);
-            } else if self.include_planned_roads && cell.planned_road.here() {
-                out.push(TravelMode::PlannedRoad);
-            }
             if world.is_sea(position) {
-                out.push(TravelMode::Sea);
+                Some(TravelMode::Sea)
             } else if self.is_navigable_river_here(world, position) {
-                out.push(TravelMode::River);
+                Some(TravelMode::River)
+            } else if cell.road.here() {
+                Some(TravelMode::Road)
+            } else if self.include_planned_roads && cell.planned_road.here() {
+                Some(TravelMode::PlannedRoad)
             } else if cell.river.here() {
-                out.push(TravelMode::Stream);
+                Some(TravelMode::Stream)
+            } else {
+                Some(TravelMode::Walk)
             }
-            if out.is_empty() {
-                out.push(TravelMode::Walk);
-            }
+        } else {
+            None
         }
-        out
     }
 }
 
@@ -358,24 +356,24 @@ mod tests {
         let world = world();
         let travel_mode_fn = travel_mode_fn();
         assert_eq!(
-            travel_mode_fn.travel_modes_here(&world, &v2(3, 0)),
-            vec![TravelMode::Sea]
+            travel_mode_fn.travel_mode_here(&world, &v2(3, 0)),
+            Some(TravelMode::Sea)
         );
         assert_eq!(
-            travel_mode_fn.travel_modes_here(&world, &v2(0, 0)),
-            vec![TravelMode::Walk]
+            travel_mode_fn.travel_mode_here(&world, &v2(0, 0)),
+            Some(TravelMode::Walk)
         );
         assert_eq!(
-            travel_mode_fn.travel_modes_here(&world, &v2(0, 1)),
-            vec![TravelMode::Stream]
+            travel_mode_fn.travel_mode_here(&world, &v2(0, 1)),
+            Some(TravelMode::Stream)
         );
         assert_eq!(
-            travel_mode_fn.travel_modes_here(&world, &v2(1, 1)),
-            vec![TravelMode::River]
+            travel_mode_fn.travel_mode_here(&world, &v2(1, 1)),
+            Some(TravelMode::River)
         );
         assert_eq!(
-            travel_mode_fn.travel_modes_here(&world, &v2(0, 3)),
-            vec![TravelMode::Road]
+            travel_mode_fn.travel_mode_here(&world, &v2(0, 3)),
+            Some(TravelMode::Road)
         );
     }
 
@@ -387,8 +385,8 @@ mod tests {
         world.set_road(&edge, false);
         world.plan_road(&edge, Some(0));
         assert_eq!(
-            travel_mode_fn.travel_modes_here(&world, &v2(0, 3)),
-            vec![TravelMode::PlannedRoad]
+            travel_mode_fn.travel_mode_here(&world, &v2(0, 3)),
+            Some(TravelMode::PlannedRoad)
         );
     }
 
@@ -400,8 +398,8 @@ mod tests {
         world.set_road(&edge, false);
         world.plan_road(&edge, Some(0));
         assert_eq!(
-            travel_mode_fn.travel_modes_here(&world, &v2(0, 3)),
-            vec![TravelMode::Walk]
+            travel_mode_fn.travel_mode_here(&world, &v2(0, 3)),
+            Some(TravelMode::Walk)
         );
     }
 
@@ -410,10 +408,10 @@ mod tests {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
         world.set_road(&Edge::new(v2(1, 0), v2(1, 1)), true);
-        assert!(same_elements(
-            &travel_mode_fn.travel_modes_here(&world, &v2(1, 1)),
-            &[TravelMode::Road, TravelMode::River]
-        ))
+        assert_eq!(
+            travel_mode_fn.travel_mode_here(&world, &v2(1, 1)),
+            Some(TravelMode::River)
+        )
     }
 
     #[test]
@@ -421,10 +419,10 @@ mod tests {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
         world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), Some(0));
-        assert!(same_elements(
-            &travel_mode_fn.travel_modes_here(&world, &v2(1, 1)),
-            &[TravelMode::PlannedRoad, TravelMode::River]
-        ))
+        assert_eq!(
+            travel_mode_fn.travel_mode_here(&world, &v2(1, 1)),
+            Some(TravelMode::River)
+        )
     }
 
     #[test]

@@ -9,13 +9,10 @@ where
     T: TravelModeFn,
 {
     fn check_for_port(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<V2<usize>> {
-        let from_classes = self.travel_mode_classes_here(world, from);
-        let to_classes = self.travel_mode_classes_here(world, to);
-        if from_classes.is_empty() || to_classes.is_empty() {
-            return None;
-        }
-        let from_water = from_classes.contains(&TravelModeClass::Water);
-        let to_water = to_classes.contains(&TravelModeClass::Water);
+        let from_class = self.travel_mode_here(world, from)?.class();
+        let to_class = self.travel_mode_here(world, to)?.class();
+        let from_water = from_class == TravelModeClass::Water;
+        let to_water = to_class == TravelModeClass::Water;
         if from_water && !to_water {
             Some(*to)
         } else if !from_water && to_water {
@@ -34,7 +31,7 @@ mod tests {
     use std::collections::HashMap;
 
     struct MockTravelModeFn {
-        map: HashMap<V2<usize>, Vec<TravelMode>>,
+        map: HashMap<V2<usize>, Option<TravelMode>>,
     }
 
     impl TravelModeFn for MockTravelModeFn {
@@ -47,7 +44,7 @@ mod tests {
             None
         }
 
-        fn travel_modes_here(&self, _: &World, position: &V2<usize>) -> Vec<TravelMode> {
+        fn travel_mode_here(&self, _: &World, position: &V2<usize>) -> Option<TravelMode> {
             self.map[position].clone()
         }
     }
@@ -57,8 +54,8 @@ mod tests {
     }
 
     fn test_check_for_port(
-        from: Vec<TravelMode>,
-        to: Vec<TravelMode>,
+        from: Option<TravelMode>,
+        to: Option<TravelMode>,
         from_port: bool,
         to_port: bool,
     ) {
@@ -86,71 +83,31 @@ mod tests {
 
     #[test]
     fn test_check_for_port_land_to_land() {
-        test_check_for_port(vec![TravelMode::Walk], vec![TravelMode::Walk], false, false);
+        test_check_for_port(Some(TravelMode::Walk), Some(TravelMode::Walk), false, false);
     }
 
     #[test]
     fn test_check_for_port_land_to_water() {
-        test_check_for_port(vec![TravelMode::Walk], vec![TravelMode::Sea], true, false);
-    }
-
-    #[test]
-    fn test_check_for_port_land_to_mix() {
-        test_check_for_port(
-            vec![TravelMode::Walk],
-            vec![TravelMode::Walk, TravelMode::Sea],
-            true,
-            false,
-        );
+        test_check_for_port(Some(TravelMode::Walk), Some(TravelMode::Sea), true, false);
     }
 
     #[test]
     fn test_check_for_port_land_to_empty() {
-        test_check_for_port(vec![TravelMode::Walk], vec![], false, false);
+        test_check_for_port(Some(TravelMode::Walk), None, false, false);
     }
 
     #[test]
     fn test_check_for_port_water_to_water() {
-        test_check_for_port(vec![TravelMode::Sea], vec![TravelMode::Sea], false, false);
-    }
-
-    #[test]
-    fn test_check_for_port_water_to_mix() {
-        test_check_for_port(
-            vec![TravelMode::Sea],
-            vec![TravelMode::Walk, TravelMode::Sea],
-            false,
-            false,
-        );
+        test_check_for_port(Some(TravelMode::Sea), Some(TravelMode::Sea), false, false);
     }
 
     #[test]
     fn test_check_for_port_water_to_empty() {
-        test_check_for_port(vec![TravelMode::Sea], vec![], false, false);
-    }
-
-    #[test]
-    fn test_check_for_port_mix_to_mix() {
-        test_check_for_port(
-            vec![TravelMode::Walk, TravelMode::Sea],
-            vec![TravelMode::Walk, TravelMode::Sea],
-            false,
-            false,
-        );
-    }
-
-    #[test]
-    fn test_check_for_port_mix_to_empty() {
-        test_check_for_port(
-            vec![TravelMode::Walk, TravelMode::Sea],
-            vec![],
-            false,
-            false,
-        );
+        test_check_for_port(Some(TravelMode::Sea), None, false, false);
     }
 
     #[test]
     fn test_check_for_port_empty_to_empty() {
-        test_check_for_port(vec![], vec![], false, false);
+        test_check_for_port(None, None, false, false);
     }
 }
