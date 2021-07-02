@@ -404,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn travel_mode_here_bridge() {
+    fn travel_mode_here_road_and_river() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
         world.set_road(&Edge::new(v2(1, 0), v2(1, 1)), true);
@@ -415,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    fn travel_mode_here_planned_bridge() {
+    fn travel_mode_here_planned_road_and_river() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
         world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), Some(0));

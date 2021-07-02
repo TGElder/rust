@@ -63,7 +63,8 @@ impl Default for Parameters {
             road_color: Color::new(0.6, 0.4, 0.0, 1.0),
             player_travel: AvatarTravelParams::default(),
             npc_travel: AvatarTravelParams {
-                travel_mode_change_penalty_millis: 86_400_000,
+                port_penalty: 86_400_000,
+                road_port_penalty: 21_600_000,
                 ..AvatarTravelParams::default()
             },
             auto_road_travel: RoadBuildTravelParams::default(),

@@ -11,8 +11,10 @@ where
     fn check_for_port(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<V2<usize>> {
         let from_class = self.travel_mode_here(world, from)?.class();
         let to_class = self.travel_mode_here(world, to)?.class();
+
         let from_water = from_class == TravelModeClass::Water;
         let to_water = to_class == TravelModeClass::Water;
+
         if from_water && !to_water {
             Some(*to)
         } else if !from_water && to_water {

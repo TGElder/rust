@@ -20,7 +20,8 @@ pub struct AvatarTravelParams {
     pub river_1_cell_duration_millis: f32,
     pub road_1_cell_duration_millis: u64,
     pub sea_1_cell_duration_millis: u64,
-    pub travel_mode_change_penalty_millis: u64,
+    pub port_penalty: u64,
+    pub road_port_penalty: u64,
     pub include_planned_roads: bool,
     pub sea_level: f32,
     pub deep_sea_level: f32,
@@ -37,7 +38,8 @@ impl Default for AvatarTravelParams {
             river_1_cell_duration_millis: 900_000.0,
             road_1_cell_duration_millis: 1_200_000,
             sea_1_cell_duration_millis: 900_000,
-            travel_mode_change_penalty_millis: 1_800_000,
+            port_penalty: 1_800_000,
+            road_port_penalty: 1_800_000,
             include_planned_roads: false,
             sea_level: 1.0,
             deep_sea_level: 0.67,
@@ -148,7 +150,14 @@ impl AvatarTravelDuration {
         to: &V2<usize>,
     ) -> Duration {
         if self.travel_mode_fn.travel_mode_change(world, from, to) {
-            Duration::from_millis(self.parameters.travel_mode_change_penalty_millis)
+            let edge = Edge::new(*from, *to);
+            if world.is_road(&edge)
+                || self.parameters.include_planned_roads && world.road_planned(&edge).is_some()
+            {
+                Duration::from_millis(self.parameters.road_port_penalty)
+            } else {
+                Duration::from_millis(self.parameters.port_penalty)
+            }
         } else {
             Duration::from_millis(0)
         }
@@ -213,7 +222,7 @@ impl TravelDuration for AvatarTravelDuration {
             .max(self.road.max_duration())
             .max(self.stream.max_duration())
             .max(self.river.max_duration())
-            + Duration::from_millis(self.parameters.travel_mode_change_penalty_millis)
+            + Duration::from_millis(self.parameters.port_penalty)
     }
 }
 
@@ -234,7 +243,8 @@ mod tests {
             river: test_travel_duration(),
             sea: test_travel_duration(),
             parameters: AvatarTravelParams {
-                travel_mode_change_penalty_millis: 100,
+                port_penalty: 100,
+                road_port_penalty: 50,
                 deep_sea_level: 0.5,
                 sea_level: 1.0,
                 ..AvatarTravelParams::default()
@@ -311,12 +321,14 @@ mod tests {
 
         world.reveal_all();
 
-        assert!(avatar_travel_duration()
-            .get_duration(&world, &v2(0, 0), &v2(1, 0))
-            .is_some());
-        assert!(avatar_travel_duration()
-            .get_duration(&world, &v2(1, 0), &v2(0, 0))
-            .is_some());
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            Some(Duration::from_millis(110))
+        );
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            Some(Duration::from_millis(110))
+        );
     }
 
     #[test]
@@ -381,5 +393,121 @@ mod tests {
         assert!(avatar_travel_duration()
             .get_duration(&world, &v2(1, 0), &v2(0, 0))
             .is_some());
+    }
+
+    #[test]
+    fn should_get_port_penalty_if_no_road_present() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.0, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        world.reveal_all();
+
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            Some(Duration::from_millis(110))
+        );
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            Some(Duration::from_millis(110))
+        );
+    }
+
+    #[test]
+    fn should_get_road_port_penalty_if_road_present() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.0, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+        world.reveal_all();
+        world.set_road(&Edge::new(v2(0, 0), v2(1, 0)), true);
+
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            Some(Duration::from_millis(60))
+        );
+        assert_eq!(
+            avatar_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            Some(Duration::from_millis(60))
+        );
+    }
+
+    #[test]
+    fn should_get_road_port_penalty_if_planned_road_present_and_include_planned_roads_true() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.0, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+        world.reveal_all();
+        world.plan_road(&Edge::new(v2(0, 0), v2(1, 0)), Some(123));
+
+        let mut travel_duration = avatar_travel_duration();
+        travel_duration.parameters.include_planned_roads = true;
+
+        assert_eq!(
+            travel_duration.get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            Some(Duration::from_millis(60))
+        );
+
+        assert_eq!(
+            travel_duration.get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            Some(Duration::from_millis(60))
+        );
+    }
+
+    #[test]
+    fn should_not_get_road_port_penalty_if_planned_road_present_and_include_planned_roads_false() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.0, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+        world.reveal_all();
+        world.plan_road(&Edge::new(v2(0, 0), v2(1, 0)), Some(123));
+
+        let mut travel_duration = avatar_travel_duration();
+        travel_duration.parameters.include_planned_roads = false;
+
+        assert_eq!(
+            travel_duration.get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            Some(Duration::from_millis(110))
+        );
+
+        assert_eq!(
+            travel_duration.get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            Some(Duration::from_millis(110))
+        );
     }
 }
