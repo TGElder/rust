@@ -106,6 +106,11 @@ fn is_crossing(world: &World, min_navigable_river_width: &f32, positions: &[V2<u
         return false;
     }
 
+    if cells[0].elevation <= cells[1].elevation || cells[2].elevation <= cells[1].elevation {
+        // Bridge is convex, meaning it will pass beneath terrain
+        return false;
+    }
+
     if cells[0].river.here() || cells[2].river.here() {
         return false;
     }
