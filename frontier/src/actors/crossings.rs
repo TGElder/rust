@@ -34,9 +34,10 @@ where
 
     async fn get_crossings(&self) -> Vec<[V2<usize>; 3]> {
         let min_navigable_river_width = self.cx.parameters().npc_travel.min_navigable_river_width;
+        let max_gradient = self.cx.parameters().npc_travel.max_walk_gradient;
 
         self.cx
-            .with_world(|world| get_crossings(&world, &min_navigable_river_width))
+            .with_world(|world| get_crossings(&world, &min_navigable_river_width, &max_gradient))
             .await
     }
 
@@ -61,7 +62,11 @@ where
     }
 }
 
-fn get_crossings(world: &World, min_navigable_river_width: &f32) -> Vec<[V2<usize>; 3]> {
+fn get_crossings(
+    world: &World,
+    min_navigable_river_width: &f32,
+    max_gradient: &f32,
+) -> Vec<[V2<usize>; 3]> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -72,7 +77,12 @@ fn get_crossings(world: &World, min_navigable_river_width: &f32) -> Vec<[V2<usiz
                 world.offset(&position, v2(1, 0)),
             ) {
                 let horizontal = [left, position, right];
-                if is_crossing(&world, &min_navigable_river_width, &horizontal) {
+                if is_crossing(
+                    &world,
+                    &min_navigable_river_width,
+                    &max_gradient,
+                    &horizontal,
+                ) {
                     out.push(horizontal);
                 }
             }
@@ -82,7 +92,7 @@ fn get_crossings(world: &World, min_navigable_river_width: &f32) -> Vec<[V2<usiz
                 world.offset(&position, v2(0, 1)),
             ) {
                 let vertical = [down, position, up];
-                if is_crossing(&world, &min_navigable_river_width, &vertical) {
+                if is_crossing(&world, &min_navigable_river_width, &max_gradient, &vertical) {
                     out.push(vertical);
                 }
             }
@@ -91,7 +101,12 @@ fn get_crossings(world: &World, min_navigable_river_width: &f32) -> Vec<[V2<usiz
     out
 }
 
-fn is_crossing(world: &World, min_navigable_river_width: &f32, positions: &[V2<usize>; 3]) -> bool {
+fn is_crossing(
+    world: &World,
+    min_navigable_river_width: &f32,
+    max_gradient: &f32,
+    positions: &[V2<usize>; 3],
+) -> bool {
     if world.is_sea(&positions[0]) || world.is_sea(&positions[2]) {
         return false;
     }
@@ -106,6 +121,10 @@ fn is_crossing(world: &World, min_navigable_river_width: &f32, positions: &[V2<u
         return false;
     }
 
+    if cells[1].river.longest_side() < *min_navigable_river_width {
+        return false;
+    }
+
     if cells[0].elevation <= cells[1].elevation || cells[2].elevation <= cells[1].elevation {
         // Bridge is convex, meaning it will pass beneath terrain
         return false;
@@ -115,7 +134,15 @@ fn is_crossing(world: &World, min_navigable_river_width: &f32, positions: &[V2<u
         return false;
     }
 
-    cells[1].river.longest_side() >= *min_navigable_river_width
+    if world.get_rise(&positions[0], &positions[1]).unwrap().abs() > *max_gradient {
+        return false;
+    }
+
+    if world.get_rise(&positions[1], &positions[2]).unwrap().abs() > *max_gradient {
+        return false;
+    }
+
+    true
 }
 
 fn get_bridge(crossing: [V2<usize>; 3], duration: Duration) -> Result<Bridge, InvalidBridge> {
