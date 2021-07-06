@@ -94,16 +94,19 @@ impl System {
 
         let sea_level = params.world_gen.sea_level as f32;
         let deep_sea_level = params.world_gen.sea_level as f32 * params.deep_sea_pc;
+        let max_landing_zone_gradient = params.world_gen.cliff_gradient;
 
         let player_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
             sea_level,
             deep_sea_level,
+            max_landing_zone_gradient,
             ..params.player_travel
         }));
 
         let npc_travel_params = AvatarTravelParams {
             sea_level,
             deep_sea_level,
+            max_landing_zone_gradient,
             ..params.npc_travel
         };
         let routes_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
@@ -116,6 +119,7 @@ impl System {
             RoadBuildTravelParams {
                 sea_level,
                 deep_sea_level,
+                max_landing_zone_gradient,
                 ..params.auto_road_travel
             },
         ));

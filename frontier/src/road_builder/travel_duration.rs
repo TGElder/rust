@@ -17,6 +17,7 @@ pub struct RoadBuildTravelParams {
     pub cost_on_existing_road: u64,
     pub sea_level: f32,
     pub deep_sea_level: f32,
+    pub max_landing_zone_gradient: f32,
 }
 
 impl Default for RoadBuildTravelParams {
@@ -28,6 +29,7 @@ impl Default for RoadBuildTravelParams {
             cost_on_existing_road: 100,
             sea_level: 1.0,
             deep_sea_level: 0.67,
+            max_landing_zone_gradient: 0.5,
         }
     }
 }
@@ -55,19 +57,35 @@ impl RoadBuildTravelDuration {
 
     fn is_inaccessible_shore(&self, world: &World, from: &V2<usize>, to: &V2<usize>) -> bool {
         let from_elevation = world.get_cell_unsafe(from).elevation;
-        if from_elevation < self.parameters.deep_sea_level {
-            return false;
-        }
-        if from_elevation > self.parameters.sea_level {
-            return false;
-        }
-
         let to_elevation = world.get_cell_unsafe(to).elevation;
-        if to_elevation <= self.parameters.sea_level {
+
+        let is_shore =
+            from_elevation < self.parameters.sea_level && to_elevation > self.parameters.sea_level;
+        if !is_shore {
             return false;
         }
 
-        true
+        let too_shallow = from_elevation >= self.parameters.deep_sea_level;
+        if too_shallow {
+            return true;
+        }
+
+        let has_landing_zone = self.has_landing_zone(world, to);
+        if !has_landing_zone {
+            return true;
+        }
+
+        false
+    }
+
+    fn has_landing_zone(&self, world: &World, position: &V2<usize>) -> bool {
+        world
+            .get_adjacent_tiles_in_bounds(position)
+            .iter()
+            .any(|tile| {
+                !world.is_sea(tile)
+                    && world.get_max_abs_rise(tile) <= self.parameters.max_landing_zone_gradient
+            })
     }
 }
 
@@ -482,6 +500,35 @@ mod tests {
         );
         assert_eq!(
             road_build_travel_duration().get_duration(&world, &v2(1, 0), &v2(0, 0)),
+            None
+        );
+    }
+
+    #[test]
+    fn cannot_build_on_and_off_accessible_shore_with_no_landing_zone() {
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    0.0, 1.1, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let mut travel_duration = road_build_travel_duration();
+        travel_duration.parameters.max_landing_zone_gradient = 0.05;
+        world.reveal_all();
+
+        assert_eq!(
+            travel_duration.get_duration(&world, &v2(0, 0), &v2(1, 0)),
+            None
+        );
+        assert_eq!(
+            travel_duration.get_duration(&world, &v2(1, 0), &v2(0, 0)),
             None
         );
     }
