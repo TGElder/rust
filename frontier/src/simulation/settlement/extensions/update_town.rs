@@ -23,6 +23,7 @@ where
             ),
             nation: get_nation(
                 &settlement.nation,
+                settlement.target_population < settlement.current_population,
                 traffic,
                 params.simulation.nation_flip_traffic_pc,
             ),
@@ -49,9 +50,13 @@ fn get_target_population(
 
 fn get_nation(
     original_nation: &str,
+    in_decline: bool,
     traffic_summaries: &[TownTrafficSummary],
     nation_flip_traffic_pc: f64,
 ) -> String {
+    if in_decline {
+        return original_nation.to_string();
+    }
     let total_traffic_share: f64 = traffic_summaries
         .iter()
         .map(|traffic_summary| traffic_summary.traffic_share)
@@ -229,6 +234,38 @@ mod tests {
 
         // Then
         assert_eq!(updated.nation, "A".to_string());
+    }
+
+    #[test]
+    fn should_keep_original_nation_if_population_is_in_decline() {
+        // Given
+        let settlement = Settlement {
+            nation: "A".to_string(),
+            current_population: 1.0,
+            target_population: 0.5,
+            ..Settlement::default()
+        };
+        let update_town = SettlementSimulation::new(Cx::default(), Arc::new(()));
+
+        // When
+        let updated = block_on(update_town.update_town(
+            settlement,
+            &[
+                TownTrafficSummary {
+                    nation: "B".to_string(),
+                    traffic_share: 32.0,
+                    total_duration: Duration::default(),
+                },
+                TownTrafficSummary {
+                    nation: "C".to_string(),
+                    traffic_share: 68.0,
+                    total_duration: Duration::default(),
+                },
+            ],
+        ));
+
+        // Then
+        assert_eq!(updated.nation, "A".to_string(),);
     }
 
     #[test]
