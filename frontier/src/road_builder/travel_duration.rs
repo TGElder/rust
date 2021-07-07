@@ -112,7 +112,7 @@ impl TravelDuration for RoadBuildTravelDuration {
             return None;
         }
         if let (Some(from), Some(to)) = (world.get_cell(from), world.get_cell(to)) {
-            if from.river.corner() || to.river.corner() || (from.river.here() && to.river.here()) {
+            if from.river.corner() || to.river.corner() || world.is_river(&edge) {
                 None
             } else if world.is_road(&edge) || world.road_planned(&edge).is_some() {
                 self.road
