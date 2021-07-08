@@ -2,11 +2,13 @@ mod groundwater_gen;
 mod rainfall_gen;
 mod river_water;
 mod sea_border;
+mod shore_rivers;
 mod temperature;
 mod validation;
 mod vegetation_gen;
 
 use crate::world::World;
+use crate::world_gen::shore_rivers::add_shore_rivers;
 use commons::equalize::{equalize_with_filter, PositionValue};
 use commons::grid::Grid;
 use commons::scale::Scale;
@@ -126,6 +128,8 @@ fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParame
     for cell in river_cells {
         out.add_river(cell);
     }
+
+    add_shore_rivers(&mut out, params.river_width_range.1 as f32);
 
     let river_water = compute_river_water(&out, &params);
     let river_water = river_water.map(|v| v.sqrt());

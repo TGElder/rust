@@ -23,9 +23,9 @@ where
             ),
             nation: get_nation(
                 &settlement.nation,
-                settlement.target_population < settlement.current_population,
                 traffic,
                 params.simulation.nation_flip_traffic_pc,
+                settlement.target_population < settlement.current_population,
             ),
             gap_half_life: get_gap_half_life(
                 settlement.gap_half_life,
@@ -50,9 +50,9 @@ fn get_target_population(
 
 fn get_nation(
     original_nation: &str,
-    in_decline: bool,
     traffic_summaries: &[TownTrafficSummary],
     nation_flip_traffic_pc: f64,
+    in_decline: bool,
 ) -> String {
     if in_decline {
         return original_nation.to_string();

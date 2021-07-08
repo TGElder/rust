@@ -1,6 +1,7 @@
 mod slab;
 
 use commons::grid::Grid;
+use commons::log::debug;
 pub use slab::Slab;
 
 use super::crop_artist::*;
@@ -199,7 +200,7 @@ impl WorldArtist {
             format!("{:?}-river-positions", slab.from),
             world,
             &result.river_positions,
-            &self.params.river_color,
+            &Color::new(0.0, 1.0, 0.0, 1.0),
             world.sea_level(),
         ));
         out.append(&mut draw_nodes(

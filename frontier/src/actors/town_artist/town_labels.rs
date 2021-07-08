@@ -9,6 +9,7 @@ use crate::traits::{
 };
 use crate::world::World;
 use commons::async_trait::async_trait;
+use commons::log::debug;
 use commons::{unsafe_ordering, V2};
 use isometric::coords::WorldCoord;
 use isometric::drawing::{draw_label, get_house_base_corners};
