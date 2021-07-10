@@ -91,10 +91,21 @@ where
         let border = self.get_border(index, false);
 
         if border.len() == 4 {
-            vec![
-                [border[0], border[2], border[3]],
-                [border[0], border[1], border[2]],
-            ]
+            // Divides square into triangles so highest corner is only in one triangle
+            // This results in nice coastline if all but one corner is below sea level
+            let highest_index = get_index_of_highest_border_point(&border);
+
+            if highest_index == 0 || highest_index == 2 {
+                vec![
+                    [border[0], border[1], border[3]],
+                    [border[1], border[2], border[3]],
+                ]
+            } else {
+                vec![
+                    [border[0], border[2], border[3]],
+                    [border[0], border[1], border[2]],
+                ]
+            }
         } else if border.len() == 3 {
             vec![[border[0], border[1], border[2]]]
         } else {
@@ -172,6 +183,14 @@ fn get_index_for_vertical_edge(position: &V2<usize>) -> V2<usize> {
 
 fn get_index_for_tile(position: &V2<usize>) -> V2<usize> {
     V2::new((position.x * 2) + 1, (position.y * 2) + 1)
+}
+
+fn get_index_of_highest_border_point(border: &[V3<f32>]) -> usize {
+    border.iter()
+        .enumerate()
+        .max_by(|a, b| unsafe_ordering(&a.1.z, &b.1.z))
+        .map(|(i, _)| i)
+        .unwrap()
 }
 
 fn clip_to_tile(mut point: V3<f32>, tile_coordinate: &V2<usize>) -> V3<f32> {
@@ -382,16 +401,33 @@ mod tests {
     }
 
     #[test]
-    fn test_get_triangles_square() {
-        let actual = TerrainGeometry::of(&terrain()).get_triangles(v2(2, 2));
+    fn test_get_triangles_square_highest_corner_top_left() {
+        let actual = TerrainGeometry::of(&terrain()).get_triangles(v2(3, 3));
 
         assert_eq!(
             actual,
             vec![
-                [v3(0.5, 0.5, 4.0), v3(1.5, 1.5, 4.0), v3(0.5, 1.5, 4.0)],
-                [v3(0.5, 0.5, 4.0), v3(1.5, 0.5, 4.0), v3(1.5, 1.5, 4.0)],
+                [v3(1.5, 1.5, 4.0), v3(1.6, 1.1, 3.0), v3(1.1, 1.6, 2.0)],
+                [v3(1.6, 1.1, 3.0), v3(2.0, 2.0, 1.0), v3(1.1, 1.6, 2.0)],
             ]
         );
+    }
+
+    #[test]
+    fn test_get_triangles_square_highest_corner_top_right() {
+        let mut terrain = terrain();
+        terrain[(1, 1)].elevation = 1.0;
+    
+        let actual = TerrainGeometry::of(&terrain).get_triangles(v2(3, 3));
+
+        assert_eq!(
+            actual,
+            vec![
+                [v3(1.5, 1.5, 1.0), v3(2.0, 2.0, 1.0), v3(1.1, 1.6, 2.0)],
+                [v3(1.5, 1.5, 1.0), v3(1.6, 1.1, 3.0), v3(2.0, 2.0, 1.0)],
+            ]
+        );
+
     }
 
     #[test]

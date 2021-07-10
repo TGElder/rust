@@ -1,3 +1,4 @@
+mod dredging;
 mod groundwater_gen;
 mod rainfall_gen;
 mod river_water;
@@ -7,6 +8,7 @@ mod validation;
 mod vegetation_gen;
 
 use crate::world::World;
+use crate::world_gen::dredging::dredge;
 use commons::equalize::{equalize_with_filter, PositionValue};
 use commons::grid::Grid;
 use commons::scale::Scale;
@@ -104,6 +106,8 @@ fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParame
     let terrain = rescaled.get_z_vector().map(|z| z as f32);
     let terrain = with_sea_border(terrain, params.sea_level as f32);
     let mut out = World::new(terrain, params.sea_level as f32);
+
+    dredge(&mut out);
 
     let temperatures = compute_temperatures(&out, &params);
     load_temperatures(&mut out, &temperatures);
