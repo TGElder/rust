@@ -186,7 +186,8 @@ fn get_index_for_tile(position: &V2<usize>) -> V2<usize> {
 }
 
 fn get_index_of_highest_border_point(border: &[V3<f32>]) -> usize {
-    border.iter()
+    border
+        .iter()
         .enumerate()
         .max_by(|a, b| unsafe_ordering(&a.1.z, &b.1.z))
         .map(|(i, _)| i)
@@ -417,7 +418,7 @@ mod tests {
     fn test_get_triangles_square_highest_corner_top_right() {
         let mut terrain = terrain();
         terrain[(1, 1)].elevation = 1.0;
-    
+
         let actual = TerrainGeometry::of(&terrain).get_triangles(v2(3, 3));
 
         assert_eq!(
@@ -427,7 +428,6 @@ mod tests {
                 [v3(1.5, 1.5, 1.0), v3(1.6, 1.1, 3.0), v3(2.0, 2.0, 1.0)],
             ]
         );
-
     }
 
     #[test]
@@ -522,8 +522,8 @@ mod tests {
     fn test_get_triangles_for_tile_b() {
         let actual = TerrainGeometry::of(&terrain()).get_triangles_for_tile(&v2(1, 1));
 
-        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(2.0, 2.0, 1.0), v3(1.1, 1.6, 2.0)]));
-        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(1.6, 1.1, 3.0), v3(2.0, 2.0, 1.0)]));
+        assert!(actual.contains(&[v3(1.5, 1.5, 4.0), v3(1.6, 1.1, 3.0), v3(1.1, 1.6, 2.0)]));
+        assert!(actual.contains(&[v3(1.6, 1.1, 3.0), v3(2.0, 2.0, 1.0), v3(1.1, 1.6, 2.0)]));
         assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.1, 1.6, 2.0), v3(1.0, 1.6, 2.0)]));
         assert!(actual.contains(&[v3(1.0, 1.5, 4.0), v3(1.5, 1.5, 4.0), v3(1.1, 1.6, 2.0)]));
         assert_eq!(actual.len(), 4);
