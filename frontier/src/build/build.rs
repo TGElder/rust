@@ -38,8 +38,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::avatar::Vehicle;
-    use crate::bridge::BridgeType;
-    use crate::travel_duration::EdgeDuration;
+    use crate::bridge::{BridgeType, Pier, Segment};
 
     use super::*;
 
@@ -60,15 +59,27 @@ mod tests {
         // Given
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_millis(1)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 2.0,
+                    },
+                    duration: Duration::from_millis(1),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_millis(2)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 2.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 3.0,
+                    },
+                    duration: Duration::from_millis(2),
                 },
             ],
             Vehicle::None,

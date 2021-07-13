@@ -184,7 +184,7 @@ impl Journey {
             .or_else(|| {
                 bridges
                     .get_lowest_duration_bridge(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.edges_one_way(from))
+                    .map(|bridge| bridge.edge_durations_one_way(from))
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -372,8 +372,8 @@ mod tests {
 
     use std::time::Duration;
 
-    use crate::bridge::Bridge;
     use crate::bridge::BridgeType::Built;
+    use crate::bridge::{Bridge, Pier, Segment};
 
     use super::*;
     use commons::almost::Almost;
@@ -1196,15 +1196,27 @@ mod tests {
         let positions = vec![v2(2, 0), v2(0, 0)];
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_micros(202)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_micros(202),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_micros(404)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_micros(404),
                 },
             ],
             Vehicle::Boat,
