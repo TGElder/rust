@@ -26,7 +26,7 @@ pub struct Segment {
     pub duration: Duration,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Pier {
     pub position: V2<usize>,
     pub elevation: f32,
@@ -79,12 +79,12 @@ impl Bridge {
         &self.bridge_type
     }
 
-    pub fn start(&self) -> V2<usize> {
-        self.segments.first().unwrap().from.position
+    pub fn start(&self) -> Pier {
+        self.segments.first().unwrap().from
     }
 
-    pub fn end(&self) -> V2<usize> {
-        self.segments.last().unwrap().to.position
+    pub fn end(&self) -> Pier {
+        self.segments.last().unwrap().to
     }
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
@@ -92,9 +92,9 @@ impl Bridge {
         &'a self,
         from: &V2<usize>,
     ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
-        if self.start() == *from {
+        if self.start().position == *from {
             Box::new(self.edge_durations())
-        } else if self.end() == *from {
+        } else if self.end().position == *from {
             Box::new(self.edge_durations_reversed())
         } else {
             panic!(
@@ -126,7 +126,7 @@ impl Bridge {
     }
 
     pub fn total_edge(&self) -> Edge {
-        Edge::new(self.start(), self.end())
+        Edge::new(self.start().position, self.end().position)
     }
 
     pub fn total_duration(&self) -> Duration {
@@ -300,18 +300,18 @@ mod tests {
                     },
                     to: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     duration: Duration::from_secs(0),
                 },
                 Segment {
                     from: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     to: Pier {
                         position: v2(2, 0),
-                        elevation: 0.0,
+                        elevation: 2.0,
                     },
                     duration: Duration::from_secs(0),
                 },
@@ -321,7 +321,13 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(bridge.start(), v2(0, 0));
+        assert_eq!(
+            bridge.start(),
+            Pier {
+                position: v2(0, 0),
+                elevation: 0.0,
+            }
+        );
     }
 
     #[test]
@@ -335,18 +341,18 @@ mod tests {
                     },
                     to: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     duration: Duration::from_secs(0),
                 },
                 Segment {
                     from: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     to: Pier {
                         position: v2(2, 0),
-                        elevation: 0.0,
+                        elevation: 2.0,
                     },
                     duration: Duration::from_secs(0),
                 },
@@ -356,7 +362,13 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(bridge.end(), v2(2, 0));
+        assert_eq!(
+            bridge.end(),
+            Pier {
+                position: v2(2, 0),
+                elevation: 2.0,
+            }
+        );
     }
 
     #[test]

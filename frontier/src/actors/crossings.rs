@@ -31,7 +31,7 @@ where
         self.build_bridges(bridges).await;
     }
 
-    async fn get_crossings(&self) -> Vec<[V2<usize>; 3]> {
+    async fn get_crossings(&self) -> Vec<[Pier; 3]> {
         let min_navigable_river_width = self.cx.parameters().npc_travel.min_navigable_river_width;
         let max_gradient = self.cx.parameters().npc_travel.max_walk_gradient;
 
@@ -40,7 +40,7 @@ where
             .await
     }
 
-    async fn get_bridges(&self, crossings: Vec<[V2<usize>; 3]>) -> Vec<Bridge> {
+    async fn get_bridges(&self, crossings: Vec<[Pier; 3]>) -> Vec<Bridge> {
         crossings
             .into_iter()
             .flat_map(|crossing| get_bridge(crossing, self.one_cell_duration))
@@ -65,7 +65,7 @@ fn get_crossings(
     world: &World,
     min_navigable_river_width: &f32,
     max_gradient: &f32,
-) -> Vec<[V2<usize>; 3]> {
+) -> Vec<[Pier; 3]> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -76,13 +76,13 @@ fn get_crossings(
                 world.offset(&position, v2(1, 0)),
             ) {
                 let horizontal = [left, position, right];
-                if is_crossing(
+                if let Some(crossing) = is_crossing(
                     &world,
                     &min_navigable_river_width,
                     &max_gradient,
                     &horizontal,
                 ) {
-                    out.push(horizontal);
+                    out.push(crossing);
                 }
             }
 
@@ -91,8 +91,10 @@ fn get_crossings(
                 world.offset(&position, v2(0, 1)),
             ) {
                 let vertical = [down, position, up];
-                if is_crossing(&world, &min_navigable_river_width, &max_gradient, &vertical) {
-                    out.push(vertical);
+                if let Some(crossing) =
+                    is_crossing(&world, &min_navigable_river_width, &max_gradient, &vertical)
+                {
+                    out.push(crossing);
                 }
             }
         }
@@ -105,9 +107,9 @@ fn is_crossing(
     min_navigable_river_width: &f32,
     max_gradient: &f32,
     positions: &[V2<usize>; 3],
-) -> bool {
+) -> Option<[Pier; 3]> {
     if world.is_sea(&positions[0]) || world.is_sea(&positions[2]) {
-        return false;
+        return None;
     }
 
     let cells = positions
@@ -117,56 +119,57 @@ fn is_crossing(
 
     if cells.len() != 3 {
         // At least one of the positions is out of bounds
-        return false;
+        return None;
     }
 
     if cells[1].river.longest_side() < *min_navigable_river_width {
-        return false;
+        return None;
     }
 
     if cells[0].elevation <= cells[1].elevation || cells[2].elevation <= cells[1].elevation {
         // Bridge is convex, meaning it will pass beneath terrain
-        return false;
+        return None;
     }
 
     if cells[0].river.here() || cells[2].river.here() {
-        return false;
+        return None;
     }
 
     if world.get_rise(&positions[0], &positions[1]).unwrap().abs() > *max_gradient {
-        return false;
+        return None;
     }
 
     if world.get_rise(&positions[1], &positions[2]).unwrap().abs() > *max_gradient {
-        return false;
+        return None;
     }
 
-    true
+    Some([
+        Pier {
+            position: positions[0],
+            elevation: world.get_cell_unsafe(&positions[0]).elevation,
+        },
+        Pier {
+            position: positions[1],
+            elevation: world.get_cell_unsafe(&positions[1]).elevation,
+        },
+        Pier {
+            position: positions[2],
+            elevation: world.get_cell_unsafe(&positions[2]).elevation,
+        },
+    ])
 }
 
-fn get_bridge(crossing: [V2<usize>; 3], duration: Duration) -> Result<Bridge, InvalidBridge> {
+fn get_bridge(crossing: [Pier; 3], duration: Duration) -> Result<Bridge, InvalidBridge> {
     Bridge::new(
         vec![
             Segment {
-                from: Pier {
-                    position: crossing[0],
-                    elevation: 0.0, // TODO set properly
-                },
-                to: Pier {
-                    position: crossing[1],
-                    elevation: 0.0,
-                },
+                from: crossing[0],
+                to: crossing[1],
                 duration,
             },
             Segment {
-                from: Pier {
-                    position: crossing[1],
-                    elevation: 0.0,
-                },
-                to: Pier {
-                    position: crossing[2],
-                    elevation: 0.0,
-                },
+                from: crossing[1],
+                to: crossing[2],
                 duration,
             },
         ],

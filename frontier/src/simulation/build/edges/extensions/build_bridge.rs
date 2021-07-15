@@ -5,7 +5,7 @@ use std::time::Duration;
 use commons::edge::Edge;
 
 use crate::avatar::Vehicle;
-use crate::bridge::{Bridge, BridgeType, Bridges, Pier, Segment};
+use crate::bridge::{Bridge, BridgeType, Bridges, Segment};
 use crate::build::{Build, BuildInstruction, BuildKey};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
@@ -78,20 +78,14 @@ fn get_candidates(bridges: &Bridges, edges: &HashSet<Edge>, duration: &Duration)
 
 fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<Bridge> {
     let edge_bridges = bridges.get(edge)?;
-    edge_bridges
+    let theoretical = edge_bridges
         .iter()
         .find(|bridge| *bridge.bridge_type() == BridgeType::Theoretical)?;
 
     let built = Bridge::new(
         vec![Segment {
-            from: Pier {
-                position: *edge.from(),
-                elevation: 0.0, // TODO set properly
-            },
-            to: Pier {
-                position: *edge.to(),
-                elevation: 0.0,
-            },
+            from: theoretical.start(),
+            to: theoretical.end(),
             duration: *duration * edge.length().try_into().unwrap(),
         }],
         Vehicle::None,
@@ -115,6 +109,7 @@ mod tests {
     use commons::v2;
     use futures::executor::block_on;
 
+    use crate::bridge::Pier;
     use crate::parameters::Parameters;
     use crate::resource::Resource;
     use crate::route::{Route, RouteKey, Routes, RoutesExt};
@@ -218,11 +213,11 @@ mod tests {
             vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
-                    elevation: 0.0,
+                    elevation: 1.0,
                 },
                 to: Pier {
                     position: v2(1, 2),
-                    elevation: 0.0,
+                    elevation: 2.0,
                 },
                 duration: Duration::from_millis(11 * 2),
             }],

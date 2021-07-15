@@ -70,15 +70,30 @@ where
         if !self.is_valid_bridge(&edge).await {
             return;
         }
+
+        let (from_z, to_z) = match self
+            .cx
+            .with_world(|world| {
+                (
+                    world.get_cell(edge.from()).map(|cell| cell.elevation),
+                    world.get_cell(edge.to()).map(|cell| cell.elevation),
+                )
+            })
+            .await
+        {
+            (Some(from_z), Some(to_z)) => (from_z, to_z),
+            _ => return,
+        };
+
         let bridge = Bridge::new(
             vec![Segment {
                 from: Pier {
                     position: *edge.from(),
-                    elevation: 0.0, // TODO set properly
+                    elevation: from_z,
                 },
                 to: Pier {
                     position: *edge.to(),
-                    elevation: 0.0,
+                    elevation: to_z,
                 },
                 duration: Duration::from_millis(self.parameters.bridge_duration_millis)
                     * (edge.length() as u32),
