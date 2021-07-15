@@ -360,7 +360,7 @@ mod tests {
     }
 
     #[test]
-    fn one_way_edge_durations_from_start() {
+    fn edge_durations_one_way_from_start() {
         let bridge = Bridge::new(
             vec![
                 Segment {
@@ -409,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn one_way_edge_durations_from_end() {
+    fn edge_durations_one_way_from_end() {
         let bridge = Bridge::new(
             vec![
                 Segment {
