@@ -2,6 +2,7 @@ use commons::V2;
 use serde::{Deserialize, Serialize};
 
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::iter::once;
 use std::time::Duration;
 use std::{error, fmt};
@@ -13,10 +14,40 @@ use crate::travel_duration::EdgeDuration;
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Bridge {
-    edges: Vec<EdgeDuration>,
+    segments: Vec<Segment>,
     vehicle: Vehicle,
     bridge_type: BridgeType,
 }
+
+#[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub struct Segment {
+    pub from: Pier,
+    pub to: Pier,
+    pub duration: Duration,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Pier {
+    pub position: V2<usize>,
+    pub elevation: f32,
+}
+
+impl Hash for Pier {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        self.position.hash(state);
+    }
+}
+
+impl PartialEq for Pier {
+    fn eq(&self, other: &Self) -> bool {
+        self.position == other.position
+    }
+}
+
+impl Eq for Pier {}
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum BridgeType {
@@ -28,13 +59,13 @@ pub type Bridges = HashMap<Edge, HashSet<Bridge>>;
 
 impl Bridge {
     pub fn new(
-        edges: Vec<EdgeDuration>,
+        segments: Vec<Segment>,
         vehicle: Vehicle,
         bridge_type: BridgeType,
     ) -> Result<Bridge, InvalidBridge> {
-        Self::validate_edges(&edges)?;
+        Self::validate_segments(&segments)?;
         Ok(Bridge {
-            edges,
+            segments,
             vehicle,
             bridge_type,
         })
@@ -49,38 +80,47 @@ impl Bridge {
     }
 
     pub fn start(&self) -> V2<usize> {
-        self.edges.first().unwrap().from
+        self.segments.first().unwrap().from.position
     }
 
     pub fn end(&self) -> V2<usize> {
-        self.edges.last().unwrap().to
+        self.segments.last().unwrap().to.position
     }
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    pub fn edges_one_way<'a>(
+    pub fn edge_durations_one_way<'a>(
         &'a self,
         from: &V2<usize>,
     ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
         if self.start() == *from {
-            Box::new(self.edges.iter().cloned())
+            Box::new(self.edge_durations())
         } else if self.end() == *from {
-            Box::new(self.edges_reversed())
+            Box::new(self.edge_durations_reversed())
         } else {
             panic!(
                 "Position {} is at neither end of the bridge {:?}!",
-                from, self.edges
+                from, self.segments
             );
         }
     }
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    fn edges_reversed<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
-        self.edges
+    fn edge_durations<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
+        self.segments.iter().map(|segment| EdgeDuration {
+            from: segment.from.position,
+            to: segment.to.position,
+            duration: Some(segment.duration),
+        })
+    }
+
+    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
+    fn edge_durations_reversed<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
+        self.segments
             .iter()
-            .map(|edge| EdgeDuration {
-                from: edge.to,
-                to: edge.from,
-                duration: edge.duration,
+            .map(|segment| EdgeDuration {
+                from: segment.to.position,
+                to: segment.from.position,
+                duration: Some(segment.duration),
             })
             .rev()
     }
@@ -90,7 +130,7 @@ impl Bridge {
     }
 
     pub fn total_duration(&self) -> Duration {
-        self.edges.iter().flat_map(|edge| edge.duration).sum()
+        self.segments.iter().map(|edge| edge.duration).sum()
     }
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
@@ -109,17 +149,17 @@ impl Bridge {
         }))
     }
 
-    fn validate_edges(edges: &[EdgeDuration]) -> Result<(), InvalidBridge> {
-        let first = unwrap_or!(edges.first(), return Err(InvalidBridge::Empty));
-        let last = edges.last().unwrap();
+    fn validate_segments(segments: &[Segment]) -> Result<(), InvalidBridge> {
+        let first = unwrap_or!(segments.first(), return Err(InvalidBridge::Empty));
+        let last = segments.last().unwrap();
 
-        if Edge::new_safe(first.from, last.to).is_err() {
+        if Edge::new_safe(first.from.position, last.to.position).is_err() {
             return Err(InvalidBridge::Diagonal);
         }
 
-        let next = edges.iter().skip(1);
-        edges.iter().zip(next).try_for_each(|(a, b)| {
-            if a.to != b.from {
+        let next = segments.iter().skip(1);
+        segments.iter().zip(next).try_for_each(|(a, b)| {
+            if a.to.position != b.from.position {
                 Err(InvalidBridge::Discontinuous)
             } else {
                 Ok(())
@@ -161,11 +201,11 @@ pub enum InvalidBridge {
 impl fmt::Display for InvalidBridge {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            InvalidBridge::Empty => write!(f, "Bridge must have at least one edge"),
+            InvalidBridge::Empty => write!(f, "Bridge must have at least one segment"),
             InvalidBridge::Diagonal => {
                 write!(f, "Bridge start and end must have same x or y coordinate")
             }
-            InvalidBridge::Discontinuous => write!(f, "Bridge edges are not continuous"),
+            InvalidBridge::Discontinuous => write!(f, "Bridge segments are not continuous"),
         }
     }
 }
@@ -196,10 +236,16 @@ mod tests {
     fn diagonal_bridge() {
         assert_eq!(
             Bridge::new(
-                vec![EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 1),
-                    duration: Some(Duration::from_secs(0))
+                vec![Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 1),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(0)
                 }],
                 Vehicle::None,
                 BridgeType::Built
@@ -213,15 +259,27 @@ mod tests {
         assert_eq!(
             Bridge::new(
                 vec![
-                    EdgeDuration {
-                        from: v2(0, 0),
-                        to: v2(1, 0),
-                        duration: Some(Duration::from_secs(0))
+                    Segment {
+                        from: Pier {
+                            position: v2(0, 0),
+                            elevation: 0.0,
+                        },
+                        to: Pier {
+                            position: v2(1, 0),
+                            elevation: 0.0,
+                        },
+                        duration: Duration::from_secs(0)
                     },
-                    EdgeDuration {
-                        from: v2(2, 0),
-                        to: v2(3, 0),
-                        duration: Some(Duration::from_secs(0))
+                    Segment {
+                        from: Pier {
+                            position: v2(2, 0),
+                            elevation: 0.0,
+                        },
+                        to: Pier {
+                            position: v2(3, 0),
+                            elevation: 0.0,
+                        },
+                        duration: Duration::from_secs(0)
                     }
                 ],
                 Vehicle::None,
@@ -235,15 +293,27 @@ mod tests {
     fn start() {
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(0)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(0),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(0)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(0),
                 },
             ],
             Vehicle::None,
@@ -258,15 +328,27 @@ mod tests {
     fn end() {
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(0)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(0),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(0)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(0),
                 },
             ],
             Vehicle::None,
@@ -278,18 +360,30 @@ mod tests {
     }
 
     #[test]
-    fn one_way_edges_from_start() {
+    fn edge_durations_one_way_from_start() {
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(1)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(1),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(2)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(2),
                 },
             ],
             Vehicle::None,
@@ -298,7 +392,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            bridge.edges_one_way(&v2(0, 0)).collect::<Vec<_>>(),
+            bridge.edge_durations_one_way(&v2(0, 0)).collect::<Vec<_>>(),
             vec![
                 EdgeDuration {
                     from: v2(0, 0),
@@ -315,18 +409,30 @@ mod tests {
     }
 
     #[test]
-    fn one_way_edges_from_end() {
+    fn edge_durations_one_way_from_end() {
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(1)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(1),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(2)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(2),
                 },
             ],
             Vehicle::None,
@@ -335,7 +441,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            bridge.edges_one_way(&v2(2, 0)).collect::<Vec<_>>(),
+            bridge.edge_durations_one_way(&v2(2, 0)).collect::<Vec<_>>(),
             vec![
                 EdgeDuration {
                     from: v2(2, 0),
@@ -355,15 +461,27 @@ mod tests {
     fn total_edge() {
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(0)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(0),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(0)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(0),
                 },
             ],
             Vehicle::None,
@@ -378,15 +496,27 @@ mod tests {
     fn total_duration() {
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(1)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(1),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(2)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(2),
                 },
             ],
             Vehicle::None,
@@ -401,15 +531,27 @@ mod tests {
     fn total_edge_durations() {
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(1)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(1),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(2)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(2),
                 },
             ],
             Vehicle::None,
@@ -439,20 +581,32 @@ mod tests {
         // Given
         let edge = Edge::new(v2(0, 0), v2(1, 0));
         let bridge_1 = Bridge::new(
-            vec![EdgeDuration {
-                from: v2(0, 0),
-                to: v2(1, 0),
-                duration: Some(Duration::from_secs(1)),
+            vec![Segment {
+                from: Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                },
+                to: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                },
+                duration: Duration::from_secs(1),
             }],
             Vehicle::None,
             BridgeType::Built,
         )
         .unwrap();
         let bridge_2 = Bridge::new(
-            vec![EdgeDuration {
-                from: v2(0, 0),
-                to: v2(1, 0),
-                duration: Some(Duration::from_secs(2)),
+            vec![Segment {
+                from: Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                },
+                to: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                },
+                duration: Duration::from_secs(2),
             }],
             Vehicle::None,
             BridgeType::Built,
@@ -474,20 +628,32 @@ mod tests {
         // Edge from (1, 0) with with multiple built bridges - counts as 1
         let edge_1 = Edge::new(v2(1, 0), v2(1, 1));
         let edge_1_bridge_1 = Bridge::new(
-            vec![EdgeDuration {
-                from: v2(1, 0),
-                to: v2(1, 1),
-                duration: Some(Duration::from_secs(1)),
+            vec![Segment {
+                from: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                },
+                to: Pier {
+                    position: v2(1, 1),
+                    elevation: 0.0,
+                },
+                duration: Duration::from_secs(1),
             }],
             Vehicle::None,
             BridgeType::Built,
         )
         .unwrap();
         let edge_1_bridge_2 = Bridge::new(
-            vec![EdgeDuration {
-                from: v2(1, 0),
-                to: v2(1, 1),
-                duration: Some(Duration::from_secs(2)),
+            vec![Segment {
+                from: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                },
+                to: Pier {
+                    position: v2(1, 1),
+                    elevation: 0.0,
+                },
+                duration: Duration::from_secs(2),
             }],
             Vehicle::None,
             BridgeType::Built,
@@ -497,10 +663,16 @@ mod tests {
         // Edge from (1, 0) with theoretical bridge - not counted
         let edge_2 = Edge::new(v2(1, 0), v2(1, 2));
         let edge_2_bridge_1 = Bridge::new(
-            vec![EdgeDuration {
-                from: v2(1, 0),
-                to: v2(1, 2),
-                duration: Some(Duration::from_secs(1)),
+            vec![Segment {
+                from: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                },
+                to: Pier {
+                    position: v2(1, 2),
+                    elevation: 0.0,
+                },
+                duration: Duration::from_secs(1),
             }],
             Vehicle::None,
             BridgeType::Theoretical,
@@ -510,10 +682,16 @@ mod tests {
         // Edge not from or to (1, 0) - not counted
         let edge_3 = Edge::new(v2(1, 1), v2(1, 3));
         let edge_3_bridge_1 = Bridge::new(
-            vec![EdgeDuration {
-                from: v2(1, 1),
-                to: v2(1, 3),
-                duration: Some(Duration::from_secs(1)),
+            vec![Segment {
+                from: Pier {
+                    position: v2(1, 1),
+                    elevation: 0.0,
+                },
+                to: Pier {
+                    position: v2(1, 3),
+                    elevation: 0.0,
+                },
+                duration: Duration::from_secs(1),
             }],
             Vehicle::None,
             BridgeType::Built,
@@ -523,10 +701,16 @@ mod tests {
         // Edge to (1, 0) - counts as 1
         let edge_4 = Edge::new(v2(0, 0), v2(1, 0));
         let edge_4_bridge_1 = Bridge::new(
-            vec![EdgeDuration {
-                from: v2(0, 0),
-                to: v2(1, 0),
-                duration: Some(Duration::from_secs(1)),
+            vec![Segment {
+                from: Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                },
+                to: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                },
+                duration: Duration::from_secs(1),
             }],
             Vehicle::None,
             BridgeType::Built,

@@ -1,8 +1,7 @@
-use crate::bridge::Bridge;
 use crate::bridge::BridgeType::Built;
+use crate::bridge::{Bridge, Pier, Segment};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{AddBridge, RemoveBridge, WithWorld};
-use crate::travel_duration::EdgeDuration;
 use commons::async_trait::async_trait;
 use commons::edge::Edge;
 use commons::grid::Grid;
@@ -72,13 +71,17 @@ where
             return;
         }
         let bridge = Bridge::new(
-            vec![EdgeDuration {
-                from: *edge.from(),
-                to: *edge.to(),
-                duration: Some(
-                    Duration::from_millis(self.parameters.bridge_duration_millis)
-                        * (edge.length() as u32),
-                ),
+            vec![Segment {
+                from: Pier {
+                    position: *edge.from(),
+                    elevation: 0.0, // TODO set properly
+                },
+                to: Pier {
+                    position: *edge.to(),
+                    elevation: 0.0,
+                },
+                duration: Duration::from_millis(self.parameters.bridge_duration_millis)
+                    * (edge.length() as u32),
             }],
             crate::avatar::Vehicle::None,
             Built,

@@ -5,14 +5,13 @@ use std::time::Duration;
 use commons::edge::Edge;
 
 use crate::avatar::Vehicle;
-use crate::bridge::{Bridge, BridgeType, Bridges};
+use crate::bridge::{Bridge, BridgeType, Bridges, Pier, Segment};
 use crate::build::{Build, BuildInstruction, BuildKey};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     GetBuildInstruction, InsertBuildInstruction, WithBridges, WithEdgeTraffic, WithRoutes,
 };
-use crate::travel_duration::EdgeDuration;
 
 impl<T, D> EdgeBuildSimulation<T, D>
 where
@@ -84,10 +83,16 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
         .find(|bridge| *bridge.bridge_type() == BridgeType::Theoretical)?;
 
     let built = Bridge::new(
-        vec![EdgeDuration {
-            from: *edge.from(),
-            to: *edge.to(),
-            duration: Some(*duration * edge.length().try_into().unwrap()),
+        vec![Segment {
+            from: Pier {
+                position: *edge.from(),
+                elevation: 0.0, // TODO set properly
+            },
+            to: Pier {
+                position: *edge.to(),
+                elevation: 0.0,
+            },
+            duration: *duration * edge.length().try_into().unwrap(),
         }],
         Vehicle::None,
         BridgeType::Built,
@@ -210,10 +215,16 @@ mod tests {
 
     fn happy_path_bridge(bridge_type: BridgeType) -> Bridge {
         Bridge::new(
-            vec![EdgeDuration {
-                from: v2(1, 0),
-                to: v2(1, 2),
-                duration: Some(Duration::from_millis(11 * 2)),
+            vec![Segment {
+                from: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                },
+                to: Pier {
+                    position: v2(1, 2),
+                    elevation: 0.0,
+                },
+                duration: Duration::from_millis(11 * 2),
             }],
             Vehicle::None,
             bridge_type,

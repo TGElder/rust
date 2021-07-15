@@ -47,8 +47,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::avatar::Vehicle;
-    use crate::bridge::{Bridge, BridgeType};
-    use crate::travel_duration::EdgeDuration;
+    use crate::bridge::{Bridge, BridgeType, Pier, Segment};
 
     use super::*;
 
@@ -63,21 +62,33 @@ mod tests {
     }
 
     #[test]
-    fn can_build_road() {
+    fn can_build_bridge() {
         // Given
         let game = Arc::new(Mutex::new(hashset! {}));
         let builder = BridgeBuilder::new(game);
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_millis(1)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 2.0,
+                    },
+                    duration: Duration::from_millis(1),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_millis(2)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 2.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 3.0,
+                    },
+                    duration: Duration::from_millis(2),
                 },
             ],
             Vehicle::None,
@@ -99,15 +110,27 @@ mod tests {
         let mut builder = BridgeBuilder::new(game);
         let bridge = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_millis(1)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 2.0,
+                    },
+                    duration: Duration::from_millis(1),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_millis(2)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 2.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 3.0,
+                    },
+                    duration: Duration::from_millis(2),
                 },
             ],
             Vehicle::None,
@@ -129,15 +152,27 @@ mod tests {
         let mut builder = BridgeBuilder::new(game);
         let bridge_1 = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_millis(1)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 2.0,
+                    },
+                    duration: Duration::from_millis(1),
                 },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_millis(2)),
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 2.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 3.0,
+                    },
+                    duration: Duration::from_millis(2),
                 },
             ],
             Vehicle::None,
@@ -146,15 +181,27 @@ mod tests {
         .unwrap();
         let bridge_2 = Bridge::new(
             vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(0, 1),
-                    duration: Some(Duration::from_millis(1)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 1.0,
+                    },
+                    to: Pier {
+                        position: v2(0, 1),
+                        elevation: 2.0,
+                    },
+                    duration: Duration::from_millis(1),
                 },
-                EdgeDuration {
-                    from: v2(0, 1),
-                    to: v2(0, 2),
-                    duration: Some(Duration::from_millis(2)),
+                Segment {
+                    from: Pier {
+                        position: v2(0, 1),
+                        elevation: 2.0,
+                    },
+                    to: Pier {
+                        position: v2(0, 2),
+                        elevation: 3.0,
+                    },
+                    duration: Duration::from_millis(2),
                 },
             ],
             Vehicle::None,

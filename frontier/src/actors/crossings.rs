@@ -4,10 +4,9 @@ use commons::grid::Grid;
 use commons::{v2, V2};
 
 use crate::avatar::Vehicle;
-use crate::bridge::{Bridge, BridgeType, InvalidBridge};
+use crate::bridge::{Bridge, BridgeType, InvalidBridge, Pier, Segment};
 use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
-use crate::travel_duration::EdgeDuration;
 use crate::world::World;
 
 pub struct Crossings<T> {
@@ -148,15 +147,27 @@ fn is_crossing(
 fn get_bridge(crossing: [V2<usize>; 3], duration: Duration) -> Result<Bridge, InvalidBridge> {
     Bridge::new(
         vec![
-            EdgeDuration {
-                from: crossing[0],
-                to: crossing[1],
-                duration: Some(duration),
+            Segment {
+                from: Pier {
+                    position: crossing[0],
+                    elevation: 0.0, // TODO set properly
+                },
+                to: Pier {
+                    position: crossing[1],
+                    elevation: 0.0,
+                },
+                duration,
             },
-            EdgeDuration {
-                from: crossing[1],
-                to: crossing[2],
-                duration: Some(duration),
+            Segment {
+                from: Pier {
+                    position: crossing[1],
+                    elevation: 0.0,
+                },
+                to: Pier {
+                    position: crossing[2],
+                    elevation: 0.0,
+                },
+                duration,
             },
         ],
         Vehicle::None,
