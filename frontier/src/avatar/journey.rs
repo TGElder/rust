@@ -1,5 +1,5 @@
 use super::*;
-use crate::bridge::{Bridges, BridgesExt};
+use crate::bridge::{Bridges, BridgesExt, Pier, Segment};
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::Edge;
@@ -106,13 +106,13 @@ impl Journey {
             let from = positions[p];
             let to = positions[p + 1];
             let vehicle = Self::vehicle(world, &from, &to, vehicle_fn, bridges);
-            for EdgeDuration { from, to, duration } in
-                Self::edge_durations(world, &from, &to, travel_duration, bridges)
-            {
-                next_arrival_time += duration.unwrap_or_default().as_micros();
+            for segment in Self::segments(world, &from, &to, travel_duration, bridges) {
+                let from = segment.from.position;
+                let to = segment.to.position;
+                next_arrival_time += segment.duration.as_micros();
                 out.push(Frame {
                     position: to,
-                    elevation: Self::get_elevation(world, &to),
+                    elevation: segment.to.elevation,
                     arrival: next_arrival_time,
                     vehicle,
                     rotation: Self::rotation(&from, &to),
@@ -163,32 +163,34 @@ impl Journey {
         }
     }
 
-    fn edge_durations<'a>(
+    fn segments<'a>(
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
         bridges: &'a Bridges,
-    ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
+    ) -> Box<dyn Iterator<Item = Segment> + 'a> {
         travel_duration
             .get_duration(world, &from, &to)
             .map(|duration| {
-                let edge = EdgeDuration {
-                    from: *from,
-                    to: *to,
-                    duration: Some(duration),
+                let edge = Segment {
+                    from: Pier {
+                        position: *from,
+                        elevation: Self::get_elevation(world, from),
+                    },
+                    to: Pier {
+                        position: *to,
+                        elevation: Self::get_elevation(world, to),
+                    },
+                    duration,
                 };
-                let iterator: Box<dyn Iterator<Item = EdgeDuration>> = Box::new(once(edge));
+                let iterator: Box<dyn Iterator<Item = Segment>> = Box::new(once(edge));
                 iterator
             })
             .or_else(|| {
                 bridges
                     .get_lowest_duration_bridge(&Edge::new(*from, *to))
-                    .map(|bridge| {
-                        let iterator: Box<dyn Iterator<Item = EdgeDuration>> =
-                            Box::new(bridge.edge_durations_one_way(from));
-                        iterator
-                    })
+                    .map(|bridge| bridge.segments_one_way(from))
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -1207,18 +1209,18 @@ mod tests {
                     },
                     to: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     duration: Duration::from_micros(202),
                 },
                 Segment {
                     from: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     to: Pier {
                         position: v2(2, 0),
-                        elevation: 0.0,
+                        elevation: 2.0,
                     },
                     duration: Duration::from_micros(404),
                 },
@@ -1247,7 +1249,7 @@ mod tests {
                 },
                 Frame {
                     position: v2(1, 0),
-                    elevation: 2.0,
+                    elevation: 1.0,
                     arrival: 404,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,
@@ -1255,7 +1257,7 @@ mod tests {
                 },
                 Frame {
                     position: v2(0, 0),
-                    elevation: 1.0,
+                    elevation: 0.0,
                     arrival: 606,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,

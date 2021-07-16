@@ -533,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    fn segments_durations_one_way_from_end() {
+    fn segments_one_way_from_end() {
         let bridge = Bridge::new(
             vec![
                 Segment {
