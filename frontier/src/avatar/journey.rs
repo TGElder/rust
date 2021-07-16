@@ -184,7 +184,11 @@ impl Journey {
             .or_else(|| {
                 bridges
                     .get_lowest_duration_bridge(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.edge_durations_one_way(from))
+                    .map(|bridge| {
+                        let iterator: Box<dyn Iterator<Item = EdgeDuration>> =
+                            Box::new(bridge.edge_durations_one_way(from));
+                        iterator
+                    })
             })
             .unwrap_or_else(|| {
                 panic!(

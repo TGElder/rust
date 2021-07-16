@@ -91,11 +91,22 @@ impl Bridge {
     pub fn edge_durations_one_way<'a>(
         &'a self,
         from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = EdgeDuration> + 'a> {
+    ) -> impl Iterator<Item = EdgeDuration> + 'a {
+        self.segments_one_way(from).map(|segment| EdgeDuration {
+            from: segment.from.position,
+            to: segment.to.position,
+            duration: Some(segment.duration),
+        })
+    }
+
+    pub fn segments_one_way<'a>(
+        &'a self,
+        from: &V2<usize>,
+    ) -> Box<dyn Iterator<Item = Segment> + 'a> {
         if self.start().position == *from {
-            Box::new(self.edge_durations())
+            Box::new(self.segments.iter().cloned())
         } else if self.end().position == *from {
-            Box::new(self.edge_durations_reversed())
+            Box::new(self.segments_reversed())
         } else {
             panic!(
                 "Position {} is at neither end of the bridge {:?}!",
@@ -105,22 +116,13 @@ impl Bridge {
     }
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    fn edge_durations<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
-        self.segments.iter().map(|segment| EdgeDuration {
-            from: segment.from.position,
-            to: segment.to.position,
-            duration: Some(segment.duration),
-        })
-    }
-
-    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    fn edge_durations_reversed<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
+    fn segments_reversed<'a>(&'a self) -> impl Iterator<Item = Segment> + 'a {
         self.segments
             .iter()
-            .map(|segment| EdgeDuration {
-                from: segment.to.position,
-                to: segment.from.position,
-                duration: Some(segment.duration),
+            .map(|segment| Segment {
+                from: segment.to,
+                to: segment.from,
+                duration: segment.duration,
             })
             .rev()
     }
@@ -464,6 +466,128 @@ mod tests {
                     from: v2(1, 0),
                     to: v2(0, 0),
                     duration: Some(Duration::from_secs(1)),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn segments_one_way_from_start() {
+        let bridge = Bridge::new(
+            vec![
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                    },
+                    duration: Duration::from_secs(1),
+                },
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 2.0,
+                    },
+                    duration: Duration::from_secs(2),
+                },
+            ],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+
+        assert_eq!(
+            bridge.segments_one_way(&v2(0, 0)).collect::<Vec<_>>(),
+            vec![
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                    },
+                    duration: Duration::from_secs(1),
+                },
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 2.0,
+                    },
+                    duration: Duration::from_secs(2),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn segments_durations_one_way_from_end() {
+        let bridge = Bridge::new(
+            vec![
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                    },
+                    duration: Duration::from_secs(1),
+                },
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                    },
+                    to: Pier {
+                        position: v2(2, 0),
+                        elevation: 2.0,
+                    },
+                    duration: Duration::from_secs(2),
+                },
+            ],
+            Vehicle::None,
+            BridgeType::Built,
+        )
+        .unwrap();
+
+        assert_eq!(
+            bridge.segments_one_way(&v2(2, 0)).collect::<Vec<_>>(),
+            vec![
+                Segment {
+                    from: Pier {
+                        position: v2(2, 0),
+                        elevation: 2.0,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                    },
+                    duration: Duration::from_secs(2),
+                },
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                    },
+                    to: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                    },
+                    duration: Duration::from_secs(1),
                 },
             ]
         );
