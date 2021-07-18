@@ -38,39 +38,6 @@ where
             })
     }
 
-    fn get_border(&self, index: V2<usize>, include_invisible: bool) -> Vec<V3<f32>> {
-        let offsets: [V2<usize>; 4] = [v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)];
-
-        let mut out = vec![];
-
-        for o in 0..4 {
-            let focus_index = index + offsets[o];
-
-            if !include_invisible
-                && !self
-                    .terrain
-                    .get_cell(&(focus_index / 2))
-                    .unwrap()
-                    .is_visible()
-            {
-                continue;
-            }
-
-            let next_index = index + offsets[(o + 1) % 4];
-
-            let focus_position = self.get_vertex(v2(focus_index.x, focus_index.y));
-            let next_position = self.get_vertex(v2(next_index.x, next_index.y));
-
-            if let (Some(focus_position), Some(next_position)) = (focus_position, next_position) {
-                if focus_position != next_position {
-                    out.push(focus_position);
-                }
-            }
-        }
-
-        out
-    }
-
     pub fn get_original_border_for_tile(&self, position: &V2<usize>) -> Vec<V3<f32>> {
         let offsets: [V2<usize>; 4] = [v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)];
         offsets
@@ -88,29 +55,43 @@ where
     }
 
     fn get_triangles(&self, index: V2<usize>) -> Vec<[V3<f32>; 3]> {
-        let border = self.get_border(index, false);
+        let offsets: [V2<usize>; 4] = [v2(0, 0), v2(1, 0), v2(1, 1), v2(0, 1)];
+        let positions = [
+            index + offsets[0],
+            index + offsets[1],
+            index + offsets[2],
+            index + offsets[3],
+        ];
+        let vertices = [
+            self.get_vertex(positions[0]).unwrap(),
+            self.get_vertex(positions[1]).unwrap(),
+            self.get_vertex(positions[2]).unwrap(),
+            self.get_vertex(positions[3]).unwrap(),
+        ];
+        let highest_index = get_index_of_highest_border_point(&vertices);
 
-        if border.len() == 4 {
-            // Divides square into triangles so highest corner is only in one triangle
-            // This results in nice coastline if all but one corner is below sea level
-            let highest_index = get_index_of_highest_border_point(&border);
-
-            if highest_index == 0 || highest_index == 2 {
-                vec![
-                    [border[0], border[1], border[3]],
-                    [border[1], border[2], border[3]],
-                ]
-            } else {
-                vec![
-                    [border[0], border[2], border[3]],
-                    [border[0], border[1], border[2]],
-                ]
-            }
-        } else if border.len() == 3 {
-            vec![[border[0], border[1], border[2]]]
+        // Divides square into triangles so highest corner is only in one triangle
+        // This results in nice coastline if all but one corner is below sea level
+        let triangle_indices = if highest_index == 0 || highest_index == 2 {
+            [[0, 1, 3], [1, 2, 3]]
         } else {
-            vec![]
-        }
+            [[0, 2, 3], [0, 1, 2]]
+        };
+
+        triangle_indices
+            .iter()
+            .filter(|[a, b, c]| {
+                self.triangle_is_visible(&[positions[*a], positions[*b], positions[*c]])
+            })
+            .map(|[a, b, c]| [vertices[*a], vertices[*b], vertices[*c]])
+            .filter(|[a, b, c]| a != b && b != c && c != a)
+            .collect()
+    }
+
+    fn triangle_is_visible(&self, triangle: &[V2<usize>; 3]) -> bool {
+        triangle
+            .iter()
+            .all(|corner| self.terrain.get_cell_unsafe(&(corner / 2)).is_visible())
     }
 
     pub fn get_triangles_for_node(&self, position: &V2<usize>) -> Vec<[V3<f32>; 3]> {
@@ -320,73 +301,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_border_square() {
-        let actual = TerrainGeometry::of(&terrain()).get_border(v2(2, 2), true);
-
-        assert_eq!(
-            actual,
-            vec![
-                v3(0.5, 0.5, 4.0),
-                v3(1.5, 0.5, 4.0),
-                v3(1.5, 1.5, 4.0),
-                v3(0.5, 1.5, 4.0),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_get_border_triangle() {
-        let actual = TerrainGeometry::of(&terrain()).get_border(v2(2, 1), true);
-
-        assert_eq!(
-            actual,
-            vec![v3(1.0, 0.0, 0.0), v3(1.5, 0.5, 4.0), v3(0.5, 0.5, 4.0),]
-        );
-    }
-
-    #[test]
-    fn test_get_border_line() {
-        let actual = TerrainGeometry::of(&terrain()).get_border(v2(1, 0), true);
-
-        assert_eq!(actual, vec![v3(0.0, 0.0, 0.0), v3(1.0, 0.0, 0.0),]);
-    }
-
-    #[test]
-    fn test_get_border_empty() {
-        let actual = TerrainGeometry::of(&terrain()).get_border(v2(0, 0), true);
-
-        assert!(actual.is_empty());
-    }
-
-    #[test]
-    fn test_get_border_with_invisible_vertices() {
-        let mut terrain = terrain();
-
-        assert_eq!(
-            TerrainGeometry::of(&terrain).get_border(v2(3, 2), false),
-            vec![
-                v3(1.5, 0.5, 4.0),
-                v3(1.6, 0.9, 3.0),
-                v3(1.6, 1.1, 3.0),
-                v3(1.5, 1.5, 4.0),
-            ]
-        );
-
-        terrain[(1, 1)].visible = false;
-
-        assert_eq!(
-            TerrainGeometry::of(&terrain).get_border(v2(3, 2), false),
-            vec![v3(1.6, 0.9, 3.0), v3(1.6, 1.1, 3.0),]
-        );
-
-        terrain[(2, 1)].visible = false;
-
-        assert!(TerrainGeometry::of(&terrain)
-            .get_border(v2(3, 2), false)
-            .is_empty());
-    }
-
-    #[test]
     fn test_get_original_border_for_tile() {
         let terrain = terrain();
 
@@ -431,6 +345,19 @@ mod tests {
     }
 
     #[test]
+    fn test_get_triangles_square_with_invisible_vertex() {
+        let mut terrain = terrain();
+        terrain[(1, 1)].visible = false;
+
+        let actual = TerrainGeometry::of(&terrain).get_triangles(v2(3, 3));
+
+        assert_eq!(
+            actual,
+            vec![[v3(1.6, 1.1, 3.0), v3(2.0, 2.0, 1.0), v3(1.1, 1.6, 2.0)],]
+        );
+    }
+
+    #[test]
     fn test_get_triangles_triangle() {
         let actual = TerrainGeometry::of(&terrain()).get_triangles(v2(2, 1));
 
@@ -449,7 +376,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_triangles_point() {
+    fn test_get_triangles_empty() {
         let actual = TerrainGeometry::of(&terrain()).get_triangles(v2(0, 0));
         let expected: Vec<[V3<f32>; 3]> = vec![];
 
