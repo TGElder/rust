@@ -111,7 +111,7 @@ where
         );
 
         self.send_bridge_artist_future_background(move |bridge_artist| {
-            bridge_artist.erase_bridge(edge).boxed()
+            bridge_artist.erase_bridge(bridge).boxed()
         });
 
         true

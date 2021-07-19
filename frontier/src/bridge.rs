@@ -166,6 +166,12 @@ impl Bridge {
     }
 }
 
+impl Segment {
+    pub fn edge(&self) -> Edge {
+        Edge::new(self.from.position, self.to.position)
+    }
+}
+
 pub trait BridgesExt {
     fn get_lowest_duration_bridge(&self, edge: &Edge) -> Option<&Bridge>;
     fn count_bridges_at(&self, position: &V2<usize>, bridge_type: &BridgeType) -> usize;
@@ -647,6 +653,23 @@ mod tests {
                 }
             }
         );
+    }
+
+    #[test]
+    fn segment_edge() {
+        let segment = Segment {
+            from: Pier {
+                position: v2(1, 0),
+                elevation: 0.0,
+            },
+            to: Pier {
+                position: v2(0, 0),
+                elevation: 0.0,
+            },
+            duration: Duration::from_secs(0),
+        };
+
+        assert_eq!(segment.edge(), Edge::new(v2(0, 0), v2(1, 0)));
     }
 
     #[test]

@@ -1,9 +1,7 @@
 use crate::artists::BridgeArtist;
 use crate::bridge::Bridge;
 use crate::bridge::BridgeType::Built;
-use crate::traits::{BuiltBridges, SendEngineCommands, WithWorld};
-use commons::edge::Edge;
-use isometric::Command;
+use crate::traits::{BuiltBridges, SendEngineCommands};
 
 pub struct BridgeArtistActor<T> {
     cx: T,
@@ -12,7 +10,7 @@ pub struct BridgeArtistActor<T> {
 
 impl<T> BridgeArtistActor<T>
 where
-    T: BuiltBridges + SendEngineCommands + WithWorld + Send + Sync,
+    T: BuiltBridges + SendEngineCommands + Send + Sync,
 {
     pub fn new(cx: T, artist: BridgeArtist) -> BridgeArtistActor<T> {
         BridgeArtistActor { cx, artist }
@@ -34,18 +32,12 @@ where
         if *bridge.bridge_type() != Built {
             return;
         }
-        let commands = self.get_draw_commands(&bridge).await;
+        let commands = self.artist.draw_bridge(&bridge);
         self.cx.send_engine_commands(commands).await;
     }
 
-    async fn get_draw_commands(&self, bridge: &Bridge) -> Vec<Command> {
-        self.cx
-            .with_world(|world| self.artist.draw_bridge(world, bridge))
-            .await
-    }
-
-    pub async fn erase_bridge(&self, edge: Edge) {
-        let command = self.artist.erase_bridge(&edge);
-        self.cx.send_engine_commands(vec![command]).await;
+    pub async fn erase_bridge(&self, bridge: Bridge) {
+        let commands = self.artist.erase_bridge(&bridge);
+        self.cx.send_engine_commands(commands).await;
     }
 }

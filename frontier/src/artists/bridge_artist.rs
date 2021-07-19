@@ -1,11 +1,8 @@
-use commons::edge::Edge;
-use commons::grid::Grid;
 use commons::{v3, V3};
 use isometric::drawing::draw_rectangle;
 use isometric::{Color, Command};
 
-use crate::bridge::Bridge;
-use crate::world::World;
+use crate::bridge::{Bridge, Segment};
 
 pub struct BridgeArtist {
     parameters: BridgeArtistParameters,
@@ -21,85 +18,105 @@ impl BridgeArtist {
         BridgeArtist { parameters }
     }
 
-    pub fn draw_bridge(&self, world: &World, bridge: &Bridge) -> Vec<Command> {
-        let edge = bridge.total_edge();
+    pub fn draw_bridge(&self, bridge: &Bridge) -> Vec<Command> {
+        let segments = bridge.segments_one_way(&bridge.start().position);
 
-        let coordinates = if edge.horizontal() {
-            self.coordinates_horizontal(world, &edge)
+        segments
+            .flat_map(|segment| self.draw_segment(bridge, &segment).into_iter())
+            .collect()
+    }
+
+    pub fn draw_segment(&self, bridge: &Bridge, segment: &Segment) -> Vec<Command> {
+        let coordinates = if segment.edge().horizontal() {
+            self.coordinates_horizontal(&segment)
         } else {
-            self.coordinates_vertical(world, &edge)
+            self.coordinates_vertical(&segment)
         };
-        let name = name(&edge);
+        let name = name(&bridge, &segment);
         draw_rectangle(name, &coordinates, &self.parameters.color)
     }
 
-    pub fn erase_bridge(&self, edge: &Edge) -> Command {
-        Command::Erase(name(edge))
-    }
-
-    fn coordinates_horizontal(&self, world: &World, edge: &Edge) -> [V3<f32>; 4] {
-        let from_z = world.get_cell_unsafe(edge.from()).elevation;
-        let to_z = world.get_cell_unsafe(edge.to()).elevation;
+    fn coordinates_horizontal(&self, segment: &Segment) -> [V3<f32>; 4] {
+        let from = &segment.from;
+        let to = &segment.to;
         let offset = self.parameters.offset;
         [
             v3(
-                edge.from().x as f32 + offset,
-                edge.from().y as f32 - offset,
-                from_z,
+                from.position.x as f32 + offset,
+                from.position.y as f32 - offset,
+                from.elevation,
             ),
             v3(
-                edge.from().x as f32 + offset,
-                edge.from().y as f32 + offset,
-                from_z,
+                from.position.x as f32 + offset,
+                from.position.y as f32 + offset,
+                from.elevation,
             ),
             v3(
-                edge.to().x as f32 - offset,
-                edge.to().y as f32 + offset,
-                to_z,
+                to.position.x as f32 - offset,
+                to.position.y as f32 + offset,
+                to.elevation,
             ),
             v3(
-                edge.to().x as f32 - offset,
-                edge.to().y as f32 - offset,
-                to_z,
+                to.position.x as f32 - offset,
+                to.position.y as f32 - offset,
+                to.elevation,
             ),
         ]
     }
 
-    fn coordinates_vertical(&self, world: &World, edge: &Edge) -> [V3<f32>; 4] {
-        let from_z = world.get_cell_unsafe(edge.from()).elevation;
-        let to_z = world.get_cell_unsafe(edge.to()).elevation;
+    fn coordinates_vertical(&self, segment: &Segment) -> [V3<f32>; 4] {
+        let from = &segment.from;
+        let to = &segment.to;
         let offset = self.parameters.offset;
         [
             v3(
-                edge.from().x as f32 + offset,
-                edge.from().y as f32 + offset,
-                from_z,
+                from.position.x as f32 + offset,
+                from.position.y as f32 + offset,
+                from.elevation,
             ),
             v3(
-                edge.from().x as f32 - offset,
-                edge.from().y as f32 + offset,
-                from_z,
+                from.position.x as f32 - offset,
+                from.position.y as f32 + offset,
+                from.elevation,
             ),
             v3(
-                edge.to().x as f32 - offset,
-                edge.to().y as f32 - offset,
-                to_z,
+                to.position.x as f32 - offset,
+                to.position.y as f32 - offset,
+                to.elevation,
             ),
             v3(
-                edge.to().x as f32 + offset,
-                edge.to().y as f32 - offset,
-                to_z,
+                to.position.x as f32 + offset,
+                to.position.y as f32 - offset,
+                to.elevation,
             ),
         ]
+    }
+
+    pub fn erase_bridge(&self, bridge: &Bridge) -> Vec<Command> {
+        let segments = bridge.segments_one_way(&bridge.start().position);
+
+        segments
+            .map(|segment| self.erase_segment(bridge, &segment))
+            .collect()
+    }
+
+    pub fn erase_segment(&self, bridge: &Bridge, segment: &Segment) -> Command {
+        Command::Erase(name(bridge, segment))
     }
 }
 
-fn name(edge: &Edge) -> String {
+fn name(bridge: &Bridge, segment: &Segment) -> String {
+    let bridge_edge = bridge.total_edge();
+    let segment_edge = segment.edge();
     format!(
-        "bridge-{},{}-{},{}",
-        edge.from().x,
-        edge.from().y,
-        edge.to().x,
-        edge.to().y
+        "bridge-{},{}-{},{}/{}-{},{}-{}",
+        bridge_edge.from().x,
+        bridge_edge.from().y,
+        bridge_edge.to().x,
+        bridge_edge.to().y,
+        segment_edge.from().x,
+        segment_edge.from().y,
+        segment_edge.to().x,
+        segment_edge.to().y
     )
 }

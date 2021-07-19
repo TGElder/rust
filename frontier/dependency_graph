@@ -96,7 +96,6 @@ SendBasicRoadBuilder UpdateRoads
 SendBasicRoadBuilder WithWorld
 SendBridgeArtistActor BuiltBridges
 SendBridgeArtistActor SendEngineCommands
-SendBridgeArtistActor WithWorld
 SendBridgeBuilderActor AddBridge
 SendBridgeBuilderActor RemoveBridge
 SendBridgeBuilderActor WithWorld
