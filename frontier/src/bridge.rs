@@ -87,18 +87,6 @@ impl Bridge {
         self.segments.last().unwrap().to
     }
 
-    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    pub fn edge_durations_one_way<'a>(
-        &'a self,
-        from: &V2<usize>,
-    ) -> impl Iterator<Item = EdgeDuration> + 'a {
-        self.segments_one_way(from).map(|segment| EdgeDuration {
-            from: segment.from.position,
-            to: segment.to.position,
-            duration: Some(segment.duration),
-        })
-    }
-
     pub fn segments_one_way<'a>(
         &'a self,
         from: &V2<usize>,
@@ -159,6 +147,14 @@ impl Bridge {
             return Err(InvalidBridge::Diagonal);
         }
 
+        if segments
+            .iter()
+            .map(|segment| Edge::new_safe(segment.from.position, segment.to.position))
+            .any(|result| result.is_err())
+        {
+            return Err(InvalidBridge::DiagonalSegment);
+        }
+
         let next = segments.iter().skip(1);
         segments.iter().zip(next).try_for_each(|(a, b)| {
             if a.to.position != b.from.position {
@@ -197,6 +193,7 @@ impl BridgesExt for Bridges {
 pub enum InvalidBridge {
     Empty,
     Diagonal,
+    DiagonalSegment,
     Discontinuous,
 }
 
@@ -206,6 +203,9 @@ impl fmt::Display for InvalidBridge {
             InvalidBridge::Empty => write!(f, "Bridge must have at least one segment"),
             InvalidBridge::Diagonal => {
                 write!(f, "Bridge start and end must have same x or y coordinate")
+            }
+            InvalidBridge::DiagonalSegment => {
+                write!(f, "Bridge segments must not be diagonal")
             }
             InvalidBridge::Discontinuous => write!(f, "Bridge segments are not continuous"),
         }
@@ -253,6 +253,41 @@ mod tests {
                 BridgeType::Built
             ),
             Err(InvalidBridge::Diagonal)
+        )
+    }
+
+    #[test]
+    fn diagonal_segment_bridge() {
+        assert_eq!(
+            Bridge::new(
+                vec![
+                    Segment {
+                        from: Pier {
+                            position: v2(0, 0),
+                            elevation: 0.0,
+                        },
+                        to: Pier {
+                            position: v2(1, 0),
+                            elevation: 0.0,
+                        },
+                        duration: Duration::from_secs(0)
+                    },
+                    Segment {
+                        from: Pier {
+                            position: v2(1, 0),
+                            elevation: 0.0,
+                        },
+                        to: Pier {
+                            position: v2(0, 1),
+                            elevation: 0.0,
+                        },
+                        duration: Duration::from_secs(0)
+                    }
+                ],
+                Vehicle::None,
+                BridgeType::Built
+            ),
+            Err(InvalidBridge::DiagonalSegment)
         )
     }
 
@@ -370,104 +405,6 @@ mod tests {
                 position: v2(2, 0),
                 elevation: 2.0,
             }
-        );
-    }
-
-    #[test]
-    fn edge_durations_one_way_from_start() {
-        let bridge = Bridge::new(
-            vec![
-                Segment {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 0.0,
-                    },
-                    duration: Duration::from_secs(1),
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 0.0,
-                    },
-                    to: Pier {
-                        position: v2(2, 0),
-                        elevation: 0.0,
-                    },
-                    duration: Duration::from_secs(2),
-                },
-            ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
-
-        assert_eq!(
-            bridge.edge_durations_one_way(&v2(0, 0)).collect::<Vec<_>>(),
-            vec![
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(1)),
-                },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(2)),
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn edge_durations_one_way_from_end() {
-        let bridge = Bridge::new(
-            vec![
-                Segment {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 0.0,
-                    },
-                    duration: Duration::from_secs(1),
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 0.0,
-                    },
-                    to: Pier {
-                        position: v2(2, 0),
-                        elevation: 0.0,
-                    },
-                    duration: Duration::from_secs(2),
-                },
-            ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
-
-        assert_eq!(
-            bridge.edge_durations_one_way(&v2(2, 0)).collect::<Vec<_>>(),
-            vec![
-                EdgeDuration {
-                    from: v2(2, 0),
-                    to: v2(1, 0),
-                    duration: Some(Duration::from_secs(2)),
-                },
-                EdgeDuration {
-                    from: v2(1, 0),
-                    to: v2(0, 0),
-                    duration: Some(Duration::from_secs(1)),
-                },
-            ]
         );
     }
 
