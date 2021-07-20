@@ -135,7 +135,7 @@ impl Journey {
             .or_else(|| {
                 bridges
                     .get_lowest_duration_bridge(&Edge::new(*from, *to))
-                    .map(|bridge| *bridge.vehicle())
+                    .map(|bridge| bridge.vehicle)
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -1200,8 +1200,8 @@ mod tests {
     fn test_using_bridge() {
         let world = world();
         let positions = vec![v2(2, 0), v2(0, 0)];
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -1225,10 +1225,9 @@ mod tests {
                     duration: Duration::from_micros(404),
                 },
             ],
-            Vehicle::Boat,
-            Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::Boat,
+            bridge_type: Built,
+        };
         let actual = Journey::new(
             &world,
             positions,

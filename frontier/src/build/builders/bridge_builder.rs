@@ -66,8 +66,8 @@ mod tests {
         // Given
         let game = Arc::new(Mutex::new(hashset! {}));
         let builder = BridgeBuilder::new(game);
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -91,10 +91,9 @@ mod tests {
                     duration: Duration::from_millis(2),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         // When
         let can_build = builder.can_build(&Build::Bridge(bridge));
@@ -108,8 +107,8 @@ mod tests {
         // Given
         let game = Arc::new(Mutex::new(hashset! {}));
         let mut builder = BridgeBuilder::new(game);
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -133,10 +132,9 @@ mod tests {
                     duration: Duration::from_millis(2),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         // When
         block_on(builder.build(vec![Build::Bridge(bridge.clone())]));
@@ -150,8 +148,8 @@ mod tests {
         // Given
         let game = Arc::new(Mutex::new(hashset! {}));
         let mut builder = BridgeBuilder::new(game);
-        let bridge_1 = Bridge::new(
-            vec![
+        let bridge_1 = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -175,12 +173,11 @@ mod tests {
                     duration: Duration::from_millis(2),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
-        let bridge_2 = Bridge::new(
-            vec![
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
+        let bridge_2 = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -204,10 +201,9 @@ mod tests {
                     duration: Duration::from_millis(2),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         // When
         block_on(builder.build(vec![

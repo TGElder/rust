@@ -29,7 +29,7 @@ where
     }
 
     pub async fn draw_bridge(&self, bridge: Bridge) {
-        if *bridge.bridge_type() != Built {
+        if bridge.bridge_type != Built {
             return;
         }
         let commands = self.artist.draw_bridge(&bridge);

@@ -1,3 +1,4 @@
+use crate::avatar::Vehicle;
 use crate::bridge::BridgeType::Built;
 use crate::bridge::{Bridge, Pier, Segment};
 use crate::system::{Capture, HandleEngineEvent};
@@ -85,8 +86,8 @@ where
             _ => return,
         };
 
-        let bridge = Bridge::new(
-            vec![Segment {
+        let bridge = Bridge {
+            segments: vec![Segment {
                 from: Pier {
                     position: *edge.from(),
                     elevation: from_z,
@@ -98,10 +99,10 @@ where
                 duration: Duration::from_millis(self.parameters.bridge_duration_millis)
                     * (edge.length() as u32),
             }],
-            crate::avatar::Vehicle::None,
-            Built,
-        );
-        if let Ok(bridge) = bridge {
+            vehicle: Vehicle::None,
+            bridge_type: Built,
+        };
+        if let Ok(bridge) = bridge.validate() {
             if self.cx.remove_bridge(bridge.clone()).await {
                 return;
             } else {

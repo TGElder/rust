@@ -142,7 +142,7 @@ where
 
         let player_bridge = bridges
             .iter()
-            .filter(|bridge| *bridge.bridge_type() == Built)
+            .filter(|bridge| bridge.bridge_type == Built)
             .min_by_key(|bridge| bridge.total_duration());
         let route_bridge = bridges
             .iter()
@@ -201,7 +201,7 @@ where
                         *edge,
                         bridge
                             .iter()
-                            .filter(|bridge| *bridge.bridge_type() == Built)
+                            .filter(|bridge| bridge.bridge_type == Built)
                             .cloned()
                             .collect(),
                     )

@@ -80,17 +80,18 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
     let edge_bridges = bridges.get(edge)?;
     let theoretical = edge_bridges
         .iter()
-        .find(|bridge| *bridge.bridge_type() == BridgeType::Theoretical)?;
+        .find(|bridge| bridge.bridge_type == BridgeType::Theoretical)?;
 
-    let built = Bridge::new(
-        vec![Segment {
+    let built = Bridge {
+        segments: vec![Segment {
             from: theoretical.start(),
             to: theoretical.end(),
             duration: *duration * edge.length().try_into().unwrap(),
         }],
-        Vehicle::None,
-        BridgeType::Built,
-    )
+        vehicle: Vehicle::None,
+        bridge_type: BridgeType::Built,
+    }
+    .validate()
     .ok()?;
 
     if edge_bridges.contains(&built) {
@@ -209,8 +210,8 @@ mod tests {
     }
 
     fn happy_path_bridge(bridge_type: BridgeType) -> Bridge {
-        Bridge::new(
-            vec![Segment {
+        Bridge {
+            segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
@@ -221,10 +222,9 @@ mod tests {
                 },
                 duration: Duration::from_millis(11 * 2),
             }],
-            Vehicle::None,
+            vehicle: Vehicle::None,
             bridge_type,
-        )
-        .unwrap()
+        }
     }
 
     fn happy_path_cx() -> Cx {

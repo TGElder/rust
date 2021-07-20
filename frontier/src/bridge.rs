@@ -14,9 +14,9 @@ use crate::travel_duration::EdgeDuration;
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Bridge {
-    segments: Vec<Segment>,
-    vehicle: Vehicle,
-    bridge_type: BridgeType,
+    pub segments: Vec<Segment>,
+    pub vehicle: Vehicle,
+    pub bridge_type: BridgeType,
 }
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
@@ -58,25 +58,10 @@ pub enum BridgeType {
 pub type Bridges = HashMap<Edge, HashSet<Bridge>>;
 
 impl Bridge {
-    pub fn new(
-        segments: Vec<Segment>,
-        vehicle: Vehicle,
-        bridge_type: BridgeType,
-    ) -> Result<Bridge, InvalidBridge> {
-        Self::validate_segments(&segments)?;
-        Ok(Bridge {
-            segments,
-            vehicle,
-            bridge_type,
-        })
-    }
+    pub fn validate(self) -> Result<Bridge, InvalidBridge> {
+        self.validate_segments()?;
 
-    pub fn vehicle(&self) -> &Vehicle {
-        &self.vehicle
-    }
-
-    pub fn bridge_type(&self) -> &BridgeType {
-        &self.bridge_type
+        Ok(self)
     }
 
     pub fn start(&self) -> Pier {
@@ -139,7 +124,8 @@ impl Bridge {
         }))
     }
 
-    fn validate_segments(segments: &[Segment]) -> Result<(), InvalidBridge> {
+    fn validate_segments(&self) -> Result<(), InvalidBridge> {
+        let segments = &self.segments;
         let first = unwrap_or!(segments.first(), return Err(InvalidBridge::Empty));
         let last = segments.last().unwrap();
 
@@ -189,7 +175,7 @@ impl BridgesExt for Bridges {
             .filter(|(_, bridges)| {
                 bridges
                     .iter()
-                    .any(|bridge| bridge.bridge_type() == bridge_type)
+                    .any(|bridge| bridge.bridge_type == *bridge_type)
             })
             .count()
     }
@@ -235,7 +221,12 @@ mod tests {
     #[test]
     fn empty_bridge() {
         assert_eq!(
-            Bridge::new(vec![], Vehicle::None, BridgeType::Built),
+            Bridge {
+                segments: vec![],
+                vehicle: Vehicle::None,
+                bridge_type: BridgeType::Built,
+            }
+            .validate(),
             Err(InvalidBridge::Empty)
         )
     }
@@ -243,8 +234,8 @@ mod tests {
     #[test]
     fn diagonal_bridge() {
         assert_eq!(
-            Bridge::new(
-                vec![Segment {
+            Bridge {
+                segments: vec![Segment {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
@@ -255,9 +246,10 @@ mod tests {
                     },
                     duration: Duration::from_secs(0)
                 }],
-                Vehicle::None,
-                BridgeType::Built
-            ),
+                vehicle: Vehicle::None,
+                bridge_type: BridgeType::Built
+            }
+            .validate(),
             Err(InvalidBridge::Diagonal)
         )
     }
@@ -265,8 +257,8 @@ mod tests {
     #[test]
     fn diagonal_segment_bridge() {
         assert_eq!(
-            Bridge::new(
-                vec![
+            Bridge {
+                segments: vec![
                     Segment {
                         from: Pier {
                             position: v2(0, 0),
@@ -290,9 +282,10 @@ mod tests {
                         duration: Duration::from_secs(0)
                     }
                 ],
-                Vehicle::None,
-                BridgeType::Built
-            ),
+                vehicle: Vehicle::None,
+                bridge_type: BridgeType::Built
+            }
+            .validate(),
             Err(InvalidBridge::DiagonalSegment)
         )
     }
@@ -300,8 +293,8 @@ mod tests {
     #[test]
     fn discontinuous_bridge() {
         assert_eq!(
-            Bridge::new(
-                vec![
+            Bridge {
+                segments: vec![
                     Segment {
                         from: Pier {
                             position: v2(0, 0),
@@ -325,17 +318,18 @@ mod tests {
                         duration: Duration::from_secs(0)
                     }
                 ],
-                Vehicle::None,
-                BridgeType::Built
-            ),
+                vehicle: Vehicle::None,
+                bridge_type: BridgeType::Built
+            }
+            .validate(),
             Err(InvalidBridge::Discontinuous)
         )
     }
 
     #[test]
     fn start() {
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -359,10 +353,9 @@ mod tests {
                     duration: Duration::from_secs(0),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         assert_eq!(
             bridge.start(),
@@ -375,8 +368,8 @@ mod tests {
 
     #[test]
     fn end() {
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -400,10 +393,9 @@ mod tests {
                     duration: Duration::from_secs(0),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         assert_eq!(
             bridge.end(),
@@ -416,8 +408,8 @@ mod tests {
 
     #[test]
     fn segments_one_way_from_start() {
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -441,10 +433,9 @@ mod tests {
                     duration: Duration::from_secs(2),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         assert_eq!(
             bridge.segments_one_way(&v2(0, 0)).collect::<Vec<_>>(),
@@ -477,8 +468,8 @@ mod tests {
 
     #[test]
     fn segments_one_way_from_end() {
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -502,10 +493,9 @@ mod tests {
                     duration: Duration::from_secs(2),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         assert_eq!(
             bridge.segments_one_way(&v2(2, 0)).collect::<Vec<_>>(),
@@ -538,8 +528,8 @@ mod tests {
 
     #[test]
     fn total_edge() {
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -547,34 +537,33 @@ mod tests {
                     },
                     to: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     duration: Duration::from_secs(0),
                 },
                 Segment {
                     from: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     to: Pier {
                         position: v2(2, 0),
-                        elevation: 0.0,
+                        elevation: 2.0,
                     },
                     duration: Duration::from_secs(0),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         assert_eq!(bridge.total_edge(), Edge::new(v2(0, 0), v2(2, 0)));
     }
 
     #[test]
     fn total_duration() {
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -582,34 +571,33 @@ mod tests {
                     },
                     to: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     duration: Duration::from_secs(1),
                 },
                 Segment {
                     from: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     to: Pier {
                         position: v2(2, 0),
-                        elevation: 0.0,
+                        elevation: 2.0,
                     },
                     duration: Duration::from_secs(2),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         assert_eq!(bridge.total_duration(), Duration::from_secs(3));
     }
 
     #[test]
     fn total_edge_durations() {
-        let bridge = Bridge::new(
-            vec![
+        let bridge = Bridge {
+            segments: vec![
                 Segment {
                     from: Pier {
                         position: v2(0, 0),
@@ -617,26 +605,25 @@ mod tests {
                     },
                     to: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     duration: Duration::from_secs(1),
                 },
                 Segment {
                     from: Pier {
                         position: v2(1, 0),
-                        elevation: 0.0,
+                        elevation: 1.0,
                     },
                     to: Pier {
                         position: v2(2, 0),
-                        elevation: 0.0,
+                        elevation: 2.0,
                     },
                     duration: Duration::from_secs(2),
                 },
             ],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         assert_eq!(
             bridge.total_edge_durations().collect::<HashSet<_>>(),
@@ -676,8 +663,8 @@ mod tests {
     fn get_lowest_duration_bridge() {
         // Given
         let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let bridge_1 = Bridge::new(
-            vec![Segment {
+        let bridge_1 = Bridge {
+            segments: vec![Segment {
                 from: Pier {
                     position: v2(0, 0),
                     elevation: 0.0,
@@ -688,12 +675,11 @@ mod tests {
                 },
                 duration: Duration::from_secs(1),
             }],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
-        let bridge_2 = Bridge::new(
-            vec![Segment {
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
+        let bridge_2 = Bridge {
+            segments: vec![Segment {
                 from: Pier {
                     position: v2(0, 0),
                     elevation: 0.0,
@@ -704,10 +690,9 @@ mod tests {
                 },
                 duration: Duration::from_secs(2),
             }],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         let bridges = hashmap! {
             edge => hashset!{bridge_1.clone(), bridge_2},
@@ -723,8 +708,8 @@ mod tests {
 
         // Edge from (1, 0) with with multiple built bridges - counts as 1
         let edge_1 = Edge::new(v2(1, 0), v2(1, 1));
-        let edge_1_bridge_1 = Bridge::new(
-            vec![Segment {
+        let edge_1_bridge_1 = Bridge {
+            segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
@@ -735,12 +720,11 @@ mod tests {
                 },
                 duration: Duration::from_secs(1),
             }],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
-        let edge_1_bridge_2 = Bridge::new(
-            vec![Segment {
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
+        let edge_1_bridge_2 = Bridge {
+            segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
@@ -751,15 +735,14 @@ mod tests {
                 },
                 duration: Duration::from_secs(2),
             }],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         // Edge from (1, 0) with theoretical bridge - not counted
         let edge_2 = Edge::new(v2(1, 0), v2(1, 2));
-        let edge_2_bridge_1 = Bridge::new(
-            vec![Segment {
+        let edge_2_bridge_1 = Bridge {
+            segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
@@ -770,15 +753,14 @@ mod tests {
                 },
                 duration: Duration::from_secs(1),
             }],
-            Vehicle::None,
-            BridgeType::Theoretical,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Theoretical,
+        };
 
         // Edge not from or to (1, 0) - not counted
         let edge_3 = Edge::new(v2(1, 1), v2(1, 3));
-        let edge_3_bridge_1 = Bridge::new(
-            vec![Segment {
+        let edge_3_bridge_1 = Bridge {
+            segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 1),
                     elevation: 0.0,
@@ -789,15 +771,14 @@ mod tests {
                 },
                 duration: Duration::from_secs(1),
             }],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         // Edge to (1, 0) - counts as 1
         let edge_4 = Edge::new(v2(0, 0), v2(1, 0));
-        let edge_4_bridge_1 = Bridge::new(
-            vec![Segment {
+        let edge_4_bridge_1 = Bridge {
+            segments: vec![Segment {
                 from: Pier {
                     position: v2(0, 0),
                     elevation: 0.0,
@@ -808,10 +789,9 @@ mod tests {
                 },
                 duration: Duration::from_secs(1),
             }],
-            Vehicle::None,
-            BridgeType::Built,
-        )
-        .unwrap();
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
 
         let bridges = hashmap! {
             edge_1 => hashset!{edge_1_bridge_1, edge_1_bridge_2},

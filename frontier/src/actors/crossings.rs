@@ -160,8 +160,8 @@ fn is_crossing(
 }
 
 fn get_bridge(crossing: [Pier; 3], duration: Duration) -> Result<Bridge, InvalidBridge> {
-    Bridge::new(
-        vec![
+    Bridge {
+        segments: vec![
             Segment {
                 from: crossing[0],
                 to: crossing[1],
@@ -173,7 +173,8 @@ fn get_bridge(crossing: [Pier; 3], duration: Duration) -> Result<Bridge, Invalid
                 duration,
             },
         ],
-        Vehicle::None,
-        BridgeType::Theoretical,
-    )
+        vehicle: Vehicle::None,
+        bridge_type: BridgeType::Theoretical,
+    }
+    .validate()
 }
