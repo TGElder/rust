@@ -30,6 +30,7 @@ pub struct Segment {
 pub struct Pier {
     pub position: V2<usize>,
     pub elevation: f32,
+    pub platform: bool,
 }
 
 impl Hash for Pier {
@@ -160,7 +161,7 @@ impl Segment {
 
 pub trait BridgesExt {
     fn get_lowest_duration_bridge(&self, edge: &Edge) -> Option<&Bridge>;
-    fn count_bridges_at(&self, position: &V2<usize>, bridge_type: &BridgeType) -> usize;
+    fn count_platforms_at(&self, position: &V2<usize>) -> usize;
 }
 
 impl BridgesExt for Bridges {
@@ -169,14 +170,13 @@ impl BridgesExt for Bridges {
             .and_then(|bridges| bridges.iter().min_by_key(|bridge| bridge.total_duration()))
     }
 
-    fn count_bridges_at(&self, position: &V2<usize>, bridge_type: &BridgeType) -> usize {
+    fn count_platforms_at(&self, position: &V2<usize>) -> usize {
         self.iter()
-            .filter(|(key, _)| key.from() == position || key.to() == position)
-            .filter(|(_, bridges)| {
-                bridges
-                    .iter()
-                    .any(|bridge| bridge.bridge_type == *bridge_type)
-            })
+            .flat_map(|(_, bridges)| bridges.iter())
+            .flat_map(|bridge| bridge.segments.iter())
+            .flat_map(|segment| once(segment.from).chain(once(segment.to)))
+            .filter(|pier| pier.platform)
+            .filter(|pier| pier.position == *position)
             .count()
     }
 }
@@ -239,10 +239,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 1),
                         elevation: 0.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(0)
                 }],
@@ -263,10 +265,12 @@ mod tests {
                         from: Pier {
                             position: v2(0, 0),
                             elevation: 0.0,
+                            platform: true,
                         },
                         to: Pier {
                             position: v2(1, 0),
                             elevation: 0.0,
+                            platform: true,
                         },
                         duration: Duration::from_secs(0)
                     },
@@ -274,10 +278,12 @@ mod tests {
                         from: Pier {
                             position: v2(1, 0),
                             elevation: 0.0,
+                            platform: true,
                         },
                         to: Pier {
                             position: v2(0, 1),
                             elevation: 0.0,
+                            platform: true,
                         },
                         duration: Duration::from_secs(0)
                     }
@@ -299,10 +305,12 @@ mod tests {
                         from: Pier {
                             position: v2(0, 0),
                             elevation: 0.0,
+                            platform: true,
                         },
                         to: Pier {
                             position: v2(1, 0),
                             elevation: 0.0,
+                            platform: true,
                         },
                         duration: Duration::from_secs(0)
                     },
@@ -310,10 +318,12 @@ mod tests {
                         from: Pier {
                             position: v2(2, 0),
                             elevation: 0.0,
+                            platform: true,
                         },
                         to: Pier {
                             position: v2(3, 0),
                             elevation: 0.0,
+                            platform: true,
                         },
                         duration: Duration::from_secs(0)
                     }
@@ -334,10 +344,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(0),
                 },
@@ -345,10 +357,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(0),
                 },
@@ -362,6 +376,7 @@ mod tests {
             Pier {
                 position: v2(0, 0),
                 elevation: 0.0,
+                platform: true,
             }
         );
     }
@@ -374,10 +389,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(0),
                 },
@@ -385,10 +402,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(0),
                 },
@@ -402,6 +421,7 @@ mod tests {
             Pier {
                 position: v2(2, 0),
                 elevation: 2.0,
+                platform: true,
             }
         );
     }
@@ -414,10 +434,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(1),
                 },
@@ -425,10 +447,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(2),
                 },
@@ -444,10 +468,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(1),
                 },
@@ -455,10 +481,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(2),
                 },
@@ -474,10 +502,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(1),
                 },
@@ -485,10 +515,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(2),
                 },
@@ -504,10 +536,12 @@ mod tests {
                     from: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(2),
                 },
@@ -515,10 +549,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(1),
                 },
@@ -534,10 +570,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(0),
                 },
@@ -545,10 +583,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(0),
                 },
@@ -568,10 +608,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(1),
                 },
@@ -579,10 +621,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(2),
                 },
@@ -602,10 +646,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(1),
                 },
@@ -613,10 +659,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_secs(2),
                 },
@@ -648,10 +696,12 @@ mod tests {
             from: Pier {
                 position: v2(1, 0),
                 elevation: 0.0,
+                platform: true,
             },
             to: Pier {
                 position: v2(0, 0),
                 elevation: 0.0,
+                platform: true,
             },
             duration: Duration::from_secs(0),
         };
@@ -668,10 +718,12 @@ mod tests {
                 from: Pier {
                     position: v2(0, 0),
                     elevation: 0.0,
+                    platform: true,
                 },
                 to: Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
+                    platform: true,
                 },
                 duration: Duration::from_secs(1),
             }],
@@ -683,10 +735,12 @@ mod tests {
                 from: Pier {
                     position: v2(0, 0),
                     elevation: 0.0,
+                    platform: true,
                 },
                 to: Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
+                    platform: true,
                 },
                 duration: Duration::from_secs(2),
             }],
@@ -703,71 +757,78 @@ mod tests {
     }
 
     #[test]
-    fn count_bridges() {
+    fn count_platforms_at() {
         // Given
 
-        // Edge from (1, 0) with with multiple built bridges - counts as 1
         let edge_1 = Edge::new(v2(1, 0), v2(1, 1));
+        // Platform at (1, 0) - counts as 1
         let edge_1_bridge_1 = Bridge {
             segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
+                    platform: true,
                 },
                 to: Pier {
                     position: v2(1, 1),
                     elevation: 0.0,
+                    platform: true,
                 },
                 duration: Duration::from_secs(1),
             }],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
         };
+        // Platform at (1, 0) - counts as 1
         let edge_1_bridge_2 = Bridge {
             segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
+                    platform: true,
                 },
                 to: Pier {
                     position: v2(1, 1),
                     elevation: 0.0,
+                    platform: true,
                 },
                 duration: Duration::from_secs(2),
             }],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
         };
-
-        // Edge from (1, 0) with theoretical bridge - not counted
-        let edge_2 = Edge::new(v2(1, 0), v2(1, 2));
-        let edge_2_bridge_1 = Bridge {
+        // No platform at (1, 0) - does not count
+        let edge_1_bridge_3 = Bridge {
             segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
+                    platform: false,
                 },
                 to: Pier {
-                    position: v2(1, 2),
-                    elevation: 0.0,
-                },
-                duration: Duration::from_secs(1),
-            }],
-            vehicle: Vehicle::None,
-            bridge_type: BridgeType::Theoretical,
-        };
-
-        // Edge not from or to (1, 0) - not counted
-        let edge_3 = Edge::new(v2(1, 1), v2(1, 3));
-        let edge_3_bridge_1 = Bridge {
-            segments: vec![Segment {
-                from: Pier {
                     position: v2(1, 1),
                     elevation: 0.0,
+                    platform: false,
+                },
+                duration: Duration::from_secs(3),
+            }],
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
+
+        let edge_2 = Edge::new(v2(0, 0), v2(1, 0));
+        // Segment to (1, 0) against a different edge - counts as 1
+        let edge_2_bridge_1 = Bridge {
+            segments: vec![Segment {
+                from: Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
                 },
                 to: Pier {
-                    position: v2(1, 3),
+                    position: v2(1, 0),
                     elevation: 0.0,
+                    platform: true,
                 },
                 duration: Duration::from_secs(1),
             }],
@@ -775,17 +836,19 @@ mod tests {
             bridge_type: BridgeType::Built,
         };
 
-        // Edge to (1, 0) - counts as 1
-        let edge_4 = Edge::new(v2(0, 0), v2(1, 0));
-        let edge_4_bridge_1 = Bridge {
+        let edge_3 = Edge::new(v2(1, 1), v2(1, 3));
+        // Not from or to (1, 0) - not counted
+        let edge_3_bridge_1 = Bridge {
             segments: vec![Segment {
                 from: Pier {
-                    position: v2(0, 0),
+                    position: v2(1, 1),
                     elevation: 0.0,
+                    platform: true,
                 },
                 to: Pier {
-                    position: v2(1, 0),
+                    position: v2(1, 3),
                     elevation: 0.0,
+                    platform: true,
                 },
                 duration: Duration::from_secs(1),
             }],
@@ -794,13 +857,12 @@ mod tests {
         };
 
         let bridges = hashmap! {
-            edge_1 => hashset!{edge_1_bridge_1, edge_1_bridge_2},
+            edge_1 => hashset!{edge_1_bridge_1, edge_1_bridge_2, edge_1_bridge_3},
             edge_2 => hashset!{edge_2_bridge_1},
             edge_3 => hashset!{edge_3_bridge_1},
-            edge_4 => hashset!{edge_4_bridge_1}
         };
 
         // Then
-        assert_eq!(bridges.count_bridges_at(&v2(1, 0), &BridgeType::Built), 2);
+        assert_eq!(bridges.count_platforms_at(&v2(1, 0)), 3);
     }
 }

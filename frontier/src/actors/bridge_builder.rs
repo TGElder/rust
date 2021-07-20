@@ -91,10 +91,12 @@ where
                 from: Pier {
                     position: *edge.from(),
                     elevation: from_z,
+                    platform: true,
                 },
                 to: Pier {
                     position: *edge.to(),
                     elevation: to_z,
+                    platform: true,
                 },
                 duration: Duration::from_millis(self.parameters.bridge_duration_millis)
                     * (edge.length() as u32),

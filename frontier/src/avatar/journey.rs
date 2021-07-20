@@ -177,10 +177,12 @@ impl Journey {
                     from: Pier {
                         position: *from,
                         elevation: Self::get_elevation(world, from),
+                        platform: true,
                     },
                     to: Pier {
                         position: *to,
                         elevation: Self::get_elevation(world, to),
+                        platform: true,
                     },
                     duration,
                 };
@@ -1206,10 +1208,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     duration: Duration::from_micros(202),
                 },
@@ -1217,10 +1221,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_micros(404),
                 },

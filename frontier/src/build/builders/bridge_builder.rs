@@ -72,10 +72,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_millis(1),
                 },
@@ -83,10 +85,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 3.0,
+                        platform: true,
                     },
                     duration: Duration::from_millis(2),
                 },
@@ -113,10 +117,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_millis(1),
                 },
@@ -124,10 +130,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 3.0,
+                        platform: true,
                     },
                     duration: Duration::from_millis(2),
                 },
@@ -154,10 +162,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(1, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_millis(1),
                 },
@@ -165,10 +175,12 @@ mod tests {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 2.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(2, 0),
                         elevation: 3.0,
+                        platform: true,
                     },
                     duration: Duration::from_millis(2),
                 },
@@ -182,10 +194,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 1.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(0, 1),
                         elevation: 2.0,
+                        platform: true,
                     },
                     duration: Duration::from_millis(1),
                 },
@@ -193,10 +207,12 @@ mod tests {
                     from: Pier {
                         position: v2(0, 1),
                         elevation: 2.0,
+                        platform: true,
                     },
                     to: Pier {
                         position: v2(0, 2),
                         elevation: 3.0,
+                        platform: true,
                     },
                     duration: Duration::from_millis(2),
                 },

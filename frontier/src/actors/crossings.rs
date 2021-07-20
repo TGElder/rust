@@ -147,14 +147,17 @@ fn is_crossing(
         Pier {
             position: positions[0],
             elevation: world.get_cell_unsafe(&positions[0]).elevation,
+            platform: false,
         },
         Pier {
             position: positions[1],
             elevation: world.get_cell_unsafe(&positions[1]).elevation,
+            platform: false,
         },
         Pier {
             position: positions[2],
             elevation: world.get_cell_unsafe(&positions[2]).elevation,
+            platform: false,
         },
     ])
 }
