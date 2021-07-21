@@ -161,7 +161,7 @@ impl Segment {
 
 pub trait BridgesExt {
     fn get_lowest_duration_bridge(&self, edge: &Edge) -> Option<&Bridge>;
-    fn count_platforms_at(&self, position: &V2<usize>) -> usize;
+    fn count_platforms_at(&self, position: &V2<usize>, bridge_type: &BridgeType) -> usize;
 }
 
 impl BridgesExt for Bridges {
@@ -170,9 +170,10 @@ impl BridgesExt for Bridges {
             .and_then(|bridges| bridges.iter().min_by_key(|bridge| bridge.total_duration()))
     }
 
-    fn count_platforms_at(&self, position: &V2<usize>) -> usize {
+    fn count_platforms_at(&self, position: &V2<usize>, bridge_type: &BridgeType) -> usize {
         self.iter()
             .flat_map(|(_, bridges)| bridges.iter())
+            .filter(|bridge| bridge.bridge_type == *bridge_type)
             .flat_map(|bridge| bridge.segments.iter())
             .flat_map(|segment| once(segment.from).chain(once(segment.to)))
             .filter(|pier| pier.platform)
@@ -757,12 +758,10 @@ mod tests {
     }
 
     #[test]
-    fn count_platforms_at() {
+    fn count_platforms_at_counts_multiple_platforms_against_same_edge() {
         // Given
-
         let edge_1 = Edge::new(v2(1, 0), v2(1, 1));
-        // Platform at (1, 0) - counts as 1
-        let edge_1_bridge_1 = Bridge {
+        let bridge_1 = Bridge {
             segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
@@ -779,8 +778,7 @@ mod tests {
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
         };
-        // Platform at (1, 0) - counts as 1
-        let edge_1_bridge_2 = Bridge {
+        let bridge_2 = Bridge {
             segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
@@ -797,28 +795,70 @@ mod tests {
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
         };
-        // No platform at (1, 0) - does not count
-        let edge_1_bridge_3 = Bridge {
+
+        let bridges = hashmap! {
+            edge_1 => hashset!{bridge_1, bridge_2},
+        };
+
+        // Then
+        assert_eq!(bridges.count_platforms_at(&v2(1, 0), &BridgeType::Built), 2);
+    }
+
+    #[test]
+    fn count_platforms_at_counts_platforms_in_different_edges() {
+        // Given
+        let edge_1 = Edge::new(v2(1, 0), v2(1, 1));
+        let bridge_1 = Bridge {
             segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
-                    platform: false,
+                    platform: true,
                 },
                 to: Pier {
                     position: v2(1, 1),
                     elevation: 0.0,
-                    platform: false,
+                    platform: true,
                 },
-                duration: Duration::from_secs(3),
+                duration: Duration::from_secs(1),
             }],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
         };
 
-        let edge_2 = Edge::new(v2(0, 0), v2(1, 0));
-        // Segment to (1, 0) against a different edge - counts as 1
-        let edge_2_bridge_1 = Bridge {
+        let edge_2 = Edge::new(v2(1, 0), v2(2, 0));
+        let bridge_2 = Bridge {
+            segments: vec![Segment {
+                from: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                to: Pier {
+                    position: v2(2, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                duration: Duration::from_secs(2),
+            }],
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
+
+        let bridges = hashmap! {
+            edge_1 => hashset!{bridge_1},
+            edge_2 => hashset!{bridge_2},
+        };
+
+        // Then
+        assert_eq!(bridges.count_platforms_at(&v2(1, 0), &BridgeType::Built), 2);
+    }
+
+    #[test]
+    fn count_platforms_at_counts_platform_in_to_pier() {
+        // Given
+        let edge_1 = Edge::new(v2(0, 0), v2(1, 0));
+        let bridge_1 = Bridge {
             segments: vec![Segment {
                 from: Pier {
                     position: v2(0, 0),
@@ -836,17 +876,27 @@ mod tests {
             bridge_type: BridgeType::Built,
         };
 
-        let edge_3 = Edge::new(v2(1, 1), v2(1, 3));
-        // Not from or to (1, 0) - not counted
-        let edge_3_bridge_1 = Bridge {
+        let bridges = hashmap! {
+            edge_1 => hashset!{bridge_1},
+        };
+
+        // Then
+        assert_eq!(bridges.count_platforms_at(&v2(1, 0), &BridgeType::Built), 1);
+    }
+
+    #[test]
+    fn count_platforms_does_not_count_platforms_in_other_positions() {
+        // Given
+        let edge_1 = Edge::new(v2(0, 0), v2(2, 0));
+        let bridge_1 = Bridge {
             segments: vec![Segment {
                 from: Pier {
-                    position: v2(1, 1),
+                    position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
                 },
                 to: Pier {
-                    position: v2(1, 3),
+                    position: v2(2, 0),
                     elevation: 0.0,
                     platform: true,
                 },
@@ -857,12 +907,70 @@ mod tests {
         };
 
         let bridges = hashmap! {
-            edge_1 => hashset!{edge_1_bridge_1, edge_1_bridge_2, edge_1_bridge_3},
-            edge_2 => hashset!{edge_2_bridge_1},
-            edge_3 => hashset!{edge_3_bridge_1},
+            edge_1 => hashset!{bridge_1},
         };
 
         // Then
-        assert_eq!(bridges.count_platforms_at(&v2(1, 0)), 3);
+        assert_eq!(bridges.count_platforms_at(&v2(1, 0), &BridgeType::Built), 0);
+    }
+
+    #[test]
+    fn count_platforms_does_not_count_piers_where_platform_is_false() {
+        // Given
+        let edge_1 = Edge::new(v2(1, 0), v2(2, 0));
+        let bridge_1 = Bridge {
+            segments: vec![Segment {
+                from: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                    platform: false,
+                },
+                to: Pier {
+                    position: v2(2, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                duration: Duration::from_secs(1),
+            }],
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
+
+        let bridges = hashmap! {
+            edge_1 => hashset!{bridge_1},
+        };
+
+        // Then
+        assert_eq!(bridges.count_platforms_at(&v2(1, 0), &BridgeType::Built), 0);
+    }
+
+    #[test]
+    fn count_platforms_does_not_count_bridges_of_different_type() {
+        // Given
+        let edge_1 = Edge::new(v2(1, 0), v2(2, 0));
+        let bridge_1 = Bridge {
+            segments: vec![Segment {
+                from: Pier {
+                    position: v2(1, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                to: Pier {
+                    position: v2(2, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                duration: Duration::from_secs(1),
+            }],
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Theoretical,
+        };
+
+        let bridges = hashmap! {
+            edge_1 => hashset!{bridge_1},
+        };
+
+        // Then
+        assert_eq!(bridges.count_platforms_at(&v2(1, 0), &BridgeType::Built), 0);
     }
 }

@@ -39,10 +39,10 @@ where
                 edge_bridges.insert(bridge_to_add);
 
                 let mut platforms_to_add = HashSet::with_capacity(2);
-                if bridges.count_platforms_at(edge.from()) == 1 {
+                if bridges.count_platforms_at(edge.from(), &Built) == 1 {
                     platforms_to_add.insert(*edge.from());
                 }
-                if bridges.count_platforms_at(edge.to()) == 1 {
+                if bridges.count_platforms_at(edge.to(), &Built) == 1 {
                     platforms_to_add.insert(*edge.to());
                 }
                 (true, platforms_to_add)
@@ -91,10 +91,10 @@ where
                 }
 
                 let mut platforms_to_remove = HashSet::with_capacity(2);
-                if bridges.count_platforms_at(edge.from()) == 0 {
+                if bridges.count_platforms_at(edge.from(), &Built) == 0 {
                     platforms_to_remove.insert(*edge.from());
                 }
-                if bridges.count_platforms_at(edge.to()) == 0 {
+                if bridges.count_platforms_at(edge.to(), &Built) == 0 {
                     platforms_to_remove.insert(*edge.to());
                 }
                 (true, platforms_to_remove)

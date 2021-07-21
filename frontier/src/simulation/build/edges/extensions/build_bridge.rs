@@ -5,7 +5,7 @@ use std::time::Duration;
 use commons::edge::Edge;
 
 use crate::avatar::Vehicle;
-use crate::bridge::{Bridge, BridgeType, Bridges, Pier, Segment};
+use crate::bridge::{Bridge, BridgeType, Bridges, Segment};
 use crate::build::{Build, BuildInstruction, BuildKey};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
@@ -84,14 +84,8 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
 
     let built = Bridge {
         segments: vec![Segment {
-            from: Pier {
-                platform: true,
-                ..theoretical.start()
-            },
-            to: Pier {
-                platform: true,
-                ..theoretical.end()
-            },
+            from: theoretical.start(),
+            to: theoretical.end(),
             duration: *duration * edge.length().try_into().unwrap(),
         }],
         vehicle: Vehicle::None,
@@ -215,18 +209,18 @@ mod tests {
         Edge::new(v2(1, 0), v2(1, 2))
     }
 
-    fn bridge(platforms: bool, bridge_type: BridgeType) -> Bridge {
+    fn bridge(bridge_type: BridgeType) -> Bridge {
         Bridge {
             segments: vec![Segment {
                 from: Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
-                    platform: platforms,
+                    platform: true,
                 },
                 to: Pier {
                     position: v2(1, 2),
                     elevation: 2.0,
-                    platform: platforms,
+                    platform: false,
                 },
                 duration: Duration::from_millis(11 * 2),
             }],
@@ -237,7 +231,7 @@ mod tests {
 
     fn happy_path_cx() -> Cx {
         let bridges = hashmap! {
-            happy_path_edge() => hashset!{bridge(false, BridgeType::Theoretical)}
+            happy_path_edge() => hashset!{bridge(BridgeType::Theoretical)}
         };
 
         let edge_traffic = hashmap! {
@@ -321,7 +315,7 @@ mod tests {
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
-            what: Build::Bridge(bridge(true, BridgeType::Built)),
+            what: Build::Bridge(bridge(BridgeType::Built)),
             when: 11,
         }];
         assert_eq!(
@@ -386,7 +380,7 @@ mod tests {
             .unwrap()
             .get_mut(&happy_path_edge())
             .unwrap()
-            .insert(bridge(true, BridgeType::Built));
+            .insert(bridge(BridgeType::Built));
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
@@ -401,7 +395,7 @@ mod tests {
         // Given
         let cx = happy_path_cx();
         let earlier = BuildInstruction {
-            what: Build::Bridge(bridge(true, BridgeType::Built)),
+            what: Build::Bridge(bridge(BridgeType::Built)),
             when: 10,
         };
         cx.build_instructions.lock().unwrap().push(earlier.clone());
@@ -422,7 +416,7 @@ mod tests {
             .lock()
             .unwrap()
             .push(BuildInstruction {
-                what: Build::Bridge(bridge(true, BridgeType::Built)),
+                what: Build::Bridge(bridge(BridgeType::Built)),
                 when: 12,
             });
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
@@ -437,7 +431,7 @@ mod tests {
             .lock()
             .unwrap()
             .contains(&BuildInstruction {
-                what: Build::Bridge(bridge(true, BridgeType::Built)),
+                what: Build::Bridge(bridge(BridgeType::Built)),
                 when: 11,
             }));
     }
