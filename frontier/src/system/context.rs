@@ -1,7 +1,7 @@
 use crate::actors::{
     AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeArtistActor, BridgeBuilderActor,
     BuilderActor, Cheats, ControllersActor, Crossings, FollowAvatar, Labels, ObjectBuilderActor,
-    PathfindingAvatarControls, PrimeMover, ResourceGenActor, ResourceTargets, RiverExplorer,
+    PathfindingAvatarControls, Piers, PrimeMover, ResourceGenActor, ResourceTargets, RiverExplorer,
     Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
     TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
@@ -73,6 +73,7 @@ pub struct Context {
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
     pub object_builder_tx: FnSender<ObjectBuilderActor<Context>>,
     pub parameters: Arc<Parameters>,
+    pub piers_tx: FnSender<Piers<Context>>,
     pub player_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Context>>,
     pub pool: ThreadPool,
@@ -134,6 +135,7 @@ impl Context {
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             parameters: self.parameters.clone(),
+            piers_tx: self.piers_tx.clone_with_name(name),
             player_pathfinder: self.player_pathfinder.clone(),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
