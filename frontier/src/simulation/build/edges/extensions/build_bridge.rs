@@ -1,8 +1,8 @@
 use std::collections::HashSet;
-use std::convert::TryInto;
 use std::time::Duration;
 
 use commons::edge::Edge;
+use commons::grid::Grid;
 
 use crate::avatar::Vehicle;
 use crate::bridge::{Bridge, BridgeType, Bridges, Segment};
@@ -11,6 +11,7 @@ use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     GetBuildInstruction, InsertBuildInstruction, WithBridges, WithEdgeTraffic, WithRoutes,
+    WithWorld,
 };
 
 impl<T, D> EdgeBuildSimulation<T, D>
@@ -21,6 +22,7 @@ where
         + WithBridges
         + WithRoutes
         + WithEdgeTraffic
+        + WithWorld
         + Send
         + Sync,
 {
@@ -50,6 +52,8 @@ where
 
         let when = self.get_when(routes, threshold);
 
+        let bridge = self.raise_deck(bridge).await;
+
         if let Some(instruction) = self
             .cx
             .get_build_instruction(&BuildKey::Bridge(bridge.clone()))
@@ -67,6 +71,34 @@ where
             })
             .await;
     }
+
+    async fn raise_deck(&self, mut bridge: Bridge) -> Bridge {
+        self.cx
+            .with_world(move |world| {
+                for mut segment in bridge.segments.iter_mut() {
+                    let from_cell = world.get_cell_unsafe(&segment.from.position);
+                    let to_cell = world.get_cell_unsafe(&segment.to.position);
+
+                    if from_cell.elevation <= world.sea_level() {
+                        segment.from.elevation = world.sea_level() + 0.45;
+                    }
+
+                    if from_cell.river.here() {
+                        segment.from.elevation = from_cell.elevation + 0.45;
+                    }
+
+                    if to_cell.elevation <= world.sea_level() {
+                        segment.to.elevation = world.sea_level() + 0.45;
+                    }
+
+                    if to_cell.river.here() {
+                        segment.to.elevation = to_cell.elevation + 0.45;
+                    }
+                }
+                bridge
+            })
+            .await
+    }
 }
 
 fn get_candidates(bridges: &Bridges, edges: &HashSet<Edge>, duration: &Duration) -> Vec<Bridge> {
@@ -83,11 +115,14 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
         .find(|bridge| bridge.bridge_type == BridgeType::Theoretical)?;
 
     let built = Bridge {
-        segments: vec![Segment {
-            from: theoretical.start(),
-            to: theoretical.end(),
-            duration: *duration * edge.length().try_into().unwrap(),
-        }],
+        segments: theoretical
+            .segments
+            .iter()
+            .map(|segment| Segment {
+                duration: *duration,
+                ..segment.clone()
+            })
+            .collect(),
         vehicle: Vehicle::None,
         bridge_type: BridgeType::Built,
     }
@@ -107,7 +142,7 @@ mod tests {
     use std::time::Duration;
 
     use commons::async_trait::async_trait;
-    use commons::v2;
+    use commons::{v2, M};
     use futures::executor::block_on;
 
     use crate::bridge::Pier;
@@ -115,6 +150,7 @@ mod tests {
     use crate::resource::Resource;
     use crate::route::{Route, RouteKey, Routes, RoutesExt};
     use crate::traffic::EdgeTraffic;
+    use crate::world::World;
 
     use super::*;
 
@@ -124,6 +160,7 @@ mod tests {
         edge_traffic: Mutex<EdgeTraffic>,
         parameters: Parameters,
         routes: Mutex<Routes>,
+        world: Mutex<World>,
     }
 
     impl HasParameters for Cx {
@@ -202,6 +239,23 @@ mod tests {
             F: FnOnce(&mut Routes) -> O + Send,
         {
             function(&mut self.routes.lock().unwrap())
+        }
+    }
+
+    #[async_trait]
+    impl WithWorld for Cx {
+        async fn with_world<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&World) -> O + Send,
+        {
+            function(&self.world.lock().unwrap())
+        }
+
+        async fn mut_world<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut World) -> O + Send,
+        {
+            function(&mut self.world.lock().unwrap())
         }
     }
 
@@ -296,12 +350,15 @@ mod tests {
             },
         );
 
+        let world = World::new(M::from_element(3, 3, 1.0), 0.5);
+
         Cx {
             bridges: Mutex::new(bridges),
             build_instructions: Mutex::default(),
             edge_traffic: Mutex::new(edge_traffic),
             parameters,
             routes: Mutex::new(routes),
+            world: Mutex::new(world),
         }
     }
 
