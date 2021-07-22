@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::convert::TryInto;
 use std::time::Duration;
 
 use commons::edge::Edge;
@@ -73,6 +74,7 @@ where
     }
 
     async fn raise_deck(&self, mut bridge: Bridge) -> Bridge {
+        let deck_height = self.cx.parameters().bridge_deck_height;
         self.cx
             .with_world(move |world| {
                 for mut segment in bridge.segments.iter_mut() {
@@ -80,19 +82,19 @@ where
                     let to_cell = world.get_cell_unsafe(&segment.to.position);
 
                     if from_cell.elevation <= world.sea_level() {
-                        segment.from.elevation = world.sea_level() + 0.45;
+                        segment.from.elevation = world.sea_level() + deck_height;
                     }
 
                     if from_cell.river.here() {
-                        segment.from.elevation = from_cell.elevation + 0.45;
+                        segment.from.elevation = from_cell.elevation + deck_height;
                     }
 
                     if to_cell.elevation <= world.sea_level() {
-                        segment.to.elevation = world.sea_level() + 0.45;
+                        segment.to.elevation = world.sea_level() + deck_height;
                     }
 
                     if to_cell.river.here() {
-                        segment.to.elevation = to_cell.elevation + 0.45;
+                        segment.to.elevation = to_cell.elevation + deck_height;
                     }
                 }
                 bridge
@@ -119,7 +121,7 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
             .segments
             .iter()
             .map(|segment| Segment {
-                duration: *duration,
+                duration: *duration * edge.length().try_into().unwrap(),
                 ..segment.clone()
             })
             .collect(),
@@ -263,7 +265,7 @@ mod tests {
         Edge::new(v2(1, 0), v2(1, 2))
     }
 
-    fn bridge(bridge_type: BridgeType) -> Bridge {
+    fn bridge(bridge_type: BridgeType, millis: u64) -> Bridge {
         Bridge {
             segments: vec![Segment {
                 from: Pier {
@@ -276,7 +278,7 @@ mod tests {
                     elevation: 2.0,
                     platform: false,
                 },
-                duration: Duration::from_millis(11 * 2),
+                duration: Duration::from_millis(millis),
             }],
             vehicle: Vehicle::None,
             bridge_type,
@@ -285,7 +287,7 @@ mod tests {
 
     fn happy_path_cx() -> Cx {
         let bridges = hashmap! {
-            happy_path_edge() => hashset!{bridge(BridgeType::Theoretical)}
+            happy_path_edge() => hashset!{bridge(BridgeType::Theoretical, 7)}
         };
 
         let edge_traffic = hashmap! {
@@ -372,7 +374,7 @@ mod tests {
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
-            what: Build::Bridge(bridge(BridgeType::Built)),
+            what: Build::Bridge(bridge(BridgeType::Built, 22)),
             when: 11,
         }];
         assert_eq!(
@@ -437,7 +439,7 @@ mod tests {
             .unwrap()
             .get_mut(&happy_path_edge())
             .unwrap()
-            .insert(bridge(BridgeType::Built));
+            .insert(bridge(BridgeType::Built, 22));
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
@@ -452,7 +454,7 @@ mod tests {
         // Given
         let cx = happy_path_cx();
         let earlier = BuildInstruction {
-            what: Build::Bridge(bridge(BridgeType::Built)),
+            what: Build::Bridge(bridge(BridgeType::Built, 22)),
             when: 10,
         };
         cx.build_instructions.lock().unwrap().push(earlier.clone());
@@ -473,7 +475,7 @@ mod tests {
             .lock()
             .unwrap()
             .push(BuildInstruction {
-                what: Build::Bridge(bridge(BridgeType::Built)),
+                what: Build::Bridge(bridge(BridgeType::Built, 22)),
                 when: 12,
             });
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
@@ -488,8 +490,84 @@ mod tests {
             .lock()
             .unwrap()
             .contains(&BuildInstruction {
-                what: Build::Bridge(bridge(BridgeType::Built)),
+                what: Build::Bridge(bridge(BridgeType::Built, 22)),
                 when: 11,
             }));
+    }
+
+    #[test]
+    fn should_raise_deck_over_sea() {
+        // Given
+        let mut cx = happy_path_cx();
+
+        cx.parameters.bridge_deck_height = 0.45;
+
+        cx.world
+            .lock()
+            .unwrap()
+            .mut_cell_unsafe(&v2(1, 0))
+            .elevation = 0.0;
+        cx.world
+            .lock()
+            .unwrap()
+            .mut_cell_unsafe(&v2(1, 2))
+            .elevation = 0.0;
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        let mut expected_bridge = bridge(BridgeType::Built, 22);
+        expected_bridge.segments[0].from.elevation = 0.95;
+        expected_bridge.segments[0].to.elevation = 0.95;
+        let expected_build_queue = vec![BuildInstruction {
+            what: Build::Bridge(expected_bridge),
+            when: 11,
+        }];
+        assert_eq!(
+            *sim.cx.build_instructions.lock().unwrap(),
+            expected_build_queue
+        );
+    }
+
+    #[test]
+    fn should_raise_deck_over_river() {
+        // Given
+        let mut cx = happy_path_cx();
+
+        cx.parameters.bridge_deck_height = 0.45;
+
+        cx.world
+            .lock()
+            .unwrap()
+            .mut_cell_unsafe(&v2(1, 0))
+            .river
+            .horizontal
+            .width = 1.0;
+        cx.world
+            .lock()
+            .unwrap()
+            .mut_cell_unsafe(&v2(1, 2))
+            .river
+            .horizontal
+            .width = 1.0;
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        let mut expected_bridge = bridge(BridgeType::Built, 22);
+        expected_bridge.segments[0].from.elevation = 1.45;
+        expected_bridge.segments[0].to.elevation = 1.45;
+        let expected_build_queue = vec![BuildInstruction {
+            what: Build::Bridge(expected_bridge),
+            when: 11,
+        }];
+        assert_eq!(
+            *sim.cx.build_instructions.lock().unwrap(),
+            expected_build_queue
+        );
     }
 }
