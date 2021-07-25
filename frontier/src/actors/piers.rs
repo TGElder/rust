@@ -16,7 +16,7 @@ pub struct Piers<T> {
 
 impl<T> Piers<T>
 where
-    T: HasParameters + WithBridges + WithWorld,
+    T: HasParameters + WithBridges + WithWorld + Sync,
 {
     pub fn new(cx: T, one_cell_duration: Duration) -> Piers<T> {
         Piers {
@@ -31,15 +31,14 @@ where
         self.build_bridges(bridges).await;
     }
 
-    async fn get_piers(&self) -> Vec<[Pier; 2]> {
-        self.cx.with_world(|world| get_piers(&world)).await
+    async fn get_piers(&self) -> Vec<Vec<Segment>> {
+        self.cx
+            .with_world(|world| get_piers(&world, &self.one_cell_duration))
+            .await
     }
 
-    async fn get_bridges(&self, piers: Vec<[Pier; 2]>) -> Vec<Bridge> {
-        piers
-            .into_iter()
-            .flat_map(|pier| get_bridge(pier, self.one_cell_duration))
-            .collect()
+    async fn get_bridges(&self, piers: Vec<Vec<Segment>>) -> Vec<Bridge> {
+        piers.into_iter().flat_map(get_bridge).collect()
     }
 
     async fn build_bridges(&self, to_build: Vec<Bridge>) {
@@ -56,20 +55,20 @@ where
     }
 }
 
-fn get_piers(world: &World) -> Vec<[Pier; 2]> {
+fn get_piers(world: &World, duration: &Duration) -> Vec<Vec<Segment>> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
             let from = v2(x, y);
 
             if let Some(to) = world.offset(&from, v2(1, 0)) {
-                if let Some(pier) = is_pier(&world, &from, &to) {
+                if let Some(pier) = is_pier(&world, &from, &to, duration) {
                     out.push(pier);
                 }
             }
 
             if let Some(to) = world.offset(&from, v2(0, 1)) {
-                if let Some(pier) = is_pier(&world, &from, &to) {
+                if let Some(pier) = is_pier(&world, &from, &to, duration) {
                     out.push(pier);
                 }
             }
@@ -78,7 +77,12 @@ fn get_piers(world: &World) -> Vec<[Pier; 2]> {
     out
 }
 
-fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<[Pier; 2]> {
+fn is_pier(
+    world: &World,
+    from: &V2<usize>,
+    to: &V2<usize>,
+    duration: &Duration,
+) -> Option<Vec<Segment>> {
     let from_cell = world.get_cell_unsafe(from);
     let to_cell = world.get_cell_unsafe(to);
 
@@ -99,27 +103,39 @@ fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<[Pier; 2]>
         return None;
     }
 
-    Some([
-        Pier {
-            position: *from,
-            elevation: from_elevation,
-            platform: true,
+    Some(vec![
+        Segment {
+            from: Pier {
+                position: *from,
+                elevation: from_elevation,
+                platform: true,
+            },
+            to: Pier {
+                position: *to,
+                elevation: to_elevation,
+                platform: false,
+            },
+            duration: *duration,
         },
-        Pier {
-            position: *to,
-            elevation: to_elevation,
-            platform: false,
+        Segment {
+            from: Pier {
+                position: *to,
+                elevation: to_elevation,
+                platform: false,
+            },
+            to: Pier {
+                position: *to,
+                elevation: sea_level,
+                platform: false,
+            },
+            duration: Duration::from_millis(0),
         },
     ])
 }
 
-fn get_bridge(pier: [Pier; 2], duration: Duration) -> Result<Bridge, InvalidBridge> {
+fn get_bridge(segments: Vec<Segment>) -> Result<Bridge, InvalidBridge> {
     Bridge {
-        segments: vec![Segment {
-            from: pier[0],
-            to: pier[1],
-            duration,
-        }],
+        segments,
         vehicle: Vehicle::None,
         bridge_type: BridgeType::Theoretical,
     }

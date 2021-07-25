@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::convert::TryInto;
 use std::time::Duration;
 
@@ -77,24 +77,22 @@ where
         let deck_height = self.cx.parameters().bridge_deck_height;
         self.cx
             .with_world(move |world| {
-                for mut segment in bridge.segments.iter_mut() {
-                    let from_cell = world.get_cell_unsafe(&segment.from.position);
-                    let to_cell = world.get_cell_unsafe(&segment.to.position);
+                let mut piers = bridge
+                    .segments
+                    .iter_mut()
+                    .flat_map(|segment| vec![&mut segment.from, &mut segment.to].into_iter())
+                    .collect::<VecDeque<_>>();
+                piers.pop_front();
+                piers.pop_back();
+                for mut pier in piers {
+                    let cell = world.get_cell_unsafe(&pier.position);
 
-                    if from_cell.elevation <= world.sea_level() {
-                        segment.from.elevation = world.sea_level() + deck_height;
+                    if cell.elevation <= world.sea_level() {
+                        pier.elevation = world.sea_level() + deck_height;
                     }
 
-                    if from_cell.river.here() {
-                        segment.from.elevation = from_cell.elevation + deck_height;
-                    }
-
-                    if to_cell.elevation <= world.sea_level() {
-                        segment.to.elevation = world.sea_level() + deck_height;
-                    }
-
-                    if to_cell.river.here() {
-                        segment.to.elevation = to_cell.elevation + deck_height;
+                    if cell.river.here() {
+                        pier.elevation = cell.elevation + deck_height;
                     }
                 }
                 bridge

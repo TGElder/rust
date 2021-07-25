@@ -156,10 +156,7 @@ impl Journey {
         } else if from.y > to.y {
             Rotation::Down
         } else {
-            panic!(
-                "Tried to create avatar journey over invalid edge from {:?} to {:?}",
-                from, to
-            );
+            Rotation::Up
         }
     }
 
