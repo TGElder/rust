@@ -1,4 +1,5 @@
 use std::collections::{HashSet, VecDeque};
+use std::convert::TryInto;
 use std::time::Duration;
 
 use commons::edge::Edge;
@@ -116,7 +117,7 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
             .segments
             .iter()
             .map(|segment| Segment {
-                duration: *duration,
+                duration: *duration * segment.edge().length().try_into().unwrap(),
                 ..segment.clone()
             })
             .collect(),
