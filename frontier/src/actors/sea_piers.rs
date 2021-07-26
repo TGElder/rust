@@ -4,7 +4,7 @@ use commons::grid::Grid;
 use commons::{v2, V2};
 
 use crate::avatar::Vehicle;
-use crate::bridge::{Bridge, BridgeType, InvalidBridge, Pier, Segment};
+use crate::bridge::{Bridge, BridgeType, Pier, Segment};
 use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
 use crate::world::World;
@@ -26,19 +26,29 @@ where
     }
 
     pub async fn new_game(&self) {
-        let piers = self.get_piers().await;
-        let bridges = self.get_bridges(piers).await;
+        let segments = self.get_segments().await;
+        let bridges = self.get_bridges(segments).await;
         self.build_bridges(bridges).await;
     }
 
-    async fn get_piers(&self) -> Vec<Vec<Segment>> {
+    async fn get_segments(&self) -> Vec<Vec<Segment>> {
         self.cx
-            .with_world(|world| get_piers(&world, &self.one_cell_duration))
+            .with_world(|world| get_segments(&world, &self.one_cell_duration))
             .await
     }
 
-    async fn get_bridges(&self, piers: Vec<Vec<Segment>>) -> Vec<Bridge> {
-        piers.into_iter().flat_map(get_bridge).collect()
+    async fn get_bridges(&self, segments: Vec<Vec<Segment>>) -> Vec<Bridge> {
+        segments
+            .into_iter()
+            .flat_map(|segments| {
+                Bridge {
+                    segments,
+                    vehicle: Vehicle::None,
+                    bridge_type: BridgeType::Theoretical,
+                }
+                .validate()
+            })
+            .collect()
     }
 
     async fn build_bridges(&self, to_build: Vec<Bridge>) {
@@ -55,21 +65,17 @@ where
     }
 }
 
-fn get_piers(world: &World, duration: &Duration) -> Vec<Vec<Segment>> {
+fn get_segments(world: &World, duration: &Duration) -> Vec<Vec<Segment>> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
-            let from = v2(x, y);
+            for offset in [v2(1, 0), v2(0, 1)].iter() {
+                let from = v2(x, y);
 
-            if let Some(to) = world.offset(&from, v2(1, 0)) {
-                if let Some(pier) = is_pier(&world, &from, &to, duration) {
-                    out.push(pier);
-                }
-            }
-
-            if let Some(to) = world.offset(&from, v2(0, 1)) {
-                if let Some(pier) = is_pier(&world, &from, &to, duration) {
-                    out.push(pier);
+                if let Some(to) = world.offset(&from, *offset) {
+                    if let Some(pier) = is_pier(&world, &from, &to, duration) {
+                        out.push(pier);
+                    }
                 }
             }
         }
@@ -131,13 +137,4 @@ fn is_pier(
             duration: Duration::from_millis(0),
         },
     ])
-}
-
-fn get_bridge(segments: Vec<Segment>) -> Result<Bridge, InvalidBridge> {
-    Bridge {
-        segments,
-        vehicle: Vehicle::None,
-        bridge_type: BridgeType::Theoretical,
-    }
-    .validate()
 }

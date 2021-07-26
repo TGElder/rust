@@ -1,5 +1,4 @@
 use std::collections::{HashSet, VecDeque};
-use std::convert::TryInto;
 use std::time::Duration;
 
 use commons::edge::Edge;
@@ -89,9 +88,7 @@ where
 
                     if cell.elevation <= world.sea_level() {
                         pier.elevation = world.sea_level() + deck_height;
-                    }
-
-                    if cell.river.here() {
+                    } else if cell.river.here() {
                         pier.elevation = cell.elevation + deck_height;
                     }
                 }
@@ -119,7 +116,7 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
             .segments
             .iter()
             .map(|segment| Segment {
-                duration: *duration * edge.length().try_into().unwrap(),
+                duration: *duration,
                 ..segment.clone()
             })
             .collect(),
@@ -388,7 +385,7 @@ mod tests {
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
-            what: Build::Bridge(bridge(BridgeType::Built, 22)),
+            what: Build::Bridge(bridge(BridgeType::Built, 11)),
             when: 11,
         }];
         assert_eq!(
@@ -453,7 +450,7 @@ mod tests {
             .unwrap()
             .get_mut(&happy_path_edge())
             .unwrap()
-            .insert(bridge(BridgeType::Built, 22));
+            .insert(bridge(BridgeType::Built, 11));
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
@@ -468,7 +465,7 @@ mod tests {
         // Given
         let cx = happy_path_cx();
         let earlier = BuildInstruction {
-            what: Build::Bridge(bridge(BridgeType::Built, 22)),
+            what: Build::Bridge(bridge(BridgeType::Built, 11)),
             when: 10,
         };
         cx.build_instructions.lock().unwrap().push(earlier.clone());
@@ -489,7 +486,7 @@ mod tests {
             .lock()
             .unwrap()
             .push(BuildInstruction {
-                what: Build::Bridge(bridge(BridgeType::Built, 22)),
+                what: Build::Bridge(bridge(BridgeType::Built, 11)),
                 when: 12,
             });
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
@@ -504,7 +501,7 @@ mod tests {
             .lock()
             .unwrap()
             .contains(&BuildInstruction {
-                what: Build::Bridge(bridge(BridgeType::Built, 22)),
+                what: Build::Bridge(bridge(BridgeType::Built, 11)),
                 when: 11,
             }));
     }
