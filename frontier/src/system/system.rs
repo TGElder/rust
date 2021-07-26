@@ -21,7 +21,7 @@ use crate::actors::{
     TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
 };
 use crate::actors::{ControllersActor, Crossings};
-use crate::actors::{ControllersActorParameters, Piers};
+use crate::actors::{ControllersActorParameters, SeaPiers};
 use crate::artists::{
     AvatarArtist, AvatarArtistParameters, BridgeArtist, BridgeArtistParameters, HouseArtist,
     HouseArtistParameters, WorldArtist, WorldArtistParameters,
@@ -69,13 +69,13 @@ struct Processes {
     labels: Process<Labels<Context>>,
     object_builder: Process<ObjectBuilderActor<Context>>,
     pathfinding_avatar_controls: Process<PathfindingAvatarControls<Context>>,
-    piers: Process<Piers<Context>>,
     position_sims: Vec<Process<PositionBuildSimulation<Context>>>,
     prime_mover: Process<PrimeMover<Context>>,
     resource_gen: Process<ResourceGenActor<Context>>,
     resource_targets: Process<ResourceTargets<Context>>,
     river_explorer: Process<RiverExplorer<Context>>,
     rotate: Process<Rotate<Context>>,
+    sea_piers: Process<SeaPiers<Context>>,
     settlement_sims: Vec<Process<SettlementSimulation<Context, AvatarTravelDuration>>>,
     setup_new_world: Process<SetupNewWorld<Context>>,
     setup_pathfinders: Process<SetupPathfinders<Context>>,
@@ -139,13 +139,13 @@ impl System {
         let (labels_tx, labels_rx) = fn_channel();
         let (object_builder_tx, object_builder_rx) = fn_channel();
         let (pathfinding_avatar_controls_tx, pathfinding_avatar_controls_rx) = fn_channel();
-        let (piers_tx, piers_rx) = fn_channel();
         let (position_sim_tx, position_sim_rx) = fn_channel();
         let (prime_mover_tx, prime_mover_rx) = fn_channel();
         let (resource_gen_tx, resource_gen_rx) = fn_channel();
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
         let (river_explorer_tx, river_explorer_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
+        let (sea_piers_tx, sea_piers_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
         let (setup_pathfinders_tx, setup_pathfinders_rx) = fn_channel();
         let (setup_visibility_tx, setup_visibility_rx) = fn_channel();
@@ -199,7 +199,6 @@ impl System {
             nations: Arc::default(),
             object_builder_tx,
             parameters: params.clone(),
-            piers_tx,
             player_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
                 params.width,
                 params.width,
@@ -225,6 +224,7 @@ impl System {
                 params.width,
                 routes_travel_duration,
             ))),
+            sea_piers_tx,
             settlement_sim_txs,
             settlements: Arc::default(),
             setup_new_world_tx,
@@ -378,13 +378,6 @@ impl System {
                     ),
                     pathfinding_avatar_controls_rx,
                 ),
-                piers: Process::new(
-                    Piers::new(
-                        cx.clone_with_name("piers"),
-                        Duration::from_millis(params.theoretical_bridge_1_cell_duration_millis),
-                    ),
-                    piers_rx,
-                ),
                 position_sims: (0..params.simulation.threads)
                     .map(|_| {
                         Process::new(
@@ -420,6 +413,13 @@ impl System {
                     river_explorer_rx,
                 ),
                 rotate: Process::new(Rotate::new(cx.clone_with_name("rotate")), rotate_rx),
+                sea_piers: Process::new(
+                    SeaPiers::new(
+                        cx.clone_with_name("piers"),
+                        Duration::from_millis(params.theoretical_bridge_1_cell_duration_millis),
+                    ),
+                    sea_piers_rx,
+                ),
                 settlement_sims: settlement_sim_rxs
                     .into_iter()
                     .map(|rx| {
@@ -538,14 +538,14 @@ impl System {
             .crossings_tx
             .send_future(|crossings| crossings.new_game().boxed());
         self.cx
-            .piers_tx
-            .send_future(|piers| piers.new_game().boxed());
-        self.cx
             .prime_mover_tx
             .send_future(|prime_mover| prime_mover.new_game().boxed());
         self.cx
             .resource_gen_tx
             .send_future(|resource_gen| resource_gen.new_game().boxed());
+        self.cx
+            .sea_piers_tx
+            .send_future(|piers| piers.new_game().boxed());
         self.cx
             .setup_new_world_tx
             .send_future(|setup_new_world| setup_new_world.new_game().boxed());
@@ -684,7 +684,7 @@ impl Processes {
     async fn start(&mut self, pool: &ThreadPool) {
         self.world_gen.run_passive(pool).await;
         self.crossings.run_passive(pool).await;
-        self.piers.run_passive(pool).await;
+        self.sea_piers.run_passive(pool).await;
         self.resource_gen.run_passive(pool).await;
         self.setup_visibility.run_passive(pool).await;
         self.setup_new_world.run_passive(pool).await;
@@ -771,7 +771,7 @@ impl Processes {
         self.setup_visibility.drain(pool, true).await;
         self.resource_gen.drain(pool, true).await;
         self.crossings.drain(pool, true).await;
-        self.piers.drain(pool, true).await;
+        self.sea_piers.drain(pool, true).await;
         self.world_gen.drain(pool, true).await;
     }
 

@@ -9,17 +9,17 @@ use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
 use crate::world::World;
 
-pub struct Piers<T> {
+pub struct SeaPiers<T> {
     cx: T,
     one_cell_duration: Duration,
 }
 
-impl<T> Piers<T>
+impl<T> SeaPiers<T>
 where
     T: HasParameters + WithBridges + WithWorld + Sync,
 {
-    pub fn new(cx: T, one_cell_duration: Duration) -> Piers<T> {
-        Piers {
+    pub fn new(cx: T, one_cell_duration: Duration) -> SeaPiers<T> {
+        SeaPiers {
             cx,
             one_cell_duration,
         }

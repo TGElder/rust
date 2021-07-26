@@ -1,9 +1,9 @@
 use crate::actors::{
     AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeArtistActor, BridgeBuilderActor,
     BuilderActor, Cheats, ControllersActor, Crossings, FollowAvatar, Labels, ObjectBuilderActor,
-    PathfindingAvatarControls, Piers, PrimeMover, ResourceGenActor, ResourceTargets, RiverExplorer,
-    Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
+    PathfindingAvatarControls, PrimeMover, ResourceGenActor, ResourceTargets, RiverExplorer,
+    Rotate, SeaPiers, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -73,7 +73,6 @@ pub struct Context {
     pub nations: Arc<RwLock<HashMap<String, Nation>>>,
     pub object_builder_tx: FnSender<ObjectBuilderActor<Context>>,
     pub parameters: Arc<Parameters>,
-    pub piers_tx: FnSender<Piers<Context>>,
     pub player_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub pathfinding_avatar_controls_tx: FnSender<PathfindingAvatarControls<Context>>,
     pub pool: ThreadPool,
@@ -87,6 +86,7 @@ pub struct Context {
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
     pub routes_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub sea_piers_tx: FnSender<SeaPiers<Context>>,
     pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Context, AvatarTravelDuration>>>,
     pub settlements: Arc<RwLock<HashMap<V2<usize>, Settlement>>>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Context>>,
@@ -135,7 +135,6 @@ impl Context {
             nations: self.nations.clone(),
             object_builder_tx: self.object_builder_tx.clone_with_name(name),
             parameters: self.parameters.clone(),
-            piers_tx: self.piers_tx.clone_with_name(name),
             player_pathfinder: self.player_pathfinder.clone(),
             pathfinding_avatar_controls_tx: self
                 .pathfinding_avatar_controls_tx
@@ -151,6 +150,7 @@ impl Context {
             route_to_ports: self.route_to_ports.clone(),
             routes: self.routes.clone(),
             routes_pathfinder: self.routes_pathfinder.clone(),
+            sea_piers_tx: self.sea_piers_tx.clone_with_name(name),
             settlement_sim_txs: self
                 .settlement_sim_txs
                 .iter()
