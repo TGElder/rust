@@ -27,6 +27,9 @@ impl BridgeArtist {
     }
 
     pub fn draw_segment(&self, bridge: &Bridge, segment: &Segment) -> Vec<Command> {
+        if segment.from.position == segment.to.position {
+            return vec![];
+        }
         let coordinates = if segment.edge().horizontal() {
             self.coordinates_horizontal(&segment)
         } else {

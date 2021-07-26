@@ -141,6 +141,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    use commons::almost::Almost;
     use commons::async_trait::async_trait;
     use commons::{v2, M};
     use futures::executor::block_on;
@@ -265,19 +266,34 @@ mod tests {
 
     fn bridge(bridge_type: BridgeType, millis: u64) -> Bridge {
         Bridge {
-            segments: vec![Segment {
-                from: Pier {
-                    position: v2(1, 0),
-                    elevation: 1.0,
-                    platform: true,
+            segments: vec![
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                        platform: true,
+                    },
+                    to: Pier {
+                        position: v2(1, 1),
+                        elevation: 1.5,
+                        platform: false,
+                    },
+                    duration: Duration::from_millis(millis),
                 },
-                to: Pier {
-                    position: v2(1, 2),
-                    elevation: 2.0,
-                    platform: false,
+                Segment {
+                    from: Pier {
+                        position: v2(1, 1),
+                        elevation: 1.5,
+                        platform: false,
+                    },
+                    to: Pier {
+                        position: v2(1, 2),
+                        elevation: 2.0,
+                        platform: false,
+                    },
+                    duration: Duration::from_millis(millis),
                 },
-                duration: Duration::from_millis(millis),
-            }],
+            ],
             vehicle: Vehicle::None,
             bridge_type,
         }
@@ -503,12 +519,7 @@ mod tests {
         cx.world
             .lock()
             .unwrap()
-            .mut_cell_unsafe(&v2(1, 0))
-            .elevation = 0.0;
-        cx.world
-            .lock()
-            .unwrap()
-            .mut_cell_unsafe(&v2(1, 2))
+            .mut_cell_unsafe(&v2(1, 1))
             .elevation = 0.0;
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
@@ -516,17 +527,14 @@ mod tests {
         block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
 
         // Then
-        let mut expected_bridge = bridge(BridgeType::Built, 22);
-        expected_bridge.segments[0].from.elevation = 0.95;
-        expected_bridge.segments[0].to.elevation = 0.95;
-        let expected_build_queue = vec![BuildInstruction {
-            what: Build::Bridge(expected_bridge),
-            when: 11,
-        }];
-        assert_eq!(
-            *sim.cx.build_instructions.lock().unwrap(),
-            expected_build_queue
-        );
+        let build = &sim.cx.build_instructions.lock().unwrap()[0].what;
+        match build {
+            Build::Bridge(bridge) => {
+                assert!(bridge.segments[0].to.elevation.almost(&0.95));
+                assert!(bridge.segments[1].from.elevation.almost(&0.95));
+            }
+            _ => panic!("Expecting bridge build, found {:?}", build),
+        }
     }
 
     #[test]
@@ -539,14 +547,7 @@ mod tests {
         cx.world
             .lock()
             .unwrap()
-            .mut_cell_unsafe(&v2(1, 0))
-            .river
-            .horizontal
-            .width = 1.0;
-        cx.world
-            .lock()
-            .unwrap()
-            .mut_cell_unsafe(&v2(1, 2))
+            .mut_cell_unsafe(&v2(1, 1))
             .river
             .horizontal
             .width = 1.0;
@@ -556,16 +557,46 @@ mod tests {
         block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
 
         // Then
-        let mut expected_bridge = bridge(BridgeType::Built, 22);
-        expected_bridge.segments[0].from.elevation = 1.45;
-        expected_bridge.segments[0].to.elevation = 1.45;
-        let expected_build_queue = vec![BuildInstruction {
-            what: Build::Bridge(expected_bridge),
-            when: 11,
-        }];
-        assert_eq!(
-            *sim.cx.build_instructions.lock().unwrap(),
-            expected_build_queue
-        );
+        let build = &sim.cx.build_instructions.lock().unwrap()[0].what;
+        match build {
+            Build::Bridge(bridge) => {
+                assert!(bridge.segments[0].to.elevation.almost(&1.45));
+                assert!(bridge.segments[1].from.elevation.almost(&1.45));
+            }
+            _ => panic!("Expecting bridge build, found {:?}", build),
+        }
+    }
+
+    #[test]
+    fn should_not_raise_first_or_last_piers() {
+        // Given
+        let mut cx = happy_path_cx();
+
+        cx.parameters.bridge_deck_height = 0.45;
+
+        cx.world
+            .lock()
+            .unwrap()
+            .mut_cell_unsafe(&v2(1, 1))
+            .elevation = 0.0;
+        cx.world
+            .lock()
+            .unwrap()
+            .mut_cell_unsafe(&v2(1, 2))
+            .elevation = 0.0;
+        let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
+
+        // When
+        block_on(sim.build_bridge(&hashset! {happy_path_edge()}));
+
+        // Then
+        let build = &sim.cx.build_instructions.lock().unwrap()[0].what;
+        match build {
+            Build::Bridge(bridge) => {
+                assert!(bridge.segments[0].from.elevation.almost(&1.0));
+                assert!(bridge.segments[1].to.elevation.almost(&2.0));
+            }
+            _ => panic!("Expecting bridge build, found {:?}", build),
+        }
     }
 }
