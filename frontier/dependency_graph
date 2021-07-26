@@ -175,6 +175,9 @@ SendRiverExplorer SelectedAvatar
 SendRiverExplorer UpdateAvatarJourney
 SendRiverExplorer WithWorld
 SendRotate SendEngineCommands
+SendSeaPiers HasParameters
+SendSeaPiers WithBridges
+SendSeaPiers WithWorld
 SendSettlementSim AllBridges
 SendSettlementSim ClosestTargets
 SendSettlementSim Controlled

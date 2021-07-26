@@ -2,8 +2,8 @@ use crate::actors::{
     AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeArtistActor, BridgeBuilderActor,
     BuilderActor, Cheats, ControllersActor, Crossings, FollowAvatar, Labels, ObjectBuilderActor,
     PathfindingAvatarControls, PrimeMover, ResourceGenActor, ResourceTargets, RiverExplorer,
-    Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
+    Rotate, SeaPiers, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldGen,
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
@@ -86,6 +86,7 @@ pub struct Context {
     pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
     pub routes_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
+    pub sea_piers_tx: FnSender<SeaPiers<Context>>,
     pub settlement_sim_txs: Vec<FnSender<SettlementSimulation<Context, AvatarTravelDuration>>>,
     pub settlements: Arc<RwLock<HashMap<V2<usize>, Settlement>>>,
     pub setup_new_world_tx: FnSender<SetupNewWorld<Context>>,
@@ -149,6 +150,7 @@ impl Context {
             route_to_ports: self.route_to_ports.clone(),
             routes: self.routes.clone(),
             routes_pathfinder: self.routes_pathfinder.clone(),
+            sea_piers_tx: self.sea_piers_tx.clone_with_name(name),
             settlement_sim_txs: self
                 .settlement_sim_txs
                 .iter()
