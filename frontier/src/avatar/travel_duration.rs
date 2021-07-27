@@ -182,6 +182,11 @@ impl TravelDuration for AvatarTravelDuration {
         if world.is_sea(from) != world.is_sea(to) {
             return None;
         }
+        if self.travel_mode_fn.is_navigable_river_here(world, from)
+            != self.travel_mode_fn.is_navigable_river_here(world, to)
+        {
+            return None;
+        }
         self.get_duration_fn(world, from, to)
             .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
             .map(|duration| duration + self.travel_mode_change_penalty(world, from, to))

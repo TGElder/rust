@@ -11,7 +11,6 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 use tokio::sync::RwLock;
 
-use crate::actors::RiverExplorer;
 use crate::actors::RiverExplorerParameters;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeArtistActor,
@@ -22,6 +21,7 @@ use crate::actors::{
 };
 use crate::actors::{ControllersActor, Crossings};
 use crate::actors::{ControllersActorParameters, SeaPiers};
+use crate::actors::{RiverExplorer, RiverPiers};
 use crate::artists::{
     AvatarArtist, AvatarArtistParameters, BridgeArtist, BridgeArtistParameters, HouseArtist,
     HouseArtistParameters, WorldArtist, WorldArtistParameters,
@@ -74,6 +74,7 @@ struct Processes {
     resource_gen: Process<ResourceGenActor<Context>>,
     resource_targets: Process<ResourceTargets<Context>>,
     river_explorer: Process<RiverExplorer<Context>>,
+    river_piers: Process<RiverPiers<Context>>,
     rotate: Process<Rotate<Context>>,
     sea_piers: Process<SeaPiers<Context>>,
     settlement_sims: Vec<Process<SettlementSimulation<Context, AvatarTravelDuration>>>,
@@ -144,6 +145,7 @@ impl System {
         let (resource_gen_tx, resource_gen_rx) = fn_channel();
         let (resource_targets_tx, resource_targets_rx) = fn_channel();
         let (river_explorer_tx, river_explorer_rx) = fn_channel();
+        let (river_piers_tx, river_piers_rx) = fn_channel();
         let (rotate_tx, rotate_rx) = fn_channel();
         let (sea_piers_tx, sea_piers_rx) = fn_channel();
         let (setup_new_world_tx, setup_new_world_rx) = fn_channel();
@@ -216,6 +218,7 @@ impl System {
                 HashSet::with_capacity(0),
             ))),
             river_explorer_tx,
+            river_piers_tx,
             rotate_tx,
             route_to_ports: Arc::default(),
             routes: Arc::default(),
@@ -412,10 +415,17 @@ impl System {
                     ),
                     river_explorer_rx,
                 ),
+                river_piers: Process::new(
+                    RiverPiers::new(
+                        cx.clone_with_name("river_piers"),
+                        Duration::from_millis(params.theoretical_bridge_1_cell_duration_millis),
+                    ),
+                    river_piers_rx,
+                ),
                 rotate: Process::new(Rotate::new(cx.clone_with_name("rotate")), rotate_rx),
                 sea_piers: Process::new(
                     SeaPiers::new(
-                        cx.clone_with_name("piers"),
+                        cx.clone_with_name("sea_piers"),
                         Duration::from_millis(params.theoretical_bridge_1_cell_duration_millis),
                     ),
                     sea_piers_rx,
@@ -543,6 +553,9 @@ impl System {
         self.cx
             .resource_gen_tx
             .send_future(|resource_gen| resource_gen.new_game().boxed());
+        self.cx
+            .river_piers_tx
+            .send_future(|piers| piers.new_game().boxed());
         self.cx
             .sea_piers_tx
             .send_future(|piers| piers.new_game().boxed());
@@ -685,6 +698,7 @@ impl Processes {
         self.world_gen.run_passive(pool).await;
         self.crossings.run_passive(pool).await;
         self.sea_piers.run_passive(pool).await;
+        self.river_piers.run_passive(pool).await;
         self.resource_gen.run_passive(pool).await;
         self.setup_visibility.run_passive(pool).await;
         self.setup_new_world.run_passive(pool).await;
@@ -770,8 +784,9 @@ impl Processes {
         self.setup_new_world.drain(pool, true).await;
         self.setup_visibility.drain(pool, true).await;
         self.resource_gen.drain(pool, true).await;
-        self.crossings.drain(pool, true).await;
+        self.river_piers.drain(pool, true).await;
         self.sea_piers.drain(pool, true).await;
+        self.crossings.drain(pool, true).await;
         self.world_gen.drain(pool, true).await;
     }
 

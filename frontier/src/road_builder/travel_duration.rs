@@ -18,6 +18,7 @@ pub struct RoadBuildTravelParams {
     pub sea_level: f32,
     pub deep_sea_level: f32,
     pub max_landing_zone_gradient: f32,
+    pub min_navigable_river_width: f32,
 }
 
 impl Default for RoadBuildTravelParams {
@@ -30,6 +31,7 @@ impl Default for RoadBuildTravelParams {
             sea_level: 1.0,
             deep_sea_level: 0.67,
             max_landing_zone_gradient: 0.5,
+            min_navigable_river_width: 0.1,
         }
     }
 }
@@ -37,19 +39,23 @@ impl Default for RoadBuildTravelParams {
 pub struct RoadBuildTravelDuration {
     off_road: Box<dyn TravelDuration>,
     road: Box<dyn TravelDuration>,
+    params: RoadBuildTravelParams,
 }
 
 impl RoadBuildTravelDuration {
-    pub fn from_params(p: RoadBuildTravelParams) -> RoadBuildTravelDuration {
+    pub fn from_params(params: RoadBuildTravelParams) -> RoadBuildTravelDuration {
         RoadBuildTravelDuration {
             off_road: GradientTravelDuration::boxed(
                 Scale::new(
-                    (-p.max_gradient, p.max_gradient),
-                    (p.cost_at_level, p.cost_at_max_gradient),
+                    (-params.max_gradient, params.max_gradient),
+                    (params.cost_at_level, params.cost_at_max_gradient),
                 ),
                 true,
             ),
-            road: ConstantTravelDuration::boxed(Duration::from_millis(p.cost_on_existing_road)),
+            road: ConstantTravelDuration::boxed(Duration::from_millis(
+                params.cost_on_existing_road,
+            )),
+            params,
         }
     }
 }
@@ -74,7 +80,12 @@ impl TravelDuration for RoadBuildTravelDuration {
         }
 
         if let (Some(from), Some(to)) = (world.get_cell(from), world.get_cell(to)) {
-            if from.river.corner() || to.river.corner() || (from.river.here() && to.river.here()) {
+            if from.river.corner()
+                || to.river.corner()
+                || (from.river.here() && to.river.here())
+                || ((from.river.longest_side() >= self.params.min_navigable_river_width)
+                    != (to.river.longest_side() >= self.params.min_navigable_river_width))
+            {
                 None
             } else if world.is_road(&edge) || world.road_planned(&edge).is_some() {
                 self.road
@@ -116,6 +127,7 @@ mod tests {
         RoadBuildTravelDuration {
             off_road: off_road_travel_duration(),
             road: road_travel_duration(),
+            params: RoadBuildTravelParams::default(),
         }
     }
 
@@ -218,43 +230,6 @@ mod tests {
         assert_eq!(
             road_build_travel_duration().get_duration(&world, &v2(1, 0), &v2(1, 1)),
             None
-        );
-    }
-
-    #[test]
-    fn can_cross_river_at_90_degrees() {
-        let mut world = World::new(
-            M::from_vec(
-                3,
-                3,
-                vec![
-                    1.0, 1.0, 1.0, //
-                    1.0, 1.0, 1.0, //
-                    1.0, 1.0, 1.0, //
-                ],
-            ),
-            0.5,
-        );
-
-        let mut river_1 = PositionJunction::new(v2(1, 0));
-        river_1.junction.vertical.width = 1.0;
-        river_1.junction.vertical.from = true;
-        let mut river_2 = PositionJunction::new(v2(1, 1));
-        river_2.junction.vertical.width = 1.0;
-        river_2.junction.vertical.from = true;
-        river_2.junction.vertical.to = true;
-        let mut river_3 = PositionJunction::new(v2(1, 2));
-        river_3.junction.vertical.width = 1.0;
-        river_3.junction.vertical.to = true;
-        world.add_river(river_1);
-        world.add_river(river_2);
-        world.add_river(river_3);
-
-        world.reveal_all();
-
-        assert_eq!(
-            road_build_travel_duration().get_duration(&world, &v2(0, 1), &v2(1, 1)),
-            Some(off_road_travel_duration().max_duration())
         );
     }
 
