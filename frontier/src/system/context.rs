@@ -7,7 +7,7 @@ use crate::actors::{
 };
 use crate::avatar::AvatarTravelDuration;
 use crate::avatars::Avatars;
-use crate::bridge::Bridges;
+use crate::bridges::Bridges;
 use crate::build::BuildQueue;
 use crate::nation::Nation;
 use crate::parameters::Parameters;

@@ -1,5 +1,5 @@
 use super::*;
-use crate::bridge::{Bridges, BridgesExt, Pier, Segment};
+use crate::bridges::{Bridges, BridgesExt, Pier, Segment};
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::Edge;
@@ -377,8 +377,8 @@ mod tests {
 
     use std::time::Duration;
 
-    use crate::bridge::BridgeType::Built;
-    use crate::bridge::{Bridge, Pier, Segment};
+    use crate::bridges::BridgeType::Built;
+    use crate::bridges::{Bridge, Pier, Segment};
 
     use super::*;
     use commons::almost::Almost;

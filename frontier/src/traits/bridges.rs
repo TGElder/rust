@@ -6,8 +6,8 @@ use commons::grid::Grid;
 use commons::V2;
 use futures::FutureExt;
 
-use crate::bridge::BridgeType::Built;
-use crate::bridge::{Bridge, Bridges, BridgesExt};
+use crate::bridges::BridgeType::Built;
+use crate::bridges::{Bridge, Bridges, BridgesExt};
 use crate::traits::{
     DrawWorld, PathfinderForPlayer, PathfinderForRoutes, SendBridgeArtistActor,
     UpdatePathfinderEdges, WithBridges, WithWorld,

@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::bridge::Bridge;
+use crate::bridges::Bridge;
 use crate::resource::Mine;
 use crate::settlement::Settlement;
 use commons::edge::Edge;
@@ -38,7 +38,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::avatar::Vehicle;
-    use crate::bridge::{BridgeType, Pier, Segment};
+    use crate::bridges::{BridgeType, Pier, Segment};
 
     use super::*;
 

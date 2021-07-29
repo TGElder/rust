@@ -47,7 +47,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::avatar::Vehicle;
-    use crate::bridge::{Bridge, BridgeType, Pier, Segment};
+    use crate::bridges::{Bridge, BridgeType, Pier, Segment};
 
     use super::*;
 

@@ -1,6 +1,6 @@
 use commons::async_trait::async_trait;
 
-use crate::bridge::Bridges;
+use crate::bridges::Bridges;
 
 #[async_trait]
 pub trait WithBridges {

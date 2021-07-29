@@ -1,6 +1,6 @@
 use crate::artists::BridgeArtist;
-use crate::bridge::Bridge;
-use crate::bridge::BridgeType::Built;
+use crate::bridges::Bridge;
+use crate::bridges::BridgeType::Built;
 use crate::traits::{BuiltBridges, SendEngineCommands};
 
 pub struct BridgeArtistActor<T> {

@@ -1,6 +1,6 @@
 use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
 
-use crate::bridge::Bridges;
+use crate::bridges::Bridges;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{
     BuiltBridges, FindPath, Micros, PathfinderForPlayer, SelectedAvatar, UpdateAvatarJourney,

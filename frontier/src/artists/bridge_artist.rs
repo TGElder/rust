@@ -2,7 +2,7 @@ use commons::{v3, V3};
 use isometric::drawing::draw_rectangle;
 use isometric::{Color, Command};
 
-use crate::bridge::{Bridge, Segment};
+use crate::bridges::{Bridge, Segment};
 
 pub struct BridgeArtist {
     parameters: BridgeArtistParameters,

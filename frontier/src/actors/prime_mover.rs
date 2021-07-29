@@ -15,7 +15,7 @@ use commons::V2;
 use isometric::Color;
 
 use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Journey};
-use crate::bridge::Bridges;
+use crate::bridges::Bridges;
 use crate::nation::{NationColors, NationDescription};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};

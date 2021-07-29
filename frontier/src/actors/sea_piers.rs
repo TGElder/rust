@@ -4,7 +4,7 @@ use commons::grid::Grid;
 use commons::{v2, V2};
 
 use crate::avatar::Vehicle;
-use crate::bridge::{Bridge, BridgeType, Pier, Segment};
+use crate::bridges::{Bridge, BridgeType, Pier, Segment};
 use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
 use crate::world::World;

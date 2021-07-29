@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use commons::V2;
 
-use crate::bridge::{Bridges, BridgesExt};
+use crate::bridges::{Bridges, BridgesExt};
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
     PathfinderForPlayer, PathfinderForRoutes, RunInBackground, WithPathfinder, WithWorld,

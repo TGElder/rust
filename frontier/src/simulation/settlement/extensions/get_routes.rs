@@ -102,7 +102,7 @@ where
 mod tests {
     use super::*;
 
-    use crate::bridge::Bridges;
+    use crate::bridges::Bridges;
     use crate::resource::Resource;
     use crate::travel_duration::TravelDuration;
     use crate::world::World;

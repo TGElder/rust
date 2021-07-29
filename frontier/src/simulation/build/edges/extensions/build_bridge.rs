@@ -6,7 +6,7 @@ use commons::edge::Edge;
 use commons::grid::Grid;
 
 use crate::avatar::Vehicle;
-use crate::bridge::{Bridge, BridgeType, Bridges, Segment};
+use crate::bridges::{Bridge, BridgeType, Bridges, Segment};
 use crate::build::{Build, BuildInstruction, BuildKey};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
@@ -144,7 +144,7 @@ mod tests {
     use commons::{v2, M};
     use futures::executor::block_on;
 
-    use crate::bridge::Pier;
+    use crate::bridges::Pier;
     use crate::parameters::Parameters;
     use crate::resource::Resource;
     use crate::route::{Route, RouteKey, Routes, RoutesExt};
