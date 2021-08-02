@@ -7,15 +7,15 @@ use serde::{Deserialize, Serialize};
 use crate::bridges::{Bridge, BridgeType, Pier};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct BridgeTypeDurationFn {
-    pub one_cell: Duration,
-    pub penalty: Duration,
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct BridgeDurationFn {
     pub theoretical: BridgeTypeDurationFn,
     pub built: BridgeTypeDurationFn,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct BridgeTypeDurationFn {
+    pub one_cell: Duration,
+    pub penalty: Duration,
 }
 
 // TODO move Segment here
@@ -50,6 +50,7 @@ mod tests {
     use commons::v2;
 
     use crate::avatar::Vehicle;
+    use crate::bridges::Segment;
 
     use super::*;
 

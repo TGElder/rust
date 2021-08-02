@@ -38,10 +38,9 @@ where
     }
 
     async fn init_bridges(&self) {
-        let player_edge_durations = self
-            .cx
-            .all_bridges()
-            .await
+        let bridges = self.cx.all_bridges().await;
+
+        let player_edge_durations = bridges
             .values()
             .flat_map(|bridges| {
                 bridges.iter().min_by_key(|bridge| {
@@ -54,10 +53,7 @@ where
             .flat_map(|bridge| bridge.total_edge_durations())
             .collect::<Vec<_>>();
 
-        let routes_edge_durations = self
-            .cx
-            .all_bridges()
-            .await
+        let routes_edge_durations = bridges
             .values()
             .flat_map(|bridges| {
                 bridges.iter().min_by_key(|bridge| {

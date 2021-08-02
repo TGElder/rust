@@ -163,11 +163,11 @@ where
         };
 
         let player_pathfinder = self.player_pathfinder();
-        let route_pathfinder = self.routes_pathfinder();
+        let routes_pathfinder = self.routes_pathfinder();
 
         join!(
             self.update_pathfinder_edges(player_pathfinder, player_edge_durations),
-            self.update_pathfinder_edges(route_pathfinder, route_edge_durations)
+            self.update_pathfinder_edges(routes_pathfinder, route_edge_durations)
         );
     }
 }
