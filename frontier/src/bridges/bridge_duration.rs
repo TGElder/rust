@@ -4,7 +4,7 @@ use std::time::Duration;
 use commons::edge::Edge;
 use serde::{Deserialize, Serialize};
 
-use crate::bridges::{Bridge, BridgeType, Pier, Segment};
+use crate::bridges::{Bridge, BridgeType, Pier};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct BridgeTypeDurationFn {

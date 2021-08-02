@@ -2,7 +2,7 @@ use commons::v2;
 
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    AllBridges, BuiltBridges, PathfinderForPlayer, PathfinderForRoutes, UpdatePathfinderEdges,
+    AllBridges, PathfinderForPlayer, PathfinderForRoutes, UpdatePathfinderEdges,
     UpdatePositionsAllPathfinders,
 };
 
@@ -13,7 +13,6 @@ pub struct SetupPathfinders<T> {
 impl<T> SetupPathfinders<T>
 where
     T: AllBridges
-        + BuiltBridges
         + HasParameters
         + PathfinderForPlayer
         + PathfinderForRoutes
@@ -41,7 +40,7 @@ where
     async fn init_bridges(&self) {
         let player_edge_durations = self
             .cx
-            .built_bridges()
+            .all_bridges()
             .await
             .values()
             .flat_map(|bridges| {
