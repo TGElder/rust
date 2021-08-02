@@ -1,6 +1,7 @@
 use crate::actors::{BaseColors, TownArtistParameters};
 use crate::args::Args;
 use crate::avatar::AvatarTravelParams;
+use crate::bridges::{BridgeDurationFn, BridgeTypeDurationFn};
 use crate::commons::persistence::Load;
 use crate::homeland_start::HomelandEdge;
 use crate::nation::{nation_descriptions, NationDescription};
@@ -26,6 +27,8 @@ pub struct Parameters {
     pub resource_gen: ResourceGenParameters,
     pub base_colors: BaseColors,
     pub road_color: Color,
+    pub player_bridge_duration_fn: BridgeDurationFn,
+    pub npc_bridge_duration_fn: BridgeDurationFn,
     pub player_travel: AvatarTravelParams,
     pub npc_travel: AvatarTravelParams,
     pub auto_road_travel: RoadBuildTravelParams,
@@ -68,9 +71,29 @@ impl Default for Parameters {
                 road_port_penalty: 21_600_000,
                 ..AvatarTravelParams::default()
             },
+            player_bridge_duration_fn: BridgeDurationFn {
+                theoretical: BridgeTypeDurationFn {
+                    one_cell: Duration::from_millis(1_200_000),
+                    penalty: Duration::from_millis(1_800_000),
+                },
+                built: BridgeTypeDurationFn {
+                    one_cell: Duration::from_millis(1_200_000),
+                    penalty: Duration::from_millis(1_800_000),
+                },
+            },
+            npc_bridge_duration_fn: BridgeDurationFn {
+                theoretical: BridgeTypeDurationFn {
+                    one_cell: Duration::from_millis(6_600_000),
+                    penalty: Duration::from_millis(86_400_000),
+                },
+                built: BridgeTypeDurationFn {
+                    one_cell: Duration::from_millis(1_200_000),
+                    penalty: Duration::from_millis(21_600_000),
+                },
+            },
             auto_road_travel: RoadBuildTravelParams::default(),
             built_bridge_1_cell_duration_millis: 1_200_000,
-            theoretical_bridge_1_cell_duration_millis: 6_600_000,
+            theoretical_bridge_1_cell_duration_millis: 1_200_000,
             bridge_deck_height: 0.45,
             light_direction: v3(0.0, 8.0, -1.0),
             snow_temperature: 0.0,

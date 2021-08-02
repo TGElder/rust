@@ -118,7 +118,7 @@ fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<
             .iter()
             .map(|segment| Segment {
                 duration: *duration * segment.edge().length().try_into().unwrap(),
-                ..segment.clone()
+                ..*segment
             })
             .collect(),
         vehicle: Vehicle::None,

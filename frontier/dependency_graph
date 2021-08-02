@@ -142,7 +142,7 @@ SendLabels SendEngineCommands
 SendLabels WithWorld
 SendObjectBuilderActor RemoveWorldObjects
 SendObjectBuilderActor SetWorldObjects
-SendPathfindingAvatarControls BuiltBridges
+SendPathfindingAvatarControls AllBridges
 SendPathfindingAvatarControls FindPath
 SendPathfindingAvatarControls Micros
 SendPathfindingAvatarControls SelectedAvatar
@@ -206,7 +206,6 @@ SendSetupNewWorld WithNations
 SendSetupNewWorld WithSettlements
 SendSetupNewWorld WithWorld
 SendSetupPathfinder AllBridges
-SendSetupPathfinder BuiltBridges
 SendSetupPathfinder HasParameters
 SendSetupPathfinder PathfinderForPlayer
 SendSetupPathfinder PathfinderForRoutes
@@ -256,6 +255,7 @@ SetWorldObjects WithWorld
 Settlements WithSettlements
 TakeBuildInstructionsBefore SendBuildQueue
 UpdateAvatarJourney WithAvatars
+UpdateBridgesAllPathfinders HasParameters
 UpdateBridgesAllPathfinders UpdatePathfinderEdges
 UpdateBridgesAllPathfinders WithBridges
 UpdateEdgesAllPathfinders UpdatePathfinderEdges

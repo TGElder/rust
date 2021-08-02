@@ -2,7 +2,7 @@ use commons::v2;
 
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    AllBridges, BuiltBridges, PathfinderForPlayer, PathfinderForRoutes, UpdatePathfinderEdges,
+    AllBridges, PathfinderForPlayer, PathfinderForRoutes, UpdatePathfinderEdges,
     UpdatePositionsAllPathfinders,
 };
 
@@ -13,7 +13,6 @@ pub struct SetupPathfinders<T> {
 impl<T> SetupPathfinders<T>
 where
     T: AllBridges
-        + BuiltBridges
         + HasParameters
         + PathfinderForPlayer
         + PathfinderForRoutes
@@ -39,21 +38,31 @@ where
     }
 
     async fn init_bridges(&self) {
-        let player_edge_durations = self
-            .cx
-            .built_bridges()
-            .await
+        let bridges = self.cx.all_bridges().await;
+
+        let player_edge_durations = bridges
             .values()
-            .flat_map(|bridges| bridges.iter().min_by_key(|bridge| bridge.total_duration()))
+            .flat_map(|bridges| {
+                bridges.iter().min_by_key(|bridge| {
+                    self.cx
+                        .parameters()
+                        .player_bridge_duration_fn
+                        .total_duration(bridge)
+                })
+            })
             .flat_map(|bridge| bridge.total_edge_durations())
             .collect::<Vec<_>>();
 
-        let routes_edge_durations = self
-            .cx
-            .all_bridges()
-            .await
+        let routes_edge_durations = bridges
             .values()
-            .flat_map(|bridges| bridges.iter().min_by_key(|bridge| bridge.total_duration()))
+            .flat_map(|bridges| {
+                bridges.iter().min_by_key(|bridge| {
+                    self.cx
+                        .parameters()
+                        .npc_bridge_duration_fn
+                        .total_duration(bridge)
+                })
+            })
             .flat_map(|bridge| bridge.total_edge_durations())
             .collect::<Vec<_>>();
 

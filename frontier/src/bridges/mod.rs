@@ -1,3 +1,7 @@
+mod bridge_duration;
+
+pub use bridge_duration::{BridgeDurationFn, BridgeTypeDurationFn};
+
 use commons::V2;
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +23,7 @@ pub struct Bridge {
     pub bridge_type: BridgeType,
 }
 
-#[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Segment {
     pub from: Pier,
     pub to: Pier,
