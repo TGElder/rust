@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use commons::V2;
 
-use crate::bridges::{Bridges, BridgesExt};
+use crate::bridges::{BridgeDurationFn, Bridges, BridgesExt};
 use crate::pathfinder::ClosestTargetResult;
 use crate::traits::{
     PathfinderForPlayer, PathfinderForRoutes, RunInBackground, WithPathfinder, WithWorld,
@@ -287,6 +287,7 @@ pub trait CostOfPath {
     async fn cost_of_path<D>(
         &self,
         travel_duration: &D,
+        bridge_duration_fn: &BridgeDurationFn,
         bridges: &Bridges,
         path: &[V2<usize>],
     ) -> Option<Duration>
@@ -302,6 +303,7 @@ where
     async fn cost_of_path<D>(
         &self,
         travel_duration: &D,
+        bridge_duration_fn: &BridgeDurationFn,
         bridges: &Bridges,
         path: &[V2<usize>],
     ) -> Option<Duration>
@@ -316,7 +318,7 @@ where
                         .or_else(|| {
                             bridges
                                 .get_lowest_duration_bridge(&Edge::new(path[i], path[i + 1]))
-                                .map(|bridge| bridge.total_duration())
+                                .map(|bridge| bridge_duration_fn.total_duration(bridge))
                         })
                 })
                 .sum()

@@ -256,6 +256,7 @@ SetWorldObjects WithWorld
 Settlements WithSettlements
 TakeBuildInstructionsBefore SendBuildQueue
 UpdateAvatarJourney WithAvatars
+UpdateBridgesAllPathfinders HasParameters
 UpdateBridgesAllPathfinders UpdatePathfinderEdges
 UpdateBridgesAllPathfinders WithBridges
 UpdateEdgesAllPathfinders UpdatePathfinderEdges

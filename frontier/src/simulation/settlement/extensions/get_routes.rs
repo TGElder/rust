@@ -3,6 +3,7 @@ use crate::route::{Route, RouteKey, RouteSet, RouteSetKey};
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::Routes;
 use crate::simulation::settlement::SettlementSimulation;
+use crate::traits::has::HasParameters;
 use crate::traits::{AllBridges, ClosestTargetsForRoutes, CostOfPath, InBoundsForRoutes, Micros};
 use crate::travel_duration::TravelDuration;
 use commons::grid::get_corners;
@@ -12,7 +13,12 @@ use std::time::Duration;
 
 impl<T, D> SettlementSimulation<T, D>
 where
-    T: AllBridges + ClosestTargetsForRoutes + CostOfPath + InBoundsForRoutes + Micros,
+    T: AllBridges
+        + HasParameters
+        + ClosestTargetsForRoutes
+        + CostOfPath
+        + InBoundsForRoutes
+        + Micros,
     D: TravelDuration,
 {
     pub async fn get_routes(&self, demand: Demand) -> Routes {
@@ -91,8 +97,14 @@ where
 
     async fn route_duration(&self, path: &[V2<usize>]) -> Duration {
         let bridges = self.cx.all_bridges().await;
+        let bridge_duration_fn = &self.cx.parameters().npc_bridge_duration_fn;
         self.cx
-            .cost_of_path(self.travel_duration.as_ref(), &bridges, path)
+            .cost_of_path(
+                self.travel_duration.as_ref(),
+                bridge_duration_fn,
+                &bridges,
+                path,
+            )
             .await
             .expect("Found route but not duration!")
     }
@@ -102,7 +114,8 @@ where
 mod tests {
     use super::*;
 
-    use crate::bridges::Bridges;
+    use crate::bridges::{BridgeDurationFn, Bridges};
+    use crate::parameters::Parameters;
     use crate::resource::Resource;
     use crate::travel_duration::TravelDuration;
     use crate::world::World;
@@ -117,18 +130,25 @@ mod tests {
     struct HappyPathTx {
         closest_targets: Vec<ClosestTargetResult>,
         bridges: Bridges,
+        parameters: Parameters,
     }
 
     #[async_trait]
-    impl Micros for HappyPathTx {
-        async fn micros(&self) -> u128 {
-            101
+    impl AllBridges for HappyPathTx {
+        async fn all_bridges(&self) -> Bridges {
+            self.bridges.clone()
         }
     }
 
     #[async_trait]
     impl CostOfPath for HappyPathTx {
-        async fn cost_of_path<D>(&self, _: &D, _: &Bridges, _: &[V2<usize>]) -> Option<Duration>
+        async fn cost_of_path<D>(
+            &self,
+            _: &D,
+            _: &BridgeDurationFn,
+            _: &Bridges,
+            _: &[V2<usize>],
+        ) -> Option<Duration>
         where
             D: TravelDuration,
         {
@@ -157,10 +177,16 @@ mod tests {
         }
     }
 
+    impl HasParameters for HappyPathTx {
+        fn parameters(&self) -> &Parameters {
+            &self.parameters
+        }
+    }
+
     #[async_trait]
-    impl AllBridges for HappyPathTx {
-        async fn all_bridges(&self) -> Bridges {
-            self.bridges.clone()
+    impl Micros for HappyPathTx {
+        async fn micros(&self) -> u128 {
+            101
         }
     }
 
@@ -350,15 +376,21 @@ mod tests {
     struct PanicPathfinderTx {}
 
     #[async_trait]
-    impl Micros for PanicPathfinderTx {
-        async fn micros(&self) -> u128 {
-            101
+    impl AllBridges for PanicPathfinderTx {
+        async fn all_bridges(&self) -> Bridges {
+            panic!("all_bridges was called!");
         }
     }
 
     #[async_trait]
     impl CostOfPath for PanicPathfinderTx {
-        async fn cost_of_path<D>(&self, _: &D, _: &Bridges, _: &[V2<usize>]) -> Option<Duration>
+        async fn cost_of_path<D>(
+            &self,
+            _: &D,
+            _: &BridgeDurationFn,
+            _: &Bridges,
+            _: &[V2<usize>],
+        ) -> Option<Duration>
         where
             D: TravelDuration,
         {
@@ -385,10 +417,16 @@ mod tests {
         }
     }
 
+    impl HasParameters for PanicPathfinderTx {
+        fn parameters(&self) -> &Parameters {
+            panic!("parameters was called!");
+        }
+    }
+
     #[async_trait]
-    impl AllBridges for PanicPathfinderTx {
-        async fn all_bridges(&self) -> Bridges {
-            panic!("all_bridges was called!");
+    impl Micros for PanicPathfinderTx {
+        async fn micros(&self) -> u128 {
+            101
         }
     }
 

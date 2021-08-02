@@ -8,6 +8,7 @@ use futures::FutureExt;
 
 use crate::bridges::BridgeType::Built;
 use crate::bridges::{Bridge, Bridges, BridgesExt};
+use crate::traits::has::HasParameters;
 use crate::traits::{
     DrawWorld, PathfinderForPlayer, PathfinderForRoutes, SendBridgeArtistActor,
     UpdatePathfinderEdges, WithBridges, WithWorld,
@@ -126,7 +127,8 @@ pub trait UpdateBridgesAllPathfinders {
 #[async_trait]
 impl<T> UpdateBridgesAllPathfinders for T
 where
-    T: PathfinderForPlayer
+    T: HasParameters
+        + PathfinderForPlayer
         + PathfinderForRoutes
         + UpdatePathfinderEdges
         + WithBridges
@@ -140,13 +142,16 @@ where
             return
         );
 
-        let player_bridge = bridges
-            .iter()
-            .filter(|bridge| bridge.bridge_type == Built)
-            .min_by_key(|bridge| bridge.total_duration());
-        let route_bridge = bridges
-            .iter()
-            .min_by_key(|bridges| bridges.total_duration());
+        let player_bridge = bridges.iter().min_by_key(|bridge| {
+            self.parameters()
+                .player_bridge_duration_fn
+                .total_duration(bridge)
+        });
+        let route_bridge = bridges.iter().min_by_key(|bridge| {
+            self.parameters()
+                .npc_bridge_duration_fn
+                .total_duration(bridge)
+        });
 
         let player_edge_durations = match player_bridge {
             Some(bridge) => bridge.total_edge_durations().collect(),
