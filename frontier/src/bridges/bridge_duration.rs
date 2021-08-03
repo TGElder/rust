@@ -64,6 +64,15 @@ impl BridgeDurationFn {
             duration: Some(duration),
         }))
     }
+
+    pub fn lowest_duration_bridge<'a, I>(&self, bridges: I) -> Option<&'a Bridge>
+    where
+        I: IntoIterator<Item = &'a Bridge>,
+    {
+        bridges
+            .into_iter()
+            .min_by_key(|bridge| self.total_duration(bridge))
+    }
 }
 
 #[cfg(test)]
@@ -199,6 +208,56 @@ mod tests {
                     duration: Some(Duration::from_secs(3 * 2)),
                 }
             }
+        );
+    }
+
+    #[test]
+    fn lowest_duration_bridge() {
+        // Given
+        let built_bridge = Bridge {
+            segments: vec![
+                Segment {
+                    from: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                        platform: true,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                        platform: true,
+                    },
+                    duration: Duration::from_secs(0),
+                },
+                Segment {
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                        platform: true,
+                    },
+                    to: Pier {
+                        position: v2(3, 0),
+                        elevation: 2.0,
+                        platform: true,
+                    },
+                    duration: Duration::from_secs(0),
+                },
+            ],
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
+
+        let theoretical_bridge = Bridge {
+            bridge_type: BridgeType::Theoretical,
+            ..built_bridge.clone()
+        };
+
+        let duration_fn = bridge_duration_fn();
+
+        // Then
+        assert_eq!(
+            duration_fn.lowest_duration_bridge(&[built_bridge.clone(), theoretical_bridge]),
+            Some(&built_bridge)
         );
     }
 }

@@ -43,22 +43,14 @@ where
         let player_duration_fn = &self.cx.parameters().player_bridge_duration_fn;
         let player_edge_durations = bridges
             .values()
-            .flat_map(|bridges| {
-                bridges
-                    .iter()
-                    .min_by_key(|bridge| player_duration_fn.total_duration(bridge))
-            })
+            .flat_map(|bridges| player_duration_fn.lowest_duration_bridge(bridges))
             .flat_map(|bridge| player_duration_fn.total_edge_durations(bridge))
             .collect::<Vec<_>>();
 
         let npc_duration_fn = &self.cx.parameters().npc_bridge_duration_fn;
         let routes_edge_durations = bridges
             .values()
-            .flat_map(|bridges| {
-                bridges
-                    .iter()
-                    .min_by_key(|bridge| npc_duration_fn.total_duration(bridge))
-            })
+            .flat_map(|bridges| npc_duration_fn.lowest_duration_bridge(bridges))
             .flat_map(|bridge| npc_duration_fn.total_edge_durations(bridge))
             .collect::<Vec<_>>();
 

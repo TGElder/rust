@@ -145,21 +145,16 @@ where
         let player_duration_fn = &self.parameters().player_bridge_duration_fn;
         let npc_duration_fn = &self.parameters().npc_bridge_duration_fn;
 
-        let player_bridge = bridges
-            .iter()
-            .min_by_key(|bridge| player_duration_fn.total_duration(bridge));
-        let route_bridge = bridges
-            .iter()
-            .min_by_key(|bridge| npc_duration_fn.total_duration(bridge));
-
-        let player_edge_durations = match player_bridge {
-            Some(bridge) => player_duration_fn.total_edge_durations(bridge).collect(),
-            None => vec![],
-        };
-        let route_edge_durations = match route_bridge {
-            Some(bridge) => npc_duration_fn.total_edge_durations(bridge).collect(),
-            None => vec![],
-        };
+        let player_edge_durations = player_duration_fn
+            .lowest_duration_bridge(&bridges)
+            .map(|bridge| player_duration_fn.total_edge_durations(bridge))
+            .map(|iterator| iterator.collect::<Vec<_>>())
+            .unwrap_or_default();
+        let route_edge_durations = npc_duration_fn
+            .lowest_duration_bridge(&bridges)
+            .map(|bridge| npc_duration_fn.total_edge_durations(bridge))
+            .map(|iterator| iterator.collect::<Vec<_>>())
+            .unwrap_or_default();
 
         let player_pathfinder = self.player_pathfinder();
         let routes_pathfinder = self.routes_pathfinder();
