@@ -40,30 +40,26 @@ where
     async fn init_bridges(&self) {
         let bridges = self.cx.all_bridges().await;
 
+        let player_duration_fn = &self.cx.parameters().player_bridge_duration_fn;
         let player_edge_durations = bridges
             .values()
             .flat_map(|bridges| {
-                bridges.iter().min_by_key(|bridge| {
-                    self.cx
-                        .parameters()
-                        .player_bridge_duration_fn
-                        .total_duration(bridge)
-                })
+                bridges
+                    .iter()
+                    .min_by_key(|bridge| player_duration_fn.total_duration(bridge))
             })
-            .flat_map(|bridge| bridge.total_edge_durations())
+            .flat_map(|bridge| player_duration_fn.total_edge_durations(bridge))
             .collect::<Vec<_>>();
 
+        let npc_duration_fn = &self.cx.parameters().npc_bridge_duration_fn;
         let routes_edge_durations = bridges
             .values()
             .flat_map(|bridges| {
-                bridges.iter().min_by_key(|bridge| {
-                    self.cx
-                        .parameters()
-                        .npc_bridge_duration_fn
-                        .total_duration(bridge)
-                })
+                bridges
+                    .iter()
+                    .min_by_key(|bridge| npc_duration_fn.total_duration(bridge))
             })
-            .flat_map(|bridge| bridge.total_edge_durations())
+            .flat_map(|bridge| npc_duration_fn.total_edge_durations(bridge))
             .collect::<Vec<_>>();
 
         let player_pathfinder = self.cx.player_pathfinder();

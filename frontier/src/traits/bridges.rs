@@ -142,23 +142,22 @@ where
             return
         );
 
-        let player_bridge = bridges.iter().min_by_key(|bridge| {
-            self.parameters()
-                .player_bridge_duration_fn
-                .total_duration(bridge)
-        });
-        let route_bridge = bridges.iter().min_by_key(|bridge| {
-            self.parameters()
-                .npc_bridge_duration_fn
-                .total_duration(bridge)
-        });
+        let player_duration_fn = &self.parameters().player_bridge_duration_fn;
+        let npc_duration_fn = &self.parameters().npc_bridge_duration_fn;
+
+        let player_bridge = bridges
+            .iter()
+            .min_by_key(|bridge| player_duration_fn.total_duration(bridge));
+        let route_bridge = bridges
+            .iter()
+            .min_by_key(|bridge| npc_duration_fn.total_duration(bridge));
 
         let player_edge_durations = match player_bridge {
-            Some(bridge) => bridge.total_edge_durations().collect(),
+            Some(bridge) => player_duration_fn.total_edge_durations(bridge).collect(),
             None => vec![],
         };
         let route_edge_durations = match route_bridge {
-            Some(bridge) => bridge.total_edge_durations().collect(),
+            Some(bridge) => npc_duration_fn.total_edge_durations(bridge).collect(),
             None => vec![],
         };
 

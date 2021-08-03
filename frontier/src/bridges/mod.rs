@@ -14,7 +14,6 @@ use std::{error, fmt};
 use commons::edge::Edge;
 
 use crate::avatar::Vehicle;
-use crate::travel_duration::EdgeDuration;
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Bridge {
@@ -113,22 +112,6 @@ impl Bridge {
         self.segments.iter().map(|edge| edge.duration).sum()
     }
 
-    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    pub fn total_edge_durations<'a>(&'a self) -> impl Iterator<Item = EdgeDuration> + 'a {
-        let edge = self.total_edge();
-        let duration = self.total_duration();
-        once(EdgeDuration {
-            from: *edge.to(),
-            to: *edge.from(),
-            duration: Some(duration),
-        })
-        .chain(once(EdgeDuration {
-            from: *edge.from(),
-            to: *edge.to(),
-            duration: Some(duration),
-        }))
-    }
-
     fn validate_segments(&self) -> Result<(), InvalidBridge> {
         let segments = &self.segments;
         let first = unwrap_or!(segments.first(), return Err(InvalidBridge::Empty));
@@ -215,13 +198,11 @@ impl error::Error for InvalidBridge {}
 mod tests {
     use super::*;
 
-    use std::collections::HashSet;
     use std::time::Duration;
 
     use commons::v2;
 
     use crate::avatar::Vehicle;
-    use crate::travel_duration::EdgeDuration;
 
     #[test]
     fn empty_bridge() {
@@ -641,58 +622,6 @@ mod tests {
         };
 
         assert_eq!(bridge.total_duration(), Duration::from_secs(3));
-    }
-
-    #[test]
-    fn total_edge_durations() {
-        let bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    duration: Duration::from_secs(1),
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
-                    duration: Duration::from_secs(2),
-                },
-            ],
-            vehicle: Vehicle::None,
-            bridge_type: BridgeType::Built,
-        };
-
-        assert_eq!(
-            bridge.total_edge_durations().collect::<HashSet<_>>(),
-            hashset! {
-                EdgeDuration {
-                    from: v2(0, 0),
-                    to: v2(2, 0),
-                    duration: Some(Duration::from_secs(3)),
-                },
-                EdgeDuration {
-                    from: v2(2, 0),
-                    to: v2(0, 0),
-                    duration: Some(Duration::from_secs(3)),
-                }
-            }
-        );
     }
 
     #[test]
