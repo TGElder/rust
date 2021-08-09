@@ -7,7 +7,7 @@ use commons::grid::Grid;
 use commons::V2;
 use commons::V3;
 use isometric::coords::*;
-use std::iter::once;
+use std::iter::{empty, once};
 use std::ops::Add;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -25,26 +25,6 @@ pub struct Frame {
     pub load: AvatarLoad,
 }
 
-impl From<&Frame> for WorldCoord {
-    fn from(frame: &Frame) -> Self {
-        WorldCoord::new(
-            frame.position.x as f32,
-            frame.position.y as f32,
-            frame.elevation,
-        )
-    }
-}
-
-impl From<&Frame> for V3<f32> {
-    fn from(frame: &Frame) -> Self {
-        V3::new(
-            frame.position.x as f32,
-            frame.position.y as f32,
-            frame.elevation,
-        )
-    }
-}
-
 #[derive(Clone, Copy)]
 pub enum BridgeConfig<'a> {
     WithBridges {
@@ -52,20 +32,6 @@ pub enum BridgeConfig<'a> {
         duration_fn: &'a BridgeDurationFn,
     },
     WithoutBridges,
-}
-
-impl<'a> BridgeConfig<'a> {
-    fn lowest_duration_bridge(&self, edge: &Edge) -> Option<&'a Bridge> {
-        match self {
-            BridgeConfig::WithBridges {
-                bridges,
-                duration_fn,
-            } => bridges
-                .get(edge)
-                .and_then(|bridges| duration_fn.lowest_duration_bridge(bridges)),
-            BridgeConfig::WithoutBridges => None,
-        }
-    }
 }
 
 impl Journey {
@@ -218,7 +184,7 @@ impl Journey {
             .or_else(|| {
                 bridge_config
                     .lowest_duration_bridge(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.segments_one_way(from))
+                    .map(|bridge| bridge_config.segments_one_way(bridge, from))
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -397,6 +363,53 @@ impl Add for Journey {
         self.frames.append(&mut other.frames);
         Self {
             frames: self.frames,
+        }
+    }
+}
+
+impl From<&Frame> for WorldCoord {
+    fn from(frame: &Frame) -> Self {
+        WorldCoord::new(
+            frame.position.x as f32,
+            frame.position.y as f32,
+            frame.elevation,
+        )
+    }
+}
+
+impl From<&Frame> for V3<f32> {
+    fn from(frame: &Frame) -> Self {
+        V3::new(
+            frame.position.x as f32,
+            frame.position.y as f32,
+            frame.elevation,
+        )
+    }
+}
+
+impl<'a> BridgeConfig<'a> {
+    fn lowest_duration_bridge(&self, edge: &Edge) -> Option<&'a Bridge> {
+        match self {
+            BridgeConfig::WithBridges {
+                bridges,
+                duration_fn,
+            } => bridges
+                .get(edge)
+                .and_then(|bridges| duration_fn.lowest_duration_bridge(bridges)),
+            BridgeConfig::WithoutBridges => None,
+        }
+    }
+
+    fn segments_one_way(
+        &self,
+        bridge: &'a Bridge,
+        from: &V2<usize>,
+    ) -> Box<dyn Iterator<Item = Segment> + 'a> {
+        match self {
+            BridgeConfig::WithBridges { duration_fn, .. } => {
+                duration_fn.segments_one_way(bridge, from)
+            }
+            BridgeConfig::WithoutBridges => Box::new(empty()),
         }
     }
 }
@@ -1241,7 +1254,7 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_micros(202),
+                    duration: Duration::from_millis(202),
                 },
                 Segment {
                     from: Pier {
@@ -1254,7 +1267,7 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_micros(404),
+                    duration: Duration::from_millis(404),
                 },
             ],
             vehicle: Vehicle::Boat,
@@ -1263,8 +1276,8 @@ mod tests {
         let bridges = hashmap! { bridge.total_edge() => hashset!{ bridge } };
         let duration_fn = BridgeDurationFn {
             built: BridgeTypeDurationFn {
-                one_cell: Duration::from_millis(101),
-                penalty: Duration::from_millis(0),
+                one_cell: Duration::from_micros(101),
+                penalty: Duration::from_micros(0),
             },
             ..BridgeDurationFn::default()
         };
@@ -1292,7 +1305,7 @@ mod tests {
                 Frame {
                     position: v2(1, 0),
                     elevation: 1.0,
-                    arrival: 404,
+                    arrival: 101,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,
                     load: AvatarLoad::None,
@@ -1300,7 +1313,7 @@ mod tests {
                 Frame {
                     position: v2(0, 0),
                     elevation: 0.0,
-                    arrival: 606,
+                    arrival: 202,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,
                     load: AvatarLoad::None,

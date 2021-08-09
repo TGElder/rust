@@ -97,9 +97,10 @@ impl BridgeArtist {
     }
 
     pub fn erase_bridge(&self, bridge: &Bridge) -> Vec<Command> {
-        let segments = bridge.segments_one_way(&bridge.start().position);
+        let segments = &bridge.segments;
 
         segments
+            .iter()
             .map(|segment| self.erase_segment(bridge, &segment))
             .collect()
     }
