@@ -11,7 +11,7 @@ use commons::process::Step;
 use commons::{unsafe_ordering, v2, V2};
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 
-use crate::avatar::{Avatar, AvatarTravelDuration, Frame, Journey, Rotation};
+use crate::avatar::{Avatar, AvatarTravelDuration, BridgeConfig, Frame, Journey, Rotation};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::has::HasParameters;
 use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, WithWorld};
@@ -161,7 +161,7 @@ where
                     self.travel_duration.as_ref(),
                     self.travel_duration.travel_mode_fn(),
                     micros,
-                    &hashmap! {},
+                    BridgeConfig::WithoutBridges,
                 )
             })
             .await;
@@ -441,7 +441,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
-                &hashmap! {},
+                BridgeConfig::WithoutBridges,
             ))
         );
     }
@@ -489,7 +489,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
-                &hashmap! {},
+                BridgeConfig::WithoutBridges,
             ))
         );
     }
@@ -552,7 +552,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
-                &hashmap! {},
+                BridgeConfig::WithoutBridges,
             ))
         );
     }
@@ -615,7 +615,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
-                &hashmap! {},
+                BridgeConfig::WithoutBridges,
             ))
         );
     }
@@ -739,7 +739,7 @@ mod tests {
             travel_duration.as_ref(),
             travel_duration.travel_mode_fn(),
             0,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         ));
         cx.avatar.lock().unwrap().journey = original_journey.clone();
 
@@ -827,7 +827,7 @@ mod tests {
                 travel_duration.as_ref(),
                 travel_duration.travel_mode_fn(),
                 0,
-                &hashmap! {},
+                BridgeConfig::WithoutBridges,
             ))
         );
     }

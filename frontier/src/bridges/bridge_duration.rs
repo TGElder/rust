@@ -20,6 +20,21 @@ pub struct BridgeTypeDurationFn {
     pub penalty: Duration,
 }
 
+impl Default for BridgeDurationFn {
+    fn default() -> Self {
+        BridgeDurationFn {
+            built: BridgeTypeDurationFn {
+                one_cell: Duration::from_secs(1),
+                penalty: Duration::from_secs(1),
+            },
+            theoretical: BridgeTypeDurationFn {
+                one_cell: Duration::from_secs(1),
+                penalty: Duration::from_secs(1),
+            },
+        }
+    }
+}
+
 // TODO move Segment here
 impl BridgeTypeDurationFn {
     fn segment_duration(&self, from: &Pier, to: &Pier) -> Duration {

@@ -1,5 +1,5 @@
 use super::*;
-use crate::bridges::{Bridges, BridgesExt, Pier, Segment};
+use crate::bridges::{Bridge, BridgeDurationFn, Bridges, Pier, Segment};
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::Edge;
@@ -45,6 +45,29 @@ impl From<&Frame> for V3<f32> {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum BridgeConfig<'a> {
+    WithBridges {
+        bridges: &'a Bridges,
+        duration_fn: &'a BridgeDurationFn,
+    },
+    WithoutBridges,
+}
+
+impl<'a> BridgeConfig<'a> {
+    fn lowest_duration_bridge(&self, edge: &Edge) -> Option<&'a Bridge> {
+        match self {
+            BridgeConfig::WithBridges {
+                bridges,
+                duration_fn,
+            } => bridges
+                .get(edge)
+                .and_then(|bridges| duration_fn.lowest_duration_bridge(bridges)),
+            BridgeConfig::WithoutBridges => None,
+        }
+    }
+}
+
 impl Journey {
     pub fn new(
         world: &World,
@@ -52,7 +75,7 @@ impl Journey {
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
         start_at: u128,
-        bridges: &Bridges,
+        bridge_config: BridgeConfig,
     ) -> Journey {
         Journey {
             frames: Journey::compute_frames(
@@ -61,7 +84,7 @@ impl Journey {
                 start_at,
                 travel_duration,
                 vehicle_fn,
-                bridges,
+                bridge_config,
             ),
         }
     }
@@ -90,7 +113,7 @@ impl Journey {
         start_at: u128,
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
-        bridges: &Bridges,
+        bridge_config: BridgeConfig,
     ) -> Vec<Frame> {
         let mut next_arrival_time = start_at;
         let mut out = Vec::with_capacity(positions.len());
@@ -98,15 +121,21 @@ impl Journey {
             position: positions[0],
             elevation: Self::get_elevation(world, &positions[0]),
             arrival: next_arrival_time,
-            vehicle: Self::vehicle(world, &positions[0], &positions[1], vehicle_fn, bridges),
+            vehicle: Self::vehicle(
+                world,
+                &positions[0],
+                &positions[1],
+                vehicle_fn,
+                bridge_config,
+            ),
             rotation: Self::rotation(&positions[0], &positions[1]),
             load: AvatarLoad::None,
         });
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            let vehicle = Self::vehicle(world, &from, &to, vehicle_fn, bridges);
-            for segment in Self::segments(world, &from, &to, travel_duration, bridges) {
+            let vehicle = Self::vehicle(world, &from, &to, vehicle_fn, bridge_config);
+            for segment in Self::segments(world, &from, &to, travel_duration, bridge_config) {
                 let from = segment.from.position;
                 let to = segment.to.position;
                 next_arrival_time += segment.duration.as_micros();
@@ -128,13 +157,13 @@ impl Journey {
         from: &V2<usize>,
         to: &V2<usize>,
         vehicle_fn: &dyn VehicleFn,
-        bridges: &Bridges,
+        bridge_config: BridgeConfig,
     ) -> Vehicle {
         vehicle_fn
             .vehicle_between(world, &from, &to)
             .or_else(|| {
-                bridges
-                    .get_lowest_duration_bridge(&Edge::new(*from, *to))
+                bridge_config
+                    .lowest_duration_bridge(&Edge::new(*from, *to))
                     .map(|bridge| bridge.vehicle)
             })
             .unwrap_or_else(|| {
@@ -165,7 +194,7 @@ impl Journey {
         from: &V2<usize>,
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
-        bridges: &'a Bridges,
+        bridge_config: BridgeConfig<'a>,
     ) -> Box<dyn Iterator<Item = Segment> + 'a> {
         travel_duration
             .get_duration(world, &from, &to)
@@ -187,8 +216,8 @@ impl Journey {
                 iterator
             })
             .or_else(|| {
-                bridges
-                    .get_lowest_duration_bridge(&Edge::new(*from, *to))
+                bridge_config
+                    .lowest_duration_bridge(&Edge::new(*from, *to))
                     .map(|bridge| bridge.segments_one_way(from))
             })
             .unwrap_or_else(|| {
@@ -378,7 +407,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::bridges::BridgeType::Built;
-    use crate::bridges::{Bridge, Pier, Segment};
+    use crate::bridges::{Bridge, BridgeTypeDurationFn, Pier, Segment};
 
     use super::*;
     use commons::almost::Almost;
@@ -465,7 +494,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             0,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         );
         let expected = Journey {
             frames: vec![
@@ -524,7 +553,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             0,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         );
         assert_eq!(
             journey.final_frame(),
@@ -550,7 +579,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             instant,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         );
         assert!(!journey.done(&instant));
         let done_at = instant + 10_000;
@@ -569,7 +598,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             start,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         );
         let at = start + 1_500;
 
@@ -598,7 +627,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             start,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         );
 
         // When
@@ -620,7 +649,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             start,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         );
 
         // When
@@ -702,7 +731,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             start,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         );
         assert_eq!(journey.index_at(&start), 1);
         let at = start + 1_500;
@@ -721,7 +750,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             start,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         );
         let frames = journey.frames.clone();
 
@@ -741,7 +770,7 @@ mod tests {
             &travel_duration(),
             &vehicle_fn(),
             0,
-            &hashmap! {},
+            BridgeConfig::WithoutBridges,
         );
         let frames = journey.frames.clone();
 
@@ -1231,13 +1260,24 @@ mod tests {
             vehicle: Vehicle::Boat,
             bridge_type: Built,
         };
+        let bridges = hashmap! { bridge.total_edge() => hashset!{ bridge } };
+        let duration_fn = BridgeDurationFn {
+            built: BridgeTypeDurationFn {
+                one_cell: Duration::from_millis(101),
+                penalty: Duration::from_millis(0),
+            },
+            ..BridgeDurationFn::default()
+        };
         let actual = Journey::new(
             &world,
             positions,
             &travel_duration(),
             &vehicle_fn(),
             0,
-            &hashmap! { bridge.total_edge() => hashset!{ bridge } },
+            BridgeConfig::WithBridges {
+                bridges: &bridges,
+                duration_fn: &duration_fn,
+            },
         );
         let expected = Journey {
             frames: vec![

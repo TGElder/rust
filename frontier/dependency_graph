@@ -144,6 +144,7 @@ SendObjectBuilderActor RemoveWorldObjects
 SendObjectBuilderActor SetWorldObjects
 SendPathfindingAvatarControls AllBridges
 SendPathfindingAvatarControls FindPath
+SendPathfindingAvatarControls HasParameters
 SendPathfindingAvatarControls Micros
 SendPathfindingAvatarControls SelectedAvatar
 SendPathfindingAvatarControls UpdateAvatarJourney
@@ -160,6 +161,7 @@ SendPositionBuildSim WithRoutes
 SendPositionBuildSim WithTraffic
 SendPositionBuildSim WithWorld
 SendPrimeMover AllBridges
+SendPrimeMover HasParameters
 SendPrimeMover Micros
 SendPrimeMover WithAvatars
 SendPrimeMover WithRoutes
