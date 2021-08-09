@@ -1,6 +1,5 @@
 use crate::avatar::{Avatar, AvatarTravelDuration, BridgeConfig, Journey};
 
-use crate::bridges::Bridges;
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::has::HasParameters;
 use crate::traits::{
@@ -76,9 +75,18 @@ where
         );
 
         let start_at = stopped.final_frame().arrival.max(micros);
-        let bridges = self.cx.all_bridges().await;
+        let bridge_config = BridgeConfig::WithBridges {
+            bridges: &self.cx.all_bridges().await,
+            duration_fn: &self.cx.parameters().player_bridge_duration_fn,
+        };
         let travelling = self
-            .extend(stopped, path, start_at, &self.travel_duration, &bridges)
+            .extend(
+                stopped,
+                path,
+                start_at,
+                &self.travel_duration,
+                bridge_config,
+            )
             .await;
 
         if travelling.is_some() {
@@ -93,15 +101,14 @@ where
         Some((name, journey))
     }
 
-    async fn extend(
-        &self,
+    async fn extend<'a>(
+        &'a self,
         journey: Journey,
         positions: Vec<V2<usize>>,
         start_at: u128,
-        travel_duration: &AvatarTravelDuration,
-        bridges: &Bridges,
+        travel_duration: &'a AvatarTravelDuration,
+        bridge_config: BridgeConfig<'a>,
     ) -> Option<Journey> {
-        let bridge_duration_fn = &self.cx.parameters().player_bridge_duration_fn;
         self.cx
             .with_world(|world| {
                 journey.append(Journey::new(
@@ -110,10 +117,7 @@ where
                     travel_duration,
                     travel_duration.travel_mode_fn(),
                     start_at,
-                    BridgeConfig::WithBridges {
-                        bridges,
-                        duration_fn: &bridge_duration_fn,
-                    },
+                    bridge_config,
                 ))
             })
             .await

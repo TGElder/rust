@@ -25,6 +25,26 @@ pub struct Frame {
     pub load: AvatarLoad,
 }
 
+impl From<&Frame> for WorldCoord {
+    fn from(frame: &Frame) -> Self {
+        WorldCoord::new(
+            frame.position.x as f32,
+            frame.position.y as f32,
+            frame.elevation,
+        )
+    }
+}
+
+impl From<&Frame> for V3<f32> {
+    fn from(frame: &Frame) -> Self {
+        V3::new(
+            frame.position.x as f32,
+            frame.position.y as f32,
+            frame.elevation,
+        )
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum BridgeConfig<'a> {
     WithBridges {
@@ -48,26 +68,6 @@ impl<'a> BridgeConfig<'a> {
     }
 }
 
-impl From<&Frame> for WorldCoord {
-    fn from(frame: &Frame) -> Self {
-        WorldCoord::new(
-            frame.position.x as f32,
-            frame.position.y as f32,
-            frame.elevation,
-        )
-    }
-}
-
-impl From<&Frame> for V3<f32> {
-    fn from(frame: &Frame) -> Self {
-        V3::new(
-            frame.position.x as f32,
-            frame.position.y as f32,
-            frame.elevation,
-        )
-    }
-}
-
 impl Journey {
     pub fn new(
         world: &World,
@@ -75,7 +75,7 @@ impl Journey {
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
         start_at: u128,
-        bridges: BridgeConfig,
+        bridge_config: BridgeConfig,
     ) -> Journey {
         Journey {
             frames: Journey::compute_frames(
@@ -84,7 +84,7 @@ impl Journey {
                 start_at,
                 travel_duration,
                 vehicle_fn,
-                bridges,
+                bridge_config,
             ),
         }
     }
@@ -113,7 +113,7 @@ impl Journey {
         start_at: u128,
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
-        bridges: BridgeConfig,
+        bridge_config: BridgeConfig,
     ) -> Vec<Frame> {
         let mut next_arrival_time = start_at;
         let mut out = Vec::with_capacity(positions.len());
@@ -121,15 +121,21 @@ impl Journey {
             position: positions[0],
             elevation: Self::get_elevation(world, &positions[0]),
             arrival: next_arrival_time,
-            vehicle: Self::vehicle(world, &positions[0], &positions[1], vehicle_fn, bridges),
+            vehicle: Self::vehicle(
+                world,
+                &positions[0],
+                &positions[1],
+                vehicle_fn,
+                bridge_config,
+            ),
             rotation: Self::rotation(&positions[0], &positions[1]),
             load: AvatarLoad::None,
         });
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            let vehicle = Self::vehicle(world, &from, &to, vehicle_fn, bridges);
-            for segment in Self::segments(world, &from, &to, travel_duration, bridges) {
+            let vehicle = Self::vehicle(world, &from, &to, vehicle_fn, bridge_config);
+            for segment in Self::segments(world, &from, &to, travel_duration, bridge_config) {
                 let from = segment.from.position;
                 let to = segment.to.position;
                 next_arrival_time += segment.duration.as_micros();
@@ -151,12 +157,12 @@ impl Journey {
         from: &V2<usize>,
         to: &V2<usize>,
         vehicle_fn: &dyn VehicleFn,
-        bridges: BridgeConfig,
+        bridge_config: BridgeConfig,
     ) -> Vehicle {
         vehicle_fn
             .vehicle_between(world, &from, &to)
             .or_else(|| {
-                bridges
+                bridge_config
                     .lowest_duration_bridge(&Edge::new(*from, *to))
                     .map(|bridge| bridge.vehicle)
             })
@@ -188,7 +194,7 @@ impl Journey {
         from: &V2<usize>,
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
-        bridges: BridgeConfig<'a>,
+        bridge_config: BridgeConfig<'a>,
     ) -> Box<dyn Iterator<Item = Segment> + 'a> {
         travel_duration
             .get_duration(world, &from, &to)
@@ -210,7 +216,7 @@ impl Journey {
                 iterator
             })
             .or_else(|| {
-                bridges
+                bridge_config
                     .lowest_duration_bridge(&Edge::new(*from, *to))
                     .map(|bridge| bridge.segments_one_way(from))
             })

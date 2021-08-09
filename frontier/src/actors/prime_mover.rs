@@ -203,7 +203,7 @@ where
         &'a self,
         paths: HashMap<RouteKey, Vec<V2<usize>>>,
         start_at: u128,
-        bridges: BridgeConfig<'a>,
+        bridge_config: BridgeConfig<'a>,
     ) -> HashMap<RouteKey, Journey> {
         self.cx
             .with_world(|world| {
@@ -217,7 +217,7 @@ where
                             &start_at,
                             outbound,
                             key.resource,
-                            &bridges,
+                            bridge_config,
                         );
                         (key, journey)
                     })
@@ -233,7 +233,7 @@ where
         start_at: &'a u128,
         outbound: Vec<V2<usize>>,
         resource: Resource,
-        bridges: &'a BridgeConfig<'a>,
+        bridge_config: BridgeConfig<'a>,
     ) -> Journey {
         let mut inbound = outbound.clone();
         inbound.reverse();
@@ -244,7 +244,7 @@ where
             travel_duration,
             travel_duration.travel_mode_fn(),
             *start_at,
-            *bridges,
+            bridge_config,
         )
         .with_pause_at_start(durations.pause_at_start.as_micros())
         .with_pause_at_end(durations.pause_in_middle.as_micros() / 2);
@@ -256,7 +256,7 @@ where
             travel_duration,
             travel_duration.travel_mode_fn(),
             inbound_start,
-            *bridges,
+            bridge_config,
         )
         .with_pause_at_start(durations.pause_in_middle.as_micros() / 2)
         .with_pause_at_end(durations.pause_at_end.as_micros())
