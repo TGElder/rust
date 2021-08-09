@@ -19,9 +19,10 @@ impl BridgeArtist {
     }
 
     pub fn draw_bridge(&self, bridge: &Bridge) -> Vec<Command> {
-        let segments = bridge.segments_one_way(&bridge.start().position);
+        let segments = &bridge.segments;
 
         segments
+            .iter()
             .flat_map(|segment| self.draw_segment(bridge, &segment).into_iter())
             .collect()
     }
