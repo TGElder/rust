@@ -1,4 +1,4 @@
-use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
+use crate::avatar::{Avatar, AvatarTravelDuration, BridgeConfig, Journey};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, WithWorld};
 use crate::travel_duration::TravelDuration;
@@ -70,7 +70,7 @@ where
                     self.travel_duration.as_ref(),
                     self.travel_duration.travel_mode_fn(),
                     start_at,
-                    &hashmap! {},
+                    BridgeConfig::WithoutBridges,
                 ))
             })
             .await

@@ -14,11 +14,11 @@ use commons::rand::seq::SliceRandom;
 use commons::V2;
 use isometric::Color;
 
-use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, Journey};
-use crate::bridges::Bridges;
+use crate::avatar::{Avatar, AvatarLoad, AvatarTravelDuration, BridgeConfig, Journey};
 use crate::nation::{NationColors, NationDescription};
 use crate::resource::Resource;
 use crate::route::{RouteKey, RoutesExt};
+use crate::traits::has::HasParameters;
 use crate::traits::{AllBridges, Micros, WithAvatars, WithRoutes, WithSettlements, WithWorld};
 use crate::world::World;
 
@@ -55,7 +55,15 @@ impl Default for Durations {
 
 impl<T> PrimeMover<T>
 where
-    T: AllBridges + Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
+    T: AllBridges
+        + HasParameters
+        + Micros
+        + WithAvatars
+        + WithRoutes
+        + WithSettlements
+        + WithWorld
+        + Send
+        + Sync,
 {
     pub fn new(
         cx: T,
@@ -169,7 +177,11 @@ where
 
     async fn get_journies(&self, keys: &[RouteKey], start_at: u128) -> HashMap<RouteKey, Journey> {
         let (paths, bridges) = join!(self.get_paths(&keys), self.cx.all_bridges());
-        self.get_journies_from_paths(paths, start_at, &bridges)
+        let bridge_config = BridgeConfig::WithBridges {
+            bridges: &bridges,
+            duration_fn: &self.cx.parameters().npc_bridge_duration_fn,
+        };
+        self.get_journies_from_paths(paths, start_at, bridge_config)
             .await
     }
 
@@ -187,11 +199,11 @@ where
             .await
     }
 
-    async fn get_journies_from_paths(
-        &self,
+    async fn get_journies_from_paths<'a>(
+        &'a self,
         paths: HashMap<RouteKey, Vec<V2<usize>>>,
         start_at: u128,
-        bridges: &Bridges,
+        bridges: BridgeConfig<'a>,
     ) -> HashMap<RouteKey, Journey> {
         self.cx
             .with_world(|world| {
@@ -205,7 +217,7 @@ where
                             &start_at,
                             outbound,
                             key.resource,
-                            bridges,
+                            &bridges,
                         );
                         (key, journey)
                     })
@@ -214,14 +226,14 @@ where
             .await
     }
 
-    fn get_out_and_back_journey(
-        world: &World,
-        travel_duration: &AvatarTravelDuration,
-        durations: &Durations,
-        start_at: &u128,
+    fn get_out_and_back_journey<'a>(
+        world: &'a World,
+        travel_duration: &'a AvatarTravelDuration,
+        durations: &'a Durations,
+        start_at: &'a u128,
         outbound: Vec<V2<usize>>,
         resource: Resource,
-        bridges: &Bridges,
+        bridges: &'a BridgeConfig<'a>,
     ) -> Journey {
         let mut inbound = outbound.clone();
         inbound.reverse();
@@ -232,7 +244,7 @@ where
             travel_duration,
             travel_duration.travel_mode_fn(),
             *start_at,
-            bridges,
+            *bridges,
         )
         .with_pause_at_start(durations.pause_at_start.as_micros())
         .with_pause_at_end(durations.pause_in_middle.as_micros() / 2);
@@ -244,7 +256,7 @@ where
             travel_duration,
             travel_duration.travel_mode_fn(),
             inbound_start,
-            bridges,
+            *bridges,
         )
         .with_pause_at_start(durations.pause_in_middle.as_micros() / 2)
         .with_pause_at_end(durations.pause_at_end.as_micros())
@@ -339,7 +351,15 @@ fn is_dormant(avatar: &Avatar, at: &u128, pause_after_done_micros: &u128) -> boo
 #[async_trait]
 impl<T> Step for PrimeMover<T>
 where
-    T: AllBridges + Micros + WithAvatars + WithRoutes + WithSettlements + WithWorld + Send + Sync,
+    T: AllBridges
+        + HasParameters
+        + Micros
+        + WithAvatars
+        + WithRoutes
+        + WithSettlements
+        + WithWorld
+        + Send
+        + Sync,
 {
     async fn step(&mut self) {
         let micros = self.cx.micros().await;

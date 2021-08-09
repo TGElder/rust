@@ -1,4 +1,4 @@
-use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
+use crate::avatar::{Avatar, AvatarTravelDuration, BridgeConfig, Journey};
 use crate::road_builder::{RoadBuildMode, RoadBuildTravelDuration, RoadBuilderResult};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{Micros, SelectedAvatar, UpdateAvatarJourney, UpdateRoads, WithWorld};
@@ -83,7 +83,7 @@ where
                     self.avatar_travel_duration.as_ref(),
                     self.avatar_travel_duration.travel_mode_fn(),
                     start_at,
-                    &hashmap! {},
+                    BridgeConfig::WithoutBridges,
                 )
             })
             .await

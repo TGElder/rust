@@ -1,7 +1,8 @@
-use crate::avatar::{Avatar, AvatarTravelDuration, Journey};
+use crate::avatar::{Avatar, AvatarTravelDuration, BridgeConfig, Journey};
 
 use crate::bridges::Bridges;
 use crate::system::{Capture, HandleEngineEvent};
+use crate::traits::has::HasParameters;
 use crate::traits::{
     AllBridges, FindPath, Micros, PathfinderForPlayer, SelectedAvatar, UpdateAvatarJourney,
     WithWorld,
@@ -36,7 +37,13 @@ impl Default for PathfinderAvatarBindings {
 
 impl<T> PathfindingAvatarControls<T>
 where
-    T: AllBridges + Micros + PathfinderForPlayer + SelectedAvatar + UpdateAvatarJourney + WithWorld,
+    T: AllBridges
+        + HasParameters
+        + Micros
+        + PathfinderForPlayer
+        + SelectedAvatar
+        + UpdateAvatarJourney
+        + WithWorld,
 {
     pub fn new(cx: T, travel_duration: Arc<AvatarTravelDuration>) -> PathfindingAvatarControls<T> {
         PathfindingAvatarControls {
@@ -94,6 +101,7 @@ where
         travel_duration: &AvatarTravelDuration,
         bridges: &Bridges,
     ) -> Option<Journey> {
+        let bridge_duration_fn = &self.cx.parameters().player_bridge_duration_fn;
         self.cx
             .with_world(|world| {
                 journey.append(Journey::new(
@@ -102,7 +110,10 @@ where
                     travel_duration,
                     travel_duration.travel_mode_fn(),
                     start_at,
-                    bridges,
+                    BridgeConfig::WithBridges {
+                        bridges,
+                        duration_fn: &bridge_duration_fn,
+                    },
                 ))
             })
             .await
@@ -126,6 +137,7 @@ where
 impl<T> HandleEngineEvent for PathfindingAvatarControls<T>
 where
     T: AllBridges
+        + HasParameters
         + Micros
         + PathfinderForPlayer
         + SelectedAvatar
