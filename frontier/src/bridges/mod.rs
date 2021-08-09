@@ -108,10 +108,6 @@ impl Bridge {
         Edge::new(self.start().position, self.end().position)
     }
 
-    pub fn total_duration(&self) -> Duration {
-        self.segments.iter().map(|edge| edge.duration).sum()
-    }
-
     fn validate_segments(&self) -> Result<(), InvalidBridge> {
         let segments = &self.segments;
         let first = unwrap_or!(segments.first(), return Err(InvalidBridge::Empty));
@@ -147,16 +143,10 @@ impl Segment {
 }
 
 pub trait BridgesExt {
-    fn get_lowest_duration_bridge(&self, edge: &Edge) -> Option<&Bridge>;
     fn count_platforms_at(&self, position: &V2<usize>, bridge_type: &BridgeType) -> usize;
 }
 
 impl BridgesExt for Bridges {
-    fn get_lowest_duration_bridge(&self, edge: &Edge) -> Option<&Bridge> {
-        self.get(edge)
-            .and_then(|bridges| bridges.iter().min_by_key(|bridge| bridge.total_duration()))
-    }
-
     fn count_platforms_at(&self, position: &V2<usize>, bridge_type: &BridgeType) -> usize {
         self.iter()
             .flat_map(|(_, bridges)| bridges.iter())
@@ -587,44 +577,6 @@ mod tests {
     }
 
     #[test]
-    fn total_duration() {
-        let bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    duration: Duration::from_secs(1),
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
-                    duration: Duration::from_secs(2),
-                },
-            ],
-            vehicle: Vehicle::None,
-            bridge_type: BridgeType::Built,
-        };
-
-        assert_eq!(bridge.total_duration(), Duration::from_secs(3));
-    }
-
-    #[test]
     fn segment_edge() {
         let segment = Segment {
             from: Pier {
@@ -641,53 +593,6 @@ mod tests {
         };
 
         assert_eq!(segment.edge(), Edge::new(v2(0, 0), v2(1, 0)));
-    }
-
-    #[test]
-    fn get_lowest_duration_bridge() {
-        // Given
-        let edge = Edge::new(v2(0, 0), v2(1, 0));
-        let bridge_1 = Bridge {
-            segments: vec![Segment {
-                from: Pier {
-                    position: v2(0, 0),
-                    elevation: 0.0,
-                    platform: true,
-                },
-                to: Pier {
-                    position: v2(1, 0),
-                    elevation: 0.0,
-                    platform: true,
-                },
-                duration: Duration::from_secs(1),
-            }],
-            vehicle: Vehicle::None,
-            bridge_type: BridgeType::Built,
-        };
-        let bridge_2 = Bridge {
-            segments: vec![Segment {
-                from: Pier {
-                    position: v2(0, 0),
-                    elevation: 0.0,
-                    platform: true,
-                },
-                to: Pier {
-                    position: v2(1, 0),
-                    elevation: 0.0,
-                    platform: true,
-                },
-                duration: Duration::from_secs(2),
-            }],
-            vehicle: Vehicle::None,
-            bridge_type: BridgeType::Built,
-        };
-
-        let bridges = hashmap! {
-            edge => hashset!{bridge_1.clone(), bridge_2},
-        };
-
-        // Then
-        assert_eq!(bridges.get_lowest_duration_bridge(&edge), Some(&bridge_1));
     }
 
     #[test]
