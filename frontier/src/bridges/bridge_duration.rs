@@ -22,9 +22,9 @@ pub struct BridgeTypeDurationFn {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct Segment2 {
-    pub from: Pier,
-    pub to: Pier,
+pub struct TimedSegment<'a> {
+    pub from: &'a Pier,
+    pub to: &'a Pier,
     pub duration: Duration,
 }
 
@@ -55,8 +55,7 @@ impl BridgeDurationFn {
     pub fn total_duration(&self, bridge: &Bridge) -> Duration {
         let duration_fn = self.duration_fn(bridge);
         bridge
-            .segments
-            .iter()
+            .segments()
             .map(|segment| duration_fn.segment_duration(&segment.from, &segment.to))
             .sum()
     }
@@ -96,34 +95,33 @@ impl BridgeDurationFn {
             .min_by_key(|bridge| self.total_duration(bridge))
     }
 
-    pub fn segments_one_way<'a>(
+    pub fn timed_segments<'a>(
         &'a self,
         bridge: &'a Bridge,
         from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = Segment2> + 'a> {
+    ) -> Box<dyn Iterator<Item = TimedSegment<'a>> + 'a> {
         let duration_fn = self.duration_fn(bridge);
         if bridge.start().position == *from {
-            Box::new(bridge.segments.iter().map(move |segment| Segment2 {
+            Box::new(bridge.segments().map(move |segment| TimedSegment {
                 from: segment.from,
                 to: segment.to,
-                duration: duration_fn.segment_duration(&segment.from, &segment.to),
+                duration: duration_fn.segment_duration(segment.from, segment.to),
             }))
         } else if bridge.end().position == *from {
             Box::new(
                 bridge
-                    .segments
-                    .iter()
-                    .map(move |segment| Segment2 {
+                    .segments()
+                    .map(move |segment| TimedSegment {
                         from: segment.to,
                         to: segment.from,
-                        duration: duration_fn.segment_duration(&segment.to, &segment.from),
+                        duration: duration_fn.segment_duration(segment.to, segment.from),
                     })
                     .rev(),
             )
         } else {
             panic!(
                 "Position {} is at neither end of the bridge {:?}!",
-                from, bridge.segments
+                from, bridge.segments().collect::<Vec<_>>()
             );
         }
     }
@@ -157,31 +155,22 @@ mod tests {
     fn total_duration() {
         // Given
         let built_bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
+            piers: vec![
+                    Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
                     },
-                    to: Pier {
+                    Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
                         platform: true,
                     },
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
+                    Pier {
                         position: v2(3, 0),
                         elevation: 2.0,
                         platform: true,
                     },
-                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -209,31 +198,22 @@ mod tests {
     fn total_edge_durations() {
         // Given
         let bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
+            piers: vec![
+                    Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
                     },
-                    to: Pier {
+                    Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
                         platform: true,
                     },
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
+                    Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
                         platform: true,
                     },
-                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Theoretical,
@@ -265,31 +245,22 @@ mod tests {
     fn lowest_duration_bridge() {
         // Given
         let built_bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
+            piers: vec![
+                    Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
                     },
-                    to: Pier {
+                    Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
                         platform: true,
                     },
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
+                    Pier {
                         position: v2(3, 0),
                         elevation: 2.0,
                         platform: true,
                     },
-                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -310,34 +281,25 @@ mod tests {
     }
 
     #[test]
-    fn segments_one_way_from_start() {
+    fn timed_segments_from_start() {
         // Given
         let bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
+            piers: vec![
+                    Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
                     },
-                    to: Pier {
+                    Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
                         platform: true,
                     },
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
+                    Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
                         platform: true,
                     },
-                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -348,33 +310,17 @@ mod tests {
         // Then
         assert_eq!(
             duration_fn
-                .segments_one_way(&bridge, &v2(0, 0))
+                .timed_segments(&bridge, &v2(0, 0))
                 .collect::<Vec<_>>(),
             vec![
-                Segment2 {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
+                TimedSegment {
+                    from: &bridge.piers[0],
+                    to: &bridge.piers[1],
                     duration: Duration::from_secs(1),
                 },
-                Segment2 {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                TimedSegment {
+                    from: &bridge.piers[1],
+                    to: &bridge.piers[2],
                     duration: Duration::from_secs(1),
                 },
             ]
@@ -382,34 +328,25 @@ mod tests {
     }
 
     #[test]
-    fn segments_one_way_from_end() {
+    fn timed_segments_from_end() {
         // Given
         let bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
+            piers: vec![
+                    Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
                     },
-                    to: Pier {
+                    Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
                         platform: true,
                     },
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
+                    Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
                         platform: true,
                     },
-                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -420,33 +357,17 @@ mod tests {
         // When
         assert_eq!(
             duration_fn
-                .segments_one_way(&bridge, &v2(2, 0))
+                .timed_segments(&bridge, &v2(2, 0))
                 .collect::<Vec<_>>(),
             vec![
-                Segment2 {
-                    from: Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
+                TimedSegment {
+                    from: &bridge.piers[2],
+                    to: &bridge.piers[1],
                     duration: Duration::from_secs(1),
                 },
-                Segment2 {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
+                TimedSegment {
+                    from: &bridge.piers[1],
+                    to: &bridge.piers[0],
                     duration: Duration::from_secs(1),
                 },
             ]

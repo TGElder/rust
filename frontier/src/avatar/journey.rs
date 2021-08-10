@@ -1,5 +1,5 @@
 use super::*;
-use crate::bridges::{Bridge, BridgeDurationFn, Bridges, Pier, Segment2};
+use crate::bridges::{Bridge, BridgeDurationFn, Bridges, Pier, TimedSegment};
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::Edge;
@@ -161,11 +161,11 @@ impl Journey {
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
         bridge_config: BridgeConfig<'a>,
-    ) -> Box<dyn Iterator<Item = Segment2> + 'a> {
+    ) -> Box<dyn Iterator<Item = TimedSegment> + 'a> {
         travel_duration
             .get_duration(world, &from, &to)
             .map(|duration| {
-                let edge = Segment2 {
+                let edge = TimedSegment {
                     from: Pier {
                         position: *from,
                         elevation: Self::get_elevation(world, from),
@@ -178,7 +178,7 @@ impl Journey {
                     },
                     duration,
                 };
-                let iterator: Box<dyn Iterator<Item = Segment2>> = Box::new(once(edge));
+                let iterator: Box<dyn Iterator<Item = TimedSegment>> = Box::new(once(edge));
                 iterator
             })
             .or_else(|| {
@@ -404,10 +404,10 @@ impl<'a> BridgeConfig<'a> {
         &self,
         bridge: &'a Bridge,
         from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = Segment2> + 'a> {
+    ) -> Box<dyn Iterator<Item = TimedSegment> + 'a> {
         match self {
             BridgeConfig::WithBridges { duration_fn, .. } => {
-                duration_fn.segments_one_way(bridge, from)
+                duration_fn.timed_segments(bridge, from)
             }
             BridgeConfig::WithoutBridges => Box::new(empty()),
         }
@@ -420,7 +420,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::bridges::BridgeType::Built;
-    use crate::bridges::{Bridge, BridgeTypeDurationFn, Pier, Segment};
+    use crate::bridges::{Bridge, BridgeTypeDurationFn, Pier};
 
     use super::*;
     use commons::almost::Almost;
@@ -1242,31 +1242,22 @@ mod tests {
         let world = world();
         let positions = vec![v2(2, 0), v2(0, 0)];
         let bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
+            piers: vec![
+                    Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
                     },
-                    to: Pier {
+                    Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
                         platform: true,
                     },
-                },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
+                    Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
                         platform: true,
                     },
-                },
             ],
             vehicle: Vehicle::Boat,
             bridge_type: Built,

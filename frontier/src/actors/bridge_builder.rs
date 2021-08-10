@@ -84,18 +84,18 @@ where
         };
 
         let bridge = Bridge {
-            segments: vec![Segment {
-                from: Pier {
+            piers: vec![
+                Pier {
                     position: *edge.from(),
                     elevation: from_z,
                     platform: true,
                 },
-                to: Pier {
+                Pier {
                     position: *edge.to(),
                     elevation: to_z,
                     platform: true,
                 },
-            }],
+            ],
             vehicle: Vehicle::None,
             bridge_type: Built,
         };

@@ -20,24 +20,24 @@ where
     }
 
     pub async fn new_game(&self) {
-        let segments = self.get_segments().await;
-        let bridges = self.get_bridges(segments).await;
+        let piers = self.get_piers().await;
+        let bridges = self.get_bridges(piers).await;
         self.build_bridges(bridges).await;
     }
 
-    async fn get_segments(&self) -> Vec<Vec<Segment>> {
+    async fn get_piers(&self) -> Vec<[Pier; 3]> {
         let min_navigable_river_width = self.cx.parameters().npc_travel.min_navigable_river_width;
         self.cx
-            .with_world(|world| get_segments(&world, &min_navigable_river_width))
+            .with_world(|world| get_piers(&world, &min_navigable_river_width))
             .await
     }
 
-    async fn get_bridges(&self, segments: Vec<Vec<Segment>>) -> Vec<Bridge> {
-        segments
+    async fn get_bridges(&self, piers: Vec<[Pier; 3]>) -> Vec<Bridge> {
+        piers
             .into_iter()
-            .flat_map(|segments| {
+            .flat_map(|piers| {
                 Bridge {
-                    segments,
+                    piers: piers.to_vec(),
                     vehicle: Vehicle::None,
                     bridge_type: BridgeType::Theoretical,
                 }
@@ -60,7 +60,7 @@ where
     }
 }
 
-fn get_segments(world: &World, min_navigable_river_width: &f32) -> Vec<Vec<Segment>> {
+fn get_piers(world: &World, min_navigable_river_width: &f32) -> Vec<[Pier; 3]> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -83,7 +83,7 @@ fn is_pier(
     from: &V2<usize>,
     to: &V2<usize>,
     min_navigable_river_width: &f32,
-) -> Option<Vec<Segment>> {
+) -> Option<[Pier; 3]> {
     let from_cell = world.get_cell_unsafe(from);
     let to_cell = world.get_cell_unsafe(to);
 
@@ -104,30 +104,19 @@ fn is_pier(
         return None;
     }
 
-    Some(vec![
-        Segment {
-            from: Pier {
+    Some([
+        Pier {
                 position: *from,
                 elevation: from_elevation,
                 platform: true,
-            },
-            to: Pier {
+            },Pier {
+                position: *to,
+                elevation: to_elevation,
+                platform: false,
+            }, Pier {
                 position: *to,
                 elevation: to_elevation,
                 platform: false,
             },
-        },
-        Segment {
-            from: Pier {
-                position: *to,
-                elevation: to_elevation,
-                platform: false,
-            },
-            to: Pier {
-                position: *to,
-                elevation: to_elevation,
-                platform: false,
-            },
-        },
-    ])
+        ])
 }

@@ -19,15 +19,12 @@ impl BridgeArtist {
     }
 
     pub fn draw_bridge(&self, bridge: &Bridge) -> Vec<Command> {
-        let segments = &bridge.segments;
-
-        segments
-            .iter()
-            .flat_map(|segment| self.draw_segment(bridge, &segment).into_iter())
+        bridge.segments()
+            .flat_map(|segment| self.draw_segment(bridge, segment).into_iter())
             .collect()
     }
 
-    pub fn draw_segment(&self, bridge: &Bridge, segment: &Segment) -> Vec<Command> {
+    pub fn draw_segment(&self, bridge: &Bridge, segment: Segment) -> Vec<Command> {
         if segment.from.position == segment.to.position {
             return vec![];
         }
@@ -36,7 +33,7 @@ impl BridgeArtist {
         } else {
             self.coordinates_vertical(&segment)
         };
-        let name = name(&bridge, &segment);
+        let name = name(&bridge, segment);
         draw_rectangle(name, &coordinates, &self.parameters.color)
     }
 
@@ -97,20 +94,17 @@ impl BridgeArtist {
     }
 
     pub fn erase_bridge(&self, bridge: &Bridge) -> Vec<Command> {
-        let segments = &bridge.segments;
-
-        segments
-            .iter()
-            .map(|segment| self.erase_segment(bridge, &segment))
+        bridge.segments()
+            .map(|segment| self.erase_segment(bridge, segment))
             .collect()
     }
 
-    pub fn erase_segment(&self, bridge: &Bridge, segment: &Segment) -> Command {
+    pub fn erase_segment(&self, bridge: &Bridge, segment: Segment) -> Command {
         Command::Erase(name(bridge, segment))
     }
 }
 
-fn name(bridge: &Bridge, segment: &Segment) -> String {
+fn name(bridge: &Bridge, segment: Segment) -> String {
     let bridge_edge = bridge.total_edge();
     let segment_edge = segment.edge();
     format!(
