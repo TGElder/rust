@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use commons::grid::Grid;
 use commons::{v2, V2};
 
@@ -11,18 +9,14 @@ use crate::world::World;
 
 pub struct RiverPiers<T> {
     cx: T,
-    one_cell_duration: Duration,
 }
 
 impl<T> RiverPiers<T>
 where
     T: HasParameters + WithBridges + WithWorld + Sync,
 {
-    pub fn new(cx: T, one_cell_duration: Duration) -> RiverPiers<T> {
-        RiverPiers {
-            cx,
-            one_cell_duration,
-        }
+    pub fn new(cx: T) -> RiverPiers<T> {
+        RiverPiers { cx }
     }
 
     pub async fn new_game(&self) {
@@ -34,9 +28,7 @@ where
     async fn get_segments(&self) -> Vec<Vec<Segment>> {
         let min_navigable_river_width = self.cx.parameters().npc_travel.min_navigable_river_width;
         self.cx
-            .with_world(|world| {
-                get_segments(&world, &self.one_cell_duration, &min_navigable_river_width)
-            })
+            .with_world(|world| get_segments(&world, &min_navigable_river_width))
             .await
     }
 
@@ -68,11 +60,7 @@ where
     }
 }
 
-fn get_segments(
-    world: &World,
-    duration: &Duration,
-    min_navigable_river_width: &f32,
-) -> Vec<Vec<Segment>> {
+fn get_segments(world: &World, min_navigable_river_width: &f32) -> Vec<Vec<Segment>> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -80,9 +68,7 @@ fn get_segments(
                 let from = v2(x, y);
 
                 if let Some(to) = world.offset(&from, *offset) {
-                    if let Some(pier) =
-                        is_pier(&world, &from, &to, duration, min_navigable_river_width)
-                    {
+                    if let Some(pier) = is_pier(&world, &from, &to, min_navigable_river_width) {
                         out.push(pier);
                     }
                 }
@@ -96,7 +82,6 @@ fn is_pier(
     world: &World,
     from: &V2<usize>,
     to: &V2<usize>,
-    duration: &Duration,
     min_navigable_river_width: &f32,
 ) -> Option<Vec<Segment>> {
     let from_cell = world.get_cell_unsafe(from);
@@ -131,7 +116,6 @@ fn is_pier(
                 elevation: to_elevation,
                 platform: false,
             },
-            duration: *duration,
         },
         Segment {
             from: Pier {
@@ -144,7 +128,6 @@ fn is_pier(
                 elevation: to_elevation,
                 platform: false,
             },
-            duration: Duration::from_millis(0),
         },
     ])
 }

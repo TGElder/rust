@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use commons::grid::Grid;
 use commons::{v2, V2};
 
@@ -11,18 +9,14 @@ use crate::world::World;
 
 pub struct SeaPiers<T> {
     cx: T,
-    one_cell_duration: Duration,
 }
 
 impl<T> SeaPiers<T>
 where
     T: HasParameters + WithBridges + WithWorld + Sync,
 {
-    pub fn new(cx: T, one_cell_duration: Duration) -> SeaPiers<T> {
-        SeaPiers {
-            cx,
-            one_cell_duration,
-        }
+    pub fn new(cx: T) -> SeaPiers<T> {
+        SeaPiers { cx }
     }
 
     pub async fn new_game(&self) {
@@ -32,9 +26,7 @@ where
     }
 
     async fn get_segments(&self) -> Vec<Vec<Segment>> {
-        self.cx
-            .with_world(|world| get_segments(&world, &self.one_cell_duration))
-            .await
+        self.cx.with_world(|world| get_segments(&world)).await
     }
 
     async fn get_bridges(&self, segments: Vec<Vec<Segment>>) -> Vec<Bridge> {
@@ -65,7 +57,7 @@ where
     }
 }
 
-fn get_segments(world: &World, duration: &Duration) -> Vec<Vec<Segment>> {
+fn get_segments(world: &World) -> Vec<Vec<Segment>> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -73,7 +65,7 @@ fn get_segments(world: &World, duration: &Duration) -> Vec<Vec<Segment>> {
                 let from = v2(x, y);
 
                 if let Some(to) = world.offset(&from, *offset) {
-                    if let Some(pier) = is_pier(&world, &from, &to, duration) {
+                    if let Some(pier) = is_pier(&world, &from, &to) {
                         out.push(pier);
                     }
                 }
@@ -83,12 +75,7 @@ fn get_segments(world: &World, duration: &Duration) -> Vec<Vec<Segment>> {
     out
 }
 
-fn is_pier(
-    world: &World,
-    from: &V2<usize>,
-    to: &V2<usize>,
-    duration: &Duration,
-) -> Option<Vec<Segment>> {
+fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Vec<Segment>> {
     let from_cell = world.get_cell_unsafe(from);
     let to_cell = world.get_cell_unsafe(to);
 
@@ -121,7 +108,6 @@ fn is_pier(
                 elevation: to_elevation,
                 platform: false,
             },
-            duration: *duration,
         },
         Segment {
             from: Pier {
@@ -134,7 +120,6 @@ fn is_pier(
                 elevation: sea_level,
                 platform: false,
             },
-            duration: Duration::from_millis(0),
         },
     ])
 }

@@ -1,12 +1,9 @@
 use std::collections::{HashSet, VecDeque};
-use std::convert::TryInto;
-use std::time::Duration;
 
 use commons::edge::Edge;
 use commons::grid::Grid;
 
-use crate::avatar::Vehicle;
-use crate::bridges::{Bridge, BridgeType, Bridges, Segment};
+use crate::bridges::{Bridge, BridgeType, Bridges};
 use crate::build::{Build, BuildInstruction, BuildKey};
 use crate::simulation::build::edges::EdgeBuildSimulation;
 use crate::traits::has::HasParameters;
@@ -36,11 +33,8 @@ where
     }
 
     async fn get_bridge_candidates(&self, edges: &HashSet<Edge>) -> Vec<Bridge> {
-        let duration =
-            Duration::from_millis(self.cx.parameters().built_bridge_1_cell_duration_millis);
-
         self.cx
-            .with_bridges(|bridges| get_candidates(bridges, edges, &duration))
+            .with_bridges(|bridges| get_candidates(bridges, edges))
             .await
     }
 
@@ -99,30 +93,22 @@ where
     }
 }
 
-fn get_candidates(bridges: &Bridges, edges: &HashSet<Edge>, duration: &Duration) -> Vec<Bridge> {
+fn get_candidates(bridges: &Bridges, edges: &HashSet<Edge>) -> Vec<Bridge> {
     edges
         .iter()
-        .flat_map(|edge| get_candidate(bridges, edge, duration))
+        .flat_map(|edge| get_candidate(bridges, edge))
         .collect()
 }
 
-fn get_candidate(bridges: &Bridges, edge: &Edge, duration: &Duration) -> Option<Bridge> {
+fn get_candidate(bridges: &Bridges, edge: &Edge) -> Option<Bridge> {
     let edge_bridges = bridges.get(edge)?;
     let theoretical = edge_bridges
         .iter()
         .find(|bridge| bridge.bridge_type == BridgeType::Theoretical)?;
 
     let built = Bridge {
-        segments: theoretical
-            .segments
-            .iter()
-            .map(|segment| Segment {
-                duration: *duration * segment.edge().length().try_into().unwrap(),
-                ..*segment
-            })
-            .collect(),
-        vehicle: Vehicle::None,
         bridge_type: BridgeType::Built,
+        ..theoretical.clone()
     }
     .validate()
     .ok()?;
@@ -144,7 +130,8 @@ mod tests {
     use commons::{v2, M};
     use futures::executor::block_on;
 
-    use crate::bridges::Pier;
+    use crate::avatar::Vehicle;
+    use crate::bridges::{Pier, Segment};
     use crate::parameters::Parameters;
     use crate::resource::Resource;
     use crate::route::{Route, RouteKey, Routes, RoutesExt};
@@ -262,7 +249,7 @@ mod tests {
         Edge::new(v2(1, 0), v2(1, 2))
     }
 
-    fn bridge(bridge_type: BridgeType, millis: u64) -> Bridge {
+    fn bridge(bridge_type: BridgeType) -> Bridge {
         Bridge {
             segments: vec![
                 Segment {
@@ -276,7 +263,6 @@ mod tests {
                         elevation: 1.5,
                         platform: false,
                     },
-                    duration: Duration::from_millis(millis),
                 },
                 Segment {
                     from: Pier {
@@ -289,7 +275,6 @@ mod tests {
                         elevation: 2.0,
                         platform: false,
                     },
-                    duration: Duration::from_millis(millis),
                 },
             ],
             vehicle: Vehicle::None,
@@ -299,7 +284,7 @@ mod tests {
 
     fn happy_path_cx() -> Cx {
         let bridges = hashmap! {
-            happy_path_edge() => hashset!{bridge(BridgeType::Theoretical, 7)}
+            happy_path_edge() => hashset!{bridge(BridgeType::Theoretical)}
         };
 
         let edge_traffic = hashmap! {
@@ -331,7 +316,6 @@ mod tests {
         };
 
         let mut parameters = Parameters {
-            built_bridge_1_cell_duration_millis: 11,
             ..Parameters::default()
         };
         parameters.simulation.road_build_threshold = 8;
@@ -386,7 +370,7 @@ mod tests {
 
         // Then
         let expected_build_queue = vec![BuildInstruction {
-            what: Build::Bridge(bridge(BridgeType::Built, 11)),
+            what: Build::Bridge(bridge(BridgeType::Built)),
             when: 11,
         }];
         assert_eq!(
@@ -451,7 +435,7 @@ mod tests {
             .unwrap()
             .get_mut(&happy_path_edge())
             .unwrap()
-            .insert(bridge(BridgeType::Built, 11));
+            .insert(bridge(BridgeType::Built));
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
 
         // When
@@ -466,7 +450,7 @@ mod tests {
         // Given
         let cx = happy_path_cx();
         let earlier = BuildInstruction {
-            what: Build::Bridge(bridge(BridgeType::Built, 11)),
+            what: Build::Bridge(bridge(BridgeType::Built)),
             when: 10,
         };
         cx.build_instructions.lock().unwrap().push(earlier.clone());
@@ -487,7 +471,7 @@ mod tests {
             .lock()
             .unwrap()
             .push(BuildInstruction {
-                what: Build::Bridge(bridge(BridgeType::Built, 11)),
+                what: Build::Bridge(bridge(BridgeType::Built)),
                 when: 12,
             });
         let sim = EdgeBuildSimulation::new(cx, Arc::new(()));
@@ -502,7 +486,7 @@ mod tests {
             .lock()
             .unwrap()
             .contains(&BuildInstruction {
-                what: Build::Bridge(bridge(BridgeType::Built, 11)),
+                what: Build::Bridge(bridge(BridgeType::Built)),
                 when: 11,
             }));
     }

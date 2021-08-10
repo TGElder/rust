@@ -10,7 +10,6 @@ use commons::V2;
 use isometric::coords::WorldCoord;
 use isometric::{Button, ElementState, Event, VirtualKeyCode};
 use std::sync::Arc;
-use std::time::Duration;
 
 pub struct BridgeBuilderActor<T> {
     cx: T,
@@ -21,7 +20,6 @@ pub struct BridgeBuilderActor<T> {
 }
 
 pub struct BridgeBuilderParameters {
-    pub bridge_duration_millis: u64,
     pub min_length: usize,
     pub max_length: usize,
     pub max_gradient: f32,
@@ -30,7 +28,6 @@ pub struct BridgeBuilderParameters {
 impl Default for BridgeBuilderParameters {
     fn default() -> Self {
         BridgeBuilderParameters {
-            bridge_duration_millis: 1_200_000,
             min_length: 2,
             max_length: 3,
             max_gradient: 0.5,
@@ -98,8 +95,6 @@ where
                     elevation: to_z,
                     platform: true,
                 },
-                duration: Duration::from_millis(self.parameters.bridge_duration_millis)
-                    * (edge.length() as u32),
             }],
             vehicle: Vehicle::None,
             bridge_type: Built,

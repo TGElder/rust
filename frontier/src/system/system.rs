@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::time::Duration;
 
 use commons::fn_sender::{fn_channel, FnMessageExt, FnReceiver};
 use commons::persistence::{Load, Save};
@@ -313,7 +312,6 @@ impl System {
                     BridgeBuilderActor::new(
                         cx.clone_with_name("bridge_builder"),
                         BridgeBuilderParameters {
-                            bridge_duration_millis: params.built_bridge_1_cell_duration_millis,
                             max_gradient: params.world_gen.cliff_gradient / 2.0,
                             ..BridgeBuilderParameters::default()
                         },
@@ -344,10 +342,7 @@ impl System {
                     controllers_rx,
                 ),
                 crossings: Process::new(
-                    Crossings::new(
-                        cx.clone_with_name("crossings"),
-                        Duration::from_millis(params.theoretical_bridge_1_cell_duration_millis),
-                    ),
+                    Crossings::new(cx.clone_with_name("crossings")),
                     crossings_rx,
                 ),
                 edge_sims: (0..params.simulation.threads)
@@ -416,18 +411,12 @@ impl System {
                     river_explorer_rx,
                 ),
                 river_piers: Process::new(
-                    RiverPiers::new(
-                        cx.clone_with_name("river_piers"),
-                        Duration::from_millis(params.theoretical_bridge_1_cell_duration_millis),
-                    ),
+                    RiverPiers::new(cx.clone_with_name("river_piers")),
                     river_piers_rx,
                 ),
                 rotate: Process::new(Rotate::new(cx.clone_with_name("rotate")), rotate_rx),
                 sea_piers: Process::new(
-                    SeaPiers::new(
-                        cx.clone_with_name("sea_piers"),
-                        Duration::from_millis(params.theoretical_bridge_1_cell_duration_millis),
-                    ),
+                    SeaPiers::new(cx.clone_with_name("sea_piers")),
                     sea_piers_rx,
                 ),
                 settlement_sims: settlement_sim_rxs

@@ -1,6 +1,6 @@
 mod bridge_duration;
 
-pub use bridge_duration::{BridgeDurationFn, BridgeTypeDurationFn};
+pub use bridge_duration::{BridgeDurationFn, BridgeTypeDurationFn, Segment2};
 
 use commons::V2;
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::iter::once;
-use std::time::Duration;
 use std::{error, fmt};
 
 use commons::edge::Edge;
@@ -26,7 +25,6 @@ pub struct Bridge {
 pub struct Segment {
     pub from: Pier,
     pub to: Pier,
-    pub duration: Duration,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -160,8 +158,6 @@ impl error::Error for InvalidBridge {}
 mod tests {
     use super::*;
 
-    use std::time::Duration;
-
     use commons::v2;
 
     use crate::avatar::Vehicle;
@@ -194,7 +190,6 @@ mod tests {
                         elevation: 0.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0)
                 }],
                 vehicle: Vehicle::None,
                 bridge_type: BridgeType::Built
@@ -220,7 +215,6 @@ mod tests {
                             elevation: 0.0,
                             platform: true,
                         },
-                        duration: Duration::from_secs(0)
                     },
                     Segment {
                         from: Pier {
@@ -233,7 +227,6 @@ mod tests {
                             elevation: 0.0,
                             platform: true,
                         },
-                        duration: Duration::from_secs(0)
                     }
                 ],
                 vehicle: Vehicle::None,
@@ -260,7 +253,6 @@ mod tests {
                             elevation: 0.0,
                             platform: true,
                         },
-                        duration: Duration::from_secs(0)
                     },
                     Segment {
                         from: Pier {
@@ -273,7 +265,6 @@ mod tests {
                             elevation: 0.0,
                             platform: true,
                         },
-                        duration: Duration::from_secs(0)
                     }
                 ],
                 vehicle: Vehicle::None,
@@ -299,7 +290,6 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
                 Segment {
                     from: Pier {
@@ -312,7 +302,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
             ],
             vehicle: Vehicle::None,
@@ -344,7 +333,6 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
                 Segment {
                     from: Pier {
@@ -357,7 +345,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
             ],
             vehicle: Vehicle::None,
@@ -389,7 +376,6 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
                 Segment {
                     from: Pier {
@@ -402,7 +388,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
             ],
             vehicle: Vehicle::None,
@@ -425,57 +410,9 @@ mod tests {
                 elevation: 0.0,
                 platform: true,
             },
-            duration: Duration::from_secs(0),
         };
 
         assert_eq!(segment.edge(), Edge::new(v2(0, 0), v2(1, 0)));
-    }
-
-    #[test]
-    fn count_platforms_at_counts_multiple_platforms_against_same_edge() {
-        // Given
-        let edge_1 = Edge::new(v2(1, 0), v2(1, 1));
-        let bridge_1 = Bridge {
-            segments: vec![Segment {
-                from: Pier {
-                    position: v2(1, 0),
-                    elevation: 0.0,
-                    platform: true,
-                },
-                to: Pier {
-                    position: v2(1, 1),
-                    elevation: 0.0,
-                    platform: true,
-                },
-                duration: Duration::from_secs(1),
-            }],
-            vehicle: Vehicle::None,
-            bridge_type: BridgeType::Built,
-        };
-        let bridge_2 = Bridge {
-            segments: vec![Segment {
-                from: Pier {
-                    position: v2(1, 0),
-                    elevation: 0.0,
-                    platform: true,
-                },
-                to: Pier {
-                    position: v2(1, 1),
-                    elevation: 0.0,
-                    platform: true,
-                },
-                duration: Duration::from_secs(2),
-            }],
-            vehicle: Vehicle::None,
-            bridge_type: BridgeType::Built,
-        };
-
-        let bridges = hashmap! {
-            edge_1 => hashset!{bridge_1, bridge_2},
-        };
-
-        // Then
-        assert_eq!(bridges.count_platforms_at(&v2(1, 0), &BridgeType::Built), 2);
     }
 
     #[test]
@@ -494,7 +431,6 @@ mod tests {
                     elevation: 0.0,
                     platform: true,
                 },
-                duration: Duration::from_secs(1),
             }],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -513,7 +449,6 @@ mod tests {
                     elevation: 0.0,
                     platform: true,
                 },
-                duration: Duration::from_secs(2),
             }],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -544,7 +479,6 @@ mod tests {
                     elevation: 0.0,
                     platform: true,
                 },
-                duration: Duration::from_secs(1),
             }],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -574,7 +508,6 @@ mod tests {
                     elevation: 0.0,
                     platform: true,
                 },
-                duration: Duration::from_secs(1),
             }],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -604,7 +537,6 @@ mod tests {
                     elevation: 0.0,
                     platform: true,
                 },
-                duration: Duration::from_secs(1),
             }],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -634,7 +566,6 @@ mod tests {
                     elevation: 0.0,
                     platform: true,
                 },
-                duration: Duration::from_secs(1),
             }],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Theoretical,

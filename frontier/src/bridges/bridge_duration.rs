@@ -6,7 +6,7 @@ use commons::edge::Edge;
 use commons::V2;
 use serde::{Deserialize, Serialize};
 
-use crate::bridges::{Bridge, BridgeType, Pier, Segment};
+use crate::bridges::{Bridge, BridgeType, Pier};
 use crate::travel_duration::EdgeDuration;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -19,6 +19,13 @@ pub struct BridgeDurationFn {
 pub struct BridgeTypeDurationFn {
     pub one_cell: Duration,
     pub penalty: Duration,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Segment2 {
+    pub from: Pier,
+    pub to: Pier,
+    pub duration: Duration,
 }
 
 impl Default for BridgeDurationFn {
@@ -36,7 +43,6 @@ impl Default for BridgeDurationFn {
     }
 }
 
-// TODO move Segment here
 impl BridgeTypeDurationFn {
     fn segment_duration(&self, from: &Pier, to: &Pier) -> Duration {
         let length = Edge::new(from.position, to.position).length();
@@ -94,10 +100,10 @@ impl BridgeDurationFn {
         &'a self,
         bridge: &'a Bridge,
         from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = Segment> + 'a> {
+    ) -> Box<dyn Iterator<Item = Segment2> + 'a> {
         let duration_fn = self.duration_fn(bridge);
         if bridge.start().position == *from {
-            Box::new(bridge.segments.iter().map(move |segment| Segment {
+            Box::new(bridge.segments.iter().map(move |segment| Segment2 {
                 from: segment.from,
                 to: segment.to,
                 duration: duration_fn.segment_duration(&segment.from, &segment.to),
@@ -107,7 +113,7 @@ impl BridgeDurationFn {
                 bridge
                     .segments
                     .iter()
-                    .map(move |segment| Segment {
+                    .map(move |segment| Segment2 {
                         from: segment.to,
                         to: segment.from,
                         duration: duration_fn.segment_duration(&segment.to, &segment.from),
@@ -163,7 +169,6 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
                 Segment {
                     from: Pier {
@@ -176,7 +181,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
             ],
             vehicle: Vehicle::None,
@@ -217,7 +221,6 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(1),
                 },
                 Segment {
                     from: Pier {
@@ -230,7 +233,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(2),
                 },
             ],
             vehicle: Vehicle::None,
@@ -275,7 +277,6 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
                 Segment {
                     from: Pier {
@@ -288,7 +289,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(0),
                 },
             ],
             vehicle: Vehicle::None,
@@ -325,7 +325,6 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(1),
                 },
                 Segment {
                     from: Pier {
@@ -338,7 +337,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(1),
                 },
             ],
             vehicle: Vehicle::None,
@@ -353,7 +351,7 @@ mod tests {
                 .segments_one_way(&bridge, &v2(0, 0))
                 .collect::<Vec<_>>(),
             vec![
-                Segment {
+                Segment2 {
                     from: Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
@@ -366,7 +364,7 @@ mod tests {
                     },
                     duration: Duration::from_secs(1),
                 },
-                Segment {
+                Segment2 {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,
@@ -399,7 +397,6 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(1),
                 },
                 Segment {
                     from: Pier {
@@ -412,7 +409,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_secs(1),
                 },
             ],
             vehicle: Vehicle::None,
@@ -427,7 +423,7 @@ mod tests {
                 .segments_one_way(&bridge, &v2(2, 0))
                 .collect::<Vec<_>>(),
             vec![
-                Segment {
+                Segment2 {
                     from: Pier {
                         position: v2(2, 0),
                         elevation: 2.0,
@@ -440,7 +436,7 @@ mod tests {
                     },
                     duration: Duration::from_secs(1),
                 },
-                Segment {
+                Segment2 {
                     from: Pier {
                         position: v2(1, 0),
                         elevation: 1.0,

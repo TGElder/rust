@@ -1,5 +1,5 @@
 use super::*;
-use crate::bridges::{Bridge, BridgeDurationFn, Bridges, Pier, Segment};
+use crate::bridges::{Bridge, BridgeDurationFn, Bridges, Pier, Segment2};
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::Edge;
@@ -161,11 +161,11 @@ impl Journey {
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
         bridge_config: BridgeConfig<'a>,
-    ) -> Box<dyn Iterator<Item = Segment> + 'a> {
+    ) -> Box<dyn Iterator<Item = Segment2> + 'a> {
         travel_duration
             .get_duration(world, &from, &to)
             .map(|duration| {
-                let edge = Segment {
+                let edge = Segment2 {
                     from: Pier {
                         position: *from,
                         elevation: Self::get_elevation(world, from),
@@ -178,7 +178,7 @@ impl Journey {
                     },
                     duration,
                 };
-                let iterator: Box<dyn Iterator<Item = Segment>> = Box::new(once(edge));
+                let iterator: Box<dyn Iterator<Item = Segment2>> = Box::new(once(edge));
                 iterator
             })
             .or_else(|| {
@@ -404,7 +404,7 @@ impl<'a> BridgeConfig<'a> {
         &self,
         bridge: &'a Bridge,
         from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = Segment> + 'a> {
+    ) -> Box<dyn Iterator<Item = Segment2> + 'a> {
         match self {
             BridgeConfig::WithBridges { duration_fn, .. } => {
                 duration_fn.segments_one_way(bridge, from)
@@ -1254,7 +1254,6 @@ mod tests {
                         elevation: 1.0,
                         platform: true,
                     },
-                    duration: Duration::from_millis(202),
                 },
                 Segment {
                     from: Pier {
@@ -1267,7 +1266,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_millis(404),
                 },
             ],
             vehicle: Vehicle::Boat,

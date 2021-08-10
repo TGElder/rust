@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use commons::grid::Grid;
 use commons::{v2, V2};
 
@@ -11,18 +9,14 @@ use crate::world::World;
 
 pub struct Crossings<T> {
     cx: T,
-    one_cell_duration: Duration,
 }
 
 impl<T> Crossings<T>
 where
     T: HasParameters + WithBridges + WithWorld,
 {
-    pub fn new(cx: T, one_cell_duration: Duration) -> Crossings<T> {
-        Crossings {
-            cx,
-            one_cell_duration,
-        }
+    pub fn new(cx: T) -> Crossings<T> {
+        Crossings { cx }
     }
 
     pub async fn new_game(&self) {
@@ -41,10 +35,7 @@ where
     }
 
     async fn get_bridges(&self, crossings: Vec<[Pier; 3]>) -> Vec<Bridge> {
-        crossings
-            .into_iter()
-            .flat_map(|crossing| get_bridge(crossing, self.one_cell_duration))
-            .collect()
+        crossings.into_iter().flat_map(get_bridge).collect()
     }
 
     async fn build_bridges(&self, to_build: Vec<Bridge>) {
@@ -162,18 +153,16 @@ fn is_crossing(
     ])
 }
 
-fn get_bridge(crossing: [Pier; 3], duration: Duration) -> Result<Bridge, InvalidBridge> {
+fn get_bridge(crossing: [Pier; 3]) -> Result<Bridge, InvalidBridge> {
     Bridge {
         segments: vec![
             Segment {
                 from: crossing[0],
                 to: crossing[1],
-                duration,
             },
             Segment {
                 from: crossing[1],
                 to: crossing[2],
-                duration,
             },
         ],
         vehicle: Vehicle::None,

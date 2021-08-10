@@ -35,8 +35,6 @@ impl Build {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use crate::avatar::Vehicle;
     use crate::bridges::{BridgeType, Pier, Segment};
 
@@ -70,7 +68,6 @@ mod tests {
                         elevation: 2.0,
                         platform: true,
                     },
-                    duration: Duration::from_millis(1),
                 },
                 Segment {
                     from: Pier {
@@ -83,7 +80,6 @@ mod tests {
                         elevation: 3.0,
                         platform: true,
                     },
-                    duration: Duration::from_millis(2),
                 },
             ],
             vehicle: Vehicle::None,
