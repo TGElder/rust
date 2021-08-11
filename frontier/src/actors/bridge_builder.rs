@@ -1,6 +1,6 @@
 use crate::avatar::Vehicle;
 use crate::bridges::BridgeType::Built;
-use crate::bridges::{Bridge, Pier, Segment};
+use crate::bridges::{Bridge, Pier};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{AddBridge, RemoveBridge, WithWorld};
 use commons::async_trait::async_trait;
@@ -84,18 +84,18 @@ where
         };
 
         let bridge = Bridge {
-            segments: vec![Segment {
-                from: Pier {
+            piers: vec![
+                Pier {
                     position: *edge.from(),
                     elevation: from_z,
                     platform: true,
                 },
-                to: Pier {
+                Pier {
                     position: *edge.to(),
                     elevation: to_z,
                     platform: true,
                 },
-            }],
+            ],
             vehicle: Vehicle::None,
             bridge_type: Built,
         };

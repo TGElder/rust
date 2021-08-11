@@ -71,11 +71,7 @@ where
         let deck_height = self.cx.parameters().bridge_deck_height;
         self.cx
             .with_world(move |world| {
-                let mut piers = bridge
-                    .segments
-                    .iter_mut()
-                    .flat_map(|segment| vec![&mut segment.from, &mut segment.to].into_iter())
-                    .collect::<VecDeque<_>>();
+                let mut piers = bridge.piers.iter_mut().collect::<VecDeque<_>>();
                 piers.pop_front();
                 piers.pop_back();
                 for mut pier in piers {
@@ -131,7 +127,7 @@ mod tests {
     use futures::executor::block_on;
 
     use crate::avatar::Vehicle;
-    use crate::bridges::{Pier, Segment};
+    use crate::bridges::Pier;
     use crate::parameters::Parameters;
     use crate::resource::Resource;
     use crate::route::{Route, RouteKey, Routes, RoutesExt};
@@ -251,30 +247,21 @@ mod tests {
 
     fn bridge(bridge_type: BridgeType) -> Bridge {
         Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(1, 1),
-                        elevation: 1.5,
-                        platform: false,
-                    },
+            piers: vec![
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
                 },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 1),
-                        elevation: 1.5,
-                        platform: false,
-                    },
-                    to: Pier {
-                        position: v2(1, 2),
-                        elevation: 2.0,
-                        platform: false,
-                    },
+                Pier {
+                    position: v2(1, 1),
+                    elevation: 1.5,
+                    platform: false,
+                },
+                Pier {
+                    position: v2(1, 2),
+                    elevation: 2.0,
+                    platform: false,
                 },
             ],
             vehicle: Vehicle::None,
@@ -512,8 +499,7 @@ mod tests {
         let build = &sim.cx.build_instructions.lock().unwrap()[0].what;
         match build {
             Build::Bridge(bridge) => {
-                assert!(bridge.segments[0].to.elevation.almost(&0.95));
-                assert!(bridge.segments[1].from.elevation.almost(&0.95));
+                assert!(bridge.piers[1].elevation.almost(&0.95));
             }
             _ => panic!("Expecting bridge build, found {:?}", build),
         }
@@ -542,8 +528,7 @@ mod tests {
         let build = &sim.cx.build_instructions.lock().unwrap()[0].what;
         match build {
             Build::Bridge(bridge) => {
-                assert!(bridge.segments[0].to.elevation.almost(&1.45));
-                assert!(bridge.segments[1].from.elevation.almost(&1.45));
+                assert!(bridge.piers[1].elevation.almost(&1.45));
             }
             _ => panic!("Expecting bridge build, found {:?}", build),
         }
@@ -575,8 +560,8 @@ mod tests {
         let build = &sim.cx.build_instructions.lock().unwrap()[0].what;
         match build {
             Build::Bridge(bridge) => {
-                assert!(bridge.segments[0].from.elevation.almost(&1.0));
-                assert!(bridge.segments[1].to.elevation.almost(&2.0));
+                assert!(bridge.piers[0].elevation.almost(&1.0));
+                assert!(bridge.piers[2].elevation.almost(&2.0));
             }
             _ => panic!("Expecting bridge build, found {:?}", build),
         }

@@ -2,7 +2,7 @@ use commons::grid::Grid;
 use commons::{v2, V2};
 
 use crate::avatar::Vehicle;
-use crate::bridges::{Bridge, BridgeType, Pier, Segment};
+use crate::bridges::{Bridge, BridgeType, Pier};
 use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
 use crate::world::World;
@@ -20,21 +20,21 @@ where
     }
 
     pub async fn new_game(&self) {
-        let segments = self.get_segments().await;
-        let bridges = self.get_bridges(segments).await;
+        let piers = self.get_piers().await;
+        let bridges = self.get_bridges(piers).await;
         self.build_bridges(bridges).await;
     }
 
-    async fn get_segments(&self) -> Vec<Vec<Segment>> {
-        self.cx.with_world(|world| get_segments(&world)).await
+    async fn get_piers(&self) -> Vec<[Pier; 3]> {
+        self.cx.with_world(|world| get_piers(&world)).await
     }
 
-    async fn get_bridges(&self, segments: Vec<Vec<Segment>>) -> Vec<Bridge> {
-        segments
+    async fn get_bridges(&self, piers: Vec<[Pier; 3]>) -> Vec<Bridge> {
+        piers
             .into_iter()
-            .flat_map(|segments| {
+            .flat_map(|piers| {
                 Bridge {
-                    segments,
+                    piers: piers.to_vec(),
                     vehicle: Vehicle::None,
                     bridge_type: BridgeType::Theoretical,
                 }
@@ -57,7 +57,7 @@ where
     }
 }
 
-fn get_segments(world: &World) -> Vec<Vec<Segment>> {
+fn get_piers(world: &World) -> Vec<[Pier; 3]> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -75,7 +75,7 @@ fn get_segments(world: &World) -> Vec<Vec<Segment>> {
     out
 }
 
-fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Vec<Segment>> {
+fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<[Pier; 3]> {
     let from_cell = world.get_cell_unsafe(from);
     let to_cell = world.get_cell_unsafe(to);
 
@@ -96,30 +96,21 @@ fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Vec<Segmen
         return None;
     }
 
-    Some(vec![
-        Segment {
-            from: Pier {
-                position: *from,
-                elevation: from_elevation,
-                platform: true,
-            },
-            to: Pier {
-                position: *to,
-                elevation: to_elevation,
-                platform: false,
-            },
+    Some([
+        Pier {
+            position: *from,
+            elevation: from_elevation,
+            platform: true,
         },
-        Segment {
-            from: Pier {
-                position: *to,
-                elevation: to_elevation,
-                platform: false,
-            },
-            to: Pier {
-                position: *to,
-                elevation: sea_level,
-                platform: false,
-            },
+        Pier {
+            position: *to,
+            elevation: to_elevation,
+            platform: false,
+        },
+        Pier {
+            position: *to,
+            elevation: sea_level,
+            platform: false,
         },
     ])
 }

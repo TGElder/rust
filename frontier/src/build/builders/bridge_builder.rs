@@ -46,7 +46,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use crate::avatar::Vehicle;
-    use crate::bridges::{Bridge, BridgeType, Pier, Segment};
+    use crate::bridges::{Bridge, BridgeType, Pier};
 
     use super::*;
 
@@ -66,30 +66,21 @@ mod tests {
         let game = Arc::new(Mutex::new(hashset! {}));
         let builder = BridgeBuilder::new(game);
         let bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+            piers: vec![
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    platform: true,
                 },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(2, 0),
-                        elevation: 3.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 3.0,
+                    platform: true,
                 },
             ],
             vehicle: Vehicle::None,
@@ -109,30 +100,21 @@ mod tests {
         let game = Arc::new(Mutex::new(hashset! {}));
         let mut builder = BridgeBuilder::new(game);
         let bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+            piers: vec![
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    platform: true,
                 },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(2, 0),
-                        elevation: 3.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 3.0,
+                    platform: true,
                 },
             ],
             vehicle: Vehicle::None,
@@ -152,60 +134,42 @@ mod tests {
         let game = Arc::new(Mutex::new(hashset! {}));
         let mut builder = BridgeBuilder::new(game);
         let bridge_1 = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+            piers: vec![
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    platform: true,
                 },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(2, 0),
-                        elevation: 3.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 3.0,
+                    platform: true,
                 },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
         };
         let bridge_2 = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(0, 1),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+            piers: vec![
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    platform: true,
                 },
-                Segment {
-                    from: Pier {
-                        position: v2(0, 1),
-                        elevation: 2.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(0, 2),
-                        elevation: 3.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 1),
+                    elevation: 2.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(0, 2),
+                    elevation: 3.0,
+                    platform: true,
                 },
             ],
             vehicle: Vehicle::None,

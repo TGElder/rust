@@ -2,7 +2,7 @@ use commons::grid::Grid;
 use commons::{v2, V2};
 
 use crate::avatar::Vehicle;
-use crate::bridges::{Bridge, BridgeType, InvalidBridge, Pier, Segment};
+use crate::bridges::{Bridge, BridgeType, InvalidBridge, Pier};
 use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
 use crate::world::World;
@@ -155,16 +155,7 @@ fn is_crossing(
 
 fn get_bridge(crossing: [Pier; 3]) -> Result<Bridge, InvalidBridge> {
     Bridge {
-        segments: vec![
-            Segment {
-                from: crossing[0],
-                to: crossing[1],
-            },
-            Segment {
-                from: crossing[1],
-                to: crossing[2],
-            },
-        ],
+        piers: crossing.to_vec(),
         vehicle: Vehicle::None,
         bridge_type: BridgeType::Theoretical,
     }
