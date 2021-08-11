@@ -36,7 +36,7 @@ impl Build {
 #[cfg(test)]
 mod tests {
     use crate::avatar::Vehicle;
-    use crate::bridges::{BridgeType, Pier, Segment};
+    use crate::bridges::{BridgeType, Pier};
 
     use super::*;
 
@@ -56,30 +56,21 @@ mod tests {
     fn bridge_build_key() {
         // Given
         let bridge = Bridge {
-            segments: vec![
-                Segment {
-                    from: Pier {
-                        position: v2(0, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(1, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+            piers: vec![
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 1.0,
+                    platform: true,
                 },
-                Segment {
-                    from: Pier {
-                        position: v2(1, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
-                    to: Pier {
-                        position: v2(2, 0),
-                        elevation: 3.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 3.0,
+                    platform: true,
                 },
             ],
             vehicle: Vehicle::None,

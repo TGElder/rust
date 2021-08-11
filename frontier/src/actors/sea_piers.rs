@@ -96,18 +96,21 @@ fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<[Pier; 3]>
         return None;
     }
 
-    Some([Pier {
-                position: *from,
-                elevation: from_elevation,
-                platform: true,
-            }, Pier {
-                position: *to,
-                elevation: to_elevation,
-                platform: false,
-            },Pier {
-                position: *to,
-                elevation: sea_level,
-                platform: false,
-            },
+    Some([
+        Pier {
+            position: *from,
+            elevation: from_elevation,
+            platform: true,
+        },
+        Pier {
+            position: *to,
+            elevation: to_elevation,
+            platform: false,
+        },
+        Pier {
+            position: *to,
+            elevation: sea_level,
+            platform: false,
+        },
     ])
 }

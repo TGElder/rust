@@ -77,10 +77,16 @@ impl Bridge {
         Edge::new(self.start().position, self.end().position)
     }
 
-    pub fn segments<'a>(&'a self) -> impl Iterator<Item = Segment<'a>> {
+    pub fn segments(&self) -> impl Iterator<Item = Segment> {
         let from = self.piers.iter();
-        let to = self.piers.iter().next();
-        from.zip(to).map(|(from, to)| Segment{from, to})
+        let to = self.piers.iter().skip(1);
+        from.zip(to).map(|(from, to)| Segment { from, to })
+    }
+
+    pub fn segments_rev(&self) -> impl Iterator<Item = Segment> {
+        let from = self.piers.iter().rev();
+        let to = self.piers.iter().rev().skip(1);
+        from.zip(to).map(|(from, to)| Segment { from, to })
     }
 
     fn validate_piers(&self) -> Result<(), InvalidBridge> {
@@ -92,7 +98,8 @@ impl Bridge {
             return Err(InvalidBridge::Diagonal);
         }
 
-        if self.segments()
+        if self
+            .segments()
             .map(|segment| Edge::new_safe(segment.from.position, segment.to.position))
             .any(|result| result.is_err())
         {
@@ -103,7 +110,7 @@ impl Bridge {
     }
 }
 
-impl <'a> Segment<'a> {
+impl<'a> Segment<'a> {
     pub fn edge(&self) -> Edge {
         Edge::new(self.from.position, self.to.position)
     }
@@ -118,7 +125,7 @@ impl BridgesExt for Bridges {
         self.iter()
             .flat_map(|(_, bridges)| bridges.iter())
             .filter(|bridge| bridge.bridge_type == *bridge_type)
-            .flat_map(|bridge| bridge.piers)
+            .flat_map(|bridge| bridge.piers.iter())
             .filter(|pier| pier.platform)
             .filter(|pier| pier.position == *position)
             .count()
@@ -130,7 +137,6 @@ pub enum InvalidBridge {
     Empty,
     Diagonal,
     DiagonalSegment,
-    Discontinuous,
 }
 
 impl fmt::Display for InvalidBridge {
@@ -143,7 +149,6 @@ impl fmt::Display for InvalidBridge {
             InvalidBridge::DiagonalSegment => {
                 write!(f, "Bridge segments must not be diagonal")
             }
-            InvalidBridge::Discontinuous => write!(f, "Bridge segments are not continuous"),
         }
     }
 }
@@ -175,11 +180,13 @@ mod tests {
     fn diagonal_bridge() {
         assert_eq!(
             Bridge {
-                piers: vec![Pier {
+                piers: vec![
+                    Pier {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
-                    }, Pier {
+                    },
+                    Pier {
                         position: v2(1, 1),
                         elevation: 0.0,
                         platform: true,
@@ -198,21 +205,21 @@ mod tests {
         assert_eq!(
             Bridge {
                 piers: vec![
-                        Pier {
-                            position: v2(0, 0),
-                            elevation: 0.0,
-                            platform: true,
-                        },
-                        Pier {
-                            position: v2(1, 0),
-                            elevation: 0.0,
-                            platform: true,
-                        },
-                        Pier {
-                            position: v2(0, 1),
-                            elevation: 0.0,
-                            platform: true,
-                        },
+                    Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                        platform: true,
+                    },
+                    Pier {
+                        position: v2(1, 0),
+                        elevation: 0.0,
+                        platform: true,
+                    },
+                    Pier {
+                        position: v2(0, 1),
+                        elevation: 0.0,
+                        platform: true,
+                    },
                 ],
                 vehicle: Vehicle::None,
                 bridge_type: BridgeType::Built
@@ -226,21 +233,21 @@ mod tests {
     fn start() {
         let bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -260,21 +267,21 @@ mod tests {
     fn end() {
         let bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -294,21 +301,21 @@ mod tests {
     fn total_edge() {
         let bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -317,26 +324,25 @@ mod tests {
         assert_eq!(bridge.total_edge(), Edge::new(v2(0, 0), v2(2, 0)));
     }
 
-
     #[test]
     fn segments() {
         let bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -345,13 +351,52 @@ mod tests {
         assert_eq!(
             bridge.segments().collect::<Vec<_>>(),
             vec![
-                Segment{
+                Segment {
                     from: &bridge.piers[0],
                     to: &bridge.piers[1],
                 },
-                Segment{
+                Segment {
                     from: &bridge.piers[1],
                     to: &bridge.piers[2],
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn segments_rev() {
+        let bridge = Bridge {
+            piers: vec![
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
+            ],
+            vehicle: Vehicle::None,
+            bridge_type: BridgeType::Built,
+        };
+
+        assert_eq!(
+            bridge.segments_rev().collect::<Vec<_>>(),
+            vec![
+                Segment {
+                    from: &bridge.piers[2],
+                    to: &bridge.piers[1],
+                },
+                Segment {
+                    from: &bridge.piers[1],
+                    to: &bridge.piers[0],
                 },
             ]
         );

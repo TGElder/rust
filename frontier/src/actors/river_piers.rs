@@ -2,7 +2,7 @@ use commons::grid::Grid;
 use commons::{v2, V2};
 
 use crate::avatar::Vehicle;
-use crate::bridges::{Bridge, BridgeType, Pier, Segment};
+use crate::bridges::{Bridge, BridgeType, Pier};
 use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
 use crate::world::World;
@@ -106,17 +106,19 @@ fn is_pier(
 
     Some([
         Pier {
-                position: *from,
-                elevation: from_elevation,
-                platform: true,
-            },Pier {
-                position: *to,
-                elevation: to_elevation,
-                platform: false,
-            }, Pier {
-                position: *to,
-                elevation: to_elevation,
-                platform: false,
-            },
-        ])
+            position: *from,
+            elevation: from_elevation,
+            platform: true,
+        },
+        Pier {
+            position: *to,
+            elevation: to_elevation,
+            platform: false,
+        },
+        Pier {
+            position: *to,
+            elevation: to_elevation,
+            platform: false,
+        },
+    ])
 }

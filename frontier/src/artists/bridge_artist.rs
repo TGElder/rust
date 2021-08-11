@@ -19,7 +19,8 @@ impl BridgeArtist {
     }
 
     pub fn draw_bridge(&self, bridge: &Bridge) -> Vec<Command> {
-        bridge.segments()
+        bridge
+            .segments()
             .flat_map(|segment| self.draw_segment(bridge, segment).into_iter())
             .collect()
     }
@@ -94,7 +95,8 @@ impl BridgeArtist {
     }
 
     pub fn erase_bridge(&self, bridge: &Bridge) -> Vec<Command> {
-        bridge.segments()
+        bridge
+            .segments()
             .map(|segment| self.erase_segment(bridge, segment))
             .collect()
     }

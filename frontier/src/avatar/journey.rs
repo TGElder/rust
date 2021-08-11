@@ -1243,21 +1243,21 @@ mod tests {
         let positions = vec![v2(2, 0), v2(0, 0)];
         let bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::Boat,
             bridge_type: Built,

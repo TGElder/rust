@@ -1,6 +1,6 @@
 use crate::avatar::Vehicle;
 use crate::bridges::BridgeType::Built;
-use crate::bridges::{Bridge, Pier, Segment};
+use crate::bridges::{Bridge, Pier};
 use crate::system::{Capture, HandleEngineEvent};
 use crate::traits::{AddBridge, RemoveBridge, WithWorld};
 use commons::async_trait::async_trait;

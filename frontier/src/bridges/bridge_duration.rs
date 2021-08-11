@@ -22,9 +22,9 @@ pub struct BridgeTypeDurationFn {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct TimedSegment<'a> {
-    pub from: &'a Pier,
-    pub to: &'a Pier,
+pub struct TimedSegment {
+    pub from: Pier,
+    pub to: Pier,
     pub duration: Duration,
 }
 
@@ -99,29 +99,25 @@ impl BridgeDurationFn {
         &'a self,
         bridge: &'a Bridge,
         from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = TimedSegment<'a>> + 'a> {
+    ) -> Box<dyn Iterator<Item = TimedSegment> + 'a> {
         let duration_fn = self.duration_fn(bridge);
         if bridge.start().position == *from {
             Box::new(bridge.segments().map(move |segment| TimedSegment {
-                from: segment.from,
-                to: segment.to,
+                from: *segment.from,
+                to: *segment.to,
                 duration: duration_fn.segment_duration(segment.from, segment.to),
             }))
         } else if bridge.end().position == *from {
-            Box::new(
-                bridge
-                    .segments()
-                    .map(move |segment| TimedSegment {
-                        from: segment.to,
-                        to: segment.from,
-                        duration: duration_fn.segment_duration(segment.to, segment.from),
-                    })
-                    .rev(),
-            )
+            Box::new(bridge.segments_rev().map(move |segment| TimedSegment {
+                from: *segment.from,
+                to: *segment.to,
+                duration: duration_fn.segment_duration(segment.from, segment.to),
+            }))
         } else {
             panic!(
                 "Position {} is at neither end of the bridge {:?}!",
-                from, bridge.segments().collect::<Vec<_>>()
+                from,
+                bridge.segments().collect::<Vec<_>>()
             );
         }
     }
@@ -134,7 +130,6 @@ mod tests {
     use commons::v2;
 
     use crate::avatar::Vehicle;
-    use crate::bridges::Segment;
 
     use super::*;
 
@@ -156,21 +151,21 @@ mod tests {
         // Given
         let built_bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(3, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(3, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -199,21 +194,21 @@ mod tests {
         // Given
         let bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Theoretical,
@@ -246,21 +241,21 @@ mod tests {
         // Given
         let built_bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(3, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(3, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -285,21 +280,21 @@ mod tests {
         // Given
         let bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -314,13 +309,13 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 TimedSegment {
-                    from: &bridge.piers[0],
-                    to: &bridge.piers[1],
+                    from: bridge.piers[0],
+                    to: bridge.piers[1],
                     duration: Duration::from_secs(1),
                 },
                 TimedSegment {
-                    from: &bridge.piers[1],
-                    to: &bridge.piers[2],
+                    from: bridge.piers[1],
+                    to: bridge.piers[2],
                     duration: Duration::from_secs(1),
                 },
             ]
@@ -332,21 +327,21 @@ mod tests {
         // Given
         let bridge = Bridge {
             piers: vec![
-                    Pier {
-                        position: v2(0, 0),
-                        elevation: 0.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(1, 0),
-                        elevation: 1.0,
-                        platform: true,
-                    },
-                    Pier {
-                        position: v2(2, 0),
-                        elevation: 2.0,
-                        platform: true,
-                    },
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                },
             ],
             vehicle: Vehicle::None,
             bridge_type: BridgeType::Built,
@@ -361,13 +356,13 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 TimedSegment {
-                    from: &bridge.piers[2],
-                    to: &bridge.piers[1],
+                    from: bridge.piers[2],
+                    to: bridge.piers[1],
                     duration: Duration::from_secs(1),
                 },
                 TimedSegment {
-                    from: &bridge.piers[1],
-                    to: &bridge.piers[0],
+                    from: bridge.piers[1],
+                    to: bridge.piers[0],
                     duration: Duration::from_secs(1),
                 },
             ]
