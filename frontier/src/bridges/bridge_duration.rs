@@ -116,8 +116,7 @@ impl BridgeDurationFn {
         } else {
             panic!(
                 "Position {} is at neither end of the bridge {:?}!",
-                from,
-                bridge.segments().collect::<Vec<_>>()
+                from, bridge
             );
         }
     }
