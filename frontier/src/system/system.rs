@@ -10,7 +10,6 @@ use isometric::event_handlers::ZoomHandler;
 use isometric::IsometricEngine;
 use tokio::sync::RwLock;
 
-use crate::actors::RiverExplorerParameters;
 use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeArtistActor,
     BridgeBuilderActor, BridgeBuilderParameters, BuilderActor, Cheats, FollowAvatar, Labels,
@@ -21,6 +20,7 @@ use crate::actors::{
 use crate::actors::{ControllersActor, Crossings};
 use crate::actors::{ControllersActorParameters, SeaPiers};
 use crate::actors::{RiverExplorer, RiverPiers};
+use crate::actors::{RiverExplorerParameters, SeaPierParameters};
 use crate::artists::{
     AvatarArtist, AvatarArtistParameters, BridgeArtist, BridgeArtistParameters, HouseArtist,
     HouseArtistParameters, WorldArtist, WorldArtistParameters,
@@ -416,7 +416,10 @@ impl System {
                 ),
                 rotate: Process::new(Rotate::new(cx.clone_with_name("rotate")), rotate_rx),
                 sea_piers: Process::new(
-                    SeaPiers::new(cx.clone_with_name("sea_piers")),
+                    SeaPiers::new(
+                        cx.clone_with_name("sea_piers"),
+                        SeaPierParameters { deep_sea_level },
+                    ),
                     sea_piers_rx,
                 ),
                 settlement_sims: settlement_sim_rxs

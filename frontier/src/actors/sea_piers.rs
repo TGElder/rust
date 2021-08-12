@@ -9,14 +9,19 @@ use crate::world::World;
 
 pub struct SeaPiers<T> {
     cx: T,
+    parameters: SeaPierParameters,
+}
+
+pub struct SeaPierParameters {
+    pub deep_sea_level: f32,
 }
 
 impl<T> SeaPiers<T>
 where
     T: HasParameters + WithBridges + WithWorld + Sync,
 {
-    pub fn new(cx: T) -> SeaPiers<T> {
-        SeaPiers { cx }
+    pub fn new(cx: T, parameters: SeaPierParameters) -> SeaPiers<T> {
+        SeaPiers { cx, parameters }
     }
 
     pub async fn new_game(&self) {
@@ -26,7 +31,9 @@ where
     }
 
     async fn get_piers(&self) -> Vec<[Pier; 3]> {
-        self.cx.with_world(|world| get_piers(&world)).await
+        self.cx
+            .with_world(|world| get_piers(&world, &self.parameters.deep_sea_level))
+            .await
     }
 
     async fn get_bridges(&self, piers: Vec<[Pier; 3]>) -> Vec<Bridge> {
@@ -57,7 +64,7 @@ where
     }
 }
 
-fn get_piers(world: &World) -> Vec<[Pier; 3]> {
+fn get_piers(world: &World, deep_sea_level: &f32) -> Vec<[Pier; 3]> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -65,7 +72,7 @@ fn get_piers(world: &World) -> Vec<[Pier; 3]> {
                 let from = v2(x, y);
 
                 if let Some(to) = world.offset(&from, *offset) {
-                    if let Some(pier) = is_pier(&world, &from, &to) {
+                    if let Some(pier) = is_pier(&world, &from, &to, deep_sea_level) {
                         out.push(pier);
                     }
                 }
@@ -75,7 +82,12 @@ fn get_piers(world: &World) -> Vec<[Pier; 3]> {
     out
 }
 
-fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<[Pier; 3]> {
+fn is_pier(
+    world: &World,
+    from: &V2<usize>,
+    to: &V2<usize>,
+    deep_sea_level: &f32,
+) -> Option<[Pier; 3]> {
     let from_cell = world.get_cell_unsafe(from);
     let to_cell = world.get_cell_unsafe(to);
 
@@ -92,7 +104,7 @@ fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<[Pier; 3]>
         return None;
     }
 
-    if to_elevation > sea_level {
+    if to_elevation > *deep_sea_level {
         return None;
     }
 
@@ -104,7 +116,7 @@ fn is_pier(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<[Pier; 3]>
         },
         Pier {
             position: *to,
-            elevation: to_elevation,
+            elevation: sea_level,
             platform: false,
         },
         Pier {
