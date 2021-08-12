@@ -173,12 +173,14 @@ impl TravelDuration for AvatarTravelDuration {
             Some(WorldCell { visible: true, .. }) => (),
             _ => return None,
         };
-        if world.is_sea(from) != world.is_sea(to) {
+        let from_sea = world.is_sea(from);
+        let to_sea = world.is_sea(to);
+        let from_river = self.travel_mode_fn.is_navigable_river_here(world, from);
+        let to_river = self.travel_mode_fn.is_navigable_river_here(world, to);
+        if (from_sea != to_sea) && !(from_river || to_river) {
             return None;
         }
-        if self.travel_mode_fn.is_navigable_river_here(world, from)
-            != self.travel_mode_fn.is_navigable_river_here(world, to)
-        {
+        if (from_river != to_river) && !(from_sea || to_sea) {
             return None;
         }
         self.get_duration_fn(world, from, to)
