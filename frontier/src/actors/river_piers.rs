@@ -3,20 +3,26 @@ use commons::{v2, V2};
 
 use crate::avatar::Vehicle;
 use crate::bridges::{Bridge, BridgeType, Pier};
-use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
 use crate::world::World;
 
 pub struct RiverPiers<T> {
     cx: T,
+    parameters: RiverPierParameters,
+}
+
+pub struct RiverPierParameters {
+    pub min_navigable_river_width: f32,
+    pub max_landing_zone_gradient: f32,
+    pub max_gradient: f32,
 }
 
 impl<T> RiverPiers<T>
 where
-    T: HasParameters + WithBridges + WithWorld + Sync,
+    T: WithBridges + WithWorld + Sync,
 {
-    pub fn new(cx: T) -> RiverPiers<T> {
-        RiverPiers { cx }
+    pub fn new(cx: T, parameters: RiverPierParameters) -> RiverPiers<T> {
+        RiverPiers { cx, parameters }
     }
 
     pub async fn new_game(&self) {
@@ -26,9 +32,8 @@ where
     }
 
     async fn get_piers(&self) -> Vec<[Pier; 3]> {
-        let min_navigable_river_width = self.cx.parameters().npc_travel.min_navigable_river_width;
         self.cx
-            .with_world(|world| get_piers(&world, &min_navigable_river_width))
+            .with_world(|world| get_piers(&world, &self.parameters))
             .await
     }
 
@@ -60,7 +65,7 @@ where
     }
 }
 
-fn get_piers(world: &World, min_navigable_river_width: &f32) -> Vec<[Pier; 3]> {
+fn get_piers(world: &World, parameters: &RiverPierParameters) -> Vec<[Pier; 3]> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -68,7 +73,7 @@ fn get_piers(world: &World, min_navigable_river_width: &f32) -> Vec<[Pier; 3]> {
                 let from = v2(x, y);
 
                 if let Some(to) = world.offset(&from, *offset) {
-                    if let Some(pier) = is_pier(&world, &from, &to, min_navigable_river_width) {
+                    if let Some(pier) = is_pier(&world, &from, &to, parameters) {
                         out.push(pier);
                     }
                 }
@@ -82,7 +87,7 @@ fn is_pier(
     world: &World,
     from: &V2<usize>,
     to: &V2<usize>,
-    min_navigable_river_width: &f32,
+    parameters: &RiverPierParameters,
 ) -> Option<[Pier; 3]> {
     let from_cell = world.get_cell_unsafe(from);
     let to_cell = world.get_cell_unsafe(to);
@@ -100,7 +105,15 @@ fn is_pier(
         return None;
     }
 
-    if to_cell.river.longest_side() < *min_navigable_river_width {
+    if to_cell.river.longest_side() < parameters.min_navigable_river_width {
+        return None;
+    }
+
+    if world.get_rise(from, to)?.abs() > parameters.max_gradient {
+        return None;
+    }
+
+    if !has_launching_zone(world, from, &parameters.max_landing_zone_gradient) {
         return None;
     }
 
@@ -121,4 +134,17 @@ fn is_pier(
             platform: false,
         },
     ])
+}
+
+fn has_launching_zone(
+    world: &World,
+    position: &V2<usize>,
+    max_landing_zone_gradient: &f32,
+) -> bool {
+    world
+        .get_adjacent_tiles_in_bounds(position)
+        .iter()
+        .any(|tile| {
+            !world.is_sea(tile) && world.get_max_abs_rise(tile) <= *max_landing_zone_gradient
+        })
 }

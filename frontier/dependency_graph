@@ -176,8 +176,9 @@ SendRiverExplorer Micros
 SendRiverExplorer SelectedAvatar
 SendRiverExplorer UpdateAvatarJourney
 SendRiverExplorer WithWorld
+SendRiverPiers WithBridges
+SendRiverPiers WithWorld
 SendRotate SendEngineCommands
-SendSeaPiers HasParameters
 SendSeaPiers WithBridges
 SendSeaPiers WithWorld
 SendSettlementSim AllBridges

@@ -14,8 +14,9 @@ use crate::actors::{
     AvatarArtistActor, AvatarVisibility, BasicAvatarControls, BasicRoadBuilder, BridgeArtistActor,
     BridgeBuilderActor, BridgeBuilderParameters, BuilderActor, Cheats, FollowAvatar, Labels,
     ObjectBuilderActor, PathfindingAvatarControls, PrimeMover, ResourceGenActor, ResourceTargets,
-    Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl, TownBuilderActor,
-    TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor, WorldColoringParameters, WorldGen,
+    RiverPierParameters, Rotate, SetupNewWorld, SetupPathfinders, SetupVisibility, SpeedControl,
+    TownBuilderActor, TownHouseArtist, TownLabelArtist, Voyager, WorldArtistActor,
+    WorldColoringParameters, WorldGen,
 };
 use crate::actors::{ControllersActor, Crossings};
 use crate::actors::{ControllersActorParameters, SeaPiers};
@@ -391,7 +392,14 @@ impl System {
                     river_explorer_rx,
                 ),
                 river_piers: Process::new(
-                    RiverPiers::new(cx.clone_with_name("river_piers")),
+                    RiverPiers::new(
+                        cx.clone_with_name("river_piers"),
+                        RiverPierParameters {
+                            min_navigable_river_width: params.npc_travel.min_navigable_river_width,
+                            max_landing_zone_gradient: params.world_gen.cliff_gradient,
+                            max_gradient: params.world_gen.cliff_gradient,
+                        },
+                    ),
                     river_piers_rx,
                 ),
                 rotate: Process::new(Rotate::new(cx.clone_with_name("rotate")), rotate_rx),

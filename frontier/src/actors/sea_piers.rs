@@ -3,7 +3,6 @@ use commons::{v2, V2};
 
 use crate::avatar::Vehicle;
 use crate::bridges::{Bridge, BridgeType, Pier};
-use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
 use crate::world::World;
 
@@ -20,7 +19,7 @@ pub struct SeaPierParameters {
 
 impl<T> SeaPiers<T>
 where
-    T: HasParameters + WithBridges + WithWorld + Sync,
+    T: WithBridges + WithWorld + Sync,
 {
     pub fn new(cx: T, parameters: SeaPierParameters) -> SeaPiers<T> {
         SeaPiers { cx, parameters }
