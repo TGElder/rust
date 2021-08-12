@@ -14,6 +14,7 @@ pub struct SeaPiers<T> {
 
 pub struct SeaPierParameters {
     pub deep_sea_level: f32,
+    pub max_landing_zone_gradient: f32,
 }
 
 impl<T> SeaPiers<T>
@@ -32,7 +33,7 @@ where
 
     async fn get_piers(&self) -> Vec<[Pier; 3]> {
         self.cx
-            .with_world(|world| get_piers(&world, &self.parameters.deep_sea_level))
+            .with_world(|world| get_piers(&world, &self.parameters))
             .await
     }
 
@@ -64,7 +65,7 @@ where
     }
 }
 
-fn get_piers(world: &World, deep_sea_level: &f32) -> Vec<[Pier; 3]> {
+fn get_piers(world: &World, parameters: &SeaPierParameters) -> Vec<[Pier; 3]> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -72,7 +73,7 @@ fn get_piers(world: &World, deep_sea_level: &f32) -> Vec<[Pier; 3]> {
                 let from = v2(x, y);
 
                 if let Some(to) = world.offset(&from, *offset) {
-                    if let Some(pier) = is_pier(&world, &from, &to, deep_sea_level) {
+                    if let Some(pier) = is_pier(&world, &from, &to, parameters) {
                         out.push(pier);
                     }
                 }
@@ -86,7 +87,7 @@ fn is_pier(
     world: &World,
     from: &V2<usize>,
     to: &V2<usize>,
-    deep_sea_level: &f32,
+    parameters: &SeaPierParameters,
 ) -> Option<[Pier; 3]> {
     let from_cell = world.get_cell_unsafe(from);
     let to_cell = world.get_cell_unsafe(to);
@@ -104,7 +105,11 @@ fn is_pier(
         return None;
     }
 
-    if to_elevation > *deep_sea_level {
+    if to_elevation > parameters.deep_sea_level {
+        return None;
+    }
+
+    if !has_launching_zone(world, from, &parameters.max_landing_zone_gradient) {
         return None;
     }
 
@@ -125,4 +130,17 @@ fn is_pier(
             platform: false,
         },
     ])
+}
+
+fn has_launching_zone(
+    world: &World,
+    position: &V2<usize>,
+    max_landing_zone_gradient: &f32,
+) -> bool {
+    world
+        .get_adjacent_tiles_in_bounds(position)
+        .iter()
+        .any(|tile| {
+            !world.is_sea(tile) && world.get_max_abs_rise(tile) <= *max_landing_zone_gradient
+        })
 }

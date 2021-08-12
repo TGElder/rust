@@ -97,24 +97,13 @@ impl System {
         let deep_sea_level = params.world_gen.sea_level as f32 * params.deep_sea_pc;
         let max_landing_zone_gradient = params.world_gen.cliff_gradient;
 
-        let player_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
-            sea_level,
-            deep_sea_level,
-            max_landing_zone_gradient,
-            ..params.player_travel
-        }));
+        let player_travel_duration = Arc::new(AvatarTravelDuration::new(params.player_travel));
 
-        let npc_travel_params = AvatarTravelParams {
-            sea_level,
-            deep_sea_level,
-            max_landing_zone_gradient,
-            ..params.npc_travel
-        };
         let routes_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
             include_planned_roads: true,
-            ..npc_travel_params
+            ..params.npc_travel
         }));
-        let npc_travel_duration = Arc::new(AvatarTravelDuration::new(npc_travel_params));
+        let npc_travel_duration = Arc::new(AvatarTravelDuration::new(params.npc_travel));
 
         let road_build_travel_duration = Arc::new(RoadBuildTravelDuration::from_params(
             RoadBuildTravelParams {
@@ -418,7 +407,10 @@ impl System {
                 sea_piers: Process::new(
                     SeaPiers::new(
                         cx.clone_with_name("sea_piers"),
-                        SeaPierParameters { deep_sea_level },
+                        SeaPierParameters {
+                            deep_sea_level,
+                            max_landing_zone_gradient,
+                        },
                     ),
                     sea_piers_rx,
                 ),

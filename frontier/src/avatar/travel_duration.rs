@@ -23,9 +23,6 @@ pub struct AvatarTravelParams {
     pub port_penalty: u64,
     pub road_port_penalty: u64,
     pub include_planned_roads: bool,
-    pub sea_level: f32,
-    pub deep_sea_level: f32,
-    pub max_landing_zone_gradient: f32,
 }
 
 impl Default for AvatarTravelParams {
@@ -42,9 +39,6 @@ impl Default for AvatarTravelParams {
             port_penalty: 1_800_000,
             road_port_penalty: 1_800_000,
             include_planned_roads: false,
-            sea_level: 1.0,
-            deep_sea_level: 0.67,
-            max_landing_zone_gradient: 0.5,
         }
     }
 }
@@ -227,8 +221,6 @@ mod tests {
             parameters: AvatarTravelParams {
                 port_penalty: 100,
                 road_port_penalty: 50,
-                deep_sea_level: 0.5,
-                sea_level: 1.0,
                 ..AvatarTravelParams::default()
             },
         }
