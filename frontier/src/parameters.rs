@@ -90,7 +90,7 @@ impl Default for Parameters {
                 },
             },
             auto_road_travel: RoadBuildTravelParams::default(),
-            bridge_deck_height: 0.45,
+            bridge_deck_height: 0.01,
             light_direction: v3(0.0, 8.0, -1.0),
             snow_temperature: 0.0,
             town_travel_duration: Duration::from_secs(60 * 60 * 6),
