@@ -15,6 +15,7 @@ pub struct SeaPiers<T> {
 pub struct SeaPierParameters {
     pub deep_sea_level: f32,
     pub max_landing_zone_gradient: f32,
+    pub max_gradient: f32,
 }
 
 impl<T> SeaPiers<T>
@@ -106,6 +107,10 @@ fn is_pier(
     }
 
     if to_elevation > parameters.deep_sea_level {
+        return None;
+    }
+
+    if world.get_rise(from, to)?.abs() > parameters.max_gradient {
         return None;
     }
 

@@ -15,9 +15,6 @@ pub struct RoadBuildTravelParams {
     pub cost_at_level: f32,
     pub cost_at_max_gradient: f32,
     pub cost_on_existing_road: u64,
-    pub sea_level: f32,
-    pub deep_sea_level: f32,
-    pub max_landing_zone_gradient: f32,
     pub min_navigable_river_width: f32,
 }
 
@@ -28,9 +25,6 @@ impl Default for RoadBuildTravelParams {
             cost_at_level: 575.0,
             cost_at_max_gradient: 925.0,
             cost_on_existing_road: 100,
-            sea_level: 1.0,
-            deep_sea_level: 0.67,
-            max_landing_zone_gradient: 0.5,
             min_navigable_river_width: 0.1,
         }
     }

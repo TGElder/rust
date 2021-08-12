@@ -30,7 +30,7 @@ use crate::build::builders::{BridgeBuilder, MineBuilder, RoadBuilder, TownBuilde
 use crate::parameters::Parameters;
 use crate::pathfinder::Pathfinder;
 use crate::resource::Resources;
-use crate::road_builder::{RoadBuildTravelDuration, RoadBuildTravelParams};
+use crate::road_builder::RoadBuildTravelDuration;
 use crate::services::clock::{Clock, RealTime};
 use crate::services::{BackgroundService, VisibilityService};
 use crate::simulation::build::edges::EdgeBuildSimulation;
@@ -93,10 +93,6 @@ impl System {
     pub fn new(params: Parameters, engine: &mut IsometricEngine) -> System {
         let params = Arc::new(params);
 
-        let sea_level = params.world_gen.sea_level as f32;
-        let deep_sea_level = params.world_gen.sea_level as f32 * params.deep_sea_pc;
-        let max_landing_zone_gradient = params.world_gen.cliff_gradient;
-
         let player_travel_duration = Arc::new(AvatarTravelDuration::new(params.player_travel));
 
         let routes_travel_duration = Arc::new(AvatarTravelDuration::new(AvatarTravelParams {
@@ -106,12 +102,7 @@ impl System {
         let npc_travel_duration = Arc::new(AvatarTravelDuration::new(params.npc_travel));
 
         let road_build_travel_duration = Arc::new(RoadBuildTravelDuration::from_params(
-            RoadBuildTravelParams {
-                sea_level,
-                deep_sea_level,
-                max_landing_zone_gradient,
-                ..params.auto_road_travel
-            },
+            params.auto_road_travel,
         ));
 
         let (avatar_visibility_tx, avatar_visibility_rx) = fn_channel();
@@ -408,8 +399,9 @@ impl System {
                     SeaPiers::new(
                         cx.clone_with_name("sea_piers"),
                         SeaPierParameters {
-                            deep_sea_level,
-                            max_landing_zone_gradient,
+                            deep_sea_level: params.world_gen.sea_level as f32 * params.deep_sea_pc,
+                            max_landing_zone_gradient: params.world_gen.cliff_gradient,
+                            max_gradient: params.world_gen.cliff_gradient,
                         },
                     ),
                     sea_piers_rx,
