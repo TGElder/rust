@@ -47,7 +47,15 @@ impl BridgeTypeDurationFn {
     fn segment_duration(&self, from: &Pier, to: &Pier) -> Duration {
         let length = Edge::new(from.position, to.position).length();
 
-        self.one_cell * length.try_into().unwrap()
+        self.one_cell * length.try_into().unwrap() + self.segment_penalty(from, to)
+    }
+
+    fn segment_penalty(&self, from: &Pier, to: &Pier) -> Duration {
+        if from.vehicle != to.vehicle {
+            self.penalty
+        } else {
+            Duration::from_secs(0)
+        }
     }
 }
 
@@ -188,6 +196,52 @@ mod tests {
         assert_eq!(
             duration_fn.total_duration(&theoretical_bridge),
             Duration::from_secs(3 * 3)
+        );
+    }
+
+    #[test]
+    fn changing_vehicle_should_incur_penalty() {
+        // Given
+        let built_bridge = Bridge {
+            piers: vec![
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                    vehicle: Vehicle::None,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                    vehicle: Vehicle::Boat,
+                },
+                Pier {
+                    position: v2(3, 0),
+                    elevation: 2.0,
+                    platform: true,
+                    vehicle: Vehicle::None,
+                },
+            ],
+
+            bridge_type: BridgeType::Built,
+        };
+
+        let theoretical_bridge = Bridge {
+            bridge_type: BridgeType::Theoretical,
+            ..built_bridge.clone()
+        };
+
+        let duration_fn = bridge_duration_fn();
+
+        // Then
+        assert_eq!(
+            duration_fn.total_duration(&built_bridge),
+            Duration::from_secs(3 + 2 * 2)
+        );
+        assert_eq!(
+            duration_fn.total_duration(&theoretical_bridge),
+            Duration::from_secs(3 * 3 + 4 * 2)
         );
     }
 

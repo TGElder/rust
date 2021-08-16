@@ -31,13 +31,13 @@ where
         self.build_bridges(bridges).await;
     }
 
-    async fn get_piers(&self) -> Vec<[Pier; 3]> {
+    async fn get_piers(&self) -> Vec<[Pier; 4]> {
         self.cx
             .with_world(|world| get_piers(&world, &self.parameters))
             .await
     }
 
-    async fn get_bridges(&self, piers: Vec<[Pier; 3]>) -> Vec<Bridge> {
+    async fn get_bridges(&self, piers: Vec<[Pier; 4]>) -> Vec<Bridge> {
         piers
             .into_iter()
             .flat_map(|piers| {
@@ -65,7 +65,7 @@ where
     }
 }
 
-fn get_piers(world: &World, parameters: &SeaPierParameters) -> Vec<[Pier; 3]> {
+fn get_piers(world: &World, parameters: &SeaPierParameters) -> Vec<[Pier; 4]> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
@@ -88,7 +88,7 @@ fn is_pier(
     from: &V2<usize>,
     to: &V2<usize>,
     parameters: &SeaPierParameters,
-) -> Option<[Pier; 3]> {
+) -> Option<[Pier; 4]> {
     let from_cell = world.get_cell_unsafe(from);
     let to_cell = world.get_cell_unsafe(to);
 
@@ -134,7 +134,13 @@ fn is_pier(
             position: *to,
             elevation: sea_level,
             platform: false,
-            vehicle: Vehicle::None,
+            vehicle: Vehicle::Boat,
+        },
+        Pier {
+            position: *to,
+            elevation: sea_level,
+            platform: false,
+            vehicle: Vehicle::Boat,
         },
     ])
 }

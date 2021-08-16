@@ -83,6 +83,7 @@ impl Journey {
     ) -> Vec<Frame> {
         let mut next_arrival_time = start_at;
         let mut out = Vec::with_capacity(positions.len());
+
         out.push(Frame {
             position: positions[0],
             elevation: Self::get_elevation(world, &positions[0]),
@@ -91,6 +92,7 @@ impl Journey {
                 world,
                 &positions[0],
                 &positions[1],
+                travel_duration,
                 vehicle_fn,
                 bridge_config,
             ),
@@ -115,7 +117,7 @@ impl Journey {
                     position: to,
                     elevation: segment.to.elevation,
                     arrival: next_arrival_time,
-                    vehicle: segment.to.vehicle,
+                    vehicle: segment.from.vehicle,
                     rotation: Self::rotation(&from, &to),
                     load: AvatarLoad::None,
                 });
@@ -128,38 +130,21 @@ impl Journey {
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
+        travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
         bridge_config: BridgeConfig,
     ) -> Vehicle {
-        vehicle_fn
-            .vehicle_between(world, &from, &to)
-            .or_else(|| {
-                bridge_config
-                    .lowest_duration_bridge(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.end())
-                    .map(|pier| pier.vehicle)
-            })
-            .unwrap_or_else(|| {
-                panic!(
-                    "Tried to create avatar journey over edge without vehicle from {:?} to {:?}",
-                    world.get_cell(from).unwrap(),
-                    world.get_cell(to).unwrap()
-                )
-            })
-    }
-
-    fn rotation(from: &V2<usize>, to: &V2<usize>) -> Rotation {
-        if to.x > from.x {
-            Rotation::Right
-        } else if from.x > to.x {
-            Rotation::Left
-        } else if to.y > from.y {
-            Rotation::Up
-        } else if from.y > to.y {
-            Rotation::Down
-        } else {
-            Rotation::Up
-        }
+        Self::segments(
+            world,
+            &from,
+            &to,
+            travel_duration,
+            vehicle_fn,
+            bridge_config,
+        )
+        .next()
+        .map(|segment| segment.from.vehicle)
+        .unwrap_or(Vehicle::None)
     }
 
     fn segments<'a>(
@@ -204,6 +189,20 @@ impl Journey {
                     world.get_cell(to).unwrap()
                 )
             })
+    }
+
+    fn rotation(from: &V2<usize>, to: &V2<usize>) -> Rotation {
+        if to.x > from.x {
+            Rotation::Right
+        } else if from.x > to.x {
+            Rotation::Left
+        } else if to.y > from.y {
+            Rotation::Up
+        } else if from.y > to.y {
+            Rotation::Down
+        } else {
+            Rotation::Up
+        }
     }
 
     fn get_elevation(world: &World, position: &V2<usize>) -> f32 {
@@ -1258,7 +1257,7 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
-                    vehicle: Vehicle::Boat,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
@@ -1270,7 +1269,7 @@ mod tests {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
-                    vehicle: Vehicle::None,
+                    vehicle: Vehicle::Boat,
                 },
             ],
             bridge_type: Built,
@@ -1300,7 +1299,7 @@ mod tests {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 0,
-                    vehicle: Vehicle::None,
+                    vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,
                     load: AvatarLoad::None,
                 },
@@ -1308,7 +1307,7 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 1.0,
                     arrival: 101,
-                    vehicle: Vehicle::None,
+                    vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,
                     load: AvatarLoad::None,
                 },
@@ -1316,7 +1315,7 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     arrival: 202,
-                    vehicle: Vehicle::Boat,
+                    vehicle: Vehicle::None,
                     rotation: Rotation::Left,
                     load: AvatarLoad::None,
                 },
