@@ -252,19 +252,22 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 1),
                     elevation: 1.5,
                     platform: false,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 2),
                     elevation: 2.0,
                     platform: false,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type,
         }
     }

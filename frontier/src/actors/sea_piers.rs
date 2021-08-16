@@ -43,7 +43,7 @@ where
             .flat_map(|piers| {
                 Bridge {
                     piers: piers.to_vec(),
-                    vehicle: Vehicle::None,
+
                     bridge_type: BridgeType::Theoretical,
                 }
                 .validate()
@@ -122,16 +122,19 @@ fn is_pier(
             position: *from,
             elevation: from_elevation,
             platform: true,
+            vehicle: Vehicle::None,
         },
         Pier {
             position: *to,
             elevation: sea_level,
             platform: false,
+            vehicle: Vehicle::None,
         },
         Pier {
             position: *to,
             elevation: sea_level,
             platform: false,
+            vehicle: Vehicle::None,
         },
     ])
 }

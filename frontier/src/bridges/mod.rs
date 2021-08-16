@@ -16,7 +16,6 @@ use crate::avatar::Vehicle;
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Bridge {
     pub piers: Vec<Pier>,
-    pub vehicle: Vehicle,
     pub bridge_type: BridgeType,
 }
 
@@ -25,6 +24,7 @@ pub struct Pier {
     pub position: V2<usize>,
     pub elevation: f32,
     pub platform: bool,
+    pub vehicle: Vehicle,
 }
 
 impl Hash for Pier {
@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(
             Bridge {
                 piers: vec![],
-                vehicle: Vehicle::None,
+
                 bridge_type: BridgeType::Built,
             }
             .validate(),
@@ -185,14 +185,16 @@ mod tests {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
+                        vehicle: Vehicle::None,
                     },
                     Pier {
                         position: v2(1, 1),
                         elevation: 0.0,
                         platform: true,
+                        vehicle: Vehicle::None,
                     },
                 ],
-                vehicle: Vehicle::None,
+
                 bridge_type: BridgeType::Built
             }
             .validate(),
@@ -209,19 +211,22 @@ mod tests {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
+                        vehicle: Vehicle::None,
                     },
                     Pier {
                         position: v2(1, 0),
                         elevation: 0.0,
                         platform: true,
+                        vehicle: Vehicle::None,
                     },
                     Pier {
                         position: v2(0, 1),
                         elevation: 0.0,
                         platform: true,
+                        vehicle: Vehicle::None,
                     },
                 ],
-                vehicle: Vehicle::None,
+
                 bridge_type: BridgeType::Built
             }
             .validate(),
@@ -237,19 +242,22 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -259,6 +267,7 @@ mod tests {
                 position: v2(0, 0),
                 elevation: 0.0,
                 platform: true,
+                vehicle: Vehicle::None,
             }
         );
     }
@@ -271,19 +280,22 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -293,6 +305,7 @@ mod tests {
                 position: v2(2, 0),
                 elevation: 2.0,
                 platform: true,
+                vehicle: Vehicle::None,
             }
         );
     }
@@ -305,19 +318,22 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -332,19 +348,22 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -371,19 +390,22 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -408,11 +430,13 @@ mod tests {
             position: v2(1, 0),
             elevation: 0.0,
             platform: true,
+            vehicle: Vehicle::None,
         };
         let to = Pier {
             position: v2(0, 0),
             elevation: 0.0,
             platform: true,
+            vehicle: Vehicle::None,
         };
         let segment = Segment {
             from: &from,
@@ -432,14 +456,16 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 1),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -450,14 +476,16 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -480,14 +508,16 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -509,14 +539,16 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -538,14 +570,16 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: false,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Built,
         };
 
@@ -567,14 +601,16 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: BridgeType::Theoretical,
         };
 

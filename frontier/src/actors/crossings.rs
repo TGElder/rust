@@ -139,16 +139,19 @@ fn is_crossing(
             position: positions[0],
             elevation: world.get_cell_unsafe(&positions[0]).elevation,
             platform: true,
+            vehicle: Vehicle::None,
         },
         Pier {
             position: positions[1],
             elevation: world.get_cell_unsafe(&positions[1]).elevation,
             platform: false,
+            vehicle: Vehicle::None,
         },
         Pier {
             position: positions[2],
             elevation: world.get_cell_unsafe(&positions[2]).elevation,
             platform: true,
+            vehicle: Vehicle::None,
         },
     ])
 }
@@ -156,7 +159,7 @@ fn is_crossing(
 fn get_bridge(crossing: [Pier; 3]) -> Result<Bridge, InvalidBridge> {
     Bridge {
         piers: crossing.to_vec(),
-        vehicle: Vehicle::None,
+
         bridge_type: BridgeType::Theoretical,
     }
     .validate()

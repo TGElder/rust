@@ -100,8 +100,14 @@ impl Journey {
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            let vehicle = Self::vehicle(world, &from, &to, vehicle_fn, bridge_config);
-            for segment in Self::segments(world, &from, &to, travel_duration, bridge_config) {
+            for segment in Self::segments(
+                world,
+                &from,
+                &to,
+                travel_duration,
+                vehicle_fn,
+                bridge_config,
+            ) {
                 let from = segment.from.position;
                 let to = segment.to.position;
                 next_arrival_time += segment.duration.as_micros();
@@ -109,7 +115,7 @@ impl Journey {
                     position: to,
                     elevation: segment.to.elevation,
                     arrival: next_arrival_time,
-                    vehicle,
+                    vehicle: segment.to.vehicle,
                     rotation: Self::rotation(&from, &to),
                     load: AvatarLoad::None,
                 });
@@ -130,7 +136,8 @@ impl Journey {
             .or_else(|| {
                 bridge_config
                     .lowest_duration_bridge(&Edge::new(*from, *to))
-                    .map(|bridge| bridge.vehicle)
+                    .map(|bridge| bridge.end())
+                    .map(|pier| pier.vehicle)
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -160,21 +167,25 @@ impl Journey {
         from: &V2<usize>,
         to: &V2<usize>,
         travel_duration: &dyn TravelDuration,
+        vehicle_fn: &dyn VehicleFn,
         bridge_config: BridgeConfig<'a>,
     ) -> Box<dyn Iterator<Item = TimedSegment> + 'a> {
         travel_duration
             .get_duration(world, &from, &to)
             .map(|duration| {
+                let vehicle = vehicle_fn.vehicle_between(world, from, to);
                 let edge = TimedSegment {
                     from: Pier {
                         position: *from,
                         elevation: Self::get_elevation(world, from),
                         platform: true,
+                        vehicle: vehicle.unwrap_or(Vehicle::None),
                     },
                     to: Pier {
                         position: *to,
                         elevation: Self::get_elevation(world, to),
                         platform: true,
+                        vehicle: vehicle.unwrap_or(Vehicle::None),
                     },
                     duration,
                 };
@@ -1247,19 +1258,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    vehicle: Vehicle::Boat,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::Boat,
             bridge_type: Built,
         };
         let bridges = hashmap! { bridge.total_edge() => hashset!{ bridge } };
@@ -1287,7 +1300,7 @@ mod tests {
                     position: v2(2, 0),
                     elevation: 3.0,
                     arrival: 0,
-                    vehicle: Vehicle::Boat,
+                    vehicle: Vehicle::None,
                     rotation: Rotation::Left,
                     load: AvatarLoad::None,
                 },
@@ -1295,7 +1308,7 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 1.0,
                     arrival: 101,
-                    vehicle: Vehicle::Boat,
+                    vehicle: Vehicle::None,
                     rotation: Rotation::Left,
                     load: AvatarLoad::None,
                 },

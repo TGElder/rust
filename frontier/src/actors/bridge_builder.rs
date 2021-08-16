@@ -89,14 +89,16 @@ where
                     position: *edge.from(),
                     elevation: from_z,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
                 Pier {
                     position: *edge.to(),
                     elevation: to_z,
                     platform: true,
+                    vehicle: Vehicle::None,
                 },
             ],
-            vehicle: Vehicle::None,
+
             bridge_type: Built,
         };
         if let Ok(bridge) = bridge.validate() {
