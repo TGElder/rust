@@ -84,32 +84,29 @@ impl Journey {
         let mut next_arrival_time = start_at;
         let mut out = Vec::with_capacity(positions.len());
 
-        out.push(Frame {
-            position: positions[0],
-            elevation: Self::get_elevation(world, &positions[0]),
-            arrival: next_arrival_time,
-            vehicle: Self::vehicle(
-                world,
-                &positions[0],
-                &positions[1],
-                travel_duration,
-                vehicle_fn,
-                bridge_config,
-            ),
-            rotation: Self::rotation(&positions[0], &positions[1]),
-            load: AvatarLoad::None,
-        });
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            for segment in Self::segments(
+            for (s, segment) in Self::segments(
                 world,
                 &from,
                 &to,
                 travel_duration,
                 vehicle_fn,
                 bridge_config,
-            ) {
+            )
+            .enumerate()
+            {
+                if p == 0 && s == 0 {
+                    out.push(Frame {
+                        position: from,
+                        elevation: segment.from.elevation,
+                        arrival: next_arrival_time,
+                        vehicle: segment.from.vehicle,
+                        rotation: Self::rotation(&from, &to),
+                        load: AvatarLoad::None,
+                    });
+                }
                 let from = segment.from.position;
                 let to = segment.to.position;
                 next_arrival_time += segment.duration.as_micros();
@@ -124,27 +121,6 @@ impl Journey {
             }
         }
         out
-    }
-
-    fn vehicle(
-        world: &World,
-        from: &V2<usize>,
-        to: &V2<usize>,
-        travel_duration: &dyn TravelDuration,
-        vehicle_fn: &dyn VehicleFn,
-        bridge_config: BridgeConfig,
-    ) -> Vehicle {
-        Self::segments(
-            world,
-            &from,
-            &to,
-            travel_duration,
-            vehicle_fn,
-            bridge_config,
-        )
-        .next()
-        .map(|segment| segment.from.vehicle)
-        .unwrap_or(Vehicle::None)
     }
 
     fn segments<'a>(
@@ -1297,7 +1273,7 @@ mod tests {
             frames: vec![
                 Frame {
                     position: v2(2, 0),
-                    elevation: 3.0,
+                    elevation: 2.0,
                     arrival: 0,
                     vehicle: Vehicle::Boat,
                     rotation: Rotation::Left,
