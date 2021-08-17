@@ -35,7 +35,7 @@ impl Build {
 
 #[cfg(test)]
 mod tests {
-    use crate::avatar::Vehicle;
+    use crate::avatar::{Rotation, Vehicle};
     use crate::bridges::{BridgeType, Pier};
 
     use super::*;
@@ -61,18 +61,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 3.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],

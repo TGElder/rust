@@ -126,7 +126,7 @@ mod tests {
     use commons::{v2, M};
     use futures::executor::block_on;
 
-    use crate::avatar::Vehicle;
+    use crate::avatar::{Rotation, Vehicle};
     use crate::bridges::Pier;
     use crate::parameters::Parameters;
     use crate::resource::Resource;
@@ -252,18 +252,21 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 1),
                     elevation: 1.5,
                     platform: false,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 2),
                     elevation: 2.0,
                     platform: false,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],

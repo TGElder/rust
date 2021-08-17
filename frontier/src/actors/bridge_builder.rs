@@ -1,4 +1,4 @@
-use crate::avatar::Vehicle;
+use crate::avatar::{Rotation, Vehicle};
 use crate::bridges::BridgeType::Built;
 use crate::bridges::{Bridge, Pier};
 use crate::system::{Capture, HandleEngineEvent};
@@ -89,12 +89,14 @@ where
                     position: *edge.from(),
                     elevation: from_z,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: *edge.to(),
                     elevation: to_z,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],

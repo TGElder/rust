@@ -103,19 +103,17 @@ impl Journey {
                         elevation: segment.from.elevation,
                         arrival: next_arrival_time,
                         vehicle: segment.from.vehicle,
-                        rotation: Rotation::from_positions(&from, &to).unwrap(),
+                        rotation: segment.from.rotation,
                         load: AvatarLoad::None,
                     });
                 }
-                let from = segment.from.position;
-                let to = segment.to.position;
                 next_arrival_time += segment.duration.as_micros();
                 out.push(Frame {
-                    position: to,
+                    position: segment.to.position,
                     elevation: segment.to.elevation,
                     arrival: next_arrival_time,
                     vehicle: segment.from.vehicle,
-                    rotation: Rotation::from_positions(&from, &to).unwrap(),
+                    rotation: segment.to.rotation,
                     load: AvatarLoad::None,
                 });
             }
@@ -134,18 +132,21 @@ impl Journey {
         travel_duration
             .get_duration(world, &from, &to)
             .map(|duration| {
+                let rotation = Rotation::from_positions(from, to).unwrap();
                 let vehicle = vehicle_fn.vehicle_between(world, from, to);
                 let edge = TimedSegment {
                     from: Pier {
                         position: *from,
                         elevation: Self::get_elevation(world, from),
                         platform: true,
+                        rotation,
                         vehicle: vehicle.unwrap_or(Vehicle::None),
                     },
                     to: Pier {
                         position: *to,
                         elevation: Self::get_elevation(world, to),
                         platform: true,
+                        rotation,
                         vehicle: vehicle.unwrap_or(Vehicle::None),
                     },
                     duration,
@@ -1219,18 +1220,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Down,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Left,
                     vehicle: Vehicle::Boat,
                 },
             ],
@@ -1262,7 +1266,7 @@ mod tests {
                     elevation: 2.0,
                     arrival: 0,
                     vehicle: Vehicle::Boat,
-                    rotation: Rotation::Left,
+                    rotation: Rotation::Right,
                     load: AvatarLoad::None,
                 },
                 Frame {
@@ -1270,7 +1274,7 @@ mod tests {
                     elevation: 1.0,
                     arrival: 101,
                     vehicle: Vehicle::Boat,
-                    rotation: Rotation::Left,
+                    rotation: Rotation::Up,
                     load: AvatarLoad::None,
                 },
                 Frame {
@@ -1278,7 +1282,7 @@ mod tests {
                     elevation: 0.0,
                     arrival: 202,
                     vehicle: Vehicle::None,
-                    rotation: Rotation::Left,
+                    rotation: Rotation::Down,
                     load: AvatarLoad::None,
                 },
             ],

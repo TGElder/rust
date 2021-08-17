@@ -111,15 +111,15 @@ impl BridgeDurationFn {
         let duration_fn = self.duration_fn(bridge);
         if bridge.start().position == *from {
             Box::new(bridge.segments().map(move |segment| TimedSegment {
-                from: *segment.from,
-                to: *segment.to,
-                duration: duration_fn.segment_duration(segment.from, segment.to),
+                from: segment.from,
+                to: segment.to,
+                duration: duration_fn.segment_duration(&segment.from, &segment.to),
             }))
         } else if bridge.end().position == *from {
             Box::new(bridge.segments_rev().map(move |segment| TimedSegment {
-                from: *segment.from,
-                to: *segment.to,
-                duration: duration_fn.segment_duration(segment.from, segment.to),
+                from: segment.from,
+                to: segment.to,
+                duration: duration_fn.segment_duration(&segment.from, &segment.to),
             }))
         } else {
             panic!(
@@ -136,7 +136,7 @@ mod tests {
 
     use commons::v2;
 
-    use crate::avatar::Vehicle;
+    use crate::avatar::{Rotation, Vehicle};
 
     use super::*;
 
@@ -162,18 +162,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(3, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -208,18 +211,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::Boat,
                 },
                 Pier {
                     position: v2(3, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -254,18 +260,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -304,18 +313,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(3, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -346,18 +358,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -396,18 +411,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],

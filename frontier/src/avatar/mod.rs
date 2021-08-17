@@ -99,6 +99,15 @@ impl Rotation {
             Rotation::Down => Rotation::Right,
         }
     }
+
+    pub fn reverse(self) -> Rotation {
+        match self {
+            Rotation::Left => Rotation::Right,
+            Rotation::Up => Rotation::Down,
+            Rotation::Right => Rotation::Left,
+            Rotation::Down => Rotation::Up,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]

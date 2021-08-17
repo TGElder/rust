@@ -11,7 +11,7 @@ use std::{error, fmt};
 
 use commons::edge::Edge;
 
-use crate::avatar::Vehicle;
+use crate::avatar::{Rotation, Vehicle};
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Bridge {
@@ -24,6 +24,7 @@ pub struct Pier {
     pub position: V2<usize>,
     pub elevation: f32,
     pub platform: bool,
+    pub rotation: Rotation,
     pub vehicle: Vehicle,
 }
 
@@ -45,9 +46,9 @@ impl PartialEq for Pier {
 impl Eq for Pier {}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Segment<'a> {
-    pub from: &'a Pier,
-    pub to: &'a Pier,
+pub struct Segment {
+    pub from: Pier,
+    pub to: Pier,
 }
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Deserialize, Serialize)]
@@ -77,16 +78,30 @@ impl Bridge {
         Edge::new(self.start().position, self.end().position)
     }
 
-    pub fn segments(&self) -> impl Iterator<Item = Segment> {
+    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
+    pub fn segments<'a>(&'a self) -> impl Iterator<Item = Segment> + 'a {
         let from = self.piers.iter();
         let to = self.piers.iter().skip(1);
-        from.zip(to).map(|(from, to)| Segment { from, to })
+        from.zip(to).map(|(from, to)| Segment {
+            from: *from,
+            to: *to,
+        })
     }
 
-    pub fn segments_rev(&self) -> impl Iterator<Item = Segment> {
+    #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
+    pub fn segments_rev<'a>(&'a self) -> impl Iterator<Item = Segment> + 'a {
         let from = self.piers.iter().rev();
         let to = self.piers.iter().rev().skip(1);
-        from.zip(to).map(|(from, to)| Segment { from, to })
+        from.zip(to).map(|(from, to)| Segment {
+            from: Pier {
+                rotation: from.rotation.reverse(),
+                ..*from
+            },
+            to: Pier {
+                rotation: to.rotation.reverse(),
+                ..*to
+            },
+        })
     }
 
     fn validate_piers(&self) -> Result<(), InvalidBridge> {
@@ -110,7 +125,7 @@ impl Bridge {
     }
 }
 
-impl<'a> Segment<'a> {
+impl Segment {
     pub fn edge(&self) -> Edge {
         Edge::new(self.from.position, self.to.position)
     }
@@ -185,12 +200,14 @@ mod tests {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
+                        rotation: Rotation::Up,
                         vehicle: Vehicle::None,
                     },
                     Pier {
                         position: v2(1, 1),
                         elevation: 0.0,
                         platform: true,
+                        rotation: Rotation::Up,
                         vehicle: Vehicle::None,
                     },
                 ],
@@ -211,18 +228,21 @@ mod tests {
                         position: v2(0, 0),
                         elevation: 0.0,
                         platform: true,
+                        rotation: Rotation::Up,
                         vehicle: Vehicle::None,
                     },
                     Pier {
                         position: v2(1, 0),
                         elevation: 0.0,
                         platform: true,
+                        rotation: Rotation::Up,
                         vehicle: Vehicle::None,
                     },
                     Pier {
                         position: v2(0, 1),
                         elevation: 0.0,
                         platform: true,
+                        rotation: Rotation::Up,
                         vehicle: Vehicle::None,
                     },
                 ],
@@ -242,18 +262,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -267,6 +290,7 @@ mod tests {
                 position: v2(0, 0),
                 elevation: 0.0,
                 platform: true,
+                rotation: Rotation::Up,
                 vehicle: Vehicle::None,
             }
         );
@@ -280,18 +304,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -305,6 +332,7 @@ mod tests {
                 position: v2(2, 0),
                 elevation: 2.0,
                 platform: true,
+                rotation: Rotation::Up,
                 vehicle: Vehicle::None,
             }
         );
@@ -318,18 +346,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -348,18 +379,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -371,12 +405,12 @@ mod tests {
             bridge.segments().collect::<Vec<_>>(),
             vec![
                 Segment {
-                    from: &bridge.piers[0],
-                    to: &bridge.piers[1],
+                    from: bridge.piers[0],
+                    to: bridge.piers[1],
                 },
                 Segment {
-                    from: &bridge.piers[1],
-                    to: &bridge.piers[2],
+                    from: bridge.piers[1],
+                    to: bridge.piers[2],
                 },
             ]
         );
@@ -390,18 +424,21 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 1.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -413,12 +450,36 @@ mod tests {
             bridge.segments_rev().collect::<Vec<_>>(),
             vec![
                 Segment {
-                    from: &bridge.piers[2],
-                    to: &bridge.piers[1],
+                    from: Pier {
+                        position: v2(2, 0),
+                        elevation: 2.0,
+                        platform: true,
+                        rotation: Rotation::Down,
+                        vehicle: Vehicle::None,
+                    },
+                    to: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                        platform: true,
+                        rotation: Rotation::Down,
+                        vehicle: Vehicle::None,
+                    },
                 },
                 Segment {
-                    from: &bridge.piers[1],
-                    to: &bridge.piers[0],
+                    from: Pier {
+                        position: v2(1, 0),
+                        elevation: 1.0,
+                        platform: true,
+                        rotation: Rotation::Down,
+                        vehicle: Vehicle::None,
+                    },
+                    to: Pier {
+                        position: v2(0, 0),
+                        elevation: 0.0,
+                        platform: true,
+                        rotation: Rotation::Down,
+                        vehicle: Vehicle::None,
+                    },
                 },
             ]
         );
@@ -430,18 +491,17 @@ mod tests {
             position: v2(1, 0),
             elevation: 0.0,
             platform: true,
+            rotation: Rotation::Up,
             vehicle: Vehicle::None,
         };
         let to = Pier {
             position: v2(0, 0),
             elevation: 0.0,
             platform: true,
+            rotation: Rotation::Up,
             vehicle: Vehicle::None,
         };
-        let segment = Segment {
-            from: &from,
-            to: &to,
-        };
+        let segment = Segment { from, to };
 
         assert_eq!(segment.edge(), Edge::new(v2(0, 0), v2(1, 0)));
     }
@@ -456,12 +516,14 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 1),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -476,12 +538,14 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -508,12 +572,14 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -539,12 +605,14 @@ mod tests {
                     position: v2(0, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -570,12 +638,14 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: false,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],
@@ -601,12 +671,14 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 0.0,
                     platform: true,
+                    rotation: Rotation::Up,
                     vehicle: Vehicle::None,
                 },
             ],

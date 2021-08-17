@@ -1,7 +1,7 @@
 use commons::grid::Grid;
 use commons::{v2, V2};
 
-use crate::avatar::Vehicle;
+use crate::avatar::{Rotation, Vehicle};
 use crate::bridges::{Bridge, BridgeType, InvalidBridge, Pier};
 use crate::traits::has::HasParameters;
 use crate::traits::{WithBridges, WithWorld};
@@ -134,23 +134,27 @@ fn is_crossing(
         return None;
     }
 
+    let rotation = Rotation::from_positions(&positions[0], &positions[2]).ok()?;
     Some([
         Pier {
             position: positions[0],
             elevation: world.get_cell_unsafe(&positions[0]).elevation,
             platform: true,
+            rotation,
             vehicle: Vehicle::None,
         },
         Pier {
             position: positions[1],
             elevation: world.get_cell_unsafe(&positions[1]).elevation,
             platform: false,
+            rotation,
             vehicle: Vehicle::None,
         },
         Pier {
             position: positions[2],
             elevation: world.get_cell_unsafe(&positions[2]).elevation,
             platform: true,
+            rotation,
             vehicle: Vehicle::None,
         },
     ])

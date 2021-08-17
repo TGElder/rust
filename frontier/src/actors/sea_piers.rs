@@ -1,7 +1,7 @@
 use commons::grid::Grid;
 use commons::{v2, V2};
 
-use crate::avatar::Vehicle;
+use crate::avatar::{Rotation, Vehicle};
 use crate::bridges::{Bridge, BridgeType, Pier};
 use crate::traits::{WithBridges, WithWorld};
 use crate::world::World;
@@ -117,29 +117,34 @@ fn is_pier(
         return None;
     }
 
+    let rotation = Rotation::from_positions(from, to).ok()?;
     Some([
         Pier {
             position: *from,
             elevation: from_elevation,
             platform: true,
+            rotation,
             vehicle: Vehicle::None,
         },
         Pier {
             position: *to,
             elevation: sea_level,
             platform: false,
+            rotation,
             vehicle: Vehicle::None,
         },
         Pier {
             position: *to,
             elevation: sea_level,
             platform: false,
+            rotation,
             vehicle: Vehicle::Boat,
         },
         Pier {
             position: *to,
             elevation: sea_level,
             platform: false,
+            rotation,
             vehicle: Vehicle::Boat,
         },
     ])
