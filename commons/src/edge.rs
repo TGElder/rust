@@ -43,10 +43,10 @@ impl Edge {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct DiagonalEdge {
-    from: V2<usize>,
-    to: V2<usize>,
+    pub from: V2<usize>,
+    pub to: V2<usize>,
 }
 
 impl fmt::Display for DiagonalEdge {

@@ -9,6 +9,7 @@ mod vehicle;
 
 pub use avatar_travel_mode_fn::*;
 pub use check_for_port::*;
+use commons::edge::{DiagonalEdge, Edge};
 pub use journey::*;
 pub use travel_duration::*;
 pub use travel_mode::*;
@@ -54,6 +55,24 @@ impl Default for Rotation {
 }
 
 impl Rotation {
+    pub fn from_positions(from: &V2<usize>, to: &V2<usize>) -> Result<Rotation, DiagonalEdge> {
+        Edge::new_safe(*from, *to)?;
+        if to.x > from.x {
+            Ok(Rotation::Right)
+        } else if from.x > to.x {
+            Ok(Rotation::Left)
+        } else if to.y > from.y {
+            Ok(Rotation::Up)
+        } else if from.y > to.y {
+            Ok(Rotation::Down)
+        } else {
+            Err(DiagonalEdge {
+                from: *from,
+                to: *to,
+            })
+        }
+    }
+
     pub fn angle(self) -> f32 {
         match self {
             Rotation::Left => 4.0 * (PI / 4.0),
@@ -86,4 +105,36 @@ impl Rotation {
 pub enum AvatarLoad {
     None,
     Resource(Resource),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_positions() {
+        assert_eq!(
+            Rotation::from_positions(&v2(1, 1), &v2(0, 1)),
+            Ok(Rotation::Left)
+        );
+        assert_eq!(
+            Rotation::from_positions(&v2(1, 1), &v2(2, 1)),
+            Ok(Rotation::Right)
+        );
+        assert_eq!(
+            Rotation::from_positions(&v2(1, 1), &v2(1, 0)),
+            Ok(Rotation::Down)
+        );
+        assert_eq!(
+            Rotation::from_positions(&v2(1, 1), &v2(1, 2)),
+            Ok(Rotation::Up)
+        );
+        assert_eq!(
+            Rotation::from_positions(&v2(1, 1), &v2(2, 2)),
+            Err(DiagonalEdge {
+                from: v2(1, 1),
+                to: v2(2, 2)
+            })
+        );
+    }
 }

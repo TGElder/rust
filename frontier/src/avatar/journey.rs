@@ -103,7 +103,7 @@ impl Journey {
                         elevation: segment.from.elevation,
                         arrival: next_arrival_time,
                         vehicle: segment.from.vehicle,
-                        rotation: Self::rotation(&from, &to),
+                        rotation: Rotation::from_positions(&from, &to).unwrap(),
                         load: AvatarLoad::None,
                     });
                 }
@@ -115,7 +115,7 @@ impl Journey {
                     elevation: segment.to.elevation,
                     arrival: next_arrival_time,
                     vehicle: segment.from.vehicle,
-                    rotation: Self::rotation(&from, &to),
+                    rotation: Rotation::from_positions(&from, &to).unwrap(),
                     load: AvatarLoad::None,
                 });
             }
@@ -165,20 +165,6 @@ impl Journey {
                     world.get_cell(to).unwrap()
                 )
             })
-    }
-
-    fn rotation(from: &V2<usize>, to: &V2<usize>) -> Rotation {
-        if to.x > from.x {
-            Rotation::Right
-        } else if from.x > to.x {
-            Rotation::Left
-        } else if to.y > from.y {
-            Rotation::Up
-        } else if from.y > to.y {
-            Rotation::Down
-        } else {
-            Rotation::Up
-        }
     }
 
     fn get_elevation(world: &World, position: &V2<usize>) -> f32 {
