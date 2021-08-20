@@ -99,7 +99,7 @@ where
         self.cx
             .with_world(|world| {
                 M::from_fn(closest_origins.width(), closest_origins.height(), |x, y| {
-                    get_controller(&world, &closest_origins, &v2(x, y))
+                    get_controller(world, &closest_origins, &v2(x, y))
                 })
             })
             .await

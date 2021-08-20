@@ -48,7 +48,7 @@ impl BoatArtist {
         BoatArtist {
             boat_floats: rotation_matrices
                 .iter()
-                .map(|rotation| boat_floats(&params, light_direction, rotation))
+                .map(|rotation| boat_floats(params, light_direction, rotation))
                 .collect(),
         }
     }

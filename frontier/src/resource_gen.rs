@@ -124,7 +124,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
         candidates.sort_by(|a, b| {
             noise
                 .get_cell_unsafe(a)
-                .partial_cmp(&noise.get_cell_unsafe(b))
+                .partial_cmp(noise.get_cell_unsafe(b))
                 .unwrap()
         });
         candidates.truncate(resource_count * spread(resource));

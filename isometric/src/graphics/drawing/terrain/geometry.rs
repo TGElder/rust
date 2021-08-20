@@ -139,7 +139,7 @@ where
             if triangles.len() == 1 || triangles.len() == 2 {
                 for mut triangle in triangles {
                     for p in triangle.iter_mut() {
-                        *p = clip_to_tile(*p, &position);
+                        *p = clip_to_tile(*p, position);
                     }
                     out.push(triangle);
                 }

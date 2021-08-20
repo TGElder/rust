@@ -58,7 +58,7 @@ fn terrain<'a>(
     params: &'a WorldColoringParameters,
     overlay: &'a Option<Overlay>,
 ) -> Box<dyn TerrainColoring<WorldCell> + 'a> {
-    let base = Box::new(BaseColoring::new(&params, world));
+    let base = Box::new(BaseColoring::new(params, world));
     let shaded = Box::new(ShadedTileTerrainColoring::new(base, params.light_direction));
     let with_overlay: Box<dyn TerrainColoring<WorldCell>> =
         Box::new(LayerColoring::new(vec![shaded, Box::new(overlay)]));
@@ -101,8 +101,8 @@ impl<'a> BaseColoring<'a> {
         let beach_level = self.params.beach_level;
         let cliff_gradient = self.params.cliff_gradient;
         let snow_temperature = self.params.snow_temperature;
-        let max_gradient = world.get_max_abs_rise(&position);
-        let min_elevation = world.get_lowest_corner(&position);
+        let max_gradient = world.get_max_abs_rise(position);
+        let min_elevation = world.get_lowest_corner(position);
         if max_gradient >= cliff_gradient {
             self.params.colors.cliff
         } else if world
@@ -114,7 +114,7 @@ impl<'a> BaseColoring<'a> {
         } else if min_elevation <= beach_level {
             self.params.colors.beach
         } else {
-            let groundwater = Self::get_groundwater(&world, &position);
+            let groundwater = Self::get_groundwater(world, position);
             self.params
                 .colors
                 .vegetation
@@ -133,7 +133,7 @@ impl<'a> TerrainColoring<WorldCell> for BaseColoring<'a> {
         if let WorldObject::Crop { .. } = self.world.get_cell_unsafe(tile).object {
             [None, None, None]
         } else {
-            let color = Some(self.get_color(&self.world, tile));
+            let color = Some(self.get_color(self.world, tile));
             [color, color, color]
         }
     }

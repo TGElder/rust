@@ -22,13 +22,11 @@ where
 
     async fn update_position_traffic(&self, route_change: &RouteChange) {
         match route_change {
-            RouteChange::New { key, route } => self.new_position_traffic(&key, &route).await,
+            RouteChange::New { key, route } => self.new_position_traffic(key, route).await,
             RouteChange::Updated { key, old, new } => {
-                self.updated_position_traffic(&key, &old, &new).await
+                self.updated_position_traffic(key, old, new).await
             }
-            RouteChange::Removed { key, route } => {
-                self.removed_position_traffic(&key, &route).await
-            }
+            RouteChange::Removed { key, route } => self.removed_position_traffic(key, route).await,
             _ => (),
         }
     }
@@ -37,7 +35,7 @@ where
         self.cx
             .mut_traffic(|traffic| {
                 for position in route.path.iter() {
-                    traffic.mut_cell_unsafe(&position).insert(*key);
+                    traffic.mut_cell_unsafe(position).insert(*key);
                 }
             })
             .await;
@@ -53,11 +51,11 @@ where
         self.cx
             .mut_traffic(|traffic| {
                 for position in added {
-                    traffic.mut_cell_unsafe(&position).insert(*key);
+                    traffic.mut_cell_unsafe(position).insert(*key);
                 }
 
                 for position in removed {
-                    traffic.mut_cell_unsafe(&position).remove(key);
+                    traffic.mut_cell_unsafe(position).remove(key);
                 }
             })
             .await;
@@ -67,7 +65,7 @@ where
         self.cx
             .mut_traffic(|traffic| {
                 for position in route.path.iter() {
-                    traffic.mut_cell_unsafe(&position).remove(key);
+                    traffic.mut_cell_unsafe(position).remove(key);
                 }
             })
             .await;

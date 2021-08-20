@@ -68,7 +68,7 @@ fn get_targets<'a>(
     world_objects: &'a HashMap<V2<usize>, WorldObject>,
 ) -> impl Iterator<Item = Target<'a>> {
     positions.iter().flat_map(move |position| {
-        get_targets_at(&position, &resources[position], &world_objects[position])
+        get_targets_at(position, &resources[position], &world_objects[position])
     })
 }
 
@@ -261,27 +261,18 @@ mod tests {
         block_on(resource_targets.refresh_targets(hashset! {v2(1, 0)}));
 
         // Then
-        assert_eq!(
-            *resource_targets
-                .cx
-                .get_targets("coal")
-                .get_cell_unsafe(&v2(1, 0)),
-            true
-        );
-        assert_eq!(
-            *resource_targets
-                .cx
-                .get_targets("stone")
-                .get_cell_unsafe(&v2(1, 0)),
-            true
-        );
-        assert_eq!(
-            *resource_targets
-                .cx
-                .get_targets("crops")
-                .get_cell_unsafe(&v2(1, 0)),
-            false
-        );
+        assert!(*resource_targets
+            .cx
+            .get_targets("coal")
+            .get_cell_unsafe(&v2(1, 0)));
+        assert!(*resource_targets
+            .cx
+            .get_targets("stone")
+            .get_cell_unsafe(&v2(1, 0)));
+        assert!(!*resource_targets
+            .cx
+            .get_targets("crops")
+            .get_cell_unsafe(&v2(1, 0)));
     }
 
     #[test]
@@ -302,12 +293,9 @@ mod tests {
         block_on(resource_targets.refresh_targets(hashset! {v2(1, 0)}));
 
         // Then
-        assert_eq!(
-            *resource_targets
-                .cx
-                .get_targets("wood")
-                .get_cell_unsafe(&v2(1, 0)),
-            false
-        );
+        assert!(!*resource_targets
+            .cx
+            .get_targets("wood")
+            .get_cell_unsafe(&v2(1, 0)));
     }
 }

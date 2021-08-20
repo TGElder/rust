@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn should_be_invisible_if_world_coord_invisible() {
-        test(&move |check, checker| assert!(!checker.is_visible(&check)))
+        test(&move |check, checker| assert!(!checker.is_visible(check)))
     }
 
     #[test]
@@ -140,7 +140,7 @@ mod tests {
                 from: v2(3.0, 3.0),
                 to: v2(4.0, 4.0),
             });
-            assert!(checker.is_visible(&check))
+            assert!(checker.is_visible(check))
         });
     }
 
@@ -152,7 +152,7 @@ mod tests {
                 from: v2(1.0, 2.0),
                 to: v2(3.0, 4.0),
             });
-            assert!(!checker.is_visible(&check))
+            assert!(!checker.is_visible(check))
         });
     }
 
@@ -165,7 +165,7 @@ mod tests {
                 from: v2(3.0, 3.0),
                 to: v2(4.0, 4.0),
             });
-            assert!(!checker.is_visible(&check))
+            assert!(!checker.is_visible(check))
         });
     }
 }

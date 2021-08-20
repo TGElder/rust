@@ -130,7 +130,7 @@ impl Journey {
         bridge_config: BridgeConfig<'a>,
     ) -> Box<dyn Iterator<Item = TimedSegment> + 'a> {
         travel_duration
-            .get_duration(world, &from, &to)
+            .get_duration(world, from, to)
             .map(|duration| {
                 let rotation = Rotation::from_positions(from, to).unwrap();
                 let vehicle = vehicle_fn.vehicle_between(world, from, to);

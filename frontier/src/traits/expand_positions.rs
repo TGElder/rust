@@ -20,7 +20,7 @@ where
         self.with_world(|world| {
             positions
                 .iter()
-                .flat_map(|position| world.expand_position(&position))
+                .flat_map(|position| world.expand_position(position))
                 .collect()
         })
         .await

@@ -95,7 +95,7 @@ fn get_all_ports(
 ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
     routes
         .iter()
-        .map(|(key, path)| (*key, get_ports(world, port_checker, &path)))
+        .map(|(key, path)| (*key, get_ports(world, port_checker, path)))
         .collect()
 }
 

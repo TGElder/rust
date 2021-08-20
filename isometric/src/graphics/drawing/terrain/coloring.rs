@@ -60,7 +60,7 @@ where
         triangle: &[V3<f32>; 3],
     ) -> [Option<Color>; 3] {
         let geometry = TerrainGeometry::of(terrain);
-        let border = geometry.get_original_border_for_tile(&tile);
+        let border = geometry.get_original_border_for_tile(tile);
         let shade = self
             .shading
             .get_colors(&[border[0], border[1], border[2], border[3]])[0];

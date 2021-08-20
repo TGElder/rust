@@ -52,7 +52,7 @@ impl HouseArtist {
             if let Some(WorldCell {
                 object: WorldObject::House { rotated },
                 ..
-            }) = world.get_cell(&tile)
+            }) = world.get_cell(tile)
             {
                 let base_color =
                     unwrap_or!(territory_colors.get_cell_unsafe(&(tile - from)), continue);
@@ -62,7 +62,7 @@ impl HouseArtist {
                     width: &self.parameters.house_width,
                     height: &self.parameters.house_height,
                     roof_height: &self.parameters.house_roof_height,
-                    base_color: &base_color,
+                    base_color,
                     light_direction: &self.parameters.light_direction,
                     rotated: *rotated,
                 });

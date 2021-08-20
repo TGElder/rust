@@ -110,7 +110,7 @@ where
     fn position_on_permitted_edge(&self, position: &V2<usize>) -> bool {
         self.edges
             .iter()
-            .any(|edge| edge.position_is_permitted(self.world, &position))
+            .any(|edge| edge.position_is_permitted(self.world, position))
     }
 
     fn land_positions(&self) -> Vec<V2<usize>> {
@@ -277,7 +277,7 @@ mod tests {
                 || start.homeland.y == 0
                 || start.homeland.y == 4
         );
-        assert_no_closer_landfall(&world, &start.homeland, &start.landfall);
+        assert_no_closer_landfall(world, &start.homeland, &start.landfall);
         assert!(!world.is_sea(&start.landfall));
 
         assert!(world.is_sea(&start.pre_landfall));
@@ -289,7 +289,7 @@ mod tests {
             start.homeland.manhattan_distance(&start.pre_landfall) + 1
         );
         assert!(world.is_sea(start.voyage.last().unwrap()));
-        assert_all_sea(&world, &start.voyage);
+        assert_all_sea(world, &start.voyage);
     }
 
     fn assert_no_closer_landfall(world: &World, from: &V2<usize>, to: &V2<usize>) {

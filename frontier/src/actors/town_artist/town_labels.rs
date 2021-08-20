@@ -81,7 +81,7 @@ where
         if settlement.class != SettlementClass::Town {
             return;
         }
-        let name = get_name(&settlement);
+        let name = get_name(settlement);
         let text = self.state.get_label(settlement);
         let world_coord = self.get_world_coord(settlement).await;
         let draw_order = -settlement.current_population as i32;

@@ -291,7 +291,7 @@ impl GraphicsEngine {
             return false;
         }
         if let Some(label_visibility_check) = &drawing.label_visibility_check {
-            label_visibility_checker.is_visible(&label_visibility_check)
+            label_visibility_checker.is_visible(label_visibility_check)
         } else {
             true
         }

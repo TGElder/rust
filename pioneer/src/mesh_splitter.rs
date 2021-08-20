@@ -222,7 +222,7 @@ mod tests {
 
         let actual = SplitProcess::new(&mesh, 1, 1);
 
-        assert_eq!(actual == expected_1 || actual == expected_2, true);
+        assert!(actual == expected_1 || actual == expected_2);
     }
 
     #[test]
@@ -354,6 +354,6 @@ mod tests {
         mesh = MeshSplitter::split_n_times(&mesh, &mut rng, random_range, 10);
         assert_eq!(mesh.get_width(), 1024);
         let downhill = DownhillMap::new(&mesh);
-        assert_eq!(downhill.all_cells_have_downhill(), true);
+        assert!(downhill.all_cells_have_downhill());
     }
 }

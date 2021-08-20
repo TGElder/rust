@@ -177,15 +177,15 @@ mod tests {
     #[test]
     fn corner_cell() {
         let matrix: M<u8> = M::zeros(3, 3);
-        assert_eq!(matrix.is_corner_cell(&v2(0, 0)), true);
-        assert_eq!(matrix.is_corner_cell(&v2(1, 0)), false);
-        assert_eq!(matrix.is_corner_cell(&v2(2, 0)), true);
-        assert_eq!(matrix.is_corner_cell(&v2(0, 1)), false);
-        assert_eq!(matrix.is_corner_cell(&v2(1, 1)), false);
-        assert_eq!(matrix.is_corner_cell(&v2(2, 1)), false);
-        assert_eq!(matrix.is_corner_cell(&v2(0, 2)), true);
-        assert_eq!(matrix.is_corner_cell(&v2(1, 2)), false);
-        assert_eq!(matrix.is_corner_cell(&v2(2, 2)), true);
+        assert!(matrix.is_corner_cell(&v2(0, 0)));
+        assert!(!matrix.is_corner_cell(&v2(1, 0)));
+        assert!(matrix.is_corner_cell(&v2(2, 0)));
+        assert!(!matrix.is_corner_cell(&v2(0, 1)));
+        assert!(!matrix.is_corner_cell(&v2(1, 1)));
+        assert!(!matrix.is_corner_cell(&v2(2, 1)));
+        assert!(matrix.is_corner_cell(&v2(0, 2)));
+        assert!(!matrix.is_corner_cell(&v2(1, 2)));
+        assert!(matrix.is_corner_cell(&v2(2, 2)));
     }
 
     #[test]

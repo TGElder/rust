@@ -89,9 +89,9 @@ where
         rotation: &Rotation,
     ) -> Option<Rotation> {
         let grid_width = self.cx.parameters().width;
-        let behind = unwrap_or!(behind(&position, &rotation, &grid_width), return None);
-        let forward_candidates = possible_directions(&rotation);
-        self.find_valid_direction(&position, &behind, forward_candidates)
+        let behind = unwrap_or!(behind(position, rotation, &grid_width), return None);
+        let forward_candidates = possible_directions(rotation);
+        self.find_valid_direction(position, &behind, forward_candidates)
             .await
     }
 
@@ -188,7 +188,7 @@ fn offset(direction: &Rotation) -> V2<i32> {
 }
 
 fn behind(position: &V2<usize>, rotation: &Rotation, grid_width: &usize) -> Option<V2<usize>> {
-    let behind = v2(position.x as i32, position.y as i32) + offset(&rotation) * -1;
+    let behind = v2(position.x as i32, position.y as i32) + offset(rotation) * -1;
     if behind.x >= 0
         && behind.y >= 0
         && (behind.x as usize) < *grid_width

@@ -8,7 +8,7 @@ pub fn town_demand_fn(settlement: &Settlement) -> Vec<Demand> {
     }
     RESOURCES
         .iter()
-        .map(move |resource| get_demand(&settlement, *resource))
+        .map(move |resource| get_demand(settlement, *resource))
         .collect()
 }
 

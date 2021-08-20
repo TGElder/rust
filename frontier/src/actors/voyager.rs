@@ -67,7 +67,7 @@ where
 
 fn filter_coastal(world: &World, mut positions: HashSet<V2<usize>>) -> HashSet<V2<usize>> {
     positions
-        .retain(|position| world.get_cell_unsafe(&position).visible && is_coastal(world, position));
+        .retain(|position| world.get_cell_unsafe(position).visible && is_coastal(world, position));
     positions
 }
 
@@ -87,7 +87,7 @@ fn get_positions_to_reveal(world: &World, from: &V2<usize>, to: &V2<usize>) -> H
 }
 
 fn get_voyage(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Vec<V2<usize>>> {
-    if !world.get_cell_unsafe(&to).visible {
+    if !world.get_cell_unsafe(to).visible {
         return None;
     }
     if !is_coastal(world, to) {
@@ -112,7 +112,7 @@ fn get_voyage(world: &World, from: &V2<usize>, to: &V2<usize>) -> Option<Vec<V2<
     Some(
         voyage
             .drain(..)
-            .take_while(|position| world.is_sea(&position))
+            .take_while(|position| world.is_sea(position))
             .collect(),
     )
 }

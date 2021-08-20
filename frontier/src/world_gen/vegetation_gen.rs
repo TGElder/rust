@@ -62,9 +62,9 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
 
     fn suitable_for_vegetation(&self, position: &V2<usize>) -> bool {
         let world = &self.world;
-        !world.is_sea(&position)
-            && world.get_max_abs_rise(&position) < self.params.cliff_gradient
-            && world.get_lowest_corner(&position) > self.params.beach_level
+        !world.is_sea(position)
+            && world.get_max_abs_rise(position) < self.params.cliff_gradient
+            && world.get_lowest_corner(position) > self.params.beach_level
     }
 
     fn roll_for_vegetation(
@@ -96,7 +96,7 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
     }
 
     fn thin(&mut self, position: &V2<usize>) -> bool {
-        let groundwater = unwrap_or!(self.world.tile_avg_groundwater(&position), return true);
+        let groundwater = unwrap_or!(self.world.tile_avg_groundwater(position), return true);
         self.rng.gen::<f32>() > groundwater
     }
 
@@ -121,8 +121,8 @@ impl<'a, R: Rng> VegetationGen<'a, R> {
     }
 
     fn is_candidate(&self, vegetation_type: VegetationType, position: &V2<usize>) -> bool {
-        let temperature = unwrap_or!(self.world.tile_avg_temperature(&position), return false);
-        let groundwater = unwrap_or!(self.world.tile_avg_groundwater(&position), return false);
+        let temperature = unwrap_or!(self.world.tile_avg_temperature(position), return false);
+        let groundwater = unwrap_or!(self.world.tile_avg_groundwater(position), return false);
         vegetation_type.in_range_temperature(temperature)
             && vegetation_type.in_range_groundwater(groundwater)
     }

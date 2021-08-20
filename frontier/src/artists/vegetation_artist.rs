@@ -35,7 +35,7 @@ impl VegetationArtist {
                     offset,
                 } = cell.object
                 {
-                    snap_to_terrain(&world, &position, offset)
+                    snap_to_terrain(world, &position, offset)
                         .or_else(|| snap_to_middle(world, &position))
                         .map(|WorldCoord { x, y, z }| {
                             WorldCoord::new(x, y, z + size(vegetation_type) / 2.0)
@@ -86,7 +86,7 @@ impl VegetationArtist {
 
 fn snap_to_terrain(world: &World, tile: &V2<usize>, offset: V2<f32>) -> Option<WorldCoord> {
     let geometry = TerrainGeometry::of(world);
-    let triangles = geometry.get_triangles_for_tile(&tile);
+    let triangles = geometry.get_triangles_for_tile(tile);
     let position = v2(tile.x as f32 + offset.x, tile.y as f32 + offset.y);
     triangle_interpolate_any(&position, &triangles)
         .map(|z| WorldCoord::new(position.x, position.y, z))

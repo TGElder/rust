@@ -33,7 +33,7 @@ where
 
     async fn get_piers(&self) -> Vec<[Pier; 4]> {
         self.cx
-            .with_world(|world| get_piers(&world, &self.parameters))
+            .with_world(|world| get_piers(world, &self.parameters))
             .await
     }
 
@@ -73,7 +73,7 @@ fn get_piers(world: &World, parameters: &RiverPierParameters) -> Vec<[Pier; 4]> 
                 let from = v2(x, y);
 
                 if let Some(to) = world.offset(&from, *offset) {
-                    if let Some(pier) = is_pier(&world, &from, &to, parameters) {
+                    if let Some(pier) = is_pier(world, &from, &to, parameters) {
                         out.push(pier);
                     }
                 }

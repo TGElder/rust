@@ -133,7 +133,7 @@ mod tests {
         world.add_river(river);
 
         let mut river_water = Riverwater::new(0.1, &world);
-        river_water.add_river_water_at_position(&world.get_cell_unsafe(&v2(2, 2)));
+        river_water.add_river_water_at_position(world.get_cell_unsafe(&v2(2, 2)));
 
         let actual = river_water.result.map(|v| (v * 100.0).floor() / 100.0);
 
@@ -162,8 +162,8 @@ mod tests {
         world.add_river(river);
 
         let mut river_water = Riverwater::new(0.1, &world);
-        river_water.add_river_water_at_position(&world.get_cell_unsafe(&v2(2, 2)));
-        river_water.add_river_water_at_position(&world.get_cell_unsafe(&v2(2, 2)));
+        river_water.add_river_water_at_position(world.get_cell_unsafe(&v2(2, 2)));
+        river_water.add_river_water_at_position(world.get_cell_unsafe(&v2(2, 2)));
 
         let actual = river_water.result.map(|v| (v * 100.0).floor() / 100.0);
 

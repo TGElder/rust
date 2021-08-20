@@ -75,9 +75,9 @@ where
 
     for edge in edges {
         let triangles = if edge.horizontal() {
-            geometry.get_triangles_for_horizontal_edge(&edge.from())
+            geometry.get_triangles_for_horizontal_edge(edge.from())
         } else {
-            geometry.get_triangles_for_vertical_edge(&edge.from())
+            geometry.get_triangles_for_vertical_edge(edge.from())
         };
         for triangle in triangles {
             floats.append(&mut get_uniform_colored_vertices_from_triangle(

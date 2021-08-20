@@ -132,7 +132,7 @@ impl<'a> RainfallComputer<'a> {
     pub fn compute(&self) -> M<f64> {
         let mut out = self.empty();
         for wind in self.params.winds.iter() {
-            out += self.compute_wind(&wind);
+            out += self.compute_wind(wind);
         }
         rescale(out, (0.0, 1.0))
     }
@@ -222,7 +222,7 @@ mod tests {
         let mut cloud = cloud();
         cloud.position = v2(1, 0);
         cloud.direction = v2(1, 0);
-        assert_eq!(cloud.blow(&M::<u8>::zeros(8, 1)), true);
+        assert!(cloud.blow(&M::<u8>::zeros(8, 1)));
         assert_eq!(cloud.position, v2(2, 0));
     }
 
@@ -230,7 +230,7 @@ mod tests {
     fn blow_should_return_false_at_end() {
         let mut cloud = cloud();
         cloud.position = v2(7, 1);
-        assert_eq!(cloud.blow(&M::<u8>::zeros(8, 1)), false);
+        assert!(!cloud.blow(&M::<u8>::zeros(8, 1)));
     }
 
     #[test]

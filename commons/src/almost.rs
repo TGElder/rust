@@ -24,7 +24,7 @@ where
 {
     fn almost(&self, other: &Option<T>) -> bool {
         match (self, other) {
-            (Some(a), Some(b)) => a.almost(&b),
+            (Some(a), Some(b)) => a.almost(b),
             (None, None) => true,
             _ => false,
         }

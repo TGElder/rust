@@ -76,7 +76,7 @@ where
         return false;
     }
     for element in a {
-        if !b.contains(&element) {
+        if !b.contains(element) {
             return false;
         }
     }

@@ -38,8 +38,8 @@ impl RoadBuilderResult {
     pub fn update_roads(&self, world: &mut World) {
         for edge in self.edges() {
             match self.mode {
-                RoadBuildMode::Build => build_road(&edge, world),
-                RoadBuildMode::Demolish => demolish_road(&edge, world),
+                RoadBuildMode::Build => build_road(edge, world),
+                RoadBuildMode::Demolish => demolish_road(edge, world),
             }
         }
     }

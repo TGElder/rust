@@ -19,7 +19,7 @@ pub fn homeland_demand_fn(settlement: &Settlement) -> Vec<Demand> {
     }
     HOMELAND_RESOURCES
         .iter()
-        .map(move |resource| get_demand(&settlement, *resource))
+        .map(move |resource| get_demand(settlement, *resource))
         .collect()
 }
 

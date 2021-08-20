@@ -158,7 +158,7 @@ impl WorldArtist {
             })
             .partition(|edge| {
                 world
-                    .get_rise(&edge.from(), &edge.to())
+                    .get_rise(edge.from(), edge.to())
                     .map(|rise| rise.abs() <= self.params.waterfall_gradient)
                     .unwrap_or(true)
             });

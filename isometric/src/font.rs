@@ -54,7 +54,7 @@ impl Font {
             .unwrap_or_else(|_| panic!("Cannot find {:?} in font file", KERNING_PATTERN));
 
         kerning_regex
-            .captures_iter(&text)
+            .captures_iter(text)
             .map(|captures| Font::kerning_from_captures(&captures))
             .collect()
     }
@@ -152,7 +152,7 @@ impl Glyph {
             .unwrap_or_else(|_| panic!("Cannot find {:?} in font file", GLYPH_PATTERN));
 
         glyph_regex
-            .captures_iter(&text)
+            .captures_iter(text)
             .map(|captures| Glyph::from_captures(&captures))
             .collect()
     }

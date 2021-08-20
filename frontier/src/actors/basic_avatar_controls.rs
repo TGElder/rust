@@ -63,7 +63,7 @@ where
         self.cx
             .with_world(|world| {
                 self.travel_duration
-                    .get_duration(&world, &positions[0], &positions[1])?;
+                    .get_duration(world, &positions[0], &positions[1])?;
                 journey.append(Journey::new(
                     world,
                     positions,

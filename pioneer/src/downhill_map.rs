@@ -130,7 +130,7 @@ mod tests {
         ));
         let downhill = DownhillMap::new(&mesh);
 
-        assert_eq!(downhill.all_cells_have_downhill(), true);
+        assert!(downhill.all_cells_have_downhill());
     }
 
     #[test]
@@ -143,6 +143,6 @@ mod tests {
         ));
         let downhill = DownhillMap::new(&mesh);
 
-        assert_eq!(downhill.all_cells_have_downhill(), false);
+        assert!(!downhill.all_cells_have_downhill());
     }
 }

@@ -95,7 +95,7 @@ impl Territory {
         if !self.territory.contains_key(&controller) {
             return vec![];
         }
-        let changes = self.update_claims(&controller, &durations, game_micros);
+        let changes = self.update_claims(&controller, durations, game_micros);
         self.territory
             .insert(controller, durations.keys().cloned().collect());
         changes
@@ -107,14 +107,14 @@ impl Territory {
             .iter()
             .flat_map(|corner| self.claims.get(corner))
             .flat_map(|map| map.values())
-            .min_by(|a, b| a.cmp(&b))
+            .min_by(|a, b| a.cmp(b))
     }
 
     pub fn who_controls(&self, position: &V2<usize>) -> Option<&Claim> {
         self.claims
             .get(position)
             .ok()
-            .and_then(|map| map.values().min_by(|a, b| a.cmp(&b)))
+            .and_then(|map| map.values().min_by(|a, b| a.cmp(b)))
     }
 
     pub fn anyone_controls(&self, position: &V2<usize>) -> bool {
@@ -201,7 +201,7 @@ impl Territory {
         let mut out = vec![];
         for (position, duration) in durations {
             let previous_controller = self.who_controls(position).map(|claim| claim.controller);
-            let claims = self.claims.get_mut(&position).unwrap();
+            let claims = self.claims.get_mut(position).unwrap();
 
             let since_micros = match claims.get(controller) {
                 Some(claim) => claim.since_micros,
@@ -466,7 +466,7 @@ mod tests {
     #[test]
     fn who_controls_no_claims() {
         assert_eq!(territory().who_controls(&v2(0, 0)), None);
-        assert_eq!(territory().anyone_controls(&v2(0, 0)), false);
+        assert!(!territory().anyone_controls(&v2(0, 0)));
     }
 
     #[test]
@@ -490,7 +490,7 @@ mod tests {
                 since_micros: 0
             })
         );
-        assert_eq!(territory.anyone_controls(&v2(0, 0)), true);
+        assert!(territory.anyone_controls(&v2(0, 0)));
     }
 
     #[test]
@@ -523,7 +523,7 @@ mod tests {
                 since_micros: 1
             })
         );
-        assert_eq!(territory.anyone_controls(&v2(0, 0)), true);
+        assert!(territory.anyone_controls(&v2(0, 0)));
     }
 
     #[test]
@@ -556,7 +556,7 @@ mod tests {
                 since_micros: 0
             })
         );
-        assert_eq!(territory.anyone_controls(&v2(0, 0)), true);
+        assert!(territory.anyone_controls(&v2(0, 0)));
     }
 
     #[test]

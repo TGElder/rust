@@ -92,7 +92,7 @@ mod tests {
             for y in 0..random_downhill_map.get_width() {
                 let direction = random_downhill_map.get_direction(x, y);
                 let downhill = &downhill_map.get_directions(x, y)[direction];
-                assert_eq!(*downhill, true);
+                assert!(*downhill);
             }
         }
     }

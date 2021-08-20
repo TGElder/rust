@@ -53,7 +53,7 @@ impl Default for WorldValidationParams {
 
 pub fn world_is_valid(params: &WorldValidationParams, world: &World) -> bool {
     for validator in &[RatioAboveSeaLevel::new(params.min_ratio_above_sea_level)] {
-        if !validator.validate(&world) {
+        if !validator.validate(world) {
             println!("World is invalid: {}", validator.invalid_message());
             return false;
         }

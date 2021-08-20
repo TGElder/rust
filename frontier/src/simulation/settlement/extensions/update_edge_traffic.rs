@@ -22,11 +22,11 @@ where
 
     async fn update_edge_traffic(&self, route_change: &RouteChange) {
         match route_change {
-            RouteChange::New { key, route } => self.new_edge_traffic(&key, &route).await,
+            RouteChange::New { key, route } => self.new_edge_traffic(key, route).await,
             RouteChange::Updated { key, old, new } => {
-                self.updated_edge_traffic(&key, &old, &new).await
+                self.updated_edge_traffic(key, old, new).await
             }
-            RouteChange::Removed { key, route } => self.removed_edge_traffic(&key, &route).await,
+            RouteChange::Removed { key, route } => self.removed_edge_traffic(key, route).await,
             _ => (),
         }
     }

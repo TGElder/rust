@@ -104,7 +104,7 @@ where
             .with_resources(|resources| {
                 Some(ResourceArtist::new(
                     ResourceArtistParameters::default(),
-                    &resources,
+                    resources,
                 ))
             })
             .await;
@@ -169,13 +169,13 @@ where
         slab: &Slab,
         territory_colors: &M<Option<Color>>,
     ) {
-        let overlay = self.get_territory_overlay(&slab, territory_colors);
+        let overlay = self.get_territory_overlay(slab, territory_colors);
         let commands = self
             .cx
             .with_world(|world| {
                 self.world_artist.draw_slab(
-                    &world,
-                    &world_coloring(&world, &self.coloring_params, &overlay),
+                    world,
+                    &world_coloring(world, &self.coloring_params, &overlay),
                     slab,
                 )
             })

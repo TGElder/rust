@@ -41,7 +41,7 @@ where
     let y = position.y as f32 + 0.5;
     let w = width;
 
-    let [base_a, base_b, base_c, base_d] = get_house_base_corners(terrain, &position, w);
+    let [base_a, base_b, base_c, base_d] = get_house_base_corners(terrain, position, w);
     let zs = [base_a.z, base_b.z, base_c.z, base_d.z];
     let floor_z = zs.iter().max_by(unsafe_ordering).unwrap();
 

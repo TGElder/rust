@@ -43,5 +43,5 @@ async fn check_visibility_and_reveal<T>(cx: &T, positions: &HashSet<V2<usize>>)
 where
     T: Visibility + Send + Sync,
 {
-    cx.check_visibility_and_reveal(&positions).await;
+    cx.check_visibility_and_reveal(positions).await;
 }

@@ -34,7 +34,7 @@ impl BridgeArtist {
         } else {
             self.coordinates_vertical(&segment)
         };
-        let name = name(&bridge, segment);
+        let name = name(bridge, segment);
         draw_rectangle(name, &coordinates, &self.parameters.color)
     }
 

@@ -104,9 +104,9 @@ where
         initial_population: f64,
     ) -> HashMap<V2<usize>, Settlement> {
         gen_homelands(
-            &homeland_distance,
-            &homeland_starts,
-            &nations,
+            homeland_distance,
+            homeland_starts,
+            nations,
             initial_population,
             self.cx.parameters().half_life_factor,
         )

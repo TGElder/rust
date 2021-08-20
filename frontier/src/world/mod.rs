@@ -119,7 +119,7 @@ impl World {
     }
 
     fn is(&self, edge: &Edge, junction_fn: &dyn Fn(&WorldCell) -> Junction) -> bool {
-        if let Some(cell) = self.get_cell(&edge.from()) {
+        if let Some(cell) = self.get_cell(edge.from()) {
             let junction = junction_fn(cell);
             if edge.horizontal() {
                 junction.horizontal.from
@@ -136,7 +136,7 @@ impl World {
     }
 
     pub fn road_planned(&self, edge: &Edge) -> Option<u128> {
-        let cell = self.get_cell(&edge.from())?;
+        let cell = self.get_cell(edge.from())?;
         cell.planned_road.get(edge.horizontal()).from
     }
 
@@ -185,7 +185,7 @@ impl World {
     }
 
     pub fn get_lowest_corner(&self, position: &V2<usize>) -> f32 {
-        get_corners(&position)
+        get_corners(position)
             .iter()
             .flat_map(|corner| self.get_cell(corner))
             .map(|cell| cell.elevation())
@@ -195,7 +195,7 @@ impl World {
 
     #[allow(dead_code)]
     pub fn get_highest_corner(&self, position: &V2<usize>) -> f32 {
-        get_corners(&position)
+        get_corners(position)
             .iter()
             .flat_map(|corner| self.get_cell(corner))
             .map(|cell| cell.elevation())
@@ -204,9 +204,9 @@ impl World {
     }
 
     pub fn get_max_abs_rise(&self, position: &V2<usize>) -> f32 {
-        self.get_border(&position)
+        self.get_border(position)
             .iter()
-            .flat_map(|edge| self.get_rise(&edge.from(), &edge.to()))
+            .flat_map(|edge| self.get_rise(edge.from(), edge.to()))
             .map(|rise| rise.abs())
             .max_by(unsafe_ordering)
             .unwrap()
@@ -218,7 +218,7 @@ impl World {
         function: &dyn Fn(&WorldCell) -> Option<f32>,
     ) -> Option<f32> {
         let values: Vec<f32> = self
-            .get_corners_in_bounds(&position)
+            .get_corners_in_bounds(position)
             .iter()
             .map(|p| function(self.get_cell_unsafe(p)))
             .flatten()
@@ -231,7 +231,7 @@ impl World {
     }
 
     pub fn tile_avg_groundwater(&self, position: &V2<usize>) -> Option<f32> {
-        self.tile_average(&position, &|cell| {
+        self.tile_average(position, &|cell| {
             if !self.is_sea(&cell.position) {
                 Some(cell.climate.groundwater)
             } else {
@@ -241,7 +241,7 @@ impl World {
     }
 
     pub fn tile_avg_temperature(&self, position: &V2<usize>) -> Option<f32> {
-        self.tile_average(&position, &|cell| {
+        self.tile_average(position, &|cell| {
             if !self.is_sea(&cell.position) {
                 Some(cell.climate.temperature)
             } else {

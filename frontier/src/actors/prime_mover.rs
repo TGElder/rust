@@ -154,10 +154,10 @@ where
 
         let selected_keys =
             candidates.choose_multiple_weighted(&mut self.rng, n, |candidate| candidate.1 as f64);
-        return selected_keys
+        selected_keys
             .unwrap()
             .map(|(key, _)| *key)
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
     }
 
     async fn get_candidates(&self) -> Vec<(RouteKey, u128)> {
@@ -176,7 +176,7 @@ where
     }
 
     async fn get_journies(&self, keys: &[RouteKey], start_at: u128) -> HashMap<RouteKey, Journey> {
-        let (paths, bridges) = join!(self.get_paths(&keys), self.cx.all_bridges());
+        let (paths, bridges) = join!(self.get_paths(keys), self.cx.all_bridges());
         let bridge_config = BridgeConfig::WithBridges {
             bridges: &bridges,
             duration_fn: &self.cx.parameters().npc_bridge_duration_fn,
@@ -266,7 +266,7 @@ where
     }
 
     async fn get_colors(&self, keys: &[RouteKey]) -> HashMap<RouteKey, NationColors> {
-        self.get_nations(&keys)
+        self.get_nations(keys)
             .await
             .into_iter()
             .flat_map(|(key, nation)| self.colors.get(&nation).map(|colors| (key, *colors)))

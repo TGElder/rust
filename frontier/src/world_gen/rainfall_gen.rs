@@ -59,7 +59,7 @@ pub fn gen_rainfall(world: &World, params: &WorldGenParameters) -> M<f64> {
         .params
         .set_probabilities(params.rainfall.wind_probabilities);
     let rain = computer.compute();
-    rescale_ignoring_sea(rain, &world)
+    rescale_ignoring_sea(rain, world)
 }
 
 fn calculate_probability(

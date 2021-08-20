@@ -109,9 +109,9 @@ fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParame
 
     dredge(&mut out);
 
-    let temperatures = compute_temperatures(&out, &params);
+    let temperatures = compute_temperatures(&out, params);
     load_temperatures(&mut out, &temperatures);
-    let rainfall = gen_rainfall(&out, &params);
+    let rainfall = gen_rainfall(&out, params);
     load_rainfall(&mut out, &rainfall);
 
     let river_end_level = Scale::new(
@@ -131,14 +131,14 @@ fn try_generate_world<T: Rng>(power: usize, rng: &mut T, params: &WorldGenParame
         out.add_river(cell);
     }
 
-    let river_water = compute_river_water(&out, &params);
+    let river_water = compute_river_water(&out, params);
     let river_water = river_water.map(|v| v.sqrt());
     load_river_water(&mut out, &river_water);
 
     let groundwater = compute_groundwater(&out);
     load_groundwater(&mut out, &groundwater);
 
-    let mut vegetation_gen = VegetationGen::new(power, &mut out, &params, rng);
+    let mut vegetation_gen = VegetationGen::new(power, &mut out, params, rng);
     let vegetation = vegetation_gen.compute_vegetation();
     vegetation_gen.load_vegetation(&vegetation);
 

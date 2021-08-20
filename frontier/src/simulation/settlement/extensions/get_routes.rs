@@ -43,13 +43,13 @@ where
         let sources = demand.sources;
         let corners_in_bounds = self.corners_in_bound(&demand.position).await;
         self.cx
-            .closest_targets(&corners_in_bounds, &target_set, sources)
+            .closest_targets(&corners_in_bounds, target_set, sources)
             .await
     }
 
     async fn corners_in_bound(&self, position: &V2<usize>) -> Vec<V2<usize>> {
         let mut out = vec![];
-        for corner in get_corners(&position) {
+        for corner in get_corners(position) {
             if self.cx.in_bounds(&corner).await {
                 out.push(corner);
             }

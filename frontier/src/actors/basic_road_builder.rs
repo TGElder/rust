@@ -71,7 +71,7 @@ where
 
     async fn move_avatar(&self, name: &str, forward_path: Vec<V2<usize>>, micros: u128) {
         let journey = self.get_journey(forward_path, micros).await;
-        self.cx.update_avatar_journey(&name, Some(journey)).await;
+        self.cx.update_avatar_journey(name, Some(journey)).await;
     }
 
     async fn get_journey(&self, forward_path: Vec<V2<usize>>, start_at: u128) -> Journey {

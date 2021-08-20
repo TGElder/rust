@@ -20,7 +20,7 @@ pub struct FnMessage<I> {
 
 impl<I> FnMessage<I> {
     pub fn sender_name(&self) -> &'static str {
-        &self.sender_name
+        self.sender_name
     }
 
     fn try_wake(&mut self) {
@@ -96,7 +96,7 @@ where
     I: Send,
 {
     pub fn name(&self) -> &'static str {
-        &self.name
+        self.name
     }
 
     pub fn clone_with_name(&self, name: &'static str) -> FnSender<I> {

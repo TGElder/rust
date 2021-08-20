@@ -162,7 +162,7 @@ pub fn get_textured_vertices_from_triangle(points: &[V3<f32>; 3], colors: &[Colo
 
 #[rustfmt::skip]
 pub fn get_colored_vertices_from_triangle(points: &[V3<f32>; 3], coloring: &dyn TriangleColoring) -> Vec<f32> {
-    let colors = coloring.get_colors(&points);
+    let colors = coloring.get_colors(points);
 
     vec![
         points[0].x, points[0].y, points[0].z, colors[0].r, colors[0].g, colors[0].b,
@@ -202,7 +202,7 @@ pub fn get_specific_colored_vertices_from_square(points: &[V3<f32>; 4], colors: 
 
 #[rustfmt::skip]
 pub fn get_colored_vertices_from_square(points: &[V3<f32>; 4], coloring: &dyn SquareColoring) -> Vec<f32> {
-    let colors = coloring.get_colors(&points);
+    let colors = coloring.get_colors(points);
 
     vec![
         points[0].x, points[0].y, points[0].z, colors[0].r, colors[0].g, colors[0].b,

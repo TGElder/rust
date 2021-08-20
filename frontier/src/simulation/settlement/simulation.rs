@@ -156,12 +156,12 @@ where
 
     async fn update_position_traffic_and_refresh_positions(&self, route_changes: &[RouteChange]) {
         self.update_all_position_traffic(route_changes).await;
-        self.refresh_positions(&route_changes).await
+        self.refresh_positions(route_changes).await
     }
 
     async fn update_edge_traffic_and_refresh_edges(&self, route_changes: &[RouteChange]) {
         self.update_all_edge_traffic(route_changes).await;
-        self.refresh_edges(&route_changes).await
+        self.refresh_edges(route_changes).await
     }
 
     fn avatar_travel_mode_fn(&self) -> AvatarTravelModeFn {

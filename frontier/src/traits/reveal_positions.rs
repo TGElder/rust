@@ -36,7 +36,7 @@ where
             return;
         }
 
-        let newly_visible = get_newly_visible(self, &positions).await;
+        let newly_visible = get_newly_visible(self, positions).await;
         if newly_visible.is_empty() {
             return;
         }
@@ -60,7 +60,7 @@ where
     let mut out = hashset! {};
     cx.with_world(|world| {
         for position in visible {
-            if let Some(world_cell) = world.get_cell(&position) {
+            if let Some(world_cell) = world.get_cell(position) {
                 if !world_cell.visible {
                     out.insert(*position);
                 }
@@ -77,7 +77,7 @@ where
 {
     cx.mut_world(|world| {
         for position in visible {
-            if let Some(world_cell) = world.mut_cell(&position) {
+            if let Some(world_cell) = world.mut_cell(position) {
                 if !world_cell.visible {
                     world_cell.visible = true;
                 }

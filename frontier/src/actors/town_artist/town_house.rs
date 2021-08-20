@@ -57,7 +57,7 @@ where
 
     async fn get_nation_color(&self, nation: &str) -> Color {
         self.cx
-            .get_nation_description(&nation)
+            .get_nation_description(nation)
             .await
             .unwrap_or_else(|| panic!("Unknown nation"))
             .colors
@@ -66,7 +66,7 @@ where
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
     async fn draw_house<'a>(&self, house: House<'a>) {
-        let name = get_name(&house.position);
+        let name = get_name(house.position);
         let commands = self
             .cx
             .with_world(|world| create_and_update_house_drawing(name, world, vec![house]))

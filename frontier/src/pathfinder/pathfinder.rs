@@ -88,7 +88,7 @@ where
         move |from| {
             let from = index.get_position(from).unwrap();
             to.iter()
-                .map(|to| from.manhattan_distance(&to) as u32 * minimum_cost)
+                .map(|to| from.manhattan_distance(to) as u32 * minimum_cost)
                 .min()
                 .unwrap()
         }
@@ -103,12 +103,9 @@ where
         if from_indices.is_empty() {
             return None;
         }
-        let path = self.network.find_path(
-            &from_indices,
-            &to_indices,
-            None,
-            &self.manhattan_distance(to),
-        );
+        let path =
+            self.network
+                .find_path(from_indices, to_indices, None, &self.manhattan_distance(to));
         match path {
             Some(ref path) if path.is_empty() => None,
             Some(ref path) => {
@@ -132,7 +129,7 @@ where
         duration: &Duration,
     ) -> HashMap<V2<usize>, Duration> {
         let indices = self.get_network_indices(positions);
-        let max_cost = self.travel_duration.get_cost_from_duration(&duration);
+        let max_cost = self.travel_duration.get_cost_from_duration(duration);
         self.network
             .nodes_within(&indices, max_cost)
             .into_iter()

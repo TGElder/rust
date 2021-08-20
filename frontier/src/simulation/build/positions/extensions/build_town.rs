@@ -86,7 +86,7 @@ where
                 route.destination == *position
                     || route_to_ports
                         .get(route)
-                        .map_or(false, |ports| ports.contains(&position))
+                        .map_or(false, |ports| ports.contains(position))
             })
             .cloned()
             .collect()

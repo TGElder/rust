@@ -30,7 +30,7 @@ where
         let max_gradient = self.cx.parameters().npc_travel.max_walk_gradient;
 
         self.cx
-            .with_world(|world| get_crossings(&world, &min_navigable_river_width, &max_gradient))
+            .with_world(|world| get_crossings(world, &min_navigable_river_width, &max_gradient))
             .await
     }
 
@@ -67,12 +67,9 @@ fn get_crossings(
                 world.offset(&position, v2(1, 0)),
             ) {
                 let horizontal = [left, position, right];
-                if let Some(crossing) = is_crossing(
-                    &world,
-                    &min_navigable_river_width,
-                    &max_gradient,
-                    &horizontal,
-                ) {
+                if let Some(crossing) =
+                    is_crossing(world, min_navigable_river_width, max_gradient, &horizontal)
+                {
                     out.push(crossing);
                 }
             }
@@ -83,7 +80,7 @@ fn get_crossings(
             ) {
                 let vertical = [down, position, up];
                 if let Some(crossing) =
-                    is_crossing(&world, &min_navigable_river_width, &max_gradient, &vertical)
+                    is_crossing(world, min_navigable_river_width, max_gradient, &vertical)
                 {
                     out.push(crossing);
                 }

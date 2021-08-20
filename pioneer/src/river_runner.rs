@@ -17,16 +17,16 @@ pub fn get_river_cells<R: Rng>(
     rainfall: &M<f64>,
     rng: &mut R,
 ) -> Vec<PositionJunction> {
-    let downhill_map = DownhillMap::new(&mesh);
+    let downhill_map = DownhillMap::new(mesh);
     let random_downhill_map = RandomDownhillMap::new(&downhill_map, rng);
 
     get_river_cells_from_downhill_map_and_rain_map(
-        &mesh,
+        mesh,
         threshold,
         sea_level,
         flow_to_width,
         &random_downhill_map,
-        &rainfall,
+        rainfall,
     )
 }
 
@@ -38,9 +38,9 @@ fn get_river_cells_from_downhill_map_and_rain_map(
     downhill_map: &dyn SingleDownhillMap,
     rainfall: &M<f64>,
 ) -> Vec<PositionJunction> {
-    let flow_map = FlowMap::from(&mesh, downhill_map, &rainfall);
+    let flow_map = FlowMap::from(mesh, downhill_map, rainfall);
     let junctions = get_junction_matrix_from_flow_map(
-        &mesh,
+        mesh,
         threshold,
         sea_level,
         flow_to_width,
