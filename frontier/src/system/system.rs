@@ -537,9 +537,9 @@ impl System {
         self.cx
             .resource_gen_tx
             .send_future(|resource_gen| resource_gen.new_game().boxed());
-        self.cx
-            .river_piers_tx
-            .send_future(|piers| piers.new_game().boxed());
+        // self.cx
+        //     .river_piers_tx
+        //     .send_future(|piers| piers.new_game().boxed());
         self.cx
             .sea_piers_tx
             .send_future(|piers| piers.new_game().boxed());

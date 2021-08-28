@@ -39,27 +39,32 @@ impl BridgeArtist {
     }
 
     fn coordinates_horizontal(&self, segment: &Segment) -> [V3<f32>; 4] {
-        let from = &segment.from;
-        let to = &segment.to;
+        let (from, to) = if segment.from.position.x < segment.to.position.x
+            || segment.from.position.y < segment.to.position.y
+        {
+            (&segment.from, &segment.to)
+        } else {
+            (&segment.to, &segment.from)
+        };
         let offset = self.parameters.offset;
         [
             v3(
-                from.position.x as f32 + if segment.from.platform { offset } else { 0.0 },
+                from.position.x as f32 + if from.platform { offset } else { 0.0 },
                 from.position.y as f32 - offset,
                 from.elevation,
             ),
             v3(
-                from.position.x as f32 + if segment.from.platform { offset } else { 0.0 },
+                from.position.x as f32 + if from.platform { offset } else { 0.0 },
                 from.position.y as f32 + offset,
                 from.elevation,
             ),
             v3(
-                to.position.x as f32 - if segment.to.platform { offset } else { 0.0 },
+                to.position.x as f32 - if to.platform { offset } else { 0.0 },
                 to.position.y as f32 + offset,
                 to.elevation,
             ),
             v3(
-                to.position.x as f32 - if segment.to.platform { offset } else { 0.0 },
+                to.position.x as f32 - if to.platform { offset } else { 0.0 },
                 to.position.y as f32 - offset,
                 to.elevation,
             ),
@@ -67,28 +72,33 @@ impl BridgeArtist {
     }
 
     fn coordinates_vertical(&self, segment: &Segment) -> [V3<f32>; 4] {
-        let from = &segment.from;
-        let to = &segment.to;
+        let (from, to) = if segment.from.position.x < segment.to.position.x
+            || segment.from.position.y < segment.to.position.y
+        {
+            (&segment.from, &segment.to)
+        } else {
+            (&segment.to, &segment.from)
+        };
         let offset = self.parameters.offset;
         [
             v3(
                 from.position.x as f32 + offset,
-                from.position.y as f32 + if segment.from.platform { offset } else { 0.0 },
+                from.position.y as f32 + if from.platform { offset } else { 0.0 },
                 from.elevation,
             ),
             v3(
                 from.position.x as f32 - offset,
-                from.position.y as f32 + if segment.from.platform { offset } else { 0.0 },
+                from.position.y as f32 + if from.platform { offset } else { 0.0 },
                 from.elevation,
             ),
             v3(
                 to.position.x as f32 - offset,
-                to.position.y as f32 - if segment.to.platform { offset } else { 0.0 },
+                to.position.y as f32 - if to.platform { offset } else { 0.0 },
                 to.elevation,
             ),
             v3(
                 to.position.x as f32 + offset,
-                to.position.y as f32 - if segment.to.platform { offset } else { 0.0 },
+                to.position.y as f32 - if to.platform { offset } else { 0.0 },
                 to.elevation,
             ),
         ]

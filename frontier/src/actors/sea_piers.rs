@@ -1,4 +1,5 @@
 use commons::grid::Grid;
+use commons::log::info;
 use commons::{v2, V2};
 
 use crate::avatar::{Rotation, Vehicle};
@@ -69,7 +70,7 @@ fn get_piers(world: &World, parameters: &SeaPierParameters) -> Vec<[Pier; 4]> {
     let mut out = vec![];
     for x in 0..world.width() {
         for y in 0..world.height() {
-            for offset in [v2(1, 0), v2(0, 1), v2(-1, 0), v2(0, -1)].iter() {
+            for offset in [v2(2, 0), v2(0, 2), v2(-2, 0), v2(0, -2)].iter() {
                 let from = v2(x, y);
 
                 if let Some(to) = world.offset(&from, *offset) {
