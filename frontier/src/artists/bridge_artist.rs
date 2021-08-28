@@ -39,56 +39,58 @@ impl BridgeArtist {
     }
 
     fn coordinates_horizontal(&self, segment: &Segment) -> [V3<f32>; 4] {
+        let segment = canonical(segment);
         let from = &segment.from;
         let to = &segment.to;
         let offset = self.parameters.offset;
         [
             v3(
-                from.position.x as f32 + if segment.from.platform { offset } else { 0.0 },
-                from.position.y as f32 - offset,
-                from.elevation,
-            ),
-            v3(
-                from.position.x as f32 + if segment.from.platform { offset } else { 0.0 },
+                from.position.x as f32 - if from.platform { offset } else { 0.0 },
                 from.position.y as f32 + offset,
                 from.elevation,
             ),
             v3(
-                to.position.x as f32 - if segment.to.platform { offset } else { 0.0 },
-                to.position.y as f32 + offset,
+                from.position.x as f32 - if from.platform { offset } else { 0.0 },
+                from.position.y as f32 - offset,
+                from.elevation,
+            ),
+            v3(
+                to.position.x as f32 + if to.platform { offset } else { 0.0 },
+                to.position.y as f32 - offset,
                 to.elevation,
             ),
             v3(
-                to.position.x as f32 - if segment.to.platform { offset } else { 0.0 },
-                to.position.y as f32 - offset,
+                to.position.x as f32 + if to.platform { offset } else { 0.0 },
+                to.position.y as f32 + offset,
                 to.elevation,
             ),
         ]
     }
 
     fn coordinates_vertical(&self, segment: &Segment) -> [V3<f32>; 4] {
+        let segment = canonical(segment);
         let from = &segment.from;
         let to = &segment.to;
         let offset = self.parameters.offset;
         [
             v3(
-                from.position.x as f32 + offset,
-                from.position.y as f32 + if segment.from.platform { offset } else { 0.0 },
-                from.elevation,
-            ),
-            v3(
                 from.position.x as f32 - offset,
-                from.position.y as f32 + if segment.from.platform { offset } else { 0.0 },
+                from.position.y as f32 - if from.platform { offset } else { 0.0 },
                 from.elevation,
             ),
             v3(
-                to.position.x as f32 - offset,
-                to.position.y as f32 - if segment.to.platform { offset } else { 0.0 },
-                to.elevation,
+                from.position.x as f32 + offset,
+                from.position.y as f32 - if from.platform { offset } else { 0.0 },
+                from.elevation,
             ),
             v3(
                 to.position.x as f32 + offset,
-                to.position.y as f32 - if segment.to.platform { offset } else { 0.0 },
+                to.position.y as f32 + if to.platform { offset } else { 0.0 },
+                to.elevation,
+            ),
+            v3(
+                to.position.x as f32 - offset,
+                to.position.y as f32 + if to.platform { offset } else { 0.0 },
                 to.elevation,
             ),
         ]
@@ -103,6 +105,19 @@ impl BridgeArtist {
 
     pub fn erase_segment(&self, bridge: &Bridge, segment: Segment) -> Command {
         Command::Erase(name(bridge, segment))
+    }
+}
+
+fn canonical(segment: &Segment) -> Segment {
+    let from = segment.from.position;
+    let to = segment.to.position;
+    if from.x < to.x || from.y < to.y {
+        Segment {
+            from: segment.to,
+            to: segment.from,
+        }
+    } else {
+        *segment
     }
 }
 
