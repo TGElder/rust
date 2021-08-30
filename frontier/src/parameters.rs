@@ -65,8 +65,7 @@ impl Default for Parameters {
             road_color: Color::new(0.6, 0.4, 0.0, 1.0),
             player_travel: AvatarTravelParams::default(),
             npc_travel: AvatarTravelParams {
-                port_penalty: 86_400_000,
-                road_port_penalty: 21_600_000,
+                max_duration_millis: 93_000_000,
                 ..AvatarTravelParams::default()
             },
             player_bridge_duration_fn: BridgeDurationFn {

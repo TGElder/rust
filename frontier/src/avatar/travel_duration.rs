@@ -20,8 +20,7 @@ pub struct AvatarTravelParams {
     pub river_1_cell_duration_millis: f32,
     pub road_1_cell_duration_millis: u64,
     pub sea_1_cell_duration_millis: u64,
-    pub port_penalty: u64,
-    pub road_port_penalty: u64,
+    pub max_duration_millis: u64,
     pub include_planned_roads: bool,
 }
 
@@ -36,8 +35,7 @@ impl Default for AvatarTravelParams {
             river_1_cell_duration_millis: 900_000.0,
             road_1_cell_duration_millis: 1_200_000,
             sea_1_cell_duration_millis: 900_000,
-            port_penalty: 1_800_000,
-            road_port_penalty: 1_800_000,
+            max_duration_millis: 9_600_000,
             include_planned_roads: false,
         }
     }
@@ -138,26 +136,6 @@ impl AvatarTravelDuration {
                 TravelMode::Sea => self.sea.as_ref(),
             })
     }
-
-    fn travel_mode_change_penalty(
-        &self,
-        world: &World,
-        from: &V2<usize>,
-        to: &V2<usize>,
-    ) -> Duration {
-        if self.travel_mode_fn.travel_mode_change(world, from, to) {
-            let edge = Edge::new(*from, *to);
-            if world.is_road(&edge)
-                || self.parameters.include_planned_roads && world.road_planned(&edge).is_some()
-            {
-                Duration::from_millis(self.parameters.road_port_penalty)
-            } else {
-                Duration::from_millis(self.parameters.port_penalty)
-            }
-        } else {
-            Duration::from_millis(0)
-        }
-    }
 }
 
 impl TravelDuration for AvatarTravelDuration {
@@ -184,7 +162,6 @@ impl TravelDuration for AvatarTravelDuration {
         }
         self.get_duration_fn(world, from, to)
             .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
-            .map(|duration| duration + self.travel_mode_change_penalty(world, from, to))
     }
 
     fn min_duration(&self) -> Duration {
@@ -196,12 +173,7 @@ impl TravelDuration for AvatarTravelDuration {
     }
 
     fn max_duration(&self) -> Duration {
-        self.walk
-            .max_duration()
-            .max(self.road.max_duration())
-            .max(self.stream.max_duration())
-            .max(self.river.max_duration())
-            + Duration::from_millis(self.parameters.port_penalty)
+        Duration::from_millis(self.parameters.max_duration_millis)
     }
 }
 
@@ -219,11 +191,7 @@ mod tests {
             stream: test_travel_duration(),
             river: test_travel_duration(),
             sea: test_travel_duration(),
-            parameters: AvatarTravelParams {
-                port_penalty: 100,
-                road_port_penalty: 50,
-                ..AvatarTravelParams::default()
-            },
+            parameters: AvatarTravelParams::default(),
         }
     }
 
