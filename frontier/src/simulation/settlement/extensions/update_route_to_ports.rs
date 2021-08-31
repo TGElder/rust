@@ -1,24 +1,21 @@
-use crate::avatar::CheckForPort;
+use crate::bridges::{BridgeDurationFn, Bridges};
 use crate::route::RouteKey;
 use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
-use crate::traits::{WithRouteToPorts, WithWorld};
-use crate::world::World;
-use commons::edge::Edges;
+use crate::traits::has::HasParameters;
+use crate::traits::{WithBridges, WithRouteToPorts};
+use commons::edge::{Edge, Edges};
 use commons::V2;
 use std::collections::{HashMap, HashSet};
 
 impl<T, D> SettlementSimulation<T, D>
 where
-    T: WithRouteToPorts + WithWorld,
+    T: HasParameters + WithBridges + WithRouteToPorts,
 {
-    pub async fn update_route_to_ports<C>(&self, route_changes: &[RouteChange], port_checker: &C)
-    where
-        C: CheckForPort + Clone + Send + Sync + 'static,
-    {
+    pub async fn update_route_to_ports(&self, route_changes: &[RouteChange]) {
         let updated = get_all_updated(route_changes);
         self.remove_removed(route_changes).await;
-        let ports = self.get_all_ports(&updated, port_checker).await;
+        let ports = self.get_all_ports(&updated).await;
         self.update_ports(ports).await;
     }
 
@@ -33,16 +30,13 @@ where
             .await;
     }
 
-    async fn get_all_ports<C>(
+    async fn get_all_ports(
         &self,
         routes: &HashMap<RouteKey, Vec<V2<usize>>>,
-        port_checker: &C,
-    ) -> HashMap<RouteKey, HashSet<V2<usize>>>
-    where
-        C: CheckForPort + Clone + Send + Sync + 'static,
-    {
+    ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
+        let bridge_duration_fn = &self.cx.parameters().npc_bridge_duration_fn;
         self.cx
-            .with_world(|world| get_all_ports(world, port_checker, routes))
+            .with_bridges(|bridges| get_all_ports(bridges, bridge_duration_fn, routes))
             .await
     }
 
@@ -89,339 +83,350 @@ fn get_updated(route_change: &RouteChange) -> Option<(RouteKey, Vec<V2<usize>>)>
 }
 
 fn get_all_ports(
-    world: &World,
-    port_checker: &dyn CheckForPort,
+    bridges: &Bridges,
+    bridge_duration_fn: &BridgeDurationFn,
     routes: &HashMap<RouteKey, Vec<V2<usize>>>,
 ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
     routes
         .iter()
-        .map(|(key, path)| (*key, get_ports(world, port_checker, path)))
+        .map(|(key, path)| (*key, get_ports(bridges, bridge_duration_fn, path)))
         .collect()
 }
 
 fn get_ports(
-    world: &World,
-    port_checker: &dyn CheckForPort,
+    bridges: &Bridges,
+    bridge_duration_fn: &BridgeDurationFn,
     path: &[V2<usize>],
 ) -> HashSet<V2<usize>> {
     path.edges()
-        .flat_map(|edge| port_checker.check_for_port(world, edge.from(), edge.to()))
+        .flat_map(|edge| check_for_port(bridges, bridge_duration_fn, &edge))
         .collect()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::resource::Resource;
-    use crate::route::Route;
-    use crate::world::World;
-    use commons::async_trait::async_trait;
-    use commons::{v2, M};
-    use futures::executor::block_on;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
-
-    struct Cx {
-        route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
-        world: Mutex<World>,
-    }
-
-    #[async_trait]
-    impl WithWorld for Cx {
-        async fn with_world<F, O>(&self, function: F) -> O
-        where
-            F: FnOnce(&World) -> O + Send,
-        {
-            function(&self.world.lock().unwrap())
-        }
-
-        async fn mut_world<F, O>(&self, function: F) -> O
-        where
-            F: FnOnce(&mut World) -> O + Send,
-        {
-            function(&mut self.world.lock().unwrap())
-        }
-    }
-
-    #[async_trait]
-    impl WithRouteToPorts for Cx {
-        async fn with_route_to_ports<F, O>(&self, function: F) -> O
-        where
-            F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
-        {
-            function(&self.route_to_ports.lock().unwrap())
-        }
-
-        async fn mut_route_to_ports<F, O>(&self, function: F) -> O
-        where
-            F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
-        {
-            function(&mut self.route_to_ports.lock().unwrap())
-        }
-    }
-
-    fn cx() -> Cx {
-        Cx {
-            route_to_ports: Mutex::default(),
-            world: Mutex::new(World::new(M::zeros(3, 3), 0.0)),
-        }
-    }
-
-    impl CheckForPort for HashSet<V2<usize>> {
-        fn check_for_port(&self, _: &World, from: &V2<usize>, _: &V2<usize>) -> Option<V2<usize>> {
-            if self.contains(from) {
-                Some(*from)
-            } else {
-                None
-            }
-        }
-    }
-
-    #[test]
-    fn should_insert_entry_for_new_route_with_ports() {
-        // Given
-        let key = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Truffles,
-            destination: v2(2, 2),
-        };
-        let route = Route {
-            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-
-        let route_change = RouteChange::New { key, route };
-
-        let sim = SettlementSimulation::new(cx(), Arc::new(()));
-
-        // When
-        block_on(sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 2)}));
-
-        // Then
-        assert_eq!(
-            *sim.cx.route_to_ports.lock().unwrap(),
-            hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
-        );
-    }
-
-    #[test]
-    fn should_do_nothing_for_new_route_with_no_ports() {
-        // Given
-        let key = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Truffles,
-            destination: v2(2, 2),
-        };
-        let route = Route {
-            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-
-        let route_change = RouteChange::New { key, route };
-
-        let sim = SettlementSimulation::new(cx(), Arc::new(()));
-
-        // When
-        block_on(sim.update_route_to_ports(&[route_change], &hashset! {}));
-
-        // Then
-        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
-    }
-
-    #[test]
-    fn should_update_entry_for_updated_route_with_updated_path_with_ports() {
-        // Given
-        let key = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Truffles,
-            destination: v2(2, 2),
-        };
-        let old = Route {
-            path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1), v2(2, 2)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-        let new = Route {
-            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-
-        let cx = cx();
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
-
-        let route_change = RouteChange::Updated { key, old, new };
-
-        let sim = SettlementSimulation::new(cx, Arc::new(()));
-
-        // When
-        block_on(
-            sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
-        );
-
-        // Then
-        assert_eq!(
-            *sim.cx.route_to_ports.lock().unwrap(),
-            hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
-        );
-    }
-
-    #[test]
-    fn should_remove_entry_for_updated_route_with_no_ports() {
-        // Given
-        let key = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Truffles,
-            destination: v2(2, 2),
-        };
-        let old = Route {
-            path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1), v2(2, 2)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-        let new = Route {
-            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-
-        let cx = cx();
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
-
-        let route_change = RouteChange::Updated { key, old, new };
-
-        let sim = SettlementSimulation::new(cx, Arc::new(()));
-
-        // When
-        block_on(sim.update_route_to_ports(&[route_change], &hashset! {v2(1, 0)}));
-
-        // Then
-        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
-    }
-
-    #[test]
-    fn should_do_nothing_for_updated_route_with_same_path() {
-        // Given
-        let key = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Truffles,
-            destination: v2(2, 2),
-        };
-        let old = Route {
-            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-        let new = Route {
-            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
-            start_micros: 10,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-
-        let cx = cx();
-        *cx.route_to_ports.lock().unwrap() = hashmap! {}; // Incorrect so we can check it is not corrected
-
-        let route_change = RouteChange::Updated { key, old, new };
-
-        let sim = SettlementSimulation::new(cx, Arc::new(()));
-
-        // When
-        block_on(
-            sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
-        );
-
-        // Then
-        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
-    }
-
-    #[test]
-    fn should_remove_entry_for_removed_route() {
-        // Given
-        let key = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Truffles,
-            destination: v2(2, 2),
-        };
-        let route = Route {
-            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-
-        let cx = cx();
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } };
-
-        let route_change = RouteChange::Removed { key, route };
-
-        let sim = SettlementSimulation::new(cx, Arc::new(()));
-
-        // When
-        block_on(sim.update_route_to_ports(&[route_change], &hashset! {}));
-
-        // Then
-        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
-    }
-
-    #[test]
-    fn multiple_changes() {
-        // Given
-        let key_new = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Truffles,
-            destination: v2(2, 2),
-        };
-        let route_new = Route {
-            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-        let key_removed = RouteKey {
-            settlement: v2(0, 0),
-            resource: Resource::Truffles,
-            destination: v2(1, 1),
-        };
-        let route_removed = Route {
-            path: vec![v2(0, 0), v2(0, 1), v2(1, 1)],
-            start_micros: 0,
-            duration: Duration::from_secs(0),
-            traffic: 0,
-        };
-
-        let cx = cx();
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key_removed => hashset!{ v2(0, 1) } };
-
-        let route_changes = vec![
-            RouteChange::New {
-                key: key_new,
-                route: route_new,
-            },
-            RouteChange::Removed {
-                key: key_removed,
-                route: route_removed,
-            },
-        ];
-
-        let sim = SettlementSimulation::new(cx, Arc::new(()));
-
-        // When
-        block_on(sim.update_route_to_ports(&route_changes, &hashset! {v2(0, 1), v2(1, 2)}));
-
-        // Then
-        assert_eq!(
-            *sim.cx.route_to_ports.lock().unwrap(),
-            hashmap! { key_new => hashset!{ v2(0, 1), v2(1, 2) } }
-        );
-    }
+fn check_for_port(
+    bridges: &Bridges,
+    bridge_duration_fn: &BridgeDurationFn,
+    edge: &Edge,
+) -> Option<V2<usize>> {
+    bridges
+        .get(edge)
+        .and_then(|bridges| bridge_duration_fn.lowest_duration_bridge(bridges))
+        .map(|bridge| bridge.start().position)
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use crate::resource::Resource;
+//     use crate::route::Route;
+//     use crate::world::World;
+//     use commons::async_trait::async_trait;
+//     use commons::{v2, M};
+//     use futures::executor::block_on;
+//     use std::sync::{Arc, Mutex};
+//     use std::time::Duration;
+
+//     struct Cx {
+//         route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
+//         world: Mutex<World>,
+//     }
+
+//     #[async_trait]
+//     impl WithWorld for Cx {
+//         async fn with_world<F, O>(&self, function: F) -> O
+//         where
+//             F: FnOnce(&World) -> O + Send,
+//         {
+//             function(&self.world.lock().unwrap())
+//         }
+
+//         async fn mut_world<F, O>(&self, function: F) -> O
+//         where
+//             F: FnOnce(&mut World) -> O + Send,
+//         {
+//             function(&mut self.world.lock().unwrap())
+//         }
+//     }
+
+//     #[async_trait]
+//     impl WithRouteToPorts for Cx {
+//         async fn with_route_to_ports<F, O>(&self, function: F) -> O
+//         where
+//             F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
+//         {
+//             function(&self.route_to_ports.lock().unwrap())
+//         }
+
+//         async fn mut_route_to_ports<F, O>(&self, function: F) -> O
+//         where
+//             F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
+//         {
+//             function(&mut self.route_to_ports.lock().unwrap())
+//         }
+//     }
+
+//     fn cx() -> Cx {
+//         Cx {
+//             route_to_ports: Mutex::default(),
+//             world: Mutex::new(World::new(M::zeros(3, 3), 0.0)),
+//         }
+//     }
+
+//     impl CheckForPort for HashSet<V2<usize>> {
+//         fn check_for_port(&self, _: &World, from: &V2<usize>, _: &V2<usize>) -> Option<V2<usize>> {
+//             if self.contains(from) {
+//                 Some(*from)
+//             } else {
+//                 None
+//             }
+//         }
+//     }
+
+//     #[test]
+//     fn should_insert_entry_for_new_route_with_ports() {
+//         // Given
+//         let key = RouteKey {
+//             settlement: v2(0, 0),
+//             resource: Resource::Truffles,
+//             destination: v2(2, 2),
+//         };
+//         let route = Route {
+//             path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+
+//         let route_change = RouteChange::New { key, route };
+
+//         let sim = SettlementSimulation::new(cx(), Arc::new(()));
+
+//         // When
+//         block_on(sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 2)}));
+
+//         // Then
+//         assert_eq!(
+//             *sim.cx.route_to_ports.lock().unwrap(),
+//             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
+//         );
+//     }
+
+//     #[test]
+//     fn should_do_nothing_for_new_route_with_no_ports() {
+//         // Given
+//         let key = RouteKey {
+//             settlement: v2(0, 0),
+//             resource: Resource::Truffles,
+//             destination: v2(2, 2),
+//         };
+//         let route = Route {
+//             path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+
+//         let route_change = RouteChange::New { key, route };
+
+//         let sim = SettlementSimulation::new(cx(), Arc::new(()));
+
+//         // When
+//         block_on(sim.update_route_to_ports(&[route_change], &hashset! {}));
+
+//         // Then
+//         assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
+//     }
+
+//     #[test]
+//     fn should_update_entry_for_updated_route_with_updated_path_with_ports() {
+//         // Given
+//         let key = RouteKey {
+//             settlement: v2(0, 0),
+//             resource: Resource::Truffles,
+//             destination: v2(2, 2),
+//         };
+//         let old = Route {
+//             path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1), v2(2, 2)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+//         let new = Route {
+//             path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+
+//         let cx = cx();
+//         *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
+
+//         let route_change = RouteChange::Updated { key, old, new };
+
+//         let sim = SettlementSimulation::new(cx, Arc::new(()));
+
+//         // When
+//         block_on(
+//             sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
+//         );
+
+//         // Then
+//         assert_eq!(
+//             *sim.cx.route_to_ports.lock().unwrap(),
+//             hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } }
+//         );
+//     }
+
+//     #[test]
+//     fn should_remove_entry_for_updated_route_with_no_ports() {
+//         // Given
+//         let key = RouteKey {
+//             settlement: v2(0, 0),
+//             resource: Resource::Truffles,
+//             destination: v2(2, 2),
+//         };
+//         let old = Route {
+//             path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1), v2(2, 2)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+//         let new = Route {
+//             path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+
+//         let cx = cx();
+//         *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
+
+//         let route_change = RouteChange::Updated { key, old, new };
+
+//         let sim = SettlementSimulation::new(cx, Arc::new(()));
+
+//         // When
+//         block_on(sim.update_route_to_ports(&[route_change], &hashset! {v2(1, 0)}));
+
+//         // Then
+//         assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
+//     }
+
+//     #[test]
+//     fn should_do_nothing_for_updated_route_with_same_path() {
+//         // Given
+//         let key = RouteKey {
+//             settlement: v2(0, 0),
+//             resource: Resource::Truffles,
+//             destination: v2(2, 2),
+//         };
+//         let old = Route {
+//             path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+//         let new = Route {
+//             path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+//             start_micros: 10,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+
+//         let cx = cx();
+//         *cx.route_to_ports.lock().unwrap() = hashmap! {}; // Incorrect so we can check it is not corrected
+
+//         let route_change = RouteChange::Updated { key, old, new };
+
+//         let sim = SettlementSimulation::new(cx, Arc::new(()));
+
+//         // When
+//         block_on(
+//             sim.update_route_to_ports(&[route_change], &hashset! {v2(0, 1), v2(1, 0), v2(1, 2)}),
+//         );
+
+//         // Then
+//         assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
+//     }
+
+//     #[test]
+//     fn should_remove_entry_for_removed_route() {
+//         // Given
+//         let key = RouteKey {
+//             settlement: v2(0, 0),
+//             resource: Resource::Truffles,
+//             destination: v2(2, 2),
+//         };
+//         let route = Route {
+//             path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+
+//         let cx = cx();
+//         *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 1), v2(1, 2) } };
+
+//         let route_change = RouteChange::Removed { key, route };
+
+//         let sim = SettlementSimulation::new(cx, Arc::new(()));
+
+//         // When
+//         block_on(sim.update_route_to_ports(&[route_change], &hashset! {}));
+
+//         // Then
+//         assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
+//     }
+
+//     #[test]
+//     fn multiple_changes() {
+//         // Given
+//         let key_new = RouteKey {
+//             settlement: v2(0, 0),
+//             resource: Resource::Truffles,
+//             destination: v2(2, 2),
+//         };
+//         let route_new = Route {
+//             path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+//         let key_removed = RouteKey {
+//             settlement: v2(0, 0),
+//             resource: Resource::Truffles,
+//             destination: v2(1, 1),
+//         };
+//         let route_removed = Route {
+//             path: vec![v2(0, 0), v2(0, 1), v2(1, 1)],
+//             start_micros: 0,
+//             duration: Duration::from_secs(0),
+//             traffic: 0,
+//         };
+
+//         let cx = cx();
+//         *cx.route_to_ports.lock().unwrap() = hashmap! { key_removed => hashset!{ v2(0, 1) } };
+
+//         let route_changes = vec![
+//             RouteChange::New {
+//                 key: key_new,
+//                 route: route_new,
+//             },
+//             RouteChange::Removed {
+//                 key: key_removed,
+//                 route: route_removed,
+//             },
+//         ];
+
+//         let sim = SettlementSimulation::new(cx, Arc::new(()));
+
+//         // When
+//         block_on(sim.update_route_to_ports(&route_changes, &hashset! {v2(0, 1), v2(1, 2)}));
+
+//         // Then
+//         assert_eq!(
+//             *sim.cx.route_to_ports.lock().unwrap(),
+//             hashmap! { key_new => hashset!{ v2(0, 1), v2(1, 2) } }
+//         );
+//     }
+// }

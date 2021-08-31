@@ -195,6 +195,7 @@ SendSettlementSim RemoveTown
 SendSettlementSim UpdateSettlement
 SendSettlementSim UpdateTerritory
 SendSettlementSim VisibleLandPositions
+SendSettlementSim WithBridges
 SendSettlementSim WithEdgeTraffic
 SendSettlementSim WithRouteToPorts
 SendSettlementSim WithRoutes

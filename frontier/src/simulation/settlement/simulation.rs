@@ -6,7 +6,6 @@ use commons::process::Step;
 use commons::V2;
 use futures::future::join_all;
 
-use crate::avatar::AvatarTravelModeFn;
 use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::settlement::demand::Demand;
 use crate::simulation::settlement::model::{RouteChange, Routes};
@@ -14,8 +13,8 @@ use crate::traits::has::HasParameters;
 use crate::traits::{
     AllBridges, ClosestTargetsForRoutes, Controlled, CostOfPath, GetSettlement, InBoundsForRoutes,
     Micros, RefreshEdges, RefreshPositions, RemoveTown, UpdateSettlement as UpdateSettlementTrait,
-    UpdateTerritory, VisibleLandPositions, WithEdgeTraffic, WithRouteToPorts, WithRoutes,
-    WithSettlements, WithSimQueue, WithTraffic, WithWorld,
+    UpdateTerritory, VisibleLandPositions, WithBridges, WithEdgeTraffic, WithRouteToPorts,
+    WithRoutes, WithSettlements, WithSimQueue, WithTraffic, WithWorld,
 };
 use crate::travel_duration::TravelDuration;
 
@@ -56,6 +55,7 @@ where
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
+        + WithBridges
         + WithEdgeTraffic
         + WithRoutes
         + WithRouteToPorts
@@ -95,6 +95,7 @@ where
         + UpdateSettlementTrait
         + UpdateTerritory
         + VisibleLandPositions
+        + WithBridges
         + WithEdgeTraffic
         + WithRouteToPorts
         + WithSimQueue
@@ -146,11 +147,10 @@ where
     async fn process_demand(&self, demand: Demand) {
         let Routes { key, route_set } = self.get_routes(demand).await;
         let route_changes = self.update_routes_and_get_changes(key, route_set).await;
-        let avatar_travel_mode_fn = self.avatar_travel_mode_fn();
         join!(
             self.update_position_traffic_and_refresh_positions(&route_changes),
             self.update_edge_traffic_and_refresh_edges(&route_changes),
-            self.update_route_to_ports(&route_changes, &avatar_travel_mode_fn),
+            self.update_route_to_ports(&route_changes),
         );
     }
 
@@ -162,13 +162,6 @@ where
     async fn update_edge_traffic_and_refresh_edges(&self, route_changes: &[RouteChange]) {
         self.update_all_edge_traffic(route_changes).await;
         self.refresh_edges(route_changes).await
-    }
-
-    fn avatar_travel_mode_fn(&self) -> AvatarTravelModeFn {
-        AvatarTravelModeFn::new(
-            self.cx.parameters().npc_travel.min_navigable_river_width,
-            true,
-        )
     }
 
     async fn replenish_sim_queue(&self) {
