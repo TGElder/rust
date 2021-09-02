@@ -69,9 +69,9 @@ where
         let nation = self.get_settlement(&route_key.settlement).await?.nation;
         let (gates_in_territory, gates_outside_territory): (Vec<V2<usize>>, Vec<V2<usize>>) =
             gates.into_iter().partition(|gate| territory.contains(gate));
-        let denominator = (gates_in_territory.len() + gates_outside_territory.len() + 1) as f64;
+        let denominator = (gates_in_territory.len() + gates_outside_territory.len() + 2) as f64;
         let is_destination = territory.contains(&route_key.destination) as usize;
-        let multiplier = is_destination + gates_in_territory.len();
+        let multiplier = (is_destination * 2) + gates_in_territory.len();
         if multiplier == 0 {
             return None;
         }
@@ -336,7 +336,7 @@ mod tests {
 
         let route = Route {
             path: vec![v2(2, 0), v2(2, 1), v2(2, 2), v2(2, 3)],
-            traffic: 14,
+            traffic: 21,
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
@@ -352,7 +352,7 @@ mod tests {
             traffic_summaries,
             vec![TownTrafficSummary {
                 nation: "A".to_string(),
-                traffic_share: 7.0, // half because destination not in territory,
+                traffic_share: 7.0, // third because destination not in territory and destination has double weighting,
                 total_duration: Duration::from_millis(14)
             }]
         );
@@ -430,7 +430,7 @@ mod tests {
 
         let route = Route {
             path: vec![v2(0, 0), v2(1, 0), v2(2, 0), v2(2, 1)],
-            traffic: 14,
+            traffic: 21,
             start_micros: 0,
             duration: Duration::from_millis(2),
         };
@@ -446,8 +446,8 @@ mod tests {
             traffic_summaries,
             vec![TownTrafficSummary {
                 nation: "A".to_string(),
-                traffic_share: 7.0, // half because gate not in territory,
-                total_duration: Duration::from_millis(14)
+                traffic_share: 14.0, // two thirds because gate not in territory and destination has double weighting,
+                total_duration: Duration::from_millis(28)
             }]
         );
     }
