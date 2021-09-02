@@ -294,7 +294,7 @@ mod tests {
         };
 
         let cx = cx_with_bridges(&[Edge::new(v2(0, 0), v2(0, 1)), Edge::new(v2(0, 0), v2(1, 0))]);
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
+        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 0), v2(1, 0) } };
 
         let route_change = RouteChange::Updated { key, old, new };
 
@@ -332,7 +332,7 @@ mod tests {
         };
 
         let cx = cx_with_bridges(&[Edge::new(v2(0, 0), v2(1, 0))]);
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(1, 0) } };
+        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 0), v2(1, 0) } };
 
         let route_change = RouteChange::Updated { key, old, new };
 
@@ -436,7 +436,8 @@ mod tests {
         };
 
         let cx = cx_with_bridges(&[Edge::new(v2(0, 0), v2(0, 1))]);
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key_removed => hashset!{ v2(0, 1) } };
+        *cx.route_to_ports.lock().unwrap() =
+            hashmap! { key_removed => hashset!{ v2(0, 0), v2(0, 1) } };
 
         let route_changes = vec![
             RouteChange::New {
