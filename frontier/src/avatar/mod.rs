@@ -1,5 +1,4 @@
 mod avatar_travel_mode_fn;
-mod check_for_port;
 mod journey;
 mod travel_duration;
 mod travel_mode;
@@ -8,7 +7,6 @@ mod travel_mode_fn;
 mod vehicle;
 
 pub use avatar_travel_mode_fn::*;
-pub use check_for_port::*;
 use commons::edge::{DiagonalEdge, Edge};
 pub use journey::*;
 pub use travel_duration::*;
