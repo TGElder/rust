@@ -14,7 +14,7 @@ use crate::traits::{
     AllBridges, ClosestTargetsForRoutes, Controlled, CostOfPath, GetSettlement, InBoundsForRoutes,
     Micros, RefreshEdges, RefreshPositions, RemoveTown, UpdateSettlement as UpdateSettlementTrait,
     UpdateTerritory, VisibleLandPositions, WithBridges, WithEdgeTraffic, WithRouteToPorts,
-    WithRoutes, WithSettlements, WithSimQueue, WithTraffic, WithWorld,
+    WithRoutes, WithSettlements, WithSimQueue, WithTraffic,
 };
 use crate::travel_duration::TravelDuration;
 
@@ -62,7 +62,6 @@ where
         + WithSettlements
         + WithSimQueue
         + WithTraffic
-        + WithWorld
         + Send
         + Sync,
     D: TravelDuration,
@@ -99,8 +98,7 @@ where
         + WithEdgeTraffic
         + WithRouteToPorts
         + WithSimQueue
-        + WithTraffic
-        + WithWorld,
+        + WithTraffic,
     D: TravelDuration,
 {
     async fn update_settlement_at(&self, position: &V2<usize>) {
