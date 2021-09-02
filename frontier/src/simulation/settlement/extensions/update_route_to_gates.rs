@@ -3,51 +3,51 @@ use crate::route::RouteKey;
 use crate::simulation::settlement::model::RouteChange;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traits::has::HasParameters;
-use crate::traits::{WithBridges, WithRouteToPorts};
+use crate::traits::{WithBridges, WithRouteToGates};
 use commons::edge::{Edge, Edges};
 use commons::V2;
 use std::collections::{HashMap, HashSet};
 
 impl<T, D> SettlementSimulation<T, D>
 where
-    T: HasParameters + WithBridges + WithRouteToPorts,
+    T: HasParameters + WithBridges + WithRouteToGates,
 {
-    pub async fn update_route_to_ports(&self, route_changes: &[RouteChange]) {
+    pub async fn update_route_to_gates(&self, route_changes: &[RouteChange]) {
         let updated = get_all_updated(route_changes);
         self.remove_removed(route_changes).await;
-        let ports = self.get_all_ports(&updated).await;
-        self.update_ports(ports).await;
+        let gates = self.get_all_gates(&updated).await;
+        self.update_gates(gates).await;
     }
 
     async fn remove_removed(&self, route_changes: &[RouteChange]) {
         let removed = get_all_removed(route_changes);
         self.cx
-            .mut_route_to_ports(|route_to_ports| {
+            .mut_route_to_gates(|route_to_gates| {
                 for key in removed {
-                    route_to_ports.remove(key);
+                    route_to_gates.remove(key);
                 }
             })
             .await;
     }
 
-    async fn get_all_ports(
+    async fn get_all_gates(
         &self,
         routes: &HashMap<RouteKey, Vec<V2<usize>>>,
     ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
         let bridge_duration_fn = &self.cx.parameters().npc_bridge_duration_fn;
         self.cx
-            .with_bridges(|bridges| get_all_ports(bridges, bridge_duration_fn, routes))
+            .with_bridges(|bridges| get_all_gates(bridges, bridge_duration_fn, routes))
             .await
     }
 
-    async fn update_ports(&self, ports: HashMap<RouteKey, HashSet<V2<usize>>>) {
+    async fn update_gates(&self, gates: HashMap<RouteKey, HashSet<V2<usize>>>) {
         self.cx
-            .mut_route_to_ports(|route_to_ports| {
-                for (key, ports) in ports {
-                    if ports.is_empty() {
-                        route_to_ports.remove(&key);
+            .mut_route_to_gates(|route_to_gates| {
+                for (key, gates) in gates {
+                    if gates.is_empty() {
+                        route_to_gates.remove(&key);
                     } else {
-                        route_to_ports.insert(key, ports);
+                        route_to_gates.insert(key, gates);
                     }
                 }
             })
@@ -82,28 +82,28 @@ fn get_updated(route_change: &RouteChange) -> Option<(RouteKey, Vec<V2<usize>>)>
     }
 }
 
-fn get_all_ports(
+fn get_all_gates(
     bridges: &Bridges,
     bridge_duration_fn: &BridgeDurationFn,
     routes: &HashMap<RouteKey, Vec<V2<usize>>>,
 ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
     routes
         .iter()
-        .map(|(key, path)| (*key, get_ports(bridges, bridge_duration_fn, path)))
+        .map(|(key, path)| (*key, get_gates(bridges, bridge_duration_fn, path)))
         .collect()
 }
 
-fn get_ports(
+fn get_gates(
     bridges: &Bridges,
     bridge_duration_fn: &BridgeDurationFn,
     path: &[V2<usize>],
 ) -> HashSet<V2<usize>> {
     path.edges()
-        .flat_map(|edge| check_for_port(bridges, bridge_duration_fn, &edge))
+        .flat_map(|edge| check_for_gate(bridges, bridge_duration_fn, &edge))
         .collect()
 }
 
-fn check_for_port(
+fn check_for_gate(
     bridges: &Bridges,
     bridge_duration_fn: &BridgeDurationFn,
     edge: &Edge,
@@ -132,7 +132,7 @@ mod tests {
     struct Cx {
         bridges: Mutex<Bridges>,
         parameters: Parameters,
-        route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
+        route_to_gates: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
     }
 
     impl HasParameters for Cx {
@@ -159,19 +159,19 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithRouteToPorts for Cx {
-        async fn with_route_to_ports<F, O>(&self, function: F) -> O
+    impl WithRouteToGates for Cx {
+        async fn with_route_to_gates<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
         {
-            function(&self.route_to_ports.lock().unwrap())
+            function(&self.route_to_gates.lock().unwrap())
         }
 
-        async fn mut_route_to_ports<F, O>(&self, function: F) -> O
+        async fn mut_route_to_gates<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
         {
-            function(&mut self.route_to_ports.lock().unwrap())
+            function(&mut self.route_to_gates.lock().unwrap())
         }
     }
 
@@ -179,7 +179,7 @@ mod tests {
         Cx {
             bridges: Mutex::new(Bridges::default()),
             parameters: Parameters::default(),
-            route_to_ports: Mutex::default(),
+            route_to_gates: Mutex::default(),
         }
     }
 
@@ -215,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn should_insert_entry_for_new_route_with_ports() {
+    fn should_insert_entry_for_new_route_with_gates() {
         // Given
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -237,17 +237,17 @@ mod tests {
         );
 
         // When
-        block_on(sim.update_route_to_ports(&[route_change]));
+        block_on(sim.update_route_to_gates(&[route_change]));
 
         // Then
         assert_eq!(
-            *sim.cx.route_to_ports.lock().unwrap(),
+            *sim.cx.route_to_gates.lock().unwrap(),
             hashmap! { key => hashset!{ v2(0, 1), v2(0, 2) } }
         );
     }
 
     #[test]
-    fn should_do_nothing_for_new_route_with_no_ports() {
+    fn should_do_nothing_for_new_route_with_no_gates() {
         // Given
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -266,14 +266,14 @@ mod tests {
         let sim = SettlementSimulation::new(cx(), Arc::new(()));
 
         // When
-        block_on(sim.update_route_to_ports(&[route_change]));
+        block_on(sim.update_route_to_gates(&[route_change]));
 
         // Then
-        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.cx.route_to_gates.lock().unwrap(), hashmap! {});
     }
 
     #[test]
-    fn should_update_entry_for_updated_route_with_updated_path_with_ports() {
+    fn should_update_entry_for_updated_route_with_updated_path_with_gates() {
         // Given
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -294,24 +294,24 @@ mod tests {
         };
 
         let cx = cx_with_bridges(&[Edge::new(v2(0, 0), v2(0, 1)), Edge::new(v2(0, 0), v2(1, 0))]);
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 0), v2(1, 0) } };
+        *cx.route_to_gates.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 0), v2(1, 0) } };
 
         let route_change = RouteChange::Updated { key, old, new };
 
         let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
-        block_on(sim.update_route_to_ports(&[route_change]));
+        block_on(sim.update_route_to_gates(&[route_change]));
 
         // Then
         assert_eq!(
-            *sim.cx.route_to_ports.lock().unwrap(),
+            *sim.cx.route_to_gates.lock().unwrap(),
             hashmap! { key => hashset!{ v2(0, 0), v2(0, 1) } }
         );
     }
 
     #[test]
-    fn should_remove_entry_for_updated_route_with_no_ports() {
+    fn should_remove_entry_for_updated_route_with_no_gates() {
         // Given
         let key = RouteKey {
             settlement: v2(0, 0),
@@ -332,17 +332,17 @@ mod tests {
         };
 
         let cx = cx_with_bridges(&[Edge::new(v2(0, 0), v2(1, 0))]);
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 0), v2(1, 0) } };
+        *cx.route_to_gates.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 0), v2(1, 0) } };
 
         let route_change = RouteChange::Updated { key, old, new };
 
         let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
-        block_on(sim.update_route_to_ports(&[route_change]));
+        block_on(sim.update_route_to_gates(&[route_change]));
 
         // Then
-        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.cx.route_to_gates.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -367,17 +367,17 @@ mod tests {
         };
 
         let cx = cx_with_bridges(&[Edge::new(v2(0, 0), v2(0, 1))]);
-        *cx.route_to_ports.lock().unwrap() = hashmap! {}; // Incorrect so we can check it is not corrected
+        *cx.route_to_gates.lock().unwrap() = hashmap! {}; // Incorrect so we can check it is not corrected
 
         let route_change = RouteChange::Updated { key, old, new };
 
         let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
-        block_on(sim.update_route_to_ports(&[route_change]));
+        block_on(sim.update_route_to_gates(&[route_change]));
 
         // Then
-        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.cx.route_to_gates.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -396,17 +396,17 @@ mod tests {
         };
 
         let cx = cx();
-        *cx.route_to_ports.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 0), v2(0, 1) } };
+        *cx.route_to_gates.lock().unwrap() = hashmap! { key => hashset!{ v2(0, 0), v2(0, 1) } };
 
         let route_change = RouteChange::Removed { key, route };
 
         let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
-        block_on(sim.update_route_to_ports(&[route_change]));
+        block_on(sim.update_route_to_gates(&[route_change]));
 
         // Then
-        assert_eq!(*sim.cx.route_to_ports.lock().unwrap(), hashmap! {});
+        assert_eq!(*sim.cx.route_to_gates.lock().unwrap(), hashmap! {});
     }
 
     #[test]
@@ -436,7 +436,7 @@ mod tests {
         };
 
         let cx = cx_with_bridges(&[Edge::new(v2(0, 0), v2(0, 1))]);
-        *cx.route_to_ports.lock().unwrap() =
+        *cx.route_to_gates.lock().unwrap() =
             hashmap! { key_removed => hashset!{ v2(0, 0), v2(0, 1) } };
 
         let route_changes = vec![
@@ -453,11 +453,11 @@ mod tests {
         let sim = SettlementSimulation::new(cx, Arc::new(()));
 
         // When
-        block_on(sim.update_route_to_ports(&route_changes));
+        block_on(sim.update_route_to_gates(&route_changes));
 
         // Then
         assert_eq!(
-            *sim.cx.route_to_ports.lock().unwrap(),
+            *sim.cx.route_to_gates.lock().unwrap(),
             hashmap! { key_new => hashset!{ v2(0, 0), v2(0, 1) } }
         );
     }

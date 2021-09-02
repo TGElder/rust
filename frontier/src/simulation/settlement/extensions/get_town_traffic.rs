@@ -3,7 +3,7 @@ use crate::settlement::Settlement;
 use crate::simulation::settlement::model::TownTrafficSummary;
 use crate::simulation::settlement::SettlementSimulation;
 use crate::traffic::Traffic;
-use crate::traits::{WithRouteToPorts, WithRoutes, WithSettlements, WithTraffic};
+use crate::traits::{WithRouteToGates, WithRoutes, WithSettlements, WithTraffic};
 use commons::grid::get_corners;
 use commons::V2;
 use std::collections::{HashMap, HashSet};
@@ -11,16 +11,16 @@ use std::time::Duration;
 
 impl<T, D> SettlementSimulation<T, D>
 where
-    T: WithRoutes + WithRouteToPorts + WithSettlements + WithTraffic,
+    T: WithRoutes + WithRouteToGates + WithSettlements + WithTraffic,
 {
     pub async fn get_town_traffic(
         &self,
         territory: &HashSet<V2<usize>>,
     ) -> Vec<TownTrafficSummary> {
         let route_keys = self.get_route_keys(territory).await;
-        let route_to_ports = self.get_route_to_ports(route_keys).await;
+        let route_to_gates = self.get_route_to_gates(route_keys).await;
         let traffic_summaries = self
-            .get_traffic_summaries(route_to_ports, territory.clone())
+            .get_traffic_summaries(route_to_gates, territory.clone())
             .await;
         aggregate_by_nation(traffic_summaries)
     }
@@ -31,24 +31,24 @@ where
             .await
     }
 
-    async fn get_route_to_ports(
+    async fn get_route_to_gates(
         &self,
         keys: HashSet<RouteKey>,
     ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
         self.cx
-            .with_route_to_ports(|route_to_ports| get_route_to_ports(route_to_ports, keys))
+            .with_route_to_gates(|route_to_gates| get_route_to_gates(route_to_gates, keys))
             .await
     }
 
     async fn get_traffic_summaries(
         &self,
-        route_to_ports: HashMap<RouteKey, HashSet<V2<usize>>>,
+        route_to_gates: HashMap<RouteKey, HashSet<V2<usize>>>,
         territory: HashSet<V2<usize>>,
     ) -> Vec<TownTrafficSummary> {
         let mut out = vec![];
-        for (route_key, ports) in route_to_ports {
+        for (route_key, gates) in route_to_gates {
             if let Some(summary) = self
-                .get_traffic_summary_for_route(route_key, ports, &territory)
+                .get_traffic_summary_for_route(route_key, gates, &territory)
                 .await
             {
                 out.push(summary)
@@ -60,18 +60,18 @@ where
     async fn get_traffic_summary_for_route(
         &self,
         route_key: RouteKey,
-        ports: HashSet<V2<usize>>,
+        gates: HashSet<V2<usize>>,
         territory: &HashSet<V2<usize>>,
     ) -> Option<TownTrafficSummary> {
         if territory.contains(&route_key.settlement) {
             return None;
         }
         let nation = self.get_settlement(&route_key.settlement).await?.nation;
-        let (ports_in_territory, ports_outside_territory): (Vec<V2<usize>>, Vec<V2<usize>>) =
-            ports.into_iter().partition(|port| territory.contains(port));
-        let denominator = (ports_in_territory.len() + ports_outside_territory.len() + 1) as f64;
+        let (gates_in_territory, gates_outside_territory): (Vec<V2<usize>>, Vec<V2<usize>>) =
+            gates.into_iter().partition(|gate| territory.contains(gate));
+        let denominator = (gates_in_territory.len() + gates_outside_territory.len() + 1) as f64;
         let is_destination = territory.contains(&route_key.destination) as usize;
-        let multiplier = is_destination + ports_in_territory.len();
+        let multiplier = is_destination + gates_in_territory.len();
         if multiplier == 0 {
             return None;
         }
@@ -113,8 +113,8 @@ fn get_route_keys(traffic: &Traffic, territory: &HashSet<V2<usize>>) -> HashSet<
         .collect()
 }
 
-fn get_route_to_ports(
-    route_to_ports: &HashMap<RouteKey, HashSet<V2<usize>>>,
+fn get_route_to_gates(
+    route_to_gates: &HashMap<RouteKey, HashSet<V2<usize>>>,
     route_keys: HashSet<RouteKey>,
 ) -> HashMap<RouteKey, HashSet<V2<usize>>> {
     route_keys
@@ -122,7 +122,7 @@ fn get_route_to_ports(
         .map(|route_key| {
             (
                 route_key,
-                route_to_ports.get(&route_key).cloned().unwrap_or_default(),
+                route_to_gates.get(&route_key).cloned().unwrap_or_default(),
             )
         })
         .collect()
@@ -165,7 +165,7 @@ mod tests {
     use std::time::Duration;
 
     struct Cx {
-        route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
+        route_to_gates: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
         routes: Mutex<Routes>,
         settlements: Mutex<HashMap<V2<usize>, Settlement>>,
         traffic: Mutex<Traffic>,
@@ -174,7 +174,7 @@ mod tests {
     impl Default for Cx {
         fn default() -> Self {
             Cx {
-                route_to_ports: Mutex::default(),
+                route_to_gates: Mutex::default(),
                 routes: Mutex::default(),
                 settlements: Mutex::default(),
                 traffic: Mutex::new(Traffic::new(5, 5, hashset! {})),
@@ -216,19 +216,19 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithRouteToPorts for Cx {
-        async fn with_route_to_ports<F, O>(&self, function: F) -> O
+    impl WithRouteToGates for Cx {
+        async fn with_route_to_gates<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
         {
-            function(&self.route_to_ports.lock().unwrap())
+            function(&self.route_to_gates.lock().unwrap())
         }
 
-        async fn mut_route_to_ports<F, O>(&self, function: F) -> O
+        async fn mut_route_to_gates<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
         {
-            function(&mut self.route_to_ports.lock().unwrap())
+            function(&mut self.route_to_gates.lock().unwrap())
         }
     }
 
@@ -312,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn should_include_route_with_port_in_territory() {
+    fn should_include_route_with_gate_in_territory() {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
@@ -323,7 +323,7 @@ mod tests {
         };
 
         let cx = Cx {
-            route_to_ports: Mutex::new(hashmap! {route_key => hashset!{v2(2, 1)}}),
+            route_to_gates: Mutex::new(hashmap! {route_key => hashset!{v2(2, 1)}}),
             settlements: Mutex::new(hashmap! {
                 v2(2, 0) => Settlement{
                     position: v2(2, 0),
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn should_include_route_with_destination_and_port_in_territory() {
+    fn should_include_route_with_destination_and_gate_in_territory() {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
@@ -370,7 +370,7 @@ mod tests {
         };
 
         let cx = Cx {
-            route_to_ports: Mutex::new(hashmap! {route_key => hashset!{v2(2, 1)}}),
+            route_to_gates: Mutex::new(hashmap! {route_key => hashset!{v2(2, 1)}}),
             settlements: Mutex::new(hashmap! {
                 v2(2, 0) => Settlement{
                     position: v2(2, 0),
@@ -406,7 +406,7 @@ mod tests {
     }
 
     #[test]
-    fn should_include_routes_ending_in_territory_with_port_outside_territory() {
+    fn should_include_routes_ending_in_territory_with_gate_outside_territory() {
         // Given
         let territory = hashset! { v2(2, 1), v2(2, 2), v2(3, 1), v2(3, 2) };
 
@@ -417,7 +417,7 @@ mod tests {
         };
 
         let cx = Cx {
-            route_to_ports: Mutex::new(hashmap! {route_key => hashset!{v2(1, 0)}}),
+            route_to_gates: Mutex::new(hashmap! {route_key => hashset!{v2(1, 0)}}),
             settlements: Mutex::new(hashmap! {
                 v2(0, 0) => Settlement{
                     position: v2(0, 0),
@@ -446,7 +446,7 @@ mod tests {
             traffic_summaries,
             vec![TownTrafficSummary {
                 nation: "A".to_string(),
-                traffic_share: 7.0, // half because port not in territory,
+                traffic_share: 7.0, // half because gate not in territory,
                 total_duration: Duration::from_millis(14)
             }]
         );
@@ -668,7 +668,7 @@ mod tests {
     }
 
     #[test]
-    fn should_ignore_ports_outside_territory() {
+    fn should_ignore_gates_outside_territory() {
         // Given
         let territory = hashset! { v2(2, 0), v2(2, 1), v2(2, 2), v2(2, 3) };
 
@@ -679,7 +679,7 @@ mod tests {
         };
 
         let cx = Cx {
-            route_to_ports: Mutex::new(hashmap! {
+            route_to_gates: Mutex::new(hashmap! {
                 route_key => hashset! { v2(0, 1) }
             }),
             settlements: Mutex::new(hashmap! {

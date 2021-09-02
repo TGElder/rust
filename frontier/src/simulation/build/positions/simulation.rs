@@ -3,7 +3,7 @@ use commons::V2;
 use crate::traits::has::HasParameters;
 use crate::traits::{
     AnyoneControls, GetSettlement, InsertBuildInstruction, Micros, RandomTownName,
-    WithRouteToPorts, WithRoutes, WithTraffic, WithWorld,
+    WithRouteToGates, WithRoutes, WithTraffic, WithWorld,
 };
 
 use std::collections::HashSet;
@@ -27,7 +27,7 @@ where
         + Micros
         + RandomTownName
         + WithRoutes
-        + WithRouteToPorts
+        + WithRouteToGates
         + WithTraffic
         + WithWorld,
 {

@@ -30,7 +30,7 @@ use crate::traits::{
     SendEdgeBuildSim, SendEngineCommands, SendPositionBuildSim, SendResourceTargets, SendRotate,
     SendSystem, SendTownHouseArtist, SendTownLabelArtist, SendVoyager, SendWorldArtist,
     WithAvatars, WithBridges, WithBuildQueue, WithClock, WithControllers, WithEdgeTraffic,
-    WithNations, WithPathfinder, WithResources, WithRouteToPorts, WithRoutes, WithSettlements,
+    WithNations, WithPathfinder, WithResources, WithRouteToGates, WithRoutes, WithSettlements,
     WithSimQueue, WithTerritory, WithTraffic, WithVisibility, WithVisited, WithWorld,
 };
 use crate::visited::Visited;
@@ -84,7 +84,7 @@ pub struct Context {
     pub river_explorer_tx: FnSender<RiverExplorer<Context>>,
     pub river_piers_tx: FnSender<RiverPiers<Context>>,
     pub rotate_tx: FnSender<Rotate<Context>>,
-    pub route_to_ports: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
+    pub route_to_gates: Arc<RwLock<HashMap<RouteKey, HashSet<V2<usize>>>>>,
     pub routes: Arc<RwLock<Routes>>,
     pub routes_pathfinder: Arc<RwLock<Pathfinder<AvatarTravelDuration>>>,
     pub sea_piers_tx: FnSender<SeaPiers<Context>>,
@@ -149,7 +149,7 @@ impl Context {
             river_explorer_tx: self.river_explorer_tx.clone_with_name(name),
             river_piers_tx: self.river_piers_tx.clone_with_name(name),
             rotate_tx: self.rotate_tx.clone_with_name(name),
-            route_to_ports: self.route_to_ports.clone(),
+            route_to_gates: self.route_to_gates.clone(),
             routes: self.routes.clone(),
             routes_pathfinder: self.routes_pathfinder.clone(),
             sea_piers_tx: self.sea_piers_tx.clone_with_name(name),
@@ -512,21 +512,21 @@ impl WithRoutes for Context {
 }
 
 #[async_trait]
-impl WithRouteToPorts for Context {
-    async fn with_route_to_ports<F, O>(&self, function: F) -> O
+impl WithRouteToGates for Context {
+    async fn with_route_to_gates<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
     {
-        let route_to_ports = self.route_to_ports.read().await;
-        function(&route_to_ports)
+        let route_to_gates = self.route_to_gates.read().await;
+        function(&route_to_gates)
     }
 
-    async fn mut_route_to_ports<F, O>(&self, function: F) -> O
+    async fn mut_route_to_gates<F, O>(&self, function: F) -> O
     where
         F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
     {
-        let mut route_to_ports = self.route_to_ports.write().await;
-        function(&mut route_to_ports)
+        let mut route_to_gates = self.route_to_gates.write().await;
+        function(&mut route_to_gates)
     }
 }
 

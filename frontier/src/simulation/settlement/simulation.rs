@@ -13,7 +13,7 @@ use crate::traits::has::HasParameters;
 use crate::traits::{
     AllBridges, ClosestTargetsForRoutes, Controlled, CostOfPath, GetSettlement, InBoundsForRoutes,
     Micros, RefreshEdges, RefreshPositions, RemoveTown, UpdateSettlement as UpdateSettlementTrait,
-    UpdateTerritory, VisibleLandPositions, WithBridges, WithEdgeTraffic, WithRouteToPorts,
+    UpdateTerritory, VisibleLandPositions, WithBridges, WithEdgeTraffic, WithRouteToGates,
     WithRoutes, WithSettlements, WithSimQueue, WithTraffic,
 };
 use crate::travel_duration::TravelDuration;
@@ -58,7 +58,7 @@ where
         + WithBridges
         + WithEdgeTraffic
         + WithRoutes
-        + WithRouteToPorts
+        + WithRouteToGates
         + WithSettlements
         + WithSimQueue
         + WithTraffic
@@ -96,7 +96,7 @@ where
         + VisibleLandPositions
         + WithBridges
         + WithEdgeTraffic
-        + WithRouteToPorts
+        + WithRouteToGates
         + WithSimQueue
         + WithTraffic,
     D: TravelDuration,
@@ -148,7 +148,7 @@ where
         join!(
             self.update_position_traffic_and_refresh_positions(&route_changes),
             self.update_edge_traffic_and_refresh_edges(&route_changes),
-            self.update_route_to_ports(&route_changes),
+            self.update_route_to_gates(&route_changes),
         );
     }
 

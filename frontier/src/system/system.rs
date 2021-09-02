@@ -200,7 +200,7 @@ impl System {
             river_explorer_tx,
             river_piers_tx,
             rotate_tx,
-            route_to_ports: Arc::default(),
+            route_to_gates: Arc::default(),
             routes: Arc::default(),
             routes_pathfinder: Arc::new(RwLock::new(Pathfinder::new(
                 params.width,
@@ -602,10 +602,10 @@ impl System {
             .await
             .save(&format!("{}.resources", path));
         self.cx
-            .route_to_ports
+            .route_to_gates
             .read()
             .await
-            .save(&format!("{}.route_to_ports", path));
+            .save(&format!("{}.route_to_gates", path));
         self.cx
             .routes
             .read()
@@ -650,7 +650,7 @@ impl System {
         *self.cx.edge_traffic.write().await = <_>::load(&format!("{}.edge_traffic", path));
         *self.cx.nations.write().await = <_>::load(&format!("{}.nations", path));
         *self.cx.resources.write().await = <_>::load(&format!("{}.resources", path));
-        *self.cx.route_to_ports.write().await = <_>::load(&format!("{}.route_to_ports", path));
+        *self.cx.route_to_gates.write().await = <_>::load(&format!("{}.route_to_gates", path));
         *self.cx.routes.write().await = <_>::load(&format!("{}.routes", path));
         *self.cx.settlements.write().await = <_>::load(&format!("{}.settlements", path));
         *self.cx.sim_queue.write().await = <_>::load(&format!("{}.sim_queue", path));

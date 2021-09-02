@@ -10,7 +10,7 @@ use crate::settlement::{Settlement, SettlementClass};
 use crate::simulation::build::positions::PositionBuildSimulation;
 use crate::traits::has::HasParameters;
 use crate::traits::{
-    AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, WithRouteToPorts,
+    AnyoneControls, GetSettlement, InsertBuildInstruction, RandomTownName, WithRouteToGates,
     WithRoutes, WithTraffic, WithWorld,
 };
 
@@ -22,7 +22,7 @@ where
         + InsertBuildInstruction
         + RandomTownName
         + WithRoutes
-        + WithRouteToPorts
+        + WithRouteToGates
         + WithTraffic
         + WithWorld,
 {
@@ -79,14 +79,14 @@ where
 
     async fn get_route_keys(&self, position: &V2<usize>) -> Vec<RouteKey> {
         let traffic = self.get_traffic(position).await;
-        let route_to_ports = self.get_route_to_ports(&traffic).await;
+        let route_to_gates = self.get_route_to_gates(&traffic).await;
         traffic
             .iter()
             .filter(|route| {
                 route.destination == *position
-                    || route_to_ports
+                    || route_to_gates
                         .get(route)
-                        .map_or(false, |ports| ports.contains(position))
+                        .map_or(false, |gates| gates.contains(position))
             })
             .cloned()
             .collect()
@@ -100,18 +100,18 @@ where
     }
 
     #[allow(clippy::needless_lifetimes)] // https://github.com/rust-lang/rust-clippy/issues/5787
-    async fn get_route_to_ports<'a>(
+    async fn get_route_to_gates<'a>(
         &self,
         route_keys: &'a HashSet<RouteKey>,
     ) -> HashMap<&'a RouteKey, HashSet<V2<usize>>> {
         self.cx
-            .with_route_to_ports(|route_to_ports| {
+            .with_route_to_gates(|route_to_gates| {
                 route_keys
                     .iter()
                     .map(|route_key| {
                         (
                             route_key,
-                            route_to_ports.get(route_key).cloned().unwrap_or_default(),
+                            route_to_gates.get(route_key).cloned().unwrap_or_default(),
                         )
                     })
                     .collect()
@@ -192,7 +192,7 @@ mod tests {
         get_settlement: Option<Settlement>,
         parameters: Parameters,
         random_town_name: String,
-        route_to_ports: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
+        route_to_gates: Mutex<HashMap<RouteKey, HashSet<V2<usize>>>>,
         routes: Mutex<Routes>,
         traffic: Mutex<Traffic>,
         world: Mutex<World>,
@@ -208,7 +208,7 @@ mod tests {
                 get_settlement: None,
                 parameters: Parameters::default(),
                 random_town_name: String::default(),
-                route_to_ports: Mutex::default(),
+                route_to_gates: Mutex::default(),
                 routes: Mutex::default(),
                 traffic: Mutex::new(Traffic::same_size_as(&world, hashset! {})),
                 world: Mutex::new(world),
@@ -288,19 +288,19 @@ mod tests {
     }
 
     #[async_trait]
-    impl WithRouteToPorts for Cx {
-        async fn with_route_to_ports<F, O>(&self, function: F) -> O
+    impl WithRouteToGates for Cx {
+        async fn with_route_to_gates<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
         {
-            function(&self.route_to_ports.lock().unwrap())
+            function(&self.route_to_gates.lock().unwrap())
         }
 
-        async fn mut_route_to_ports<F, O>(&self, function: F) -> O
+        async fn mut_route_to_gates<F, O>(&self, function: F) -> O
         where
             F: FnOnce(&mut HashMap<RouteKey, HashSet<V2<usize>>>) -> O + Send,
         {
-            function(&mut self.route_to_ports.lock().unwrap())
+            function(&mut self.route_to_gates.lock().unwrap())
         }
     }
 
@@ -415,10 +415,10 @@ mod tests {
     }
 
     #[test]
-    fn should_build_if_port_at_position() {
+    fn should_build_if_gate_at_position() {
         // Given
         let cx = happy_path_tx();
-        cx.route_to_ports
+        cx.route_to_gates
             .lock()
             .unwrap()
             .insert(happy_path_route_key(), hashset! {v2(1, 0)});
