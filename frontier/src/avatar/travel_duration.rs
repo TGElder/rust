@@ -151,15 +151,6 @@ impl TravelDuration for AvatarTravelDuration {
             Some(WorldCell { visible: true, .. }) => (),
             _ => return None,
         };
-        let from_sea = world.is_sea(from);
-        let to_sea = world.is_sea(to);
-        let from_river = self.travel_mode_fn.is_navigable_river_here(world, from);
-        let to_river = self.travel_mode_fn.is_navigable_river_here(world, to);
-        let from_water = from_sea || from_river;
-        let to_water = to_sea || to_river;
-        if from_water != to_water {
-            return None;
-        }
         self.get_duration_fn(world, from, to)
             .and_then(|duration_fn| duration_fn.get_duration(world, from, to))
     }

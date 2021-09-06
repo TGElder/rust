@@ -18,44 +18,45 @@ impl TravelModeFn for AvatarTravelModeFn {
         from: &V2<usize>,
         to: &V2<usize>,
     ) -> Option<TravelMode> {
-        if world.in_bounds(from) && world.in_bounds(to) {
-            if world.is_sea(from) && world.is_sea(to) {
-                Some(TravelMode::Sea)
-            } else if world.is_road(&Edge::new(*from, *to)) {
-                Some(TravelMode::Road)
-            } else if self.include_planned_roads
-                && world.road_planned(&Edge::new(*from, *to)).is_some()
-            {
-                Some(TravelMode::PlannedRoad)
-            } else if self.is_navigable_river(world, from, to) {
-                Some(TravelMode::River)
-            } else if world.is_river(&Edge::new(*from, *to)) {
-                Some(TravelMode::Stream)
-            } else {
-                Some(TravelMode::Walk)
-            }
+        let travel_class_from = self.travel_mode_here(world, from)?.class();
+        let travel_class_to = self.travel_mode_here(world, to)?.class();
+        if travel_class_from != travel_class_to {
+            return None;
+        };
+
+        if world.is_sea(from) && world.is_sea(to) {
+            Some(TravelMode::Sea)
+        } else if world.is_road(&Edge::new(*from, *to)) {
+            Some(TravelMode::Road)
+        } else if self.include_planned_roads && world.road_planned(&Edge::new(*from, *to)).is_some()
+        {
+            Some(TravelMode::PlannedRoad)
+        } else if self.is_navigable_river(world, from, to) {
+            Some(TravelMode::River)
+        } else if world.is_river(&Edge::new(*from, *to)) {
+            Some(TravelMode::Stream)
+        } else if travel_class_from == TravelModeClass::Land {
+            Some(TravelMode::Walk)
         } else {
             None
         }
     }
 
     fn travel_mode_here(&self, world: &World, position: &V2<usize>) -> Option<TravelMode> {
-        if let Some(cell) = world.get_cell(position) {
-            if world.is_sea(position) {
-                Some(TravelMode::Sea)
-            } else if self.is_navigable_river_here(world, position) {
-                Some(TravelMode::River)
-            } else if cell.road.here() {
-                Some(TravelMode::Road)
-            } else if self.include_planned_roads && cell.planned_road.here() {
-                Some(TravelMode::PlannedRoad)
-            } else if cell.river.here() {
-                Some(TravelMode::Stream)
-            } else {
-                Some(TravelMode::Walk)
-            }
+        let cell = world.get_cell(position)?;
+
+        if world.is_sea(position) {
+            Some(TravelMode::Sea)
+        } else if self.is_navigable_river_here(world, position) {
+            Some(TravelMode::River)
+        } else if cell.road.here() {
+            Some(TravelMode::Road)
+        } else if self.include_planned_roads && cell.planned_road.here() {
+            Some(TravelMode::PlannedRoad)
+        } else if cell.river.here() {
+            Some(TravelMode::Stream)
         } else {
-            None
+            Some(TravelMode::Walk)
         }
     }
 }
@@ -141,20 +142,6 @@ mod tests {
     }
 
     #[test]
-    fn travel_mode_into_sea() {
-        let world = world();
-        let travel_mode_fn = travel_mode_fn();
-        assert_eq!(
-            travel_mode_fn.travel_mode_between(&world, &v2(2, 0), &v2(3, 0)),
-            Some(TravelMode::Walk)
-        );
-        assert_eq!(
-            travel_mode_fn.travel_mode_between(&world, &v2(3, 0), &v2(2, 0)),
-            Some(TravelMode::Walk)
-        );
-    }
-
-    #[test]
     fn travel_mode_in_stream() {
         let world = world();
         let travel_mode_fn = AvatarTravelModeFn::new(0.5, true);
@@ -193,20 +180,6 @@ mod tests {
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(2, 1), &v2(1, 1)),
             Some(TravelMode::River)
-        );
-    }
-
-    #[test]
-    fn travel_mode_into_river() {
-        let world = world();
-        let travel_mode_fn = travel_mode_fn();
-        assert_eq!(
-            travel_mode_fn.travel_mode_between(&world, &v2(0, 0), &v2(0, 1)),
-            Some(TravelMode::Walk)
-        );
-        assert_eq!(
-            travel_mode_fn.travel_mode_between(&world, &v2(0, 1), &v2(0, 0)),
-            Some(TravelMode::Walk)
         );
     }
 
@@ -273,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn travel_mode_onto_road() {
+    fn travel_mode_land_to_road() {
         let world = world();
         let travel_mode_fn = travel_mode_fn();
         assert_eq!(
@@ -287,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn travel_mode_onto_planned_road() {
+    fn travel_mode_land_to_planned_road() {
         let mut world = world();
         let travel_mode_fn = travel_mode_fn();
         let edge = Edge::new(v2(0, 3), v2(1, 3));
@@ -300,6 +273,55 @@ mod tests {
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(0, 3), &v2(0, 2)),
             Some(TravelMode::Walk)
+        );
+    }
+
+    #[test]
+    fn travel_mode_land_to_river() {
+        let world = world();
+        let travel_mode_fn = travel_mode_fn();
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(1, 0), &v2(1, 1)),
+            None
+        );
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(1, 1), &v2(1, 0)),
+            None
+        );
+    }
+
+    #[test]
+    fn travel_mode_land_to_sea() {
+        let world = world();
+        let travel_mode_fn = travel_mode_fn();
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(2, 0), &v2(3, 0)),
+            None
+        );
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(3, 0), &v2(2, 0)),
+            None
+        );
+    }
+
+    #[test]
+    fn travel_mode_river_to_sea() {
+        let mut world = world();
+
+        let mut river_4 = PositionJunction::new(v2(3, 1));
+        river_4.junction.horizontal.width = 0.4;
+        river_4.junction.horizontal.from = true;
+        river_4.junction.horizontal.to = true;
+        world.add_river(river_4);
+
+        let travel_mode_fn = travel_mode_fn();
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(2, 1), &v2(3, 1)),
+            Some(TravelMode::River)
+        );
+        assert_eq!(
+            travel_mode_fn.travel_mode_between(&world, &v2(3, 1), &v2(2, 1)),
+            Some(TravelMode::River)
         );
     }
 
@@ -318,36 +340,6 @@ mod tests {
         assert_eq!(
             travel_mode_fn.travel_mode_between(&world, &v2(4, 0), &v2(5, 0)),
             None
-        );
-    }
-
-    #[test]
-    fn travel_mode_bridge() {
-        let mut world = world();
-        let travel_mode_fn = travel_mode_fn();
-        world.set_road(&Edge::new(v2(1, 0), v2(1, 1)), true);
-        assert_eq!(
-            travel_mode_fn.travel_mode_between(&world, &v2(1, 0), &v2(1, 1)),
-            Some(TravelMode::Road)
-        );
-        assert_eq!(
-            travel_mode_fn.travel_mode_between(&world, &v2(1, 1), &v2(1, 0)),
-            Some(TravelMode::Road)
-        );
-    }
-
-    #[test]
-    fn travel_mode_planned_bridge() {
-        let mut world = world();
-        let travel_mode_fn = travel_mode_fn();
-        world.plan_road(&Edge::new(v2(1, 0), v2(1, 1)), Some(0));
-        assert_eq!(
-            travel_mode_fn.travel_mode_between(&world, &v2(1, 0), &v2(1, 1)),
-            Some(TravelMode::PlannedRoad)
-        );
-        assert_eq!(
-            travel_mode_fn.travel_mode_between(&world, &v2(1, 1), &v2(1, 0)),
-            Some(TravelMode::PlannedRoad)
         );
     }
 
@@ -427,7 +419,7 @@ mod tests {
 
     #[test]
     #[rustfmt::skip]
-    fn inside_of_river_u_bend_should_not_cound_as_river() {
+    fn inside_of_river_u_bend_should_not_count_as_river() {
         let mut world = World::new(
             M::from_vec(
                 4,
@@ -469,7 +461,7 @@ mod tests {
 
         assert_eq!(
             travel_mode_fn().travel_mode_between(&world, &v2(0, 0), &v2(0, 1)),
-            Some(TravelMode::Walk)
+            None
         );
     }
 
