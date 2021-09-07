@@ -160,8 +160,293 @@ fn is_crossing(
 fn get_bridge(crossing: [Pier; 3]) -> Result<Bridge, InvalidBridge> {
     Bridge {
         piers: crossing.to_vec(),
-
         bridge_type: BridgeType::Theoretical,
     }
     .validate()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use commons::async_trait::async_trait;
+    use commons::edge::Edge;
+    use commons::junction::PositionJunction;
+    use commons::{v2, M};
+    use futures::executor::block_on;
+
+    use crate::avatar::AvatarTravelParams;
+    use crate::bridges::Bridges;
+    use crate::parameters::Parameters;
+
+    use super::*;
+
+    struct Cx {
+        parameters: Parameters,
+        bridges: Mutex<Bridges>,
+        world: Mutex<World>,
+    }
+
+    impl HasParameters for Cx {
+        fn parameters(&self) -> &Parameters {
+            &self.parameters
+        }
+    }
+
+    #[async_trait]
+    impl WithBridges for Cx {
+        async fn with_bridges<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&Bridges) -> O + Send,
+        {
+            function(&self.bridges.lock().unwrap())
+        }
+
+        async fn mut_bridges<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Bridges) -> O + Send,
+        {
+            function(&mut self.bridges.lock().unwrap())
+        }
+    }
+
+    #[async_trait]
+    impl WithWorld for Cx {
+        async fn with_world<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&World) -> O + Send,
+        {
+            function(&self.world.lock().unwrap())
+        }
+
+        async fn mut_world<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut World) -> O + Send,
+        {
+            function(&mut self.world.lock().unwrap())
+        }
+    }
+
+    fn cx(world: World) -> Cx {
+        Cx {
+            parameters: Parameters {
+                npc_travel: AvatarTravelParams {
+                    min_navigable_river_width: 0.5,
+                    max_navigable_river_gradient: 0.5,
+                    ..AvatarTravelParams::default()
+                },
+                ..Parameters::default()
+            },
+            bridges: Mutex::default(),
+            world: Mutex::new(world),
+        }
+    }
+
+    #[test]
+    fn should_add_crossing_over_horizontal_river() {
+        // Given
+        let mut world = World::new(M::from_vec(3, 1, vec![1.0, 0.9, 1.0]), 0.5);
+
+        let mut river_1 = PositionJunction::new(v2(1, 0));
+        river_1.junction.horizontal.width = 1.0;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+        world.add_river(river_1);
+
+        let cx = cx(world);
+
+        let crossings = Crossings::new(cx);
+
+        // When
+        block_on(crossings.new_game());
+
+        // Then
+        assert_eq!(
+            *crossings.cx.bridges.lock().unwrap(),
+            hashmap! {
+                Edge::new(v2(0, 0), v2(2, 0)) => hashset!{
+                    Bridge{
+                        piers: vec![
+                            Pier{
+                                position: v2(0, 0),
+                                elevation: 0.0,
+                                platform: true,
+                                rotation: Rotation::Right,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(1, 0),
+                                elevation: 0.0,
+                                platform: false,
+                                rotation: Rotation::Right,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(2, 0),
+                                elevation: 0.0,
+                                platform: true,
+                                rotation: Rotation::Right,
+                                vehicle: Vehicle::None,
+                            },
+                        ],
+                        bridge_type: BridgeType::Theoretical
+                    }
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn should_add_crossing_over_vertical_river() {
+        // Given
+        let mut world = World::new(M::from_vec(1, 3, vec![1.0, 0.9, 1.0]), 0.5);
+
+        let mut river_1 = PositionJunction::new(v2(0, 1));
+        river_1.junction.vertical.width = 1.0;
+        river_1.junction.vertical.from = true;
+        river_1.junction.vertical.to = true;
+        world.add_river(river_1);
+
+        let cx = cx(world);
+
+        let crossings = Crossings::new(cx);
+
+        // When
+        block_on(crossings.new_game());
+
+        // Then
+        assert_eq!(
+            *crossings.cx.bridges.lock().unwrap(),
+            hashmap! {
+                Edge::new(v2(0, 0), v2(0, 2)) => hashset!{
+                    Bridge{
+                        piers: vec![
+                            Pier{
+                                position: v2(0, 0),
+                                elevation: 0.0,
+                                platform: true,
+                                rotation: Rotation::Up,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(0, 1),
+                                elevation: 0.0,
+                                platform: false,
+                                rotation: Rotation::Up,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(0, 2),
+                                elevation: 0.0,
+                                platform: true,
+                                rotation: Rotation::Up,
+                                vehicle: Vehicle::None,
+                            },
+                        ],
+                        bridge_type: BridgeType::Theoretical
+                    }
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn should_not_add_crossing_along_river() {
+        // Given
+        let mut world = World::new(M::from_vec(3, 1, vec![1.0, 0.9, 1.0]), 0.5);
+
+        let mut river_1 = PositionJunction::new(v2(0, 0));
+        river_1.junction.horizontal.width = 1.0;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+        world.add_river(river_1);
+
+        let mut river_2 = PositionJunction::new(v2(1, 0));
+        river_2.junction.horizontal.width = 1.0;
+        river_2.junction.horizontal.from = true;
+        river_2.junction.horizontal.to = true;
+        world.add_river(river_2);
+
+        let mut river_3 = PositionJunction::new(v2(2, 0));
+        river_3.junction.horizontal.width = 1.0;
+        river_3.junction.horizontal.from = true;
+        river_3.junction.horizontal.to = true;
+        world.add_river(river_3);
+
+        let cx = cx(world);
+
+        let crossings = Crossings::new(cx);
+
+        // When
+        block_on(crossings.new_game());
+
+        // Then
+        assert_eq!(*crossings.cx.bridges.lock().unwrap(), hashmap! {});
+    }
+
+    #[test]
+    fn should_not_add_crossing_over_stream() {
+        // Given
+        let mut world = World::new(M::from_vec(3, 1, vec![1.0, 0.9, 1.0]), 0.5);
+
+        let mut river_1 = PositionJunction::new(v2(1, 0));
+        river_1.junction.horizontal.width = 0.1;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+        world.add_river(river_1);
+
+        let cx = cx(world);
+
+        let crossings = Crossings::new(cx);
+
+        // When
+        block_on(crossings.new_game());
+
+        // Then
+        assert_eq!(*crossings.cx.bridges.lock().unwrap(), hashmap! {});
+    }
+
+    #[test]
+    fn should_not_add_convex_crossing() {
+        // Given
+        let mut world = World::new(M::from_vec(3, 1, vec![0.9, 1.0, 0.9]), 0.5);
+
+        let mut river_1 = PositionJunction::new(v2(1, 0));
+        river_1.junction.horizontal.width = 1.0;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+        world.add_river(river_1);
+
+        let cx = cx(world);
+
+        let crossings = Crossings::new(cx);
+
+        // When
+        block_on(crossings.new_game());
+
+        // Then
+        assert_eq!(*crossings.cx.bridges.lock().unwrap(), hashmap! {});
+    }
+
+    #[test]
+    fn should_not_add_crossing_exceeding_max_gradient() {
+        // Given
+        let mut world = World::new(M::from_vec(3, 1, vec![1.0, 0.1, 1.0]), 0.5);
+
+        let mut river_1 = PositionJunction::new(v2(1, 0));
+        river_1.junction.horizontal.width = 1.0;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+        world.add_river(river_1);
+
+        let cx = cx(world);
+
+        let crossings = Crossings::new(cx);
+
+        // When
+        block_on(crossings.new_game());
+
+        // Then
+        assert_eq!(*crossings.cx.bridges.lock().unwrap(), hashmap! {});
+    }
 }
