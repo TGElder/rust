@@ -99,6 +99,9 @@ pub trait Grid<T> {
     }
 
     fn get_adjacent_tiles_in_bounds(&self, position: &V2<usize>) -> Vec<V2<usize>> {
+        if position.x == self.width() - 1 || position.y == self.height() - 1 {
+            return vec![];
+        }
         [v2(0, 0), v2(-1, 0), v2(-1, -1), v2(0, -1)]
             .iter()
             .flat_map(|delta| self.offset(position, *delta))
@@ -321,6 +324,15 @@ mod tests {
         assert!(same_elements(
             &matrix.get_adjacent_tiles_in_bounds(&v2(0, 0)),
             &[v2(0, 0)]
+        ));
+    }
+
+    #[test]
+    fn test_get_adjacent_tiles_input_is_out_of_bounds_tile() {
+        let matrix: M<usize> = M::zeros(3, 3);
+        assert!(same_elements(
+            &matrix.get_adjacent_tiles_in_bounds(&v2(2, 2)),
+            &[]
         ));
     }
 
