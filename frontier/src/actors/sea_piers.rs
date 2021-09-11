@@ -109,7 +109,7 @@ fn is_pier(
         return None;
     }
 
-    if world.get_rise(from, to)?.abs() > parameters.max_gradient {
+    if (from_elevation - to_elevation.max(sea_level)).abs() > parameters.max_gradient {
         return None;
     }
 
@@ -161,4 +161,450 @@ fn has_launching_zone(
         .any(|tile| {
             !world.is_sea(tile) && world.get_max_abs_rise(tile) <= *max_landing_zone_gradient
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use commons::async_trait::async_trait;
+    use commons::edge::Edge;
+    use commons::junction::PositionJunction;
+    use commons::{v2, M};
+    use futures::executor::block_on;
+
+    use crate::bridges::Bridges;
+
+    use super::*;
+
+    struct Cx {
+        bridges: Mutex<Bridges>,
+        world: Mutex<World>,
+    }
+
+    #[async_trait]
+    impl WithBridges for Cx {
+        async fn with_bridges<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&Bridges) -> O + Send,
+        {
+            function(&self.bridges.lock().unwrap())
+        }
+
+        async fn mut_bridges<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut Bridges) -> O + Send,
+        {
+            function(&mut self.bridges.lock().unwrap())
+        }
+    }
+
+    #[async_trait]
+    impl WithWorld for Cx {
+        async fn with_world<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&World) -> O + Send,
+        {
+            function(&self.world.lock().unwrap())
+        }
+
+        async fn mut_world<F, O>(&self, function: F) -> O
+        where
+            F: FnOnce(&mut World) -> O + Send,
+        {
+            function(&mut self.world.lock().unwrap())
+        }
+    }
+
+    fn cx(world: World) -> Cx {
+        Cx {
+            bridges: Mutex::default(),
+            world: Mutex::new(world),
+        }
+    }
+
+    fn parameters() -> SeaPierParameters {
+        SeaPierParameters {
+            deep_sea_level: 0.25,
+            max_landing_zone_gradient: 1.5,
+            max_gradient: 0.5,
+        }
+    }
+
+    #[test]
+    fn should_add_pier_into_sea_right() {
+        // Given
+        let world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 0.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let cx = cx(world);
+
+        let sea_piers = SeaPiers::new(cx, parameters());
+
+        // When
+        block_on(sea_piers.new_game());
+
+        // Then
+        assert_eq!(
+            *sea_piers.cx.bridges.lock().unwrap(),
+            hashmap! {
+                Edge::new(v2(1, 1), v2(2, 1)) => hashset!{
+                    Bridge{
+                        piers: vec![
+                            Pier{
+                                position: v2(1, 1),
+                                elevation: 1.0,
+                                platform: true,
+                                rotation: Rotation::Right,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(2, 1),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Right,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(2, 1),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Right,
+                                vehicle: Vehicle::Boat,
+                            },
+                            Pier{
+                                position: v2(2, 1),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Right,
+                                vehicle: Vehicle::Boat,
+                            },
+                        ],
+                        bridge_type: BridgeType::Theoretical
+                    }
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn should_add_pier_into_sea_left() {
+        // Given
+        let world = World::new(
+            M::from_vec(
+                3,
+                2,
+                vec![
+                    0.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let cx = cx(world);
+
+        let sea_piers = SeaPiers::new(cx, parameters());
+
+        // When
+        block_on(sea_piers.new_game());
+
+        // Then
+        assert_eq!(
+            *sea_piers.cx.bridges.lock().unwrap(),
+            hashmap! {
+                Edge::new(v2(0, 0), v2(1, 0)) => hashset!{
+                    Bridge{
+                        piers: vec![
+                            Pier{
+                                position: v2(1, 0),
+                                elevation: 1.0,
+                                platform: true,
+                                rotation: Rotation::Left,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(0, 0),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Left,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(0, 0),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Left,
+                                vehicle: Vehicle::Boat,
+                            },
+                            Pier{
+                                position: v2(0, 0),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Left,
+                                vehicle: Vehicle::Boat,
+                            },
+                        ],
+                        bridge_type: BridgeType::Theoretical
+                    }
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn should_add_pier_into_sea_down() {
+        // Given
+        let world = World::new(
+            M::from_vec(
+                2,
+                3,
+                vec![
+                    0.0, 1.0, //
+                    1.0, 1.0, //
+                    1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let cx = cx(world);
+
+        let sea_piers = SeaPiers::new(cx, parameters());
+
+        // When
+        block_on(sea_piers.new_game());
+
+        // Then
+        assert_eq!(
+            *sea_piers.cx.bridges.lock().unwrap(),
+            hashmap! {
+                Edge::new(v2(0, 0), v2(0, 1)) => hashset!{
+                    Bridge{
+                        piers: vec![
+                            Pier{
+                                position: v2(0, 1),
+                                elevation: 1.0,
+                                platform: true,
+                                rotation: Rotation::Down,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(0, 0),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Down,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(0, 0),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Down,
+                                vehicle: Vehicle::Boat,
+                            },
+                            Pier{
+                                position: v2(0, 0),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Down,
+                                vehicle: Vehicle::Boat,
+                            },
+                        ],
+                        bridge_type: BridgeType::Theoretical
+                    }
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn should_add_pier_into_sea_up() {
+        // Given
+        let world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 0.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let cx = cx(world);
+
+        let sea_piers = SeaPiers::new(cx, parameters());
+
+        // When
+        block_on(sea_piers.new_game());
+
+        // Then
+        assert_eq!(
+            *sea_piers.cx.bridges.lock().unwrap(),
+            hashmap! {
+                Edge::new(v2(1, 1), v2(1, 2)) => hashset!{
+                    Bridge{
+                        piers: vec![
+                            Pier{
+                                position: v2(1, 1),
+                                elevation: 1.0,
+                                platform: true,
+                                rotation: Rotation::Up,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(1, 2),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Up,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(1, 2),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Up,
+                                vehicle: Vehicle::Boat,
+                            },
+                            Pier{
+                                position: v2(1, 2),
+                                elevation: 0.5,
+                                platform: false,
+                                rotation: Rotation::Up,
+                                vehicle: Vehicle::Boat,
+                            },
+                        ],
+                        bridge_type: BridgeType::Theoretical
+                    }
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn should_not_add_pier_from_river() {
+        // Given
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 0.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let mut river_1 = PositionJunction::new(v2(1, 1));
+        river_1.junction.horizontal.width = 0.5;
+        river_1.junction.horizontal.from = true;
+        river_1.junction.horizontal.to = true;
+        world.add_river(river_1);
+
+        let cx = cx(world);
+
+        let sea_piers = SeaPiers::new(cx, parameters());
+
+        // When
+        block_on(sea_piers.new_game());
+
+        // Then
+        assert_eq!(*sea_piers.cx.bridges.lock().unwrap(), hashmap! {});
+    }
+
+    #[test]
+    fn should_not_add_piers_into_shallow_sea() {
+        // Given
+        let world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 0.5, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let cx = cx(world);
+
+        let sea_piers = SeaPiers::new(cx, parameters());
+
+        // When
+        block_on(sea_piers.new_game());
+
+        // Then
+        assert_eq!(*sea_piers.cx.bridges.lock().unwrap(), hashmap! {});
+    }
+
+    #[test]
+    fn should_not_add_pier_exceeding_max_gradient() {
+        // Given
+        let world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 2.0, 0.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let cx = cx(world);
+
+        let sea_piers = SeaPiers::new(cx, parameters());
+
+        // When
+        block_on(sea_piers.new_game());
+
+        // Then
+        assert_eq!(*sea_piers.cx.bridges.lock().unwrap(), hashmap! {});
+    }
+
+    #[test]
+    fn should_not_add_pier_with_no_landing_zone() {
+        // Given
+        let world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    3.0, 1.0, 3.0, //
+                    1.0, 1.0, 0.0, //
+                    3.0, 1.0, 3.0, //
+                ],
+            ),
+            0.5,
+        );
+
+        let cx = cx(world);
+
+        let sea_piers = SeaPiers::new(cx, parameters());
+
+        // When
+        block_on(sea_piers.new_game());
+
+        // Then
+        assert_eq!(*sea_piers.cx.bridges.lock().unwrap(), hashmap! {});
+    }
 }
