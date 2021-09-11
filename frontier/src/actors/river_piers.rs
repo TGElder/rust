@@ -234,7 +234,18 @@ mod tests {
     #[test]
     fn should_add_pier_into_river_right() {
         // Given
-        let mut world = World::new(M::from_element(3, 3, 1.0), 0.5);
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 0.9, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
 
         let mut river_1 = PositionJunction::new(v2(2, 1));
         river_1.junction.horizontal.width = 1.0;
@@ -258,28 +269,28 @@ mod tests {
                         piers: vec![
                             Pier{
                                 position: v2(1, 1),
-                                elevation: 0.0,
+                                elevation: 1.0,
                                 platform: true,
                                 rotation: Rotation::Right,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(2, 1),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Right,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(2, 1),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Right,
                                 vehicle: Vehicle::Boat,
                             },
                             Pier{
                                 position: v2(2, 1),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Right,
                                 vehicle: Vehicle::Boat,
@@ -295,7 +306,17 @@ mod tests {
     #[test]
     fn should_add_pier_into_river_left() {
         // Given
-        let mut world = World::new(M::from_element(3, 2, 1.0), 0.5);
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                2,
+                vec![
+                    0.9, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
 
         let mut river_1 = PositionJunction::new(v2(0, 0));
         river_1.junction.horizontal.width = 1.0;
@@ -319,28 +340,28 @@ mod tests {
                         piers: vec![
                             Pier{
                                 position: v2(1, 0),
-                                elevation: 0.0,
+                                elevation: 1.0,
                                 platform: true,
                                 rotation: Rotation::Left,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(0, 0),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Left,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(0, 0),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Left,
                                 vehicle: Vehicle::Boat,
                             },
                             Pier{
                                 position: v2(0, 0),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Left,
                                 vehicle: Vehicle::Boat,
@@ -356,7 +377,18 @@ mod tests {
     #[test]
     fn should_add_pier_into_river_down() {
         // Given
-        let mut world = World::new(M::from_element(2, 3, 1.0), 0.5);
+        let mut world = World::new(
+            M::from_vec(
+                2,
+                3,
+                vec![
+                    0.9, 1.0, //
+                    1.0, 1.0, //
+                    1.0, 1.0, //
+                ],
+            ),
+            0.5,
+        );
 
         let mut river_1 = PositionJunction::new(v2(0, 0));
         river_1.junction.horizontal.width = 1.0;
@@ -380,28 +412,28 @@ mod tests {
                         piers: vec![
                             Pier{
                                 position: v2(0, 1),
-                                elevation: 0.0,
+                                elevation: 1.0,
                                 platform: true,
                                 rotation: Rotation::Down,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(0, 0),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Down,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(0, 0),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Down,
                                 vehicle: Vehicle::Boat,
                             },
                             Pier{
                                 position: v2(0, 0),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Down,
                                 vehicle: Vehicle::Boat,
@@ -417,7 +449,18 @@ mod tests {
     #[test]
     fn should_add_pier_into_river_up() {
         // Given
-        let mut world = World::new(M::from_element(3, 3, 1.0), 0.5);
+        let mut world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 1.0, //
+                    1.0, 1.0, 1.0, //
+                    1.0, 0.9, 1.0, //
+                ],
+            ),
+            0.5,
+        );
 
         let mut river_1 = PositionJunction::new(v2(1, 2));
         river_1.junction.horizontal.width = 1.0;
@@ -441,28 +484,28 @@ mod tests {
                         piers: vec![
                             Pier{
                                 position: v2(1, 1),
-                                elevation: 0.0,
+                                elevation: 1.0,
                                 platform: true,
                                 rotation: Rotation::Up,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(1, 2),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Up,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(1, 2),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Up,
                                 vehicle: Vehicle::Boat,
                             },
                             Pier{
                                 position: v2(1, 2),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Up,
                                 vehicle: Vehicle::Boat,

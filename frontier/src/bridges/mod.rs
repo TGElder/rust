@@ -19,7 +19,7 @@ pub struct Bridge {
     pub bridge_type: BridgeType,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Pier {
     pub position: V2<usize>,
     pub elevation: f32,
@@ -28,18 +28,13 @@ pub struct Pier {
     pub vehicle: Vehicle,
 }
 
+#[allow(clippy::derive_hash_xor_eq)] // Okay because hash(a) == hash(b) => a == b
 impl Hash for Pier {
     fn hash<H>(&self, state: &mut H)
     where
         H: Hasher,
     {
         self.position.hash(state);
-    }
-}
-
-impl PartialEq for Pier {
-    fn eq(&self, other: &Self) -> bool {
-        self.position == other.position
     }
 }
 

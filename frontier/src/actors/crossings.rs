@@ -269,21 +269,21 @@ mod tests {
                         piers: vec![
                             Pier{
                                 position: v2(0, 0),
-                                elevation: 0.0,
+                                elevation: 1.0,
                                 platform: true,
                                 rotation: Rotation::Right,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(1, 0),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Right,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(2, 0),
-                                elevation: 0.0,
+                                elevation: 1.0,
                                 platform: true,
                                 rotation: Rotation::Right,
                                 vehicle: Vehicle::None,
@@ -323,21 +323,21 @@ mod tests {
                         piers: vec![
                             Pier{
                                 position: v2(0, 0),
-                                elevation: 0.0,
+                                elevation: 1.0,
                                 platform: true,
                                 rotation: Rotation::Up,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(0, 1),
-                                elevation: 0.0,
+                                elevation: 0.9,
                                 platform: false,
                                 rotation: Rotation::Up,
                                 vehicle: Vehicle::None,
                             },
                             Pier{
                                 position: v2(0, 2),
-                                elevation: 0.0,
+                                elevation: 1.0,
                                 platform: true,
                                 rotation: Rotation::Up,
                                 vehicle: Vehicle::None,

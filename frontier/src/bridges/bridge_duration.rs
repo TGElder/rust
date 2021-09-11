@@ -442,13 +442,25 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 TimedSegment {
-                    from: bridge.piers[2],
-                    to: bridge.piers[1],
+                    from: Pier {
+                        rotation: Rotation::Down,
+                        ..bridge.piers[2]
+                    },
+                    to: Pier {
+                        rotation: Rotation::Down,
+                        ..bridge.piers[1]
+                    },
                     duration: Duration::from_secs(1),
                 },
                 TimedSegment {
-                    from: bridge.piers[1],
-                    to: bridge.piers[0],
+                    from: Pier {
+                        rotation: Rotation::Down,
+                        ..bridge.piers[1]
+                    },
+                    to: Pier {
+                        rotation: Rotation::Down,
+                        ..bridge.piers[0]
+                    },
                     duration: Duration::from_secs(1),
                 },
             ]
