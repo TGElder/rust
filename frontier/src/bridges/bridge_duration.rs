@@ -6,7 +6,8 @@ use commons::edge::Edge;
 use commons::V2;
 use serde::{Deserialize, Serialize};
 
-use crate::bridges::{Bridge, BridgeType, Pier};
+use crate::avatar::{AvatarLoad, Frame};
+use crate::bridges::{Bridge, BridgeType, Pier, Segment};
 use crate::travel_duration::EdgeDuration;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -19,13 +20,6 @@ pub struct BridgeDurationFn {
 pub struct BridgeTypeDurationFn {
     pub one_cell: Duration,
     pub penalty: Duration,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct TimedSegment {
-    pub from: Pier,
-    pub to: Pier,
-    pub duration: Duration,
 }
 
 impl Default for BridgeDurationFn {
@@ -103,30 +97,58 @@ impl BridgeDurationFn {
             .min_by_key(|bridge| self.total_duration(bridge))
     }
 
-    pub fn timed_segments<'a>(
+    pub fn segments_from<'a>(
         &'a self,
         bridge: &'a Bridge,
         from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = TimedSegment> + 'a> {
-        let duration_fn = self.duration_fn(bridge);
+    ) -> Box<dyn Iterator<Item = Segment> + 'a> {
         if bridge.start().position == *from {
-            Box::new(bridge.segments().map(move |segment| TimedSegment {
-                from: segment.from,
-                to: segment.to,
-                duration: duration_fn.segment_duration(&segment.from, &segment.to),
-            }))
+            Box::new(bridge.segments())
         } else if bridge.end().position == *from {
-            Box::new(bridge.segments_rev().map(move |segment| TimedSegment {
-                from: segment.from,
-                to: segment.to,
-                duration: duration_fn.segment_duration(&segment.from, &segment.to),
-            }))
+            Box::new(bridge.segments_rev())
         } else {
             panic!(
                 "Position {} is at neither end of the bridge {:?}!",
                 from, bridge
             );
         }
+    }
+
+    pub fn frames(
+        &self,
+        bridge: &Bridge,
+        from: &V2<usize>,
+        start_at: &u128,
+        load: AvatarLoad,
+    ) -> Vec<Frame> {
+        let mut arrival = *start_at;
+
+        let mut out = Vec::with_capacity(bridge.piers.len());
+        for (i, Segment { from, to }) in self.segments_from(bridge, from).enumerate() {
+            if i == 0 {
+                out.push(Frame {
+                    position: from.position,
+                    elevation: from.elevation,
+                    arrival,
+                    vehicle: from.vehicle,
+                    rotation: from.rotation,
+                    load,
+                });
+            }
+            arrival += self
+                .duration_fn(bridge)
+                .segment_duration(&from, &to)
+                .as_micros();
+            out.push(Frame {
+                position: to.position,
+                elevation: to.elevation,
+                arrival,
+                vehicle: from.vehicle,
+                rotation: to.rotation,
+                load,
+            });
+        }
+        out
     }
 }
 
@@ -350,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn timed_segments_from_start() {
+    fn segments_from_start() {
         // Given
         let bridge = Bridge {
             piers: vec![
@@ -385,25 +407,23 @@ mod tests {
         // Then
         assert_eq!(
             duration_fn
-                .timed_segments(&bridge, &v2(0, 0))
+                .segments_from(&bridge, &v2(0, 0))
                 .collect::<Vec<_>>(),
             vec![
-                TimedSegment {
+                Segment {
                     from: bridge.piers[0],
                     to: bridge.piers[1],
-                    duration: Duration::from_secs(1),
                 },
-                TimedSegment {
+                Segment {
                     from: bridge.piers[1],
                     to: bridge.piers[2],
-                    duration: Duration::from_secs(1),
                 },
             ]
         );
     }
 
     #[test]
-    fn timed_segments_from_end() {
+    fn segments_from_end() {
         // Given
         let bridge = Bridge {
             piers: vec![
@@ -438,10 +458,10 @@ mod tests {
         // When
         assert_eq!(
             duration_fn
-                .timed_segments(&bridge, &v2(2, 0))
+                .segments_from(&bridge, &v2(2, 0))
                 .collect::<Vec<_>>(),
             vec![
-                TimedSegment {
+                Segment {
                     from: Pier {
                         rotation: Rotation::Down,
                         ..bridge.piers[2]
@@ -450,9 +470,8 @@ mod tests {
                         rotation: Rotation::Down,
                         ..bridge.piers[1]
                     },
-                    duration: Duration::from_secs(1),
                 },
-                TimedSegment {
+                Segment {
                     from: Pier {
                         rotation: Rotation::Down,
                         ..bridge.piers[1]
@@ -461,7 +480,6 @@ mod tests {
                         rotation: Rotation::Down,
                         ..bridge.piers[0]
                     },
-                    duration: Duration::from_secs(1),
                 },
             ]
         );

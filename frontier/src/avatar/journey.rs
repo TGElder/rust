@@ -1,5 +1,5 @@
 use super::*;
-use crate::bridges::{Bridge, BridgeDurationFn, Bridges, Pier, TimedSegment};
+use crate::bridges::{Bridge, BridgeDurationFn, Bridges};
 use crate::travel_duration::*;
 use crate::world::World;
 use commons::edge::Edge;
@@ -7,7 +7,6 @@ use commons::grid::Grid;
 use commons::V2;
 use commons::V3;
 use isometric::coords::*;
-use std::iter::{empty, once};
 use std::ops::Add;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -81,83 +80,66 @@ impl Journey {
         vehicle_fn: &dyn VehicleFn,
         bridge_config: BridgeConfig,
     ) -> Vec<Frame> {
-        let mut next_arrival_time = start_at;
-        let mut out = Vec::with_capacity(positions.len());
+        let mut out: Vec<Frame> = vec![];
 
         for p in 0..positions.len() - 1 {
             let from = positions[p];
             let to = positions[p + 1];
-            for (s, segment) in Self::segments(
+            let frames = Self::frames_between(
                 world,
                 &from,
                 &to,
+                &out.last().map(|frame| frame.arrival).unwrap_or(start_at),
                 travel_duration,
                 vehicle_fn,
                 bridge_config,
-            )
-            .enumerate()
-            {
-                if p == 0 && s == 0 {
-                    out.push(Frame {
-                        position: from,
-                        elevation: segment.from.elevation,
-                        arrival: next_arrival_time,
-                        vehicle: segment.from.vehicle,
-                        rotation: segment.from.rotation,
-                        load: AvatarLoad::None,
-                    });
-                }
-                next_arrival_time += segment.duration.as_micros();
-                out.push(Frame {
-                    position: segment.to.position,
-                    elevation: segment.to.elevation,
-                    arrival: next_arrival_time,
-                    vehicle: segment.from.vehicle,
-                    rotation: segment.to.rotation,
-                    load: AvatarLoad::None,
-                });
+            );
+            let mut frames = frames.into_iter();
+            if p != 0 {
+                frames.next();
             }
+            out.extend(&mut frames);
         }
         out
     }
 
-    fn segments<'a>(
+    fn frames_between<'a>(
         world: &World,
         from: &V2<usize>,
         to: &V2<usize>,
+        start_at: &u128,
         travel_duration: &dyn TravelDuration,
         vehicle_fn: &dyn VehicleFn,
         bridge_config: BridgeConfig<'a>,
-    ) -> Box<dyn Iterator<Item = TimedSegment> + 'a> {
+    ) -> Vec<Frame> {
         travel_duration
             .get_duration(world, from, to)
             .map(|duration| {
                 let rotation = Rotation::from_positions(from, to).unwrap();
                 let vehicle = vehicle_fn.vehicle_between(world, from, to);
-                let edge = TimedSegment {
-                    from: Pier {
+                vec![
+                    Frame {
                         position: *from,
                         elevation: Self::get_elevation(world, from),
-                        platform: true,
-                        rotation,
+                        arrival: *start_at,
                         vehicle: vehicle.unwrap_or(Vehicle::None),
+                        rotation,
+                        load: AvatarLoad::None,
                     },
-                    to: Pier {
+                    Frame {
                         position: *to,
                         elevation: Self::get_elevation(world, to),
-                        platform: true,
-                        rotation,
+                        arrival: start_at + duration.as_micros(),
                         vehicle: vehicle.unwrap_or(Vehicle::None),
+                        rotation,
+                        load: AvatarLoad::None,
                     },
-                    duration,
-                };
-                let iterator: Box<dyn Iterator<Item = TimedSegment>> = Box::new(once(edge));
-                iterator
+                ]
             })
             .or_else(|| {
                 bridge_config
                     .lowest_duration_bridge(&Edge::new(*from, *to))
-                    .map(|bridge| bridge_config.segments_one_way(bridge, from))
+                    .map(|bridge| bridge_config.frames(bridge, from, start_at))
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -373,16 +355,12 @@ impl<'a> BridgeConfig<'a> {
         }
     }
 
-    fn segments_one_way(
-        &self,
-        bridge: &'a Bridge,
-        from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = TimedSegment> + 'a> {
+    fn frames(&self, bridge: &'a Bridge, from: &V2<usize>, start_at: &u128) -> Vec<Frame> {
         match self {
             BridgeConfig::WithBridges { duration_fn, .. } => {
-                duration_fn.timed_segments(bridge, from)
+                duration_fn.frames(bridge, from, start_at, AvatarLoad::None)
             }
-            BridgeConfig::WithoutBridges => Box::new(empty()),
+            BridgeConfig::WithoutBridges => vec![],
         }
     }
 }

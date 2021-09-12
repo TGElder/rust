@@ -1,6 +1,6 @@
 mod bridge_duration;
 
-pub use bridge_duration::{BridgeDurationFn, BridgeTypeDurationFn, TimedSegment};
+pub use bridge_duration::{BridgeDurationFn, BridgeTypeDurationFn};
 
 use commons::V2;
 use serde::{Deserialize, Serialize};
