@@ -118,10 +118,12 @@ impl BridgeDurationFn {
                     load,
                 });
             }
+
             arrival += self
                 .duration_fn(bridge)
                 .segment_duration(&from, &to)
                 .as_micros();
+
             out.push(Frame {
                 position: to.position,
                 elevation: to.elevation,

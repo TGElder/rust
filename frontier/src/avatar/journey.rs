@@ -116,23 +116,26 @@ impl Journey {
             .get_duration(world, from, to)
             .map(|duration| {
                 let rotation = Rotation::from_positions(from, to).unwrap();
-                let vehicle = vehicle_fn.vehicle_between(world, from, to);
+                let vehicle = vehicle_fn
+                    .vehicle_between(world, from, to)
+                    .unwrap_or(Vehicle::None);
+                let load = AvatarLoad::None;
                 vec![
                     Frame {
                         position: *from,
                         elevation: Self::get_elevation(world, from),
                         arrival: *start_at,
-                        vehicle: vehicle.unwrap_or(Vehicle::None),
+                        vehicle,
                         rotation,
-                        load: AvatarLoad::None,
+                        load,
                     },
                     Frame {
                         position: *to,
                         elevation: Self::get_elevation(world, to),
                         arrival: start_at + duration.as_micros(),
-                        vehicle: vehicle.unwrap_or(Vehicle::None),
+                        vehicle,
                         rotation,
-                        load: AvatarLoad::None,
+                        load,
                     },
                 ]
             })
