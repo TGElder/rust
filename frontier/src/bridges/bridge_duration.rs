@@ -6,7 +6,8 @@ use commons::edge::Edge;
 use commons::V2;
 use serde::{Deserialize, Serialize};
 
-use crate::bridges::{Bridge, BridgeType, Pier};
+use crate::avatar::{AvatarLoad, Frame};
+use crate::bridges::{Bridge, BridgeType, Pier, Segment};
 use crate::travel_duration::EdgeDuration;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -19,13 +20,6 @@ pub struct BridgeDurationFn {
 pub struct BridgeTypeDurationFn {
     pub one_cell: Duration,
     pub penalty: Duration,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct TimedSegment {
-    pub from: Pier,
-    pub to: Pier,
-    pub duration: Duration,
 }
 
 impl Default for BridgeDurationFn {
@@ -103,30 +97,43 @@ impl BridgeDurationFn {
             .min_by_key(|bridge| self.total_duration(bridge))
     }
 
-    pub fn timed_segments<'a>(
-        &'a self,
-        bridge: &'a Bridge,
+    pub fn frames_from(
+        &self,
+        bridge: &Bridge,
         from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = TimedSegment> + 'a> {
-        let duration_fn = self.duration_fn(bridge);
-        if bridge.start().position == *from {
-            Box::new(bridge.segments().map(move |segment| TimedSegment {
-                from: segment.from,
-                to: segment.to,
-                duration: duration_fn.segment_duration(&segment.from, &segment.to),
-            }))
-        } else if bridge.end().position == *from {
-            Box::new(bridge.segments_rev().map(move |segment| TimedSegment {
-                from: segment.from,
-                to: segment.to,
-                duration: duration_fn.segment_duration(&segment.from, &segment.to),
-            }))
-        } else {
-            panic!(
-                "Position {} is at neither end of the bridge {:?}!",
-                from, bridge
-            );
+        start_at: &u128,
+        load: AvatarLoad,
+    ) -> Vec<Frame> {
+        let mut arrival = *start_at;
+
+        let mut out = Vec::with_capacity(bridge.piers.len());
+        for (i, Segment { from, to }) in bridge.segments_from(from).enumerate() {
+            if i == 0 {
+                out.push(Frame {
+                    position: from.position,
+                    elevation: from.elevation,
+                    arrival,
+                    vehicle: from.vehicle,
+                    rotation: from.rotation,
+                    load,
+                });
+            }
+
+            arrival += self
+                .duration_fn(bridge)
+                .segment_duration(&from, &to)
+                .as_micros();
+
+            out.push(Frame {
+                position: to.position,
+                elevation: to.elevation,
+                arrival,
+                vehicle: to.vehicle,
+                rotation: to.rotation,
+                load,
+            });
         }
+        out
     }
 }
 
@@ -350,7 +357,7 @@ mod tests {
     }
 
     #[test]
-    fn timed_segments_from_start() {
+    fn frames_from() {
         // Given
         let bridge = Bridge {
             piers: vec![
@@ -366,67 +373,14 @@ mod tests {
                     elevation: 1.0,
                     platform: true,
                     rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
+                    vehicle: Vehicle::Boat,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
                     rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
-                },
-            ],
-
-            bridge_type: BridgeType::Built,
-        };
-
-        let duration_fn = bridge_duration_fn();
-
-        // Then
-        assert_eq!(
-            duration_fn
-                .timed_segments(&bridge, &v2(0, 0))
-                .collect::<Vec<_>>(),
-            vec![
-                TimedSegment {
-                    from: bridge.piers[0],
-                    to: bridge.piers[1],
-                    duration: Duration::from_secs(1),
-                },
-                TimedSegment {
-                    from: bridge.piers[1],
-                    to: bridge.piers[2],
-                    duration: Duration::from_secs(1),
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn timed_segments_from_end() {
-        // Given
-        let bridge = Bridge {
-            piers: vec![
-                Pier {
-                    position: v2(0, 0),
-                    elevation: 0.0,
-                    platform: true,
-                    rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
-                },
-                Pier {
-                    position: v2(1, 0),
-                    elevation: 1.0,
-                    platform: true,
-                    rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
-                },
-                Pier {
-                    position: v2(2, 0),
-                    elevation: 2.0,
-                    platform: true,
-                    rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
+                    vehicle: Vehicle::Boat,
                 },
             ],
 
@@ -436,33 +390,36 @@ mod tests {
         let duration_fn = bridge_duration_fn();
 
         // When
+        let actual = duration_fn.frames_from(&bridge, &v2(2, 0), &11, AvatarLoad::None);
+
+        // Then
         assert_eq!(
-            duration_fn
-                .timed_segments(&bridge, &v2(2, 0))
-                .collect::<Vec<_>>(),
+            actual,
             vec![
-                TimedSegment {
-                    from: Pier {
-                        rotation: Rotation::Down,
-                        ..bridge.piers[2]
-                    },
-                    to: Pier {
-                        rotation: Rotation::Down,
-                        ..bridge.piers[1]
-                    },
-                    duration: Duration::from_secs(1),
+                Frame {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    arrival: 11,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::None,
                 },
-                TimedSegment {
-                    from: Pier {
-                        rotation: Rotation::Down,
-                        ..bridge.piers[1]
-                    },
-                    to: Pier {
-                        rotation: Rotation::Down,
-                        ..bridge.piers[0]
-                    },
-                    duration: Duration::from_secs(1),
+                Frame {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    arrival: 1_000_011,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::None,
                 },
+                Frame {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    arrival: 4_000_011, // With penalty for vehicle change
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::None,
+                }
             ]
         );
     }
