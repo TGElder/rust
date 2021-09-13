@@ -358,7 +358,7 @@ impl<'a> BridgeConfig<'a> {
     fn frames(&self, bridge: &'a Bridge, from: &V2<usize>, start_at: &u128) -> Vec<Frame> {
         match self {
             BridgeConfig::WithBridges { duration_fn, .. } => {
-                duration_fn.frames(bridge, from, start_at, AvatarLoad::None)
+                duration_fn.frames_from(bridge, from, start_at, AvatarLoad::None)
             }
             BridgeConfig::WithoutBridges => vec![],
         }
@@ -1251,7 +1251,7 @@ mod tests {
                     position: v2(1, 0),
                     elevation: 1.0,
                     arrival: 101,
-                    vehicle: Vehicle::Boat,
+                    vehicle: Vehicle::None,
                     rotation: Rotation::Up,
                     load: AvatarLoad::None,
                 },

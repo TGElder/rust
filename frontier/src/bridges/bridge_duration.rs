@@ -97,24 +97,7 @@ impl BridgeDurationFn {
             .min_by_key(|bridge| self.total_duration(bridge))
     }
 
-    pub fn segments_from<'a>(
-        &'a self,
-        bridge: &'a Bridge,
-        from: &V2<usize>,
-    ) -> Box<dyn Iterator<Item = Segment> + 'a> {
-        if bridge.start().position == *from {
-            Box::new(bridge.segments())
-        } else if bridge.end().position == *from {
-            Box::new(bridge.segments_rev())
-        } else {
-            panic!(
-                "Position {} is at neither end of the bridge {:?}!",
-                from, bridge
-            );
-        }
-    }
-
-    pub fn frames(
+    pub fn frames_from(
         &self,
         bridge: &Bridge,
         from: &V2<usize>,
@@ -124,7 +107,7 @@ impl BridgeDurationFn {
         let mut arrival = *start_at;
 
         let mut out = Vec::with_capacity(bridge.piers.len());
-        for (i, Segment { from, to }) in self.segments_from(bridge, from).enumerate() {
+        for (i, Segment { from, to }) in bridge.segments_from(from).enumerate() {
             if i == 0 {
                 out.push(Frame {
                     position: from.position,
@@ -143,7 +126,7 @@ impl BridgeDurationFn {
                 position: to.position,
                 elevation: to.elevation,
                 arrival,
-                vehicle: from.vehicle,
+                vehicle: to.vehicle,
                 rotation: to.rotation,
                 load,
             });
@@ -372,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn segments_from_start() {
+    fn frames_from() {
         // Given
         let bridge = Bridge {
             piers: vec![
@@ -388,65 +371,14 @@ mod tests {
                     elevation: 1.0,
                     platform: true,
                     rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
+                    vehicle: Vehicle::Boat,
                 },
                 Pier {
                     position: v2(2, 0),
                     elevation: 2.0,
                     platform: true,
                     rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
-                },
-            ],
-
-            bridge_type: BridgeType::Built,
-        };
-
-        let duration_fn = bridge_duration_fn();
-
-        // Then
-        assert_eq!(
-            duration_fn
-                .segments_from(&bridge, &v2(0, 0))
-                .collect::<Vec<_>>(),
-            vec![
-                Segment {
-                    from: bridge.piers[0],
-                    to: bridge.piers[1],
-                },
-                Segment {
-                    from: bridge.piers[1],
-                    to: bridge.piers[2],
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn segments_from_end() {
-        // Given
-        let bridge = Bridge {
-            piers: vec![
-                Pier {
-                    position: v2(0, 0),
-                    elevation: 0.0,
-                    platform: true,
-                    rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
-                },
-                Pier {
-                    position: v2(1, 0),
-                    elevation: 1.0,
-                    platform: true,
-                    rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
-                },
-                Pier {
-                    position: v2(2, 0),
-                    elevation: 2.0,
-                    platform: true,
-                    rotation: Rotation::Up,
-                    vehicle: Vehicle::None,
+                    vehicle: Vehicle::Boat,
                 },
             ],
 
@@ -456,31 +388,36 @@ mod tests {
         let duration_fn = bridge_duration_fn();
 
         // When
+        let actual = duration_fn.frames_from(&bridge, &v2(2, 0), &11, AvatarLoad::None);
+
+        // Then
         assert_eq!(
-            duration_fn
-                .segments_from(&bridge, &v2(2, 0))
-                .collect::<Vec<_>>(),
+            actual,
             vec![
-                Segment {
-                    from: Pier {
-                        rotation: Rotation::Down,
-                        ..bridge.piers[2]
-                    },
-                    to: Pier {
-                        rotation: Rotation::Down,
-                        ..bridge.piers[1]
-                    },
+                Frame {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    arrival: 11,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::None,
                 },
-                Segment {
-                    from: Pier {
-                        rotation: Rotation::Down,
-                        ..bridge.piers[1]
-                    },
-                    to: Pier {
-                        rotation: Rotation::Down,
-                        ..bridge.piers[0]
-                    },
+                Frame {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    arrival: 1_000_011,
+                    vehicle: Vehicle::Boat,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::None,
                 },
+                Frame {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    arrival: 4_000_011, // With penalty for vehicle change
+                    vehicle: Vehicle::None,
+                    rotation: Rotation::Down,
+                    load: AvatarLoad::None,
+                }
             ]
         );
     }

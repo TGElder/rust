@@ -99,6 +99,19 @@ impl Bridge {
         })
     }
 
+    pub fn segments_from<'a>(&'a self, from: &V2<usize>) -> Box<dyn Iterator<Item = Segment> + 'a> {
+        if self.start().position == *from {
+            Box::new(self.segments())
+        } else if self.end().position == *from {
+            Box::new(self.segments_rev())
+        } else {
+            panic!(
+                "Position {} is at neither end of the bridge {:?}!",
+                from, self
+            );
+        }
+    }
+
     fn validate_piers(&self) -> Result<(), InvalidBridge> {
         let piers = &self.piers;
         let first = unwrap_or!(piers.first(), return Err(InvalidBridge::Empty));
@@ -474,6 +487,112 @@ mod tests {
                         platform: true,
                         rotation: Rotation::Down,
                         vehicle: Vehicle::None,
+                    },
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn segments_from_start() {
+        // Given
+        let bridge = Bridge {
+            piers: vec![
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                    rotation: Rotation::Up,
+                    vehicle: Vehicle::None,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                    rotation: Rotation::Up,
+                    vehicle: Vehicle::None,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                    rotation: Rotation::Up,
+                    vehicle: Vehicle::None,
+                },
+            ],
+
+            bridge_type: BridgeType::Built,
+        };
+
+        // Then
+        assert_eq!(
+            bridge.segments_from(&v2(0, 0)).collect::<Vec<_>>(),
+            vec![
+                Segment {
+                    from: bridge.piers[0],
+                    to: bridge.piers[1],
+                },
+                Segment {
+                    from: bridge.piers[1],
+                    to: bridge.piers[2],
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn segments_from_end() {
+        // Given
+        let bridge = Bridge {
+            piers: vec![
+                Pier {
+                    position: v2(0, 0),
+                    elevation: 0.0,
+                    platform: true,
+                    rotation: Rotation::Up,
+                    vehicle: Vehicle::None,
+                },
+                Pier {
+                    position: v2(1, 0),
+                    elevation: 1.0,
+                    platform: true,
+                    rotation: Rotation::Up,
+                    vehicle: Vehicle::None,
+                },
+                Pier {
+                    position: v2(2, 0),
+                    elevation: 2.0,
+                    platform: true,
+                    rotation: Rotation::Up,
+                    vehicle: Vehicle::None,
+                },
+            ],
+
+            bridge_type: BridgeType::Built,
+        };
+
+        // When
+        assert_eq!(
+            bridge.segments_from(&v2(2, 0)).collect::<Vec<_>>(),
+            vec![
+                Segment {
+                    from: Pier {
+                        rotation: Rotation::Down,
+                        ..bridge.piers[2]
+                    },
+                    to: Pier {
+                        rotation: Rotation::Down,
+                        ..bridge.piers[1]
+                    },
+                },
+                Segment {
+                    from: Pier {
+                        rotation: Rotation::Down,
+                        ..bridge.piers[1]
+                    },
+                    to: Pier {
+                        rotation: Rotation::Down,
+                        ..bridge.piers[0]
                     },
                 },
             ]
