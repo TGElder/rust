@@ -63,14 +63,17 @@ impl Default for Parameters {
             resource_gen: ResourceGenParameters::default(),
             base_colors: BaseColors::default(),
             road_color: Color::new(0.6, 0.4, 0.0, 1.0),
-            player_travel: AvatarTravelParams::default(),
+            player_travel: AvatarTravelParams {
+                max_duration_millis: 13_200_000,
+                ..AvatarTravelParams::default()
+            },
             npc_travel: AvatarTravelParams {
                 max_duration_millis: 93_000_000,
                 ..AvatarTravelParams::default()
             },
             player_bridge_duration_fn: BridgeDurationFn {
                 theoretical: BridgeTypeDurationFn {
-                    one_cell: Duration::from_millis(1_200_000),
+                    one_cell: Duration::from_millis(6_600_000),
                     penalty: Duration::from_millis(1_800_000),
                 },
                 built: BridgeTypeDurationFn {
