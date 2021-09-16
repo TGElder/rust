@@ -294,6 +294,13 @@ impl<'a> Progress<'a> {
         WorldCoord::new(interpolated.x, interpolated.y, interpolated.z)
     }
 
+    fn from(&self) -> &Frame {
+        match self {
+            Progress::At(frame) => frame,
+            Progress::Between { from, .. } => from,
+        }
+    }
+
     fn to(&self) -> &Frame {
         match self {
             Progress::At(frame) => frame,
@@ -302,7 +309,7 @@ impl<'a> Progress<'a> {
     }
 
     pub fn vehicle(&self) -> Vehicle {
-        self.to().vehicle
+        self.from().vehicle
     }
 
     pub fn rotation(&self) -> Rotation {
@@ -657,7 +664,7 @@ mod tests {
         assert!(actual.y.almost(&expected.y));
         assert!(actual.z.almost(&expected.z));
 
-        assert_eq!(progress.vehicle(), Vehicle::Boat);
+        assert_eq!(progress.vehicle(), Vehicle::None);
         assert_eq!(progress.rotation(), Rotation::Up);
         assert_eq!(progress.load(), AvatarLoad::Resource(Resource::Spice));
     }
