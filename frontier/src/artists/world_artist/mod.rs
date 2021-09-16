@@ -144,6 +144,7 @@ impl WorldArtist {
     fn draw_slab_rivers_roads(&self, world: &World, slab: &Slab) -> Vec<Command> {
         let from = &slab.from;
         let to = &slab.to();
+
         let result = self.get_road_river_positions(world, from, to);
         let (river_edges, waterfall_edges): (Vec<Edge>, Vec<Edge>) = result
             .river_positions
@@ -161,7 +162,9 @@ impl WorldArtist {
                     .get_rise(edge.from(), edge.to())
                     .map(|rise| rise.abs() <= self.params.waterfall_gradient)
                     .unwrap_or(true)
+                    || (world.is_sea(edge.from()) && world.is_sea(edge.to()))
             });
+
         let road_edges: Vec<Edge> = result
             .road_positions
             .iter()
@@ -173,6 +176,7 @@ impl WorldArtist {
                     .get_edges_from(position)
             })
             .collect();
+
         let mut out = vec![];
         out.append(&mut draw_edges(
             format!("{:?}-river-edges", slab.from),
