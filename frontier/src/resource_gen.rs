@@ -159,7 +159,7 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
 
     fn is_candidate(&self, resource: Resource, position: &V2<usize>) -> bool {
         if let Resource::Shelter = resource {
-            return !self.is_sea(position) && !self.tile_is_cliff(position);
+            return self.is_land_tile(position) && !self.tile_is_cliff(position);
         }
         if self.is_beach(position) {
             return false;
@@ -236,6 +236,10 @@ impl<'a, R: Rng> ResourceGen<'a, R> {
 
     fn is_sea(&self, position: &V2<usize>) -> bool {
         self.world.is_sea(position)
+    }
+
+    fn is_land_tile(&self, position: &V2<usize>) -> bool {
+        self.world.is_land_tile(position)
     }
 
     fn has_vegetation_type_adjacent(

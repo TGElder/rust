@@ -127,7 +127,7 @@ where
                     .into_iter()
                     .filter(|tile| {
                         world.get_cell(tile).map_or(false, |cell| cell.visible)
-                            && !world.is_sea(tile)
+                            && world.is_land_tile(tile)
                             && world.get_max_abs_rise(tile) < *cliff_gradient
                     })
                     .collect()
@@ -494,10 +494,21 @@ mod tests {
     }
 
     #[test]
-    fn should_not_build_in_sea() {
+    fn should_not_build_on_sea_tile() {
         // Given
         let cx = happy_path_tx();
-        *cx.world.lock().unwrap() = World::new(M::zeros(3, 3), 0.5);
+        *cx.world.lock().unwrap() = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 0.0, //
+                    1.0, 1.0, 0.0, //
+                    0.0, 0.0, 0.0, //
+                ],
+            ),
+            0.5,
+        );
 
         let sim = PositionBuildSimulation::new(cx);
 

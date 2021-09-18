@@ -118,6 +118,18 @@ impl World {
             .unwrap_or(false)
     }
 
+    pub fn is_land_tile(&self, tile: &V2<usize>) -> bool {
+        self.land_corners(tile) >= 2
+    }
+
+    fn land_corners(&self, position: &V2<usize>) -> usize {
+        get_corners(position)
+            .iter()
+            .flat_map(|corner| self.get_cell(corner))
+            .filter(|cell| cell.elevation > self.sea_level)
+            .count()
+    }
+
     fn is(&self, edge: &Edge, junction_fn: &dyn Fn(&WorldCell) -> Junction) -> bool {
         if let Some(cell) = self.get_cell(edge.from()) {
             let junction = junction_fn(cell);
@@ -370,6 +382,26 @@ mod tests {
         let world = World::new(M::from_vec(2, 1, vec![1.0, 0.0]), 0.5);
         assert!(!world.is_sea(&v2(0, 0)));
         assert!(world.is_sea(&v2(1, 0)));
+    }
+
+    #[test]
+    fn test_is_land_tile() {
+        let world = World::new(
+            M::from_vec(
+                3,
+                3,
+                vec![
+                    1.0, 1.0, 0.0, //
+                    1.0, 1.0, 0.0, //
+                    0.0, 0.0, 0.0, //
+                ],
+            ),
+            0.5,
+        );
+        assert!(world.is_land_tile(&v2(0, 0)));
+        assert!(world.is_land_tile(&v2(1, 0)));
+        assert!(world.is_land_tile(&v2(0, 1)));
+        assert!(!world.is_land_tile(&v2(1, 1)));
     }
 
     #[test]
