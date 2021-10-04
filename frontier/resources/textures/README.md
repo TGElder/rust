@@ -11,4 +11,4 @@
 # Instructions for generating body part images (without antialiasing)
 
 1. svg files must have `shape-rendering="crispEdges"` in `<svg>` tag. This may be controlled from Inkscape 0.92 via File -> Document Properties -> Use antialiasing.
-1. Inkscape does not respect this tag when exporting; GIMP does. Open the SVG in GIMP at the desired output size ane export to PNG.
+1. Inkscape does not respect this tag when exporting; GIMP does. Open the SVG in GIMP at the desired output size and export to PNG.
