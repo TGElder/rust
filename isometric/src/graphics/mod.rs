@@ -70,7 +70,7 @@ impl GraphicsEngine {
         let transform = Transform::new(
             GlCoord3D::new(
                 params.viewport_size.width as f32 * params.initial_zoom,
-                params.viewport_size.height as f32 * params.initial_zoom,
+                (params.viewport_size.width as f32 * params.initial_zoom) * (params.viewport_size.width as f32 / params.viewport_size.height as f32),
                 params.z_scale,
             ),
             GlCoord2D::new(0.0, 0.0),
