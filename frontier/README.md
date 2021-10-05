@@ -13,9 +13,12 @@ At the moment you just explore the map. The off map nations will automatically s
 * **WASD** to move the avatar
 * **Right Click** to move the avatar to the position under the cursor (the avatar will use the best route, or stop if no route is possible)
 
-Note that it is currently only possible to transfer between land and water by right-clicking (WASD will not work).
+Note that it is currently only possible to transfer between land and water by right-clicking (WASD will not work). It is only possible the transfer from land to sea where the sea is deep enough.
 
 * **Q**/**E** to rotate the map
+
+Rotation and zooming are centred on the avatar when the camera is locked on the avatar. Otherwise the cursor position is used as the centre (similar to Google Maps). Note that, in this mode, you cannot rotate with the cursor over an unexplored tile.
+
 * **Mouse Wheel** or **+**/**-** to zoom in and out
 * **C** to toggle whether the camera is locked to the avatar
 * **Left Mouse Drag** to move the map (when the camera is not locked to the avatar)
@@ -28,7 +31,6 @@ Note that it is currently only possible to transfer between land and water by ri
 
 Exit by closing the window.
 
-Rotation and zooming are centred on the avatar when the camera is locked on the avatar. Otherwise the cursor position is used as the centre (similar to Google Maps). Note that, in this mode, you cannot rotate with the cursor over an unexplored tile.
 
 Pausing, saving and exiting are not immediate as the game must bring all its threads to a restorable state. Check the terminal if you're not sure what is happening.
 
@@ -49,7 +51,7 @@ Run `cargo run --release save <simulation_threads>`
 
 ## Window size
 
-Initial window size is currently hard coded into [./src/main.rs](), you will want to change this if your screen cannot fit a 1024x768 window. The window can be resized 
+Initial window size is currently hard coded into [./src/main.rs](), you will want to change this if your screen cannot fit a 1024x768 window. The window can be resized once the game is running.
 
 ## Compatability
 

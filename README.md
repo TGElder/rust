@@ -4,13 +4,13 @@ This was intended to be monorepo containing runnable applications together with 
 
 In practice there is a single application, which is [frontier](./frontier) - an unusual "game" which attempts to simulate the exploration and development of an undiscovered continent - think Civilization meets Transport Tycoon.
 
-![alt text](./frontier/2.png)
+[![alt text](./frontier/2.png)](./frontier)
 
 Supporting library crates are:
-* [commons](./commons) Various utility type functionality used across other libraries and applications
-* [isometric](./isometric) OpenGL based isometric game engine
-* [network](./network) Simple pathfinding library
-* [pioneer](./pioneer) Terrain generation (key feature is that it produces terrain where there is a downhill path to the edge of the terrain from any point - required to place natural looking rivers)
+* [commons](./commons) - Various utility type functionality used across other libraries and applications
+* [isometric](./isometric) - OpenGL based isometric game engine
+* [network](./network) - Simple pathfinding library
+* [pioneer](./pioneer) - Terrain generation (key feature is that it produces terrain where there is a downhill path to the edge of the terrain from any point - required to place natural looking rivers)
 
 As a personal project, this is all poorly documented. I am adding this documentation because I am conscious that I have my Github account on my CV.
 
