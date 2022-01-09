@@ -9,6 +9,7 @@ use network::Edge as NetworkEdge;
 use network::Network;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::convert::TryInto;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
@@ -73,22 +74,22 @@ where
         let network_edge = NetworkEdge::new(
             self.get_network_index(from),
             self.get_network_index(to),
-            self.travel_duration.get_cost_from_duration_u8(duration),
+            duration.as_millis().try_into().unwrap(),
         );
         self.network.add_edge(&network_edge);
     }
 
-    pub fn manhattan_distance(&self, to: &[V2<usize>]) -> impl Fn(usize) -> u32 {
+    pub fn manhattan_distance(&self, to: &[V2<usize>]) -> impl Fn(usize) -> u64 {
         let to = to.to_vec();
         let index = self.index;
         let minimum_duration = self.travel_duration.min_duration();
-        let minimum_cost = self
-            .travel_duration
-            .get_cost_from_duration_u8(&minimum_duration) as u32;
+        let minimum_cost: u64 = minimum_duration.as_millis().try_into().unwrap();
         move |from| {
             let from = index.get_position(from).unwrap();
             to.iter()
-                .map(|to| from.manhattan_distance(to) as u32 * minimum_cost)
+                .map(|to| {
+                    TryInto::<u64>::try_into(from.manhattan_distance(to)).unwrap() * minimum_cost
+                })
                 .min()
                 .unwrap()
         }
@@ -129,17 +130,14 @@ where
         duration: &Duration,
     ) -> HashMap<V2<usize>, Duration> {
         let indices = self.get_network_indices(positions);
-        let max_cost = self.travel_duration.get_cost_from_duration(duration);
+        let max_cost = duration.as_millis().try_into().unwrap();
         self.network
             .nodes_within(&indices, max_cost)
             .into_iter()
             .flat_map(|result| {
                 let position = self.get_position_from_network_index(result.index);
                 match position {
-                    Ok(position) => Some((
-                        position,
-                        self.travel_duration.get_duration_from_cost(result.cost),
-                    )),
+                    Ok(position) => Some((position, Duration::from_millis(result.cost))),
                     _ => None,
                 }
             })
@@ -173,7 +171,7 @@ where
         ClosestTargetResult {
             position: self.get_position_from_network_index(result.node).unwrap(),
             path: self.get_positions_from_network_indices(&result.path),
-            duration: self.travel_duration.get_duration_from_cost(result.cost),
+            duration: Duration::from_millis(result.cost),
         }
     }
 
@@ -373,31 +371,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_cost() {
-        let world = world();
-        let travel_duration = travel_duration();
-        assert_eq!(
-            travel_duration.get_cost(&world, &v2(0, 0), &v2(1, 0)),
-            Some(128)
-        );
-        assert_eq!(
-            travel_duration.get_cost(&world, &v2(1, 0), &v2(0, 0)),
-            Some(255)
-        );
-        assert_eq!(travel_duration.get_cost(&world, &v2(1, 0), &v2(2, 0)), None);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_get_cost_duration_exceeds_max_duration() {
-        let world = world();
-        let travel_duration = TestTravelDuration {
-            max: Duration::from_millis(1),
-        };
-        travel_duration.get_cost(&world, &v2(1, 0), &v2(0, 0));
-    }
-
-    #[test]
     fn test_find_path() {
         let pathfinder = pathfinder();
         assert_eq!(
@@ -538,7 +511,7 @@ mod tests {
         let manhattan_distance = pathfinder.manhattan_distance(&[v2(1, 2)]);
         assert_eq!(
             manhattan_distance(pathfinder.get_network_index(&v2(0, 0))),
-            64 * 3
+            3
         );
         assert_eq!(
             manhattan_distance(pathfinder.get_network_index(&v2(1, 2))),
@@ -552,7 +525,7 @@ mod tests {
         let manhattan_distance = pathfinder.manhattan_distance(&[v2(0, 2), v2(1, 2)]);
         assert_eq!(
             manhattan_distance(pathfinder.get_network_index(&v2(0, 0))),
-            64 * 2
+            2
         );
         assert_eq!(
             manhattan_distance(pathfinder.get_network_index(&v2(1, 2))),

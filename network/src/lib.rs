@@ -11,7 +11,7 @@ pub mod algorithms;
 #[derive(Eq)]
 struct Node {
     index: usize,
-    cost: u128,
+    cost: u64,
 }
 
 impl Ord for Node {
@@ -36,11 +36,11 @@ impl PartialEq for Node {
 pub struct Edge {
     pub from: usize,
     pub to: usize,
-    pub cost: u8,
+    pub cost: u32,
 }
 
 impl Edge {
-    pub fn new(from: usize, to: usize, cost: u8) -> Edge {
+    pub fn new(from: usize, to: usize, cost: u32) -> Edge {
         Edge { from, to, cost }
     }
 
@@ -55,7 +55,7 @@ impl Edge {
     pub fn create_grid(
         width: usize,
         height: usize,
-        cost: u8,
+        cost: u32,
         neighbour_deltas: Vec<(usize, usize)>,
     ) -> Vec<Edge> {
         fn get_index(x: usize, y: usize, width: usize) -> usize {
@@ -68,7 +68,7 @@ impl Edge {
             width: usize,
             height: usize,
             delta: &(usize, usize),
-            cost: u8,
+            cost: u32,
         ) -> Vec<Edge> {
             let x_b = x + delta.0;
             let y_b = y + delta.1;
@@ -97,14 +97,14 @@ impl Edge {
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub struct NodeWithinResult {
     pub index: usize,
-    pub cost: u128,
+    pub cost: u64,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct ClosestTargetResult {
     pub node: usize,
     pub path: Vec<usize>,
-    pub cost: u128,
+    pub cost: u64,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -166,9 +166,9 @@ impl Network {
         self.targets.get_mut(name).unwrap()[index] = target
     }
 
-    pub fn dijkstra(&self, nodes: Vec<usize>) -> Vec<Option<u128>> {
+    pub fn dijkstra(&self, nodes: Vec<usize>) -> Vec<Option<u64>> {
         let mut closed: Vec<bool> = vec![false; self.nodes];
-        let mut out: Vec<Option<u128>> = vec![None; self.nodes];
+        let mut out: Vec<Option<u64>> = vec![None; self.nodes];
         let mut heap = BinaryHeap::new();
 
         for node in nodes {
@@ -187,7 +187,7 @@ impl Network {
                     if !closed[edge.from] {
                         heap.push(Node {
                             index: edge.from,
-                            cost: cost + u128::from(edge.cost),
+                            cost: cost + u64::from(edge.cost),
                         });
                     }
                 }
@@ -201,23 +201,23 @@ impl Network {
         &self,
         from: &[usize],
         to: &[usize],
-        max_cost: Option<u32>,
-        heuristic: &dyn Fn(usize) -> u32,
+        max_cost: Option<u64>,
+        heuristic: &dyn Fn(usize) -> u64,
     ) -> Option<Vec<Edge>> {
         #[derive(Eq)]
         struct AStarNode {
             index: usize,
             entry: Option<Edge>,
-            distance_from_start: u32,
-            estimated_path_distance_via_this_node: u32,
+            distance_from_start: u64,
+            estimated_path_distance_via_this_node: u64,
         }
 
         impl AStarNode {
             fn new(
                 index: usize,
                 entry: Option<Edge>,
-                distance_from_start: u32,
-                heuristic: &dyn Fn(usize) -> u32,
+                distance_from_start: u64,
+                heuristic: &dyn Fn(usize) -> u64,
             ) -> AStarNode {
                 let estimated_distance_to_goal = heuristic(index);
                 AStarNode {
@@ -286,7 +286,7 @@ impl Network {
                 if closed[neighbour] {
                     continue;
                 }
-                let neighbour_distance_from_start = distance_from_start + u32::from(edge.cost);
+                let neighbour_distance_from_start = distance_from_start + edge.cost as u64;
                 heap.push(AStarNode::new(
                     neighbour,
                     Some(*edge),
@@ -299,7 +299,7 @@ impl Network {
         None
     }
 
-    pub fn nodes_within(&self, start_nodes: &[usize], max_cost: u128) -> Vec<NodeWithinResult> {
+    pub fn nodes_within(&self, start_nodes: &[usize], max_cost: u64) -> Vec<NodeWithinResult> {
         let mut closed = vec![false; self.nodes];
         let mut heap = BinaryHeap::new();
         let mut out = vec![];
@@ -326,7 +326,7 @@ impl Network {
                 }
                 heap.push(Node {
                     index: neighbour,
-                    cost: cost + u128::from(edge.cost),
+                    cost: cost + edge.cost as u64,
                 });
             }
         }
@@ -343,12 +343,12 @@ impl Network {
         #[derive(Eq)]
         struct CtNode {
             index: usize,
-            cost: u128,
+            cost: u64,
             entry: Option<Edge>,
         }
 
         impl CtNode {
-            fn new(index: usize, cost: u128, entry: Option<Edge>) -> CtNode {
+            fn new(index: usize, cost: u64, entry: Option<Edge>) -> CtNode {
                 CtNode { index, cost, entry }
             }
         }
@@ -419,7 +419,7 @@ impl Network {
                 }
                 heap.push(CtNode {
                     index: neighbour,
-                    cost: cost + u128::from(edge.cost),
+                    cost: cost + edge.cost as u64,
                     entry: Some(*edge),
                 });
             }
