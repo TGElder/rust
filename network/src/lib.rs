@@ -326,7 +326,7 @@ impl Network {
                 }
                 heap.push(Node {
                     index: neighbour,
-                    cost: cost + u64::from(edge.cost),
+                    cost: cost + edge.cost as u64,
                 });
             }
         }
@@ -419,7 +419,7 @@ impl Network {
                 }
                 heap.push(CtNode {
                     index: neighbour,
-                    cost: cost + u64::from(edge.cost),
+                    cost: cost + edge.cost as u64,
                     entry: Some(*edge),
                 });
             }

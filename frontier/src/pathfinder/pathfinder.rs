@@ -87,7 +87,9 @@ where
         move |from| {
             let from = index.get_position(from).unwrap();
             to.iter()
-                .map(|to| from.manhattan_distance(to) as u64 * minimum_cost)
+                .map(|to| {
+                    TryInto::<u64>::try_into(from.manhattan_distance(to)).unwrap() * minimum_cost
+                })
                 .min()
                 .unwrap()
         }
