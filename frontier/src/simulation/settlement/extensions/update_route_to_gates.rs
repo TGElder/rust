@@ -111,8 +111,11 @@ fn check_for_gate(
     bridges
         .get(edge)
         .and_then(|bridges| bridge_duration_fn.lowest_duration_bridge(bridges))
-        .map(|bridge| vec![bridge.start().position, bridge.end().position])
-        .unwrap_or_default()
+        .iter()
+        .flat_map(|bridge| bridge.piers.iter())
+        .filter(|pier| pier.platform)
+        .map(|pier| pier.position)
+        .collect()
 }
 
 #[cfg(test)]
@@ -193,14 +196,14 @@ mod tests {
                         Pier{
                             position: *edge.from(),
                             elevation: 0.0,
-                            platform: false,
+                            platform: true,
                             rotation: Rotation::Up,
                             vehicle: Vehicle::None,
                         },
                         Pier{
                             position: *edge.to(),
                             elevation: 0.0,
-                            platform: false,
+                            platform: true,
                             rotation: Rotation::Up,
                             vehicle: Vehicle::None,
                         }
@@ -459,6 +462,60 @@ mod tests {
         assert_eq!(
             *sim.cx.route_to_gates.lock().unwrap(),
             hashmap! { key_new => hashset!{ v2(0, 0), v2(0, 1) } }
+        );
+    }
+
+    #[test]
+    fn should_only_insert_entry_for_platforms() {
+        // Given
+        let key = RouteKey {
+            settlement: v2(0, 0),
+            resource: Resource::Truffles,
+            destination: v2(2, 2),
+        };
+        let route = Route {
+            path: vec![v2(0, 0), v2(0, 1), v2(0, 2), v2(1, 2), v2(2, 2)],
+            start_micros: 0,
+            duration: Duration::from_secs(0),
+            traffic: 0,
+        };
+
+        let route_change = RouteChange::New { key, route };
+
+        let bridges = Mutex::new(hashmap! {
+            Edge::new(v2(0, 1), v2(0, 2)) =>
+            hashset! {
+                Bridge{
+                    piers: vec![
+                        Pier{
+                                position: v2(0, 1),
+                                elevation: 0.0,
+                                platform: false,
+                                rotation: Rotation::Up,
+                                vehicle: Vehicle::None,
+                            },
+                            Pier{
+                                position: v2(0, 2),
+                                elevation: 0.0,
+                                platform: true,
+                                rotation: Rotation::Up,
+                                vehicle: Vehicle::None,
+                            }
+                        ],
+                    bridge_type: BridgeType::Built
+                }
+            },
+        });
+
+        let sim = SettlementSimulation::new(Cx { bridges, ..cx() }, Arc::new(()));
+
+        // When
+        block_on(sim.update_route_to_gates(&[route_change]));
+
+        // Then
+        assert_eq!(
+            *sim.cx.route_to_gates.lock().unwrap(),
+            hashmap! { key => hashset!{ v2(0, 2) } }
         );
     }
 }
